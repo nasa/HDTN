@@ -30,39 +30,30 @@ LtpEngine::cancel_segment_timer_info_t::cancel_segment_timer_info_t(const uint8_
     memcpy(this, data, sizeof(cancel_segment_timer_info_t));
 }
 
-LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEncodingIntoRandomSessionNumber, 
-    const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
-    const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
-    const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, bool startIoServiceThread,
-    uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
-    const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
-    const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable, const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable,
-    const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable) :
-    M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION(ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION),
-    M_MAX_RED_RX_BYTES_PER_SESSION(maxRedRxBytesPerSession),
-    M_THIS_ENGINE_ID(thisEngineId),
-    M_MTU_CLIENT_SERVICE_DATA(mtuClientServiceData),
-    M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL(maxUdpPacketsToSendPerSystemCall),
-    M_ONE_WAY_LIGHT_TIME(oneWayLightTime),
-    M_ONE_WAY_MARGIN_TIME(oneWayMarginTime),
-    m_transmissionToAckReceivedTime((oneWayLightTime * 2) + (oneWayMarginTime * 2)),
-    m_delaySendingOfReportSegmentsTime((delaySendingOfReportSegmentsTimeMsOrZeroToDisable) ?
-        boost::posix_time::milliseconds(delaySendingOfReportSegmentsTimeMsOrZeroToDisable) :
+LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIndexForEncodingIntoRandomSessionNumber, bool startIoServiceThread) :
+    M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION(ltpRxOrTxCfg.estimatedBytesToReceivePerSession),
+    M_MAX_RED_RX_BYTES_PER_SESSION(ltpRxOrTxCfg.maxRedRxBytesPerSession),
+    M_THIS_ENGINE_ID(ltpRxOrTxCfg.thisEngineId),
+    M_MTU_CLIENT_SERVICE_DATA(ltpRxOrTxCfg.mtuClientServiceData),
+    M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL(ltpRxOrTxCfg.maxUdpPacketsToSendPerSystemCall),
+    m_transmissionToAckReceivedTime((ltpRxOrTxCfg.oneWayLightTime * 2) + (ltpRxOrTxCfg.oneWayMarginTime * 2)),
+    m_delaySendingOfReportSegmentsTime((ltpRxOrTxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable) ?
+        boost::posix_time::milliseconds(ltpRxOrTxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable) :
         boost::posix_time::time_duration(boost::posix_time::special_values::not_a_date_time)),
-    m_delaySendingOfDataSegmentsTime((delaySendingOfDataSegmentsTimeMsOrZeroToDisable) ?
-        boost::posix_time::milliseconds(delaySendingOfDataSegmentsTimeMsOrZeroToDisable) :
+    m_delaySendingOfDataSegmentsTime((ltpRxOrTxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable) ?
+        boost::posix_time::milliseconds(ltpRxOrTxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable) :
         boost::posix_time::time_duration(boost::posix_time::special_values::not_a_date_time)),
     M_HOUSEKEEPING_INTERVAL(boost::posix_time::milliseconds(1000)),
-    m_stagnantRxSessionTime((m_transmissionToAckReceivedTime * static_cast<int>(maxRetriesPerSerialNumber + 1)) + (M_HOUSEKEEPING_INTERVAL * 2)),
-    M_FORCE_32_BIT_RANDOM_NUMBERS(force32BitRandomNumbers),
-    M_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE(senderPingSecondsOrZeroToDisable),
-    M_SENDER_PING_TIME(boost::posix_time::seconds(senderPingSecondsOrZeroToDisable)),
+    m_stagnantRxSessionTime((m_transmissionToAckReceivedTime * static_cast<int>(ltpRxOrTxCfg.maxRetriesPerSerialNumber + 1)) + (M_HOUSEKEEPING_INTERVAL * 2)),
+    M_FORCE_32_BIT_RANDOM_NUMBERS(ltpRxOrTxCfg.force32BitRandomNumbers),
+    M_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE(ltpRxOrTxCfg.senderPingSecondsOrZeroToDisable),
+    M_SENDER_PING_TIME(boost::posix_time::seconds(ltpRxOrTxCfg.senderPingSecondsOrZeroToDisable)),
     M_NEXT_PING_START_EXPIRY(boost::posix_time::microsec_clock::universal_time() + M_SENDER_PING_TIME),
     m_transmissionRequestServedAsPing(false),
-    M_MAX_SIMULTANEOUS_SESSIONS(maxSimultaneousSessions),
-    M_MAX_RX_DATA_SEGMENT_HISTORY_OR_ZERO_DISABLE(rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable),
-    m_checkpointEveryNthDataPacketSender(checkpointEveryNthDataPacketSender),
-    m_maxRetriesPerSerialNumber(maxRetriesPerSerialNumber),
+    M_MAX_SIMULTANEOUS_SESSIONS(ltpRxOrTxCfg.maxSimultaneousSessions),
+    M_MAX_RX_DATA_SEGMENT_HISTORY_OR_ZERO_DISABLE(ltpRxOrTxCfg.rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable),
+    m_checkpointEveryNthDataPacketSender(ltpRxOrTxCfg.checkpointEveryNthDataPacketSender),
+    m_maxRetriesPerSerialNumber(ltpRxOrTxCfg.maxRetriesPerSerialNumber),
     m_workLtpEnginePtr(boost::make_unique<boost::asio::io_service::work>(m_ioServiceLtpEngine)),
     m_deadlineTimerForTimeManagerOfReportSerialNumbers(m_ioServiceLtpEngine),
     m_timeManagerOfReportSerialNumbers(m_deadlineTimerForTimeManagerOfReportSerialNumbers, m_transmissionToAckReceivedTime, (M_MAX_SIMULTANEOUS_SESSIONS * 2) + 1),
@@ -76,7 +67,7 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEn
     m_timeManagerOfCancelSegments(m_deadlineTimerForTimeManagerOfCancelSegments, m_transmissionToAckReceivedTime, M_MAX_SIMULTANEOUS_SESSIONS + 1),
     m_housekeepingTimer(m_ioServiceLtpEngine),
     m_tokenRefreshTimer(m_ioServiceLtpEngine),
-    m_maxSendRateBitsPerSecOrZeroToDisable(maxSendRateBitsPerSecOrZeroToDisable),
+    m_maxSendRateBitsPerSecOrZeroToDisable(ltpRxOrTxCfg.maxSendRateBitsPerSecOrZeroToDisable),
     m_tokenRefreshTimerIsRunning(false),
     m_lastTimeTokensWereRefreshed(boost::posix_time::special_values::neg_infin)
 {
@@ -99,7 +90,7 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEn
         boost::placeholders::_4, boost::placeholders::_5, boost::placeholders::_6));
 
     m_rng.SetEngineIndex(engineIndexForEncodingIntoRandomSessionNumber);
-    SetMtuReportSegment(mtuReportSegment);
+    SetMtuReportSegment(ltpRxOrTxCfg.mtuReportSegment);
 
     UpdateRate(m_maxSendRateBitsPerSecOrZeroToDisable);
     if (m_maxSendRateBitsPerSecOrZeroToDisable) {
@@ -307,7 +298,6 @@ void LtpEngine::TrySendPacketIfAvailable() {
                 }
             }
             if (deferredReadsVec.size()) {
-                LOG_DEBUG(subprocess) << "CALL multi read mem async " << deferredReadsVec.size();
                 if (!m_memoryInFilesPtr->ReadMemoryAsync(deferredReadsVec,
                     boost::bind(&LtpEngine::OnDeferredMultiReadCompleted,
                         this, boost::placeholders::_1, std::move(constBufferVecs),
@@ -359,7 +349,6 @@ void LtpEngine::OnDeferredMultiReadCompleted(bool success, std::vector<std::vect
     std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec)
 {
     if (success) {
-        LOG_DEBUG(subprocess) << "CALL SEND PACKETS " << constBufferVecs.size();
         SendPackets(constBufferVecs, underlyingDataToDeleteOnSentCallbackVec, underlyingCsDataToDeleteOnSentCallbackVec); //virtual call to child implementation
     }
     else {
@@ -625,7 +614,7 @@ void LtpEngine::DoTransmissionRequest(uint64_t destinationClientServiceId, uint6
     m_mapSessionNumberToSessionSender[randomSessionNumberGeneratedBySender] = boost::make_unique<LtpSessionSender>(
         randomInitialSenderCheckpointSerialNumber, std::move(clientServiceDataToSend), std::move(userDataPtrToTake),
         lengthOfRedPart, M_MTU_CLIENT_SERVICE_DATA, senderSessionId, destinationClientServiceId,
-        M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_timeManagerOfCheckpointSerialNumbers, m_timeManagerOfSendingDelayedDataSegments,
+        m_timeManagerOfCheckpointSerialNumbers, m_timeManagerOfSendingDelayedDataSegments,
         boost::bind(&LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4),
         boost::bind(&LtpEngine::NotifyEngineThatThisSenderHasProducibleData, this, boost::placeholders::_1),
         boost::bind(&LtpEngine::InitialTransmissionCompletedCallback, this, boost::placeholders::_1, boost::placeholders::_2),
@@ -1068,7 +1057,7 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
         const uint64_t randomNextReportSegmentReportSerialNumber = (M_FORCE_32_BIT_RANDOM_NUMBERS) ? m_rng.GetRandomSerialNumber32(m_randomDevice) : m_rng.GetRandomSerialNumber64(m_randomDevice); //incremented by 1 for new
         std::unique_ptr<LtpSessionReceiver> session = boost::make_unique<LtpSessionReceiver>(randomNextReportSegmentReportSerialNumber, m_maxReceptionClaims,
             M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, M_MAX_RED_RX_BYTES_PER_SESSION,
-            sessionId, dataSegmentMetadata.clientServiceId, M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_timeManagerOfReportSerialNumbers, m_timeManagerOfSendingDelayedReceptionReports,
+            sessionId, dataSegmentMetadata.clientServiceId, m_timeManagerOfReportSerialNumbers, m_timeManagerOfSendingDelayedReceptionReports,
             boost::bind(&LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
             boost::bind(&LtpEngine::NotifyEngineThatThisReceiversTimersHasProducibleData, this, boost::placeholders::_1), m_maxRetriesPerSerialNumber);
 

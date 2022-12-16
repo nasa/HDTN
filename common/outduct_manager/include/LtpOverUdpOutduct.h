@@ -2,6 +2,7 @@
 #define LTP_OVER_UDP_OUTDUCT_H 1
 
 #include <string>
+#include <memory>
 #include "Outduct.h"
 #include "LtpBundleSource.h"
 #include <list>
@@ -29,7 +30,7 @@ private:
     LtpOverUdpOutduct();
 
 
-    LtpBundleSource m_ltpBundleSource;
+    std::unique_ptr<LtpBundleSource> m_ltpBundleSourcePtr;
 };
 
 

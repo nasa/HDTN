@@ -20,34 +20,24 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-LtpBundleSource::LtpBundleSource(const uint64_t clientServiceId, const uint64_t remoteLtpEngineId, const uint64_t thisEngineId, const uint64_t mtuClientServiceData,
-    const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
-    const uint16_t myBoundUdpPort, const unsigned int numUdpRxCircularBufferVectors,
-    uint32_t checkpointEveryNthDataPacketSender, uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers,
-    const std::string & remoteUdpHostname, const uint16_t remoteUdpPort, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
-    const uint32_t maxNumberOfBundlesInPipeline, const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable,
-    const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable) :
+LtpBundleSource::LtpBundleSource(const LtpEngineConfig& ltpTxCfg) :
 
 m_useLocalConditionVariableAckReceived(false), //for destructor only
 
-m_ltpUdpEngineManagerPtr(LtpUdpEngineManager::GetOrCreateInstance(myBoundUdpPort, true)),
-M_CLIENT_SERVICE_ID(clientServiceId),
-M_THIS_ENGINE_ID(thisEngineId),
-M_REMOTE_LTP_ENGINE_ID(remoteLtpEngineId),
-M_BUNDLE_PIPELINE_LIMIT(maxNumberOfBundlesInPipeline),
+m_ltpUdpEngineManagerPtr(LtpUdpEngineManager::GetOrCreateInstance(ltpTxCfg.myBoundUdpPort, true)),
+M_CLIENT_SERVICE_ID(ltpTxCfg.clientServiceId),
+M_THIS_ENGINE_ID(ltpTxCfg.thisEngineId),
+M_REMOTE_LTP_ENGINE_ID(ltpTxCfg.remoteEngineId),
+M_BUNDLE_PIPELINE_LIMIT(ltpTxCfg.maxSimultaneousSessions),
 m_startingCount(0),
 
 m_ltpOutductTelemetry()
 {
     m_activeSessionNumbersSet.reserve(M_BUNDLE_PIPELINE_LIMIT);
-    m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
+    m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(ltpTxCfg.remoteEngineId, false);
     if (m_ltpUdpEnginePtr == NULL) {
-        m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(thisEngineId, remoteLtpEngineId, false, mtuClientServiceData, 80, oneWayLightTime, oneWayMarginTime,
-            remoteUdpHostname, remoteUdpPort, numUdpRxCircularBufferVectors, 0, 0, 0, ltpMaxRetriesPerSerialNumber,
-            force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, maxNumberOfBundlesInPipeline, 0, maxUdpPacketsToSendPerSystemCall, senderPingSecondsOrZeroToDisable,
-            0, //delaySendingOfReportSegmentsTimeMsOrZeroToDisable must be 0
-            delaySendingOfDataSegmentsTimeMsOrZeroToDisable);
-        m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
+        m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(ltpTxCfg);
+        m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(ltpTxCfg.remoteEngineId, false);
     }
 
     m_ltpUdpEnginePtr->SetSessionStartCallback(boost::bind(&LtpBundleSource::SessionStartCallback, this, boost::placeholders::_1));

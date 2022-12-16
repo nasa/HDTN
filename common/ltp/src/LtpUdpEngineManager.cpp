@@ -133,21 +133,14 @@ void LtpUdpEngineManager::RemoveLtpUdpEngineByRemoteEngineId_NotThreadSafe(const
 }
 
 //a max of 254 engines can be added for one outduct with the same udp port
-bool LtpUdpEngineManager::AddLtpUdpEngine(const uint64_t thisEngineId, const uint64_t remoteEngineId, const bool isInduct, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
-    const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
-    const std::string & remoteHostname, const uint16_t remotePort, const unsigned int numUdpRxCircularBufferVectors,
-    const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, uint32_t checkpointEveryNthDataPacketSender,
-    uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable, const uint64_t maxSimultaneousSessions,
-    const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
-    const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable,
-    const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable,
-    const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable)
+bool LtpUdpEngineManager::AddLtpUdpEngine(const LtpEngineConfig& ltpRxOrTxCfg)
 {   
-    if ((delaySendingOfReportSegmentsTimeMsOrZeroToDisable != 0) && (!isInduct)) {
+    const bool isInduct = ltpRxOrTxCfg.isInduct;
+    if ((ltpRxOrTxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable != 0) && (!isInduct)) {
         LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: delaySendingOfReportSegmentsTimeMsOrZeroToDisable must be set to 0 for an outduct";
         return false;
     }
-    if ((delaySendingOfDataSegmentsTimeMsOrZeroToDisable != 0) && (isInduct)) {
+    if ((ltpRxOrTxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable != 0) && (isInduct)) {
         LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: delaySendingOfDataSegmentsTimeMsOrZeroToDisable must be set to 0 for an induct";
         return false;
     }
@@ -155,7 +148,7 @@ bool LtpUdpEngineManager::AddLtpUdpEngine(const uint64_t thisEngineId, const uin
         LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: a max of 254 engines can be added for one outduct with the same udp port";
         return false;
     }
-    if (maxUdpPacketsToSendPerSystemCall == 0) {
+    if (ltpRxOrTxCfg.maxUdpPacketsToSendPerSystemCall == 0) {
         LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: maxUdpPacketsToSendPerSystemCall must be non-zero.";
         return false;
     }
@@ -167,14 +160,14 @@ bool LtpUdpEngineManager::AddLtpUdpEngine(const uint64_t thisEngineId, const uin
         return false;
     }
 #endif //UIO_MAXIOV
-    if (senderPingSecondsOrZeroToDisable && isInduct) {
+    if (ltpRxOrTxCfg.senderPingSecondsOrZeroToDisable && isInduct) {
         LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: senderPingSecondsOrZeroToDisable cannot be used with an induct (must be set to 0).";
         return false;
     }
     std::map<uint64_t, std::unique_ptr<LtpUdpEngine> > * const whichMap = (isInduct) ? &m_mapRemoteEngineIdToLtpUdpEngineReceiverPtr : &m_mapRemoteEngineIdToLtpUdpEngineTransmitterPtr;
-    std::map<uint64_t, std::unique_ptr<LtpUdpEngine> >::iterator it = whichMap->find(remoteEngineId);
+    std::map<uint64_t, std::unique_ptr<LtpUdpEngine> >::iterator it = whichMap->find(ltpRxOrTxCfg.remoteEngineId);
     if (it != whichMap->end()) {
-        LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: remote engine Id " << remoteEngineId
+        LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: remote engine Id " << ltpRxOrTxCfg.remoteEngineId
             << " for type " << ((isInduct) ? "induct" : "outduct") << " already exists";
         return false;
     }
@@ -182,26 +175,24 @@ bool LtpUdpEngineManager::AddLtpUdpEngine(const uint64_t thisEngineId, const uin
     static const boost::asio::ip::resolver_query_base::flags UDP_RESOLVER_FLAGS = boost::asio::ip::resolver_query_base::canonical_name; //boost resolver flags
     boost::asio::ip::udp::endpoint remoteEndpoint;
     try {
-        remoteEndpoint = *m_resolver.resolve(boost::asio::ip::udp::resolver::query(boost::asio::ip::udp::v4(), remoteHostname, boost::lexical_cast<std::string>(remotePort), UDP_RESOLVER_FLAGS));
+        remoteEndpoint = *m_resolver.resolve(boost::asio::ip::udp::resolver::query(boost::asio::ip::udp::v4(),
+            ltpRxOrTxCfg.remoteHostname, boost::lexical_cast<std::string>(ltpRxOrTxCfg.remotePort), UDP_RESOLVER_FLAGS));
     }
     catch (const boost::system::system_error & e) {
         LOG_INFO(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: " << e.what() << "  code=" << e.code();
         return false;
     }
-    LOG_INFO(subprocess) << "Adding LTP engineId: " << thisEngineId << " who will talk with remote " <<  remoteEndpoint.address() << ":" << remoteEndpoint.port();
+    LOG_INFO(subprocess) << "Adding LTP engineId: " << ltpRxOrTxCfg.thisEngineId 
+        << " who will talk with remote " <<  remoteEndpoint.address() << ":" << remoteEndpoint.port();
 
     const uint8_t engineIndex = static_cast<uint8_t>(m_nextEngineIndex); //this is a don't care for inducts, only needed for outducts
     std::unique_ptr<LtpUdpEngine> newLtpUdpEnginePtr = boost::make_unique<LtpUdpEngine>(m_ioServiceUdp,
-        m_udpSocket, thisEngineId, engineIndex, mtuClientServiceData, mtuReportSegment, oneWayLightTime, oneWayMarginTime,
-        remoteEndpoint, numUdpRxCircularBufferVectors, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, maxRedRxBytesPerSession, checkpointEveryNthDataPacketSender,
-        maxRetriesPerSerialNumber, force32BitRandomNumbers, M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES, maxSendRateBitsPerSecOrZeroToDisable, maxSimultaneousSessions,
-        rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable, maxUdpPacketsToSendPerSystemCall, senderPingSecondsOrZeroToDisable,
-        delaySendingOfReportSegmentsTimeMsOrZeroToDisable, delaySendingOfDataSegmentsTimeMsOrZeroToDisable);
+        m_udpSocket, engineIndex, remoteEndpoint, M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES, ltpRxOrTxCfg);
     if (!isInduct) {
         ++m_nextEngineIndex;
         m_vecEngineIndexToLtpUdpEngineTransmitterPtr[engineIndex] = newLtpUdpEnginePtr.get();
     }
-    (*whichMap)[remoteEngineId] = std::move(newLtpUdpEnginePtr);
+    (*whichMap)[ltpRxOrTxCfg.remoteEngineId] = std::move(newLtpUdpEnginePtr);
     
     return true;
 }

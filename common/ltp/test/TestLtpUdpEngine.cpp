@@ -21,6 +21,15 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::unittest;
 
+static const uint64_t ENGINE_ID_SRC(100);
+static const uint64_t ENGINE_ID_DEST(200);
+static const uint64_t EXPECTED_SESSION_ORIGINATOR_ENGINE_ID(ENGINE_ID_SRC);
+static const uint64_t CLIENT_SERVICE_ID_DEST(300);
+static const uint64_t DELAY_SENDING_OF_REPORT_SEGMENTS_TIME_MS(20);
+static const uint64_t DELAY_SENDING_OF_DATA_SEGMENTS_TIME_MS(20);
+static const boost::posix_time::time_duration ACTUAL_DELAY_SRC_TO_DEST(boost::posix_time::milliseconds(10));
+static const boost::posix_time::time_duration ACTUAL_DELAY_DEST_TO_SRC(boost::posix_time::milliseconds(10));
+
 BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 {
     struct MyTransmissionUserData : public LtpTransmissionRequestUserData {
@@ -32,20 +41,6 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
     };
 
     struct Test {
-        const boost::posix_time::time_duration ONE_WAY_LIGHT_TIME;
-        const boost::posix_time::time_duration ONE_WAY_MARGIN_TIME;
-        const uint64_t DELAY_SENDING_OF_REPORT_SEGMENTS_TIME_MS;
-        const uint64_t DELAY_SENDING_OF_DATA_SEGMENTS_TIME_MS;
-        const boost::posix_time::time_duration ACTUAL_DELAY_SRC_TO_DEST;
-        const boost::posix_time::time_duration ACTUAL_DELAY_DEST_TO_SRC;
-        const uint64_t ENGINE_ID_SRC;
-        const uint64_t ENGINE_ID_DEST;
-        const uint64_t EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
-        const uint64_t CLIENT_SERVICE_ID_DEST;
-        const uint16_t BOUND_UDP_PORT_SRC;
-        const uint16_t BOUND_UDP_PORT_DEST;
-        const uint16_t BOUND_UDP_PORT_DATA_SEGMENT_PROXY;
-        const uint16_t BOUND_UDP_PORT_REPORT_SEGMENT_PROXY;
         std::shared_ptr<LtpUdpEngineManager> ltpUdpEngineManagerSrcPtr;
         std::shared_ptr<LtpUdpEngineManager> ltpUdpEngineManagerDestPtr;
         UdpDelaySim udpDelaySimDataSegmentProxy;
@@ -74,27 +69,11 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         CANCEL_SEGMENT_REASON_CODES lastReasonCode_transmissionSessionCancelledCallback;
         Ltp::session_id_t lastSessionId_sessionStartSenderCallback;
 
-        Test(const uint64_t maxUdpPacketsToSendPerSystemCall) :
-            ONE_WAY_LIGHT_TIME(boost::posix_time::milliseconds(250)),
-            ONE_WAY_MARGIN_TIME(boost::posix_time::milliseconds(250)),
-            DELAY_SENDING_OF_REPORT_SEGMENTS_TIME_MS(20),
-            DELAY_SENDING_OF_DATA_SEGMENTS_TIME_MS(20),
-            ACTUAL_DELAY_SRC_TO_DEST(boost::posix_time::milliseconds(10)),
-            ACTUAL_DELAY_DEST_TO_SRC(boost::posix_time::milliseconds(10)),
-            ENGINE_ID_SRC(100),
-            ENGINE_ID_DEST(200),
-            EXPECTED_SESSION_ORIGINATOR_ENGINE_ID(ENGINE_ID_SRC),
-            CLIENT_SERVICE_ID_DEST(300),
-            BOUND_UDP_PORT_SRC(12345),
-            BOUND_UDP_PORT_DEST(1113),
-            BOUND_UDP_PORT_DATA_SEGMENT_PROXY(12346),
-            BOUND_UDP_PORT_REPORT_SEGMENT_PROXY(12347),
-            ltpUdpEngineManagerSrcPtr(LtpUdpEngineManager::GetOrCreateInstance(BOUND_UDP_PORT_SRC, true)),
-            ltpUdpEngineManagerDestPtr(LtpUdpEngineManager::GetOrCreateInstance(BOUND_UDP_PORT_DEST, true)),
-            //engineSrc(ENGINE_ID_SRC, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0, false, true),//1=> 1 CHARACTER AT A TIME, UINT64_MAX=> unlimited report segment size
-            //engineDest(ENGINE_ID_DEST, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 12345, true, true),//1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
-            udpDelaySimDataSegmentProxy(BOUND_UDP_PORT_DATA_SEGMENT_PROXY, "localhost", boost::lexical_cast<std::string>(BOUND_UDP_PORT_DEST), 1000, 100, ACTUAL_DELAY_SRC_TO_DEST, true),
-            udpDelaySimReportSegmentProxy(BOUND_UDP_PORT_REPORT_SEGMENT_PROXY, "localhost", boost::lexical_cast<std::string>(BOUND_UDP_PORT_SRC), 1000, 100, ACTUAL_DELAY_DEST_TO_SRC, true),
+        Test(const LtpEngineConfig& ltpRxCfg, const LtpEngineConfig& ltpTxCfg) :
+            ltpUdpEngineManagerSrcPtr(LtpUdpEngineManager::GetOrCreateInstance(ltpTxCfg.myBoundUdpPort, true)),
+            ltpUdpEngineManagerDestPtr(LtpUdpEngineManager::GetOrCreateInstance(ltpRxCfg.myBoundUdpPort, true)),
+            udpDelaySimDataSegmentProxy(ltpTxCfg.remotePort, "localhost", boost::lexical_cast<std::string>(ltpRxCfg.myBoundUdpPort), 1000, 100, ACTUAL_DELAY_SRC_TO_DEST, true),
+            udpDelaySimReportSegmentProxy(ltpRxCfg.remotePort, "localhost", boost::lexical_cast<std::string>(ltpTxCfg.myBoundUdpPort), 1000, 100, ACTUAL_DELAY_DEST_TO_SRC, true),
             DESIRED_RED_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!"),
             DESIRED_RED_AND_GREEN_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!GGE"), //G=>green data not EOB, E=>green datat EOB
             DESIRED_FULLY_GREEN_DATA_TO_SEND("GGGGGGGGGGGGGGGGGE")
@@ -104,10 +83,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 
             ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true); //sessionOriginatorEngineId is the remote engine id in the case of an induct
             if (ltpUdpEngineDestPtr == NULL) {
-                ltpUdpEngineManagerDestPtr->AddLtpUdpEngine(ENGINE_ID_DEST, EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
-                    "localhost", BOUND_UDP_PORT_REPORT_SEGMENT_PROXY, 100, 0, 10000000, 0, 5, false, 0, 5, 1000, maxUdpPacketsToSendPerSystemCall, 0,
-                    DELAY_SENDING_OF_REPORT_SEGMENTS_TIME_MS, //const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable
-                    0); //delaySendingOfDataSegmentsTimeMsOrZeroToDisable
+                ltpUdpEngineManagerDestPtr->AddLtpUdpEngine(ltpRxCfg);
                 ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true);
             }
             ltpUdpEngineDestPtr->SetSessionStartCallback(boost::bind(&Test::SessionStartReceiverCallback, this, boost::placeholders::_1));
@@ -119,10 +95,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 
             ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(ENGINE_ID_DEST, false);
             if (ltpUdpEngineSrcPtr == NULL) {
-                ltpUdpEngineManagerSrcPtr->AddLtpUdpEngine(ENGINE_ID_SRC, ENGINE_ID_DEST, false, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
-                    "localhost", BOUND_UDP_PORT_DATA_SEGMENT_PROXY, 100, 0, 0, 0, 5, false, 0, 5, 0, maxUdpPacketsToSendPerSystemCall, 0,
-                    0, //delaySendingOfReportSegmentsTimeMsOrZeroToDisable
-                    DELAY_SENDING_OF_DATA_SEGMENTS_TIME_MS); //delaySendingOfDataSegmentsTimeMsOrZeroToDisable
+                ltpUdpEngineManagerSrcPtr->AddLtpUdpEngine(ltpTxCfg);
                 ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(ENGINE_ID_DEST, false);
             }
 
@@ -1502,11 +1475,80 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 
     };
 
+    
+    const boost::posix_time::time_duration ONE_WAY_LIGHT_TIME(boost::posix_time::milliseconds(250));
+    const boost::posix_time::time_duration ONE_WAY_MARGIN_TIME(boost::posix_time::milliseconds(250));
+    
+    
+    
+    
+    const uint16_t BOUND_UDP_PORT_SRC(12345);
+    const uint16_t BOUND_UDP_PORT_DEST(1113);
+    const uint16_t BOUND_UDP_PORT_DATA_SEGMENT_PROXY(12346);
+    const uint16_t BOUND_UDP_PORT_REPORT_SEGMENT_PROXY(12347);
+
+    
+
+    LtpEngineConfig ltpRxCfg;
+
+    ltpRxCfg.thisEngineId = ENGINE_ID_DEST;
+    ltpRxCfg.remoteEngineId = EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;// (i.e. ENGINE_ID_SRC); //expectedSessionOriginatorEngineId to be received
+    ltpRxCfg.clientServiceId = CLIENT_SERVICE_ID_DEST; //not currently checked by induct
+    ltpRxCfg.isInduct = true;
+    ltpRxCfg.mtuClientServiceData = 1; //unused for inducts
+    ltpRxCfg.mtuReportSegment = UINT64_MAX; //UINT64_MAX=> unlimited report segment size
+    ltpRxCfg.oneWayLightTime = ONE_WAY_LIGHT_TIME;
+    ltpRxCfg.oneWayMarginTime = ONE_WAY_MARGIN_TIME;
+    ltpRxCfg.remoteHostname = "localhost";
+    ltpRxCfg.remotePort = BOUND_UDP_PORT_REPORT_SEGMENT_PROXY;
+    ltpRxCfg.myBoundUdpPort = BOUND_UDP_PORT_DEST;
+    ltpRxCfg.numUdpRxCircularBufferVectors = 100;
+    ltpRxCfg.estimatedBytesToReceivePerSession = 0; //force a resize
+    ltpRxCfg.maxRedRxBytesPerSession = 10000000;
+    ltpRxCfg.checkpointEveryNthDataPacketSender = 0; //unused for inducts
+    ltpRxCfg.maxRetriesPerSerialNumber = 5;
+    ltpRxCfg.force32BitRandomNumbers = false;
+    ltpRxCfg.maxSendRateBitsPerSecOrZeroToDisable = 0;
+    ltpRxCfg.maxSimultaneousSessions = 5;
+    ltpRxCfg.rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable = 1000;
+    ltpRxCfg.maxUdpPacketsToSendPerSystemCall = 1;
+    ltpRxCfg.senderPingSecondsOrZeroToDisable = 0; //unused for inducts
+    ltpRxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable = DELAY_SENDING_OF_REPORT_SEGMENTS_TIME_MS; 
+    ltpRxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable = 0; //unused for inducts (must be set to 0) 
+
+    LtpEngineConfig ltpTxCfg;
+    ltpTxCfg.thisEngineId = ENGINE_ID_SRC;
+    ltpTxCfg.remoteEngineId = ENGINE_ID_DEST;
+    ltpTxCfg.clientServiceId = CLIENT_SERVICE_ID_DEST;
+    ltpTxCfg.isInduct = false;
+    ltpTxCfg.mtuClientServiceData = 1; //1=> 1 CHARACTER AT A TIME, 
+    ltpTxCfg.mtuReportSegment = UINT64_MAX; //unused for outducts //UINT64_MAX=> unlimited report segment size
+    ltpTxCfg.oneWayLightTime = ONE_WAY_LIGHT_TIME;
+    ltpTxCfg.oneWayMarginTime = ONE_WAY_MARGIN_TIME;
+    ltpTxCfg.remoteHostname = "localhost";
+    ltpTxCfg.remotePort = BOUND_UDP_PORT_DATA_SEGMENT_PROXY;
+    ltpTxCfg.myBoundUdpPort = BOUND_UDP_PORT_SRC;
+    ltpTxCfg.numUdpRxCircularBufferVectors = 100;
+    ltpTxCfg.estimatedBytesToReceivePerSession = 0; //unused for outducts
+    ltpTxCfg.maxRedRxBytesPerSession = 0; //unused for outducts
+    ltpTxCfg.checkpointEveryNthDataPacketSender = 0;
+    ltpTxCfg.maxRetriesPerSerialNumber = 5;
+    ltpTxCfg.force32BitRandomNumbers = false;
+    ltpTxCfg.maxSendRateBitsPerSecOrZeroToDisable = 0;
+    ltpTxCfg.maxSimultaneousSessions = 5;
+    ltpTxCfg.rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable = 0; //unused for outducts
+    ltpTxCfg.maxUdpPacketsToSendPerSystemCall = 1;
+    ltpTxCfg.senderPingSecondsOrZeroToDisable = 0;
+    ltpTxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable = 0; //unused for outducts 
+    ltpTxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable = DELAY_SENDING_OF_DATA_SEGMENTS_TIME_MS; 
+
     //TEST WITH 1 maxUdpPacketsToSendPerSystemCall (NO BATCH SEND)
     LOG_INFO(subprocess) << "+++START 1 PACKET PER SYSTEM CALL+++";
     {
         LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(UINT16_MAX); //MUST BE CALLED BEFORE Test Constructor
-        Test t(1); //1 => maxUdpPacketsToSendPerSystemCall
+        ltpRxCfg.maxUdpPacketsToSendPerSystemCall = 1;
+        ltpTxCfg.maxUdpPacketsToSendPerSystemCall = 1;
+        Test t(ltpRxCfg, ltpTxCfg);
 
         //disable delayed report segments (3rd parameter)
         t.DoTestReverseStartToCpSrcToDest(false, false, true); //the only cp is EOB
@@ -1542,7 +1584,9 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
     LOG_INFO(subprocess) << "+++START 500 PACKETS PER SYSTEM CALL+++";
     {
         LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(UINT16_MAX); //MUST BE CALLED BEFORE Test Constructor
-        Test t(500); //500 => maxUdpPacketsToSendPerSystemCall
+        ltpRxCfg.maxUdpPacketsToSendPerSystemCall = 500;
+        ltpTxCfg.maxUdpPacketsToSendPerSystemCall = 500;
+        Test t(ltpRxCfg, ltpTxCfg);
         t.DoTest();
         t.DoTestRedAndGreenData();
         t.DoTestFullyGreenData();

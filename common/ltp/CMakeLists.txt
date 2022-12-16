@@ -53,6 +53,7 @@ set(MY_PUBLIC_HEADERS
 	include/LtpBundleSink.h
 	include/LtpBundleSource.h
 	include/LtpEngine.h
+	include/LtpEngineConfig.h
 	include/LtpFragmentSet.h
 	include/LtpNoticesToClientService.h
 	include/LtpRandomNumberGenerator.h

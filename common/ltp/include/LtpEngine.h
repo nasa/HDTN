@@ -29,6 +29,7 @@
 #include "LtpNoticesToClientService.h"
 #include "LtpClientServiceDataToSend.h"
 #include "LtpSessionRecreationPreventer.h"
+#include "LtpEngineConfig.h"
 #include "TokenRateLimiter.h"
 #include "BundleCallbackFunctionDefines.h"
 #include "MemoryInFiles.h"
@@ -58,13 +59,7 @@ public:
         uint8_t retryCount;
     };
     
-    LTP_LIB_EXPORT LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEncodingIntoRandomSessionNumber, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
-        const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
-        const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, bool startIoServiceThread,
-        uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
-        const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
-        const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable, const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable,
-        const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable);
+    LTP_LIB_EXPORT LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIndexForEncodingIntoRandomSessionNumber, bool startIoServiceThread);
 
     LTP_LIB_EXPORT virtual ~LtpEngine();
 
@@ -179,8 +174,6 @@ private:
 protected:
     const uint64_t M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL;
 private:
-    const boost::posix_time::time_duration M_ONE_WAY_LIGHT_TIME;
-    const boost::posix_time::time_duration M_ONE_WAY_MARGIN_TIME;
     boost::posix_time::time_duration m_transmissionToAckReceivedTime;
     boost::posix_time::time_duration m_delaySendingOfReportSegmentsTime;
     boost::posix_time::time_duration m_delaySendingOfDataSegmentsTime;

@@ -31,21 +31,18 @@
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "LtpEngine.h"
 #include "UdpBatchSender.h"
+#include "LtpEngineConfig.h"
 
 class CLASS_VISIBILITY_LTP_LIB LtpUdpEngine : public LtpEngine {
 private:
     LtpUdpEngine() = delete;
 public:
-    
-    LTP_LIB_EXPORT LtpUdpEngine(boost::asio::io_service & ioServiceUdpRef, boost::asio::ip::udp::socket & udpSocketRef, const uint64_t thisEngineId,
-        const uint8_t engineIndexForEncodingIntoRandomSessionNumber, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
-        const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, 
-        const boost::asio::ip::udp::endpoint & remoteEndpoint, const unsigned int numUdpRxCircularBufferVectors,
-        const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, uint32_t checkpointEveryNthDataPacketSender,
-        uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxUdpRxPacketSizeBytes, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
-        const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
-        const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable, const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable,
-        const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable);
+    LTP_LIB_EXPORT LtpUdpEngine(boost::asio::io_service & ioServiceUdpRef,
+        boost::asio::ip::udp::socket & udpSocketRef,
+        const uint8_t engineIndexForEncodingIntoRandomSessionNumber, 
+        const boost::asio::ip::udp::endpoint & remoteEndpoint,
+        const uint64_t maxUdpRxPacketSizeBytes,
+        const LtpEngineConfig& ltpRxOrTxCfg);
 
     LTP_LIB_EXPORT virtual ~LtpUdpEngine();
 
@@ -83,7 +80,6 @@ private:
     
 
     const unsigned int M_NUM_CIRCULAR_BUFFER_VECTORS;
-    const uint64_t M_MAX_UDP_RX_PACKET_SIZE_BYTES;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_circularIndexBuffer;
     std::vector<std::vector<boost::uint8_t> > m_udpReceiveBuffersCbVec;
 

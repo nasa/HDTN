@@ -29,6 +29,7 @@
 #include <vector>
 #include <map>
 #include "LtpUdpEngine.h"
+#include "LtpEngineConfig.h"
 #include <boost/core/noncopyable.hpp>
 
 //Every "link" should have a unique engine ID, managed by using the remote eid that the link will be connecting to as the engine id for LTP
@@ -52,73 +53,14 @@ public:
      */
     LTP_LIB_EXPORT bool StartIfNotAlreadyRunning();
 
-    /** Add an LtpUdpEngine to the LtpUdpEngineManager.  If bidirectionallity is desired (receiving client service data in both directions), call this function twice
-     * with isInduct set to True in one call and False in the other call.  A max of 254 engines can be added for one outduct with the same udp port.
-     * @param thisEngineId This LTP engine's engine ID.
-     * @param remoteEngineId The LTP remote engine ID.
-     * @param isInduct True if this Engine will be an LTP receiver.  False if it will be an LTP transmitter.
-     * @param mtuClientServiceData  The max size of the data portion (excluding LTP headers and UDP headers and IP headers) of an LTP sender's Red data segment being sent.
-     * Set this low enough to avoid exceeding ethernet MTU to avoid IP fragmentation.
-     * @param mtuReportSegment The max size of the data portion (excluding LTP headers and UDP headers and IP headers) of an LTP receiver's report segment being sent.
-     * Set this low enough to avoid exceeding ethernet MTU to avoid IP fragmentation.
-     * @param oneWayLightTime The one way light time.  Round trip time (retransmission time) is computed by (2 * (oneWayLightTime + oneWayMarginTime)).
-     * @param oneWayMarginTime The one way margin (packet processing) time.  Round trip time (retransmission time) is computed by (2 * (oneWayLightTime + oneWayMarginTime)).
-     * @param remoteHostname The remote IP address or hostname of the sender or receiver.
-     * @param remotePort The remote UDP port of the sender or receiver.
-     * @param numUdpRxCircularBufferVectors The max number of unprocessed LTP received UDP packets to buffer.
-     * @param ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION The number of Red data contiguous bytes to initialized on a receiver.
-     * Make this large enough to accomidate the max Red data size so that
-     * the Ltp receiver doesn't have to reallocate/copy/delete data while it is receiving Red data.
-     * Make this small enough so that the system doesn't have to allocate too much extra memory per receiving session.
-     * @param maxRedRxBytesPerSession A protection to prevent an LTP Red data segment with a huge memory offset from crashing the system.
-     * Set this to the worst case largest Red data size for an LTP session.
-     * @param checkpointEveryNthDataPacketSender Enables accelerated retransmission for an LTP sender by making every Nth UDP packet a checkpoint.
-     * @param maxRetriesPerSerialNumber The max number of retries/resends of a single LTP packet with a serial number before the session is terminated.
-     * @param force32BitRandomNumbers True will constrain LTP's headers containining SDNV random numbers to be CCSDS compliant 32-bit values.
-     * False will allow LTP to generate 10-byte SDNV (64-bit values) random numbers.
-     * @param maxSendRateBitsPerSecOrZeroToDisable Rate limiting UDP send rate in bits per second.
-     * A zero value will send UDP packets as fast as the operating system will allow.
-     * @param maxSimultaneousSessions The number of expected simultaneous LTP sessions for this engine (important to Ltp receivers),
-     * used to initialize hash maps' bucket size for SessionNumberToSessionSender and SessionIdToSessionReceiver.
-     * @param rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable The number of recent Ltp receiver history of session numbers to remember.
-     * If an Ltp receiver's session has been closed and it receives a session number that's within the history, the receiver will refuse the session to prevent
-     * a potentially old session from being reopened, which has been known to happen with IP fragmentation enabled.
-     * @param maxUdpPacketsToSendPerSystemCall The max number of udp packets to send per system call.
-     * If 1 is used, then the receiving udp socket is used to send udp packets from the specified bound port that it is on
-     * and one boost::asio:::async_send_to is called per one udp packet to send.
-     * If more than 1 is used, a dedicated sender udp socket is created and bound to a random ephemeral port,
-     * the socket is then permanently "UDP connected" to the remoteHostname:remotePort,
-     * and packets will be sent using this socket's sendmmsg on POSIX or LPFN_TRANSMITPACKETS on Windows.
-     * @param senderPingSecondsOrZeroToDisable The number of seconds between ltp session sender pings during times of zero data segment activity.
-     * An LTP ping is defined as a sender sending a cancel segment of a known non-existent session number to a receiver,
-     * in which the receiver shall respond with a cancel ack in order to determine if the link is active.
-     * A link down callback will be called if a cancel ack is not received after (RTT * maxRetriesPerSerialNumber).
-     * This parameter should be set to zero for a receiver as there is currently no use case for a receiver to detect link-up.
-     * @param delaySendingOfReportSegmentsTimeMsOrZeroToDisable The number of milliseconds the ltp engine
-     * should wait for gaps to be filled.
-     * When red part data is segmented and delivered to the receiving engine out-of-order,
-     * the checkpoint(s) and EORP can be received before the earlier-in-block data segments.
-     * If a synchronous report is sent immediately upon receiving the checkpoint there will be
-     * data segments in-flight and about to be delivered that will be seen as reception gaps in the report.
-     * Instead of sending the synchronous report immediately upon receiving a checkpoint segment
-     * the receiving engine should wait this period of time before sending the report segment.
-     * The delay time will reset upon any data segments which fill gaps.
-     * This parameter should be set to zero for a sender.
-     * @param delaySendingOfDataSegmentsTimeMsOrZeroToDisable The number of milliseconds the ltp engine
-     * should wait after receiving a report segment before resending data segments.
-     * This parameter should be set to zero for a receiver.
+    /** Add an LtpUdpEngine to the LtpUdpEngineManager.
+     * If bidirectionallity is desired (receiving client service data in both directions), call this function twice
+     * with isInduct set to True in one call and False in the other call.
+     * A max of 254 engines can be added for one outduct with the same udp port.
      * 
      * @return True if the operation completed successfully (or false otherwise).
      */
-    LTP_LIB_EXPORT bool AddLtpUdpEngine(const uint64_t thisEngineId, const uint64_t remoteEngineId, const bool isInduct, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
-        const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
-        const std::string & remoteHostname, const uint16_t remotePort, const unsigned int numUdpRxCircularBufferVectors,
-        const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, uint32_t checkpointEveryNthDataPacketSender,
-        uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable, const uint64_t maxSimultaneousSessions,
-        const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
-        const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable,
-        const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable,
-        const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable);
+    LTP_LIB_EXPORT bool AddLtpUdpEngine(const LtpEngineConfig& ltpRxOrTxCfg);
 
     LTP_LIB_EXPORT LtpUdpEngine * GetLtpUdpEnginePtrByRemoteEngineId(const uint64_t remoteEngineId, const bool isInduct);
     LTP_LIB_EXPORT void RemoveLtpUdpEngineByRemoteEngineId_ThreadSafe(const uint64_t remoteEngineId, const bool isInduct, const boost::function<void()> & callback);
