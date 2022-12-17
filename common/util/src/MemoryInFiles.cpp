@@ -162,12 +162,12 @@ MemoryInFiles::Impl::io_operation_t::io_operation_t(
 MemoryInFiles::Impl::io_operation_t::io_operation_t(
     MemoryBlockInfo& memoryBlockInfoRef,
     std::shared_ptr<read_memory_handler_t>& readHandlerPtr,
-    uint64_t offset,
+    uint64_t offsetWithinFile,
     std::size_t length,
     void* readLocationPtr) :
     ///
     m_memoryBlockInfoRef(memoryBlockInfoRef),
-    m_offsetWithinFile(offset),
+    m_offsetWithinFile(offsetWithinFile),
     m_length(length),
     m_readToThisLocationPtr(readLocationPtr),
     m_writeFromThisLocationPtr(NULL),
