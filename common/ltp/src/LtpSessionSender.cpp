@@ -332,7 +332,7 @@ bool LtpSessionSender::NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketI
             if (needsToReadClientServiceDataFromDisk) {
                 std::vector<uint8_t>& readLocation = (*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[1];
                 readLocation.resize(bytesToSendRed);
-                udpSendPacketInfo.constBufferVec[1] = boost::asio::buffer(readLocation.data(), bytesToSendRed);
+                udpSendPacketInfo.constBufferVec[1] = boost::asio::buffer(readLocation);
                 udpSendPacketInfo.deferredRead.memoryBlockId = MEMORY_BLOCK_ID;
                 udpSendPacketInfo.deferredRead.length = static_cast<std::size_t>(bytesToSendRed);
                 udpSendPacketInfo.deferredRead.offset = m_dataIndexFirstPass;
@@ -364,7 +364,7 @@ bool LtpSessionSender::NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketI
             if (needsToReadClientServiceDataFromDisk) {
                 std::vector<uint8_t>& readLocation = (*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[1];
                 readLocation.resize(bytesToSendGreen);
-                udpSendPacketInfo.constBufferVec[1] = boost::asio::buffer(readLocation.data(), bytesToSendGreen);
+                udpSendPacketInfo.constBufferVec[1] = boost::asio::buffer(readLocation);
                 udpSendPacketInfo.deferredRead.memoryBlockId = MEMORY_BLOCK_ID;
                 udpSendPacketInfo.deferredRead.length = static_cast<std::size_t>(bytesToSendGreen);
                 udpSendPacketInfo.deferredRead.offset = m_dataIndexFirstPass;

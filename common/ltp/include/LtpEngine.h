@@ -137,8 +137,7 @@ protected:
 private:
     LTP_LIB_NO_EXPORT void TrySendPacketIfAvailable();
     LTP_LIB_NO_EXPORT void OnDeferredReadCompleted(bool success, std::vector<boost::asio::const_buffer>& constBufferVec,
-        std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
-        std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback);
+        std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback);
     LTP_LIB_NO_EXPORT void OnDeferredMultiReadCompleted(bool success, std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
         std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
         std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec);

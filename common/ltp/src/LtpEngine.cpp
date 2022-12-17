@@ -117,8 +117,6 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     m_housekeepingTimer.async_wait(boost::bind(&LtpEngine::OnHousekeeping_TimerExpired, this, boost::asio::placeholders::error));
 
     //start memory in files for keeping session data on disk instead of RAM
-    /*ltpRxOrTxCfg.senderNewFileDurationMsToStoreSessionDataOrZeroToDisable = 0;
-    ltpRxOrTxCfg.senderWriteSessionDataToFilesPath = "./";*/
     if (ltpRxOrTxCfg.senderNewFileDurationMsToStoreSessionDataOrZeroToDisable && startIoServiceThread) { //startIoServiceThread needed to ensure skip using memoryInFiles when under TestLtpEngine
         m_memoryInFilesPtr = boost::make_unique<MemoryInFiles>(m_ioServiceLtpEngine,
             ltpRxOrTxCfg.senderWriteSessionDataToFilesPath,
@@ -273,10 +271,14 @@ void LtpEngine::TrySendPacketIfAvailable() {
                     TryRestartTokenRefreshTimer(); //tokens were taken, so make sure this is running so that tokens can be replenished
                 }
                 if (udpSendPacketInfo.deferredRead.memoryBlockId) {
+                    if (udpSendPacketInfo.underlyingCsDataToDeleteOnSentCallback) {
+                        LOG_ERROR(subprocess) << "after GetNextPacketToSend with read from disk, got non-null underlyingCsDataToDeleteOnSentCallback";
+                        return;
+                    }
                     if (!m_memoryInFilesPtr->ReadMemoryAsync(udpSendPacketInfo.deferredRead,
                         boost::bind(&LtpEngine::OnDeferredReadCompleted,
                             this, boost::placeholders::_1, std::move(udpSendPacketInfo.constBufferVec),
-                            std::move(udpSendPacketInfo.underlyingDataToDeleteOnSentCallback), std::move(udpSendPacketInfo.underlyingCsDataToDeleteOnSentCallback))))
+                            std::move(udpSendPacketInfo.underlyingDataToDeleteOnSentCallback))))
                     {
                         LOG_ERROR(subprocess) << "cannot start async read from disk for memoryBlockId="
                             << udpSendPacketInfo.deferredRead.memoryBlockId
@@ -361,11 +363,10 @@ void LtpEngine::TrySendPacketIfAvailable() {
 void LtpEngine::PacketInFullyProcessedCallback(bool success) {}
 
 void LtpEngine::OnDeferredReadCompleted(bool success, std::vector<boost::asio::const_buffer>& constBufferVec,
-    std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
-    std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback)
+    std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback)
 {
     if (success) {
-        SendPacket(constBufferVec, underlyingDataToDeleteOnSentCallback, underlyingCsDataToDeleteOnSentCallback); //virtual call to child implementation
+        SendPacket(constBufferVec, underlyingDataToDeleteOnSentCallback, std::shared_ptr<LtpClientServiceDataToSend>()); //virtual call to child implementation
     }
     else {
         LOG_ERROR(subprocess) << "Failure in LtpEngine::OnDeferredReadCompleted";
@@ -581,19 +582,20 @@ void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_
     LtpClientServiceDataToSend&& clientServiceDataToSend, std::shared_ptr<LtpTransmissionRequestUserData>&& userDataPtrToTake, uint64_t lengthOfRedPart)
 { //only called directly by unit test (not thread safe)
     if (m_memoryInFilesPtr) {
-        const std::size_t size = clientServiceDataToSend.size();
-        const void* dataPtr = clientServiceDataToSend.data();
-        const uint64_t memoryBlockId = m_memoryInFilesPtr->AllocateNewWriteMemoryBlock(size);
+        
+        const uint64_t memoryBlockId = m_memoryInFilesPtr->AllocateNewWriteMemoryBlock(clientServiceDataToSend.size());
         if (memoryBlockId == 0) {
             LOG_ERROR(subprocess) << "cannot allocate new memoryBlockId in LtpEngine::TransmissionRequest";
             return;
         }
         std::shared_ptr<LtpClientServiceDataToSend> clientServiceDataToSendSharedPtr = std::make_shared<LtpClientServiceDataToSend>(std::move(clientServiceDataToSend));
+        
         MemoryInFiles::deferred_write_t deferredWrite;
         deferredWrite.memoryBlockId = memoryBlockId;
         deferredWrite.offset = 0;
-        deferredWrite.writeFromThisLocationPtr = dataPtr;
-        deferredWrite.length = size;
+        deferredWrite.writeFromThisLocationPtr = clientServiceDataToSendSharedPtr->data();
+        deferredWrite.length = clientServiceDataToSendSharedPtr->size();
+
         if (!m_memoryInFilesPtr->WriteMemoryAsync(deferredWrite,
             boost::bind(&LtpEngine::OnTransmissionRequestDataWrittenToDisk, this,
                 destinationClientServiceId, destinationLtpEngineId,
