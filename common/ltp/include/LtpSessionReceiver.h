@@ -29,6 +29,7 @@
 #include <map>
 #include <boost/asio.hpp>
 #include "LtpNoticesToClientService.h"
+#include "LtpClientServiceDataToSend.h"
 #include <boost/core/noncopyable.hpp>
 
 typedef boost::function<void(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode)> NotifyEngineThatThisReceiverNeedsDeletedCallback_t;
@@ -49,15 +50,14 @@ public:
     LTP_LIB_EXPORT LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber, const uint64_t MAX_RECEPTION_CLAIMS,
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE, const uint64_t maxRedRxBytes,
         const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
-        const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
         LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> & timeManagerOfReportSerialNumbersRef,
         LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& timeManagerOfSendingDelayedReceptionReportsRef,
-        const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & notifyEngineThatThisReceiverNeedsDeletedCallback,
-        const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t & notifyEngineThatThisSendersTimersHasProducibleDataFunction,
-        const uint32_t maxRetriesPerSerialNumber = 5);
+        const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & notifyEngineThatThisReceiverNeedsDeletedCallbackRef,
+        const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t & notifyEngineThatThisSendersTimersHasProducibleDataFunctionRef,
+        const uint32_t maxRetriesPerSerialNumber);
 
     LTP_LIB_EXPORT ~LtpSessionReceiver();
-    LTP_LIB_EXPORT bool NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
+    LTP_LIB_EXPORT bool NextDataToSend(UdpSendPacketInfo& udpSendPacketInfo);
     
     LTP_LIB_EXPORT std::size_t GetNumActiveTimers() const; //stagnant rx session detection in ltp engine with periodic housekeeping timer
     LTP_LIB_EXPORT void ReportAcknowledgementSegmentReceivedCallback(uint64_t reportSerialNumberBeingAcknowledged,
@@ -108,8 +108,8 @@ private:
     bool m_didRedPartReceptionCallback;
     bool m_didNotifyForDeletion;
     bool m_receivedEobFromGreenOrRed;
-    const NotifyEngineThatThisReceiverNeedsDeletedCallback_t m_notifyEngineThatThisReceiverNeedsDeletedCallback;
-    const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t m_notifyEngineThatThisSendersTimersHasProducibleDataFunction;
+    const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & m_notifyEngineThatThisReceiverNeedsDeletedCallbackRef;
+    const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t & m_notifyEngineThatThisSendersTimersHasProducibleDataFunctionRef;
 
 public:
     //stagnant rx session detection in ltp engine with periodic housekeeping timer

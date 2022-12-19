@@ -74,6 +74,7 @@ LtpUdpEngineManager::LtpUdpEngineManager(const uint16_t myBoundUdpPort, const bo
     m_retryAfterSocketErrorTimer(m_ioServiceUdp),
     m_socketRestoredTimer(m_ioServiceUdp),
     m_udpReceiveBuffer(M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES),
+    m_cachedItRemoteEngineIdToLtpUdpEngineReceiver(m_mapRemoteEngineIdToLtpUdpEngineReceiver.end()),
     m_vecEngineIndexToLtpUdpEngineTransmitterPtr(256, NULL),
     m_nextEngineIndex(1),
     m_readyToForward(false)
@@ -108,22 +109,38 @@ bool LtpUdpEngineManager::StartIfNotAlreadyRunning() {
 }
 
 LtpUdpEngine * LtpUdpEngineManager::GetLtpUdpEnginePtrByRemoteEngineId(const uint64_t remoteEngineId, const bool isInduct) {
-    std::map<uint64_t, std::unique_ptr<LtpUdpEngine> > * const whichMap = (isInduct) ? &m_mapRemoteEngineIdToLtpUdpEngineReceiverPtr : &m_mapRemoteEngineIdToLtpUdpEngineTransmitterPtr;
-    std::map<uint64_t, std::unique_ptr<LtpUdpEngine> >::iterator it = whichMap->find(remoteEngineId);
-    return (it == whichMap->end()) ? NULL : it->second.get();
+    std::map<uint64_t, LtpUdpEngine> * const whichMap = (isInduct) ? &m_mapRemoteEngineIdToLtpUdpEngineReceiver : &m_mapRemoteEngineIdToLtpUdpEngineTransmitter;
+    std::map<uint64_t, LtpUdpEngine>::iterator it = whichMap->find(remoteEngineId);
+    return (it == whichMap->end()) ? NULL : &(it->second);
 }
 
 void LtpUdpEngineManager::RemoveLtpUdpEngineByRemoteEngineId_ThreadSafe(const uint64_t remoteEngineId, const bool isInduct, const boost::function<void()> & callback) {
     boost::asio::post(m_ioServiceUdp, boost::bind(&LtpUdpEngineManager::RemoveLtpUdpEngineByRemoteEngineId_NotThreadSafe, this, remoteEngineId, isInduct, callback));
 }
 void LtpUdpEngineManager::RemoveLtpUdpEngineByRemoteEngineId_NotThreadSafe(const uint64_t remoteEngineId, const bool isInduct, const boost::function<void()> & callback) {
-    std::map<uint64_t, std::unique_ptr<LtpUdpEngine> > * const whichMap = (isInduct) ? &m_mapRemoteEngineIdToLtpUdpEngineReceiverPtr : &m_mapRemoteEngineIdToLtpUdpEngineTransmitterPtr;
-    std::map<uint64_t, std::unique_ptr<LtpUdpEngine> >::iterator it = whichMap->find(remoteEngineId);
+    std::map<uint64_t, LtpUdpEngine> * const whichMap = (isInduct) ? &m_mapRemoteEngineIdToLtpUdpEngineReceiver : &m_mapRemoteEngineIdToLtpUdpEngineTransmitter;
+    std::map<uint64_t, LtpUdpEngine>::iterator it = whichMap->find(remoteEngineId);
     if (it == whichMap->end()) {
         LOG_ERROR(subprocess) << "LtpUdpEngineManager::RemoveLtpUdpEngineByRemoteEngineId_NotThreadSafe: remoteEngineId " << remoteEngineId
             << " for type " << ((isInduct) ? "induct" : "outduct") << " does not exist";
     }
     else {
+        if (!isInduct) {
+            const uint8_t engineIndex = it->second.GetEngineIndex();
+            if (m_vecEngineIndexToLtpUdpEngineTransmitterPtr[engineIndex]) {
+                m_vecEngineIndexToLtpUdpEngineTransmitterPtr[engineIndex] = NULL;
+                //TODO add engineIndex back to available engineIndices in case of adding/removing/readding
+            }
+            else {
+                LOG_ERROR(subprocess) << "LtpUdpEngineManager::RemoveLtpUdpEngineByRemoteEngineId_NotThreadSafe: remoteEngineId " << remoteEngineId
+                    << " for type outduct had non-null m_vecEngineIndexToLtpUdpEngineTransmitterPtr at engineIndex " << ((unsigned int)engineIndex);
+            }
+        }
+        else { //induct
+            if (m_cachedItRemoteEngineIdToLtpUdpEngineReceiver == it) {
+                m_cachedItRemoteEngineIdToLtpUdpEngineReceiver = m_mapRemoteEngineIdToLtpUdpEngineReceiver.end();
+            }
+        }
         whichMap->erase(it);
         LOG_INFO(subprocess) << "remoteEngineId " << remoteEngineId << " for type " << ((isInduct) ? "induct" : "outduct") << " successfully removed";
     }
@@ -133,21 +150,14 @@ void LtpUdpEngineManager::RemoveLtpUdpEngineByRemoteEngineId_NotThreadSafe(const
 }
 
 //a max of 254 engines can be added for one outduct with the same udp port
-bool LtpUdpEngineManager::AddLtpUdpEngine(const uint64_t thisEngineId, const uint64_t remoteEngineId, const bool isInduct, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
-    const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
-    const std::string & remoteHostname, const uint16_t remotePort, const unsigned int numUdpRxCircularBufferVectors,
-    const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, uint32_t checkpointEveryNthDataPacketSender,
-    uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable, const uint64_t maxSimultaneousSessions,
-    const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
-    const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable,
-    const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable,
-    const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable)
+bool LtpUdpEngineManager::AddLtpUdpEngine(const LtpEngineConfig& ltpRxOrTxCfg)
 {   
-    if ((delaySendingOfReportSegmentsTimeMsOrZeroToDisable != 0) && (!isInduct)) {
+    const bool isInduct = ltpRxOrTxCfg.isInduct;
+    if ((ltpRxOrTxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable != 0) && (!isInduct)) {
         LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: delaySendingOfReportSegmentsTimeMsOrZeroToDisable must be set to 0 for an outduct";
         return false;
     }
-    if ((delaySendingOfDataSegmentsTimeMsOrZeroToDisable != 0) && (isInduct)) {
+    if ((ltpRxOrTxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable != 0) && (isInduct)) {
         LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: delaySendingOfDataSegmentsTimeMsOrZeroToDisable must be set to 0 for an induct";
         return false;
     }
@@ -155,26 +165,26 @@ bool LtpUdpEngineManager::AddLtpUdpEngine(const uint64_t thisEngineId, const uin
         LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: a max of 254 engines can be added for one outduct with the same udp port";
         return false;
     }
-    if (maxUdpPacketsToSendPerSystemCall == 0) {
+    if (ltpRxOrTxCfg.maxUdpPacketsToSendPerSystemCall == 0) {
         LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: maxUdpPacketsToSendPerSystemCall must be non-zero.";
         return false;
     }
 #ifdef UIO_MAXIOV
     //sendmmsg() is Linux-specific. NOTES The value specified in vlen is capped to UIO_MAXIOV (1024).
-    if (maxUdpPacketsToSendPerSystemCall > UIO_MAXIOV) {
+    if (ltpRxOrTxCfg.maxUdpPacketsToSendPerSystemCall > UIO_MAXIOV) {
         LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: maxUdpPacketsToSendPerSystemCall ("
-            << maxUdpPacketsToSendPerSystemCall << ") must be <= UIO_MAXIOV (" << UIO_MAXIOV << ").";
+            << ltpRxOrTxCfg.maxUdpPacketsToSendPerSystemCall << ") must be <= UIO_MAXIOV (" << UIO_MAXIOV << ").";
         return false;
     }
 #endif //UIO_MAXIOV
-    if (senderPingSecondsOrZeroToDisable && isInduct) {
+    if (ltpRxOrTxCfg.senderPingSecondsOrZeroToDisable && isInduct) {
         LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: senderPingSecondsOrZeroToDisable cannot be used with an induct (must be set to 0).";
         return false;
     }
-    std::map<uint64_t, std::unique_ptr<LtpUdpEngine> > * const whichMap = (isInduct) ? &m_mapRemoteEngineIdToLtpUdpEngineReceiverPtr : &m_mapRemoteEngineIdToLtpUdpEngineTransmitterPtr;
-    std::map<uint64_t, std::unique_ptr<LtpUdpEngine> >::iterator it = whichMap->find(remoteEngineId);
+    std::map<uint64_t, LtpUdpEngine> * const whichMap = (isInduct) ? &m_mapRemoteEngineIdToLtpUdpEngineReceiver : &m_mapRemoteEngineIdToLtpUdpEngineTransmitter;
+    std::map<uint64_t, LtpUdpEngine>::iterator it = whichMap->find(ltpRxOrTxCfg.remoteEngineId);
     if (it != whichMap->end()) {
-        LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: remote engine Id " << remoteEngineId
+        LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: remote engine Id " << ltpRxOrTxCfg.remoteEngineId
             << " for type " << ((isInduct) ? "induct" : "outduct") << " already exists";
         return false;
     }
@@ -182,26 +192,35 @@ bool LtpUdpEngineManager::AddLtpUdpEngine(const uint64_t thisEngineId, const uin
     static const boost::asio::ip::resolver_query_base::flags UDP_RESOLVER_FLAGS = boost::asio::ip::resolver_query_base::canonical_name; //boost resolver flags
     boost::asio::ip::udp::endpoint remoteEndpoint;
     try {
-        remoteEndpoint = *m_resolver.resolve(boost::asio::ip::udp::resolver::query(boost::asio::ip::udp::v4(), remoteHostname, boost::lexical_cast<std::string>(remotePort), UDP_RESOLVER_FLAGS));
+        remoteEndpoint = *m_resolver.resolve(boost::asio::ip::udp::resolver::query(boost::asio::ip::udp::v4(),
+            ltpRxOrTxCfg.remoteHostname, boost::lexical_cast<std::string>(ltpRxOrTxCfg.remotePort), UDP_RESOLVER_FLAGS));
     }
     catch (const boost::system::system_error & e) {
         LOG_INFO(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: " << e.what() << "  code=" << e.code();
         return false;
     }
-    LOG_INFO(subprocess) << "Adding LTP engineId: " << thisEngineId << " who will talk with remote " <<  remoteEndpoint.address() << ":" << remoteEndpoint.port();
+    LOG_INFO(subprocess) << "Adding LTP engineId: " << ltpRxOrTxCfg.thisEngineId 
+        << " who will talk with remote " <<  remoteEndpoint.address() << ":" << remoteEndpoint.port();
 
     const uint8_t engineIndex = static_cast<uint8_t>(m_nextEngineIndex); //this is a don't care for inducts, only needed for outducts
-    std::unique_ptr<LtpUdpEngine> newLtpUdpEnginePtr = boost::make_unique<LtpUdpEngine>(m_ioServiceUdp,
-        m_udpSocket, thisEngineId, engineIndex, mtuClientServiceData, mtuReportSegment, oneWayLightTime, oneWayMarginTime,
-        remoteEndpoint, numUdpRxCircularBufferVectors, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, maxRedRxBytesPerSession, checkpointEveryNthDataPacketSender,
-        maxRetriesPerSerialNumber, force32BitRandomNumbers, M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES, maxSendRateBitsPerSecOrZeroToDisable, maxSimultaneousSessions,
-        rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable, maxUdpPacketsToSendPerSystemCall, senderPingSecondsOrZeroToDisable,
-        delaySendingOfReportSegmentsTimeMsOrZeroToDisable, delaySendingOfDataSegmentsTimeMsOrZeroToDisable);
+
+    std::pair<std::map<uint64_t, LtpUdpEngine>::iterator, bool> res = whichMap->emplace(
+        std::piecewise_construct,
+        std::forward_as_tuple(ltpRxOrTxCfg.remoteEngineId),
+        std::forward_as_tuple(
+            m_ioServiceUdp, m_udpSocket, engineIndex, remoteEndpoint,
+            M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES, ltpRxOrTxCfg
+        )
+    );
+    if (res.second == false) { //session was not inserted
+        LOG_ERROR(subprocess) << "new LtpUdpEngine cannot be inserted??";
+        return false;
+    }
+
     if (!isInduct) {
         ++m_nextEngineIndex;
-        m_vecEngineIndexToLtpUdpEngineTransmitterPtr[engineIndex] = newLtpUdpEnginePtr.get();
+        m_vecEngineIndexToLtpUdpEngineTransmitterPtr[engineIndex] = &(res.first->second);
     }
-    (*whichMap)[remoteEngineId] = std::move(newLtpUdpEnginePtr);
     
     return true;
 }
@@ -282,14 +301,18 @@ void LtpUdpEngineManager::HandleUdpReceive(const boost::system::error_code & err
         LtpUdpEngine * ltpUdpEnginePtr;
         if (isSenderToReceiver) { //received an isSenderToReceiver message type => isInduct (this ltp engine received a message type that only travels from an outduct (sender) to an induct (receiver))
             //sessionOriginatorEngineId is the remote engine id in the case of an induct
-            std::map<uint64_t, std::unique_ptr<LtpUdpEngine> >::iterator it = m_mapRemoteEngineIdToLtpUdpEngineReceiverPtr.find(sessionOriginatorEngineId);
-            if (it == m_mapRemoteEngineIdToLtpUdpEngineReceiverPtr.end()) {
-                LOG_ERROR(subprocess) << "LtpUdpEngineManager::HandleUdpReceive: an induct received packet with unknown remote engine Id "
-                    << sessionOriginatorEngineId << ".. ignoring packet";
-                StartUdpReceive();
-                return;
+            std::map<uint64_t, LtpUdpEngine>::iterator it = m_cachedItRemoteEngineIdToLtpUdpEngineReceiver;
+            if ((it == m_mapRemoteEngineIdToLtpUdpEngineReceiver.end()) || (it->first != sessionOriginatorEngineId)) { //cache miss (invalid OR non-match)
+                it = m_mapRemoteEngineIdToLtpUdpEngineReceiver.find(sessionOriginatorEngineId);
+                if (it == m_mapRemoteEngineIdToLtpUdpEngineReceiver.end()) {
+                    LOG_ERROR(subprocess) << "LtpUdpEngineManager::HandleUdpReceive: an induct received packet with unknown remote engine Id "
+                        << sessionOriginatorEngineId << ".. ignoring packet";
+                    StartUdpReceive();
+                    return;
+                }
+                m_cachedItRemoteEngineIdToLtpUdpEngineReceiver = it; //cache update
             }
-            ltpUdpEnginePtr = it->second.get();
+            ltpUdpEnginePtr = &(it->second);
         }
         else { //received an isReceiverToSender message type => isOutduct (this ltp engine received a message type that only travels from an induct (receiver) to an outduct (sender))
             //sessionOriginatorEngineId is my engine id in the case of an outduct.. need to get the session number to find the proper LtpUdpEngine
@@ -316,10 +339,10 @@ void LtpUdpEngineManager::HandleUdpReceive(const boost::system::error_code & err
         m_readyToForward = false;
         LOG_ERROR(subprocess) << "LtpUdpEngineManager::HandleUdpReceive(): " << error.message() << std::endl
             << "Will try to Receive after 2 seconds";
-        for (std::map<uint64_t, std::unique_ptr<LtpUdpEngine> >::iterator it = m_mapRemoteEngineIdToLtpUdpEngineTransmitterPtr.begin();
-            it != m_mapRemoteEngineIdToLtpUdpEngineTransmitterPtr.end(); ++it)
+        for (std::map<uint64_t, LtpUdpEngine>::iterator it = m_mapRemoteEngineIdToLtpUdpEngineTransmitter.begin();
+            it != m_mapRemoteEngineIdToLtpUdpEngineTransmitter.end(); ++it)
         {
-            it->second->PostExternalLinkDownEvent_ThreadSafe();
+            it->second.PostExternalLinkDownEvent_ThreadSafe();
         }
         m_socketRestoredTimer.cancel();
         m_retryAfterSocketErrorTimer.expires_from_now(boost::posix_time::seconds(2));
@@ -363,8 +386,9 @@ void LtpUdpEngineManager::DoUdpShutdown() {
             LOG_WARNING(subprocess) << "LtpUdpEngineManager::DoUdpShutdown calling udpSocket.close: " << e.what();
         }
     }
-    m_mapRemoteEngineIdToLtpUdpEngineReceiverPtr.clear();
-    m_mapRemoteEngineIdToLtpUdpEngineTransmitterPtr.clear();
+    m_mapRemoteEngineIdToLtpUdpEngineReceiver.clear();
+    m_cachedItRemoteEngineIdToLtpUdpEngineReceiver = m_mapRemoteEngineIdToLtpUdpEngineReceiver.end();
+    m_mapRemoteEngineIdToLtpUdpEngineTransmitter.clear();
 }
 
 bool LtpUdpEngineManager::ReadyToForward() {

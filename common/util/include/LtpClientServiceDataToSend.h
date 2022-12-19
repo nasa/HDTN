@@ -27,14 +27,16 @@
 
 #include <cstdint>
 #include <vector>
+#include <boost/asio.hpp>
+#include "MemoryInFiles.h"
 
 #ifdef LTP_CLIENT_SERVICE_DATA_TO_SEND_SUPPORT_ZMQ
 #include <zmq.hpp>
 #endif
 #include "hdtn_util_export.h"
+#include <boost/core/noncopyable.hpp>
 
-
-class LtpClientServiceDataToSend {
+class LtpClientServiceDataToSend : private boost::noncopyable {
 public:
     HDTN_UTIL_EXPORT LtpClientServiceDataToSend(); //a default constructor: X()
     HDTN_UTIL_EXPORT LtpClientServiceDataToSend(std::vector<uint8_t> && vec);
@@ -45,13 +47,14 @@ public:
 #endif
     HDTN_UTIL_EXPORT ~LtpClientServiceDataToSend(); //a destructor: ~X()
     HDTN_UTIL_EXPORT LtpClientServiceDataToSend(const LtpClientServiceDataToSend& o) = delete; //disallow copying
-    HDTN_UTIL_EXPORT LtpClientServiceDataToSend(LtpClientServiceDataToSend&& o); //a move constructor: X(X&&)
+    HDTN_UTIL_EXPORT LtpClientServiceDataToSend(LtpClientServiceDataToSend&& o) noexcept; //a move constructor: X(X&&)
     HDTN_UTIL_EXPORT LtpClientServiceDataToSend& operator=(const LtpClientServiceDataToSend& o) = delete; //disallow copying
-    HDTN_UTIL_EXPORT LtpClientServiceDataToSend& operator=(LtpClientServiceDataToSend&& o); //a move assignment: operator=(X&&)
+    HDTN_UTIL_EXPORT LtpClientServiceDataToSend& operator=(LtpClientServiceDataToSend&& o) noexcept; //a move assignment: operator=(X&&)
     HDTN_UTIL_EXPORT bool operator==(const std::vector<uint8_t> & vec) const; //operator ==
     HDTN_UTIL_EXPORT bool operator!=(const std::vector<uint8_t> & vec) const; //operator !=
     HDTN_UTIL_EXPORT uint8_t * data() const;
     HDTN_UTIL_EXPORT std::size_t size() const;
+    HDTN_UTIL_EXPORT void clear(bool setSizeValueToZero);
     HDTN_UTIL_EXPORT std::vector<uint8_t> & GetVecRef();
     HDTN_UTIL_EXPORT zmq::message_t & GetZmqRef();
 
@@ -65,6 +68,19 @@ private:
 #endif
     uint8_t * m_ptrData;
     std::size_t m_size;
+};
+
+struct UdpSendPacketInfo : private boost::noncopyable {
+    std::vector<boost::asio::const_buffer> constBufferVec;
+    std::shared_ptr<std::vector<std::vector<uint8_t> > > underlyingDataToDeleteOnSentCallback;
+    std::shared_ptr<LtpClientServiceDataToSend> underlyingCsDataToDeleteOnSentCallback;
+    MemoryInFiles::deferred_read_t deferredRead;
+    uint64_t sessionOriginatorEngineId;
+
+    HDTN_UTIL_EXPORT UdpSendPacketInfo() = default;
+    HDTN_UTIL_EXPORT UdpSendPacketInfo(UdpSendPacketInfo&& o) noexcept; //a move constructor: X(X&&)
+    HDTN_UTIL_EXPORT UdpSendPacketInfo& operator=(UdpSendPacketInfo&& o) noexcept; //a move assignment: operator=(X&&)
+    HDTN_UTIL_EXPORT void Reset();
 };
 
 #endif // LTP_CLIENT_SERVICE_DATA_TO_SEND_H

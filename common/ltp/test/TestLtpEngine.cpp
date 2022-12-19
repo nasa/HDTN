@@ -19,8 +19,7 @@
 BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
 {
     struct Test {
-        const boost::posix_time::time_duration ONE_WAY_LIGHT_TIME;
-        const boost::posix_time::time_duration ONE_WAY_MARGIN_TIME;
+        const uint8_t engineIndexForEncodingIntoRandomSessionNumber;
         const uint64_t ENGINE_ID_SRC;
         const uint64_t ENGINE_ID_DEST;
         const uint64_t CLIENT_SERVICE_ID_DEST;
@@ -45,17 +44,16 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
         CANCEL_SEGMENT_REASON_CODES lastTxCancelSegmentReasonCode;
         Ltp::session_id_t sessionIdFromSessionStartSender;
 
-        Test() :
-            ONE_WAY_LIGHT_TIME(boost::posix_time::seconds(10)),
-            ONE_WAY_MARGIN_TIME(boost::posix_time::milliseconds(2000)),
-            ENGINE_ID_SRC(100),
-            ENGINE_ID_DEST(200),
-            CLIENT_SERVICE_ID_DEST(300),
+        Test(const LtpEngineConfig& ltpRxCfg, const LtpEngineConfig& ltpTxCfg) :
+            engineIndexForEncodingIntoRandomSessionNumber(1),
+            ENGINE_ID_SRC(ltpTxCfg.thisEngineId),
+            ENGINE_ID_DEST(ltpRxCfg.thisEngineId),
+            CLIENT_SERVICE_ID_DEST(ltpRxCfg.clientServiceId),
             //last parameter 1 in the following two constructors (maxUdpPacketsToSendPerSystemCall) is a don't care since m_ioServiceLtpEngineThreadPtr is NULL for this test
             //delaySendingOfReportSegmentsTimeMsOrZeroToDisable must be 0 for this test
             //delaySendingOfDataSegmentsTimeMsOrZeroToDisable must be 0 for this test
-            engineSrc(ENGINE_ID_SRC, 1, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0, 50, false, 0, 5, false, 0, 100, 0, 1, 0, 0, 0),//1=> 1 CHARACTER AT A TIME, UINT64_MAX=> unlimited report segment size
-            engineDest(ENGINE_ID_DEST, 1, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0, 50, false, 0, 5, false, 0, 100, 1000, 1, 0, 0, 0),//1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
+            engineSrc(ltpTxCfg, engineIndexForEncodingIntoRandomSessionNumber, false),
+            engineDest(ltpRxCfg, engineIndexForEncodingIntoRandomSessionNumber, false),
             DESIRED_RED_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!"),
             DESIRED_TOO_MUCH_RED_DATA_TO_SEND("The quick brown fox jumps over the lazy dog! 12345678910"),
             DESIRED_RED_AND_GREEN_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!GGE"), //G=>green data not EOB, E=>green datat EOB
@@ -121,17 +119,14 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
         }
 
         static bool SendData(LtpEngine & src, LtpEngine & dest, bool simulateDrop = false, bool swapHeader = false, LTP_SEGMENT_TYPE_FLAGS headerReplacement = LTP_SEGMENT_TYPE_FLAGS::REDDATA) {
-            std::vector<boost::asio::const_buffer> constBufferVec;
-            std::shared_ptr<std::vector<std::vector<uint8_t> > >  underlyingDataToDeleteOnSentCallback;
-            std::shared_ptr<LtpClientServiceDataToSend> underlyingCsDataToDeleteOnSentCallback;
-            uint64_t sessionOriginatorEngineId;
-            if (src.GetNextPacketToSend(constBufferVec, underlyingDataToDeleteOnSentCallback, underlyingCsDataToDeleteOnSentCallback, sessionOriginatorEngineId)) {
+            UdpSendPacketInfo udpSendPacketInfo;
+            if (src.GetNextPacketToSend(udpSendPacketInfo)) {
                 if (swapHeader) {
-                    uint8_t *data = static_cast<uint8_t*>(const_cast<void*>(constBufferVec[0].data()));
+                    uint8_t *data = static_cast<uint8_t*>(const_cast<void*>(udpSendPacketInfo.constBufferVec[0].data()));
                     data[0] = static_cast<uint8_t>(headerReplacement);
                 }
                 if (!simulateDrop) {
-                    dest.PacketIn(constBufferVec);
+                    dest.PacketIn(udpSendPacketInfo.constBufferVec);
                 }
                 return true;
             }
@@ -437,7 +432,71 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
         }
     };
 
-    Test t;
+
+    const boost::posix_time::time_duration ONE_WAY_LIGHT_TIME(boost::posix_time::seconds(10));
+    const boost::posix_time::time_duration ONE_WAY_MARGIN_TIME(boost::posix_time::milliseconds(2000));
+    const uint64_t ENGINE_ID_SRC(100);
+    const uint64_t ENGINE_ID_DEST(200);
+    const uint64_t CLIENT_SERVICE_ID_DEST(300);
+
+    LtpEngineConfig ltpRxCfg;
+
+    ltpRxCfg.thisEngineId = ENGINE_ID_DEST;
+    ltpRxCfg.remoteEngineId = ENGINE_ID_SRC; // (not used at the LtpEngine level but at the routing level, so this is "don't care") //expectedSessionOriginatorEngineId to be received
+    ltpRxCfg.clientServiceId = CLIENT_SERVICE_ID_DEST; //not currently checked by induct
+    ltpRxCfg.isInduct = true;
+    ltpRxCfg.mtuClientServiceData = 1; //unused for inducts //1=> MTU NOT USED AT THIS TIME,
+    ltpRxCfg.mtuReportSegment = UINT64_MAX; //UINT64_MAX=> unlimited report segment size
+    ltpRxCfg.oneWayLightTime = ONE_WAY_LIGHT_TIME;
+    ltpRxCfg.oneWayMarginTime = ONE_WAY_MARGIN_TIME;
+    //ltpRxCfg.remoteHostname = ;
+    //ltpRxCfg.remotePort = ;
+    //ltpRxCfg.myBoundUdpPort = ;
+    //ltpRxCfg.numUdpRxCircularBufferVectors = ;
+    ltpRxCfg.estimatedBytesToReceivePerSession = 0; //force a resize
+    ltpRxCfg.maxRedRxBytesPerSession = 50;
+    ltpRxCfg.checkpointEveryNthDataPacketSender = 0; //unused for inducts
+    ltpRxCfg.maxRetriesPerSerialNumber = 5;
+    ltpRxCfg.force32BitRandomNumbers = false;
+    ltpRxCfg.maxSendRateBitsPerSecOrZeroToDisable = 0;
+    ltpRxCfg.maxSimultaneousSessions = 100;
+    ltpRxCfg.rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable = 1000;
+    ltpRxCfg.maxUdpPacketsToSendPerSystemCall = 1; //is a don't care since m_ioServiceLtpEngineThreadPtr is NULL for this test
+    ltpRxCfg.senderPingSecondsOrZeroToDisable = 0; //unused for inducts
+    ltpRxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable = 0; //must be 0 for this test
+    ltpRxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable = 0; //unused for inducts (must be set to 0) //must be 0 for this test
+    ltpRxCfg.senderNewFileDurationMsToStoreSessionDataOrZeroToDisable = 0; //unused for inducts (must be set to 0) //must be 0 for this test
+    ltpRxCfg.senderWriteSessionDataToFilesPath = "./"; //unused for inducts
+
+    LtpEngineConfig ltpTxCfg;
+    ltpTxCfg.thisEngineId = ENGINE_ID_SRC;
+    ltpTxCfg.remoteEngineId = ENGINE_ID_DEST; // (not used at the LtpEngine level but at the routing level, so this is "don't care")
+    ltpTxCfg.clientServiceId = CLIENT_SERVICE_ID_DEST;
+    ltpTxCfg.isInduct = false;
+    ltpTxCfg.mtuClientServiceData = 1; //1=> 1 CHARACTER AT A TIME, 
+    ltpTxCfg.mtuReportSegment = UINT64_MAX; //unused for outducts //UINT64_MAX=> unlimited report segment size
+    ltpTxCfg.oneWayLightTime = ONE_WAY_LIGHT_TIME;
+    ltpTxCfg.oneWayMarginTime = ONE_WAY_MARGIN_TIME;
+    //ltpTxCfg.remoteHostname = ;
+    //ltpTxCfg.remotePort = ;
+    //ltpTxCfg.myBoundUdpPort = ;
+    //ltpTxCfg.numUdpRxCircularBufferVectors = ;
+    ltpTxCfg.estimatedBytesToReceivePerSession = 0; //unused for outducts
+    ltpTxCfg.maxRedRxBytesPerSession = 50; //unused for outducts
+    ltpTxCfg.checkpointEveryNthDataPacketSender = 0;
+    ltpTxCfg.maxRetriesPerSerialNumber = 5;
+    ltpTxCfg.force32BitRandomNumbers = false;
+    ltpTxCfg.maxSendRateBitsPerSecOrZeroToDisable = 0;
+    ltpTxCfg.maxSimultaneousSessions = 100;
+    ltpTxCfg.rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable = 0; //unused for outducts
+    ltpTxCfg.maxUdpPacketsToSendPerSystemCall = 1; //is a don't care since m_ioServiceLtpEngineThreadPtr is NULL for this test
+    ltpTxCfg.senderPingSecondsOrZeroToDisable = 0;
+    ltpTxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable = 0; //unused for outducts //must be 0 for this test
+    ltpTxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable = 0; //must be 0 for this test
+    ltpTxCfg.senderNewFileDurationMsToStoreSessionDataOrZeroToDisable = 0; //must be 0 for this test
+    ltpTxCfg.senderWriteSessionDataToFilesPath = "./";
+
+    Test t(ltpRxCfg, ltpTxCfg);
     t.DoTest();
     t.DoTestOneDropSrcToDest();
     t.DoTestTwoDropsSrcToDest();

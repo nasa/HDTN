@@ -1189,6 +1189,8 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     StorageTelemetry_t telem;
                     telem.totalBundlesErasedFromStorage = GetCurrentNumberOfBundlesDeletedFromStorage();
                     telem.totalBundlesSentToEgressFromStorage = m_totalBundlesSentToEgressFromStorageReadFromDisk; //+ m_totalBundlesSentToEgressFromStorageForwardCutThrough;
+                    telem.usedSpaceBytes = m_bsmPtr->GetUsedSpaceBytes();
+                    telem.freeSpaceBytes = m_bsmPtr->GetFreeSpaceBytes();
 
                     std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(sizeof(StorageTelemetry_t)); //will be 64-bit aligned
                     uint8_t* telemPtr = vecUint8RawPointer->data();

@@ -22,11 +22,10 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber, const uint64_t MAX_RECEPTION_CLAIMS,
     const uint64_t ESTIMATED_BYTES_TO_RECEIVE, const uint64_t maxRedRxBytes,
     const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
-    const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> & timeManagerOfReportSerialNumbersRef,
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> & timeManagerOfSendingDelayedReceptionReportsRef,
-    const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & notifyEngineThatThisReceiverNeedsDeletedCallback,
-    const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t & notifyEngineThatThisSendersTimersHasProducibleDataFunction,
+    const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & notifyEngineThatThisReceiverNeedsDeletedCallbackRef,
+    const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t & notifyEngineThatThisSendersTimersHasProducibleDataFunctionRef,
     const uint32_t maxRetriesPerSerialNumber) :
     
     m_itLastPrimaryReportSegmentSent(m_mapAllReportSegmentsSent.end()),
@@ -45,8 +44,8 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
     m_didRedPartReceptionCallback(false),
     m_didNotifyForDeletion(false),
     m_receivedEobFromGreenOrRed(false),
-    m_notifyEngineThatThisReceiverNeedsDeletedCallback(notifyEngineThatThisReceiverNeedsDeletedCallback),
-    m_notifyEngineThatThisSendersTimersHasProducibleDataFunction(notifyEngineThatThisSendersTimersHasProducibleDataFunction),
+    m_notifyEngineThatThisReceiverNeedsDeletedCallbackRef(notifyEngineThatThisReceiverNeedsDeletedCallbackRef),
+    m_notifyEngineThatThisSendersTimersHasProducibleDataFunctionRef(notifyEngineThatThisSendersTimersHasProducibleDataFunctionRef),
     //m_lastDataSegmentReceivedTimestamp(boost::posix_time::special_values::) //initialization not required because LtpEngine calls DataSegmentReceivedCallback right after emplace
     m_calledCancelledCallback(false),
     m_numReportSegmentTimerExpiredCallbacks(0),
@@ -165,17 +164,17 @@ void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(const Ltp::session
     if (userDataPtr->retryCount <= M_MAX_RETRIES_PER_SERIAL_NUMBER) {
         //resend
         m_reportsToSendQueue.emplace(userDataPtr->itMapAllReportSegmentsSent, userDataPtr->retryCount + 1); //initial retryCount of 1
-        m_notifyEngineThatThisSendersTimersHasProducibleDataFunction(M_SESSION_ID);
+        m_notifyEngineThatThisSendersTimersHasProducibleDataFunctionRef(M_SESSION_ID);
     }
     else {
         if (!m_didNotifyForDeletion) {
             m_didNotifyForDeletion = true;
-            m_notifyEngineThatThisReceiverNeedsDeletedCallback(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::RLEXC);
+            m_notifyEngineThatThisReceiverNeedsDeletedCallbackRef(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::RLEXC);
         }
     }
 }
 
-bool LtpSessionReceiver::NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback) {
+bool LtpSessionReceiver::NextDataToSend(UdpSendPacketInfo& udpSendPacketInfo) {
 
     if (!m_reportsToSendQueue.empty()) {
         const it_retrycount_pair_t & p = m_reportsToSendQueue.front();
@@ -184,11 +183,11 @@ bool LtpSessionReceiver::NextDataToSend(std::vector<boost::asio::const_buffer> &
         const uint32_t retryCount = p.second;
         //std::map<uint64_t, Ltp::report_segment_t>::iterator reportSegmentIt = m_mapAllReportSegmentsSent.find(rsn);
         //if (reportSegmentIt != m_mapAllReportSegmentsSent.end()) { //found
-        underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1); //2 would be needed in case of trailer extensions (but not used here)
-        Ltp::GenerateReportSegmentLtpPacket((*underlyingDataToDeleteOnSentCallback)[0],
+        udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1); //2 would be needed in case of trailer extensions (but not used here)
+        Ltp::GenerateReportSegmentLtpPacket((*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0],
             M_SESSION_ID, reportSegmentIt->second, NULL, NULL);
-        constBufferVec.resize(1);
-        constBufferVec[0] = boost::asio::buffer((*underlyingDataToDeleteOnSentCallback)[0]);
+        udpSendPacketInfo.constBufferVec.resize(1);
+        udpSendPacketInfo.constBufferVec[0] = boost::asio::buffer((*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0]);
         m_reportsToSendQueue.pop();
             
         // within a session would normally be LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timeManagerOfReportSerialNumbers;
@@ -257,7 +256,7 @@ void LtpSessionReceiver::ReportAcknowledgementSegmentReceivedCallback(uint64_t r
         if (m_receivedEobFromGreenOrRed && m_didRedPartReceptionCallback) {
             if (!m_didNotifyForDeletion) {
                 m_didNotifyForDeletion = true;
-                m_notifyEngineThatThisReceiverNeedsDeletedCallback(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED); //close session (not cancelled)
+                m_notifyEngineThatThisReceiverNeedsDeletedCallbackRef(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED); //close session (not cancelled)
             }
         }
     }
@@ -307,7 +306,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
         if (m_currentRedLength > m_lowestGreenOffsetReceived) {
             if (!m_didNotifyForDeletion) {
                 m_didNotifyForDeletion = true;
-                m_notifyEngineThatThisReceiverNeedsDeletedCallback(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::MISCOLORED); //close session (cancelled)
+                m_notifyEngineThatThisReceiverNeedsDeletedCallbackRef(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::MISCOLORED); //close session (cancelled)
             }
             return;
         }
@@ -320,7 +319,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                 << m_currentRedLength << " bytes) exceeds maximum of " << M_MAX_RED_RX_BYTES << " bytes";
             if (!m_didNotifyForDeletion) {
                 m_didNotifyForDeletion = true;
-                m_notifyEngineThatThisReceiverNeedsDeletedCallback(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::SYSTEM_CANCELLED); //close session (cancelled)
+                m_notifyEngineThatThisReceiverNeedsDeletedCallbackRef(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::SYSTEM_CANCELLED); //close session (cancelled)
             }
             return;
         }
@@ -565,7 +564,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
         if (m_currentRedLength > m_lowestGreenOffsetReceived) {
             if (!m_didNotifyForDeletion) {
                 m_didNotifyForDeletion = true;
-                m_notifyEngineThatThisReceiverNeedsDeletedCallback(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::MISCOLORED); //close session (cancelled)
+                m_notifyEngineThatThisReceiverNeedsDeletedCallbackRef(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::MISCOLORED); //close session (cancelled)
             }
             return;
         }
@@ -588,7 +587,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
             if (noRedSegmentsReceived || m_didRedPartReceptionCallback) { //if no red received or red fully complete, this green EOB shall close the session
                 if (!m_didNotifyForDeletion) {
                     m_didNotifyForDeletion = true;
-                    m_notifyEngineThatThisReceiverNeedsDeletedCallback(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED); //close session (not cancelled)
+                    m_notifyEngineThatThisReceiverNeedsDeletedCallbackRef(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED); //close session (not cancelled)
                 }
             }
         }
@@ -659,6 +658,6 @@ void LtpSessionReceiver::HandleGenerateAndSendReportSegment(const uint64_t check
             //m_mapPrimaryReportSegmentsSent.emplace_hint(m_mapPrimaryReportSegmentsSent.end(), rsn, reportSegment); //m_mapPrimaryReportSegmentsSent[rsn] = reportSegment;
         }
         m_reportsToSendQueue.emplace(itRsSent, 1); //initial retryCount of 1
-        m_notifyEngineThatThisSendersTimersHasProducibleDataFunction(M_SESSION_ID);
+        m_notifyEngineThatThisSendersTimersHasProducibleDataFunctionRef(M_SESSION_ID);
     }
 }

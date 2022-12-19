@@ -22,6 +22,8 @@
 #include <boost/thread.hpp>
 #include <memory>
 #include <unordered_map>
+#include <vector>
+#include <queue>
 #include "Logger.h"
 #include <boost/make_unique.hpp>
 #include <boost/filesystem/fstream.hpp>
@@ -36,13 +38,20 @@ struct MemoryInFiles::Impl : private boost::noncopyable {
 
     Impl() = delete;
     Impl(boost::asio::io_service& ioServiceRef,
-        const boost::filesystem::path& workingDirectory, const uint64_t newFileAggregationTimeMs);
+        const boost::filesystem::path& workingDirectory,
+        const uint64_t newFileAggregationTimeMs,
+        const uint64_t estimatedMaxAllocatedBlocks);
     ~Impl();
     void Stop();
     uint64_t AllocateNewWriteMemoryBlock(std::size_t totalSize);
+    void ForceDeleteMemoryBlock(const uint64_t memoryBlockId); //intended only for boost::asio::post calls to defer delete when io operations in progress
     bool DeleteMemoryBlock(const uint64_t memoryBlockId);
-    bool WriteMemoryAsync(const uint64_t memoryBlockId, const uint64_t offset, const void* data, std::size_t size, write_memory_handler_t&& handler);
-    bool ReadMemoryAsync(const uint64_t memoryBlockId, const uint64_t offset, void* data, std::size_t size, read_memory_handler_t&& handler);
+    bool WriteMemoryAsync(const deferred_write_t& deferredWrite, std::shared_ptr<write_memory_handler_t>& handlerPtr);
+    bool WriteMemoryAsync(const std::vector<deferred_write_t>& deferredWritesVec, std::shared_ptr<write_memory_handler_t>& handlerPtr);
+    bool ReadMemoryAsync(const deferred_read_t& deferredRead, std::shared_ptr<read_memory_handler_t>& handlerPtr);
+    bool ReadMemoryAsync(const std::vector<deferred_read_t>& deferredReadsVec, std::shared_ptr<read_memory_handler_t>& handlerPtr);
+
+    
 
 private:
 
@@ -51,32 +60,64 @@ private:
 #else
     typedef boost::asio::posix::stream_descriptor file_handle_t;
 #endif
+
+    struct MemoryBlockInfo;
+
+    struct io_operation_t : private boost::noncopyable {
+        io_operation_t() = delete;
+        io_operation_t(
+            MemoryBlockInfo& memoryBlockInfoRef,
+            uint64_t offsetWithinFile,
+            std::size_t length,
+            const void* writeLocationPtr,
+            std::shared_ptr<write_memory_handler_t>& writeHandlerPtr);
+
+        io_operation_t(
+            MemoryBlockInfo& memoryBlockInfoRef,
+            std::shared_ptr<read_memory_handler_t>& readHandlerPtr,
+            uint64_t offsetWithinFile,
+            std::size_t length,
+            void* readLocationPtr);
+
+        MemoryBlockInfo& m_memoryBlockInfoRef; //references to unordered_map never get invalidated, only iterators
+        uint64_t m_offsetWithinFile;
+        std::size_t m_length;
+        void* m_readToThisLocationPtr;
+        const void* m_writeFromThisLocationPtr;
+        std::shared_ptr<read_memory_handler_t> m_readHandlerPtr;
+        std::shared_ptr<write_memory_handler_t> m_writeHandlerPtr;
+    };
+
     struct FileInfo : private boost::noncopyable {
         FileInfo() = delete;
-        FileInfo(const boost::filesystem::path& filePath, boost::asio::io_service & ioServiceRef, uint64_t& countTotalFilesActiveRef);
+        FileInfo(const boost::filesystem::path& filePath, boost::asio::io_service & ioServiceRef, MemoryInFiles::Impl& implRef);
         ~FileInfo();
-        bool WriteMemoryAsync(const uint64_t offset, const void* data, std::size_t size, write_memory_handler_t&& handler);
-        bool ReadMemoryAsync(const uint64_t offset, void* data, std::size_t size, read_memory_handler_t&& handler);
-        bool HasDiskOperationInProgress() const;
+        bool WriteMemoryAsync(MemoryBlockInfo& memoryBlockInfoRef, const uint64_t offsetWithinFile, const void* data, std::size_t length, std::shared_ptr<write_memory_handler_t>& handlerPtr);
+        bool ReadMemoryAsync(MemoryBlockInfo& memoryBlockInfoRef, const uint64_t offsetWithinFile, void* data, std::size_t length, std::shared_ptr<read_memory_handler_t>& handlerPtr);
     private:
-        void HandleDiskWriteCompleted(const boost::system::error_code& error, std::size_t bytes_transferred,
-            const write_memory_handler_t& handler);
-        void HandleDiskReadCompleted(const boost::system::error_code& error, std::size_t bytes_transferred,
-            const read_memory_handler_t& handler);
+        void HandleDiskWriteCompleted(const boost::system::error_code& error, std::size_t bytes_transferred);
+        void HandleDiskReadCompleted(const boost::system::error_code& error, std::size_t bytes_transferred);
+        void FinishCompletionHandler(io_operation_t& op);
+        void TryStartNextQueuedIoOperation();
         
-
+        
+        std::queue<io_operation_t> m_queueIoOperations;
         std::unique_ptr<file_handle_t> m_fileHandlePtr;
         boost::filesystem::path m_filePath;
-        uint64_t & m_countTotalFilesActiveRef;
+        MemoryInFiles::Impl& m_implRef;
         bool m_diskOperationInProgress;
         bool m_valid;
     };
+
     struct MemoryBlockInfo : private boost::noncopyable {
         MemoryBlockInfo() = delete;
-        MemoryBlockInfo(const std::shared_ptr<FileInfo>& fileInfoPtr, const uint64_t baseOffsetWithinFile, const std::size_t length);
+        MemoryBlockInfo(const uint64_t memoryBlockId, const std::shared_ptr<FileInfo>& fileInfoPtr, const uint64_t baseOffsetWithinFile, const std::size_t length);
+        const uint64_t m_memoryBlockId;
         std::shared_ptr<FileInfo> m_fileInfoPtr;
         const uint64_t m_baseOffsetWithinFile;
         const std::size_t m_length;
+        unsigned int m_queuedOperationsReferenceCount;
+        bool m_markedForDeletion;
     };
 
     void TryRestartNewFileAggregationTimer();
@@ -104,9 +145,37 @@ public: //stats
     uint64_t m_countTotalFilesActive;
 };
 
-MemoryInFiles::Impl::FileInfo::FileInfo(const boost::filesystem::path& filePath, boost::asio::io_service& ioServiceRef, uint64_t& countTotalFilesActiveRef) :
+MemoryInFiles::Impl::io_operation_t::io_operation_t(
+    MemoryBlockInfo& memoryBlockInfoRef,
+    uint64_t offsetWithinFile,
+    std::size_t length,
+    const void* writeLocationPtr,
+    std::shared_ptr<write_memory_handler_t>& writeHandlerPtr) :
+    ///
+    m_memoryBlockInfoRef(memoryBlockInfoRef),
+    m_offsetWithinFile(offsetWithinFile),
+    m_length(length),
+    m_readToThisLocationPtr(NULL),
+    m_writeFromThisLocationPtr(writeLocationPtr),
+    m_writeHandlerPtr(writeHandlerPtr) {}
+
+MemoryInFiles::Impl::io_operation_t::io_operation_t(
+    MemoryBlockInfo& memoryBlockInfoRef,
+    std::shared_ptr<read_memory_handler_t>& readHandlerPtr,
+    uint64_t offsetWithinFile,
+    std::size_t length,
+    void* readLocationPtr) :
+    ///
+    m_memoryBlockInfoRef(memoryBlockInfoRef),
+    m_offsetWithinFile(offsetWithinFile),
+    m_length(length),
+    m_readToThisLocationPtr(readLocationPtr),
+    m_writeFromThisLocationPtr(NULL),
+    m_readHandlerPtr(readHandlerPtr) {}
+
+MemoryInFiles::Impl::FileInfo::FileInfo(const boost::filesystem::path& filePath, boost::asio::io_service& ioServiceRef, MemoryInFiles::Impl& implRef) :
     m_filePath(filePath),
-    m_countTotalFilesActiveRef(countTotalFilesActiveRef),
+    m_implRef(implRef),
     m_diskOperationInProgress(false),
     m_valid(false)
 {
@@ -146,7 +215,7 @@ MemoryInFiles::Impl::FileInfo::FileInfo(const boost::filesystem::path& filePath,
 }
 MemoryInFiles::Impl::FileInfo::~FileInfo() {
     //last shared_ptr to delete calls this destructor
-    --m_countTotalFilesActiveRef;
+    --m_implRef.m_countTotalFilesActive;
     if (m_fileHandlePtr) {
         m_fileHandlePtr->close();
         m_fileHandlePtr.reset(); //delete it
@@ -155,77 +224,92 @@ MemoryInFiles::Impl::FileInfo::~FileInfo() {
         LOG_ERROR(subprocess) << "error deleting file " << m_filePath;
     }
 }
-bool MemoryInFiles::Impl::FileInfo::WriteMemoryAsync(const uint64_t offset, const void* data, std::size_t size, write_memory_handler_t&& handler) {
-    if ((!m_valid) || m_diskOperationInProgress) {
-        return false;
-    }
-    m_diskOperationInProgress = true;
-
-
+void MemoryInFiles::Impl::FileInfo::TryStartNextQueuedIoOperation() {
+    if (m_queueIoOperations.size() && (!m_diskOperationInProgress)) {
+        io_operation_t& op = m_queueIoOperations.front();
+        m_diskOperationInProgress = true;
+        if (op.m_readToThisLocationPtr) {
 #ifdef _WIN32
-    boost::asio::async_write_at(*m_fileHandlePtr, offset,
+            boost::asio::async_read_at(*m_fileHandlePtr, op.m_offsetWithinFile,
 #else
-    lseek64(m_fileHandlePtr->native_handle(), offset, SEEK_SET);
-    boost::asio::async_write(*m_fileHandlePtr,
+            lseek64(m_fileHandlePtr->native_handle(), op.m_offsetWithinFile, SEEK_SET);
+            boost::asio::async_read(*m_fileHandlePtr,
 #endif
-        boost::asio::buffer(data, size),
-        boost::bind(&MemoryInFiles::Impl::FileInfo::HandleDiskWriteCompleted, this,
-            boost::asio::placeholders::error,
-            boost::asio::placeholders::bytes_transferred,
-            std::move(handler)));
-    return true;
+                boost::asio::buffer(op.m_readToThisLocationPtr, op.m_length),
+                boost::bind(&MemoryInFiles::Impl::FileInfo::HandleDiskReadCompleted, this,
+                    boost::asio::placeholders::error,
+                    boost::asio::placeholders::bytes_transferred));
+        }
+        else { //write operation
+#ifdef _WIN32
+            boost::asio::async_write_at(*m_fileHandlePtr, op.m_offsetWithinFile,
+#else
+            lseek64(m_fileHandlePtr->native_handle(), op.m_offsetWithinFile, SEEK_SET);
+            boost::asio::async_write(*m_fileHandlePtr,
+#endif
+                boost::asio::const_buffer(op.m_writeFromThisLocationPtr, op.m_length),
+                boost::bind(&MemoryInFiles::Impl::FileInfo::HandleDiskWriteCompleted, this,
+                    boost::asio::placeholders::error,
+                    boost::asio::placeholders::bytes_transferred));
+        }
+    }
 }
-void MemoryInFiles::Impl::FileInfo::HandleDiskWriteCompleted(const boost::system::error_code& error, std::size_t bytes_transferred,
-    const write_memory_handler_t& handler)
-{
-    m_diskOperationInProgress = false;
+bool MemoryInFiles::Impl::FileInfo::WriteMemoryAsync(MemoryBlockInfo& memoryBlockInfoRef, const uint64_t offsetWithinFile, const void* data, std::size_t length, std::shared_ptr<write_memory_handler_t>& handlerPtr) {
+    if (m_valid) {
+        m_queueIoOperations.emplace(memoryBlockInfoRef, offsetWithinFile, length, data, handlerPtr);
+        ++memoryBlockInfoRef.m_queuedOperationsReferenceCount;
+        TryStartNextQueuedIoOperation();
+    }
+    return m_valid;
+}
+void MemoryInFiles::Impl::FileInfo::HandleDiskWriteCompleted(const boost::system::error_code& error, std::size_t bytes_transferred) {
+    io_operation_t& op = m_queueIoOperations.front();
     if (error) {
         LOG_ERROR(subprocess) << "HandleDiskWriteCompleted: " << error.message();
     }
     else {
-        if (handler) {
-            handler();
+        if ((op.m_writeHandlerPtr) && (op.m_writeHandlerPtr.use_count() == 1)) { //only the last reference to a handler should be called to complete a multi-operation
+            write_memory_handler_t& handler = *op.m_writeHandlerPtr;
+            if (handler) {
+                handler();
+            }
         }
     }
+    FinishCompletionHandler(op);
 }
 
-bool MemoryInFiles::Impl::FileInfo::ReadMemoryAsync(const uint64_t offset, void* data, std::size_t size, read_memory_handler_t&& handler)
-{
-    if ((!m_valid) || m_diskOperationInProgress) {
-        return false;
+bool MemoryInFiles::Impl::FileInfo::ReadMemoryAsync(MemoryBlockInfo& memoryBlockInfoRef, const uint64_t offsetWithinFile, void* data, std::size_t length, std::shared_ptr<read_memory_handler_t>& handlerPtr) {
+    if (m_valid) {
+        m_queueIoOperations.emplace(memoryBlockInfoRef, handlerPtr, offsetWithinFile, length, data);
+        ++memoryBlockInfoRef.m_queuedOperationsReferenceCount;
+        TryStartNextQueuedIoOperation();
     }
-    m_diskOperationInProgress = true;
-
-
-#ifdef _WIN32
-    boost::asio::async_read_at(*m_fileHandlePtr, offset,
-#else
-    lseek64(m_fileHandlePtr->native_handle(), offset, SEEK_SET);
-    boost::asio::async_read(*m_fileHandlePtr,
-#endif
-        boost::asio::buffer(data, size),
-        boost::bind(&MemoryInFiles::Impl::FileInfo::HandleDiskReadCompleted, this,
-            boost::asio::placeholders::error,
-            boost::asio::placeholders::bytes_transferred,
-            std::move(handler)));
-    return true;
+    return m_valid;
 }
-void MemoryInFiles::Impl::FileInfo::HandleDiskReadCompleted(const boost::system::error_code& error, std::size_t bytes_transferred,
-    const read_memory_handler_t& handler)
-{
-    m_diskOperationInProgress = false;
+void MemoryInFiles::Impl::FileInfo::HandleDiskReadCompleted(const boost::system::error_code& error, std::size_t bytes_transferred) {
+    io_operation_t& op = m_queueIoOperations.front();
     bool success = true;
     if (error) {
-        LOG_ERROR(subprocess) << "HandleDiskWriteCompleted: " << error.message();
+        LOG_ERROR(subprocess) << "HandleDiskReadCompleted: " << error.message();
         success = false;
     }
-
-    if (handler) {
-        handler(success);
+    if ((op.m_readHandlerPtr) && (op.m_readHandlerPtr.use_count() == 1)) { //only the last reference to a handler should be called to complete a multi-operation
+        read_memory_handler_t& handler = *op.m_readHandlerPtr;
+        if (handler) {
+            handler(success);
+        }
     }
+    FinishCompletionHandler(op);
 }
-bool MemoryInFiles::Impl::FileInfo::HasDiskOperationInProgress() const {
-    return m_diskOperationInProgress;
+void MemoryInFiles::Impl::FileInfo::FinishCompletionHandler(io_operation_t& op) {
+    --op.m_memoryBlockInfoRef.m_queuedOperationsReferenceCount;
+    if (op.m_memoryBlockInfoRef.m_markedForDeletion && (op.m_memoryBlockInfoRef.m_queuedOperationsReferenceCount == 0)) {
+        //don't potentially delete "this" (FileInfo) while in a FileInfo function when deleting a memoryBlockInfo which has a shared_ptr to the FileInfo
+        boost::asio::post(m_implRef.m_ioServiceRef, boost::bind(&MemoryInFiles::Impl::ForceDeleteMemoryBlock, &m_implRef, op.m_memoryBlockInfoRef.m_memoryBlockId));
+    }
+    m_queueIoOperations.pop();
+    m_diskOperationInProgress = false;
+    TryStartNextQueuedIoOperation();
 }
 
 //restarts the token refresh timer if it is not running from now
@@ -246,17 +330,22 @@ void MemoryInFiles::Impl::OnNewFileAggregation_TimerExpired(const boost::system:
 }
 
 MemoryInFiles::Impl::MemoryBlockInfo::MemoryBlockInfo(
+    const uint64_t memoryBlockId,
     const std::shared_ptr<FileInfo>& fileInfoPtr,
     const uint64_t baseOffsetWithinFile, const std::size_t length) :
+    m_memoryBlockId(memoryBlockId),
     m_fileInfoPtr(fileInfoPtr),
     m_baseOffsetWithinFile(baseOffsetWithinFile),
-    m_length(length)
+    m_length(length),
+    m_queuedOperationsReferenceCount(0),
+    m_markedForDeletion(false)
 {
 
 }
 
 MemoryInFiles::Impl::Impl(boost::asio::io_service& ioServiceRef,
-    const boost::filesystem::path& workingDirectory, const uint64_t newFileAggregationTimeMs) :
+    const boost::filesystem::path& workingDirectory,
+    const uint64_t newFileAggregationTimeMs, const uint64_t estimatedMaxAllocatedBlocks) :
     m_ioServiceRef(ioServiceRef),
     m_newFileAggregationTimer(ioServiceRef),
     m_rootStorageDirectory(workingDirectory / boost::filesystem::unique_path()),
@@ -269,6 +358,7 @@ MemoryInFiles::Impl::Impl(boost::asio::io_service& ioServiceRef,
     m_countTotalFilesCreated(0),
     m_countTotalFilesActive(0)
 {
+    m_mapIdToMemoryBlockInfo.reserve(estimatedMaxAllocatedBlocks);
     if (boost::filesystem::is_directory(workingDirectory)) {
         if (!boost::filesystem::is_directory(m_rootStorageDirectory)) {
             if (!boost::filesystem::create_directory(m_rootStorageDirectory)) {
@@ -307,7 +397,7 @@ uint64_t MemoryInFiles::Impl::AllocateNewWriteMemoryBlock(std::size_t totalSize)
             LOG_ERROR(subprocess) << "MemoryInFiles::Impl::WriteMemoryAsync: " << fullFilePath << " already exists";
             return 0;
         }
-        m_currentWritingFileInfoPtr = std::make_shared<FileInfo>(fullFilePath, m_ioServiceRef, m_countTotalFilesActive);
+        m_currentWritingFileInfoPtr = std::make_shared<FileInfo>(fullFilePath, m_ioServiceRef, *this);
         TryRestartNewFileAggregationTimer(); //only start timer on new write allocation to prevent periodic empty files from being created
         ++m_countTotalFilesCreated;
         ++m_countTotalFilesActive;
@@ -318,7 +408,7 @@ uint64_t MemoryInFiles::Impl::AllocateNewWriteMemoryBlock(std::size_t totalSize)
     std::pair<id_to_memoryblockinfo_map_t::iterator, bool> ret = m_mapIdToMemoryBlockInfo.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(memoryBlockId),
-            std::forward_as_tuple(m_currentWritingFileInfoPtr, m_nextOffsetOfCurrentFile, totalSize));
+            std::forward_as_tuple(memoryBlockId, m_currentWritingFileInfoPtr, m_nextOffsetOfCurrentFile, totalSize));
     //(true if insertion happened, false if it did not).
     if (ret.second) {
         m_nextOffsetOfCurrentFile += totalSize;
@@ -329,46 +419,86 @@ uint64_t MemoryInFiles::Impl::AllocateNewWriteMemoryBlock(std::size_t totalSize)
         return 0;
     }
 }
+void MemoryInFiles::Impl::ForceDeleteMemoryBlock(const uint64_t memoryBlockId) {
+    if (m_mapIdToMemoryBlockInfo.erase(memoryBlockId)) {
+        LOG_DEBUG(subprocess) << "Deferred delete successful of memoryBlockId=" << memoryBlockId;
+    }
+    else {
+        LOG_ERROR(subprocess) << "Deferred delete failed of memoryBlockId=" << memoryBlockId;
+    }
+}
 bool MemoryInFiles::Impl::DeleteMemoryBlock(const uint64_t memoryBlockId) {
     id_to_memoryblockinfo_map_t::iterator it = m_mapIdToMemoryBlockInfo.find(memoryBlockId);
     if (it == m_mapIdToMemoryBlockInfo.end()) {
         return false;
     }
     MemoryBlockInfo& mbi = it->second;
-    if (mbi.m_fileInfoPtr->HasDiskOperationInProgress()) {
-        return false;
+    if (mbi.m_queuedOperationsReferenceCount) {
+        if (mbi.m_markedForDeletion) { //already marked for deletion (double call to DeleteMemoryBlock)
+            return false;
+        }
+        mbi.m_markedForDeletion = true;
+        LOG_DEBUG(subprocess) << "DeleteMemoryBlock called while i/o operations in progress. Deferring deletion of memoryBlockId=" << memoryBlockId;
+        return true;
     }
     m_mapIdToMemoryBlockInfo.erase(it);
     return true;
 }
-bool MemoryInFiles::Impl::WriteMemoryAsync(const uint64_t memoryBlockId, const uint64_t offset, const void* data, std::size_t size, write_memory_handler_t&& handler) {
+bool MemoryInFiles::Impl::WriteMemoryAsync(const deferred_write_t& deferredWrite, std::shared_ptr<write_memory_handler_t>& handlerPtr) {
     
-    id_to_memoryblockinfo_map_t::iterator it = m_mapIdToMemoryBlockInfo.find(memoryBlockId);
+    id_to_memoryblockinfo_map_t::iterator it = m_mapIdToMemoryBlockInfo.find(deferredWrite.memoryBlockId);
     if (it == m_mapIdToMemoryBlockInfo.end()) {
         return false;
     }
     MemoryBlockInfo& mbi = it->second;
-    if ((offset + size) > mbi.m_length) {
+    if (mbi.m_markedForDeletion) {
+        LOG_ERROR(subprocess) << "WriteMemoryAsync called on marked for deletion block with memoryBlockId=" << deferredWrite.memoryBlockId;
         return false;
     }
-    return mbi.m_fileInfoPtr->WriteMemoryAsync(offset, data, size, std::move(handler));
+    if ((deferredWrite.offset + deferredWrite.length) > mbi.m_length) {
+        return false;
+    }
+    const uint64_t offsetWithinFile = mbi.m_baseOffsetWithinFile + deferredWrite.offset;
+    return mbi.m_fileInfoPtr->WriteMemoryAsync(mbi, offsetWithinFile, deferredWrite.writeFromThisLocationPtr, deferredWrite.length, handlerPtr);
 }
-bool MemoryInFiles::Impl::ReadMemoryAsync(const uint64_t memoryBlockId, const uint64_t offset, void* data, std::size_t size, read_memory_handler_t&& handler) {
-    id_to_memoryblockinfo_map_t::iterator it = m_mapIdToMemoryBlockInfo.find(memoryBlockId);
+bool MemoryInFiles::Impl::WriteMemoryAsync(const std::vector<deferred_write_t>& deferredWritesVec, std::shared_ptr<write_memory_handler_t>& handlerPtr) {
+    for (std::size_t i = 0; i < deferredWritesVec.size(); ++i) {
+        if (!WriteMemoryAsync(deferredWritesVec[i], handlerPtr)) {
+            return false;
+        }
+    }
+    return true;
+}
+bool MemoryInFiles::Impl::ReadMemoryAsync(const deferred_read_t& deferredRead, std::shared_ptr<read_memory_handler_t>& handlerPtr) {
+    id_to_memoryblockinfo_map_t::iterator it = m_mapIdToMemoryBlockInfo.find(deferredRead.memoryBlockId);
     if (it == m_mapIdToMemoryBlockInfo.end()) {
         return false;
     }
     MemoryBlockInfo& mbi = it->second;
-    if ((offset + size) > mbi.m_length) {
+    if (mbi.m_markedForDeletion) {
+        LOG_ERROR(subprocess) << "ReadMemoryAsync called on marked for deletion block with memoryBlockId=" << deferredRead.memoryBlockId;
         return false;
     }
-    return mbi.m_fileInfoPtr->ReadMemoryAsync(offset, data, size, std::move(handler));
+    if ((deferredRead.offset + deferredRead.length) > mbi.m_length) {
+        return false;
+    }
+    const uint64_t offsetWithinFile = mbi.m_baseOffsetWithinFile + deferredRead.offset;
+    return mbi.m_fileInfoPtr->ReadMemoryAsync(mbi, offsetWithinFile, deferredRead.readToThisLocationPtr, deferredRead.length, handlerPtr);
+}
+bool MemoryInFiles::Impl::ReadMemoryAsync(const std::vector<deferred_read_t>& deferredReadsVec, std::shared_ptr<read_memory_handler_t>& handlerPtr) {
+    for (std::size_t i = 0; i < deferredReadsVec.size(); ++i) {
+        if (!ReadMemoryAsync(deferredReadsVec[i], handlerPtr)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 
 MemoryInFiles::MemoryInFiles(boost::asio::io_service& ioServiceRef,
-    const boost::filesystem::path& rootStorageDirectory, const uint64_t newFileAggregationTimeMs) :
-    m_pimpl(boost::make_unique<MemoryInFiles::Impl>(ioServiceRef, rootStorageDirectory, newFileAggregationTimeMs))
+    const boost::filesystem::path& rootStorageDirectory,
+    const uint64_t newFileAggregationTimeMs, const uint64_t estimatedMaxAllocatedBlocks) :
+    m_pimpl(boost::make_unique<MemoryInFiles::Impl>(ioServiceRef, rootStorageDirectory, newFileAggregationTimeMs, estimatedMaxAllocatedBlocks))
 {}
 MemoryInFiles::~MemoryInFiles() {}
 
@@ -379,18 +509,38 @@ bool MemoryInFiles::DeleteMemoryBlock(const uint64_t memoryBlockId) {
     return m_pimpl->DeleteMemoryBlock(memoryBlockId);
 }
 
-bool MemoryInFiles::WriteMemoryAsync(const uint64_t memoryBlockId, const uint64_t offset, const void* data, std::size_t size, const write_memory_handler_t& handler) {
-    return m_pimpl->WriteMemoryAsync(memoryBlockId, offset, data, size, std::move(write_memory_handler_t(handler)));
+bool MemoryInFiles::WriteMemoryAsync(const deferred_write_t& deferredWrite, const write_memory_handler_t& handler) {
+    std::shared_ptr<write_memory_handler_t> hPtr = std::make_shared<write_memory_handler_t>(handler);
+    return m_pimpl->WriteMemoryAsync(deferredWrite, hPtr);
 }
-bool MemoryInFiles::WriteMemoryAsync(const uint64_t memoryBlockId, const uint64_t offset, const void* data, std::size_t size, write_memory_handler_t&& handler) {
-    return m_pimpl->WriteMemoryAsync(memoryBlockId, offset, data, size, std::move(handler));
+bool MemoryInFiles::WriteMemoryAsync(const deferred_write_t& deferredWrite, write_memory_handler_t&& handler) {
+    std::shared_ptr<write_memory_handler_t> hPtr = std::make_shared<write_memory_handler_t>(std::move(handler));
+    return m_pimpl->WriteMemoryAsync(deferredWrite, hPtr);
+}
+bool MemoryInFiles::WriteMemoryAsync(const std::vector<deferred_write_t>& deferredWritesVec, const write_memory_handler_t& handler) {
+    std::shared_ptr<write_memory_handler_t> hPtr = std::make_shared<write_memory_handler_t>(handler);
+    return m_pimpl->WriteMemoryAsync(deferredWritesVec, hPtr);
+}
+bool MemoryInFiles::WriteMemoryAsync(const std::vector<deferred_write_t>& deferredWritesVec, write_memory_handler_t&& handler) {
+    std::shared_ptr<write_memory_handler_t> hPtr = std::make_shared<write_memory_handler_t>(std::move(handler));
+    return m_pimpl->WriteMemoryAsync(deferredWritesVec, hPtr);
 }
 
-bool MemoryInFiles::ReadMemoryAsync(const uint64_t memoryBlockId, const uint64_t offset, void* data, std::size_t size, const read_memory_handler_t& handler) {
-    return m_pimpl->ReadMemoryAsync(memoryBlockId, offset, data, size, std::move(read_memory_handler_t(handler)));
+bool MemoryInFiles::ReadMemoryAsync(const deferred_read_t& deferredRead, const read_memory_handler_t& handler) {
+    std::shared_ptr<read_memory_handler_t> hPtr = std::make_shared<read_memory_handler_t>(handler);
+    return m_pimpl->ReadMemoryAsync(deferredRead, hPtr);
 }
-bool MemoryInFiles::ReadMemoryAsync(const uint64_t memoryBlockId, const uint64_t offset, void* data, std::size_t size, read_memory_handler_t&& handler) {
-    return m_pimpl->ReadMemoryAsync(memoryBlockId, offset, data, size, std::move(handler));
+bool MemoryInFiles::ReadMemoryAsync(const deferred_read_t& deferredRead, read_memory_handler_t&& handler) {
+    std::shared_ptr<read_memory_handler_t> hPtr = std::make_shared<read_memory_handler_t>(std::move(handler));
+    return m_pimpl->ReadMemoryAsync(deferredRead, hPtr);
+}
+bool MemoryInFiles::ReadMemoryAsync(const std::vector<deferred_read_t>& deferredReadsVec, const read_memory_handler_t& handler) {
+    std::shared_ptr<read_memory_handler_t> hPtr = std::make_shared<read_memory_handler_t>(handler);
+    return m_pimpl->ReadMemoryAsync(deferredReadsVec, hPtr);
+}
+bool MemoryInFiles::ReadMemoryAsync(const std::vector<deferred_read_t>& deferredReadsVec, read_memory_handler_t&& handler) {
+    std::shared_ptr<read_memory_handler_t> hPtr = std::make_shared<read_memory_handler_t>(std::move(handler));
+    return m_pimpl->ReadMemoryAsync(deferredReadsVec, hPtr);
 }
 
 uint64_t MemoryInFiles::GetCountTotalFilesCreated() const {

@@ -19,26 +19,17 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-LtpUdpEngine::LtpUdpEngine(boost::asio::io_service & ioServiceUdpRef, boost::asio::ip::udp::socket & udpSocketRef,
-    const uint64_t thisEngineId, const uint8_t engineIndexForEncodingIntoRandomSessionNumber,
-    const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
-    const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
-    const boost::asio::ip::udp::endpoint & remoteEndpoint, const unsigned int numUdpRxCircularBufferVectors,
-    const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, uint32_t checkpointEveryNthDataPacketSender,
-    uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxUdpRxPacketSizeBytes, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
-    const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
-    const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable, const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable,
-    const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable) :
-    LtpEngine(thisEngineId, engineIndexForEncodingIntoRandomSessionNumber, mtuClientServiceData, mtuReportSegment, oneWayLightTime, oneWayMarginTime,
-        ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, maxRedRxBytesPerSession, true, checkpointEveryNthDataPacketSender, maxRetriesPerSerialNumber,
-        force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, maxSimultaneousSessions,
-        rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable, maxUdpPacketsToSendPerSystemCall, senderPingSecondsOrZeroToDisable,
-        delaySendingOfReportSegmentsTimeMsOrZeroToDisable, delaySendingOfDataSegmentsTimeMsOrZeroToDisable),
+LtpUdpEngine::LtpUdpEngine(boost::asio::io_service& ioServiceUdpRef,
+    boost::asio::ip::udp::socket& udpSocketRef,
+    const uint8_t engineIndexForEncodingIntoRandomSessionNumber,
+    const boost::asio::ip::udp::endpoint& remoteEndpoint,
+    const uint64_t maxUdpRxPacketSizeBytes,
+    const LtpEngineConfig& ltpRxOrTxCfg) :
+    LtpEngine(ltpRxOrTxCfg, engineIndexForEncodingIntoRandomSessionNumber, true),
     m_ioServiceUdpRef(ioServiceUdpRef),
     m_udpSocketRef(udpSocketRef),
     m_remoteEndpoint(remoteEndpoint),
-    M_NUM_CIRCULAR_BUFFER_VECTORS(numUdpRxCircularBufferVectors),
-    M_MAX_UDP_RX_PACKET_SIZE_BYTES(maxUdpRxPacketSizeBytes),
+    M_NUM_CIRCULAR_BUFFER_VECTORS(ltpRxOrTxCfg.numUdpRxCircularBufferVectors),
     m_circularIndexBuffer(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_udpReceiveBuffersCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_printedCbTooSmallNotice(false),
@@ -160,9 +151,13 @@ void LtpUdpEngine::HandleUdpSend(std::shared_ptr<std::vector<std::vector<uint8_t
     else {
         //rate stuff handled in LtpEngine due to self-sending nature of LtpEngine
 
-        if (m_countAsyncSendCallbackCalls == m_countAsyncSendCalls) { //prevent too many sends from stacking up in ioService queue
-            SignalReadyForSend_ThreadSafe();
-        }
+        //OLD BEHAVIOR (only notify LtpEngine when socket is out of data)
+        //if (m_countAsyncSendCallbackCalls == m_countAsyncSendCalls) { //prevent too many sends from stacking up in ioService queue
+        //    SignalReadyForSend_ThreadSafe();
+        //}
+
+        //NEW BEHAVIOR (always notify LtpEngine which keeps its own internal count of pending Udp Send system calls queued)
+        OnSendPacketsSystemCallCompleted_ThreadSafe(); //per system call operation, not per udp packet(s)
     }
 }
 
@@ -180,9 +175,13 @@ void LtpUdpEngine::OnSentPacketsCallback(bool success, std::vector<std::vector<b
     else {
         //rate stuff handled in LtpEngine due to self-sending nature of LtpEngine
 
-        if (m_countBatchSendCallbackCalls == m_countBatchSendCalls) { //prevent too many sends from stacking up in UdpBatchSender queue
-            SignalReadyForSend_ThreadSafe();
-        }
+        //OLD BEHAVIOR (only notify LtpEngine when socket is out of data)
+        //if (m_countBatchSendCallbackCalls == m_countBatchSendCalls) { //prevent too many sends from stacking up in UdpBatchSender queue
+        //    SignalReadyForSend_ThreadSafe();
+        //}
+
+        //NEW BEHAVIOR (always notify LtpEngine which keeps its own internal count of pending Udp Send system calls queued)
+        OnSendPacketsSystemCallCompleted_ThreadSafe(); //per system call operation, not per udp packet(s)
     }
 }
 

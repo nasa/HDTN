@@ -29,8 +29,10 @@
 #include "LtpNoticesToClientService.h"
 #include "LtpClientServiceDataToSend.h"
 #include "LtpSessionRecreationPreventer.h"
+#include "LtpEngineConfig.h"
 #include "TokenRateLimiter.h"
 #include "BundleCallbackFunctionDefines.h"
+#include "MemoryInFiles.h"
 #include <unordered_map>
 #include <queue>
 #include <memory>
@@ -57,19 +59,13 @@ public:
         uint8_t retryCount;
     };
     
-    LTP_LIB_EXPORT LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEncodingIntoRandomSessionNumber, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
-        const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
-        const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, bool startIoServiceThread,
-        uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
-        const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
-        const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable, const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable,
-        const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable);
+    LTP_LIB_EXPORT LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIndexForEncodingIntoRandomSessionNumber, bool startIoServiceThread);
 
     LTP_LIB_EXPORT virtual ~LtpEngine();
 
     LTP_LIB_EXPORT virtual void Reset();
     LTP_LIB_EXPORT void SetCheckpointEveryNthDataPacketForSenders(uint64_t checkpointEveryNthDataPacketSender);
-    LTP_LIB_EXPORT void SetMtuReportSegment(uint64_t mtuReportSegment);
+    LTP_LIB_EXPORT uint8_t GetEngineIndex();
 
     LTP_LIB_EXPORT void TransmissionRequest(std::shared_ptr<transmission_request_t> & transmissionRequest);
     LTP_LIB_EXPORT void TransmissionRequest_ThreadSafe(std::shared_ptr<transmission_request_t> && transmissionRequest);
@@ -79,6 +75,13 @@ public:
         const uint8_t * clientServiceDataToCopyAndSend, uint64_t length, std::shared_ptr<LtpTransmissionRequestUserData> && userDataPtrToTake, uint64_t lengthOfRedPart);
     LTP_LIB_EXPORT void TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId,
         const uint8_t * clientServiceDataToCopyAndSend, uint64_t length, uint64_t lengthOfRedPart);
+private:
+    LTP_LIB_NO_EXPORT void DoTransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId,
+        LtpClientServiceDataToSend&& clientServiceDataToSend, std::shared_ptr<LtpTransmissionRequestUserData>&& userDataPtrToTake, uint64_t lengthOfRedPart, uint64_t memoryBlockId);
+    LTP_LIB_NO_EXPORT void OnTransmissionRequestDataWrittenToDisk(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId,
+        std::shared_ptr<LtpClientServiceDataToSend>& clientServiceDataToSendPtrToTake, std::shared_ptr<LtpTransmissionRequestUserData>& userDataPtrToTake,
+        uint64_t lengthOfRedPart, uint64_t memoryBlockId);
+public:
 
     LTP_LIB_EXPORT bool CancellationRequest(const Ltp::session_id_t & sessionId);
     LTP_LIB_EXPORT void CancellationRequest_ThreadSafe(const Ltp::session_id_t & sessionId);
@@ -105,10 +108,7 @@ public:
 
     LTP_LIB_EXPORT void PostExternalLinkDownEvent_ThreadSafe();
 
-    LTP_LIB_EXPORT bool GetNextPacketToSend(std::vector<boost::asio::const_buffer> & constBufferVec,
-        std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback,
-        std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback,
-        uint64_t & sessionOriginatorEngineId);
+    LTP_LIB_EXPORT bool GetNextPacketToSend(UdpSendPacketInfo& udpSendPacketInfo);
 
     LTP_LIB_EXPORT std::size_t NumActiveReceivers() const;
     LTP_LIB_EXPORT std::size_t NumActiveSenders() const;
@@ -118,19 +118,32 @@ public:
     
     LTP_LIB_EXPORT void SetDelays_ThreadSafe(const boost::posix_time::time_duration& oneWayLightTime, const boost::posix_time::time_duration& oneWayMarginTime, bool updateRunningTimers);
     LTP_LIB_EXPORT void SetDeferDelays_ThreadSafe(const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable, const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable);
+    LTP_LIB_EXPORT void SetMtuReportSegment_ThreadSafe(uint64_t mtuReportSegment);
+    LTP_LIB_EXPORT void SetMtuDataSegment_ThreadSafe(uint64_t mtuDataSegment);
 protected:
     LTP_LIB_EXPORT void SetDelays(const boost::posix_time::time_duration& oneWayLightTime, const boost::posix_time::time_duration& oneWayMarginTime, bool updateRunningTimers);
     LTP_LIB_EXPORT void SetDeferDelays(const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable, const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable);
+    LTP_LIB_EXPORT void SetMtuReportSegment(uint64_t mtuReportSegment);
+    LTP_LIB_EXPORT void SetMtuDataSegment(uint64_t mtuDataSegment);
+
     LTP_LIB_EXPORT virtual void PacketInFullyProcessedCallback(bool success);
     LTP_LIB_EXPORT virtual void SendPacket(std::vector<boost::asio::const_buffer>& constBufferVec,
         std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
         std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback);
-    LTP_LIB_EXPORT void SignalReadyForSend_ThreadSafe();
     LTP_LIB_EXPORT virtual void SendPackets(std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
         std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback,
         std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallback);
+    LTP_LIB_EXPORT void OnSendPacketsSystemCallCompleted_ThreadSafe();
 private:
-    LTP_LIB_NO_EXPORT void TrySendPacketIfAvailable();
+    LTP_LIB_NO_EXPORT void SignalReadyForSend_ThreadSafe();
+    LTP_LIB_NO_EXPORT void OnSendPacketsSystemCallCompleted_NotThreadSafe();
+    LTP_LIB_NO_EXPORT void TrySaturateSendPacketPipeline();
+    LTP_LIB_NO_EXPORT bool TrySendPacketIfAvailable();
+    LTP_LIB_NO_EXPORT void OnDeferredReadCompleted(bool success, std::vector<boost::asio::const_buffer>& constBufferVec,
+        std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback);
+    LTP_LIB_NO_EXPORT void OnDeferredMultiReadCompleted(bool success, std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
+        std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
+        std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec);
 
     LTP_LIB_NO_EXPORT void CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode, bool isFromSender,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
@@ -164,12 +177,11 @@ private:
     const uint64_t M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION;
     const uint64_t M_MAX_RED_RX_BYTES_PER_SESSION;
     const uint64_t M_THIS_ENGINE_ID;
-    const uint64_t M_MTU_CLIENT_SERVICE_DATA;
+    uint64_t m_mtuClientServiceData;
+    unsigned int m_numSendPacketsPendingSystemCalls;
 protected:
     const uint64_t M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL;
 private:
-    const boost::posix_time::time_duration M_ONE_WAY_LIGHT_TIME;
-    const boost::posix_time::time_duration M_ONE_WAY_MARGIN_TIME;
     boost::posix_time::time_duration m_transmissionToAckReceivedTime;
     boost::posix_time::time_duration m_delaySendingOfReportSegmentsTime;
     boost::posix_time::time_duration m_delaySendingOfDataSegmentsTime;
@@ -184,10 +196,22 @@ private:
     const uint64_t M_MAX_RX_DATA_SEGMENT_HISTORY_OR_ZERO_DISABLE;//rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable
     boost::random_device m_randomDevice;
 
-    typedef std::unordered_map<uint64_t, std::unique_ptr<LtpSessionSender> > map_session_number_to_session_sender_t;
-    typedef std::unordered_map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver>, Ltp::hash_session_id_t > map_session_id_to_session_receiver_t;
+    //session receiver functions to be passed in AS REFERENCES (note declared before m_mapSessionIdToSessionReceiver so destroyed after map)
+    NotifyEngineThatThisReceiverNeedsDeletedCallback_t m_notifyEngineThatThisReceiverNeedsDeletedCallback;
+    NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t m_notifyEngineThatThisSendersTimersHasProducibleDataFunction;
+
+    //session sender functions to be passed in AS REFERENCES (note declared before m_mapSessionNumberToSessionSender so destroyed after map)
+    NotifyEngineThatThisSenderNeedsDeletedCallback_t m_notifyEngineThatThisSenderNeedsDeletedCallback;
+    NotifyEngineThatThisSenderHasProducibleDataFunction_t m_notifyEngineThatThisSenderHasProducibleDataFunction;
+    InitialTransmissionCompletedCallback_t m_initialTransmissionCompletedCallbackCalledBySender; //which then calls m_initialTransmissionCompletedCallbackForUser
+
+    typedef std::unordered_map<uint64_t, LtpSessionSender> map_session_number_to_session_sender_t;
+    typedef std::unordered_map<Ltp::session_id_t, LtpSessionReceiver, Ltp::hash_session_id_t > map_session_id_to_session_receiver_t;
     map_session_number_to_session_sender_t m_mapSessionNumberToSessionSender;
     map_session_id_to_session_receiver_t m_mapSessionIdToSessionReceiver;
+    LTP_LIB_NO_EXPORT void EraseTxSession(map_session_number_to_session_sender_t::iterator& txSessionIt);
+    LTP_LIB_NO_EXPORT void EraseRxSession(map_session_id_to_session_receiver_t::iterator& rxSessionIt);
+    
 
     std::queue<std::pair<uint64_t, std::vector<uint8_t> > > m_queueClosedSessionDataToSend; //sessionOriginatorEngineId, data
     std::queue<cancel_segment_timer_info_t> m_queueCancelSegmentTimerInfo;
@@ -202,7 +226,7 @@ private:
     GreenPartSegmentArrivalCallback_t m_greenPartSegmentArrivalCallback;
     ReceptionSessionCancelledCallback_t m_receptionSessionCancelledCallback;
     TransmissionSessionCompletedCallback_t m_transmissionSessionCompletedCallback;
-    InitialTransmissionCompletedCallback_t m_initialTransmissionCompletedCallback;
+    InitialTransmissionCompletedCallback_t m_initialTransmissionCompletedCallbackForUser;
     TransmissionSessionCancelledCallback_t m_transmissionSessionCancelledCallback;
 
     OnFailedBundleVecSendCallback_t m_onFailedBundleVecSendCallback;
@@ -267,7 +291,11 @@ private:
     std::unique_ptr<boost::thread> m_ioServiceLtpEngineThreadPtr;
 
     //session re-creation prevention
-    std::map<uint64_t, std::unique_ptr<LtpSessionRecreationPreventer> > m_mapSessionOriginatorEngineIdToLtpSessionRecreationPreventer;
+    std::map<uint64_t, LtpSessionRecreationPreventer> m_mapSessionOriginatorEngineIdToLtpSessionRecreationPreventer;
+
+    //memory in files
+    std::unique_ptr<MemoryInFiles> m_memoryInFilesPtr;
+    std::queue<uint64_t> m_memoryBlockIdsPendingDeletionQueue;
 
 public:
     //stats

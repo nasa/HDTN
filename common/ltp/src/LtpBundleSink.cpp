@@ -21,32 +21,18 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-LtpBundleSink::LtpBundleSink(const LtpWholeBundleReadyCallback_t & ltpWholeBundleReadyCallback,
-    const uint64_t thisEngineId, const uint64_t expectedSessionOriginatorEngineId, uint64_t mtuReportSegment,
-    const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
-    const uint16_t myBoundUdpPort, const unsigned int numUdpRxCircularBufferVectors,
-    const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
-    uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers,
-    const std::string & remoteUdpHostname, const uint16_t remoteUdpPort, const uint64_t maxBundleSizeBytes, const uint64_t maxSimultaneousSessions,
-    const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
-    const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable) :
+LtpBundleSink::LtpBundleSink(const LtpWholeBundleReadyCallback_t& ltpWholeBundleReadyCallback, const LtpEngineConfig& ltpRxCfg) :
 
     m_ltpWholeBundleReadyCallback(ltpWholeBundleReadyCallback),
-    M_THIS_ENGINE_ID(thisEngineId),
-    M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID(expectedSessionOriginatorEngineId),
-    m_ltpUdpEngineManagerPtr(LtpUdpEngineManager::GetOrCreateInstance(myBoundUdpPort, true))
+    M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID(ltpRxCfg.remoteEngineId),
+    m_ltpUdpEngineManagerPtr(LtpUdpEngineManager::GetOrCreateInstance(ltpRxCfg.myBoundUdpPort, true))
    
 {
-    m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(expectedSessionOriginatorEngineId, true); //sessionOriginatorEngineId is the remote engine id in the case of an induct
+    m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(ltpRxCfg.remoteEngineId, true); //sessionOriginatorEngineId is the remote engine id in the case of an induct
     if (m_ltpUdpEnginePtr == NULL) {
         static constexpr uint64_t maxSendRateBitsPerSecOrZeroToDisable = 0; //always disable rate for report segments, etc
-        m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(thisEngineId, expectedSessionOriginatorEngineId, true, 1, mtuReportSegment, oneWayLightTime, oneWayMarginTime,
-            remoteUdpHostname, remoteUdpPort, numUdpRxCircularBufferVectors, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, maxBundleSizeBytes, 0,
-            ltpMaxRetriesPerSerialNumber, force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, maxSimultaneousSessions,
-            rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable, maxUdpPacketsToSendPerSystemCall, 0,
-            delaySendingOfReportSegmentsTimeMsOrZeroToDisable,
-            0); //delaySendingOfDataSegmentsTimeMsOrZeroToDisable must be 0
-        m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(expectedSessionOriginatorEngineId, true); //sessionOriginatorEngineId is the remote engine id in the case of an induct
+        m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(ltpRxCfg); //delaySendingOfDataSegmentsTimeMsOrZeroToDisable must be 0
+        m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(ltpRxCfg.remoteEngineId, true); //sessionOriginatorEngineId is the remote engine id in the case of an induct
     }
     
     m_ltpUdpEnginePtr->SetRedPartReceptionCallback(boost::bind(&LtpBundleSink::RedPartReceptionCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
@@ -54,24 +40,30 @@ LtpBundleSink::LtpBundleSink(const LtpWholeBundleReadyCallback_t & ltpWholeBundl
     m_ltpUdpEnginePtr->SetReceptionSessionCancelledCallback(boost::bind(&LtpBundleSink::ReceptionSessionCancelledCallback, this, boost::placeholders::_1, boost::placeholders::_2));
 
     
-    LOG_INFO(subprocess) << "this ltp bundle sink for engine ID " << thisEngineId << " will receive on port "
-        << myBoundUdpPort << " and send report segments to " << remoteUdpHostname << ":" << remoteUdpPort;
+    LOG_INFO(subprocess) << "this ltp bundle sink for engine ID " << ltpRxCfg.thisEngineId << " will receive on port "
+        << ltpRxCfg.myBoundUdpPort << " and send report segments to " << ltpRxCfg.remoteHostname << ":" << ltpRxCfg.remotePort;
 }
 
 void LtpBundleSink::RemoveCallback() {
-    m_removeCallbackCalled = true;
+    m_removeEngineMutex.lock();
+    m_removeEngineInProgress = false;
+    m_removeEngineMutex.unlock();
+    m_removeEngineCv.notify_one();
 }
 
 LtpBundleSink::~LtpBundleSink() {
-    m_removeCallbackCalled = false;
-    m_ltpUdpEngineManagerPtr->RemoveLtpUdpEngineByRemoteEngineId_ThreadSafe(M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true, boost::bind(&LtpBundleSink::RemoveCallback, this)); //sessionOriginatorEngineId is the remote engine id in the case of an induct
-    boost::this_thread::sleep(boost::posix_time::milliseconds(100));
-    for (unsigned int attempt = 0; attempt < 20; ++attempt) {
-        if (m_removeCallbackCalled) {
+    LOG_INFO(subprocess) << "waiting to remove ltp bundle sink for M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID " << M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
+    boost::mutex::scoped_lock cvLock(m_removeEngineMutex);
+    m_removeEngineInProgress = true;
+    m_ltpUdpEngineManagerPtr->RemoveLtpUdpEngineByRemoteEngineId_ThreadSafe(M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true,
+        boost::bind(&LtpBundleSink::RemoveCallback, this)); //sessionOriginatorEngineId is the remote engine id in the case of an induct
+    while (m_removeEngineInProgress) { //lock mutex (above) before checking condition
+        //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
+        if (!m_removeEngineCv.timed_wait(cvLock, boost::posix_time::seconds(3))) {
+            LOG_ERROR(subprocess) << "timed out waiting (for 3 seconds) to remove ltp bundle sink for M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID "
+                << M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
             break;
         }
-        LOG_INFO(subprocess) << "waiting to remove ltp bundle sink for M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID " << M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
-        boost::this_thread::sleep(boost::posix_time::milliseconds(100));
     }
 }
 

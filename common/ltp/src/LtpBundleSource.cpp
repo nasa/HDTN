@@ -20,34 +20,24 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-LtpBundleSource::LtpBundleSource(const uint64_t clientServiceId, const uint64_t remoteLtpEngineId, const uint64_t thisEngineId, const uint64_t mtuClientServiceData,
-    const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
-    const uint16_t myBoundUdpPort, const unsigned int numUdpRxCircularBufferVectors,
-    uint32_t checkpointEveryNthDataPacketSender, uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers,
-    const std::string & remoteUdpHostname, const uint16_t remoteUdpPort, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
-    const uint32_t maxNumberOfBundlesInPipeline, const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable,
-    const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable) :
+LtpBundleSource::LtpBundleSource(const LtpEngineConfig& ltpTxCfg) :
 
 m_useLocalConditionVariableAckReceived(false), //for destructor only
 
-m_ltpUdpEngineManagerPtr(LtpUdpEngineManager::GetOrCreateInstance(myBoundUdpPort, true)),
-M_CLIENT_SERVICE_ID(clientServiceId),
-M_THIS_ENGINE_ID(thisEngineId),
-M_REMOTE_LTP_ENGINE_ID(remoteLtpEngineId),
-M_BUNDLE_PIPELINE_LIMIT(maxNumberOfBundlesInPipeline),
+m_ltpUdpEngineManagerPtr(LtpUdpEngineManager::GetOrCreateInstance(ltpTxCfg.myBoundUdpPort, true)),
+M_CLIENT_SERVICE_ID(ltpTxCfg.clientServiceId),
+M_THIS_ENGINE_ID(ltpTxCfg.thisEngineId),
+M_REMOTE_LTP_ENGINE_ID(ltpTxCfg.remoteEngineId),
+M_BUNDLE_PIPELINE_LIMIT(ltpTxCfg.maxSimultaneousSessions),
 m_startingCount(0),
 
 m_ltpOutductTelemetry()
 {
     m_activeSessionNumbersSet.reserve(M_BUNDLE_PIPELINE_LIMIT);
-    m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
+    m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(ltpTxCfg.remoteEngineId, false);
     if (m_ltpUdpEnginePtr == NULL) {
-        m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(thisEngineId, remoteLtpEngineId, false, mtuClientServiceData, 80, oneWayLightTime, oneWayMarginTime,
-            remoteUdpHostname, remoteUdpPort, numUdpRxCircularBufferVectors, 0, 0, 0, ltpMaxRetriesPerSerialNumber,
-            force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, maxNumberOfBundlesInPipeline, 0, maxUdpPacketsToSendPerSystemCall, senderPingSecondsOrZeroToDisable,
-            0, //delaySendingOfReportSegmentsTimeMsOrZeroToDisable must be 0
-            delaySendingOfDataSegmentsTimeMsOrZeroToDisable);
-        m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
+        m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(ltpTxCfg);
+        m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(ltpTxCfg.remoteEngineId, false);
     }
 
     m_ltpUdpEnginePtr->SetSessionStartCallback(boost::bind(&LtpBundleSource::SessionStartCallback, this, boost::placeholders::_1));
@@ -61,7 +51,10 @@ LtpBundleSource::~LtpBundleSource() {
 }
 
 void LtpBundleSource::RemoveCallback() {
-    m_removeCallbackCalled = true;
+    m_removeEngineMutex.lock();
+    m_removeEngineInProgress = false;
+    m_removeEngineMutex.unlock();
+    m_removeEngineCv.notify_one();
 }
 
 void LtpBundleSource::Stop() {
@@ -87,15 +80,16 @@ void LtpBundleSource::Stop() {
             break;
         }
 
-        m_removeCallbackCalled = false;
+        LOG_INFO(subprocess) << "waiting to remove ltp bundle source for engine ID " << M_THIS_ENGINE_ID;
+        boost::mutex::scoped_lock cvLock(m_removeEngineMutex);
+        m_removeEngineInProgress = true;
         m_ltpUdpEngineManagerPtr->RemoveLtpUdpEngineByRemoteEngineId_ThreadSafe(M_REMOTE_LTP_ENGINE_ID, false, boost::bind(&LtpBundleSource::RemoveCallback, this));
-        boost::this_thread::sleep(boost::posix_time::milliseconds(100));
-        for (unsigned int attempt = 0; attempt < 20; ++attempt) {
-            if (m_removeCallbackCalled) {
+        while (m_removeEngineInProgress) { //lock mutex (above) before checking condition
+            //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
+            if (!m_removeEngineCv.timed_wait(cvLock, boost::posix_time::seconds(3))) {
+                LOG_ERROR(subprocess) << "timed out waiting (for 3 seconds) to remove ltp bundle source for engine ID " << M_THIS_ENGINE_ID;
                 break;
             }
-            LOG_INFO(subprocess) << "waiting to remove ltp bundle source for engine ID " << M_THIS_ENGINE_ID;
-            boost::this_thread::sleep(boost::posix_time::milliseconds(100));
         }
         m_ltpUdpEnginePtr = NULL;
 

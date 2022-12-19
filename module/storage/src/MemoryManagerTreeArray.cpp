@@ -34,7 +34,10 @@
 # endif
 #endif //USE_BITTEST or USE_ANDN
 
-MemoryManagerTreeArray::MemoryManagerTreeArray(const uint64_t maxSegments) : M_MAX_SEGMENTS(maxSegments), m_bitMasks(MAX_TREE_ARRAY_DEPTH) {
+MemoryManagerTreeArray::MemoryManagerTreeArray(const uint64_t maxSegments) : 
+    M_MAX_SEGMENTS(maxSegments),
+    m_numSegmentsAllocated(0),
+    m_bitMasks(MAX_TREE_ARRAY_DEPTH) {
 #if 0
     AllocateRowsMaxMemory();
 #else
@@ -96,6 +99,7 @@ segment_id_t MemoryManagerTreeArray::GetAndSetFirstFreeSegmentId_NotThreadSafe()
     segment_id_t segmentId = 0;
     GetAndSetFirstFreeSegmentId(0, segmentId);
     if (segmentId >= M_MAX_SEGMENTS) return SEGMENT_ID_FULL;
+    ++m_numSegmentsAllocated;
     return segmentId;
 }
 
@@ -145,6 +149,7 @@ bool MemoryManagerTreeArray::FreeSegmentId_NotThreadSafe(const segment_id_t segm
         longRef |= mask64;
 #endif
     }
+    --m_numSegmentsAllocated;
     return true;
 }
 
@@ -161,6 +166,7 @@ void MemoryManagerTreeArray::AllocateRows(const segment_id_t largestSegmentId) {
         m_bitMasks[depthIndex].assign(longIndex + 1, UINT64_MAX);
         longIndex >>= 6; //same as: rowIndex += index * (1 << inverseDepthIndexTimes6); //rowIndex += index * (64^depthIndex)
     }
+    m_numSegmentsAllocated = 0;
 }
 
 /** Deprecated private function to allocate too much memory for any small capacity of segment Ids.
@@ -172,6 +178,7 @@ void MemoryManagerTreeArray::AllocateRowsMaxMemory() {
         const uint64_t arraySize64s = (((uint64_t)1) << (depthIndex * 6));
         m_bitMasks[depthIndex].assign(arraySize64s, UINT64_MAX);
     }
+    m_numSegmentsAllocated = 0;
 }
 
 bool MemoryManagerTreeArray::AllocateSegmentId_NotThreadSafe(const segment_id_t segmentId) {
@@ -217,6 +224,7 @@ bool MemoryManagerTreeArray::AllocateSegmentId_NotThreadSafe(const segment_id_t 
 #endif
         childIsFull = (longRef == 0);
     }
+    ++m_numSegmentsAllocated;
     return true;
 }
 
@@ -251,4 +259,17 @@ bool MemoryManagerTreeArray::FreeSegments_ThreadSafe(const segment_id_chain_vec_
     return success;
 }
 
+uint64_t MemoryManagerTreeArray::GetNumAllocatedSegments_NotThreadSafe() const noexcept {
+    return m_numSegmentsAllocated;
+}
 
+uint64_t MemoryManagerTreeArray::GetNumAllocatedSegments_ThreadSafe() const {
+    m_mutex.lock();
+    const uint64_t numSegmentsAllocated = m_numSegmentsAllocated;
+    m_mutex.unlock();
+    return numSegmentsAllocated;
+}
+
+uint64_t MemoryManagerTreeArray::GetMaxSegments() const noexcept {
+    return M_MAX_SEGMENTS;
+}

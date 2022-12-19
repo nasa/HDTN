@@ -30,6 +30,7 @@
 #include <vector>
 #include "Telemetry.h"
 #include "LtpUdpEngineManager.h"
+#include "LtpEngineConfig.h"
 #include "BundleCallbackFunctionDefines.h"
 #include <zmq.hpp>
 #include <atomic>
@@ -39,21 +40,7 @@ class LtpBundleSource : private boost::noncopyable {
 private:
     LtpBundleSource() = delete;
 public:
-    /*
-    const LtpWholeBundleReadyCallback_t & ltpWholeBundleReadyCallback,
-        const uint64_t thisEngineId, uint64_t mtuReportSegment,
-        const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
-        const uint16_t myBoundUdpPort, const unsigned int numUdpRxCircularBufferVectors,
-        const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
-        uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers,
-        const std::string & remoteUdpHostname, const uint16_t remoteUdpPort*/
-    LTP_LIB_EXPORT LtpBundleSource(const uint64_t clientServiceId, const uint64_t remoteLtpEngineId, const uint64_t thisEngineId, const uint64_t mtuClientServiceData,
-        const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
-        const uint16_t myBoundUdpPort, const unsigned int numUdpRxCircularBufferVectors,
-        uint32_t checkpointEveryNthDataPacketSender, uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers,
-        const std::string & remoteUdpHostname, const uint16_t remoteUdpPort, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
-        const uint32_t maxNumberOfBundlesInPipeline, const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable,
-        const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable);
+    LTP_LIB_EXPORT LtpBundleSource(const LtpEngineConfig& ltpTxCfg);
 
     LTP_LIB_EXPORT ~LtpBundleSource();
     LTP_LIB_EXPORT void Stop();
@@ -90,11 +77,13 @@ private:
     const uint64_t M_CLIENT_SERVICE_ID;
     const uint64_t M_THIS_ENGINE_ID;
     const uint64_t M_REMOTE_LTP_ENGINE_ID;
-    const uint32_t M_BUNDLE_PIPELINE_LIMIT;
+    const uint64_t M_BUNDLE_PIPELINE_LIMIT;
     std::unordered_set<uint64_t> m_activeSessionNumbersSet;
     std::atomic<unsigned int> m_startingCount;
 
-    volatile bool m_removeCallbackCalled;
+    boost::mutex m_removeEngineMutex;
+    boost::condition_variable m_removeEngineCv;
+    volatile bool m_removeEngineInProgress;
 public:
     //ltp stats
     LtpOutductTelemetry_t m_ltpOutductTelemetry;

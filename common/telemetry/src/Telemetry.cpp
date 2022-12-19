@@ -425,9 +425,15 @@ bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size) {
             serialized += sizeof(uint64_t);
             const uint64_t totalBundlesSentToEgressFromStorage = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
             serialized += sizeof(uint64_t);
+            const uint64_t usedSpaceBytes = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
+            serialized += sizeof(uint64_t);
+            const uint64_t freeSpaceBytes = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
+            serialized += sizeof(uint64_t);
 
             LOG_INFO(subprocess) << " totalBundlesErasedFromStorage: " << totalBundlesErasedFromStorage;
             LOG_INFO(subprocess) << " totalBundlesSentToEgressFromStorage: " << totalBundlesSentToEgressFromStorage;
+            LOG_INFO(subprocess) << " usedSpaceBytes: " << usedSpaceBytes;
+            LOG_INFO(subprocess) << " freeSpaceBytes: " << freeSpaceBytes;
         }
         else if (type == 10) { //StorageExpiringBeforeThresholdTelemetry_t
             LOG_INFO(subprocess) << "StorageExpiringBeforeThreshold Telem:";

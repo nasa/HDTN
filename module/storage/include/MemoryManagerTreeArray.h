@@ -25,6 +25,7 @@
 #include "BundleStorageConfig.h"
 #include <boost/thread.hpp>
 #include <vector>
+#include <boost/core/noncopyable.hpp>
 #include "storage_lib_export.h"
 
 
@@ -32,9 +33,9 @@ typedef std::vector<segment_id_t> segment_id_chain_vec_t;
 
 typedef std::vector< std::vector<uint64_t> > memmanager_t;
 
-class MemoryManagerTreeArray {
+class MemoryManagerTreeArray : private boost::noncopyable {
 private:
-    MemoryManagerTreeArray();
+    MemoryManagerTreeArray() = delete;
 public:
     /**
     * Constructor that sets the max number of segments that can be allocated
@@ -113,6 +114,24 @@ public:
      */
     STORAGE_LIB_EXPORT bool AllocateSegmentId_NotThreadSafe(const segment_id_t segmentId);
 
+    /** Get the number of allocated segments.
+     *
+     * @return Number of allocated segments.
+     */
+    STORAGE_LIB_EXPORT uint64_t GetNumAllocatedSegments_NotThreadSafe() const noexcept;
+
+    /** Thread safe method to get the number of allocated segments.
+     *
+     * @return Number of allocated segments.
+     */
+    STORAGE_LIB_EXPORT uint64_t GetNumAllocatedSegments_ThreadSafe() const;
+
+    /** Get the maximum number of segments (i.e. free + allocated).
+     *
+     * @return Maximum number of segments.
+     */
+    STORAGE_LIB_EXPORT uint64_t GetMaxSegments() const noexcept;
+
 private:
 
 
@@ -121,8 +140,9 @@ private:
     STORAGE_LIB_NO_EXPORT void AllocateRowsMaxMemory();
 private:
     const uint64_t M_MAX_SEGMENTS;
+    uint64_t m_numSegmentsAllocated;
     std::vector<std::vector<uint64_t> > m_bitMasks;
-    boost::mutex m_mutex;
+    mutable boost::mutex m_mutex;
 };
 
 

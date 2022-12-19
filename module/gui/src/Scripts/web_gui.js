@@ -197,8 +197,15 @@ window.addEventListener("load", function(event){
                 var totalBundlesErasedFromStorage = dv.getUint64(byteIndex, littleEndian);
                 byteIndex += 8;
                 var totalBundlesSentToEgressFromStorage = dv.getUint64(byteIndex, littleEndian);
+                byteIndex += 8;
+                var usedSpaceBytes = dv.getUint64(byteIndex, littleEndian);
+                byteIndex += 8;
+                var freeSpaceBytes = dv.getUint64(byteIndex, littleEndian);
+                byteIndex += 8;
                 document.getElementById("totalBundlesErasedFromStorage").innerHTML = totalBundlesErasedFromStorage;
                 document.getElementById("totalBundlesSentToEgressFromStorage").innerHTML = totalBundlesSentToEgressFromStorage;
+                document.getElementById("usedSpaceBytes").innerHTML = usedSpaceBytes;
+                document.getElementById("freeSpaceBytes").innerHTML = freeSpaceBytes;
             }
 
 

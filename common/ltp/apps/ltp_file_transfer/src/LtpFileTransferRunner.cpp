@@ -55,27 +55,18 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
         SignalHandler sigHandler(boost::bind(&LtpFileTransferRunner::MonitorExitKeypressThreadFunction, this));
         boost::filesystem::path sendFilePath;
         boost::filesystem::path receiveFilePath;
-        bool useSendFile = false;
-        bool useReceiveFile = false;
+
         bool dontSaveFile = false;
-        bool force32BitRandomNumbers;
-        std::string remoteUdpHostname;
-        uint16_t remoteUdpPort;
-        uint16_t myBoundUdpPort;
-        uint64_t thisLtpEngineId;
-        uint64_t remoteLtpEngineId;
-        uint64_t ltpDataSegmentMtu;
-        uint64_t ltpReportSegmentMtu;
-        uint64_t oneWayLightTimeMs;
-        uint64_t oneWayMarginTimeMs;
-        uint64_t clientServiceId;
-        uint64_t estimatedFileSizeToReceive;
-        uint32_t checkpointEveryNthTxPacket;
-        uint32_t maxRetriesPerSerialNumber;
-        uint64_t maxSendRateBitsPerSecOrZeroToDisable;
-        uint64_t maxUdpPacketsToSendPerSystemCall;
-        unsigned int numUdpRxPacketsCircularBufferSize;
         unsigned int maxRxUdpPacketSizeBytes;
+
+        LtpEngineConfig ltpRxOrTxCfg;
+        ltpRxOrTxCfg.maxSimultaneousSessions = 2;
+        ltpRxOrTxCfg.rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable = 0;
+        ltpRxOrTxCfg.senderPingSecondsOrZeroToDisable = 0; //unused for inducts
+        ltpRxOrTxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable = 0;
+        ltpRxOrTxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable = 0; //unused for inducts (must be set to 0)
+        ltpRxOrTxCfg.senderNewFileDurationMsToStoreSessionDataOrZeroToDisable = 0;
+        ltpRxOrTxCfg.senderWriteSessionDataToFilesPath = "./";
 
         boost::program_options::options_description desc("Allowed options");
         try {
@@ -118,54 +109,55 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 LOG_ERROR(subprocess) << "randomNumberSizeBits (" << randomNumberSizeBits << ") must be either 32 or 64";
                 return false;
             }
-            force32BitRandomNumbers = (randomNumberSizeBits == 32);
+            ltpRxOrTxCfg.force32BitRandomNumbers = (randomNumberSizeBits == 32);
 
             if (!(vm.count("receive-file") ^ vm.count("send-file"))) {
                 LOG_ERROR(subprocess) << "receive-file or send-file must be specified, but not both";
                 return false;
             }
             if (vm.count("receive-file")) {
-                useReceiveFile = true;
+                ltpRxOrTxCfg.isInduct = true;
                 receiveFilePath = vm["receive-file"].as<boost::filesystem::path>();
                 dontSaveFile = (vm.count("dont-save-file") != 0);
             }
             else {
-                useSendFile = true;
+                ltpRxOrTxCfg.isInduct = false;
                 sendFilePath = vm["send-file"].as<boost::filesystem::path>();
             }
-            remoteUdpHostname = vm["remote-udp-hostname"].as<std::string>();
-            remoteUdpPort = vm["remote-udp-port"].as<boost::uint16_t>();
-            myBoundUdpPort = vm["my-bound-udp-port"].as<boost::uint16_t>();
-            thisLtpEngineId = vm["this-ltp-engine-id"].as<uint64_t>();
-            remoteLtpEngineId = vm["remote-ltp-engine-id"].as<uint64_t>();
-            ltpDataSegmentMtu = vm["ltp-data-segment-mtu"].as<uint64_t>();
-            ltpReportSegmentMtu = vm["ltp-report-segment-mtu"].as<uint64_t>();
-            oneWayLightTimeMs = vm["one-way-light-time-ms"].as<uint64_t>();
-            oneWayMarginTimeMs = vm["one-way-margin-time-ms"].as<uint64_t>();
-            clientServiceId = vm["client-service-id"].as<uint64_t>();
-            estimatedFileSizeToReceive = vm["estimated-rx-filesize"].as<uint64_t>();
-            checkpointEveryNthTxPacket = vm["checkpoint-every-nth-tx-packet"].as<uint32_t>();
-            maxRetriesPerSerialNumber = vm["max-retries-per-serial-number"].as<uint32_t>();
-            maxSendRateBitsPerSecOrZeroToDisable = vm["max-send-rate-bits-per-sec"].as<uint64_t>();
-            if (useReceiveFile && maxSendRateBitsPerSecOrZeroToDisable) {
+            ltpRxOrTxCfg.remoteHostname = vm["remote-udp-hostname"].as<std::string>();
+            ltpRxOrTxCfg.remotePort = vm["remote-udp-port"].as<boost::uint16_t>();
+            ltpRxOrTxCfg.myBoundUdpPort = vm["my-bound-udp-port"].as<boost::uint16_t>();
+            ltpRxOrTxCfg.thisEngineId = vm["this-ltp-engine-id"].as<uint64_t>();
+            ltpRxOrTxCfg.remoteEngineId = vm["remote-ltp-engine-id"].as<uint64_t>();
+            ltpRxOrTxCfg.mtuClientServiceData = vm["ltp-data-segment-mtu"].as<uint64_t>();
+            ltpRxOrTxCfg.mtuReportSegment = vm["ltp-report-segment-mtu"].as<uint64_t>();
+            ltpRxOrTxCfg.oneWayLightTime = boost::posix_time::milliseconds(vm["one-way-light-time-ms"].as<uint64_t>());
+            ltpRxOrTxCfg.oneWayMarginTime = boost::posix_time::milliseconds(vm["one-way-margin-time-ms"].as<uint64_t>());
+            ltpRxOrTxCfg.clientServiceId = vm["client-service-id"].as<uint64_t>();
+            ltpRxOrTxCfg.estimatedBytesToReceivePerSession = vm["estimated-rx-filesize"].as<uint64_t>();
+            ltpRxOrTxCfg.maxRedRxBytesPerSession = ltpRxOrTxCfg.estimatedBytesToReceivePerSession;
+            ltpRxOrTxCfg.checkpointEveryNthDataPacketSender = vm["checkpoint-every-nth-tx-packet"].as<uint32_t>();
+            ltpRxOrTxCfg.maxRetriesPerSerialNumber = vm["max-retries-per-serial-number"].as<uint32_t>();
+            ltpRxOrTxCfg.maxSendRateBitsPerSecOrZeroToDisable = vm["max-send-rate-bits-per-sec"].as<uint64_t>();
+            if (ltpRxOrTxCfg.isInduct && ltpRxOrTxCfg.maxSendRateBitsPerSecOrZeroToDisable) {
                 LOG_ERROR(subprocess) << "maxSendRateBitsPerSecOrZeroToDisable was specified for a receiver";
                 return false;
             }
-            maxUdpPacketsToSendPerSystemCall = vm["max-udp-packets-to-send-per-system-call"].as<uint64_t>();
-            if (maxUdpPacketsToSendPerSystemCall == 0) {
+            ltpRxOrTxCfg.maxUdpPacketsToSendPerSystemCall = vm["max-udp-packets-to-send-per-system-call"].as<uint64_t>();
+            if (ltpRxOrTxCfg.maxUdpPacketsToSendPerSystemCall == 0) {
                 LOG_ERROR(subprocess) << "max-udp-packets-to-send-per-system-call ("
-                    << maxUdpPacketsToSendPerSystemCall << ") must be non-zero.";
+                    << ltpRxOrTxCfg.maxUdpPacketsToSendPerSystemCall << ") must be non-zero.";
                 return false;
             }
 #ifdef UIO_MAXIOV
             //sendmmsg() is Linux-specific. NOTES The value specified in vlen is capped to UIO_MAXIOV (1024).
-            if (maxUdpPacketsToSendPerSystemCall > UIO_MAXIOV) {
+            if (ltpRxOrTxCfg.maxUdpPacketsToSendPerSystemCall > UIO_MAXIOV) {
                 LOG_ERROR(subprocess) << "max-udp-packets-to-send-per-system-call ("
-                    << maxUdpPacketsToSendPerSystemCall << ") must be <= UIO_MAXIOV (" << UIO_MAXIOV << ").";
+                    << ltpRxOrTxCfg.maxUdpPacketsToSendPerSystemCall << ") must be <= UIO_MAXIOV (" << UIO_MAXIOV << ").";
                 return false;
             }
 #endif //UIO_MAXIOV
-            numUdpRxPacketsCircularBufferSize = vm["num-rx-udp-packets-buffer-size"].as<unsigned int>();
+            ltpRxOrTxCfg.numUdpRxCircularBufferVectors = vm["num-rx-udp-packets-buffer-size"].as<unsigned int>();
             maxRxUdpPacketSizeBytes = vm["max-rx-udp-packet-size-bytes"].as<unsigned int>();
         }
         catch (boost::bad_any_cast & e) {
@@ -183,9 +175,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
         }
 
         LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(maxRxUdpPacketSizeBytes);
-        const boost::posix_time::time_duration ONE_WAY_LIGHT_TIME = (boost::posix_time::milliseconds(oneWayLightTimeMs));
-        const boost::posix_time::time_duration ONE_WAY_MARGIN_TIME = (boost::posix_time::milliseconds(oneWayMarginTimeMs));
-        if (useSendFile) {
+        if (!ltpRxOrTxCfg.isInduct) {
             LOG_INFO(subprocess) << "loading file " << sendFilePath;
             std::vector<uint8_t> fileContentsInMemory;
             boost::filesystem::ifstream ifs(sendFilePath, std::ifstream::in | std::ifstream::binary);
@@ -248,13 +238,11 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
 
             };
             SenderHelper senderHelper;
-            std::shared_ptr<LtpUdpEngineManager> ltpUdpEngineManagerSrcPtr = LtpUdpEngineManager::GetOrCreateInstance(myBoundUdpPort, true);
-            LtpUdpEngine * ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
+            std::shared_ptr<LtpUdpEngineManager> ltpUdpEngineManagerSrcPtr = LtpUdpEngineManager::GetOrCreateInstance(ltpRxOrTxCfg.myBoundUdpPort, true);
+            LtpUdpEngine * ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(ltpRxOrTxCfg.remoteEngineId, false);
             if (ltpUdpEngineSrcPtr == NULL) {
-                ltpUdpEngineManagerSrcPtr->AddLtpUdpEngine(thisLtpEngineId, remoteLtpEngineId, false, ltpDataSegmentMtu, 80, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
-                    remoteUdpHostname, remoteUdpPort, numUdpRxPacketsCircularBufferSize, 0, 0, checkpointEveryNthTxPacket, maxRetriesPerSerialNumber,
-                    force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, 5, 0, maxUdpPacketsToSendPerSystemCall, 0, 0, 0);
-                ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
+                ltpUdpEngineManagerSrcPtr->AddLtpUdpEngine(ltpRxOrTxCfg);
+                ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(ltpRxOrTxCfg.remoteEngineId, false);
             }
 
             ltpUdpEngineSrcPtr->SetTransmissionSessionCompletedCallback(boost::bind(&SenderHelper::TransmissionSessionCompletedCallback, &senderHelper, boost::placeholders::_1));
@@ -267,8 +255,8 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
 
 
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
-            tReq->destinationClientServiceId = clientServiceId;
-            tReq->destinationLtpEngineId = remoteLtpEngineId;
+            tReq->destinationClientServiceId = ltpRxOrTxCfg.clientServiceId;
+            tReq->destinationLtpEngineId = ltpRxOrTxCfg.remoteEngineId;
             tReq->clientServiceDataToSend = std::move(fileContentsInMemory);
             tReq->lengthOfRedPart = tReq->clientServiceDataToSend.size();
 
@@ -332,22 +320,20 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             };
             ReceiverHelper receiverHelper;
 
-            LOG_INFO(subprocess) << "expecting approximately " << estimatedFileSizeToReceive << " bytes to receive";
-            std::shared_ptr<LtpUdpEngineManager> ltpUdpEngineManagerDestPtr = LtpUdpEngineManager::GetOrCreateInstance(myBoundUdpPort, true);
-            LtpUdpEngine * ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, true);
+            LOG_INFO(subprocess) << "expecting approximately " << ltpRxOrTxCfg.estimatedBytesToReceivePerSession << " bytes to receive";
+            std::shared_ptr<LtpUdpEngineManager> ltpUdpEngineManagerDestPtr = LtpUdpEngineManager::GetOrCreateInstance(ltpRxOrTxCfg.myBoundUdpPort, true);
+            LtpUdpEngine * ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(ltpRxOrTxCfg.remoteEngineId, true);
             if (ltpUdpEngineDestPtr == NULL) {
-                ltpUdpEngineManagerDestPtr->AddLtpUdpEngine(thisLtpEngineId, remoteLtpEngineId, true, 1, ltpReportSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
-                    remoteUdpHostname, remoteUdpPort, numUdpRxPacketsCircularBufferSize, estimatedFileSizeToReceive, estimatedFileSizeToReceive,
-                    0, maxRetriesPerSerialNumber, force32BitRandomNumbers, 0, 5, 10, maxUdpPacketsToSendPerSystemCall, 0, 0, 0);
-                ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, true); //remote is expectedSessionOriginatorEngineId
+                ltpUdpEngineManagerDestPtr->AddLtpUdpEngine(ltpRxOrTxCfg);
+                ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(ltpRxOrTxCfg.remoteEngineId, true); //remote is expectedSessionOriginatorEngineId
             }
             
             ltpUdpEngineDestPtr->SetRedPartReceptionCallback(boost::bind(&ReceiverHelper::RedPartReceptionCallback, &receiverHelper, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
                 boost::placeholders::_4, boost::placeholders::_5));
             ltpUdpEngineDestPtr->SetReceptionSessionCancelledCallback(boost::bind(&ReceiverHelper::ReceptionSessionCancelledCallback, &receiverHelper, boost::placeholders::_1, boost::placeholders::_2));
             
-            LOG_INFO(subprocess) << "this ltp receiver/server for engine ID " << thisLtpEngineId << " will receive on port "
-                << myBoundUdpPort << " and send report segments to " << remoteUdpHostname << ":" << remoteUdpPort;
+            LOG_INFO(subprocess) << "this ltp receiver/server for engine ID " << ltpRxOrTxCfg.thisEngineId << " will receive on port "
+                << ltpRxOrTxCfg.myBoundUdpPort << " and send report segments to " << ltpRxOrTxCfg.remoteHostname << ":" << ltpRxOrTxCfg.remotePort;
             
             
             
