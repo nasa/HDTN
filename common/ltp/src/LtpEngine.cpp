@@ -401,7 +401,8 @@ void LtpEngine::OnDeferredReadCompleted(bool success, std::vector<boost::asio::c
     std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback)
 {
     if (success) {
-        SendPacket(constBufferVec, underlyingDataToDeleteOnSentCallback, std::shared_ptr<LtpClientServiceDataToSend>()); //virtual call to child implementation
+        std::shared_ptr<LtpClientServiceDataToSend> nullClientServiceData;
+        SendPacket(constBufferVec, underlyingDataToDeleteOnSentCallback, nullClientServiceData); //virtual call to child implementation
     }
     else {
         LOG_ERROR(subprocess) << "Failure in LtpEngine::OnDeferredReadCompleted";
