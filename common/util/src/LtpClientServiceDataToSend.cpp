@@ -106,3 +106,9 @@ UdpSendPacketInfo& UdpSendPacketInfo::operator=(UdpSendPacketInfo&& o) noexcept 
     sessionOriginatorEngineId = o.sessionOriginatorEngineId;
     return *this;
 }
+void UdpSendPacketInfo::Reset() {
+    constBufferVec.clear();
+    underlyingDataToDeleteOnSentCallback.reset();
+    underlyingCsDataToDeleteOnSentCallback.reset();
+    deferredRead.Reset();
+}

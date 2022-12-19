@@ -39,6 +39,9 @@ public:
 
     struct deferred_read_t {
         deferred_read_t() : memoryBlockId(0) {}
+        void Reset() {
+            memoryBlockId = 0;
+        }
         uint64_t memoryBlockId;
         uint64_t offset;
         std::size_t length;

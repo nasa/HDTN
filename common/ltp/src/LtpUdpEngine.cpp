@@ -151,9 +151,13 @@ void LtpUdpEngine::HandleUdpSend(std::shared_ptr<std::vector<std::vector<uint8_t
     else {
         //rate stuff handled in LtpEngine due to self-sending nature of LtpEngine
 
-        if (m_countAsyncSendCallbackCalls == m_countAsyncSendCalls) { //prevent too many sends from stacking up in ioService queue
-            SignalReadyForSend_ThreadSafe();
-        }
+        //OLD BEHAVIOR (only notify LtpEngine when socket is out of data)
+        //if (m_countAsyncSendCallbackCalls == m_countAsyncSendCalls) { //prevent too many sends from stacking up in ioService queue
+        //    SignalReadyForSend_ThreadSafe();
+        //}
+
+        //NEW BEHAVIOR (always notify LtpEngine which keeps its own internal count of pending Udp Send system calls queued)
+        OnSendPacketsSystemCallCompleted_ThreadSafe(); //per system call operation, not per udp packet(s)
     }
 }
 
@@ -171,9 +175,13 @@ void LtpUdpEngine::OnSentPacketsCallback(bool success, std::vector<std::vector<b
     else {
         //rate stuff handled in LtpEngine due to self-sending nature of LtpEngine
 
-        if (m_countBatchSendCallbackCalls == m_countBatchSendCalls) { //prevent too many sends from stacking up in UdpBatchSender queue
-            SignalReadyForSend_ThreadSafe();
-        }
+        //OLD BEHAVIOR (only notify LtpEngine when socket is out of data)
+        //if (m_countBatchSendCallbackCalls == m_countBatchSendCalls) { //prevent too many sends from stacking up in UdpBatchSender queue
+        //    SignalReadyForSend_ThreadSafe();
+        //}
+
+        //NEW BEHAVIOR (always notify LtpEngine which keeps its own internal count of pending Udp Send system calls queued)
+        OnSendPacketsSystemCallCompleted_ThreadSafe(); //per system call operation, not per udp packet(s)
     }
 }
 

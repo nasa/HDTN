@@ -80,6 +80,7 @@ struct UdpSendPacketInfo : private boost::noncopyable {
     HDTN_UTIL_EXPORT UdpSendPacketInfo() = default;
     HDTN_UTIL_EXPORT UdpSendPacketInfo(UdpSendPacketInfo&& o) noexcept; //a move constructor: X(X&&)
     HDTN_UTIL_EXPORT UdpSendPacketInfo& operator=(UdpSendPacketInfo&& o) noexcept; //a move assignment: operator=(X&&)
+    HDTN_UTIL_EXPORT void Reset();
 };
 
 #endif // LTP_CLIENT_SERVICE_DATA_TO_SEND_H

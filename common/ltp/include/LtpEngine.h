@@ -130,12 +130,15 @@ protected:
     LTP_LIB_EXPORT virtual void SendPacket(std::vector<boost::asio::const_buffer>& constBufferVec,
         std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
         std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback);
-    LTP_LIB_EXPORT void SignalReadyForSend_ThreadSafe();
     LTP_LIB_EXPORT virtual void SendPackets(std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
         std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback,
         std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallback);
+    LTP_LIB_EXPORT void OnSendPacketsSystemCallCompleted_ThreadSafe();
 private:
-    LTP_LIB_NO_EXPORT void TrySendPacketIfAvailable();
+    LTP_LIB_NO_EXPORT void SignalReadyForSend_ThreadSafe();
+    LTP_LIB_NO_EXPORT void OnSendPacketsSystemCallCompleted_NotThreadSafe();
+    LTP_LIB_NO_EXPORT void TrySaturateSendPacketPipeline();
+    LTP_LIB_NO_EXPORT bool TrySendPacketIfAvailable();
     LTP_LIB_NO_EXPORT void OnDeferredReadCompleted(bool success, std::vector<boost::asio::const_buffer>& constBufferVec,
         std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback);
     LTP_LIB_NO_EXPORT void OnDeferredMultiReadCompleted(bool success, std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
@@ -175,6 +178,7 @@ private:
     const uint64_t M_MAX_RED_RX_BYTES_PER_SESSION;
     const uint64_t M_THIS_ENGINE_ID;
     uint64_t m_mtuClientServiceData;
+    unsigned int m_numSendPacketsPendingSystemCalls;
 protected:
     const uint64_t M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL;
 private:
