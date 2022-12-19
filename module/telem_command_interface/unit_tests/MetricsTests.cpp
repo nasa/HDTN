@@ -7,9 +7,11 @@ BOOST_AUTO_TEST_CASE(MetricsStructInitTestCase)
     // All struct fields should be initialized to 0
     Metrics::metrics_t metrics;
     char *bytes = (char*)&metrics;
+    int sum = 0;
     for (int i=0; i < sizeof(Metrics::metrics_t); ++i) {
-        BOOST_REQUIRE_EQUAL(0, bytes[i]);
+        sum += bytes[i];
     }
+    BOOST_REQUIRE_EQUAL(0, sum);
 }
 
 BOOST_AUTO_TEST_CASE(MetricsClearTestCase)
@@ -25,9 +27,11 @@ BOOST_AUTO_TEST_CASE(MetricsClearTestCase)
 
     Metrics::metrics_t metricsVals = metrics.Get();
     char *bytes = (char*)&metricsVals;
+    int sum = 0;
     for (int i=0; i < sizeof(Metrics::metrics_t); ++i) {
-        BOOST_REQUIRE_EQUAL(0, bytes[i]);
+        sum += bytes[i];
     }
+    BOOST_REQUIRE_EQUAL(0, sum);
 }
 
 BOOST_AUTO_TEST_CASE(MetricsProcessIngressTelemTestCase)
