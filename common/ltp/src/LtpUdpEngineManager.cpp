@@ -74,6 +74,7 @@ LtpUdpEngineManager::LtpUdpEngineManager(const uint16_t myBoundUdpPort, const bo
     m_retryAfterSocketErrorTimer(m_ioServiceUdp),
     m_socketRestoredTimer(m_ioServiceUdp),
     m_udpReceiveBuffer(M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES),
+    m_cachedItRemoteEngineIdToLtpUdpEngineReceiver(m_mapRemoteEngineIdToLtpUdpEngineReceiver.end()),
     m_vecEngineIndexToLtpUdpEngineTransmitterPtr(256, NULL),
     m_nextEngineIndex(1),
     m_readyToForward(false)
@@ -133,6 +134,11 @@ void LtpUdpEngineManager::RemoveLtpUdpEngineByRemoteEngineId_NotThreadSafe(const
             else {
                 LOG_ERROR(subprocess) << "LtpUdpEngineManager::RemoveLtpUdpEngineByRemoteEngineId_NotThreadSafe: remoteEngineId " << remoteEngineId
                     << " for type outduct had non-null m_vecEngineIndexToLtpUdpEngineTransmitterPtr at engineIndex " << ((unsigned int)engineIndex);
+            }
+        }
+        else { //induct
+            if (m_cachedItRemoteEngineIdToLtpUdpEngineReceiver == it) {
+                m_cachedItRemoteEngineIdToLtpUdpEngineReceiver = m_mapRemoteEngineIdToLtpUdpEngineReceiver.end();
             }
         }
         whichMap->erase(it);
@@ -295,12 +301,16 @@ void LtpUdpEngineManager::HandleUdpReceive(const boost::system::error_code & err
         LtpUdpEngine * ltpUdpEnginePtr;
         if (isSenderToReceiver) { //received an isSenderToReceiver message type => isInduct (this ltp engine received a message type that only travels from an outduct (sender) to an induct (receiver))
             //sessionOriginatorEngineId is the remote engine id in the case of an induct
-            std::map<uint64_t, LtpUdpEngine>::iterator it = m_mapRemoteEngineIdToLtpUdpEngineReceiver.find(sessionOriginatorEngineId);
-            if (it == m_mapRemoteEngineIdToLtpUdpEngineReceiver.end()) {
-                LOG_ERROR(subprocess) << "LtpUdpEngineManager::HandleUdpReceive: an induct received packet with unknown remote engine Id "
-                    << sessionOriginatorEngineId << ".. ignoring packet";
-                StartUdpReceive();
-                return;
+            std::map<uint64_t, LtpUdpEngine>::iterator it = m_cachedItRemoteEngineIdToLtpUdpEngineReceiver;
+            if ((it == m_mapRemoteEngineIdToLtpUdpEngineReceiver.end()) || (it->first != sessionOriginatorEngineId)) { //cache miss (invalid OR non-match)
+                it = m_mapRemoteEngineIdToLtpUdpEngineReceiver.find(sessionOriginatorEngineId);
+                if (it == m_mapRemoteEngineIdToLtpUdpEngineReceiver.end()) {
+                    LOG_ERROR(subprocess) << "LtpUdpEngineManager::HandleUdpReceive: an induct received packet with unknown remote engine Id "
+                        << sessionOriginatorEngineId << ".. ignoring packet";
+                    StartUdpReceive();
+                    return;
+                }
+                m_cachedItRemoteEngineIdToLtpUdpEngineReceiver = it; //cache update
             }
             ltpUdpEnginePtr = &(it->second);
         }
@@ -377,6 +387,7 @@ void LtpUdpEngineManager::DoUdpShutdown() {
         }
     }
     m_mapRemoteEngineIdToLtpUdpEngineReceiver.clear();
+    m_cachedItRemoteEngineIdToLtpUdpEngineReceiver = m_mapRemoteEngineIdToLtpUdpEngineReceiver.end();
     m_mapRemoteEngineIdToLtpUdpEngineTransmitter.clear();
 }
 
