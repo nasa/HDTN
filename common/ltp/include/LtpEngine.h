@@ -65,7 +65,7 @@ public:
 
     LTP_LIB_EXPORT virtual void Reset();
     LTP_LIB_EXPORT void SetCheckpointEveryNthDataPacketForSenders(uint64_t checkpointEveryNthDataPacketSender);
-    
+    LTP_LIB_EXPORT uint8_t GetEngineIndex();
 
     LTP_LIB_EXPORT void TransmissionRequest(std::shared_ptr<transmission_request_t> & transmissionRequest);
     LTP_LIB_EXPORT void TransmissionRequest_ThreadSafe(std::shared_ptr<transmission_request_t> && transmissionRequest);

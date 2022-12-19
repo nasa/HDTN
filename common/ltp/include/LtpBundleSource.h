@@ -81,7 +81,9 @@ private:
     std::unordered_set<uint64_t> m_activeSessionNumbersSet;
     std::atomic<unsigned int> m_startingCount;
 
-    volatile bool m_removeCallbackCalled;
+    boost::mutex m_removeEngineMutex;
+    boost::condition_variable m_removeEngineCv;
+    volatile bool m_removeEngineInProgress;
 public:
     //ltp stats
     LtpOutductTelemetry_t m_ltpOutductTelemetry;

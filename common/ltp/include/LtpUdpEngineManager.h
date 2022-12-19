@@ -98,8 +98,9 @@ private:
     std::vector<boost::uint8_t> m_udpReceiveBuffer;
     boost::asio::ip::udp::endpoint m_remoteEndpointReceived;
     //std::map<std::pair<uint64_t, bool>, std::unique_ptr<LtpUdpEngine> > m_mapSessionOriginatorEngineIdPlusIsInductToLtpUdpEnginePtr;
-    std::map<uint64_t, std::unique_ptr<LtpUdpEngine> > m_mapRemoteEngineIdToLtpUdpEngineReceiverPtr; //inducts (differentiate by remote engine id using this map)
-    std::map<uint64_t, std::unique_ptr<LtpUdpEngine> > m_mapRemoteEngineIdToLtpUdpEngineTransmitterPtr; //outducts (differentiate by engine index encoded into the session number, cannot use this map)
+    std::map<uint64_t, LtpUdpEngine> m_mapRemoteEngineIdToLtpUdpEngineReceiver; //inducts (differentiate by remote engine id using this map)
+    std::map<uint64_t, LtpUdpEngine>::iterator m_cachedItRemoteEngineIdToLtpUdpEngineReceiver;
+    std::map<uint64_t, LtpUdpEngine> m_mapRemoteEngineIdToLtpUdpEngineTransmitter; //outducts (differentiate by engine index encoded into the session number, cannot use this map)
     std::vector<LtpUdpEngine*> m_vecEngineIndexToLtpUdpEngineTransmitterPtr;
     unsigned int m_nextEngineIndex;
 

@@ -55,7 +55,9 @@ private:
     std::shared_ptr<LtpUdpEngineManager> m_ltpUdpEngineManagerPtr;
     LtpUdpEngine * m_ltpUdpEnginePtr;
 
-    volatile bool m_removeCallbackCalled;
+    boost::mutex m_removeEngineMutex;
+    boost::condition_variable m_removeEngineCv;
+    volatile bool m_removeEngineInProgress;
 };
 
 

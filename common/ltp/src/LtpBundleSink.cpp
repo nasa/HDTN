@@ -45,19 +45,25 @@ LtpBundleSink::LtpBundleSink(const LtpWholeBundleReadyCallback_t& ltpWholeBundle
 }
 
 void LtpBundleSink::RemoveCallback() {
-    m_removeCallbackCalled = true;
+    m_removeEngineMutex.lock();
+    m_removeEngineInProgress = false;
+    m_removeEngineMutex.unlock();
+    m_removeEngineCv.notify_one();
 }
 
 LtpBundleSink::~LtpBundleSink() {
-    m_removeCallbackCalled = false;
-    m_ltpUdpEngineManagerPtr->RemoveLtpUdpEngineByRemoteEngineId_ThreadSafe(M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true, boost::bind(&LtpBundleSink::RemoveCallback, this)); //sessionOriginatorEngineId is the remote engine id in the case of an induct
-    boost::this_thread::sleep(boost::posix_time::milliseconds(100));
-    for (unsigned int attempt = 0; attempt < 20; ++attempt) {
-        if (m_removeCallbackCalled) {
+    LOG_INFO(subprocess) << "waiting to remove ltp bundle sink for M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID " << M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
+    boost::mutex::scoped_lock cvLock(m_removeEngineMutex);
+    m_removeEngineInProgress = true;
+    m_ltpUdpEngineManagerPtr->RemoveLtpUdpEngineByRemoteEngineId_ThreadSafe(M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true,
+        boost::bind(&LtpBundleSink::RemoveCallback, this)); //sessionOriginatorEngineId is the remote engine id in the case of an induct
+    while (m_removeEngineInProgress) { //lock mutex (above) before checking condition
+        //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
+        if (!m_removeEngineCv.timed_wait(cvLock, boost::posix_time::seconds(3))) {
+            LOG_ERROR(subprocess) << "timed out waiting (for 3 seconds) to remove ltp bundle sink for M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID "
+                << M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
             break;
         }
-        LOG_INFO(subprocess) << "waiting to remove ltp bundle sink for M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID " << M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
-        boost::this_thread::sleep(boost::posix_time::milliseconds(100));
     }
 }
 

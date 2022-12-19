@@ -200,6 +200,9 @@ void LtpEngine::Reset() {
 void LtpEngine::SetCheckpointEveryNthDataPacketForSenders(uint64_t checkpointEveryNthDataPacketSender) {
     m_checkpointEveryNthDataPacketSender = checkpointEveryNthDataPacketSender;
 }
+uint8_t LtpEngine::GetEngineIndex() {
+    return m_rng.GetEngineIndex();
+}
 
 void LtpEngine::SetMtuReportSegment_ThreadSafe(uint64_t mtuReportSegment) {
     boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::SetMtuReportSegment, this, mtuReportSegment));

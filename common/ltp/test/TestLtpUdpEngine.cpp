@@ -115,29 +115,31 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         }
 
         ~Test() {
+            LOG_INFO(subprocess) << "waiting to remove ltp dest (induct) for remote engine id " << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
+            boost::mutex::scoped_lock cvLock(cvMutex);
             removeCallbackCalled = false;
             //sessionOriginatorEngineId is the remote engine id in the case of an induct
             ltpUdpEngineManagerDestPtr->RemoveLtpUdpEngineByRemoteEngineId_ThreadSafe(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true, boost::bind(&Test::RemoveCallback, this));
-            for (unsigned int attempt = 0; attempt < 3; ++attempt) {
-                boost::mutex::scoped_lock cvLock(cvMutex);
-                if (removeCallbackCalled) { //lock mutex (above) before checking condition
+            while (!removeCallbackCalled) { //lock mutex (above) before checking condition
+                //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
+                if (!cv.timed_wait(cvLock, boost::posix_time::milliseconds(2000))) {
+                    LOG_ERROR(subprocess) << "timed out waiting (for 2 seconds) to remove ltp dest (induct) for remote engine id "
+                        << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
                     break;
                 }
-                LOG_INFO(subprocess) << "waiting to remove ltp dest (induct) for remote engine id " << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
-                cv.timed_wait(cvLock, boost::posix_time::milliseconds(2000));
             }
             BOOST_CHECK(removeCallbackCalled);
             LOG_INFO(subprocess) << "removed ltp dest (induct) for remote engine id " << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
 
+            LOG_INFO(subprocess) << "waiting to remove ltp src (outduct) for remote engine id " << ENGINE_ID_DEST;
             removeCallbackCalled = false;
             ltpUdpEngineManagerSrcPtr->RemoveLtpUdpEngineByRemoteEngineId_ThreadSafe(ENGINE_ID_DEST, false, boost::bind(&Test::RemoveCallback, this));
-            for (unsigned int attempt = 0; attempt < 3; ++attempt) {
-                boost::mutex::scoped_lock cvLock(cvMutex);
-                if (removeCallbackCalled) { //lock mutex (above) before checking condition
+            while (!removeCallbackCalled) { //lock mutex (above) before checking condition
+                //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
+                if (!cv.timed_wait(cvLock, boost::posix_time::milliseconds(2000))) {
+                    LOG_ERROR(subprocess) << "timed out waiting (for 2 seconds) to remove ltp src (outduct) for remote engine id " << ENGINE_ID_DEST;
                     break;
                 }
-                LOG_INFO(subprocess) << "waiting to remove ltp src (outduct) for remote engine id " << ENGINE_ID_DEST;
-                cv.timed_wait(cvLock, boost::posix_time::milliseconds(2000));
             }
             BOOST_CHECK(removeCallbackCalled);
             LOG_INFO(subprocess) << "removed ltp src (outduct) for remote engine id " << ENGINE_ID_DEST;
