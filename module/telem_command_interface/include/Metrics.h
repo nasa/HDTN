@@ -21,10 +21,14 @@
 #include <boost/date_time.hpp>
 
 #include "telem_lib_export.h"
+#include "Telemetry.h"
+
 
 class Metrics {
     public:
         struct metrics_t {
+            TELEM_LIB_EXPORT metrics_t();
+
             // ingress
             double ingressCurrentRateMbps;
             double ingressAverageRateMbps;
@@ -46,12 +50,26 @@ class Metrics {
             uint64_t totalBunglesSentFromEgressToStorage;
         };
 
+        TELEM_LIB_EXPORT Metrics();
+        TELEM_LIB_EXPORT void Clear();
+        TELEM_LIB_EXPORT metrics_t Get();
+
+        TELEM_LIB_EXPORT void ProcessIngressTelem(IngressTelemetry_t& currentTelem);
+
+        TELEM_LIB_EXPORT void ProcessEgressTelem(EgressTelemetry_t& currentTelem);
+
+        TELEM_LIB_EXPORT void ProcessStorageTelem(StorageTelemetry_t& currentTelem);
+
         TELEM_LIB_EXPORT static double CalculateMbpsRate(
             double currentBytes,
             double prevBytes, 
             boost::posix_time::ptime nowTime,
-            boost::posix_time::ptime lastTime
+            boost::posix_time::ptime lastProcessedTime
         );
+
+    private:
+        boost::posix_time::ptime m_startTime; 
+        metrics_t m_metrics;
 };
 
 #endif //METRICS_H

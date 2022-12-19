@@ -2,6 +2,79 @@
 
 #include "Metrics.h"
 
+BOOST_AUTO_TEST_CASE(MetricsStructInitTestCase)
+{
+    // All struct fields should be initialized to 0
+    Metrics::metrics_t metrics;
+    char *bytes = (char*)&metrics;
+    for (int i=0; i < sizeof(Metrics::metrics_t); ++i) {
+        BOOST_REQUIRE_EQUAL(0, bytes[i]);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(MetricsClearTestCase)
+{
+    // Fake telem
+    StorageTelemetry_t telem;
+    telem.totalBundlesErasedFromStorage = 10;
+    telem.totalBundlesSentToEgressFromStorage = 20;
+
+    Metrics metrics;
+    metrics.ProcessStorageTelem(telem);
+    metrics.Clear();
+
+    Metrics::metrics_t metricsVals = metrics.Get();
+    char *bytes = (char*)&metricsVals;
+    for (int i=0; i < sizeof(Metrics::metrics_t); ++i) {
+        BOOST_REQUIRE_EQUAL(0, bytes[i]);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(MetricsProcessIngressTelemTestCase)
+{
+    IngressTelemetry_t telem;
+    telem.totalDataBytes = 1000;
+    telem.bundleCountEgress = 5;
+    telem.bundleCountStorage = 10;
+
+    Metrics metrics;
+    metrics.ProcessIngressTelem(telem);
+    Metrics::metrics_t result = metrics.Get();
+    BOOST_REQUIRE_EQUAL(5, result.bundleCountSentToEgress);
+    BOOST_REQUIRE_EQUAL(10, result.bundleCountSentToStorage);
+    BOOST_REQUIRE_EQUAL(0, result.ingressAverageRateMbps);
+    BOOST_REQUIRE_EQUAL(0, result.ingressCurrentRateMbps);
+}
+
+BOOST_AUTO_TEST_CASE(MetricsProcessEgressTelemTestCase)
+{
+    EgressTelemetry_t telem;
+    telem.totalDataBytes = 1000;
+    telem.egressBundleCount = 5;
+    telem.egressMessageCount = 10;
+
+    Metrics metrics;
+    metrics.ProcessEgressTelem(telem);
+    Metrics::metrics_t result = metrics.Get();
+    BOOST_REQUIRE_EQUAL(5, result.egressBundleCount);
+    BOOST_REQUIRE_EQUAL(10, result.egressMessageCount);
+    BOOST_REQUIRE_EQUAL(0, result.egressAverageRateMbps);
+    BOOST_REQUIRE_EQUAL(0, result.egressCurrentRateMbps);
+}
+
+BOOST_AUTO_TEST_CASE(MetricsProcessStorageTelemTestCase)
+{
+    StorageTelemetry_t telem;
+    telem.totalBundlesErasedFromStorage = 11;
+    telem.totalBundlesSentToEgressFromStorage = 12;
+
+    Metrics metrics;
+    metrics.ProcessStorageTelem(telem);
+    Metrics::metrics_t result = metrics.Get();
+    BOOST_REQUIRE_EQUAL(11, result.totalBundlesErasedFromStorage);
+    BOOST_REQUIRE_EQUAL(12, result.totalBunglesSentFromEgressToStorage);
+}
+
 BOOST_AUTO_TEST_CASE(MetricsCalculateMbpsRateTestCase)
 {
     boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();

@@ -35,8 +35,59 @@ static const unsigned int REC_INGRESS = 0x01;
 static const unsigned int REC_EGRESS = 0x02;
 static const unsigned int REC_STORAGE = 0x04;
 
+/**
+ * TelemetryRunner implementation class 
+ */
+class TelemetryRunner::Impl : private boost::noncopyable {
+    public:
+        bool Run(int argc, const char* const argv[], volatile bool & running);
+        bool Init(zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions& options);
+        bool ShouldExit();
+        void Stop();
+        void ThreadFunc(zmq::context_t * inprocContextPtr);
+
+    private:
+        void MonitorExitKeypressThreadFunc();
+        void OnNewMetrics(Metrics::metrics_t metrics);
+
+        volatile bool m_running;
+        volatile bool m_runningFromSigHandler;
+        std::unique_ptr<boost::thread> m_threadPtr;
+        std::unique_ptr<WebsocketServer> m_websocketServerPtr;
+        std::unique_ptr<TelemetryLogger> m_telemetryLoggerPtr;
+};
+
+/**
+ * TelemetryRunner proxies 
+ */
+TelemetryRunner::TelemetryRunner()
+    : m_pimpl(boost::make_unique<TelemetryRunner::Impl>()) {}
 
 bool TelemetryRunner::Run(int argc, const char *const argv[], volatile bool &running)
+{
+    return m_pimpl->Run(argc, argv, running);
+}
+
+bool TelemetryRunner::Init(zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options)
+{
+    return m_pimpl->Init(inprocContextPtr, options);
+}
+
+bool TelemetryRunner::ShouldExit()
+{
+    return m_pimpl->ShouldExit();
+}
+
+void TelemetryRunner::Stop()
+{
+    m_pimpl->Stop();
+}
+
+/**
+ * TelemetryRunner implementation
+ */
+
+bool TelemetryRunner::Impl::Run(int argc, const char *const argv[], volatile bool &running)
 {
     running = true;
 
@@ -62,7 +113,7 @@ bool TelemetryRunner::Run(int argc, const char *const argv[], volatile bool &run
     }
 
     m_runningFromSigHandler = true;
-    SignalHandler sigHandler(boost::bind(&TelemetryRunner::MonitorExitKeypressThreadFunc, this));
+    SignalHandler sigHandler(boost::bind(&TelemetryRunner::Impl::MonitorExitKeypressThreadFunc, this));
     sigHandler.Start(false);
     while (running && m_runningFromSigHandler)
     {
@@ -72,7 +123,7 @@ bool TelemetryRunner::Run(int argc, const char *const argv[], volatile bool &run
     return true;
 }
 
-bool TelemetryRunner::Init(zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options)
+bool TelemetryRunner::Impl::Init(zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options)
 {
 #ifdef USE_WEB_INTERFACE
     m_websocketServerPtr = boost::make_unique<WebsocketServer>();
@@ -85,11 +136,11 @@ bool TelemetryRunner::Init(zmq::context_t *inprocContextPtr, TelemetryRunnerProg
 
     m_running = true;
     m_threadPtr = boost::make_unique<boost::thread>(
-        boost::bind(&TelemetryRunner::ThreadFunc, this, inprocContextPtr)); // create and start the worker thread
+        boost::bind(&TelemetryRunner::Impl::ThreadFunc, this, inprocContextPtr)); // create and start the worker thread
     return true;
 }
 
-void TelemetryRunner::ThreadFunc(zmq::context_t *inprocContextPtr)
+void TelemetryRunner::Impl::ThreadFunc(zmq::context_t *inprocContextPtr)
 {
     // Create and initialize connections
     std::unique_ptr<TelemetryConnection> ingressConnection;
@@ -126,6 +177,7 @@ void TelemetryRunner::ThreadFunc(zmq::context_t *inprocContextPtr)
     poller.AddConnection(*storageConnection);
 
     // Start loop to begin polling
+    Metrics metrics;
     DeadlineTimer deadlineTimer(THREAD_POLL_INTERVAL_MS);
     while (m_running)
     {
@@ -140,8 +192,8 @@ void TelemetryRunner::ThreadFunc(zmq::context_t *inprocContextPtr)
         storageConnection->SendMessage(byteSignalBuf);
 
         // Wait for telemetry from all modules
+        metrics.Clear();
         unsigned int receiveEventsMask = 0;
-        Metrics::metrics_t metrics;
         for (unsigned int attempt = 0; attempt < NUM_POLL_ATTEMPTS; ++attempt)
         {
             if (receiveEventsMask == REC_ALL) {
@@ -155,22 +207,22 @@ void TelemetryRunner::ThreadFunc(zmq::context_t *inprocContextPtr)
             if (poller.HasNewMessage(*ingressConnection)) {
                 receiveEventsMask |= REC_INGRESS;
                 IngressTelemetry_t telem = ingressConnection->ReadMessage<IngressTelemetry_t>();
-                ProcessIngressTelem(telem, metrics);
+                metrics.ProcessIngressTelem(telem);
             }
             if (poller.HasNewMessage(*egressConnection)) {
                 receiveEventsMask |= REC_EGRESS;
                 EgressTelemetry_t telem = egressConnection->ReadMessage<EgressTelemetry_t>();
-                ProcessEgressTelem(telem, metrics);
+                metrics.ProcessEgressTelem(telem);
             }
             if (poller.HasNewMessage(*storageConnection)) {
                 receiveEventsMask |= REC_STORAGE;
                 StorageTelemetry_t telem = storageConnection->ReadMessage<StorageTelemetry_t>();
-                ProcessStorageTelem(telem, metrics);
+                metrics.ProcessStorageTelem(telem);
             }
         }
         // Handle the newly received metrics
         if (receiveEventsMask == REC_ALL) {
-            OnNewMetrics(metrics);
+            OnNewMetrics(metrics.Get());
         } else {
             LOG_WARNING(subprocess) << "did not get telemetry from all modules";
         }
@@ -178,75 +230,7 @@ void TelemetryRunner::ThreadFunc(zmq::context_t *inprocContextPtr)
     std::cout << "ThreadFunc exiting\n";
 }
 
-void TelemetryRunner::ProcessIngressTelem(IngressTelemetry_t &telem, Metrics::metrics_t &metrics)
-{
-    boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();
-    static boost::posix_time::ptime startTime = nowTime;
-    static boost::posix_time::ptime lastTime = nowTime;
-    static double lastTotalBytes = 0;
-
-    // Wait one cycle before performing calculations
-    if (nowTime == lastTime) {
-        return;
-    }
-
-    metrics.ingressCurrentRateMbps = Metrics::CalculateMbpsRate(
-        telem.totalDataBytes,
-        lastTotalBytes,
-        nowTime,
-        lastTime);
-    metrics.ingressAverageRateMbps = Metrics::CalculateMbpsRate(
-        telem.totalDataBytes,
-        0,
-        nowTime,
-        startTime);
-    metrics.bundleCountSentToEgress = telem.bundleCountEgress;
-    metrics.bundleCountSentToStorage = telem.bundleCountStorage;
-    metrics.ingressTotalDataBytes = telem.totalDataBytes;
-    metrics.ingressCurrentDataBytes = telem.totalDataBytes - lastTotalBytes;
-
-    lastTime = nowTime;
-    lastTotalBytes = telem.totalDataBytes;
-}
-
-void TelemetryRunner::ProcessEgressTelem(EgressTelemetry_t &telem, Metrics::metrics_t &metrics)
-{
-    boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();
-    static boost::posix_time::ptime lastTime = nowTime;
-    static boost::posix_time::ptime startTime = nowTime;
-    static double lastTotalBytes = 0;
-
-    // Wait one cycle before performing calculations
-    if (nowTime == lastTime) {
-        return;
-    }
-
-    metrics.egressCurrentRateMbps = Metrics::CalculateMbpsRate(
-        telem.totalDataBytes,
-        lastTotalBytes,
-        nowTime,
-        lastTime);
-    metrics.egressAverageRateMbps = Metrics::CalculateMbpsRate(
-        telem.totalDataBytes,
-        0,
-        nowTime,
-        startTime);
-    metrics.egressBundleCount = telem.egressBundleCount;
-    metrics.egressMessageCount = telem.egressMessageCount;
-    metrics.egressTotalDataBytes = telem.totalDataBytes;
-    metrics.egressCurrentDataBytes = telem.totalDataBytes - lastTotalBytes;
-
-    lastTime = nowTime;
-    lastTotalBytes = telem.totalDataBytes;
-}
-
-void TelemetryRunner::ProcessStorageTelem(StorageTelemetry_t &telem, Metrics::metrics_t &metrics)
-{
-    metrics.totalBundlesErasedFromStorage = telem.totalBundlesErasedFromStorage;
-    metrics.totalBunglesSentFromEgressToStorage = telem.totalBundlesSentToEgressFromStorage;
-}
-
-void TelemetryRunner::OnNewMetrics(Metrics::metrics_t metrics)
+void TelemetryRunner::Impl::OnNewMetrics(Metrics::metrics_t metrics)
 {
     if (m_websocketServerPtr) {
         m_websocketServerPtr->SendNewBinaryData((const char *)(&metrics), sizeof(metrics));
@@ -256,7 +240,7 @@ void TelemetryRunner::OnNewMetrics(Metrics::metrics_t metrics)
     }
 }
 
-bool TelemetryRunner::ShouldExit()
+bool TelemetryRunner::Impl::ShouldExit()
 {
     if (m_websocketServerPtr) {
         return m_websocketServerPtr->RequestsExit();
@@ -264,13 +248,13 @@ bool TelemetryRunner::ShouldExit()
     return false;
 }
 
-void TelemetryRunner::MonitorExitKeypressThreadFunc()
+void TelemetryRunner::Impl::MonitorExitKeypressThreadFunc()
 {
     LOG_INFO(subprocess) << "Keyboard Interrupt.. exiting\n";
     m_runningFromSigHandler = false; // do this first
 }
 
-void TelemetryRunner::Stop()
+void TelemetryRunner::Impl::Stop()
 {
     m_running = false;
     if (m_threadPtr) {
