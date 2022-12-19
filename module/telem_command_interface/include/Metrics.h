@@ -51,15 +51,35 @@ class Metrics {
         };
 
         TELEM_LIB_EXPORT Metrics();
+
+        /**
+         * Clears the underlying metric values 
+         */
         TELEM_LIB_EXPORT void Clear();
+
+        /**
+         * Gets the metric values 
+         */
         TELEM_LIB_EXPORT metrics_t Get();
 
+        /**
+         * Processes and stores new ingress telemetry data 
+         */
         TELEM_LIB_EXPORT void ProcessIngressTelem(IngressTelemetry_t& currentTelem);
 
+        /**
+         * Processes and stores new egress telemetry data 
+         */
         TELEM_LIB_EXPORT void ProcessEgressTelem(EgressTelemetry_t& currentTelem);
 
+        /**
+         * Processes and storage new storage telemetry data 
+         */
         TELEM_LIB_EXPORT void ProcessStorageTelem(StorageTelemetry_t& currentTelem);
 
+        /**
+         * Helper function to calculate a mb/s rate 
+         */
         TELEM_LIB_EXPORT static double CalculateMbpsRate(
             double currentBytes,
             double prevBytes, 

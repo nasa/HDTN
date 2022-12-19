@@ -30,8 +30,21 @@ class TelemetryConnectionPoller
 {
     public:
         TELEM_LIB_EXPORT ~TelemetryConnectionPoller();
+
+        /**
+         * Adds a new connection to the poller 
+         */
         TELEM_LIB_EXPORT void AddConnection(TelemetryConnection& connection);
+
+        /**
+         * Polls all connections that have been added to the poller 
+         */
         TELEM_LIB_EXPORT bool PollConnections(unsigned int timeout);
+
+        /**
+         * Determines if a connection has a new message
+         * @param connection connection to check 
+         */
         TELEM_LIB_EXPORT bool HasNewMessage(TelemetryConnection& connection);
 
         std::vector<zmq::pollitem_t> m_pollItems;

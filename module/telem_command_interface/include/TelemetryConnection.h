@@ -28,8 +28,20 @@ class TelemetryConnection
     public:
         TELEM_LIB_EXPORT TelemetryConnection(std::string addr, zmq::context_t* inprocContextPtr);
         TELEM_LIB_EXPORT ~TelemetryConnection();
+
+        /**
+         * Sends a new message on the connnection 
+         */
         TELEM_LIB_EXPORT bool SendMessage(zmq::const_buffer buffer);
+
+        /**
+         * Reads a new message from the connection, if available 
+         */
         TELEM_LIB_EXPORT template <typename T> T ReadMessage();
+
+        /**
+         * Gets the underlying socket handle 
+         */
         TELEM_LIB_EXPORT void* GetSocketHandle();
 
     private:

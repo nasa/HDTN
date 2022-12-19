@@ -24,6 +24,9 @@
 class TelemetryLogger
 {
     public:
+        /**
+         * Logs a set of metrics to files
+         */
         TELEM_LIB_EXPORT void LogMetrics(Metrics::metrics_t metrics);
 };
 

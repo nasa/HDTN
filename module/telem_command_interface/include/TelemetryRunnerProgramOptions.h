@@ -27,7 +27,15 @@ class TELEM_LIB_EXPORT TelemetryRunnerProgramOptions
 {
     public:
         TelemetryRunnerProgramOptions();
+
+        /**
+         * Appends program options, specific to this TelemetryRunner, to an options descroption 
+         */
         static void AppendToDesc(boost::program_options::options_description& desc);
+
+        /**
+         * Parses a variable map and stores the result in this TelemetryRunnerProgramOptions 
+         */
         bool ParseFromVariableMap(boost::program_options::variables_map vm);
 
         boost::filesystem::path m_guiDocumentRoot;
