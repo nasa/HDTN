@@ -118,7 +118,7 @@ public:
      *
      * @return Number of allocated segments.
      */
-    STORAGE_LIB_EXPORT uint64_t GetNumAllocatedSegments_NotThreadSafe() const;
+    STORAGE_LIB_EXPORT uint64_t GetNumAllocatedSegments_NotThreadSafe() const noexcept;
 
     /** Thread safe method to get the number of allocated segments.
      *
@@ -130,7 +130,7 @@ public:
      *
      * @return Maximum number of segments.
      */
-    STORAGE_LIB_EXPORT uint64_t GetMaxSegments() const;
+    STORAGE_LIB_EXPORT uint64_t GetMaxSegments() const noexcept;
 
 private:
 

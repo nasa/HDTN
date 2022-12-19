@@ -112,6 +112,10 @@ public:
 
     STORAGE_LIB_EXPORT const MemoryManagerTreeArray & GetMemoryManagerConstRef();
 
+    STORAGE_LIB_EXPORT uint64_t GetFreeSpaceBytes() const noexcept;
+    STORAGE_LIB_EXPORT uint64_t GetUsedSpaceBytes() const noexcept;
+    STORAGE_LIB_EXPORT uint64_t GetTotalCapacityBytes() const noexcept;
+
 
 protected:
 

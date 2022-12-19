@@ -57,6 +57,8 @@ struct StorageTelemetry_t{
     uint64_t type;
     uint64_t totalBundlesErasedFromStorage;
     uint64_t totalBundlesSentToEgressFromStorage;
+    uint64_t usedSpaceBytes;
+    uint64_t freeSpaceBytes;
 
     TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
 };

@@ -259,7 +259,7 @@ bool MemoryManagerTreeArray::FreeSegments_ThreadSafe(const segment_id_chain_vec_
     return success;
 }
 
-uint64_t MemoryManagerTreeArray::GetNumAllocatedSegments_NotThreadSafe() const {
+uint64_t MemoryManagerTreeArray::GetNumAllocatedSegments_NotThreadSafe() const noexcept {
     return m_numSegmentsAllocated;
 }
 
@@ -270,6 +270,6 @@ uint64_t MemoryManagerTreeArray::GetNumAllocatedSegments_ThreadSafe() const {
     return numSegmentsAllocated;
 }
 
-uint64_t MemoryManagerTreeArray::GetMaxSegments() const {
+uint64_t MemoryManagerTreeArray::GetMaxSegments() const noexcept {
     return M_MAX_SEGMENTS;
 }

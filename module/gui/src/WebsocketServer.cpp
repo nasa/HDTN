@@ -342,7 +342,7 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
                         //process egress telemetry
                         moduleMask |= 0x4;
                         //PrintSerializedTelemetry((const uint8_t*)zmqStorageTelemReceived.data(), zmqStorageTelemReceived.size());
-                        //SendBinaryDataToActiveWebsockets((const char*)zmqEgressTelemReceived.data(), zmqEgressTelemReceived.size());
+                        SendBinaryDataToActiveWebsockets((const char*)zmqStorageTelemReceived.data(), zmqStorageTelemReceived.size());
                     }
 #endif
                 }

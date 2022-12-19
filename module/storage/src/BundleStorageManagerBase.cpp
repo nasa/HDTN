@@ -127,6 +127,15 @@ BundleStorageManagerBase::~BundleStorageManagerBase() {
 const MemoryManagerTreeArray & BundleStorageManagerBase::GetMemoryManagerConstRef() {
     return m_memoryManager;
 }
+uint64_t BundleStorageManagerBase::GetFreeSpaceBytes() const noexcept {
+    return (M_MAX_SEGMENTS - m_memoryManager.GetNumAllocatedSegments_NotThreadSafe()) * SEGMENT_SIZE;
+}
+uint64_t BundleStorageManagerBase::GetUsedSpaceBytes() const noexcept {
+    return m_memoryManager.GetNumAllocatedSegments_NotThreadSafe() * SEGMENT_SIZE;
+}
+uint64_t BundleStorageManagerBase::GetTotalCapacityBytes() const noexcept {
+    return M_MAX_SEGMENTS * SEGMENT_SIZE;
+}
 
 
 uint64_t BundleStorageManagerBase::Push(BundleStorageManagerSession_WriteToDisk & session, const PrimaryBlock & bundlePrimaryBlock, const uint64_t bundleSizeBytes) {
