@@ -30,6 +30,7 @@
 #include <boost/make_unique.hpp>
 #ifdef RUN_TELEMETRY
 #include "TelemetryRunner.h"
+#include "TelemetryRunnerProgramOptions.h"
 // since boost versions below 1.76 use deprecated bind.hpp in its property_tree/json_parser/detail/parser.hpp,
 // and since BOOST_BIND_GLOBAL_PLACEHOLDERS was introduced in 1.73
 // the following fixes warning:  The practice of declaring the Bind placeholders (_1, _2, ...) in the global namespace is deprecated....
@@ -60,7 +61,10 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         SignalHandler sigHandler(boost::bind(&HdtnOneProcessRunner::MonitorExitKeypressThreadFunction, this));
 
         HdtnConfig_ptr hdtnConfig;
+
+#ifdef RUN_TELEMETRY
         TelemetryRunnerProgramOptions telemetryRunnerOptions;
+#endif
 
         boost::program_options::options_description desc("Allowed options");
         try

@@ -15,7 +15,7 @@
  * This TelemetryRunnerProgramOptions class stores the program options for the TelemetryRunner
  */
 
-#ifndef TELEMETRY_RUNNER_PROGAM_OPTIONS_H
+#ifndef TELEMETRY_RUNNER_PROGRAM_OPTIONS_H
 #define TELEMETRY_RUNNER_PROGRAM_OPTIONS_H 1
 
 #include <boost/filesystem.hpp>
