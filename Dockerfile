@@ -12,11 +12,8 @@ ARG SW_DIR=/HDTN
 ENV HDTN_SOURCE_ROOT=${SW_DIR} 
 RUN cd $HDTN_SOURCE_ROOT && mkdir build && cd build && cmake .. && make
 
+#can speed up build by changing last command to 'make -j8' (number of cores used to compile)
 
-
-#may have to remove '-j8' (number of cores used to compile)
-
-#Send instructions
 
 
 

@@ -1,14 +1,18 @@
 version: '3.7'
-services: 
+services:
     alpha:
+      container_name: hdtn_sender
+      hostname: hdtn_sender
       image: hdtn
-        container_name: hdtn-receiver
-        hostname: hdtn-receiver
-        shm_size: 2gb
+      shm_size: 2gb
+      #extra_hosts: 
+      #- "hdtn-1:10.97.215.1"
     bravo:
+      container_name: hdtn_receiver
+      hostname: hdtn_receiver
       image: hdtn
-        container_name: hdtn-sender
-        hostname: hdtn-sender
-        shm_size: 2gb
+      shm_size: 2gb
+      #extra_hosts:
+      #- "hdtn-2:10.97.215.2"
 
 
