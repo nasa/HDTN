@@ -174,9 +174,8 @@ private:
 private:
     Ltp m_ltpRxStateMachine;
     LtpRandomNumberGenerator m_rng;
-    const uint64_t M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION;
-    const uint64_t M_MAX_RED_RX_BYTES_PER_SESSION;
     const uint64_t M_THIS_ENGINE_ID;
+    const uint64_t m_clientServiceId;
     unsigned int m_numSendPacketsPendingSystemCalls;
 protected:
     const uint64_t M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL;
@@ -197,7 +196,7 @@ private:
 
     //session receiver functions to be passed in AS REFERENCES (note declared before m_mapSessionIdToSessionReceiver so destroyed after map)
     NotifyEngineThatThisReceiverNeedsDeletedCallback_t m_notifyEngineThatThisReceiverNeedsDeletedCallback;
-    NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t m_notifyEngineThatThisSendersTimersHasProducibleDataFunction;
+    NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t m_notifyEngineThatThisReceiversTimersHasProducibleDataFunction;
 
     //session sender functions to be passed in AS REFERENCES (note declared before m_mapSessionNumberToSessionSender so destroyed after map)
     NotifyEngineThatThisSenderNeedsDeletedCallback_t m_notifyEngineThatThisSenderNeedsDeletedCallback;
@@ -211,7 +210,7 @@ private:
     LTP_LIB_NO_EXPORT void EraseTxSession(map_session_number_to_session_sender_t::iterator& txSessionIt);
     LTP_LIB_NO_EXPORT void EraseRxSession(map_session_id_to_session_receiver_t::iterator& rxSessionIt);
     
-
+    std::set<Ltp::session_id_t> m_ltpSessionsWithWrongClientServiceId;
     std::queue<std::pair<uint64_t, std::vector<uint8_t> > > m_queueClosedSessionDataToSend; //sessionOriginatorEngineId, data
     std::queue<cancel_segment_timer_info_t> m_queueCancelSegmentTimerInfo;
     std::queue<uint64_t> m_queueSendersNeedingDeleted;
@@ -234,7 +233,6 @@ private:
     OnOutductLinkStatusChangedCallback_t m_onOutductLinkStatusChangedCallback;
     uint64_t m_userAssignedUuid;
 
-    uint64_t m_maxReceptionClaims;
     uint32_t m_maxRetriesPerSerialNumber;
 protected:
     boost::asio::io_service m_ioServiceLtpEngine; //for timers and post calls only
@@ -297,6 +295,7 @@ private:
 
     //reference structs common to all sessions
     LtpSessionSender::LtpSessionSenderCommonData m_ltpSessionSenderCommonData;
+    LtpSessionReceiver::LtpSessionReceiverCommonData m_ltpSessionReceiverCommonData;
 
 public:
     //stats
@@ -309,15 +308,15 @@ public:
     uint64_t & m_numDeletedFullyClaimedPendingReportsRef;
 
     //session receiver stats
-    uint64_t m_numReportSegmentTimerExpiredCallbacks;
-    uint64_t m_numReportSegmentsUnableToBeIssued;
-    uint64_t m_numReportSegmentsTooLargeAndNeedingSplit;
-    uint64_t m_numReportSegmentsCreatedViaSplit;
-    uint64_t m_numGapsFilledByOutOfOrderDataSegments;
-    uint64_t m_numDelayedFullyClaimedPrimaryReportSegmentsSent;
-    uint64_t m_numDelayedFullyClaimedSecondaryReportSegmentsSent;
-    uint64_t m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent;
-    uint64_t m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent;
+    uint64_t & m_numReportSegmentTimerExpiredCallbacksRef;
+    uint64_t & m_numReportSegmentsUnableToBeIssuedRef;
+    uint64_t & m_numReportSegmentsTooLargeAndNeedingSplitRef;
+    uint64_t & m_numReportSegmentsCreatedViaSplitRef;
+    uint64_t & m_numGapsFilledByOutOfOrderDataSegmentsRef;
+    uint64_t & m_numDelayedFullyClaimedPrimaryReportSegmentsSentRef;
+    uint64_t & m_numDelayedFullyClaimedSecondaryReportSegmentsSentRef;
+    uint64_t & m_numDelayedPartiallyClaimedPrimaryReportSegmentsSentRef;
+    uint64_t & m_numDelayedPartiallyClaimedSecondaryReportSegmentsSentRef;
 };
 
 #endif // LTP_ENGINE_H
