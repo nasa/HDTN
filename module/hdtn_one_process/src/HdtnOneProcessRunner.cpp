@@ -67,8 +67,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
 #endif
 
         boost::program_options::options_description desc("Allowed options");
-        try
-        {
+        try {
             desc.add_options()("help", "Produce help message.")("hdtn-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.");
 
 #ifdef RUN_TELEMETRY
@@ -79,8 +78,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
             boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc, boost::program_options::command_line_style::unix_style | boost::program_options::command_line_style::case_insensitive), vm);
             boost::program_options::notify(vm);
 
-            if (vm.count("help"))
-            {
+            if (vm.count("help")) {
                 LOG_INFO(subprocess) << desc;
                 return false;
             }
@@ -95,12 +93,12 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
                 return false;
             }
         }
-        catch (boost::bad_any_cast &e) {
+        catch (boost::bad_any_cast & e) {
             LOG_ERROR(subprocess) << "invalid data error: " << e.what();
             LOG_ERROR(subprocess) << desc;
             return false;
         }
-        catch (std::exception &e) {
+        catch (std::exception& e) {
             LOG_ERROR(subprocess) << e.what();
             return false;
         }

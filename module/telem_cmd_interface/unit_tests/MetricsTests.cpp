@@ -48,6 +48,17 @@ BOOST_AUTO_TEST_CASE(MetricsProcessIngressTelemTestCase)
     BOOST_REQUIRE_EQUAL(10, result.bundleCountSentToStorage);
     BOOST_REQUIRE_EQUAL(0, result.ingressAverageRateMbps);
     BOOST_REQUIRE_EQUAL(0, result.ingressCurrentRateMbps);
+
+    telem.totalDataBytes = 4000;
+    telem.bundleCountEgress = 10;
+    telem.bundleCountStorage = 20;
+    usleep(200000 /* 200ms */);
+    metrics.ProcessIngressTelem(telem);
+    result = metrics.Get();
+    BOOST_REQUIRE_EQUAL(10, result.bundleCountSentToEgress);
+    BOOST_REQUIRE_EQUAL(20, result.bundleCountSentToStorage);
+    BOOST_REQUIRE_CLOSE(.16, result.ingressAverageRateMbps, 10);
+    BOOST_REQUIRE_CLOSE(.12, result.ingressCurrentRateMbps, 10);
 }
 
 BOOST_AUTO_TEST_CASE(MetricsProcessEgressTelemTestCase)
@@ -64,6 +75,17 @@ BOOST_AUTO_TEST_CASE(MetricsProcessEgressTelemTestCase)
     BOOST_REQUIRE_EQUAL(10, result.egressMessageCount);
     BOOST_REQUIRE_EQUAL(0, result.egressAverageRateMbps);
     BOOST_REQUIRE_EQUAL(0, result.egressCurrentRateMbps);
+
+    telem.totalDataBytes = 4000;
+    telem.egressBundleCount = 10;
+    telem.egressMessageCount = 20;
+    usleep(200000 /* 200ms */);
+    metrics.ProcessEgressTelem(telem);
+    result = metrics.Get();
+    BOOST_REQUIRE_EQUAL(10, result.egressBundleCount);
+    BOOST_REQUIRE_EQUAL(20, result.egressMessageCount);
+    BOOST_REQUIRE_CLOSE(.16, result.egressAverageRateMbps, 10);
+    BOOST_REQUIRE_CLOSE(.12, result.egressCurrentRateMbps, 10);
 }
 
 BOOST_AUTO_TEST_CASE(MetricsProcessStorageTelemTestCase)

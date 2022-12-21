@@ -140,8 +140,6 @@ window.addEventListener("load", function(event){
     
             var dv = new DataView(e.data);
             var byteIndex = 0;
-            // var type = dv.getUint64(byteIndex, littleEndian);
-            // byteIndex += 8;
         
             //Ingress
             var ingressCurrentRate = dv.getFloat64(byteIndex, littleEndian);

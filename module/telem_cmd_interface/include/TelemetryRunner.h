@@ -32,11 +32,6 @@ class TelemetryRunner
         TELEM_LIB_EXPORT ~TelemetryRunner();
 
         /**
-         * Starts the runner as a standalone process 
-         */
-        TELEM_LIB_EXPORT bool Run(int argc, const char* const argv[], volatile bool & running);
-
-        /**
          * Starts the runner as an async thread
          * @param inprocContextPtr context to use for the inproc zmq connections
          * @param options program options for the runner
@@ -49,7 +44,7 @@ class TelemetryRunner
         TELEM_LIB_EXPORT bool ShouldExit();
 
         /**
-         * Stops the runner, if running as an async tread 
+         * Stops the runner
          */
         TELEM_LIB_EXPORT void Stop();
 

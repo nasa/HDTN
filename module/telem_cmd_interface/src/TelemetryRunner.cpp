@@ -133,8 +133,9 @@ void TelemetryRunner::Impl::ThreadFunc(zmq::context_t *inprocContextPtr)
             storageConnection = boost::make_unique<TelemetryConnection>("tcp://localhost:10301", nullptr);
         }
     }
-    catch (...)
+    catch (std::exception& e)
     {
+        LOG_ERROR(subprocess) << e.what();
         return;
     }
 

@@ -11,7 +11,8 @@
  * See LICENSE.md in the source root directory for more information.
  *
  * @section DESCRIPTION
- * This Metrics class provides the data structure and helper functions for working with HDTN metrics.
+ * This Metrics class implements processing and storing metrics from telemetry data. When processing
+ * data, a Metrics object is stateful and should not be destroyed.
  */
 
 #ifndef METRICS_H
@@ -52,12 +53,12 @@ class Metrics {
         TELEM_LIB_EXPORT Metrics();
 
         /**
-         * Clears the underlying metric values 
+         * Clears the underlying metrics_t object
          */
         TELEM_LIB_EXPORT void Clear();
 
         /**
-         * Gets the metric values 
+         * Gets the underlying metrics_t object
          */
         TELEM_LIB_EXPORT metrics_t Get();
 
@@ -77,7 +78,7 @@ class Metrics {
         TELEM_LIB_EXPORT void ProcessStorageTelem(StorageTelemetry_t& currentTelem);
 
         /**
-         * Helper function to calculate a megabit per second rate 
+         * Helper function to calculate a megabit/s rate 
          */
         TELEM_LIB_EXPORT static double CalculateMbpsRate(
             double currentBytes,

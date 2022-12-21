@@ -5,20 +5,20 @@
 #include "TelemetryConnection.h"
 #include "TelemetryDefinitions.h"
 
-class MockTelemetrySender
+class MockTelemetryResponder
 {
 public:
     std::unique_ptr<zmq::socket_t> m_respSocket;
     zmq::pollitem_t m_pollItems[1];
 
-    MockTelemetrySender(std::string addr, zmq::context_t *inprocContextPtr)
+    MockTelemetryResponder(std::string addr, zmq::context_t *inprocContextPtr)
     {
         m_respSocket = boost::make_unique<zmq::socket_t>(*inprocContextPtr, zmq::socket_type::pair);
         m_respSocket->bind(addr);
         m_pollItems[0] = {m_respSocket->handle(), 0, ZMQ_POLLIN, 0};
     }
 
-    ~MockTelemetrySender()
+    ~MockTelemetryResponder()
     {
         m_respSocket.reset();
     }
@@ -27,6 +27,13 @@ public:
     {
         zmq::message_t msg(&byte, sizeof(byte));
         m_respSocket->send(std::move(msg), zmq::send_flags::dontwait);
+    }
+
+    uint8_t Read()
+    {
+        uint8_t data = 0;
+        const zmq::recv_buffer_result_t res = m_respSocket->recv(zmq::mutable_buffer(&data, sizeof(data)), zmq::recv_flags::dontwait);
+        return data;
     }
 };
 
@@ -47,23 +54,39 @@ BOOST_AUTO_TEST_CASE(TelemetryConnectionInitTestCase)
     connection.reset();
 }
 
-BOOST_AUTO_TEST_CASE(TelemetryConnectionSendMessageTestCase)
+BOOST_AUTO_TEST_CASE(TelemetryConnectionReadMessageTestCase)
 {
     std::unique_ptr<zmq::context_t> contextPtr = boost::make_unique<zmq::context_t>(0);
-    std::unique_ptr<MockTelemetrySender> sender = boost::make_unique<MockTelemetrySender>(
+    std::unique_ptr<MockTelemetryResponder> responder = boost::make_unique<MockTelemetryResponder>(
         "inproc://my-connection",
         contextPtr.get()
     );
 
-    std::unique_ptr<TelemetryConnection> receiver = boost::make_unique<TelemetryConnection>("inproc://my-connection", contextPtr.get());
-    sender->Send(TELEM_REQ_MSG);
-    uint8_t data = receiver->ReadMessage<uint8_t>();
-    receiver.reset();
-    sender.reset();
+    std::unique_ptr<TelemetryConnection> requester = boost::make_unique<TelemetryConnection>("inproc://my-connection", contextPtr.get());
+    responder->Send(TELEM_REQ_MSG);
+    uint8_t data = requester->ReadMessage<uint8_t>();
+    requester.reset();
+    responder.reset();
     BOOST_REQUIRE_EQUAL(TELEM_REQ_MSG, data);
 }
 
-BOOST_AUTO_TEST_CASE(TelemetryConnectionHandleCase)
+BOOST_AUTO_TEST_CASE(TelemetryConnectionSendMessageTestCase)
+{
+    std::unique_ptr<zmq::context_t> contextPtr = boost::make_unique<zmq::context_t>(0);
+    std::unique_ptr<MockTelemetryResponder> responder = boost::make_unique<MockTelemetryResponder>(
+        "inproc://my-connection",
+        contextPtr.get()
+    );
+
+    std::unique_ptr<TelemetryConnection> requester = boost::make_unique<TelemetryConnection>("inproc://my-connection", contextPtr.get());
+    uint8_t sendData = 0x05;
+    static const zmq::const_buffer buf(&sendData, sizeof(sendData));
+    requester->SendMessage(buf);
+    uint8_t receiveData = responder->Read();
+    BOOST_REQUIRE_EQUAL(sendData, receiveData);
+}
+
+BOOST_AUTO_TEST_CASE(TelemetryConnectionGetSocketHandleTestCase)
 {
     std::unique_ptr<TelemetryConnection>connection = boost::make_unique<TelemetryConnection>("tcp://localhost:10301", nullptr);
     BOOST_TEST(connection->GetSocketHandle());

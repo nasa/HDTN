@@ -11,7 +11,6 @@
  * See LICENSE.md in the source root directory for more information.
  *
  * @section DESCRIPTION
- *
  * This TelemetryRunnerProgramOptions class stores the program options for the TelemetryRunner
  */
 
@@ -29,15 +28,18 @@ class TelemetryRunnerProgramOptions
         TELEM_LIB_EXPORT TelemetryRunnerProgramOptions();
 
         /**
-         * Appends program options, specific to this TelemetryRunner, to an options descroption 
+         * Appends program options to an existing options_description object
          */
         TELEM_LIB_EXPORT static void AppendToDesc(boost::program_options::options_description& desc);
 
         /**
-         * Parses a variable map and stores the result in this TelemetryRunnerProgramOptions 
+         * Parses a variable map and stores the result 
          */
         TELEM_LIB_EXPORT bool ParseFromVariableMap(boost::program_options::variables_map& vm);
 
+        /**
+         * Program options
+         */
         boost::filesystem::path m_guiDocumentRoot;
         std::string m_guiPortNumber;
 

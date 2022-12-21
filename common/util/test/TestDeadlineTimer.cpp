@@ -13,6 +13,7 @@ BOOST_AUTO_TEST_CASE(DeadlineTimerTestCase)
     bool success = deadlineTimer.Sleep();
     cpuTimer.stop();
     BOOST_REQUIRE_EQUAL(true, success);
+    BOOST_REQUIRE_GE(cpuTimer.elapsed().wall, 100000000 /*100 ms*/);
 
     // The deadline timer should not block if the sleep
     // duration has already passed

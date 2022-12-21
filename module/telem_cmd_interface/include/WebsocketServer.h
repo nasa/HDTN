@@ -11,7 +11,6 @@
  * See LICENSE.md in the source root directory for more information.
  *
  * @section DESCRIPTION
- *
  * This WebsocketServer class implements a websocket server and client application for
  * displaying telemetry metrics in a graphical user interface
  */
