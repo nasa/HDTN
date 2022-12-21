@@ -20,17 +20,33 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber,
-    LtpClientServiceDataToSend && dataToSend, std::shared_ptr<LtpTransmissionRequestUserData> && userDataPtrToTake,
-    uint64_t lengthOfRedPart, const uint64_t MTU, const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
+LtpSessionSender::LtpSessionSenderCommonData::LtpSessionSenderCommonData(
+    uint64_t mtuClientServiceData,
+    uint64_t checkpointEveryNthDataPacket,
+    uint32_t& maxRetriesPerSerialNumberRef,
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& timeManagerOfCheckpointSerialNumbersRef,
     LtpTimerManager<uint64_t, std::hash<uint64_t> >& timeManagerOfSendingDelayedDataSegmentsRef,
     const NotifyEngineThatThisSenderNeedsDeletedCallback_t& notifyEngineThatThisSenderNeedsDeletedCallbackRef,
     const NotifyEngineThatThisSenderHasProducibleDataFunction_t& notifyEngineThatThisSenderHasProducibleDataFunctionRef,
-    const InitialTransmissionCompletedCallback_t& initialTransmissionCompletedCallbackRef,
-    const uint64_t checkpointEveryNthDataPacket, const uint32_t maxRetriesPerSerialNumber, const uint64_t memoryBlockId) :
+    const InitialTransmissionCompletedCallback_t& initialTransmissionCompletedCallbackRef) :
+    //
+    m_mtuClientServiceData(mtuClientServiceData),
+    m_checkpointEveryNthDataPacket(checkpointEveryNthDataPacket),
+    m_maxRetriesPerSerialNumberRef(maxRetriesPerSerialNumberRef),
     m_timeManagerOfCheckpointSerialNumbersRef(timeManagerOfCheckpointSerialNumbersRef),
     m_timeManagerOfSendingDelayedDataSegmentsRef(timeManagerOfSendingDelayedDataSegmentsRef),
+    m_notifyEngineThatThisSenderNeedsDeletedCallbackRef(notifyEngineThatThisSenderNeedsDeletedCallbackRef),
+    m_notifyEngineThatThisSenderHasProducibleDataFunctionRef(notifyEngineThatThisSenderHasProducibleDataFunctionRef),
+    m_initialTransmissionCompletedCallbackRef(initialTransmissionCompletedCallbackRef),
+    m_numCheckpointTimerExpiredCallbacks(0),
+    m_numDiscretionaryCheckpointsNotResent(0),
+    m_numDeletedFullyClaimedPendingReports(0) {}
+
+LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber, LtpClientServiceDataToSend&& dataToSend,
+    std::shared_ptr<LtpTransmissionRequestUserData>&& userDataPtrToTake, uint64_t lengthOfRedPart,
+    const Ltp::session_id_t& sessionId, const uint64_t clientServiceId,
+    const uint64_t memoryBlockId, LtpSessionSenderCommonData& ltpSessionSenderCommonDataRef) :
+    //
     m_receptionClaimIndex(0),
     m_nextCheckpointSerialNumber(randomInitialSenderCheckpointSerialNumber),
     m_dataToSendSharedPtr(std::make_shared<LtpClientServiceDataToSend>(std::move(dataToSend))),
@@ -39,20 +55,12 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     m_dataIndexFirstPass(0),
     m_didNotifyForDeletion(false),
     m_allRedDataReceivedByRemote(false),
-    M_MTU(MTU),
     M_SESSION_ID(sessionId),
     M_CLIENT_SERVICE_ID(clientServiceId),
-    M_CHECKPOINT_EVERY_NTH_DATA_PACKET(checkpointEveryNthDataPacket),
-    m_checkpointEveryNthDataPacketCounter(checkpointEveryNthDataPacket),
-    M_MAX_RETRIES_PER_SERIAL_NUMBER(maxRetriesPerSerialNumber),
+    m_checkpointEveryNthDataPacketCounter(ltpSessionSenderCommonDataRef.m_checkpointEveryNthDataPacket),
     MEMORY_BLOCK_ID(memoryBlockId),
+    m_ltpSessionSenderCommonDataRef(ltpSessionSenderCommonDataRef),
     //m_numActiveTimers(0),
-    m_notifyEngineThatThisSenderNeedsDeletedCallbackRef(notifyEngineThatThisSenderNeedsDeletedCallbackRef),
-    m_notifyEngineThatThisSenderHasProducibleDataFunctionRef(notifyEngineThatThisSenderHasProducibleDataFunctionRef),
-    m_initialTransmissionCompletedCallbackRef(initialTransmissionCompletedCallbackRef),
-    m_numCheckpointTimerExpiredCallbacks(0),
-    m_numDiscretionaryCheckpointsNotResent(0),
-    m_numDeletedFullyClaimedPendingReports(0),
     m_isFailedSession(false),
     m_calledCancelledOrCompletedCallback(false)
 {
@@ -77,13 +85,13 @@ LtpSessionSender::~LtpSessionSender() {
         //  since this is a sender, the real sessionOriginatorEngineId is constant among all sending sessions and is not needed
         const Ltp::session_id_t checkpointSerialNumberPlusSessionNumber(csn, M_SESSION_ID.sessionNumber);
 
-        if (!m_timeManagerOfCheckpointSerialNumbersRef.DeleteTimer(checkpointSerialNumberPlusSessionNumber)) {
+        if (!m_ltpSessionSenderCommonDataRef.m_timeManagerOfCheckpointSerialNumbersRef.DeleteTimer(checkpointSerialNumberPlusSessionNumber)) {
             LOG_ERROR(subprocess) << "LtpSessionSender::~LtpSessionSender: did not delete timer";
         }
     }
     //clean up this sending session's single active timer within the shared LtpTimerManager
     if (m_mapRsBoundsToRsnPendingGeneration.size()) {
-        if (!m_timeManagerOfSendingDelayedDataSegmentsRef.DeleteTimer(M_SESSION_ID.sessionNumber)) {
+        if (!m_ltpSessionSenderCommonDataRef.m_timeManagerOfSendingDelayedDataSegmentsRef.DeleteTimer(M_SESSION_ID.sessionNumber)) {
             LOG_ERROR(subprocess) << "LtpSessionSender::~LtpSessionSender: did not delete timer in m_timeManagerOfSendingDelayedDataSegmentsRef";
         }
     }
@@ -125,29 +133,29 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t
     //(conceptual) application data queue for the destination LTP engine.
 
     
-    ++m_numCheckpointTimerExpiredCallbacks;
+    ++m_ltpSessionSenderCommonDataRef.m_numCheckpointTimerExpiredCallbacks;
 
     resend_fragment_t & resendFragment = userDataPtr->resendFragment;
 
-    if (resendFragment.retryCount <= M_MAX_RETRIES_PER_SERIAL_NUMBER) {
+    if (resendFragment.retryCount <= m_ltpSessionSenderCommonDataRef.m_maxRetriesPerSerialNumberRef) {
         const bool isDiscretionaryCheckpoint = (resendFragment.flags == LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT);
         if (isDiscretionaryCheckpoint && LtpFragmentSet::ContainsFragmentEntirely(m_dataFragmentsAckedByReceiver,
             LtpFragmentSet::data_fragment_t(resendFragment.offset, (resendFragment.offset + resendFragment.length) - 1)))
         {
-            ++m_numDiscretionaryCheckpointsNotResent;
+            ++m_ltpSessionSenderCommonDataRef.m_numDiscretionaryCheckpointsNotResent;
         }
         else {
             //resend 
             ++(resendFragment.retryCount);
             m_resendFragmentsQueue.push(resendFragment);
-            m_notifyEngineThatThisSenderHasProducibleDataFunctionRef(M_SESSION_ID.sessionNumber);
+            m_ltpSessionSenderCommonDataRef.m_notifyEngineThatThisSenderHasProducibleDataFunctionRef(M_SESSION_ID.sessionNumber);
         }
     }
     else {
         if (!m_didNotifyForDeletion) {
             m_isFailedSession = true;
             m_didNotifyForDeletion = true;
-            m_notifyEngineThatThisSenderNeedsDeletedCallbackRef(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::RLEXC, m_userDataPtr);
+            m_ltpSessionSenderCommonDataRef.m_notifyEngineThatThisSenderNeedsDeletedCallbackRef(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::RLEXC, m_userDataPtr);
         }
     }
 }
@@ -164,7 +172,7 @@ void LtpSessionSender::LtpDelaySendDataSegmentsTimerExpiredCallback(const uint64
     }
     m_mapRsBoundsToRsnPendingGeneration.clear(); //also flag that signifies timer stopped
     if (!m_didNotifyForDeletion) {
-        m_notifyEngineThatThisSenderHasProducibleDataFunctionRef(M_SESSION_ID.sessionNumber);
+        m_ltpSessionSenderCommonDataRef.m_notifyEngineThatThisSenderHasProducibleDataFunctionRef(M_SESSION_ID.sessionNumber);
     }
 }
 
@@ -224,7 +232,9 @@ bool LtpSessionSender::NextTimeCriticalDataToSend(UdpSendPacketInfo& udpSendPack
             userDataPtr->resendFragment = resendFragment;
             m_checkpointSerialNumberActiveTimersList.emplace_front(resendFragment.checkpointSerialNumber); //keep track of this sending session's active timers within the shared LtpTimerManager
             userDataPtr->itCheckpointSerialNumberActiveTimersList = m_checkpointSerialNumberActiveTimersList.begin();
-            if (!m_timeManagerOfCheckpointSerialNumbersRef.StartTimer(checkpointSerialNumberPlusSessionNumber, &m_timerExpiredCallback, std::move(userData))) {
+            if (!m_ltpSessionSenderCommonDataRef.m_timeManagerOfCheckpointSerialNumbersRef.StartTimer(
+                checkpointSerialNumberPlusSessionNumber, &m_timerExpiredCallback, std::move(userData)))
+            {
                 m_checkpointSerialNumberActiveTimersList.erase(m_checkpointSerialNumberActiveTimersList.begin());
                 LOG_ERROR(subprocess) << "LtpSessionSender::NextDataToSend: did not start timer";
             }
@@ -270,11 +280,11 @@ bool LtpSessionSender::NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketI
     if (m_dataIndexFirstPass < m_dataToSendSharedPtr->size()) {
         const bool needsToReadClientServiceDataFromDisk = (m_dataToSendSharedPtr->data() == NULL);
         if (m_dataIndexFirstPass < M_LENGTH_OF_RED_PART) { //first pass of red data send
-            const uint64_t bytesToSendRed = std::min(M_LENGTH_OF_RED_PART - m_dataIndexFirstPass, M_MTU);
+            const uint64_t bytesToSendRed = std::min(M_LENGTH_OF_RED_PART - m_dataIndexFirstPass, m_ltpSessionSenderCommonDataRef.m_mtuClientServiceData);
             const bool isEndOfRedPart = ((bytesToSendRed + m_dataIndexFirstPass) == M_LENGTH_OF_RED_PART);
             bool isPeriodicCheckpoint = false;
-            if (M_CHECKPOINT_EVERY_NTH_DATA_PACKET && (--m_checkpointEveryNthDataPacketCounter == 0)) {
-                m_checkpointEveryNthDataPacketCounter = M_CHECKPOINT_EVERY_NTH_DATA_PACKET;
+            if (m_ltpSessionSenderCommonDataRef.m_checkpointEveryNthDataPacket && (--m_checkpointEveryNthDataPacketCounter == 0)) {
+                m_checkpointEveryNthDataPacketCounter = m_ltpSessionSenderCommonDataRef.m_checkpointEveryNthDataPacket;
                 isPeriodicCheckpoint = true;
             }
             const bool isCheckpoint = isPeriodicCheckpoint || isEndOfRedPart;
@@ -312,7 +322,9 @@ bool LtpSessionSender::NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketI
 
                 m_checkpointSerialNumberActiveTimersList.emplace_front(cp); //keep track of this sending session's active timers within the shared LtpTimerManager
                 userDataPtr->itCheckpointSerialNumberActiveTimersList = m_checkpointSerialNumberActiveTimersList.begin();
-                if (!m_timeManagerOfCheckpointSerialNumbersRef.StartTimer(checkpointSerialNumberPlusSessionNumber, &m_timerExpiredCallback, std::move(userData))) {
+                if (!m_ltpSessionSenderCommonDataRef.m_timeManagerOfCheckpointSerialNumbersRef.StartTimer(
+                    checkpointSerialNumberPlusSessionNumber, &m_timerExpiredCallback, std::move(userData)))
+                {
                     m_checkpointSerialNumberActiveTimersList.erase(m_checkpointSerialNumberActiveTimersList.begin());
                     LOG_ERROR(subprocess) << "LtpSessionSender::NextDataToSend: did not start timer";
                 }
@@ -344,7 +356,7 @@ bool LtpSessionSender::NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketI
             m_dataIndexFirstPass += bytesToSendRed;
         }
         else { //first pass of green data send
-            uint64_t bytesToSendGreen = std::min(m_dataToSendSharedPtr->size() - m_dataIndexFirstPass, M_MTU);
+            uint64_t bytesToSendGreen = std::min(m_dataToSendSharedPtr->size() - m_dataIndexFirstPass, m_ltpSessionSenderCommonDataRef.m_mtuClientServiceData);
             const bool isEndOfBlock = ((bytesToSendGreen + m_dataIndexFirstPass) == m_dataToSendSharedPtr->size());
             LTP_DATA_SEGMENT_TYPE_FLAGS flags = LTP_DATA_SEGMENT_TYPE_FLAGS::GREENDATA;
             if (isEndOfBlock) {
@@ -384,11 +396,11 @@ bool LtpSessionSender::NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketI
                 udpSendPacketInfo.underlyingCsDataToDeleteOnSentCallback = m_dataToSendSharedPtr;
             }
 
-            m_initialTransmissionCompletedCallbackRef(M_SESSION_ID, m_userDataPtr);
+            m_ltpSessionSenderCommonDataRef.m_initialTransmissionCompletedCallbackRef(M_SESSION_ID, m_userDataPtr);
             if (M_LENGTH_OF_RED_PART == 0) { //fully green case complete (notify engine for deletion)
                 if (!m_didNotifyForDeletion) {
                     m_didNotifyForDeletion = true;
-                    m_notifyEngineThatThisSenderNeedsDeletedCallbackRef(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED, m_userDataPtr);
+                    m_ltpSessionSenderCommonDataRef.m_notifyEngineThatThisSenderNeedsDeletedCallbackRef(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED, m_userDataPtr);
                 }
             }
             else if (m_dataFragmentsAckedByReceiver.size() == 1) { //in case red data already acked before green data send completes
@@ -396,7 +408,7 @@ bool LtpSessionSender::NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketI
                 if ((it->beginIndex == 0) && (it->endIndex >= (M_LENGTH_OF_RED_PART - 1))) { //>= in case some green data was acked
                     if (!m_didNotifyForDeletion) {
                         m_didNotifyForDeletion = true;
-                        m_notifyEngineThatThisSenderNeedsDeletedCallbackRef(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED, m_userDataPtr);
+                        m_ltpSessionSenderCommonDataRef.m_notifyEngineThatThisSenderNeedsDeletedCallbackRef(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED, m_userDataPtr);
                     }
                 }
             }
@@ -440,7 +452,7 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
             const Ltp::session_id_t checkpointSerialNumberPlusSessionNumber(reportSegment.checkpointSerialNumber, M_SESSION_ID.sessionNumber);
 
             std::vector<uint8_t> userDataReturned;
-            if (m_timeManagerOfCheckpointSerialNumbersRef.DeleteTimer(checkpointSerialNumberPlusSessionNumber, userDataReturned)) { //if delete of a timer was successful
+            if (m_ltpSessionSenderCommonDataRef.m_timeManagerOfCheckpointSerialNumbersRef.DeleteTimer(checkpointSerialNumberPlusSessionNumber, userDataReturned)) { //if delete of a timer was successful
                 if (userDataReturned.size() != sizeof(csntimer_userdata_t)) {
                     LOG_ERROR(subprocess) << "LtpSessionSender::ReportSegmentReceivedCallback: userDataReturned.size() != sizeof(csntimer_userdata_t)";
                 }
@@ -485,7 +497,7 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
             if ((m_dataIndexFirstPass == m_dataToSendSharedPtr->size()) && m_allRedDataReceivedByRemote) { //if red and green fully sent and all red data acked
                 if (!m_didNotifyForDeletion) {
                     m_didNotifyForDeletion = true;
-                    m_notifyEngineThatThisSenderNeedsDeletedCallbackRef(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED, m_userDataPtr);
+                    m_ltpSessionSenderCommonDataRef.m_notifyEngineThatThisSenderNeedsDeletedCallbackRef(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED, m_userDataPtr);
                 }
             }
 
@@ -511,7 +523,7 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
 #endif
             // Send the data segments immediately if the out-of-order deferral feature is disabled (i.e. (time_duration == not_a_date_time))
             // which is needed for TestLtpEngine.
-            if (m_timeManagerOfSendingDelayedDataSegmentsRef.GetTimeDurationRef() == boost::posix_time::special_values::not_a_date_time) { //disabled
+            if (m_ltpSessionSenderCommonDataRef.m_timeManagerOfSendingDelayedDataSegmentsRef.GetTimeDurationRef() == boost::posix_time::special_values::not_a_date_time) { //disabled
                 ResendDataFromReport(fragmentsNeedingResent, reportSegment.reportSerialNumber); //will do nothing if fragmentsNeedingResent.empty() (i.e. this rs Has No Gaps In its Claims)
             }
             else {
@@ -554,7 +566,9 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
                         //start the timer
                         m_largestEndIndexPendingGeneration = boundsUnique.endIndex;
                         m_mapRsBoundsToRsnPendingGeneration.emplace(boundsUnique, reportSegment.reportSerialNumber);
-                        if (!m_timeManagerOfSendingDelayedDataSegmentsRef.StartTimer(M_SESSION_ID.sessionNumber, &m_delayedDataSegmentsTimerExpiredCallback)) {
+                        if (!m_ltpSessionSenderCommonDataRef.m_timeManagerOfSendingDelayedDataSegmentsRef.StartTimer(
+                            M_SESSION_ID.sessionNumber, &m_delayedDataSegmentsTimerExpiredCallback))
+                        {
                             LOG_ERROR(subprocess) << "LtpSessionSender::ReportSegmentReceivedCallback: unable to start m_timeManagerOfSendingDelayedDataSegmentsRef timer";
                         }
                     }
@@ -567,9 +581,9 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
                     const bool pendingReportsHaveNoGapsInClaims = LtpFragmentSet::ContainsFragmentEntirely(m_dataFragmentsAckedByReceiver,
                         LtpFragmentSet::data_fragment_t(largestBeginIndexPendingGeneration, m_largestEndIndexPendingGeneration));
                     if (pendingReportsHaveNoGapsInClaims) {
-                        m_numDeletedFullyClaimedPendingReports += m_mapRsBoundsToRsnPendingGeneration.size();
+                        m_ltpSessionSenderCommonDataRef.m_numDeletedFullyClaimedPendingReports += m_mapRsBoundsToRsnPendingGeneration.size();
                         //since there is a retransmission timer running stop it (there is no need to retransmit in this case)
-                        if (!m_timeManagerOfSendingDelayedDataSegmentsRef.DeleteTimer(M_SESSION_ID.sessionNumber)) {
+                        if (!m_ltpSessionSenderCommonDataRef.m_timeManagerOfSendingDelayedDataSegmentsRef.DeleteTimer(M_SESSION_ID.sessionNumber)) {
                             LOG_ERROR(subprocess) << "LtpSessionSender::ReportSegmentReceivedCallback: did not delete timer in m_timeManagerOfSendingDelayedDataSegmentsRef";
                         }
                         m_mapRsBoundsToRsnPendingGeneration.clear(); //also used as flag to signify timer no longer running
@@ -582,7 +596,7 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
         }
     }
     if (!m_didNotifyForDeletion) {
-        m_notifyEngineThatThisSenderHasProducibleDataFunctionRef(M_SESSION_ID.sessionNumber);
+        m_ltpSessionSenderCommonDataRef.m_notifyEngineThatThisSenderHasProducibleDataFunctionRef(M_SESSION_ID.sessionNumber);
     }
 }
 
@@ -590,7 +604,7 @@ void LtpSessionSender::ResendDataFromReport(const std::set<LtpFragmentSet::data_
     for (std::set<LtpFragmentSet::data_fragment_t>::const_iterator it = fragmentsNeedingResent.cbegin(); it != fragmentsNeedingResent.cend(); ++it) {
         const bool isLastFragmentNeedingResent = (boost::next(it) == fragmentsNeedingResent.cend());
         for (uint64_t dataIndex = it->beginIndex; dataIndex <= it->endIndex; ) {
-            uint64_t bytesToSendRed = std::min((it->endIndex - dataIndex) + 1, M_MTU);
+            uint64_t bytesToSendRed = std::min((it->endIndex - dataIndex) + 1, m_ltpSessionSenderCommonDataRef.m_mtuClientServiceData);
             if ((bytesToSendRed + dataIndex) > M_LENGTH_OF_RED_PART) {
                 LOG_FATAL(subprocess) << "gt length red part";
             }

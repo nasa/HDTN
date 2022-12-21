@@ -693,7 +693,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
 
-            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numDiscretionaryCheckpointsNotResent, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numDiscretionaryCheckpointsNotResentRef, 0);
 
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numGapsFilledByOutOfOrderDataSegments, 0);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numDelayedFullyClaimedPrimaryReportSegmentsSent, 0);
@@ -763,9 +763,9 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
 
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numReportSegmentTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numCheckpointTimerExpiredCallbacksRef, 0);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numReportSegmentTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numCheckpointTimerExpiredCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numCheckpointTimerExpiredCallbacksRef, 1);
 
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numGapsFilledByOutOfOrderDataSegments, 0);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numDelayedFullyClaimedPrimaryReportSegmentsSent, 0);
@@ -836,9 +836,9 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
 
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numReportSegmentTimerExpiredCallbacks, 1);
-            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numCheckpointTimerExpiredCallbacksRef, 0);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numReportSegmentTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numCheckpointTimerExpiredCallbacksRef, 0);
         }
         /*
         void DoTestDropReportSegmentDestToSrc() {
@@ -969,9 +969,9 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE(lastReasonCode_transmissionSessionCancelledCallback == CANCEL_SEGMENT_REASON_CODES::RLEXC);
 
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numReportSegmentTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numCheckpointTimerExpiredCallbacksRef, 0);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numReportSegmentTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numCheckpointTimerExpiredCallbacks, 6);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numCheckpointTimerExpiredCallbacksRef, 6);
         }
 
         //dest RS timer should expire until limit then send cancel segment to sender
@@ -1027,9 +1027,9 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
 
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numReportSegmentTimerExpiredCallbacks, 6);
-            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numCheckpointTimerExpiredCallbacksRef, 0);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numReportSegmentTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numCheckpointTimerExpiredCallbacksRef, 0);
         }
 
         //src checkpoint should never make it to receiver, giving receiver time to cancel session
@@ -1088,9 +1088,9 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE(lastReasonCode_transmissionSessionCancelledCallback == CANCEL_SEGMENT_REASON_CODES::USER_CANCELLED);
 
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numReportSegmentTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numCheckpointTimerExpiredCallbacksRef, 0);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numReportSegmentTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numCheckpointTimerExpiredCallbacksRef, 0);
         }
 
         //src checkpoint should never make it to receiver, giving sender time to cancel session
@@ -1148,9 +1148,9 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             //BOOST_REQUIRE(lastReasonCode_transmissionSessionCancelledCallback == CANCEL_SEGMENT_REASON_CODES::USER_CANCELLED);
 
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numReportSegmentTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numCheckpointTimerExpiredCallbacksRef, 0);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numReportSegmentTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numCheckpointTimerExpiredCallbacksRef, 0);
         }
 
         void DoTestDropOddDataSegmentWithRsMtu() {
@@ -1386,7 +1386,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                         BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numReportSegmentsUnableToBeIssued, 2);
                         //since rs defer disabled on receiver, 1 gapped Report segments ended up being filled on sender (not requiring any data segments to be sent)
                         //the async reception report had same bounds as other report segment and not counted below
-                        BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numDeletedFullyClaimedPendingReports, 1);
+                        BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numDeletedFullyClaimedPendingReportsRef, 1);
                     }
                     else {
                         BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent, DESIRED_RED_DATA_TO_SEND.size() + 4); //+4 for 3 Report acks plus 1 ack from async rs
@@ -1396,7 +1396,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                         BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numReportSegmentsUnableToBeIssued, 0);
                         //since rs defer disabled on receiver, 3 gapped Report segments ended up being filled on sender (not requiring any data segments to be sent)
                         //the async reception report did not have the same bounds as any other report segment and counted below
-                        BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numDeletedFullyClaimedPendingReports, 3+1); 
+                        BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numDeletedFullyClaimedPendingReportsRef, 3+1);
                     }
                 }
                 else {
@@ -1409,7 +1409,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                     BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numReportSegmentsUnableToBeIssued, 0);
                     //since rs defer disabled on receiver, 1 gapped Report segments ended up being filled on sender (not requiring any data segments to be sent)
                     //the async reception report had same bounds as other report segment and not counted below
-                    BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numDeletedFullyClaimedPendingReports, 1); 
+                    BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numDeletedFullyClaimedPendingReportsRef, 1);
                 }
             }
             else {
@@ -1423,7 +1423,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                         BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numGapsFilledByOutOfOrderDataSegments, DESIRED_RED_DATA_TO_SEND.size() - 1); //-1 to exclude only checkpoint
                         BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numDelayedFullyClaimedPrimaryReportSegmentsSent, 1);
                         BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numReportSegmentsUnableToBeIssued, 2);
-                        BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numDeletedFullyClaimedPendingReports, 0); //despite ds defer on sender enabled, not needed since rsDefer on receiver preventing the need
+                        BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numDeletedFullyClaimedPendingReportsRef, 0); //despite ds defer on sender enabled, not needed since rsDefer on receiver preventing the need
                     }
                     else {
                         BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent, DESIRED_RED_DATA_TO_SEND.size() + 4); //+4 for 3 Report acks plus 1 ack from async rs
@@ -1431,7 +1431,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                         BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numGapsFilledByOutOfOrderDataSegments, DESIRED_RED_DATA_TO_SEND.size() - 3); //-3 to exclude 3 checkpoints
                         BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numDelayedFullyClaimedPrimaryReportSegmentsSent, 3);
                         BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numReportSegmentsUnableToBeIssued, 0);
-                        BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numDeletedFullyClaimedPendingReports, 0); //despite ds defer on sender enabled, not needed since rsDefer on receiver preventing the need
+                        BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numDeletedFullyClaimedPendingReportsRef, 0); //despite ds defer on sender enabled, not needed since rsDefer on receiver preventing the need
                     }
                 }
                 else {
@@ -1441,7 +1441,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                     BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numGapsFilledByOutOfOrderDataSegments, DESIRED_RED_DATA_TO_SEND.size() - 1); //-1 to exclude only checkpoint
                     BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numDelayedFullyClaimedPrimaryReportSegmentsSent, 1);
                     BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numReportSegmentsUnableToBeIssued, 0);
-                    BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numDeletedFullyClaimedPendingReports, 0); //despite ds defer on sender enabled, not needed since rsDefer on receiver preventing the need
+                    BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numDeletedFullyClaimedPendingReportsRef, 0); //despite ds defer on sender enabled, not needed since rsDefer on receiver preventing the need
                 }
             }
 
@@ -1466,9 +1466,9 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
 
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numReportSegmentTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numCheckpointTimerExpiredCallbacksRef, 0);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numReportSegmentTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numCheckpointTimerExpiredCallbacksRef, 0);
 
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numDelayedFullyClaimedSecondaryReportSegmentsSent, 0);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent, 0);

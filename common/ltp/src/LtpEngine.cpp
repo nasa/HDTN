@@ -34,7 +34,6 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION(ltpRxOrTxCfg.estimatedBytesToReceivePerSession),
     M_MAX_RED_RX_BYTES_PER_SESSION(ltpRxOrTxCfg.maxRedRxBytesPerSession),
     M_THIS_ENGINE_ID(ltpRxOrTxCfg.thisEngineId),
-    m_mtuClientServiceData(ltpRxOrTxCfg.mtuClientServiceData),
     m_numSendPacketsPendingSystemCalls(0),
     M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL(ltpRxOrTxCfg.maxUdpPacketsToSendPerSystemCall),
     m_transmissionToAckReceivedTime((ltpRxOrTxCfg.oneWayLightTime * 2) + (ltpRxOrTxCfg.oneWayMarginTime * 2)),
@@ -45,7 +44,7 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
         boost::posix_time::milliseconds(ltpRxOrTxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable) :
         boost::posix_time::time_duration(boost::posix_time::special_values::not_a_date_time)),
     M_HOUSEKEEPING_INTERVAL(boost::posix_time::milliseconds(1000)),
-    m_stagnantRxSessionTime((m_transmissionToAckReceivedTime * static_cast<int>(ltpRxOrTxCfg.maxRetriesPerSerialNumber + 1)) + (M_HOUSEKEEPING_INTERVAL * 2)),
+    m_stagnantRxSessionTime((m_transmissionToAckReceivedTime* static_cast<int>(ltpRxOrTxCfg.maxRetriesPerSerialNumber + 1)) + (M_HOUSEKEEPING_INTERVAL * 2)),
     M_FORCE_32_BIT_RANDOM_NUMBERS(ltpRxOrTxCfg.force32BitRandomNumbers),
     M_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE(ltpRxOrTxCfg.senderPingSecondsOrZeroToDisable),
     M_SENDER_PING_TIME(boost::posix_time::seconds(ltpRxOrTxCfg.senderPingSecondsOrZeroToDisable)),
@@ -53,7 +52,6 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     m_transmissionRequestServedAsPing(false),
     M_MAX_SIMULTANEOUS_SESSIONS(ltpRxOrTxCfg.maxSimultaneousSessions),
     M_MAX_RX_DATA_SEGMENT_HISTORY_OR_ZERO_DISABLE(ltpRxOrTxCfg.rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable),
-    m_checkpointEveryNthDataPacketSender(ltpRxOrTxCfg.checkpointEveryNthDataPacketSender),
     m_maxRetriesPerSerialNumber(ltpRxOrTxCfg.maxRetriesPerSerialNumber),
     m_workLtpEnginePtr(boost::make_unique<boost::asio::io_service::work>(m_ioServiceLtpEngine)),
     m_deadlineTimerForTimeManagerOfReportSerialNumbers(m_ioServiceLtpEngine),
@@ -70,7 +68,14 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     m_tokenRefreshTimer(m_ioServiceLtpEngine),
     m_maxSendRateBitsPerSecOrZeroToDisable(ltpRxOrTxCfg.maxSendRateBitsPerSecOrZeroToDisable),
     m_tokenRefreshTimerIsRunning(false),
-    m_lastTimeTokensWereRefreshed(boost::posix_time::special_values::neg_infin)
+    m_lastTimeTokensWereRefreshed(boost::posix_time::special_values::neg_infin),
+    m_ltpSessionSenderCommonData(ltpRxOrTxCfg.mtuClientServiceData, ltpRxOrTxCfg.checkpointEveryNthDataPacketSender,
+        m_maxRetriesPerSerialNumber, m_timeManagerOfCheckpointSerialNumbers, m_timeManagerOfSendingDelayedDataSegments,
+        m_notifyEngineThatThisSenderNeedsDeletedCallback, m_notifyEngineThatThisSenderHasProducibleDataFunction,
+        m_initialTransmissionCompletedCallbackCalledBySender),
+    m_numCheckpointTimerExpiredCallbacksRef(m_ltpSessionSenderCommonData.m_numCheckpointTimerExpiredCallbacks),
+    m_numDiscretionaryCheckpointsNotResentRef(m_ltpSessionSenderCommonData.m_numDiscretionaryCheckpointsNotResent),
+    m_numDeletedFullyClaimedPendingReportsRef(m_ltpSessionSenderCommonData.m_numDeletedFullyClaimedPendingReports)
 {
     m_cancelSegmentTimerExpiredCallback = boost::bind(&LtpEngine::CancelSegmentTimerExpiredCallback,
         this, boost::placeholders::_1, boost::placeholders::_2);
@@ -135,9 +140,9 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
 
 LtpEngine::~LtpEngine() {
     LOG_INFO(subprocess) << "LtpEngine Stats:"; //print before reset
-    LOG_INFO(subprocess) << "m_numCheckpointTimerExpiredCallbacks: " << m_numCheckpointTimerExpiredCallbacks;
-    LOG_INFO(subprocess) << "m_numDiscretionaryCheckpointsNotResent: " << m_numDiscretionaryCheckpointsNotResent;
-    LOG_INFO(subprocess) << "m_numDeletedFullyClaimedPendingReports: " << m_numDeletedFullyClaimedPendingReports;
+    LOG_INFO(subprocess) << "m_numCheckpointTimerExpiredCallbacks: " << m_numCheckpointTimerExpiredCallbacksRef;
+    LOG_INFO(subprocess) << "m_numDiscretionaryCheckpointsNotResent: " << m_numDiscretionaryCheckpointsNotResentRef;
+    LOG_INFO(subprocess) << "m_numDeletedFullyClaimedPendingReports: " << m_numDeletedFullyClaimedPendingReportsRef;
     LOG_INFO(subprocess) << "m_numReportSegmentTimerExpiredCallbacks: " << m_numReportSegmentTimerExpiredCallbacks;
     LOG_INFO(subprocess) << "m_numReportSegmentsUnableToBeIssued: " << m_numReportSegmentsUnableToBeIssued;
     LOG_INFO(subprocess) << "m_numReportSegmentsTooLargeAndNeedingSplit: " << m_numReportSegmentsTooLargeAndNeedingSplit;
@@ -183,9 +188,11 @@ void LtpEngine::Reset() {
     m_queueReceiversNeedingDataSent = std::queue<Ltp::session_id_t>();
 
     m_countAsyncSendsLimitedByRate = 0;
-    m_numCheckpointTimerExpiredCallbacks = 0;
-    m_numDiscretionaryCheckpointsNotResent = 0;
-    m_numDeletedFullyClaimedPendingReports = 0;
+
+    m_numCheckpointTimerExpiredCallbacksRef = 0;
+    m_numDiscretionaryCheckpointsNotResentRef = 0;
+    m_numDeletedFullyClaimedPendingReportsRef = 0;
+
     m_numReportSegmentTimerExpiredCallbacks = 0;
     m_numReportSegmentsUnableToBeIssued = 0;
     m_numReportSegmentsTooLargeAndNeedingSplit = 0;
@@ -198,7 +205,7 @@ void LtpEngine::Reset() {
 }
 
 void LtpEngine::SetCheckpointEveryNthDataPacketForSenders(uint64_t checkpointEveryNthDataPacketSender) {
-    m_checkpointEveryNthDataPacketSender = checkpointEveryNthDataPacketSender;
+    m_ltpSessionSenderCommonData.m_checkpointEveryNthDataPacket = checkpointEveryNthDataPacketSender;
 }
 uint8_t LtpEngine::GetEngineIndex() {
     return m_rng.GetEngineIndex();
@@ -222,7 +229,7 @@ void LtpEngine::SetMtuDataSegment_ThreadSafe(uint64_t mtuDataSegment) {
     boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::SetMtuDataSegment, this, mtuDataSegment));
 }
 void LtpEngine::SetMtuDataSegment(uint64_t mtuDataSegment) {
-    m_mtuClientServiceData = mtuDataSegment;
+    m_ltpSessionSenderCommonData.m_mtuClientServiceData = mtuDataSegment;
 }
 
 bool LtpEngine::PacketIn(const uint8_t * data, const std::size_t size, Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr) {
@@ -681,12 +688,8 @@ void LtpEngine::DoTransmissionRequest(uint64_t destinationClientServiceId, uint6
         std::forward_as_tuple(randomSessionNumberGeneratedBySender),
         std::forward_as_tuple(
             randomInitialSenderCheckpointSerialNumber, std::move(clientServiceDataToSend), std::move(userDataPtrToTake),
-            lengthOfRedPart, m_mtuClientServiceData, senderSessionId, destinationClientServiceId,
-            m_timeManagerOfCheckpointSerialNumbers, m_timeManagerOfSendingDelayedDataSegments,
-            m_notifyEngineThatThisSenderNeedsDeletedCallback, //reference stored, so must not be destroyed until after all sessions destroyed
-            m_notifyEngineThatThisSenderHasProducibleDataFunction, //reference stored, so must not be destroyed until after all sessions destroyed
-            m_initialTransmissionCompletedCallbackCalledBySender, //reference stored, so must not be destroyed until after all sessions destroyed
-            m_checkpointEveryNthDataPacketSender, m_maxRetriesPerSerialNumber, memoryBlockId
+            lengthOfRedPart, senderSessionId, destinationClientServiceId, memoryBlockId,
+            m_ltpSessionSenderCommonData //reference stored, so must not be destroyed until after all sessions destroyed
         )
     );
     if (res.second == false) { //session was not inserted
@@ -1397,9 +1400,6 @@ void LtpEngine::SetDeferDelays(const uint64_t delaySendingOfReportSegmentsTimeMs
 
 void LtpEngine::EraseTxSession(map_session_number_to_session_sender_t::iterator& txSessionIt) {
     const LtpSessionSender& txSession = txSessionIt->second;
-    m_numCheckpointTimerExpiredCallbacks += txSession.m_numCheckpointTimerExpiredCallbacks;
-    m_numDiscretionaryCheckpointsNotResent += txSession.m_numDiscretionaryCheckpointsNotResent;
-    m_numDeletedFullyClaimedPendingReports += txSession.m_numDeletedFullyClaimedPendingReports;
     if (m_memoryInFilesPtr) {
         m_memoryBlockIdsPendingDeletionQueue.push(txSession.MEMORY_BLOCK_ID);
     }

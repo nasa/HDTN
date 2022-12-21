@@ -45,17 +45,40 @@ private:
     LtpSessionSender() = delete;
     LTP_LIB_NO_EXPORT void LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t& checkpointSerialNumberPlusSessionNumber, std::vector<uint8_t> & userData);
 public:
+
+    //The LtpEngine shall have one copy of this struct and pass it's reference to each LtpSessionSender
+    struct LtpSessionSenderCommonData : private boost::noncopyable {
+        LtpSessionSenderCommonData() = delete;
+        LTP_LIB_EXPORT LtpSessionSenderCommonData(
+            uint64_t mtuClientServiceData,
+            uint64_t checkpointEveryNthDataPacket,
+            uint32_t & maxRetriesPerSerialNumberRef,
+            LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& timeManagerOfCheckpointSerialNumbersRef,
+            LtpTimerManager<uint64_t, std::hash<uint64_t> >& timeManagerOfSendingDelayedDataSegmentsRef,
+            const NotifyEngineThatThisSenderNeedsDeletedCallback_t& notifyEngineThatThisSenderNeedsDeletedCallbackRef,
+            const NotifyEngineThatThisSenderHasProducibleDataFunction_t& notifyEngineThatThisSenderHasProducibleDataFunctionRef,
+            const InitialTransmissionCompletedCallback_t& initialTransmissionCompletedCallbackRef);
+
+        uint64_t m_mtuClientServiceData;
+        uint64_t m_checkpointEveryNthDataPacket;
+        uint32_t & m_maxRetriesPerSerialNumberRef;
+        LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& m_timeManagerOfCheckpointSerialNumbersRef;
+        LtpTimerManager<uint64_t, std::hash<uint64_t> >& m_timeManagerOfSendingDelayedDataSegmentsRef;
+        const NotifyEngineThatThisSenderNeedsDeletedCallback_t& m_notifyEngineThatThisSenderNeedsDeletedCallbackRef;
+        const NotifyEngineThatThisSenderHasProducibleDataFunction_t& m_notifyEngineThatThisSenderHasProducibleDataFunctionRef;
+        const InitialTransmissionCompletedCallback_t& m_initialTransmissionCompletedCallbackRef;
+
+        //session sender stats
+        uint64_t m_numCheckpointTimerExpiredCallbacks;
+        uint64_t m_numDiscretionaryCheckpointsNotResent;
+        uint64_t m_numDeletedFullyClaimedPendingReports;
+    };
     
     LTP_LIB_EXPORT ~LtpSessionSender();
     LTP_LIB_EXPORT LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber, LtpClientServiceDataToSend && dataToSend,
-        std::shared_ptr<LtpTransmissionRequestUserData> && userDataPtrToTake, uint64_t lengthOfRedPart, const uint64_t MTU,
+        std::shared_ptr<LtpTransmissionRequestUserData> && userDataPtrToTake, uint64_t lengthOfRedPart,
         const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
-        LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& timeManagerOfCheckpointSerialNumbersRef,
-        LtpTimerManager<uint64_t, std::hash<uint64_t> >& timeManagerOfSendingDelayedDataSegmentsRef,
-        const NotifyEngineThatThisSenderNeedsDeletedCallback_t & notifyEngineThatThisSenderNeedsDeletedCallbackRef,
-        const NotifyEngineThatThisSenderHasProducibleDataFunction_t & notifyEngineThatThisSenderHasProducibleDataFunctionRef,
-        const InitialTransmissionCompletedCallback_t & initialTransmissionCompletedCallbackRef,
-        const uint64_t checkpointEveryNthDataPacket, const uint32_t maxRetriesPerSerialNumber, const uint64_t memoryBlockId);
+        const uint64_t memoryBlockId, LtpSessionSenderCommonData& ltpSessionSenderCommonDataRef);
     LTP_LIB_EXPORT bool NextTimeCriticalDataToSend(UdpSendPacketInfo & udpSendPacketInfo);
     LTP_LIB_EXPORT bool NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketInfo);
 
@@ -89,11 +112,9 @@ private:
     std::set<uint64_t> m_reportSegmentSerialNumbersReceivedSet;
 
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_timerExpiredCallback;
-    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& m_timeManagerOfCheckpointSerialNumbersRef;
     std::list<uint64_t> m_checkpointSerialNumberActiveTimersList;
 
     LtpTimerManager<uint64_t, std::hash<uint64_t> >::LtpTimerExpiredCallback_t m_delayedDataSegmentsTimerExpiredCallback;
-    LtpTimerManager<uint64_t, std::hash<uint64_t> >& m_timeManagerOfSendingDelayedDataSegmentsRef;
     //(rsLowerBound, rsUpperBound) to (reportSerialNumber) map
     typedef std::map<FragmentSet::data_fragment_unique_overlapping_t, uint64_t> ds_pending_map_t;
     ds_pending_map_t m_mapRsBoundsToRsnPendingGeneration;
@@ -109,24 +130,16 @@ private:
     uint64_t m_dataIndexFirstPass;
     bool m_didNotifyForDeletion;
     bool m_allRedDataReceivedByRemote;
-    const uint64_t M_MTU;
     const Ltp::session_id_t M_SESSION_ID;
     const uint64_t M_CLIENT_SERVICE_ID;
-    const uint64_t M_CHECKPOINT_EVERY_NTH_DATA_PACKET;
     uint64_t m_checkpointEveryNthDataPacketCounter;
-    const uint32_t M_MAX_RETRIES_PER_SERIAL_NUMBER;
 public:
     const uint64_t MEMORY_BLOCK_ID;
 private:
-    const NotifyEngineThatThisSenderNeedsDeletedCallback_t & m_notifyEngineThatThisSenderNeedsDeletedCallbackRef;
-    const NotifyEngineThatThisSenderHasProducibleDataFunction_t & m_notifyEngineThatThisSenderHasProducibleDataFunctionRef;
-    const InitialTransmissionCompletedCallback_t & m_initialTransmissionCompletedCallbackRef;
+    LtpSessionSenderCommonData& m_ltpSessionSenderCommonDataRef;
 
 public:
     //stats
-    uint64_t m_numCheckpointTimerExpiredCallbacks;
-    uint64_t m_numDiscretionaryCheckpointsNotResent;
-    uint64_t m_numDeletedFullyClaimedPendingReports;
     bool m_isFailedSession;
     bool m_calledCancelledOrCompletedCallback;
 };

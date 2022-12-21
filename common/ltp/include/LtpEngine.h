@@ -177,7 +177,6 @@ private:
     const uint64_t M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION;
     const uint64_t M_MAX_RED_RX_BYTES_PER_SESSION;
     const uint64_t M_THIS_ENGINE_ID;
-    uint64_t m_mtuClientServiceData;
     unsigned int m_numSendPacketsPendingSystemCalls;
 protected:
     const uint64_t M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL;
@@ -235,7 +234,6 @@ private:
     OnOutductLinkStatusChangedCallback_t m_onOutductLinkStatusChangedCallback;
     uint64_t m_userAssignedUuid;
 
-    uint64_t m_checkpointEveryNthDataPacketSender;
     uint64_t m_maxReceptionClaims;
     uint32_t m_maxRetriesPerSerialNumber;
 protected:
@@ -297,15 +295,18 @@ private:
     std::unique_ptr<MemoryInFiles> m_memoryInFilesPtr;
     std::queue<uint64_t> m_memoryBlockIdsPendingDeletionQueue;
 
+    //reference structs common to all sessions
+    LtpSessionSender::LtpSessionSenderCommonData m_ltpSessionSenderCommonData;
+
 public:
     //stats
 
     uint64_t m_countAsyncSendsLimitedByRate;
 
-    //session sender stats
-    uint64_t m_numCheckpointTimerExpiredCallbacks;
-    uint64_t m_numDiscretionaryCheckpointsNotResent;
-    uint64_t m_numDeletedFullyClaimedPendingReports;
+    //session sender stats (references to variables within m_ltpSessionSenderCommonData)
+    uint64_t & m_numCheckpointTimerExpiredCallbacksRef;
+    uint64_t & m_numDiscretionaryCheckpointsNotResentRef;
+    uint64_t & m_numDeletedFullyClaimedPendingReportsRef;
 
     //session receiver stats
     uint64_t m_numReportSegmentTimerExpiredCallbacks;

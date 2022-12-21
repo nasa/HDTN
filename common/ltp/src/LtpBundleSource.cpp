@@ -265,8 +265,8 @@ void LtpBundleSource::SetUserAssignedUuid(uint64_t userAssignedUuid) {
 
 void LtpBundleSource::SyncTelemetry() {
     if (m_ltpUdpEnginePtr) {
-        m_ltpOutductTelemetry.numCheckpointsExpired = m_ltpUdpEnginePtr->m_numCheckpointTimerExpiredCallbacks;
-        m_ltpOutductTelemetry.numDiscretionaryCheckpointsNotResent = m_ltpUdpEnginePtr->m_numDiscretionaryCheckpointsNotResent;
+        m_ltpOutductTelemetry.numCheckpointsExpired = m_ltpUdpEnginePtr->m_numCheckpointTimerExpiredCallbacksRef;
+        m_ltpOutductTelemetry.numDiscretionaryCheckpointsNotResent = m_ltpUdpEnginePtr->m_numDiscretionaryCheckpointsNotResentRef;
         m_ltpOutductTelemetry.countUdpPacketsSent = m_ltpUdpEnginePtr->m_countAsyncSendCallbackCalls + m_ltpUdpEnginePtr->m_countBatchUdpPacketsSent;
         m_ltpOutductTelemetry.countRxUdpCircularBufferOverruns = m_ltpUdpEnginePtr->m_countCircularBufferOverruns;
         m_ltpOutductTelemetry.countTxUdpPacketsLimitedByRate = m_ltpUdpEnginePtr->m_countAsyncSendsLimitedByRate;
