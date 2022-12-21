@@ -1,6 +1,7 @@
 add_library(telem_lib
     src/WebsocketServer.cpp
 	src/TelemetryRunner.cpp
+	src/Telemetry.cpp
 	src/TelemetryConnection.cpp
 	src/TelemetryConnectionPoller.cpp
 	src/Metrics.cpp
@@ -16,6 +17,7 @@ endif()
 set(MY_PUBLIC_HEADERS
     include/WebsocketServer.h
 	include/TelemetryRunner.h
+	include/Telemetry.h
 	include/TelemetryConnection.h
 	include/TelemetryConnectionPoller.h
 	include/Metrics.h
@@ -61,10 +63,10 @@ install(TARGETS telem_lib
 
 add_hdtn_package_export(telem_lib HdtnTelemLib) #exported target will have the name HDTN::HdtnTelemLib and not telem_lib.  Also requires install to EXPORT telem_lib-targets
 
-add_executable(telem_command_interface
+add_executable(telem_cmd_interface
     src/main.cpp
 )
 
-install(TARGETS telem_command_interface DESTINATION ${CMAKE_INSTALL_BINDIR})
-target_link_libraries(telem_command_interface telem_lib)
+install(TARGETS telem_cmd_interface DESTINATION ${CMAKE_INSTALL_BINDIR})
+target_link_libraries(telem_cmd_interface telem_lib)
 

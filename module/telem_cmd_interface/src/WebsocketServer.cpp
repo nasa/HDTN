@@ -11,7 +11,7 @@
 #include "Logger.h"
 #include "SignalHandler.h"
 #include "StatsLogger.h"
-#include "Telemetry.h"
+#include "TelemetryDefinitions.h"
 
 #define EXIT_URI "/exit"
 static const std::string CONNECT_MESSAGE = "hyxifwtd";

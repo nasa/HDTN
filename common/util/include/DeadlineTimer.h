@@ -11,7 +11,6 @@
  * See LICENSE.md in the source root directory for more information.
  *
  * @section DESCRIPTION
- *
  * This DeadlineTimer class provides a wrapper around the Boost deadline_timer
  */
 

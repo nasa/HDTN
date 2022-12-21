@@ -11,9 +11,8 @@
  * See LICENSE.md in the source root directory for more information.
  *
  * @section DESCRIPTION
- *
  * This TelemetryConnectionPoller class implements polling a set of TelemetryConnection objects in order to multiplex
- * input/output events.
+ * input/output events. This class wraps the zmq::poll functionality.
  */
 
 #ifndef TELEMETRY_POLLER_H
@@ -32,21 +31,28 @@ class TelemetryConnectionPoller
         TELEM_LIB_EXPORT ~TelemetryConnectionPoller();
 
         /**
-         * Adds a new connection to the poller 
+         * Adds a new connection to the poller
+         * @param connection the connection to add
          */
         TELEM_LIB_EXPORT void AddConnection(TelemetryConnection& connection);
 
         /**
-         * Polls all connections that have been added to the poller 
+         * Polls all connections that have been added to the poller. Utilizes zmq::poll to multiplex
+         * i/o.
+         * @param timeout the max amount of time PollConnections will block while waiting for new
+         * messages
          */
         TELEM_LIB_EXPORT bool PollConnections(unsigned int timeout);
 
         /**
          * Determines if a connection has a new message
-         * @param connection connection to check 
+         * @param connection the connection to check 
          */
         TELEM_LIB_EXPORT bool HasNewMessage(TelemetryConnection& connection);
 
+        /**
+         * m_pollItems should not be used directly, but are publicly available for unit testing 
+         */
         std::vector<zmq::pollitem_t> m_pollItems;
     private:
         TELEM_LIB_NO_EXPORT zmq::pollitem_t* FindPollItem(TelemetryConnection& connection);

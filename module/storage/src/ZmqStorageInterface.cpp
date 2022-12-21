@@ -24,7 +24,7 @@
 #include <boost/thread.hpp>
 #include "HdtnConfig.h"
 #include "codec/bpv6.h"
-#include "Telemetry.h"
+#include "TelemetryDefinitions.h"
 #include <boost/core/noncopyable.hpp>
 #include <set>
 #include <unordered_map>
@@ -1184,7 +1184,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     LOG_ERROR(subprocess) << "telemMsgByte message mismatch: untruncated = " << res->untruncated_size
                         << " truncated = " << res->size << " expected = " << sizeof(telemMsgByte);
                 }
-                else if (telemMsgByte == GUI_REQ_MSG) {                    
+                else if (telemMsgByte == TELEM_REQ_MSG) {                    
                     //send telemetry
                     StorageTelemetry_t telem;
                     telem.totalBundlesErasedFromStorage = GetCurrentNumberOfBundlesDeletedFromStorage();

@@ -11,7 +11,6 @@
  * See LICENSE.md in the source root directory for more information.
  *
  * @section DESCRIPTION
- *
  * This Metrics class provides the data structure and helper functions for working with HDTN metrics.
  */
 
@@ -21,7 +20,7 @@
 #include <boost/date_time.hpp>
 
 #include "telem_lib_export.h"
-#include "Telemetry.h"
+#include "TelemetryDefinitions.h"
 
 
 class Metrics {
@@ -73,12 +72,12 @@ class Metrics {
         TELEM_LIB_EXPORT void ProcessEgressTelem(EgressTelemetry_t& currentTelem);
 
         /**
-         * Processes and storage new storage telemetry data 
+         * Processes and stores new storage telemetry data 
          */
         TELEM_LIB_EXPORT void ProcessStorageTelem(StorageTelemetry_t& currentTelem);
 
         /**
-         * Helper function to calculate a mb/s rate 
+         * Helper function to calculate a megabit per second rate 
          */
         TELEM_LIB_EXPORT static double CalculateMbpsRate(
             double currentBytes,

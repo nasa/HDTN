@@ -46,7 +46,7 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 void HdtnOneProcessRunner::MonitorExitKeypressThreadFunction()
 {
     LOG_INFO(subprocess) << "Keyboard Interrupt.. exiting";
-    m_runningFromSigHandler = false; // do this first
+    m_runningFromSigHandler = false; //do this first
 }
 
 HdtnOneProcessRunner::HdtnOneProcessRunner() {}
@@ -54,7 +54,7 @@ HdtnOneProcessRunner::~HdtnOneProcessRunner() {}
 
 bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool &running, bool useSignalHandler)
 {
-    // scope to ensure clean exit before return 0
+    //scope to ensure clean exit before return 0
     {
         running = true;
         m_runningFromSigHandler = true;
@@ -69,7 +69,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         boost::program_options::options_description desc("Allowed options");
         try
         {
-            desc.add_options()("help", "Produce help message.")("hdtn-config-file", boost::program_options::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.");
+            desc.add_options()("help", "Produce help message.")("hdtn-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.");
 
 #ifdef RUN_TELEMETRY
             TelemetryRunnerProgramOptions::AppendToDesc(desc);
@@ -90,32 +90,28 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
             const boost::filesystem::path configFileName = vm["hdtn-config-file"].as<boost::filesystem::path>();
 
             hdtnConfig = HdtnConfig::CreateFromJsonFilePath(configFileName);
-            if (!hdtnConfig)
-            {
+            if (!hdtnConfig) {
                 LOG_ERROR(subprocess) << "error loading config file: " << configFileName;
                 return false;
             }
         }
-        catch (boost::bad_any_cast &e)
-        {
+        catch (boost::bad_any_cast &e) {
             LOG_ERROR(subprocess) << "invalid data error: " << e.what();
             LOG_ERROR(subprocess) << desc;
             return false;
         }
-        catch (std::exception &e)
-        {
+        catch (std::exception &e) {
             LOG_ERROR(subprocess) << e.what();
             return false;
         }
-        catch (...)
-        {
+        catch (...) {
             LOG_ERROR(subprocess) << "Exception of unknown type!";
             return false;
         }
 
-        // The io_threads argument specifies the size of the 0MQ thread pool to handle I/O operations.
-        // If your application is using only the inproc transport for messaging you may set this to zero, otherwise set it to at least one.
-        std::unique_ptr<zmq::context_t> hdtnOneProcessZmqInprocContextPtr = boost::make_unique<zmq::context_t>(0); // 0 Threads
+        //The io_threads argument specifies the size of the 0MQ thread pool to handle I/O operations.
+        //If your application is using only the inproc transport for messaging you may set this to zero, otherwise set it to at least one.
+        std::unique_ptr<zmq::context_t> hdtnOneProcessZmqInprocContextPtr = boost::make_unique<zmq::context_t>(0);// 0 Threads
 
         LOG_INFO(subprocess) << "starting EgressAsync..";
 
@@ -139,28 +135,24 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
 
 #ifdef RUN_TELEMETRY
         LOG_INFO(subprocess) << "Initializing telemetry runner...";
-        std::unique_ptr<TelemetryRunner> telemetryRunnerPtr = boost::make_unique<TelemetryRunner>();
-        if (!telemetryRunnerPtr->Init(hdtnOneProcessZmqInprocContextPtr.get(), telemetryRunnerOptions))
+        TelemetryRunner telemetryRunner;
+        if (!telemetryRunner.Init(hdtnOneProcessZmqInprocContextPtr.get(), telemetryRunnerOptions))
         {
             return false;
         }
 #endif
 
-        if (useSignalHandler)
-        {
+        if (useSignalHandler) {
             sigHandler.Start(false);
         }
 
 #ifdef RUN_TELEMETRY
-        while (running && m_runningFromSigHandler && !telemetryRunnerPtr->ShouldExit())
-        {
+        while (running && m_runningFromSigHandler && !telemetryRunner.ShouldExit()) {
 #else
-        while (running && m_runningFromSigHandler)
-        {
+        while (running && m_runningFromSigHandler) {
 #endif // RUN_TELEMETRY
             boost::this_thread::sleep(boost::posix_time::milliseconds(250));
-            if (useSignalHandler)
-            {
+            if (useSignalHandler) {
                 sigHandler.PollOnce();
             }
         }
@@ -173,7 +165,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
 
 #ifdef RUN_TELEMETRY
         LOG_INFO(subprocess) << "TelemetryRunner: exiting cleanly...";
-        telemetryRunnerPtr->Stop();
+        telemetryRunner.Stop();
 #endif
 
         boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();

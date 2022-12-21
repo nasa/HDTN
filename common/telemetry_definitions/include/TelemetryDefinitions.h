@@ -1,5 +1,5 @@
 /**
- * @file Telemetry.h
+ * @file TelemetryDefinitions.h
  * @author  Blake LaFuente
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
@@ -159,6 +159,6 @@ struct AllOutductCapabilitiesTelemetry_t {
 
 TELEMETRY_DEFINITIONS_EXPORT bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size);
 
-TELEMETRY_DEFINITIONS_EXPORT const uint8_t GUI_REQ_MSG = 1;
+TELEMETRY_DEFINITIONS_EXPORT const uint8_t TELEM_REQ_MSG = 1;
 
 #endif // HDTN_TELEMETRY_H

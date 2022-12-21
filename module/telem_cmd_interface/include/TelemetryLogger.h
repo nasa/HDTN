@@ -11,8 +11,7 @@
  * See LICENSE.md in the source root directory for more information.
  *
  * @section DESCRIPTION
- *
- * This TelemetryLogger class implements logging telemetry metrics to a file.
+ * This TelemetryLogger class implements logging telemetry metrics to files
  */
 
 #ifndef TELEMETRY_LOGGER_H

@@ -1,10 +1,10 @@
 #include <boost/make_unique.hpp>
 
 #include "TelemetryConnection.h"
-#include "Telemetry.h"
+#include "TelemetryDefinitions.h"
 #include "Logger.h"
 
-static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::gui;
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::telem;
 
 /**
  * Declare all possible types for the ReadMessage template 

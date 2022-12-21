@@ -13,7 +13,7 @@
  * See LICENSE.md in the source root directory for more information.
  */
 
-#include "Telemetry.h"
+#include "TelemetryDefinitions.h"
 #include "Logger.h"
 #include "Uri.h"
 #include <boost/endian/conversion.hpp>

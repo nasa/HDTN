@@ -28,7 +28,7 @@
 #include <boost/thread.hpp>
 #include "codec/bpv6.h"
 #include "TcpclBundleSource.h" //for OutductOpportunisticProcessReceivedBundleCallback_t
-#include "Telemetry.h"
+#include "TelemetryDefinitions.h"
 #include "BundleCallbackFunctionDefines.h"
 
 class OutductManager {

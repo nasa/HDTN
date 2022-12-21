@@ -11,9 +11,8 @@
  * See LICENSE.md in the source root directory for more information.
  *
  * @section DESCRIPTION
- *
- * This TelemetryConnection class implements initializing and interacting with a ZMQ connection for receiving
- * telemetry data from HDTN.
+ * This TelemetryConnection class implements initializing and handling message i/o on a ZMQ connection,
+ * specifically for receiving telemetry data from HDTN.
  */
 
 #ifndef TELEMETRY_CONNECTION_H
@@ -30,7 +29,8 @@ class TelemetryConnection
         TELEM_LIB_EXPORT ~TelemetryConnection();
 
         /**
-         * Sends a new message on the connnection 
+         * Sends a new message on the connnection
+         * @param buffer the zmq::const_buffer to send
          */
         TELEM_LIB_EXPORT bool SendMessage(zmq::const_buffer buffer);
 

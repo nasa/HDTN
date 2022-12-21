@@ -1,8 +1,8 @@
 /**
- * @file TestTelemetry.cpp
+ * @file TestTelemetryDefinitions.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,7 +13,7 @@
  */
 
 #include <boost/test/unit_test.hpp>
-#include "Telemetry.h"
+#include "TelemetryDefinitions.h"
 
 
 BOOST_AUTO_TEST_CASE(TelemetryTestCase)

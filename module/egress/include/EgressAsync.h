@@ -27,7 +27,7 @@
 #include "zmq.hpp"
 #include <memory>
 #include "HdtnConfig.h"
-#include "Telemetry.h"
+#include "TelemetryDefinitions.h"
 #include <boost/core/noncopyable.hpp>
 #include "egress_async_lib_export.h"
 

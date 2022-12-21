@@ -1,13 +1,13 @@
-#include "TelemetryRunner.h"
+#include "Telemetry.h"
 #include "Logger.h"
 
 int main(int argc, const char* argv[]) {
     {
         hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::telem);
 
-        TelemetryRunner runner;
+        Telemetry telemetry;
         volatile bool running;
-        runner.Run(argc, argv, running);
+        telemetry.Run(argc, argv, running);
     }
     return 0;
 }

@@ -12,24 +12,18 @@
  *
  * @section DESCRIPTION
  *
- * This TelemetryRunner class launches a thread that handles polling HDTN for telemetry data
+ * This TelemetryRunner class launches a thread that polls HDTN telemetry data. It also
+ * processes the data and provides interfaces for viewing it.
  */
 
 #ifndef TELEMETRY_RUNNER_H
 #define TELEMETRY_RUNNER_H 1
 
-#include <functional>
-
-#include <boost/scoped_ptr.hpp>
-#include <boost/thread.hpp>
 #include "zmq.hpp"
 
 #include "telem_lib_export.h"
-#include "Telemetry.h"
-#include "Metrics.h"
-#include "TelemetryLogger.h"
 #include "TelemetryRunnerProgramOptions.h"
-#include "WebsocketServer.h"
+
 
 class TelemetryRunner
 {
@@ -59,6 +53,7 @@ class TelemetryRunner
          */
         TELEM_LIB_EXPORT void Stop();
 
+    private:
         // Internal implementation class and pointer
         struct Impl;
         std::unique_ptr<Impl> m_pimpl;

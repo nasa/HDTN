@@ -79,7 +79,7 @@ add_executable(unit-tests-from-install
 	../../common/util/test/TestJsonSerializable.cpp
 	../../common/util/test/TestMemoryInFiles.cpp
 	../../common/util/test/TestForwardListQueue.cpp
-	../../common/telemetry/test/TestTelemetry.cpp
+	../../common/telemetry_definitions/test/TestTelemetryDefinitions.cpp
 	#note: Logger unit tests not added due to specific COMPILE_DEFINITIONS used
 	../../common/bpcodec/test/TestAggregateCustodySignal.cpp
 	../../common/bpcodec/test/TestCustodyTransfer.cpp
@@ -100,9 +100,9 @@ add_executable(unit-tests-from-install
 	../../module/storage/unit_tests/TestBundleUuidToUint64HashMap.cpp
 	../../module/storage/unit_tests/TestCustodyTimers.cpp
     #../../module/storage/unit_tests/BundleStorageManagerMtAsFifoTests.cpp
-	../../module/telem_command_interface/unit_tests/WebsocketServerTests.cpp
-	../../module/telem_command_interface/unit_tests/TelemetryRunnerTests.cpp
-	../../module/telem_command_interface/unit_tests/TelemetryConnectionTests.cpp
+	../../module/telem_cmd_interface/unit_tests/WebsocketServerTests.cpp
+	../../module/telem_cmd_interface/unit_tests/TelemetryRunnerTests.cpp
+	../../module/telem_cmd_interface/unit_tests/TelemetryConnectionTests.cpp
 )
 
 target_link_libraries(unit-tests-from-install

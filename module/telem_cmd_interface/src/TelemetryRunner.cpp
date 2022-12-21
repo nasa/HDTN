@@ -9,9 +9,10 @@
 #include "TelemetryRunner.h"
 #include "Logger.h"
 #include "SignalHandler.h"
-#include "Telemetry.h"
+#include "TelemetryDefinitions.h"
 #include "TelemetryConnection.h"
 #include "TelemetryConnectionPoller.h"
+#include "TelemetryLogger.h"
 #include "Metrics.h"
 #include "Environment.h"
 #include "DeadlineTimer.h"
@@ -41,18 +42,15 @@ static const unsigned int REC_STORAGE = 0x04;
 class TelemetryRunner::Impl : private boost::noncopyable {
     public:
         Impl();
-        bool Run(int argc, const char* const argv[], volatile bool & running);
         bool Init(zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions& options);
         bool ShouldExit();
         void Stop();
-        void ThreadFunc(zmq::context_t * inprocContextPtr);
 
     private:
-        void MonitorExitKeypressThreadFunc();
+        void ThreadFunc(zmq::context_t * inprocContextPtr);
         void OnNewMetrics(Metrics::metrics_t metrics);
 
         volatile bool m_running;
-        volatile bool m_runningFromSigHandler;
         std::unique_ptr<boost::thread> m_threadPtr;
         std::unique_ptr<WebsocketServer> m_websocketServerPtr;
         std::unique_ptr<TelemetryLogger> m_telemetryLoggerPtr;
@@ -62,12 +60,8 @@ class TelemetryRunner::Impl : private boost::noncopyable {
  * TelemetryRunner proxies 
  */
 TelemetryRunner::TelemetryRunner()
-    : m_pimpl(boost::make_unique<TelemetryRunner::Impl>()) {}
-
-bool TelemetryRunner::Run(int argc, const char *const argv[], volatile bool &running)
-{
-    return m_pimpl->Run(argc, argv, running);
-}
+    : m_pimpl(boost::make_unique<TelemetryRunner::Impl>())
+{}
 
 bool TelemetryRunner::Init(zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options)
 {
@@ -94,44 +88,8 @@ TelemetryRunner::~TelemetryRunner()
  */
 
 TelemetryRunner::Impl::Impl()
-    : m_running(false), m_runningFromSigHandler(false)
+    : m_running(false)
     {}
-
-bool TelemetryRunner::Impl::Run(int argc, const char *const argv[], volatile bool &running)
-{
-    running = true;
-
-    boost::program_options::options_description desc("Allowed options");
-    desc.add_options()("help", "Produce help message.");
-    TelemetryRunnerProgramOptions::AppendToDesc(desc);
-    boost::program_options::variables_map vm;
-    boost::program_options::store(
-        boost::program_options::parse_command_line(argc, argv, desc, boost::program_options::command_line_style::unix_style | boost::program_options::command_line_style::case_insensitive),
-        vm);
-    boost::program_options::notify(vm);
-    if (vm.count("help")) {
-        std::cout << desc << "\n";
-        return false;
-    }
-    TelemetryRunnerProgramOptions options;
-    if (!options.ParseFromVariableMap(vm)) {
-        return false;
-    }
-
-    if (!Init(NULL, options)) {
-        return false;
-    }
-
-    m_runningFromSigHandler = true;
-    SignalHandler sigHandler(boost::bind(&TelemetryRunner::Impl::MonitorExitKeypressThreadFunc, this));
-    sigHandler.Start(false);
-    while (running && m_runningFromSigHandler)
-    {
-        boost::this_thread::sleep(boost::posix_time::millisec(250));
-        sigHandler.PollOnce();
-    }
-    return true;
-}
 
 bool TelemetryRunner::Impl::Init(zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options)
 {
@@ -196,7 +154,7 @@ void TelemetryRunner::Impl::ThreadFunc(zmq::context_t *inprocContextPtr)
         }
 
         // Send signals to all hdtn modules
-        static const zmq::const_buffer byteSignalBuf(&GUI_REQ_MSG, sizeof(GUI_REQ_MSG));
+        static const zmq::const_buffer byteSignalBuf(&TELEM_REQ_MSG, sizeof(TELEM_REQ_MSG));
         ingressConnection->SendMessage(byteSignalBuf);
         egressConnection->SendMessage(byteSignalBuf);
         storageConnection->SendMessage(byteSignalBuf);
@@ -237,7 +195,7 @@ void TelemetryRunner::Impl::ThreadFunc(zmq::context_t *inprocContextPtr)
             LOG_WARNING(subprocess) << "did not get telemetry from all modules";
         }
     }
-    std::cout << "ThreadFunc exiting\n";
+    LOG_DEBUG(subprocess) << "ThreadFunc exiting";
 }
 
 void TelemetryRunner::Impl::OnNewMetrics(Metrics::metrics_t metrics)
@@ -256,12 +214,6 @@ bool TelemetryRunner::Impl::ShouldExit()
         return m_websocketServerPtr->RequestsExit();
     }
     return false;
-}
-
-void TelemetryRunner::Impl::MonitorExitKeypressThreadFunc()
-{
-    LOG_INFO(subprocess) << "Keyboard Interrupt.. exiting\n";
-    m_runningFromSigHandler = false; // do this first
 }
 
 void TelemetryRunner::Impl::Stop()

@@ -34,7 +34,7 @@
 #include "codec/BundleViewV7.h"
 #include "TcpclInduct.h"
 #include "TcpclV4Induct.h"
-#include "Telemetry.h"
+#include "TelemetryDefinitions.h"
 #include <unordered_map>
 #if (__cplusplus >= 201703L)
 #include <shared_mutex>
@@ -628,7 +628,7 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                     LOG_ERROR(subprocess) << "telemMsgByte message mismatch: untruncated = " << res->untruncated_size
                         << " truncated = " << res->size << " expected = " << sizeof(telemMsgByte);
                 }
-                else if (telemMsgByte != GUI_REQ_MSG) {
+                else if (telemMsgByte != TELEM_REQ_MSG) {
                     LOG_ERROR(subprocess) << "telemMsgByte not 1";
                 }
                 else {

@@ -29,7 +29,7 @@ BOOST_AUTO_TEST_CASE(TelemetryRunnerProgramOptionsDefaultTestCase)
         vm);
     boost::program_options::notify(vm);
 
-    boost::filesystem::path defaultRoot = Environment::GetPathHdtnSourceRoot() / "module" / "telem_command_interface" / "src" / "gui";
+    boost::filesystem::path defaultRoot = Environment::GetPathHdtnSourceRoot() / "module" / "telem_cmd_interface" / "src" / "gui";
     TelemetryRunnerProgramOptions options;
     options.ParseFromVariableMap(vm);
     BOOST_REQUIRE_EQUAL(defaultRoot, options.m_guiDocumentRoot);
@@ -41,7 +41,7 @@ BOOST_AUTO_TEST_CASE(TelemetryRunnerProgramOptionsDefaultTestCase)
 BOOST_AUTO_TEST_CASE(TelemetryRunnerProgramOptionsParseFromVmTestCase)
 {
     boost::program_options::variables_map vm;
-    boost::filesystem::path validRoot = Environment::GetPathHdtnSourceRoot() / "module" / "telem_command_interface" / "src" / "gui";
+    boost::filesystem::path validRoot = Environment::GetPathHdtnSourceRoot() / "module" / "telem_cmd_interface" / "src" / "gui";
     vm.insert(std::make_pair("document-root", boost::program_options::variable_value(validRoot, false)));
     vm.insert(std::make_pair("port-number", boost::program_options::variable_value(uint16_t(9000), false)));
 
@@ -59,7 +59,7 @@ BOOST_AUTO_TEST_CASE(TelemetryRunnerProgramOptionsDocumentRootTestCase)
     TelemetryRunnerProgramOptions options;
 
     // It should handle a valid path
-    boost::filesystem::path validRoot = Environment::GetPathHdtnSourceRoot() / "module" / "telem_command_interface" / "src" / "gui";
+    boost::filesystem::path validRoot = Environment::GetPathHdtnSourceRoot() / "module" / "telem_cmd_interface" / "src" / "gui";
     vm.insert(std::make_pair("document-root", boost::program_options::variable_value(validRoot, false)));
     options.ParseFromVariableMap(vm);
     BOOST_REQUIRE_EQUAL(validRoot, options.m_guiDocumentRoot);

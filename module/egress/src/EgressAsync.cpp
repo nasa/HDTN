@@ -487,7 +487,7 @@ void Egress::Impl::ReadZmqThreadFunc() {
                     LOG_ERROR(subprocess) << "telemMsgByte message mismatch: untruncated = " << res->untruncated_size
                         << " truncated = " << res->size << " expected = " << sizeof(telemMsgByte);
                 }
-                else if (telemMsgByte != GUI_REQ_MSG) {
+                else if (telemMsgByte != TELEM_REQ_MSG) {
                     LOG_ERROR(subprocess) << "error telemMsgByte not 1";
                 }
                 else {

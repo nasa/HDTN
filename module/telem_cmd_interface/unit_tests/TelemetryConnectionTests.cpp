@@ -3,7 +3,7 @@
 #include <boost/thread/thread.hpp>
 
 #include "TelemetryConnection.h"
-#include "Telemetry.h"
+#include "TelemetryDefinitions.h"
 
 class MockTelemetrySender
 {
@@ -56,11 +56,11 @@ BOOST_AUTO_TEST_CASE(TelemetryConnectionSendMessageTestCase)
     );
 
     std::unique_ptr<TelemetryConnection> receiver = boost::make_unique<TelemetryConnection>("inproc://my-connection", contextPtr.get());
-    sender->Send(GUI_REQ_MSG);
+    sender->Send(TELEM_REQ_MSG);
     uint8_t data = receiver->ReadMessage<uint8_t>();
     receiver.reset();
     sender.reset();
-    BOOST_REQUIRE_EQUAL(GUI_REQ_MSG, data);
+    BOOST_REQUIRE_EQUAL(TELEM_REQ_MSG, data);
 }
 
 BOOST_AUTO_TEST_CASE(TelemetryConnectionHandleCase)
