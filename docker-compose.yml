@@ -1,0 +1,20 @@
+version: '3.7'
+services:
+    alpha:
+      build: ./docker/oracle_linux/
+      container_name: hdtn_sender
+      hostname: hdtn_sender
+      image: hdtn
+      shm_size: 2gb
+      extra_hosts: 
+      - "hdtn-1:10.0.2.1"
+    bravo:
+      build: ./docker/oracle_linux/
+      container_name: hdtn_receiver
+      hostname: hdtn_receiver
+      image: hdtn
+      shm_size: 2gb
+      extra_hosts:
+      - "hdtn-2:10.0.2.2"
+
+
