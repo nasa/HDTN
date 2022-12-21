@@ -44,13 +44,13 @@ public:
         }
         uint64_t memoryBlockId;
         uint64_t offset;
-        std::size_t length;
+        uint64_t length;
         void* readToThisLocationPtr;
     };
     struct deferred_write_t {
         uint64_t memoryBlockId;
         uint64_t offset;
-        std::size_t length;
+        uint64_t length;
         const void* writeFromThisLocationPtr;
     };
     
@@ -59,7 +59,9 @@ public:
         const uint64_t estimatedMaxAllocatedBlocks);
     HDTN_UTIL_EXPORT ~MemoryInFiles();
 
-    HDTN_UTIL_EXPORT uint64_t AllocateNewWriteMemoryBlock(std::size_t totalSize);
+    HDTN_UTIL_EXPORT uint64_t AllocateNewWriteMemoryBlock(uint64_t totalSize);
+    HDTN_UTIL_EXPORT uint64_t GetSizeOfMemoryBlock(const uint64_t memoryBlockId) const noexcept;
+    HDTN_UTIL_EXPORT uint64_t Resize(const uint64_t memoryBlockId, uint64_t newSize);
     HDTN_UTIL_EXPORT bool DeleteMemoryBlock(const uint64_t memoryBlockId);
     //returns memoryBlockId (key) assigned to the written data, use that key to read it back
     HDTN_UTIL_EXPORT bool WriteMemoryAsync(const deferred_write_t& deferredWrite, const write_memory_handler_t& handler);
@@ -74,6 +76,8 @@ public:
 
     HDTN_UTIL_EXPORT uint64_t GetCountTotalFilesCreated() const;
     HDTN_UTIL_EXPORT uint64_t GetCountTotalFilesActive() const;
+
+    HDTN_UTIL_EXPORT static uint64_t CeilToNearestBlockMultiple(const uint64_t minimumDesiredBytes);
     
 private:
     // Internal implementation class
