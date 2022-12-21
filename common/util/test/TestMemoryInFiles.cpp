@@ -76,7 +76,7 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesTestCase)
         void DoTest() {
             
             { //create memoryBlockId=1, size 10, write "56789" to indices 5..9
-                const std::size_t totalMemoryBlockSize = 10;
+                const uint64_t totalMemoryBlockSize = 10;
                 BOOST_REQUIRE_EQUAL(mf.GetCountTotalFilesCreated(), 0);
                 BOOST_REQUIRE_EQUAL(mf.GetCountTotalFilesActive(), 0);
                 const uint64_t memoryBlockId = mf.AllocateNewWriteMemoryBlock(totalMemoryBlockSize);
@@ -100,13 +100,13 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesTestCase)
                 BOOST_REQUIRE_EQUAL(mf.GetCountTotalFilesActive(), 1);
             }
             { //create memoryBlockId=2, size 9000 (this will create a gap between memory block 1's first and second fragments when resized next)
-                const std::size_t totalMemoryBlockSize = 9000;
+                const uint64_t totalMemoryBlockSize = 9000;
                 const uint64_t memoryBlockId = mf.AllocateNewWriteMemoryBlock(totalMemoryBlockSize);
                 BOOST_REQUIRE_EQUAL(memoryBlockId, 2);
                 BOOST_REQUIRE_EQUAL(mf.GetSizeOfMemoryBlock(memoryBlockId), blockSize * 3); //rounds 9000 up to 4096*3=12288
             }
             { //resize memoryBlockId=1, size 7000 (rounds to 8192), write "vwxyz" to indices 6500..6504
-                const std::size_t totalMemoryBlockSize = 7000;
+                const uint64_t totalMemoryBlockSize = 7000;
                 const uint64_t memoryBlockId = 1;
                 const uint64_t newSize = mf.Resize(memoryBlockId, totalMemoryBlockSize);
                 BOOST_REQUIRE_EQUAL(newSize, blockSize * 2);
@@ -274,7 +274,7 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesTestCase)
                 lastDataReadBackCallbackSharedPtr.reset();
                 std::shared_ptr<std::string> dataReadBackSharedPtr = std::make_shared<std::string>("aaa");
                 char* data = dataReadBackSharedPtr->data();
-                const std::size_t sizeData = dataReadBackSharedPtr->size();
+                const uint64_t sizeData = dataReadBackSharedPtr->size();
                 MemoryInFiles::deferred_read_t deferredRead;
                 deferredRead.memoryBlockId = memoryBlockId;
                 deferredRead.offset = 8190;
@@ -387,7 +387,7 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesTestCase)
             { 
                 //resize memoryBlockId=1 in new file, (from size 7000 (rounds to 8192)) to size 10000 (rounds 10000 up to 4096*3=12288)
                 //write memoryBlockId=1 "QWERTYUIOP" to indices 8188..8197 (spans two fragments in separate files)
-                const std::size_t totalMemoryBlockSize = 10000;
+                const uint64_t totalMemoryBlockSize = 10000;
                 const uint64_t memoryBlockId = 1;
                 const uint64_t newSize = mf.Resize(memoryBlockId, totalMemoryBlockSize);
                 BOOST_REQUIRE_EQUAL(newSize, blockSize * 3);
@@ -502,7 +502,7 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesTestCase)
                 BOOST_REQUIRE_EQUAL(mf.GetCountTotalFilesCreated(), 2); //no allocation yet
                 BOOST_REQUIRE_EQUAL(mf.GetCountTotalFilesActive(), 2);
 
-                const std::size_t totalMemoryBlockSize = 7;
+                const uint64_t totalMemoryBlockSize = 7;
                 const uint64_t memoryBlockId = mf.AllocateNewWriteMemoryBlock(totalMemoryBlockSize);
                 BOOST_REQUIRE_EQUAL(memoryBlockId, 4);
                 BOOST_REQUIRE_EQUAL(mf.GetCountTotalFilesCreated(), 3);
@@ -589,22 +589,22 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesSpeedTestCase)
         const uint64_t newFileAggregationTimeMs;
         MemoryInFiles mf;
         std::queue<std::vector<uint64_t> > expectedBlockReadsQueue;
-        std::size_t expectedUseCountWrite;
-        std::size_t expectedUseCountRead;
+        uint64_t expectedUseCountWrite;
+        uint64_t expectedUseCountRead;
 
-        std::size_t writeUseCountCountsAt2;
-        std::size_t writeUseCountCountsAt1;
-        std::size_t readUseCountCountsAt2;
-        std::size_t readUseCountCountsAt1;
+        uint64_t writeUseCountCountsAt2;
+        uint64_t writeUseCountCountsAt1;
+        uint64_t readUseCountCountsAt2;
+        uint64_t readUseCountCountsAt1;
         Test(const fs::path& paramRootPath) :
             rootPath(paramRootPath),
             newFileAggregationTimeMs(2000),
             mf(ioService, rootPath, newFileAggregationTimeMs, 10) {}
 
         void DoTest() {
-            static constexpr std::size_t BLOCK_NUM_VALUES = 10;
-            static constexpr std::size_t BLOCK_NUM_BYTES = BLOCK_NUM_VALUES * sizeof(uint64_t);
-            static constexpr std::size_t BLOCK_HALF_NUM_BYTES = BLOCK_NUM_BYTES / 2;
+            static constexpr uint64_t BLOCK_NUM_VALUES = 10;
+            static constexpr uint64_t BLOCK_NUM_BYTES = BLOCK_NUM_VALUES * sizeof(uint64_t);
+            static constexpr uint64_t BLOCK_HALF_NUM_BYTES = BLOCK_NUM_BYTES / 2;
             expectedUseCountWrite = 2;
             expectedUseCountRead = 2;
 
@@ -741,22 +741,22 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesSpeedTestAllWritesFirstCase)
         const uint64_t newFileAggregationTimeMs;
         MemoryInFiles mf;
         std::queue<std::vector<uint64_t> > expectedBlockReadsQueue;
-        std::size_t expectedUseCountWrite;
-        std::size_t expectedUseCountRead;
+        uint64_t expectedUseCountWrite;
+        uint64_t expectedUseCountRead;
 
-        std::size_t writeUseCountCountsAt2;
-        std::size_t writeUseCountCountsAt1;
-        std::size_t readUseCountCountsAt2;
-        std::size_t readUseCountCountsAt1;
+        uint64_t writeUseCountCountsAt2;
+        uint64_t writeUseCountCountsAt1;
+        uint64_t readUseCountCountsAt2;
+        uint64_t readUseCountCountsAt1;
         Test(const fs::path& paramRootPath) :
             rootPath(paramRootPath),
             newFileAggregationTimeMs(2000),
             mf(ioService, rootPath, newFileAggregationTimeMs, 10) {}
 
         void DoTest() {
-            static constexpr std::size_t BLOCK_NUM_VALUES = 10;
-            static constexpr std::size_t BLOCK_NUM_BYTES = BLOCK_NUM_VALUES * sizeof(uint64_t);
-            static constexpr std::size_t BLOCK_HALF_NUM_BYTES = BLOCK_NUM_BYTES / 2;
+            static constexpr uint64_t BLOCK_NUM_VALUES = 10;
+            static constexpr uint64_t BLOCK_NUM_BYTES = BLOCK_NUM_VALUES * sizeof(uint64_t);
+            static constexpr uint64_t BLOCK_HALF_NUM_BYTES = BLOCK_NUM_BYTES / 2;
             expectedUseCountWrite = 2;
             expectedUseCountRead = 2;
 
