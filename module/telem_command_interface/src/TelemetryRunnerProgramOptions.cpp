@@ -14,7 +14,7 @@ TelemetryRunnerProgramOptions::TelemetryRunnerProgramOptions()
 {
 }
 
-bool TelemetryRunnerProgramOptions::ParseFromVariableMap(boost::program_options::variables_map vm)
+bool TelemetryRunnerProgramOptions::ParseFromVariableMap(boost::program_options::variables_map& vm)
 {
 #ifdef USE_WEB_INTERFACE
     m_guiDocumentRoot = GetDocumentRootAndValidate(vm);
@@ -27,14 +27,14 @@ bool TelemetryRunnerProgramOptions::ParseFromVariableMap(boost::program_options:
     return true;
 }
 
-void TelemetryRunnerProgramOptions::AppendToDesc(boost::program_options::options_description &desc)
+void TelemetryRunnerProgramOptions::AppendToDesc(boost::program_options::options_description& desc)
 {
 #ifdef USE_WEB_INTERFACE
     desc.add_options()("document-root", boost::program_options::value<boost::filesystem::path>()->default_value((Environment::GetPathHdtnSourceRoot() / "module" / "telem_command_interface" / "src" / "gui").string()), "Document Root.")("port-number", boost::program_options::value<uint16_t>()->default_value(8086), "Port number.");
 #endif
 }
 
-boost::filesystem::path TelemetryRunnerProgramOptions::GetDocumentRootAndValidate(boost::program_options::variables_map vm)
+boost::filesystem::path TelemetryRunnerProgramOptions::GetDocumentRootAndValidate(boost::program_options::variables_map& vm)
 {
     try
     {
@@ -56,7 +56,7 @@ boost::filesystem::path TelemetryRunnerProgramOptions::GetDocumentRootAndValidat
     return "";
 }
 
-std::string TelemetryRunnerProgramOptions::GetPortNumberAsString(boost::program_options::variables_map vm)
+std::string TelemetryRunnerProgramOptions::GetPortNumberAsString(boost::program_options::variables_map& vm)
 {
     try
     {

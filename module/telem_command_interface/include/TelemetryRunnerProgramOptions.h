@@ -23,27 +23,27 @@
 
 #include "telem_lib_export.h"
 
-class TELEM_LIB_EXPORT TelemetryRunnerProgramOptions
+class TelemetryRunnerProgramOptions
 {
     public:
-        TelemetryRunnerProgramOptions();
+        TELEM_LIB_EXPORT TelemetryRunnerProgramOptions();
 
         /**
          * Appends program options, specific to this TelemetryRunner, to an options descroption 
          */
-        static void AppendToDesc(boost::program_options::options_description& desc);
+        TELEM_LIB_EXPORT static void AppendToDesc(boost::program_options::options_description& desc);
 
         /**
          * Parses a variable map and stores the result in this TelemetryRunnerProgramOptions 
          */
-        bool ParseFromVariableMap(boost::program_options::variables_map vm);
+        TELEM_LIB_EXPORT bool ParseFromVariableMap(boost::program_options::variables_map& vm);
 
         boost::filesystem::path m_guiDocumentRoot;
         std::string m_guiPortNumber;
 
     private:
-        boost::filesystem::path GetDocumentRootAndValidate(boost::program_options::variables_map vm);
-        std::string GetPortNumberAsString(boost::program_options::variables_map vm);
+        boost::filesystem::path GetDocumentRootAndValidate(boost::program_options::variables_map& vm);
+        std::string GetPortNumberAsString(boost::program_options::variables_map& vm);
 };
 
 #endif // TELEMETRY_RUNNER_PROGRAM_OPTIONS_H

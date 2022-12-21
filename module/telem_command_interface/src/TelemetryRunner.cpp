@@ -40,6 +40,7 @@ static const unsigned int REC_STORAGE = 0x04;
  */
 class TelemetryRunner::Impl : private boost::noncopyable {
     public:
+        Impl();
         bool Run(int argc, const char* const argv[], volatile bool & running);
         bool Init(zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions& options);
         bool ShouldExit();
@@ -83,9 +84,18 @@ void TelemetryRunner::Stop()
     m_pimpl->Stop();
 }
 
+TelemetryRunner::~TelemetryRunner()
+{
+    Stop();
+}
+
 /**
  * TelemetryRunner implementation
  */
+
+TelemetryRunner::Impl::Impl()
+    : m_running(false), m_runningFromSigHandler(false)
+    {}
 
 bool TelemetryRunner::Impl::Run(int argc, const char *const argv[], volatile bool &running)
 {
@@ -257,13 +267,13 @@ void TelemetryRunner::Impl::MonitorExitKeypressThreadFunc()
 void TelemetryRunner::Impl::Stop()
 {
     m_running = false;
-    if (m_threadPtr) {
-        m_threadPtr->join();
-        m_threadPtr.reset(); // delete it
+    if (!m_threadPtr) {
+        return;
     }
-}
-
-TelemetryRunner::~TelemetryRunner()
-{
-    Stop();
+    try {
+        m_threadPtr->join();
+    } catch (std::exception& e) {
+        LOG_WARNING(subprocess) << e.what();
+    }
+    m_threadPtr.reset(); // delete it
 }
