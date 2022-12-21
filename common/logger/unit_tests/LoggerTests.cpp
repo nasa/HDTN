@@ -56,16 +56,28 @@ static std::string file_contents_to_str(std::string path, uint8_t maxLines)
  */
 class OutputTester {
 public:
-    void redirect_cout_cerr() {
+    OutputTester()
+    {
+        cerr_backup = nullptr;
+        cout_backup = nullptr;
+    }
+
+    void redirect_cout_cerr()
+    {
         cerr_backup = std::cerr.rdbuf();
         cout_backup = std::cout.rdbuf();
         std::cerr.rdbuf(cerr_test_stream.rdbuf());
         std::cout.rdbuf(cout_test_stream.rdbuf());
     }
 
-    void reset_cout_cerr() {
-        std::cout.rdbuf(cout_backup);
-        std::cerr.rdbuf(cerr_backup);
+    void reset_cout_cerr()
+    {
+        if (cout_backup) {
+            std::cout.rdbuf(cout_backup);
+        }
+        if (cerr_backup) {
+            std::cerr.rdbuf(cerr_backup);
+        }
     }
 
     std::stringstream cerr_test_stream;
