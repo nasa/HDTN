@@ -63,6 +63,7 @@ public:
     HDTN_UTIL_EXPORT uint64_t GetSizeOfMemoryBlock(const uint64_t memoryBlockId) const noexcept;
     HDTN_UTIL_EXPORT uint64_t Resize(const uint64_t memoryBlockId, uint64_t newSize);
     HDTN_UTIL_EXPORT bool DeleteMemoryBlock(const uint64_t memoryBlockId);
+    HDTN_UTIL_EXPORT void AsyncDeleteMemoryBlock(const uint64_t memoryBlockId);
     //returns memoryBlockId (key) assigned to the written data, use that key to read it back
     HDTN_UTIL_EXPORT bool WriteMemoryAsync(const deferred_write_t& deferredWrite, const write_memory_handler_t& handler);
     HDTN_UTIL_EXPORT bool WriteMemoryAsync(const deferred_write_t& deferredWrite, write_memory_handler_t&& handler);

@@ -63,12 +63,15 @@ struct MemoryInFiles::Impl : private boost::noncopyable {
     uint64_t GetSizeOfMemoryBlock(const uint64_t memoryBlockId) const noexcept;
     void ForceDeleteMemoryBlock(const uint64_t memoryBlockId); //intended only for boost::asio::post calls to defer delete when io operations in progress
     bool DeleteMemoryBlock(const uint64_t memoryBlockId);
+    void AsyncDeleteMemoryBlock(const uint64_t memoryBlockId);
     bool WriteMemoryAsync(const deferred_write_t& deferredWrite, std::shared_ptr<write_memory_handler_t>& handlerPtr);
     bool WriteMemoryAsync(const std::vector<deferred_write_t>& deferredWritesVec, std::shared_ptr<write_memory_handler_t>& handlerPtr);
     bool ReadMemoryAsync(const deferred_read_t& deferredRead, std::shared_ptr<read_memory_handler_t>& handlerPtr);
     bool ReadMemoryAsync(const std::vector<deferred_read_t>& deferredReadsVec, std::shared_ptr<read_memory_handler_t>& handlerPtr);
 
 private:
+    void HandleAsyncDeleteMemoryBlock(const uint64_t memoryBlockId); //to print messages if error
+
     struct MemoryBlockInfo;
     uint64_t Resize(MemoryBlockInfo& mbi, uint64_t newSize); //returns the new size
     bool SetupNextFileIfNeeded();
@@ -535,6 +538,17 @@ bool MemoryInFiles::Impl::DeleteMemoryBlock(const uint64_t memoryBlockId) {
     m_mapIdToMemoryBlockInfo.erase(it);
     return true;
 }
+void MemoryInFiles::Impl::AsyncDeleteMemoryBlock(const uint64_t memoryBlockId) {
+    boost::asio::post(m_ioServiceRef, boost::bind(&MemoryInFiles::Impl::HandleAsyncDeleteMemoryBlock, this, memoryBlockId));
+}
+void MemoryInFiles::Impl::HandleAsyncDeleteMemoryBlock(const uint64_t memoryBlockId) {
+    if (!DeleteMemoryBlock(memoryBlockId)) {
+        LOG_ERROR(subprocess) << "Unable to async delete memoryBlockId=" << memoryBlockId;
+    }
+    else {
+        //LOG_DEBUG(subprocess) << "Async delete successful of memoryBlockId=" << memoryBlockId;
+    }
+}
 bool MemoryInFiles::Impl::MemoryBlockInfo::DoWriteOrRead(
     const uint64_t deferredOffset, const uint64_t deferredLength, void* readToThisLocationPtr, const void* writeFromThisLocationPtr,
     void * handlerPtrPtr)
@@ -654,6 +668,9 @@ uint64_t MemoryInFiles::Resize(const uint64_t memoryBlockId, uint64_t newSize) {
 }
 bool MemoryInFiles::DeleteMemoryBlock(const uint64_t memoryBlockId) {
     return m_pimpl->DeleteMemoryBlock(memoryBlockId);
+}
+void MemoryInFiles::AsyncDeleteMemoryBlock(const uint64_t memoryBlockId) {
+    return m_pimpl->AsyncDeleteMemoryBlock(memoryBlockId);
 }
 
 bool MemoryInFiles::WriteMemoryAsync(const deferred_write_t& deferredWrite, const write_memory_handler_t& handler) {

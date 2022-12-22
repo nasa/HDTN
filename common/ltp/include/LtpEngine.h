@@ -175,7 +175,6 @@ private:
     Ltp m_ltpRxStateMachine;
     LtpRandomNumberGenerator m_rng;
     const uint64_t M_THIS_ENGINE_ID;
-    const uint64_t m_clientServiceId;
     unsigned int m_numSendPacketsPendingSystemCalls;
 protected:
     const uint64_t M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL;
@@ -217,6 +216,7 @@ private:
     std::queue<uint64_t> m_queueSendersNeedingTimeCriticalDataSent;
     std::queue<uint64_t> m_queueSendersNeedingFirstPassDataSent;
     std::queue<Ltp::session_id_t> m_queueReceiversNeedingDeleted;
+    std::queue<Ltp::session_id_t> m_queueReceiversNeedingDeletedButUnsafeToDelete;
     std::queue<Ltp::session_id_t> m_queueReceiversNeedingDataSent;
 
     SessionStartCallback_t m_sessionStartCallback;

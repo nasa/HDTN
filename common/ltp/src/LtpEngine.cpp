@@ -32,7 +32,6 @@ LtpEngine::cancel_segment_timer_info_t::cancel_segment_timer_info_t(const uint8_
 
 LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIndexForEncodingIntoRandomSessionNumber, bool startIoServiceThread) :
     M_THIS_ENGINE_ID(ltpRxOrTxCfg.thisEngineId),
-    m_clientServiceId(ltpRxOrTxCfg.clientServiceId),
     m_numSendPacketsPendingSystemCalls(0),
     M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL(ltpRxOrTxCfg.maxUdpPacketsToSendPerSystemCall),
     m_transmissionToAckReceivedTime((ltpRxOrTxCfg.oneWayLightTime * 2) + (ltpRxOrTxCfg.oneWayMarginTime * 2)),
@@ -74,6 +73,7 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
         m_notifyEngineThatThisSenderNeedsDeletedCallback, m_notifyEngineThatThisSenderHasProducibleDataFunction,
         m_initialTransmissionCompletedCallbackCalledBySender),
     m_ltpSessionReceiverCommonData(
+        ltpRxOrTxCfg.clientServiceId,
         0, //maxReceptionClaims will be immediately set by SetMtuReportSegment below
         ltpRxOrTxCfg.estimatedBytesToReceivePerSession,
         ltpRxOrTxCfg.maxRedRxBytesPerSession,
@@ -83,7 +83,8 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
         m_notifyEngineThatThisReceiverNeedsDeletedCallback,
         m_notifyEngineThatThisReceiversTimersHasProducibleDataFunction,
         m_redPartReceptionCallback,
-        m_greenPartSegmentArrivalCallback),
+        m_greenPartSegmentArrivalCallback,
+        m_memoryInFilesPtr), //reference
     m_numCheckpointTimerExpiredCallbacksRef(m_ltpSessionSenderCommonData.m_numCheckpointTimerExpiredCallbacks),
     m_numDiscretionaryCheckpointsNotResentRef(m_ltpSessionSenderCommonData.m_numDiscretionaryCheckpointsNotResent),
     m_numDeletedFullyClaimedPendingReportsRef(m_ltpSessionSenderCommonData.m_numDeletedFullyClaimedPendingReports),
@@ -146,10 +147,10 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     m_housekeepingTimer.async_wait(boost::bind(&LtpEngine::OnHousekeeping_TimerExpired, this, boost::asio::placeholders::error));
 
     //start memory in files for keeping session data on disk instead of RAM
-    if (ltpRxOrTxCfg.senderNewFileDurationMsToStoreSessionDataOrZeroToDisable && startIoServiceThread) { //startIoServiceThread needed to ensure skip using memoryInFiles when under TestLtpEngine
+    if (ltpRxOrTxCfg.newFileDurationMsToStoreSessionDataOrZeroToDisable && startIoServiceThread) { //startIoServiceThread needed to ensure skip using memoryInFiles when under TestLtpEngine
         m_memoryInFilesPtr = boost::make_unique<MemoryInFiles>(m_ioServiceLtpEngine,
-            ltpRxOrTxCfg.senderWriteSessionDataToFilesPath,
-            ltpRxOrTxCfg.senderNewFileDurationMsToStoreSessionDataOrZeroToDisable,
+            ltpRxOrTxCfg.writeSessionDataToFilesPath,
+            ltpRxOrTxCfg.newFileDurationMsToStoreSessionDataOrZeroToDisable,
             M_MAX_SIMULTANEOUS_SESSIONS * 2);
     }
 
@@ -205,6 +206,7 @@ void LtpEngine::Reset() {
     m_queueSendersNeedingTimeCriticalDataSent = std::queue<uint64_t>();
     m_queueSendersNeedingFirstPassDataSent = std::queue<uint64_t>();
     m_queueReceiversNeedingDeleted = std::queue<Ltp::session_id_t>();
+    m_queueReceiversNeedingDeletedButUnsafeToDelete = std::queue<Ltp::session_id_t>();
     m_queueReceiversNeedingDataSent = std::queue<Ltp::session_id_t>();
 
     m_countAsyncSendsLimitedByRate = 0;
@@ -411,7 +413,7 @@ bool LtpEngine::TrySendPacketIfAvailable() {
             while (m_memoryBlockIdsPendingDeletionQueue.size()) {
                 const uint64_t memoryBlockId = m_memoryBlockIdsPendingDeletionQueue.front();
                 if (!m_memoryInFilesPtr->DeleteMemoryBlock(memoryBlockId)) {
-                    LOG_INFO(subprocess) << "LTP write to disk support enabled for session but cannot erase memoryBlockId=" << memoryBlockId;
+                    LOG_INFO(subprocess) << "LTP write to disk support enabled for session sender but cannot erase memoryBlockId=" << memoryBlockId;
                 }
                 m_memoryBlockIdsPendingDeletionQueue.pop();
             }
@@ -510,6 +512,22 @@ bool LtpEngine::GetNextPacketToSend(UdpSendPacketInfo& udpSendPacketInfo) {
         m_queueSendersNeedingDeleted.pop();
     }
 
+    while (!m_queueReceiversNeedingDeletedButUnsafeToDelete.empty()) {
+        map_session_id_to_session_receiver_t::iterator rxSessionIt = m_mapSessionIdToSessionReceiver.find(m_queueReceiversNeedingDeletedButUnsafeToDelete.front());
+        if (rxSessionIt != m_mapSessionIdToSessionReceiver.end()) { //found rx Session
+            if (rxSessionIt->second.IsSafeToDelete()) {
+                m_queueReceiversNeedingDeleted.emplace(m_queueReceiversNeedingDeletedButUnsafeToDelete.front()); //transfer to other queue
+            }
+            else {
+                break; //halt queue operations until first queued safe to delete (and won't pop)
+            }
+        }
+        else {
+            LOG_ERROR(subprocess) << "LtpEngine::GetNextPacketToSend: could not find session receiver " << m_queueReceiversNeedingDeletedButUnsafeToDelete.front() << " to try to delete";
+        }
+        m_queueReceiversNeedingDeletedButUnsafeToDelete.pop();
+    }
+
     while (!m_queueReceiversNeedingDeleted.empty()) {
         map_session_id_to_session_receiver_t::iterator rxSessionIt = m_mapSessionIdToSessionReceiver.find(m_queueReceiversNeedingDeleted.front());
         if (rxSessionIt != m_mapSessionIdToSessionReceiver.end()) { //found rx Session
@@ -517,8 +535,11 @@ bool LtpEngine::GetNextPacketToSend(UdpSendPacketInfo& udpSendPacketInfo) {
                 udpSendPacketInfo.sessionOriginatorEngineId = rxSessionIt->first.sessionOriginatorEngineId;
                 return true;
             }
-            else {
+            else if (rxSessionIt->second.IsSafeToDelete()) {
                 EraseRxSession(rxSessionIt);
+            }
+            else {
+                m_queueReceiversNeedingDeletedButUnsafeToDelete.emplace(m_queueReceiversNeedingDeleted.front()); //postpone deletion until safe
             }
         }
         else {
@@ -827,8 +848,14 @@ bool LtpEngine::CancellationRequest(const Ltp::session_id_t & sessionId) { //onl
             //code USR_CNCLD MUST be queued for transmission to the block
             //sender.
 
-            EraseRxSession(rxSessionIt);
-            LOG_INFO(subprocess) << "LtpEngine::CancellationRequest deleted session receiver session number " << sessionId.sessionNumber;
+            if (rxSessionIt->second.IsSafeToDelete()) {
+                EraseRxSession(rxSessionIt);
+                LOG_INFO(subprocess) << "LtpEngine::CancellationRequest deleted session receiver session number " << sessionId.sessionNumber;
+            }
+            else {
+                LOG_INFO(subprocess) << "LtpEngine::CancellationRequest will delete session receiver session number " << sessionId.sessionNumber << " when safe to do so.";
+                m_queueReceiversNeedingDeletedButUnsafeToDelete.emplace(sessionId); //postpone deletion until safe
+            }
 
             //send Cancel Segment to sender (GetNextPacketToSend() will create the packet and start the timer)
             m_queueCancelSegmentTimerInfo.emplace();
@@ -861,8 +888,14 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
                     m_receptionSessionCancelledCallback(sessionId, reasonCode); //No subsequent delivery notices will be issued for this session.
                 }
             }
-            EraseRxSession(rxSessionIt);
-            LOG_INFO(subprocess) << "LtpEngine::CancelSegmentReceivedCallback deleted session receiver session number " << sessionId.sessionNumber;
+            if (rxSessionIt->second.IsSafeToDelete()) {
+                EraseRxSession(rxSessionIt);
+                LOG_INFO(subprocess) << "LtpEngine::CancelSegmentReceivedCallback deleted session receiver session number " << sessionId.sessionNumber;
+            }
+            else {
+                LOG_INFO(subprocess) << "LtpEngine::CancelSegmentReceivedCallback will delete session receiver session number " << sessionId.sessionNumber << " when safe to do so.";
+                m_queueReceiversNeedingDeletedButUnsafeToDelete.emplace(sessionId); //postpone deletion until safe
+            }
             //Send CAx after outer if-else statement
 
         }
@@ -976,7 +1009,7 @@ void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmen
     if (info.retryCount <= m_maxRetriesPerSerialNumber) {
         //resend Cancel Segment to receiver (GetNextPacketToSend() will create the packet and start the timer)
         ++info.retryCount;
-        m_queueCancelSegmentTimerInfo.push(info);
+        m_queueCancelSegmentTimerInfo.emplace(info);
 
         TrySaturateSendPacketPipeline();
     }
@@ -1026,16 +1059,17 @@ void LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback(const Ltp::sessio
             }
         }
     }
-    m_queueSendersNeedingDeleted.push(sessionId.sessionNumber);
+    m_queueSendersNeedingDeleted.emplace(sessionId.sessionNumber);
     SignalReadyForSend_ThreadSafe(); //posts the TrySaturateSendPacketPipeline(); so this won't be deleteted during execution
 }
 
 void LtpEngine::NotifyEngineThatThisSenderHasProducibleData(const uint64_t sessionNumber) {
-    m_queueSendersNeedingTimeCriticalDataSent.push(sessionNumber);
+    m_queueSendersNeedingTimeCriticalDataSent.emplace(sessionNumber);
     SignalReadyForSend_ThreadSafe(); //posts the TrySaturateSendPacketPipeline(); so this won't be deleteted during execution
 }
 
 void LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode) {
+    bool isSafeToDelete = true;
     if (wasCancelled) {
         //send Cancel Segment to sender (GetNextPacketToSend() will create the packet and start the timer)
         m_queueCancelSegmentTimerInfo.emplace();
@@ -1047,6 +1081,7 @@ void LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback(const Ltp::sess
 
         map_session_id_to_session_receiver_t::iterator rxSessionIt = m_mapSessionIdToSessionReceiver.find(sessionId);
         if (rxSessionIt != m_mapSessionIdToSessionReceiver.end()) { //found
+            isSafeToDelete = rxSessionIt->second.IsSafeToDelete();
             //Github Issue #31: Multiple TX canceled callbacks are called if multiple cancel segments received
             if (rxSessionIt->second.m_calledCancelledCallback == false) {
                 rxSessionIt->second.m_calledCancelledCallback = true;
@@ -1060,12 +1095,17 @@ void LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback(const Ltp::sess
 
     }
     
-    m_queueReceiversNeedingDeleted.push(sessionId);
+    if (isSafeToDelete) {
+        m_queueReceiversNeedingDeleted.emplace(sessionId); //if found to be unsafe to delete, it will automatically get moved to the unsafe queue
+    }
+    else {
+        m_queueReceiversNeedingDeletedButUnsafeToDelete.emplace(sessionId);
+    }
     SignalReadyForSend_ThreadSafe(); //posts the TrySaturateSendPacketPipeline(); so this won't be deleteted during execution
 }
 
 void LtpEngine::NotifyEngineThatThisReceiversTimersHasProducibleData(const Ltp::session_id_t & sessionId) {
-    m_queueReceiversNeedingDataSent.push(sessionId);
+    m_queueReceiversNeedingDataSent.emplace(sessionId);
     SignalReadyForSend_ThreadSafe(); //posts the TrySaturateSendPacketPipeline(); so this won't be deleteted during execution
 }
 
@@ -1155,7 +1195,7 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
     //non-existent, a Cx segment with reason-code UNREACH SHOULD be sent to
     //the LTP sender via the Cancellation sequence beginning with the CX
     //marker (second part of the diagram).
-    if (dataSegmentMetadata.clientServiceId != m_clientServiceId) {
+    if (dataSegmentMetadata.clientServiceId != m_ltpSessionReceiverCommonData.m_clientServiceId) {
         //send Cancel Segment to sender (GetNextPacketToSend() will create the packet and start the timer)
         if (m_ltpSessionsWithWrongClientServiceId.emplace(sessionId).second) { //only send one per sessionId
             m_queueCancelSegmentTimerInfo.emplace();
@@ -1165,7 +1205,7 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
             info.isFromSender = false;
             info.reasonCode = CANCEL_SEGMENT_REASON_CODES::UNREACHABLE;
             LOG_ERROR(subprocess) << "invalid clientServiceId(" << dataSegmentMetadata.clientServiceId
-                << "), expected clientServiceId=" << m_clientServiceId << " for " << sessionId
+                << "), expected clientServiceId=" << m_ltpSessionReceiverCommonData.m_clientServiceId << " for " << sessionId
                 << " ..sending UNREACHABLE Cx segment to LTP sender.";
             if (m_receptionSessionCancelledCallback) {
                 m_receptionSessionCancelledCallback(sessionId, CANCEL_SEGMENT_REASON_CODES::UNREACHABLE);
@@ -1360,7 +1400,13 @@ void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) 
 
                 //erase session
                 const Ltp::session_id_t & sessionId = rxSessionIt->first;
-                m_queueReceiversNeedingDeleted.emplace(sessionId); //don't want to invalidate iterator in for loop
+                if (rxSessionIt->second.IsSafeToDelete()) {
+                    //if found to be unsafe to delete, it will automatically get moved to the unsafe queue
+                    m_queueReceiversNeedingDeleted.emplace(sessionId); //don't want to invalidate iterator in for loop
+                }
+                else {
+                    m_queueReceiversNeedingDeletedButUnsafeToDelete.emplace(sessionId);
+                }
                 LOG_INFO(subprocess) << "LtpEngine::OnHousekeeping_TimerExpired deleting stagnant receiver session number " << sessionId.sessionNumber;
 
                 //send Cancel Segment to sender (GetNextPacketToSend() will create the packet and start the timer)
@@ -1456,7 +1502,7 @@ void LtpEngine::SetDeferDelays(const uint64_t delaySendingOfReportSegmentsTimeMs
 void LtpEngine::EraseTxSession(map_session_number_to_session_sender_t::iterator& txSessionIt) {
     const LtpSessionSender& txSession = txSessionIt->second;
     if (m_memoryInFilesPtr) {
-        m_memoryBlockIdsPendingDeletionQueue.push(txSession.MEMORY_BLOCK_ID);
+        m_memoryBlockIdsPendingDeletionQueue.emplace(txSession.MEMORY_BLOCK_ID);
     }
     m_mapSessionNumberToSessionSender.erase(txSessionIt);
 }

@@ -53,14 +53,14 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     m_userDataPtr(std::move(userDataPtrToTake)),
     M_LENGTH_OF_RED_PART(lengthOfRedPart),
     m_dataIndexFirstPass(0),
-    m_didNotifyForDeletion(false),
-    m_allRedDataReceivedByRemote(false),
     M_SESSION_ID(sessionId),
     M_CLIENT_SERVICE_ID(clientServiceId),
     m_checkpointEveryNthDataPacketCounter(ltpSessionSenderCommonDataRef.m_checkpointEveryNthDataPacket),
     MEMORY_BLOCK_ID(memoryBlockId),
     m_ltpSessionSenderCommonDataRef(ltpSessionSenderCommonDataRef),
     //m_numActiveTimers(0),
+    m_didNotifyForDeletion(false),
+    m_allRedDataReceivedByRemote(false),
     m_isFailedSession(false),
     m_calledCancelledOrCompletedCallback(false)
 {

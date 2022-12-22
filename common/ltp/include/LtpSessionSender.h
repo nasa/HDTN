@@ -128,8 +128,6 @@ public:
 private:
     uint64_t M_LENGTH_OF_RED_PART;
     uint64_t m_dataIndexFirstPass;
-    bool m_didNotifyForDeletion;
-    bool m_allRedDataReceivedByRemote;
     const Ltp::session_id_t M_SESSION_ID;
     const uint64_t M_CLIENT_SERVICE_ID;
     uint64_t m_checkpointEveryNthDataPacketCounter;
@@ -137,7 +135,8 @@ public:
     const uint64_t MEMORY_BLOCK_ID;
 private:
     LtpSessionSenderCommonData& m_ltpSessionSenderCommonDataRef;
-
+    bool m_didNotifyForDeletion;
+    bool m_allRedDataReceivedByRemote;
 public:
     //stats
     bool m_isFailedSession;

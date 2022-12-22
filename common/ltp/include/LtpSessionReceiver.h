@@ -24,6 +24,7 @@
 #include "Ltp.h"
 #include "LtpRandomNumberGenerator.h"
 #include "LtpTimerManager.h"
+#include "MemoryInFiles.h"
 #include <queue>
 #include <set>
 #include <map>
@@ -44,12 +45,15 @@ private:
     LTP_LIB_NO_EXPORT void LtpReportSegmentTimerExpiredCallback(const Ltp::session_id_t & reportSerialNumberPlusSessionNumber, std::vector<uint8_t> & userData);
     LTP_LIB_NO_EXPORT void HandleGenerateAndSendReportSegment(const uint64_t checkpointSerialNumber,
         const uint64_t lowerBound, const uint64_t upperBound, const bool checkpointIsResponseToReportSegment);
+    LTP_LIB_NO_EXPORT void OnDataSegmentWrittenToDisk(std::shared_ptr<std::vector<uint8_t> >& clientServiceDataReceivedSharedPtr, bool isEndOfBlock);
+    LTP_LIB_NO_EXPORT void OnRedDataRecoveredFromDisk(bool success, bool isEndOfBlock);
 public:
 
     //The LtpEngine shall have one copy of this struct and pass it's reference to each LtpSessionReceiver
     struct LtpSessionReceiverCommonData : private boost::noncopyable {
         LtpSessionReceiverCommonData() = delete;
         LTP_LIB_EXPORT LtpSessionReceiverCommonData(
+            const uint64_t clientServiceId,
             uint64_t maxReceptionClaims,
             uint64_t estimatedBytesToReceive,
             uint64_t maxRedRxBytes,
@@ -59,9 +63,10 @@ public:
             const NotifyEngineThatThisReceiverNeedsDeletedCallback_t& notifyEngineThatThisReceiverNeedsDeletedCallbackRef,
             const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t& notifyEngineThatThisReceiversTimersHasProducibleDataFunctionRef,
             const RedPartReceptionCallback_t& redPartReceptionCallbackRef,
-            const GreenPartSegmentArrivalCallback_t& greenPartSegmentArrivalCallbackRef);
+            const GreenPartSegmentArrivalCallback_t& greenPartSegmentArrivalCallbackRef,
+            std::unique_ptr<MemoryInFiles>& memoryInFilesPtrRef);
 
-        
+        const uint64_t m_clientServiceId;
         uint64_t m_maxReceptionClaims;
         uint64_t m_estimatedBytesToReceive;
         uint64_t m_maxRedRxBytes;
@@ -73,6 +78,7 @@ public:
         const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t& m_notifyEngineThatThisReceiversTimersHasProducibleDataFunctionRef;
         const RedPartReceptionCallback_t& m_redPartReceptionCallbackRef;
         const GreenPartSegmentArrivalCallback_t& m_greenPartSegmentArrivalCallbackRef;
+        std::unique_ptr<MemoryInFiles>& m_memoryInFilesPtrRef;
 
         //session receiver stats
         uint64_t m_numReportSegmentTimerExpiredCallbacks;
@@ -95,6 +101,7 @@ public:
     LTP_LIB_EXPORT bool NextDataToSend(UdpSendPacketInfo& udpSendPacketInfo);
     
     LTP_LIB_EXPORT std::size_t GetNumActiveTimers() const; //stagnant rx session detection in ltp engine with periodic housekeeping timer
+    LTP_LIB_EXPORT bool IsSafeToDelete() const noexcept;
     LTP_LIB_EXPORT void ReportAcknowledgementSegmentReceivedCallback(uint64_t reportSerialNumberBeingAcknowledged,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
     LTP_LIB_EXPORT void DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
@@ -128,20 +135,22 @@ private:
     
     uint64_t m_nextReportSegmentReportSerialNumber;
     padded_vector_uint8_t m_dataReceivedRed;
+    uint64_t m_dataReceivedRedSize; //cannot just use variable in m_dataReceivedRed.size() because may be using disk instead
+    uint64_t m_memoryBlockIdReservedSize; //since its resize rounds up
     const Ltp::session_id_t M_SESSION_ID;
     uint64_t m_lengthOfRedPart;
     uint64_t m_lowestGreenOffsetReceived;
     uint64_t m_currentRedLength;
+    LtpSessionReceiverCommonData& m_ltpSessionReceiverCommonDataRef;
+    uint64_t m_memoryBlockId;
+public:
+    boost::posix_time::ptime m_lastSegmentReceivedTimestamp; //stagnant rx session detection in ltp engine with periodic housekeeping timer
+private:
+    uint32_t m_numActiveAsyncDiskOperations;
     bool m_didRedPartReceptionCallback;
     bool m_didNotifyForDeletion;
     bool m_receivedEobFromGreenOrRed;
-
-    LtpSessionReceiverCommonData& m_ltpSessionReceiverCommonDataRef;
-
 public:
-    //stagnant rx session detection in ltp engine with periodic housekeeping timer
-    boost::posix_time::ptime m_lastSegmentReceivedTimestamp;
-
     bool m_calledCancelledCallback;
 };
 
