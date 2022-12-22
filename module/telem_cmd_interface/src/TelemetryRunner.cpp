@@ -150,7 +150,7 @@ void TelemetryRunner::Impl::ThreadFunc(zmq::context_t *inprocContextPtr)
     DeadlineTimer deadlineTimer(THREAD_POLL_INTERVAL_MS);
     while (m_running)
     {
-        if (!deadlineTimer.Sleep()) {
+        if (!deadlineTimer.SleepUntilNextInterval()) {
             return;
         }
 

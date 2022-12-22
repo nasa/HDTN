@@ -5,21 +5,21 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-DeadlineTimer::DeadlineTimer(unsigned int sleepMs)
+DeadlineTimer::DeadlineTimer(unsigned int intervalMs)
+    : m_ioService(),
+    m_sleepValTimeDuration(boost::posix_time::milliseconds(intervalMs)),
+    m_deadlineTimer(m_ioService, m_sleepValTimeDuration)
 {
-    boost::asio::io_service ioService;
-    m_sleepValTimeDuration = boost::posix_time::milliseconds(sleepMs);
-    m_deadlineTimer = boost::make_unique<boost::asio::deadline_timer>(ioService, m_sleepValTimeDuration);
 }
 
-bool DeadlineTimer::Sleep()
+bool DeadlineTimer::SleepUntilNextInterval()
 {
     boost::system::error_code ec;
-    m_deadlineTimer->wait(ec);
+    m_deadlineTimer.wait(ec);
     if (ec) {
         LOG_FATAL(subprocess) << "timer error: " << ec.message();
         return false;
     }
-    m_deadlineTimer->expires_at(m_deadlineTimer->expires_at() + m_sleepValTimeDuration);
+    m_deadlineTimer.expires_at(m_deadlineTimer.expires_at() + m_sleepValTimeDuration);
     return true;
 }

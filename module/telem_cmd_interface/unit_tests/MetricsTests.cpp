@@ -1,4 +1,5 @@
 #include <boost/test/unit_test.hpp>
+#include <boost/thread.hpp>
 
 #include "Metrics.h"
 
@@ -52,7 +53,7 @@ BOOST_AUTO_TEST_CASE(MetricsProcessIngressTelemTestCase)
     telem.totalDataBytes = 4000;
     telem.bundleCountEgress = 10;
     telem.bundleCountStorage = 20;
-    usleep(200000 /* 200ms */);
+    boost::this_thread::sleep(boost::posix_time::milliseconds(200));
     metrics.ProcessIngressTelem(telem);
     result = metrics.Get();
     BOOST_REQUIRE_EQUAL(10, result.bundleCountSentToEgress);
@@ -79,7 +80,7 @@ BOOST_AUTO_TEST_CASE(MetricsProcessEgressTelemTestCase)
     telem.totalDataBytes = 4000;
     telem.egressBundleCount = 10;
     telem.egressMessageCount = 20;
-    usleep(200000 /* 200ms */);
+    boost::this_thread::sleep(boost::posix_time::milliseconds(200));
     metrics.ProcessEgressTelem(telem);
     result = metrics.Get();
     BOOST_REQUIRE_EQUAL(10, result.egressBundleCount);

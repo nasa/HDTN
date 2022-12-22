@@ -11,7 +11,8 @@
  * See LICENSE.md in the source root directory for more information.
  *
  * @section DESCRIPTION
- * This DeadlineTimer class provides a wrapper around the Boost deadline_timer
+ * This DeadlineTimer implements sleeping for an amount of time to maintain a precise
+ * run interval
  */
 
 #ifndef _DEADLINE_TIMER_H
@@ -24,13 +25,14 @@
 class HDTN_UTIL_EXPORT DeadlineTimer
 {
     public:
-        DeadlineTimer(unsigned int sleepMs);
-        bool Sleep();
+        DeadlineTimer(unsigned int intervalMs);
+        bool SleepUntilNextInterval();
 
     private:
         DeadlineTimer();
-        std::unique_ptr<boost::asio::deadline_timer> m_deadlineTimer;
+        boost::asio::io_service m_ioService;
         boost::posix_time::time_duration m_sleepValTimeDuration;
+        boost::asio::deadline_timer m_deadlineTimer;
 };
 
 #endif // _DEADLINE_TIMER_H
