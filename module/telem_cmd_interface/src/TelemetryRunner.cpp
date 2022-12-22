@@ -128,9 +128,9 @@ void TelemetryRunner::Impl::ThreadFunc(zmq::context_t *inprocContextPtr)
                 inprocContextPtr);
         }
         else {
-            ingressConnection = boost::make_unique<TelemetryConnection>("tcp://localhost:10303", nullptr);
+            ingressConnection = boost::make_unique<TelemetryConnection>("tcp://localhost:10301", nullptr);
             egressConnection = boost::make_unique<TelemetryConnection>("tcp://localhost:10302", nullptr);
-            storageConnection = boost::make_unique<TelemetryConnection>("tcp://localhost:10301", nullptr);
+            storageConnection = boost::make_unique<TelemetryConnection>("tcp://localhost:10303", nullptr);
         }
     }
     catch (std::exception& e)
