@@ -53,7 +53,6 @@ add_executable(unit-tests
 	../../module/telem_cmd_interface/unit_tests/TelemetryRunnerTests.cpp
 	../../module/telem_cmd_interface/unit_tests/TelemetryConnectionTests.cpp
 	../../module/telem_cmd_interface/unit_tests/TelemetryConnectionPollerTests.cpp
-	../../module/telem_cmd_interface/unit_tests/MetricsTests.cpp
 	../../module/telem_cmd_interface/unit_tests/TelemetryLoggerTests.cpp
 	../../module/telem_cmd_interface/unit_tests/TelemetryRunnerProgramOptionsTests.cpp
 )

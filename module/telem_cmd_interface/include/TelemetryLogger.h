@@ -17,16 +17,35 @@
 #ifndef TELEMETRY_LOGGER_H
 #define TELEMETRY_LOGGER_H 1
 
+#include <boost/date_time.hpp>
+
 #include "telem_lib_export.h"
-#include "Metrics.h"
+#include "TelemetryDefinitions.h"
 
 class TelemetryLogger
 {
     public:
+        TELEM_LIB_EXPORT TelemetryLogger();
+
         /**
-         * Logs a set of metrics to files
+         * Logs a set of telemetry data to files
          */
-        TELEM_LIB_EXPORT void LogMetrics(Metrics::metrics_t metrics);
+        TELEM_LIB_EXPORT void LogTelemetry(IngressTelemetry_t& telem);
+        TELEM_LIB_EXPORT void LogTelemetry(EgressTelemetry_t& telem);
+        TELEM_LIB_EXPORT void LogTelemetry(StorageTelemetry_t& telem);
+
+         /**
+         * Helper function to calculate a megabit/s rate 
+         */
+        TELEM_LIB_EXPORT static double CalculateMbpsRate(
+            double currentBytes,
+            double prevBytes, 
+            boost::posix_time::ptime nowTime,
+            boost::posix_time::ptime lastProcessedTime
+        );
+
+    private:
+        boost::posix_time::ptime m_startTime;
 };
 
 #endif //TELEMETRY_LOGGER_H

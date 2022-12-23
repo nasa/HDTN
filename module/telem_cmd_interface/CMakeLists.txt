@@ -4,7 +4,6 @@ add_library(telem_lib
 	src/Telemetry.cpp
 	src/TelemetryConnection.cpp
 	src/TelemetryConnectionPoller.cpp
-	src/Metrics.cpp
 	src/TelemetryLogger.cpp
 	src/TelemetryRunnerProgramOptions.cpp
 )
@@ -20,7 +19,6 @@ set(MY_PUBLIC_HEADERS
 	include/Telemetry.h
 	include/TelemetryConnection.h
 	include/TelemetryConnectionPoller.h
-	include/Metrics.h
 	include/TelemetryLogger.h
 	include/TelemetryRunnerProgramOptions.h
 	${CMAKE_CURRENT_BINARY_DIR}/telem_lib_export.h

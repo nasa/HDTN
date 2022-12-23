@@ -13,7 +13,6 @@
 #include "TelemetryConnection.h"
 #include "TelemetryConnectionPoller.h"
 #include "TelemetryLogger.h"
-#include "Metrics.h"
 #include "Environment.h"
 #include "DeadlineTimer.h"
 #include "WebsocketServer.h"
@@ -48,7 +47,7 @@ class TelemetryRunner::Impl : private boost::noncopyable {
 
     private:
         void ThreadFunc(zmq::context_t * inprocContextPtr);
-        void OnNewMetrics(Metrics::metrics_t metrics);
+        template <typename T> void OnNewTelemetry(T& telem);
 
         volatile bool m_running;
         std::unique_ptr<boost::thread> m_threadPtr;
@@ -146,7 +145,6 @@ void TelemetryRunner::Impl::ThreadFunc(zmq::context_t *inprocContextPtr)
     poller.AddConnection(*storageConnection);
 
     // Start loop to begin polling
-    Metrics metrics;
     DeadlineTimer deadlineTimer(THREAD_POLL_INTERVAL_MS);
     while (m_running)
     {
@@ -161,7 +159,6 @@ void TelemetryRunner::Impl::ThreadFunc(zmq::context_t *inprocContextPtr)
         storageConnection->SendMessage(byteSignalBuf);
 
         // Wait for telemetry from all modules
-        metrics.Clear();
         unsigned int receiveEventsMask = 0;
         for (unsigned int attempt = 0; attempt < NUM_POLL_ATTEMPTS; ++attempt)
         {
@@ -176,36 +173,33 @@ void TelemetryRunner::Impl::ThreadFunc(zmq::context_t *inprocContextPtr)
             if (poller.HasNewMessage(*ingressConnection)) {
                 receiveEventsMask |= REC_INGRESS;
                 IngressTelemetry_t telem = ingressConnection->ReadMessage<IngressTelemetry_t>();
-                metrics.ProcessIngressTelem(telem);
+                OnNewTelemetry(telem);
             }
             if (poller.HasNewMessage(*egressConnection)) {
                 receiveEventsMask |= REC_EGRESS;
                 EgressTelemetry_t telem = egressConnection->ReadMessage<EgressTelemetry_t>();
-                metrics.ProcessEgressTelem(telem);
+                OnNewTelemetry(telem);
             }
             if (poller.HasNewMessage(*storageConnection)) {
                 receiveEventsMask |= REC_STORAGE;
                 StorageTelemetry_t telem = storageConnection->ReadMessage<StorageTelemetry_t>();
-                metrics.ProcessStorageTelem(telem);
+                OnNewTelemetry(telem);
             }
         }
-        // Handle the newly received metrics
-        if (receiveEventsMask == REC_ALL) {
-            OnNewMetrics(metrics.Get());
-        } else {
+        if (receiveEventsMask != REC_ALL) {
             LOG_WARNING(subprocess) << "did not get telemetry from all modules";
         }
     }
     LOG_DEBUG(subprocess) << "ThreadFunc exiting";
 }
 
-void TelemetryRunner::Impl::OnNewMetrics(Metrics::metrics_t metrics)
+template <typename T> void TelemetryRunner::Impl::OnNewTelemetry(T& telem)
 {
     if (m_websocketServerPtr) {
-        m_websocketServerPtr->SendNewBinaryData((const char *)(&metrics), sizeof(metrics));
+        m_websocketServerPtr->SendNewBinaryData((const char *)(&telem), sizeof(telem));
     }
     if (m_telemetryLoggerPtr) {
-        m_telemetryLoggerPtr->LogMetrics(metrics);
+        m_telemetryLoggerPtr->LogTelemetry(telem);
     }
 }
 

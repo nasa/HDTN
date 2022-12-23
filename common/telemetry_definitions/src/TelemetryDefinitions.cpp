@@ -33,6 +33,9 @@ static double LittleToNativeDouble(const uint64_t* doubleAsUint64Little) {
     return *(reinterpret_cast<const double*>(&doubleAsUint64Native));
 }
 
+IngressTelemetry_t::IngressTelemetry_t() : type(1) {}
+EgressTelemetry_t::EgressTelemetry_t() : type(2) {}
+StorageTelemetry_t::StorageTelemetry_t() : type(3) {}
 StorageTelemetryRequest_t::StorageTelemetryRequest_t() : type(10) {}
 StorageExpiringBeforeThresholdTelemetry_t::StorageExpiringBeforeThresholdTelemetry_t() : type(10) {}
 OutductTelemetry_t::OutductTelemetry_t() : type(4), totalBundlesAcked(0), totalBundleBytesAcked(0), totalBundlesSent(0), totalBundleBytesSent(0), totalBundlesFailedToSend(0) {}

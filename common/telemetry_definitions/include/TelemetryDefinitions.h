@@ -27,6 +27,9 @@
 #include "telemetry_definitions_export.h"
 
 struct IngressTelemetry_t{
+    TELEMETRY_DEFINITIONS_EXPORT IngressTelemetry_t();
+
+    uint64_t type;
     double totalDataBytes;
     uint64_t bundleCountEgress;
     uint64_t bundleCountStorage;
@@ -35,6 +38,9 @@ struct IngressTelemetry_t{
 };
 
 struct EgressTelemetry_t{
+    TELEMETRY_DEFINITIONS_EXPORT EgressTelemetry_t();
+
+    uint64_t type;
     uint64_t egressBundleCount;
     double totalDataBytes;
     uint64_t egressMessageCount;
@@ -44,6 +50,9 @@ struct EgressTelemetry_t{
 };
 
 struct StorageTelemetry_t{
+    TELEMETRY_DEFINITIONS_EXPORT StorageTelemetry_t();
+
+    uint64_t type;
     uint64_t totalBundlesErasedFromStorage;
     uint64_t totalBundlesSentToEgressFromStorage;
     uint64_t usedSpaceBytes;
