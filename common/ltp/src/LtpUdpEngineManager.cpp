@@ -181,6 +181,16 @@ bool LtpUdpEngineManager::AddLtpUdpEngine(const LtpEngineConfig& ltpRxOrTxCfg)
         LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: senderPingSecondsOrZeroToDisable cannot be used with an induct (must be set to 0).";
         return false;
     }
+    if (ltpRxOrTxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable != 0) { //if enabled
+        if (ltpRxOrTxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable < 1000) {
+            LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable, if non-zero, must be 1000ms minimum.";
+            return false;
+        }
+        else if (ltpRxOrTxCfg.activeSessionDataOnDiskDirectory.empty()) {
+            LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: activeSessionDataOnDiskDirectory must be defined when activeSessionDataOnDisk feature is enabled.";
+            return false;
+        }
+    }
     std::map<uint64_t, LtpUdpEngine> * const whichMap = (isInduct) ? &m_mapRemoteEngineIdToLtpUdpEngineReceiver : &m_mapRemoteEngineIdToLtpUdpEngineTransmitter;
     std::map<uint64_t, LtpUdpEngine>::iterator it = whichMap->find(ltpRxOrTxCfg.remoteEngineId);
     if (it != whichMap->end()) {

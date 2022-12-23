@@ -1565,8 +1565,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
     ltpRxCfg.senderPingSecondsOrZeroToDisable = 0; //unused for inducts
     ltpRxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable = DELAY_SENDING_OF_REPORT_SEGMENTS_TIME_MS; 
     ltpRxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable = 0; //unused for inducts (must be set to 0) 
-    ltpRxCfg.newFileDurationMsToStoreSessionDataOrZeroToDisable = 0;
-    ltpRxCfg.writeSessionDataToFilesPath = "./";
+    ltpRxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable = 0;
+    ltpRxCfg.activeSessionDataOnDiskDirectory = "./";
 
     LtpEngineConfig ltpTxCfg;
     ltpTxCfg.thisEngineId = ENGINE_ID_SRC;
@@ -1593,8 +1593,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
     ltpTxCfg.senderPingSecondsOrZeroToDisable = 0;
     ltpTxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable = 0; //unused for outducts 
     ltpTxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable = DELAY_SENDING_OF_DATA_SEGMENTS_TIME_MS;
-    ltpTxCfg.newFileDurationMsToStoreSessionDataOrZeroToDisable = 0;
-    ltpTxCfg.writeSessionDataToFilesPath = "./";
+    ltpTxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable = 0;
+    ltpTxCfg.activeSessionDataOnDiskDirectory = "./";
 
     //TEST WITH 1 maxUdpPacketsToSendPerSystemCall (NO BATCH SEND)
     LOG_INFO(subprocess) << "+++START 1 PACKET PER SYSTEM CALL+++";
@@ -1652,8 +1652,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(UINT16_MAX); //MUST BE CALLED BEFORE Test Constructor
         ltpRxCfg.maxUdpPacketsToSendPerSystemCall = 1;
         ltpTxCfg.maxUdpPacketsToSendPerSystemCall = 1;
-        ltpRxCfg.newFileDurationMsToStoreSessionDataOrZeroToDisable = 2000;
-        ltpTxCfg.newFileDurationMsToStoreSessionDataOrZeroToDisable = 2000;
+        ltpRxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable = 2000;
+        ltpTxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable = 2000;
         Test t(ltpRxCfg, ltpTxCfg);
         t.DoTest();
         t.DoTestRedAndGreenData();
@@ -1665,8 +1665,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(UINT16_MAX); //MUST BE CALLED BEFORE Test Constructor
         ltpRxCfg.maxUdpPacketsToSendPerSystemCall = 500;
         ltpTxCfg.maxUdpPacketsToSendPerSystemCall = 500;
-        ltpRxCfg.newFileDurationMsToStoreSessionDataOrZeroToDisable = 2000;
-        ltpTxCfg.newFileDurationMsToStoreSessionDataOrZeroToDisable = 2000;
+        ltpRxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable = 2000;
+        ltpTxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable = 2000;
         Test t(ltpRxCfg, ltpTxCfg);
         t.DoTest();
         t.DoTestRedAndGreenData();

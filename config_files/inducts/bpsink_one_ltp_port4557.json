@@ -19,7 +19,11 @@
             "ltpRemoteUdpPort": 4556,
             "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
             "ltpMaxExpectedSimultaneousSessions": 500,
-            "ltpMaxUdpPacketsToSendPerSystemCall": 1
+            "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+            "delaySendingOfReportSegmentsTimeMsOrZeroToDisable": 20,
+            "keepActiveSessionDataOnDisk": false,
+            "activeSessionDataOnDiskNewFileDurationMs": 2000,
+            "activeSessionDataOnDiskDirectory": ".\/"
         }
     ]
 }

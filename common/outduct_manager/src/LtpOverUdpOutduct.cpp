@@ -33,11 +33,10 @@ LtpOverUdpOutduct::LtpOverUdpOutduct(const outduct_element_config_t& outductConf
     ltpTxCfg.maxUdpPacketsToSendPerSystemCall = m_outductConfig.ltpMaxUdpPacketsToSendPerSystemCall;
     ltpTxCfg.senderPingSecondsOrZeroToDisable = m_outductConfig.ltpSenderPingSecondsOrZeroToDisable;
     ltpTxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable = 0; //unused for outducts
-    ltpTxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable = 20; //todo delaySendingOfDataSegmentsTimeMsOrZeroToDisable
-    ltpTxCfg.newFileDurationMsToStoreSessionDataOrZeroToDisable = 0; //todo //for both inducts and outducts
-    ltpTxCfg.writeSessionDataToFilesPath = "./"; //for both inducts and outducts
-    //ltpTxCfg.newFileDurationMsToStoreSessionDataOrZeroToDisable = 2000; //todo
-    //ltpTxCfg.writeSessionDataToFilesPath = "W:\\";
+    ltpTxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable = m_outductConfig.delaySendingOfDataSegmentsTimeMsOrZeroToDisable;
+    ltpTxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable = (m_outductConfig.keepActiveSessionDataOnDisk) ? //for both inducts and outducts
+        m_outductConfig.activeSessionDataOnDiskNewFileDurationMs : 0;
+    ltpTxCfg.activeSessionDataOnDiskDirectory = m_outductConfig.activeSessionDataOnDiskDirectory; //for both inducts and outducts
 
     m_ltpBundleSourcePtr = boost::make_unique<LtpBundleSource>(ltpTxCfg);
 }

@@ -38,7 +38,7 @@ TcpclV4Outduct::TcpclV4Outduct(const outduct_element_config_t & outductConfig, c
         }
 #endif
         try {
-            m_shareableSslContext.load_verify_file(outductConfig.certificationAuthorityPemFileForVerification);//"C:/hdtn_ssl_certificates/cert.pem");
+            m_shareableSslContext.load_verify_file(outductConfig.certificationAuthorityPemFileForVerification.string());//"C:/hdtn_ssl_certificates/cert.pem");
             m_shareableSslContext.set_verify_mode(boost::asio::ssl::verify_peer);
         }
         catch (boost::system::system_error & e) {

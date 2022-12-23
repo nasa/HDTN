@@ -29,6 +29,7 @@
 #include <utility>
 #include <tuple>
 #include "JsonSerializable.h"
+#include <boost/filesystem.hpp>
 #include "config_lib_export.h"
 
 struct induct_element_config_t {
@@ -54,6 +55,10 @@ struct induct_element_config_t {
     uint64_t ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;
     uint64_t ltpMaxExpectedSimultaneousSessions;
     uint64_t ltpMaxUdpPacketsToSendPerSystemCall;
+    uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable;
+    bool keepActiveSessionDataOnDisk;
+    uint64_t activeSessionDataOnDiskNewFileDurationMs;
+    boost::filesystem::path activeSessionDataOnDiskDirectory;
 
     //specific to stcp and tcpcl
     uint32_t keepAliveIntervalSeconds;
@@ -64,9 +69,9 @@ struct induct_element_config_t {
     //specific to tcpcl version 4 (servers)
     uint64_t tcpclV4MyMaxRxSegmentSizeBytes;
     bool tlsIsRequired;
-    std::string certificatePemFile;
-    std::string privateKeyPemFile;
-    std::string diffieHellmanParametersPemFile;
+    boost::filesystem::path certificatePemFile;
+    boost::filesystem::path privateKeyPemFile;
+    boost::filesystem::path diffieHellmanParametersPemFile;
 
     CONFIG_LIB_EXPORT induct_element_config_t();
     CONFIG_LIB_EXPORT ~induct_element_config_t();

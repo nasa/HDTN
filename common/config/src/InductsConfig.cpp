@@ -45,6 +45,10 @@ induct_element_config_t::induct_element_config_t() :
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize(0),
     ltpMaxExpectedSimultaneousSessions(0),
     ltpMaxUdpPacketsToSendPerSystemCall(0),
+    delaySendingOfReportSegmentsTimeMsOrZeroToDisable(20),
+    keepActiveSessionDataOnDisk(false),
+    activeSessionDataOnDiskNewFileDurationMs(2000),
+    activeSessionDataOnDiskDirectory("./"),
 
     keepAliveIntervalSeconds(0),
 
@@ -80,6 +84,10 @@ induct_element_config_t::induct_element_config_t(const induct_element_config_t& 
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize(o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize),
     ltpMaxExpectedSimultaneousSessions(o.ltpMaxExpectedSimultaneousSessions),
     ltpMaxUdpPacketsToSendPerSystemCall(o.ltpMaxUdpPacketsToSendPerSystemCall),
+    delaySendingOfReportSegmentsTimeMsOrZeroToDisable(o.delaySendingOfReportSegmentsTimeMsOrZeroToDisable),
+    keepActiveSessionDataOnDisk(o.keepActiveSessionDataOnDisk),
+    activeSessionDataOnDiskNewFileDurationMs(o.activeSessionDataOnDiskNewFileDurationMs),
+    activeSessionDataOnDiskDirectory(o.activeSessionDataOnDiskDirectory),
 
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
 
@@ -112,6 +120,10 @@ induct_element_config_t::induct_element_config_t(induct_element_config_t&& o) no
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize(o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize),
     ltpMaxExpectedSimultaneousSessions(o.ltpMaxExpectedSimultaneousSessions),
     ltpMaxUdpPacketsToSendPerSystemCall(o.ltpMaxUdpPacketsToSendPerSystemCall),
+    delaySendingOfReportSegmentsTimeMsOrZeroToDisable(o.delaySendingOfReportSegmentsTimeMsOrZeroToDisable),
+    keepActiveSessionDataOnDisk(o.keepActiveSessionDataOnDisk),
+    activeSessionDataOnDiskNewFileDurationMs(o.activeSessionDataOnDiskNewFileDurationMs),
+    activeSessionDataOnDiskDirectory(std::move(o.activeSessionDataOnDiskDirectory)),
 
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
 
@@ -144,6 +156,10 @@ induct_element_config_t& induct_element_config_t::operator=(const induct_element
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize = o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;
     ltpMaxExpectedSimultaneousSessions = o.ltpMaxExpectedSimultaneousSessions;
     ltpMaxUdpPacketsToSendPerSystemCall = o.ltpMaxUdpPacketsToSendPerSystemCall;
+    delaySendingOfReportSegmentsTimeMsOrZeroToDisable = o.delaySendingOfReportSegmentsTimeMsOrZeroToDisable;
+    keepActiveSessionDataOnDisk = o.keepActiveSessionDataOnDisk;
+    activeSessionDataOnDiskNewFileDurationMs = o.activeSessionDataOnDiskNewFileDurationMs;
+    activeSessionDataOnDiskDirectory = o.activeSessionDataOnDiskDirectory;
 
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
 
@@ -178,6 +194,10 @@ induct_element_config_t& induct_element_config_t::operator=(induct_element_confi
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize = o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;
     ltpMaxExpectedSimultaneousSessions = o.ltpMaxExpectedSimultaneousSessions;
     ltpMaxUdpPacketsToSendPerSystemCall = o.ltpMaxUdpPacketsToSendPerSystemCall;
+    delaySendingOfReportSegmentsTimeMsOrZeroToDisable = o.delaySendingOfReportSegmentsTimeMsOrZeroToDisable;
+    keepActiveSessionDataOnDisk = o.keepActiveSessionDataOnDisk;
+    activeSessionDataOnDiskNewFileDurationMs = o.activeSessionDataOnDiskNewFileDurationMs;
+    activeSessionDataOnDiskDirectory = std::move(o.activeSessionDataOnDiskDirectory);
 
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
 
@@ -211,6 +231,10 @@ bool induct_element_config_t::operator==(const induct_element_config_t & o) cons
         (ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize == o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize) &&
         (ltpMaxExpectedSimultaneousSessions == o.ltpMaxExpectedSimultaneousSessions) &&
         (ltpMaxUdpPacketsToSendPerSystemCall == o.ltpMaxUdpPacketsToSendPerSystemCall) &&
+        (delaySendingOfReportSegmentsTimeMsOrZeroToDisable == o.delaySendingOfReportSegmentsTimeMsOrZeroToDisable) &&
+        (keepActiveSessionDataOnDisk == o.keepActiveSessionDataOnDisk) &&
+        (activeSessionDataOnDiskNewFileDurationMs == o.activeSessionDataOnDiskNewFileDurationMs) &&
+        (activeSessionDataOnDiskDirectory == o.activeSessionDataOnDiskDirectory) &&
 
         (keepAliveIntervalSeconds == o.keepAliveIntervalSeconds) &&
         
@@ -334,6 +358,10 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                     return false;
                 }
 #endif //UIO_MAXIOV
+                inductElementConfig.delaySendingOfReportSegmentsTimeMsOrZeroToDisable = inductElementConfigPt.second.get<uint64_t>("delaySendingOfReportSegmentsTimeMsOrZeroToDisable");
+                inductElementConfig.keepActiveSessionDataOnDisk = inductElementConfigPt.second.get<bool>("keepActiveSessionDataOnDisk");
+                inductElementConfig.activeSessionDataOnDiskNewFileDurationMs = inductElementConfigPt.second.get<uint64_t>("activeSessionDataOnDiskNewFileDurationMs");
+                inductElementConfig.activeSessionDataOnDiskDirectory = inductElementConfigPt.second.get<boost::filesystem::path>("activeSessionDataOnDiskDirectory");
             }
             else {
                 static const std::vector<std::string> LTP_ONLY_VALUES = { "thisLtpEngineId" , "remoteLtpEngineId", "ltpReportSegmentMtu", "oneWayLightTimeMs", "oneWayMarginTimeMs",
@@ -370,9 +398,9 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
             if (inductElementConfig.convergenceLayer == "tcpcl_v4") {
                 inductElementConfig.tcpclV4MyMaxRxSegmentSizeBytes = inductElementConfigPt.second.get<uint64_t>("tcpclV4MyMaxRxSegmentSizeBytes");
                 inductElementConfig.tlsIsRequired = inductElementConfigPt.second.get<bool>("tlsIsRequired");
-                inductElementConfig.certificatePemFile = inductElementConfigPt.second.get<std::string>("certificatePemFile");
-                inductElementConfig.privateKeyPemFile = inductElementConfigPt.second.get<std::string>("privateKeyPemFile");
-                inductElementConfig.diffieHellmanParametersPemFile = inductElementConfigPt.second.get<std::string>("diffieHellmanParametersPemFile");
+                inductElementConfig.certificatePemFile = inductElementConfigPt.second.get<boost::filesystem::path>("certificatePemFile");
+                inductElementConfig.privateKeyPemFile = inductElementConfigPt.second.get<boost::filesystem::path>("privateKeyPemFile");
+                inductElementConfig.diffieHellmanParametersPemFile = inductElementConfigPt.second.get<boost::filesystem::path>("diffieHellmanParametersPemFile");
             }
             else {
                 static const std::vector<std::string> VALID_TCPCL_V4_INDUCT_PARAMETERS = {
@@ -469,6 +497,10 @@ boost::property_tree::ptree InductsConfig::GetNewPropertyTree() const {
             inductElementConfigPt.put("ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize", inductElementConfig.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize);
             inductElementConfigPt.put("ltpMaxExpectedSimultaneousSessions", inductElementConfig.ltpMaxExpectedSimultaneousSessions);
             inductElementConfigPt.put("ltpMaxUdpPacketsToSendPerSystemCall", inductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall);
+            inductElementConfigPt.put("delaySendingOfReportSegmentsTimeMsOrZeroToDisable", inductElementConfig.delaySendingOfReportSegmentsTimeMsOrZeroToDisable);
+            inductElementConfigPt.put("keepActiveSessionDataOnDisk", inductElementConfig.keepActiveSessionDataOnDisk);
+            inductElementConfigPt.put("activeSessionDataOnDiskNewFileDurationMs", inductElementConfig.activeSessionDataOnDiskNewFileDurationMs);
+            inductElementConfigPt.put("activeSessionDataOnDiskDirectory", inductElementConfig.activeSessionDataOnDiskDirectory.string()); //.string() prevents nested quotes in json file
         }
         if ((inductElementConfig.convergenceLayer == "stcp") || (inductElementConfig.convergenceLayer == "tcpcl_v3") || (inductElementConfig.convergenceLayer == "tcpcl_v4")) {
             inductElementConfigPt.put("keepAliveIntervalSeconds", inductElementConfig.keepAliveIntervalSeconds);
@@ -479,9 +511,9 @@ boost::property_tree::ptree InductsConfig::GetNewPropertyTree() const {
         if (inductElementConfig.convergenceLayer == "tcpcl_v4") {
             inductElementConfigPt.put("tcpclV4MyMaxRxSegmentSizeBytes", inductElementConfig.tcpclV4MyMaxRxSegmentSizeBytes);
             inductElementConfigPt.put("tlsIsRequired", inductElementConfig.tlsIsRequired);
-            inductElementConfigPt.put("certificatePemFile", inductElementConfig.certificatePemFile);
-            inductElementConfigPt.put("privateKeyPemFile", inductElementConfig.privateKeyPemFile);
-            inductElementConfigPt.put("diffieHellmanParametersPemFile", inductElementConfig.diffieHellmanParametersPemFile);
+            inductElementConfigPt.put("certificatePemFile", inductElementConfig.certificatePemFile.string()); //.string() prevents nested quotes in json file
+            inductElementConfigPt.put("privateKeyPemFile", inductElementConfig.privateKeyPemFile.string()); //.string() prevents nested quotes in json file
+            inductElementConfigPt.put("diffieHellmanParametersPemFile", inductElementConfig.diffieHellmanParametersPemFile.string()); //.string() prevents nested quotes in json file
         }
     }
 

@@ -50,7 +50,11 @@
                 "ltpRemoteUdpPort": 1113,
                 "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
                 "ltpMaxExpectedSimultaneousSessions": 500,
-                "ltpMaxUdpPacketsToSendPerSystemCall": 1
+                "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+                "delaySendingOfReportSegmentsTimeMsOrZeroToDisable": 20,
+                "keepActiveSessionDataOnDisk": false,
+                "activeSessionDataOnDiskNewFileDurationMs": 2000,
+                "activeSessionDataOnDiskDirectory": ".\/"
             },
             {
                 "name": "i2",
@@ -70,7 +74,11 @@
                 "ltpRemoteUdpPort": 2113,
                 "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
                 "ltpMaxExpectedSimultaneousSessions": 500,
-                "ltpMaxUdpPacketsToSendPerSystemCall": 1
+                "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+                "delaySendingOfReportSegmentsTimeMsOrZeroToDisable": 20,
+                "keepActiveSessionDataOnDisk": false,
+                "activeSessionDataOnDiskNewFileDurationMs": 2000,
+                "activeSessionDataOnDiskDirectory": ".\/"
             }
         ]
     },
@@ -101,7 +109,11 @@
                 "ltpSenderBoundPort": 4556,
                 "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0,
                 "ltpMaxUdpPacketsToSendPerSystemCall": 1,
-                "ltpSenderPingSecondsOrZeroToDisable": 15
+                "ltpSenderPingSecondsOrZeroToDisable": 15,
+                "delaySendingOfDataSegmentsTimeMsOrZeroToDisable": 20,
+                "keepActiveSessionDataOnDisk": false,
+                "activeSessionDataOnDiskNewFileDurationMs": 2000,
+                "activeSessionDataOnDiskDirectory": ".\/"
             },
             {
                 "name": "for egress",
@@ -127,7 +139,11 @@
                 "ltpSenderBoundPort": 4556,
                 "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0,
                 "ltpMaxUdpPacketsToSendPerSystemCall": 1,
-                "ltpSenderPingSecondsOrZeroToDisable": 15
+                "ltpSenderPingSecondsOrZeroToDisable": 15,
+                "delaySendingOfDataSegmentsTimeMsOrZeroToDisable": 20,
+                "keepActiveSessionDataOnDisk": false,
+                "activeSessionDataOnDiskNewFileDurationMs": 2000,
+                "activeSessionDataOnDiskDirectory": ".\/"
             }
         ]
     },

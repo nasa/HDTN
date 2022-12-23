@@ -21,7 +21,7 @@ TcpclV4Induct::TcpclV4Induct(const InductProcessBundleCallback_t & inductProcess
 {
     m_tlsSuccessfullyConfigured = false;
 #ifdef OPENSSL_SUPPORT_ENABLED
-    if ((inductConfig.certificatePemFile.length() > 0) && (inductConfig.privateKeyPemFile.length() > 0)) { //(M_BASE_TRY_USE_TLS) {
+    if ((!inductConfig.certificatePemFile.empty()) && (!inductConfig.privateKeyPemFile.empty())) { //(M_BASE_TRY_USE_TLS) {
         try {
             //tcpclv4 server supports tls 1.2 and 1.3 only
             m_shareableSslContext.set_options(
@@ -33,11 +33,11 @@ TcpclV4Induct::TcpclV4Induct(const InductProcessBundleCallback_t & inductProcess
                 | boost::asio::ssl::context::single_dh_use);
             //m_shareableSslContext.set_password_callback(boost::bind(&server::get_password, this));
             //m_shareableSslContext.use_certificate_chain_file("server.pem");
-            m_shareableSslContext.use_certificate_file(inductConfig.certificatePemFile, boost::asio::ssl::context::pem); //"C:/hdtn_ssl_certificates/cert.pem"
-            m_shareableSslContext.use_private_key_file(inductConfig.privateKeyPemFile, boost::asio::ssl::context::pem); //"C:/hdtn_ssl_certificates/privatekey.pem"
-            if (inductConfig.diffieHellmanParametersPemFile.length() > 0) {
+            m_shareableSslContext.use_certificate_file(inductConfig.certificatePemFile.string(), boost::asio::ssl::context::pem); //"C:/hdtn_ssl_certificates/cert.pem"
+            m_shareableSslContext.use_private_key_file(inductConfig.privateKeyPemFile.string(), boost::asio::ssl::context::pem); //"C:/hdtn_ssl_certificates/privatekey.pem"
+            if (!inductConfig.diffieHellmanParametersPemFile.empty()) {
                 LOG_WARNING(subprocess) << "tcpclv4 induct using diffie hellman parameters file";
-                m_shareableSslContext.use_tmp_dh_file(inductConfig.diffieHellmanParametersPemFile); //"C:/hdtn_ssl_certificates/dh4096.pem"
+                m_shareableSslContext.use_tmp_dh_file(inductConfig.diffieHellmanParametersPemFile.string()); //"C:/hdtn_ssl_certificates/dh4096.pem"
             }
             m_tlsSuccessfullyConfigured = true;
         }

@@ -147,10 +147,10 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     m_housekeepingTimer.async_wait(boost::bind(&LtpEngine::OnHousekeeping_TimerExpired, this, boost::asio::placeholders::error));
 
     //start memory in files for keeping session data on disk instead of RAM
-    if (ltpRxOrTxCfg.newFileDurationMsToStoreSessionDataOrZeroToDisable && startIoServiceThread) { //startIoServiceThread needed to ensure skip using memoryInFiles when under TestLtpEngine
+    if (ltpRxOrTxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable && startIoServiceThread) { //startIoServiceThread needed to ensure skip using memoryInFiles when under TestLtpEngine
         m_memoryInFilesPtr = boost::make_unique<MemoryInFiles>(m_ioServiceLtpEngine,
-            ltpRxOrTxCfg.writeSessionDataToFilesPath,
-            ltpRxOrTxCfg.newFileDurationMsToStoreSessionDataOrZeroToDisable,
+            ltpRxOrTxCfg.activeSessionDataOnDiskDirectory,
+            ltpRxOrTxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable,
             M_MAX_SIMULTANEOUS_SESSIONS * 2);
     }
 

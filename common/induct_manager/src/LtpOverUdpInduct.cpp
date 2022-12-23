@@ -30,10 +30,11 @@ LtpOverUdpInduct::LtpOverUdpInduct(const InductProcessBundleCallback_t & inductP
     ltpRxCfg.rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable = inductConfig.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;
     ltpRxCfg.maxUdpPacketsToSendPerSystemCall = inductConfig.ltpMaxUdpPacketsToSendPerSystemCall;
     ltpRxCfg.senderPingSecondsOrZeroToDisable = 0; //unused for inducts
-    ltpRxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable = 20; //todo const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable
+    ltpRxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable = inductConfig.delaySendingOfReportSegmentsTimeMsOrZeroToDisable;
     ltpRxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable = 0; //unused for inducts (must be set to 0)
-    ltpRxCfg.newFileDurationMsToStoreSessionDataOrZeroToDisable = 0; //for both inducts and outducts
-    ltpRxCfg.writeSessionDataToFilesPath = "./"; //for both inducts and outducts
+    ltpRxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable = (inductConfig.keepActiveSessionDataOnDisk) ? //for both inducts and outducts
+        inductConfig.activeSessionDataOnDiskNewFileDurationMs : 0;
+    ltpRxCfg.activeSessionDataOnDiskDirectory = inductConfig.activeSessionDataOnDiskDirectory; //for both inducts and outducts
 
     m_ltpBundleSinkPtr = boost::make_unique<LtpBundleSink>(m_inductProcessBundleCallback, ltpRxCfg); 
 
