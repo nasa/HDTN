@@ -168,7 +168,6 @@ struct LinkStatusHdr {
 
 struct ContactPlanReloadHdr {
     CommonHdr base;
-    uint8_t using_unix_timestamp;
     uint8_t unusedPadding[3];
  };
 

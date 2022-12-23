@@ -16,7 +16,7 @@ CPM_NEW_CONTACT_PLAN = int("FC09", 16)
 
 command = CPM_NEW_CONTACT_PLAN 
 
-payload = "module/scheduler/src/contactPlan.json"
+payload = "../../module/scheduler/src/contactPlan2.json"
 
 packed = struct.pack('<HHBBBB', command, 0, 0, 0, 0, 0)
 

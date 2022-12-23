@@ -40,13 +40,13 @@
 
 typedef std::unique_ptr<boost::asio::deadline_timer> SmartDeadlineTimer;
 struct contactPlan_t {
-    int contact;
-    int source; 
-    int dest; 
-    int finalDest;
-    int start;
-    int end;
-    int rate; 
+    uint64_t contact;
+    uint64_t source;
+    uint64_t dest;
+    uint64_t finalDest;
+    uint64_t start;
+    uint64_t end;
+    uint64_t rate;
 
     bool operator<(const contactPlan_t& o) const; //operator < so it can be used as a map key
 };
@@ -96,6 +96,7 @@ private:
     void OnContactPlan_TimerExpired(const boost::system::error_code& e);
     bool AddContact_NotThreadSafe(const contactPlan_t& contact);
     boost::mutex m_contactUpSetMutex;
+    bool using_unix_timestamp;
 
 private:
     volatile bool m_runningFromSigHandler;

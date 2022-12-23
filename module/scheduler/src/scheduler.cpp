@@ -110,7 +110,8 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
         try {
             desc.add_options()
                 ("help", "Produce help message.")
-                ("hdtn-config-file", opt::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
+                ("use-unix-timestamp", "Use unix timestamp in contact plan.") 
+		("hdtn-config-file", opt::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
                 ("contact-plan-file", opt::value<boost::filesystem::path>()->default_value(Scheduler::DEFAULT_FILE), "Contact Plan file that scheudler relies on for link availability.");
 
             opt::variables_map vm;
@@ -121,6 +122,8 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
                 LOG_INFO(subprocess) << desc;
                 return false;
             }
+
+	    using_unix_timestamp = (vm.count("use-unix-timestamp") != 0);
 
             const boost::filesystem::path configFileName = vm["hdtn-config-file"].as<boost::filesystem::path>();
 
@@ -374,7 +377,7 @@ void Scheduler::EgressEventsHandler() {
             LOG_ERROR(subprocess) << "error deserializing AllOutductCapabilitiesTelemetry";
         }
         else {
-            //std::cout << aoct << std::endl;
+            LOG_DEBUG(subprocess) << "Received Telemetry message from Egress" << aoct;
 
             boost::mutex::scoped_lock lock(m_mutexFinalDestsToOutductArrayIndexMaps);
             m_mapOutductArrayIndexToNextHopNodeId.clear();
@@ -421,8 +424,9 @@ void Scheduler::UisEventsHandler() {
             LOG_ERROR(subprocess) << "[UisEventsHandler] JSON message invalid";
         }
         std::shared_ptr<boost::property_tree::ptree> ptPtr = std::make_shared<boost::property_tree::ptree>(pt);
-        boost::asio::post(m_ioService, boost::bind(&Scheduler::ProcessContactsPtPtr, this, std::move(ptPtr), hdr.using_unix_timestamp));
+        boost::asio::post(m_ioService, boost::bind(&Scheduler::ProcessContactsPtPtr, this, std::move(ptPtr), using_unix_timestamp));
         LOG_INFO(subprocess) << "received Reload contact Plan event with data " << (char*)message.data();
+        LOG_INFO(subprocess) << "using unix timestamp " << using_unix_timestamp;
     }
     else {
         LOG_ERROR(subprocess) << "error in Scheduler::UisEventsHandler: unknown hdr " << hdr.base.type;

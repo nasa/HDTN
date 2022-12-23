@@ -24,15 +24,14 @@ sleep 3
 one_process_PID=$!
 sleep 6
 
+#Router
+./build/module/router/hdtn-router --contact-plan-file=contactPlan.json --dest-uri-eid=ipn:2.1 --hdtn-config-file=$hdtn_config &
+router_PID=$!
+sleep 3
 
 #Scheduler
 ./build/module/scheduler/hdtn-scheduler --contact-plan-file=contactPlan.json --hdtn-config-file=$hdtn_config &
 scheduler_PID=$!
-sleep 1
-
-#Router
-./build/module/router/hdtn-router --contact-plan-file=contactPlan.json --dest-uri-eid=ipn:2.1 --hdtn-config-file=$hdtn_config &
-router_PID=$!
 sleep 1
 
 # bpgen1
