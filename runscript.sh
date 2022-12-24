@@ -19,6 +19,7 @@ oneprocess_PID=$!
 sleep 10
 
 #Scheduler (using a contact plan where links are always UP for this test)
+# use option --use-unix-timestamp when using a contact plan with unix timestamp
 ./build/module/scheduler/hdtn-scheduler --contact-plan-file=contactPlanCutThroughMode.json --hdtn-config-file=$hdtn_config &
 scheduler_PID=$!
 sleep 1

@@ -21,12 +21,15 @@
 #include <memory>
 #include <fstream>
 #include "libcgr.h"
+#include "Logger.h"
 
 using namespace std;
 
 namespace opt = boost::program_options;
 
 const boost::filesystem::path Router::DEFAULT_FILE = "contactPlan_RoutingTest.json";
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::router;
 
 Router::Router() {
     m_timersFinished = false;
@@ -38,7 +41,7 @@ Router::~Router() {
 }
 
 void Router::MonitorExitKeypressThreadFunction() {
-    std::cout << "Keyboard Interrupt.. exiting\n";
+    LOG_INFO(subprocess) << "Keyboard Interrupt.. exiting\n";
     m_runningFromSigHandler = false;
 }
 
@@ -70,7 +73,7 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running, bo
             opt::notify(vm);
 
             if (vm.count("help")) {
-                std::cout << desc << "\n";
+	        LOG_INFO(subprocess) << desc << "\n";
                 return false;
             }
 
@@ -79,53 +82,51 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running, bo
 	    if(HdtnConfig_ptr ptrConfig = HdtnConfig::CreateFromJsonFilePath(configFileName)) {
                 m_hdtnConfig = *ptrConfig;
             } else {
-                std::cerr << "error loading config file: " << configFileName << std::endl;
+		LOG_ERROR(subprocess) << "error loading config file: " << configFileName;
                 return false;
             }
 	    
 	    contactsFile = vm["contact-plan-file"].as<boost::filesystem::path>();
             if (contactsFile.empty()) {
-                std::cout << desc << "\n";
+                LOG_INFO(subprocess) << desc << "\n";
                 return false;
             }
 
             jsonEventFileName =  Router::GetFullyQualifiedFilename(contactsFile);
            if ( !boost::filesystem::exists(jsonEventFileName) ) {
-               std::cerr << "ContactPlan File not found: " << jsonEventFileName << std::endl << std::flush;
+               LOG_ERROR(subprocess) << "ContactPlan File not found: " << jsonEventFileName;
                return false;
             }
 
-            std::cout << "ContactPlan file: " << jsonEventFileName << std::endl;
-	 
+	    LOG_INFO(subprocess) << "ContactPlan file: " << jsonEventFileName;
 
             const std::string myFinalDestUriEid = vm["dest-uri-eid"].as<string>();
-            if (!Uri::ParseIpnUriString(myFinalDestUriEid, finalDestEid.nodeId, finalDestEid.serviceId)) {
-                std::cerr << "error: bad dest uri string: " << myFinalDestUriEid << std::endl;
+            if (!Uri::ParseIpnUriString(myFinalDestUriEid, 
+				        finalDestEid.nodeId, finalDestEid.serviceId)) {
+                LOG_ERROR(subprocess) << "error: bad dest uri string: " << myFinalDestUriEid;
                 return false;
             }
 
  	}
 
         catch (boost::bad_any_cast & e) {
-            std::cout << "invalid data error: " << e.what() << "\n\n";
-            std::cout << desc << "\n";
+            LOG_ERROR(subprocess) << "invalid data error: " << e.what() << "\n\n";
+            LOG_ERROR(subprocess) << desc << "\n";
             return false;
         }
         catch (std::exception& e) {
-            std::cerr << "error: " << e.what() << "\n";
+	    LOG_ERROR(subprocess) << "error: " << e.what() << "\n";
             return false;
         }
         catch (...) {
-             std::cerr << "Exception of unknown type!\n";
+             LOG_ERROR(subprocess) << "Exception of unknown type!\n";
              return false;
         }
 
-        std::cout << "starting Router.." << std::endl;
+        LOG_INFO(subprocess) << "Starting Router..";
 	
 	Router router;
 	const uint64_t srcNode = m_hdtnConfig.m_myNodeId; 
-
-        //std::cout << "***srcNode****" << srcNode << std::endl;
 
 	router.ComputeOptimalRoute(jsonEventFileName, srcNode, finalDestEid.nodeId);
 
@@ -140,10 +141,10 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running, bo
         try {
             socket.connect(connect_boundSchedulerPubSubPath);
             socket.set(zmq::sockopt::subscribe, "");
-            std::cout << "[Router] connected and listening to events from Scheduler " << connect_boundSchedulerPubSubPath << std::endl;
+            LOG_INFO(subprocess) << "[Router] connected and listening to events from Scheduler " << connect_boundSchedulerPubSubPath;
         }
         catch (const zmq::error_t& ex) {
-            std::cerr << "error: router cannot connect to scheduler socket: " << ex.what() << std::endl;
+            LOG_ERROR(subprocess) << "error: router cannot connect to scheduler socket: " << ex.what();
             return false;
         }
 
@@ -153,7 +154,7 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running, bo
 	if (useSignalHandler) {
             sigHandler.Start(false);
         }
-        std::cout << "Router up and running" << std::endl;
+        LOG_INFO(subprocess) << "Router up and running";
 
 	while (running && m_runningFromSigHandler) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
@@ -165,7 +166,7 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running, bo
                 rc = zmq::poll(&items[0], 1, 250);
             }
             catch (zmq::error_t& e) {
-                std::cerr << "zmq::poll threw zmq::error_t in hdtn::Router::Run: " << e.what() << std::endl;
+                LOG_ERROR(subprocess) << "zmq::poll threw zmq::error_t in hdtn::Router::Run: " << e.what();
                 continue;
             }
 
@@ -176,29 +177,29 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running, bo
                     hdtn::IreleaseChangeHdr releaseChangeHdr;
                     const zmq::recv_buffer_result_t res = socket.recv(zmq::mutable_buffer(&releaseChangeHdr, sizeof(releaseChangeHdr)), zmq::recv_flags::none);
                     if (!res) {
-                        std::cout << "[Router] unable to receive message" << endl;
+                        LOG_ERROR(subprocess) << "[Router] unable to receive message";
                     }
                     else if ((res->truncated()) || (res->size != sizeof(releaseChangeHdr))) {
-                        std::cout << "[Router] message mismatch: untruncated = " << res->untruncated_size
+                        LOG_ERROR(subprocess) << "[Router] message mismatch: untruncated = " << res->untruncated_size
                             << " truncated = " << res->size << " expected = " << sizeof(releaseChangeHdr);
                     }
                     else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKDOWN) {
                         m_latestTime = releaseChangeHdr.time;
-                        std::cout << "[Router] contact down: " << releaseChangeHdr.contact << std::endl;
+                        LOG_INFO(subprocess) << "[Router] contact down: " << releaseChangeHdr.contact;
                        // for (cbhe_eid_t& node : finalDestEids) {
                             if (m_routeTable[releaseChangeHdr.contact] == finalDestEid.nodeId) {
                                 ComputeOptimalRoute(jsonEventFileName, srcNode, finalDestEid.nodeId);
                             }
                         //}
-                            std::cout << "[Router] updated time to " << m_latestTime << std::endl;
+                            LOG_INFO(subprocess) << "[Router] updated time to " << m_latestTime;
                     }
                     else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKUP) {
                         m_latestTime = releaseChangeHdr.time;
-                        std::cout << "[Router] contact up" << std::endl;
-                        std::cout << "[Router] updated time to " << m_latestTime << std::endl;
+                        LOG_INFO(subprocess) << "[Router] contact up";
+                        LOG_INFO(subprocess) << "[Router] updated time to " << m_latestTime;
                     }
                     else {
-                    	std::cerr << "[Router] unknown message type " << releaseChangeHdr.base.type << std::endl;
+                        LOG_ERROR(subprocess) << "[Router] unknown message type " << releaseChangeHdr.base.type;
                     }
 
                     
@@ -211,9 +212,9 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running, bo
 
         boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
 
-        std::cout << "Router currentTime  " << timeLocal << std::endl << std::flush;
+        LOG_INFO(subprocess)  << "Router currentTime  " << timeLocal;
     }
-    std::cout << "Router exiting cleanly..\n";
+    LOG_INFO(subprocess) << "Router exiting cleanly..\n";
     return true;
 }
 
@@ -224,7 +225,7 @@ void Router::RouteUpdate(const boost::system::error_code& e, uint64_t nextHopNod
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        std::cout << timeLocal << ": [Router] Sending RouteUpdate event to Egress " << std::endl;
+        LOG_INFO(subprocess) << timeLocal << ": [Router] Sending RouteUpdate event to Egress ";
 
         hdtn::RouteUpdateHdr routingMsg;
         memset(&routingMsg, 0, sizeof(hdtn::RouteUpdateHdr));
@@ -236,7 +237,7 @@ void Router::RouteUpdate(const boost::system::error_code& e, uint64_t nextHopNod
 
     }
     else {
-        std::cout << "timer dt cancelled\n";
+        LOG_WARNING(subprocess) << "timer dt cancelled\n";
     }
 }
 
@@ -244,7 +245,7 @@ int Router::ComputeOptimalRoute(const boost::filesystem::path& jsonEventFilePath
 {
     m_timersFinished = false;
 
-    std::cout << "[Router] Reading contact plan and computing next hop" << std::endl;
+    LOG_INFO(subprocess) << "[Router] Reading contact plan and computing next hop";
     std::vector<cgr::Contact> contactPlan = cgr::cp_load(jsonEventFilePath);
 
     cgr::Contact rootContact = cgr::Contact(sourceNode, sourceNode, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
@@ -256,17 +257,16 @@ int Router::ComputeOptimalRoute(const boost::filesystem::path& jsonEventFilePath
 
     m_routeTable[bestRoute.get_hops()[0].id + 1] = finalDestNodeId;
     
-    std::cout << "[Router] Computed next hop: " << nextHop << std::endl;
+    LOG_INFO(subprocess) << "[Router] Computed next hop: " << nextHop;
     
     //if (bestRoute != NULL) { // successfully computed a route
         const uint64_t nextHopNodeId = bestRoute.next_node;
 
-        std::cout << "[Router] CGR computed next hop: " << nextHopNodeId << std::endl;
+        LOG_INFO(subprocess) << "[Router] CGR computed next hop: " << nextHopNodeId;
 
         cbhe_eid_t nextHopEid;
         nextHopEid.nodeId = nextHop;
         nextHopEid.serviceId= 1;
-
 
         //boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
         //std::cout << "[Router] Local Time:  " << timeLocal << std::endl << std::flush;
@@ -278,10 +278,10 @@ int Router::ComputeOptimalRoute(const boost::filesystem::path& jsonEventFilePath
             std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundRouterPubSubPortPath));
         try {
             socket.bind(bind_boundRouterPubSubPath);
-            std::cout << "[Router] socket bound successfully to  " << bind_boundRouterPubSubPath << std::endl;
+            LOG_INFO(subprocess) << "[Router] socket bound successfully to  " << bind_boundRouterPubSubPath;
         }
         catch (const zmq::error_t& ex) {
-            std::cerr << "[Router] socket failed to bind: " << ex.what() << std::endl;
+            LOG_ERROR(subprocess) << "[Router] socket failed to bind: " << ex.what();
             return 0;
         }
 
