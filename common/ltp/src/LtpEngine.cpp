@@ -82,6 +82,7 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
         m_timeManagerOfSendingDelayedReceptionReports,
         m_notifyEngineThatThisReceiverNeedsDeletedCallback,
         m_notifyEngineThatThisReceiversTimersHasProducibleDataFunction,
+        m_notifyEngineThatThisReceiverCompletedDeferredOperationFunction,
         m_redPartReceptionCallback,
         m_greenPartSegmentArrivalCallback,
         m_memoryInFilesPtr), //reference
@@ -106,6 +107,8 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
         this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3);
     m_notifyEngineThatThisReceiversTimersHasProducibleDataFunction = boost::bind(&LtpEngine::NotifyEngineThatThisReceiversTimersHasProducibleData,
         this, boost::placeholders::_1);
+    m_notifyEngineThatThisReceiverCompletedDeferredOperationFunction = boost::bind(&LtpEngine::NotifyEngineThatThisReceiverCompletedDeferredOperation,
+        this);
 
     //session sender functions to be passed in AS REFERENCES
     m_notifyEngineThatThisSenderNeedsDeletedCallback = boost::bind(&LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback,
@@ -174,6 +177,8 @@ LtpEngine::~LtpEngine() {
     LOG_INFO(subprocess) << "m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent: " << m_numDelayedPartiallyClaimedPrimaryReportSegmentsSentRef;
     LOG_INFO(subprocess) << "m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent: " << m_numDelayedPartiallyClaimedSecondaryReportSegmentsSentRef;
     LOG_INFO(subprocess) << "m_countAsyncSendsLimitedByRate " << m_countAsyncSendsLimitedByRate;
+    LOG_INFO(subprocess) << "m_countPacketsWithOngoingOperations=" << m_countPacketsWithOngoingOperations
+        << " m_countPacketsThatCompletedOngoingOperations=" << m_countPacketsThatCompletedOngoingOperations;
 
     if (m_ioServiceLtpEngineThreadPtr) {
         m_housekeepingTimer.cancel(); //keep here instead of Reset() so unit test can call Reset()
@@ -210,6 +215,8 @@ void LtpEngine::Reset() {
     m_queueReceiversNeedingDataSent = std::queue<Ltp::session_id_t>();
 
     m_countAsyncSendsLimitedByRate = 0;
+    m_countPacketsWithOngoingOperations = 0;
+    m_countPacketsThatCompletedOngoingOperations = 0;
 
     m_numCheckpointTimerExpiredCallbacksRef = 0;
     m_numDiscretionaryCheckpointsNotResentRef = 0;
@@ -254,29 +261,53 @@ void LtpEngine::SetMtuDataSegment(uint64_t mtuDataSegment) {
     m_ltpSessionSenderCommonData.m_mtuClientServiceData = mtuDataSegment;
 }
 
-bool LtpEngine::PacketIn(const uint8_t * data, const std::size_t size, Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr) {
+bool LtpEngine::PacketIn(const bool isLastChunkOfPacket, const uint8_t * data, const std::size_t size,
+    Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr)
+{
     std::string errorMessage;
-    const bool success = m_ltpRxStateMachine.HandleReceivedChars(data, size, errorMessage, sessionOriginatorEngineIdDecodedCallbackPtr);
+    bool operationIsOngoing;
+    bool success = m_ltpRxStateMachine.HandleReceivedChars(data, size, operationIsOngoing, errorMessage, sessionOriginatorEngineIdDecodedCallbackPtr);
     if (!success) {
         LOG_ERROR(subprocess) << "LtpEngine::PacketIn: " << errorMessage;
         m_ltpRxStateMachine.InitRx();
     }
-    PacketInFullyProcessedCallback(success);
+    else if (isLastChunkOfPacket && (!m_ltpRxStateMachine.IsAtBeginningState())) {
+        LOG_ERROR(subprocess) << "LtpEngine::PacketIn: not at beginning state (only partial udp packet?).";
+        m_ltpRxStateMachine.InitRx();
+        success = false;
+    }
+
+    if (operationIsOngoing) { //operationIsOngoing always valid because HandleReceivedChars sets it to false immediately
+        //LOG_DEBUG(subprocess) << "LtpEngine::PacketIn: operation is ongoing.";
+        //Receiver is writing this UDP packet data segment to disk (asynchronously).
+        //Once the disk write eventually completes, the
+        //Receiver will then call LtpEngine::NotifyEngineThatThisReceiverCompletedDeferredOperation()
+        //which immediately calls PacketInFullyProcessedCallback(true)
+        //which immediately calls m_circularIndexBuffer.CommitRead();
+        //See comment below in LtpEngine::NotifyEngineThatThisReceiverCompletedDeferredOperation().
+        ++m_countPacketsWithOngoingOperations;
+    }
+    else {
+        PacketInFullyProcessedCallback(success); //immediately calls m_circularIndexBuffer.CommitRead();
+    }
     return success;
 }
 
 bool LtpEngine::PacketIn(const std::vector<boost::asio::const_buffer> & constBufferVec) { //for testing
     for (std::size_t i = 0; i < constBufferVec.size(); ++i) {
         const boost::asio::const_buffer & cb = constBufferVec[i];
-        if (!PacketIn((const uint8_t *) cb.data(), cb.size())) {
+        const bool isLastChunkOfPacket = (i == (constBufferVec.size() - 1));
+        if (!PacketIn(isLastChunkOfPacket, (const uint8_t *) cb.data(), cb.size())) {
             return false;
         }
     }
     return true;
 }
 
-void LtpEngine::PacketIn_ThreadSafe(const uint8_t * data, const std::size_t size, Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr) {
-    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::PacketIn, this, data, size, sessionOriginatorEngineIdDecodedCallbackPtr));
+void LtpEngine::PacketIn_ThreadSafe(const uint8_t * data, const std::size_t size,
+    Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr)
+{
+    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::PacketIn, this, true, data, size, sessionOriginatorEngineIdDecodedCallbackPtr));
 }
 void LtpEngine::PacketIn_ThreadSafe(const std::vector<boost::asio::const_buffer> & constBufferVec) { //for testing
     boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::PacketIn, this, constBufferVec));
@@ -1108,6 +1139,15 @@ void LtpEngine::NotifyEngineThatThisReceiversTimersHasProducibleData(const Ltp::
     m_queueReceiversNeedingDataSent.emplace(sessionId);
     SignalReadyForSend_ThreadSafe(); //posts the TrySaturateSendPacketPipeline(); so this won't be deleteted during execution
 }
+void LtpEngine::NotifyEngineThatThisReceiverCompletedDeferredOperation() {
+    //In the event that the receiver has slow disk write operations, the io_service queue won't exhaust system memory
+    //but rather will cause the UDP packets circular buffer to overflow which will simply drop UDP packets (which will be resent later).
+    //Therefore, the circular buffer should be sized appropriately for disk write latency, and the disk operations should
+    //be faster than the UDP receive rate.
+    //LOG_DEBUG(subprocess) << "LtpEngine::NotifyEngineThatThisReceiverCompletedDeferredOperation: ongoing operation completed";
+    ++m_countPacketsThatCompletedOngoingOperations;
+    PacketInFullyProcessedCallback(true);
+}
 
 void LtpEngine::InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr) {
     if (m_initialTransmissionCompletedCallbackForUser) {
@@ -1168,11 +1208,11 @@ void LtpEngine::ReportSegmentReceivedCallback(const Ltp::session_id_t & sessionI
 //At the receiver, this notice indicates the beginning of a
 //new reception session, and is delivered upon arrival of the first
 //data segment carrying a new session ID.
-
-void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp::session_id_t & sessionId,
+bool LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp::session_id_t & sessionId,
     std::vector<uint8_t> & clientServiceDataVec, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
 {
+    bool operationIsOngoing = false;
     if (sessionId.sessionOriginatorEngineId == M_THIS_ENGINE_ID) {
         //Github issue 26: Allow same-engine transfers
         //There are currently three places in LtpEngine.cpp that guard against
@@ -1184,7 +1224,7 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
         //I did a quick experiment of just removing the three checks and things seem to go through properly.
 #ifndef LTP_ENGINE_ALLOW_SAME_ENGINE_TRANSFERS
         LOG_ERROR(subprocess) << "DS received: sessionId.sessionOriginatorEngineId(" << sessionId.sessionOriginatorEngineId << ") == M_THIS_ENGINE_ID(" << M_THIS_ENGINE_ID << ")";
-        return;
+        return operationIsOngoing;
 #endif
     }
 
@@ -1212,7 +1252,7 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
             }
             TrySaturateSendPacketPipeline();
         }
-        return;
+        return operationIsOngoing;
     }
 
     map_session_id_to_session_receiver_t::iterator rxSessionIt = m_mapSessionIdToSessionReceiver.find(sessionId);
@@ -1226,7 +1266,7 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
             }
             if (!it->second.AddSession(sessionId.sessionNumber)) {
                 LOG_INFO(subprocess) << "preventing old session from being recreated for " << sessionId;
-                return;
+                return operationIsOngoing;
             }
         }
         const uint64_t randomNextReportSegmentReportSerialNumber = (M_FORCE_32_BIT_RANDOM_NUMBERS) ? m_rng.GetRandomSerialNumber32(m_randomDevice) : m_rng.GetRandomSerialNumber64(m_randomDevice); //incremented by 1 for new
@@ -1241,7 +1281,7 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
 
         if (res.second == false) { //session was not inserted
             LOG_ERROR(subprocess) << "new rx session cannot be inserted??";
-            return;
+            return operationIsOngoing;
         }
         rxSessionIt = res.first;
 
@@ -1250,8 +1290,10 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
             m_sessionStartCallback(sessionId);
         }
     }
-    rxSessionIt->second.DataSegmentReceivedCallback(segmentTypeFlags, clientServiceDataVec, dataSegmentMetadata, headerExtensions, trailerExtensions);
+    operationIsOngoing = rxSessionIt->second.DataSegmentReceivedCallback(segmentTypeFlags,
+        clientServiceDataVec, dataSegmentMetadata, headerExtensions, trailerExtensions);
     TrySaturateSendPacketPipeline();
+    return operationIsOngoing;
 }
 
 void LtpEngine::SetSessionStartCallback(const SessionStartCallback_t & callback) {

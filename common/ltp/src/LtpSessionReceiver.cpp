@@ -29,6 +29,7 @@ LtpSessionReceiver::LtpSessionReceiverCommonData::LtpSessionReceiverCommonData(
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& timeManagerOfSendingDelayedReceptionReportsRef,
     const NotifyEngineThatThisReceiverNeedsDeletedCallback_t& notifyEngineThatThisReceiverNeedsDeletedCallbackRef,
     const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t& notifyEngineThatThisReceiversTimersHasProducibleDataFunctionRef,
+    const NotifyEngineThatThisReceiverCompletedDeferredOperationFunction_t& notifyEngineThatThisReceiverCompletedDeferredOperationFunctionRef,
     const RedPartReceptionCallback_t& redPartReceptionCallbackRef,
     const GreenPartSegmentArrivalCallback_t& greenPartSegmentArrivalCallbackRef,
     std::unique_ptr<MemoryInFiles>& memoryInFilesPtrRef) :
@@ -42,6 +43,7 @@ LtpSessionReceiver::LtpSessionReceiverCommonData::LtpSessionReceiverCommonData(
     m_timeManagerOfSendingDelayedReceptionReportsRef(timeManagerOfSendingDelayedReceptionReportsRef),
     m_notifyEngineThatThisReceiverNeedsDeletedCallbackRef(notifyEngineThatThisReceiverNeedsDeletedCallbackRef),
     m_notifyEngineThatThisReceiversTimersHasProducibleDataFunctionRef(notifyEngineThatThisReceiversTimersHasProducibleDataFunctionRef),
+    m_notifyEngineThatThisReceiverCompletedDeferredOperationFunctionRef(notifyEngineThatThisReceiverCompletedDeferredOperationFunctionRef),
     m_redPartReceptionCallbackRef(redPartReceptionCallbackRef),
     m_greenPartSegmentArrivalCallbackRef(greenPartSegmentArrivalCallbackRef),
     m_memoryInFilesPtrRef(memoryInFilesPtrRef),
@@ -299,10 +301,11 @@ void LtpSessionReceiver::ReportAcknowledgementSegmentReceivedCallback(uint64_t r
 }
 
 
-void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
+bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
     std::vector<uint8_t> & clientServiceDataVec, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
 {
+    bool operationIsOngoing = false;
     m_lastSegmentReceivedTimestamp = boost::posix_time::microsec_clock::universal_time();
 
     const uint64_t offsetPlusLength = dataSegmentMetadata.offset + dataSegmentMetadata.length;
@@ -342,11 +345,11 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                 m_didNotifyForDeletion = true;
                 m_ltpSessionReceiverCommonDataRef.m_notifyEngineThatThisReceiverNeedsDeletedCallbackRef(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::MISCOLORED); //close session (cancelled)
             }
-            return;
+            return operationIsOngoing;
         }
 
         if (m_didRedPartReceptionCallback) {
-            return;
+            return operationIsOngoing;
         }
         if (m_currentRedLength > m_ltpSessionReceiverCommonDataRef.m_maxRedRxBytes) {
             LOG_ERROR(subprocess) << "LtpSessionReceiver::DataSegmentReceivedCallback: current red data length ("
@@ -355,7 +358,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                 m_didNotifyForDeletion = true;
                 m_ltpSessionReceiverCommonDataRef.m_notifyEngineThatThisReceiverNeedsDeletedCallbackRef(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::SYSTEM_CANCELLED); //close session (cancelled)
             }
-            return;
+            return operationIsOngoing;
         }
 
         bool rsWasJustNowSentWithFullRedBounds = false;
@@ -392,6 +395,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                 }
                 else {
                     ++m_numActiveAsyncDiskOperations;
+                    operationIsOngoing = true;
                 }
             }
             else { //storing session data to memory
@@ -449,13 +453,13 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
         if (isRedCheckpoint) {
             if ((dataSegmentMetadata.checkpointSerialNumber == NULL) || (dataSegmentMetadata.reportSerialNumber == NULL)) {
                 LOG_ERROR(subprocess) << "LtpSessionReceiver::DataSegmentReceivedCallback: checkpoint but NULL values";
-                return;
+                return operationIsOngoing;
             }
             //6.11.  Send Reception Report
             //This procedure is triggered by either (a) the original reception of a
             //CP segment(the checkpoint serial number identifying this CP is new)
             if (m_checkpointSerialNumbersReceivedSet.insert(*dataSegmentMetadata.checkpointSerialNumber).second == false) { //serial number was not inserted (already exists)
-                return; //no work to do.. ignore this redundant checkpoint
+                return operationIsOngoing; //no work to do.. ignore this redundant checkpoint
             }
 
             //data segment Report serial number (SDNV)
@@ -641,7 +645,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                 m_didNotifyForDeletion = true;
                 m_ltpSessionReceiverCommonDataRef.m_notifyEngineThatThisReceiverNeedsDeletedCallbackRef(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::MISCOLORED); //close session (cancelled)
             }
-            return;
+            return operationIsOngoing;
         }
 
         if (m_ltpSessionReceiverCommonDataRef.m_greenPartSegmentArrivalCallbackRef) {
@@ -668,7 +672,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
             }
         }
     }
-    
+    return operationIsOngoing;
 }
 
 void LtpSessionReceiver::HandleGenerateAndSendReportSegment(const uint64_t checkpointSerialNumber,
@@ -760,6 +764,7 @@ void LtpSessionReceiver::OnDataSegmentWrittenToDisk(std::shared_ptr<std::vector<
             ++m_numActiveAsyncDiskOperations;
         }
     }
+    m_ltpSessionReceiverCommonDataRef.m_notifyEngineThatThisReceiverCompletedDeferredOperationFunctionRef();
 }
 
 void LtpSessionReceiver::OnRedDataRecoveredFromDisk(bool success, bool isEndOfBlock) {

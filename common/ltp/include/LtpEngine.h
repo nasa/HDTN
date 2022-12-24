@@ -100,7 +100,8 @@ public:
     LTP_LIB_EXPORT void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     LTP_LIB_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
 
-    LTP_LIB_EXPORT bool PacketIn(const uint8_t * data, const std::size_t size, Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr = NULL);
+    LTP_LIB_EXPORT bool PacketIn(const bool isLastChunkOfPacket, const uint8_t * data, const std::size_t size,
+        Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr = NULL);
     LTP_LIB_EXPORT bool PacketIn(const std::vector<boost::asio::const_buffer> & constBufferVec); //for testing
 
     LTP_LIB_EXPORT void PacketIn_ThreadSafe(const uint8_t * data, const std::size_t size, Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr = NULL);
@@ -153,7 +154,9 @@ private:
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
     LTP_LIB_NO_EXPORT void ReportSegmentReceivedCallback(const Ltp::session_id_t & sessionId, const Ltp::report_segment_t & reportSegment,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
-    LTP_LIB_NO_EXPORT void DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp::session_id_t & sessionId,
+    //return true if operation is ongoing (possibly due to disk writes),
+    // false if operation is done (and udp packet circular buffer can reduce its size)
+    LTP_LIB_NO_EXPORT bool DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp::session_id_t & sessionId,
         std::vector<uint8_t> & clientServiceDataVec, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
 
@@ -162,6 +165,7 @@ private:
     LTP_LIB_NO_EXPORT void NotifyEngineThatThisSenderHasProducibleData(const uint64_t sessionNumber);
     LTP_LIB_NO_EXPORT void NotifyEngineThatThisReceiverNeedsDeletedCallback(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode);
     LTP_LIB_NO_EXPORT void NotifyEngineThatThisReceiversTimersHasProducibleData(const Ltp::session_id_t & sessionId);
+    LTP_LIB_NO_EXPORT void NotifyEngineThatThisReceiverCompletedDeferredOperation();
     LTP_LIB_NO_EXPORT void InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr);
 
     LTP_LIB_NO_EXPORT void TryRestartTokenRefreshTimer();
@@ -196,6 +200,7 @@ private:
     //session receiver functions to be passed in AS REFERENCES (note declared before m_mapSessionIdToSessionReceiver so destroyed after map)
     NotifyEngineThatThisReceiverNeedsDeletedCallback_t m_notifyEngineThatThisReceiverNeedsDeletedCallback;
     NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t m_notifyEngineThatThisReceiversTimersHasProducibleDataFunction;
+    NotifyEngineThatThisReceiverCompletedDeferredOperationFunction_t m_notifyEngineThatThisReceiverCompletedDeferredOperationFunction;
 
     //session sender functions to be passed in AS REFERENCES (note declared before m_mapSessionNumberToSessionSender so destroyed after map)
     NotifyEngineThatThisSenderNeedsDeletedCallback_t m_notifyEngineThatThisSenderNeedsDeletedCallback;
@@ -300,7 +305,10 @@ private:
 public:
     //stats
 
+    //LtpEngine
     uint64_t m_countAsyncSendsLimitedByRate;
+    uint64_t m_countPacketsWithOngoingOperations;
+    uint64_t m_countPacketsThatCompletedOngoingOperations;
 
     //session sender stats (references to variables within m_ltpSessionSenderCommonData)
     uint64_t & m_numCheckpointTimerExpiredCallbacksRef;

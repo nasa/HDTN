@@ -240,9 +240,11 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
 
             for (unsigned int i = 1; i <= 5; ++i) {
                 std::string errorMessage;
-                BOOST_REQUIRE(m_ltp.HandleReceivedChars(ltpCancelSegmentPacket.data(), ltpCancelSegmentPacket.size(), errorMessage));
+                bool operationIsOngoing;
+                BOOST_REQUIRE(m_ltp.HandleReceivedChars(ltpCancelSegmentPacket.data(), ltpCancelSegmentPacket.size(), operationIsOngoing, errorMessage));
                 BOOST_REQUIRE_EQUAL(m_numCancelSegmentCallbackCount, i);
                 BOOST_REQUIRE_EQUAL(errorMessage.size(), 0);
+                BOOST_REQUIRE(!operationIsOngoing);
                 BOOST_REQUIRE(m_ltp.IsAtBeginningState());
             }
         }
@@ -460,9 +462,11 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
 
             for (unsigned int i = 1; i <= 5; ++i) {
                 std::string errorMessage;
-                BOOST_REQUIRE(m_ltp.HandleReceivedChars(ltpCancelAcknowledgementSegmentPacket.data(), ltpCancelAcknowledgementSegmentPacket.size(), errorMessage));
+                bool operationIsOngoing;
+                BOOST_REQUIRE(m_ltp.HandleReceivedChars(ltpCancelAcknowledgementSegmentPacket.data(), ltpCancelAcknowledgementSegmentPacket.size(), operationIsOngoing, errorMessage));
                 BOOST_REQUIRE_EQUAL(m_numCancelAcknowledgementSegmentCallbackCount, i);
                 BOOST_REQUIRE_EQUAL(errorMessage.size(), 0);
+                BOOST_REQUIRE(!operationIsOngoing);
                 BOOST_REQUIRE(m_ltp.IsAtBeginningState());
             }
         }
@@ -671,9 +675,11 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
 
             for (unsigned int i = 1; i <= 5; ++i) {
                 std::string errorMessage;
-                BOOST_REQUIRE(m_ltp.HandleReceivedChars(ltpReportAcknowledgementSegmentPacket.data(), ltpReportAcknowledgementSegmentPacket.size(), errorMessage));
+                bool operationIsOngoing;
+                BOOST_REQUIRE(m_ltp.HandleReceivedChars(ltpReportAcknowledgementSegmentPacket.data(), ltpReportAcknowledgementSegmentPacket.size(), operationIsOngoing, errorMessage));
                 BOOST_REQUIRE_EQUAL(m_numReportAcknowledgementSegmentCallbackCount, i);
                 BOOST_REQUIRE_EQUAL(errorMessage.size(), 0);
+                BOOST_REQUIRE(!operationIsOngoing);
                 BOOST_REQUIRE(m_ltp.IsAtBeginningState());
             }
         }
@@ -867,9 +873,11 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
             
             for (unsigned int i = 1; i <= 5; ++i) {
                 std::string errorMessage;
-                BOOST_REQUIRE(m_ltp.HandleReceivedChars(ltpReportSegmentPacket.data(), ltpReportSegmentPacket.size(), errorMessage));
+                bool operationIsOngoing;
+                BOOST_REQUIRE(m_ltp.HandleReceivedChars(ltpReportSegmentPacket.data(), ltpReportSegmentPacket.size(), operationIsOngoing, errorMessage));
                 BOOST_REQUIRE_EQUAL(m_numReportSegmentCallbackCount, i);
                 BOOST_REQUIRE_EQUAL(errorMessage.size(), 0);
+                BOOST_REQUIRE(!operationIsOngoing);
                 BOOST_REQUIRE(m_ltp.IsAtBeginningState());
             }
         }
@@ -1105,15 +1113,20 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
 
             for (unsigned int i = 1; i <= 5; ++i) {
                 std::string errorMessage;
-                BOOST_REQUIRE(m_ltp.HandleReceivedChars(ltpHeaderPlusDataSegmentMetadata.data(), ltpHeaderPlusDataSegmentMetadata.size(), errorMessage));
-                BOOST_REQUIRE(m_ltp.HandleReceivedChars(m_desired_clientServiceDataVec.data(), m_desired_clientServiceDataVec.size(), errorMessage));
+                bool operationIsOngoing;
+                BOOST_REQUIRE(m_ltp.HandleReceivedChars(ltpHeaderPlusDataSegmentMetadata.data(), ltpHeaderPlusDataSegmentMetadata.size(), operationIsOngoing, errorMessage));
+                BOOST_REQUIRE(!operationIsOngoing);
+                BOOST_REQUIRE(m_ltp.HandleReceivedChars(m_desired_clientServiceDataVec.data(), m_desired_clientServiceDataVec.size(), operationIsOngoing, errorMessage));
+                BOOST_REQUIRE(!operationIsOngoing);
                 if (!m_desired_trailerExtensions.extensionsVec.empty()) {
                     std::vector<uint8_t> trailerSerialization(m_desired_trailerExtensions.GetMaximumDataRequiredForSerialization());
                     const uint64_t bytesSerialized = m_desired_trailerExtensions.Serialize(trailerSerialization.data());
-                    BOOST_REQUIRE(m_ltp.HandleReceivedChars(trailerSerialization.data(), bytesSerialized, errorMessage));
+                    BOOST_REQUIRE(m_ltp.HandleReceivedChars(trailerSerialization.data(), bytesSerialized, operationIsOngoing, errorMessage));
+                    BOOST_REQUIRE(!operationIsOngoing);
                 }
                 BOOST_REQUIRE_EQUAL(m_numDataSegmentCallbackCount, i);
                 BOOST_REQUIRE_EQUAL(errorMessage.size(), 0);
+                BOOST_REQUIRE(!operationIsOngoing);
                 BOOST_REQUIRE(m_ltp.IsAtBeginningState());
             }
         }
@@ -1311,7 +1324,7 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
         //uint64_t * checkpointSerialNumber, uint64_t * reportSerialNumber) > DataSegmentContentsReadCallback_t;
 
 
-        void DataSegmentCallback(uint8_t segmentTypeFlags, const Ltp::session_id_t & sessionId,
+        bool DataSegmentCallback(uint8_t segmentTypeFlags, const Ltp::session_id_t & sessionId,
             std::vector<uint8_t> & clientServiceDataVec, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
             Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
         {
@@ -1324,6 +1337,7 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
             BOOST_REQUIRE_EQUAL(m_desired_dataSegmentMetadata.length, clientServiceDataVec.size());
 
             BOOST_REQUIRE(clientServiceDataVec == m_desired_clientServiceDataVec);
+            return false; //false => operation is not ongoing (completely finished with "packet")
         }
 
 

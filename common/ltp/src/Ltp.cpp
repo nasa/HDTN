@@ -363,12 +363,13 @@ void Ltp::SetBeginningState() {
 }
 
 
-void Ltp::HandleReceivedChar(const uint8_t rxVal, std::string & errorMessage) {
-    HandleReceivedChars(&rxVal, 1, errorMessage);
+bool Ltp::HandleReceivedChar(const uint8_t rxVal, bool& operationIsOngoing, std::string & errorMessage) {
+    return HandleReceivedChars(&rxVal, 1, operationIsOngoing, errorMessage);
 }
 
 
-bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std::string & errorMessage, SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr) {
+bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, bool& operationIsOngoing, std::string & errorMessage, SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr) {
+    operationIsOngoing = false;
     while (numChars) {
         --numChars;
         const uint8_t rxVal = *rxVals++;
@@ -685,7 +686,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                     else {
                         //callback data segment
                         if (m_dataSegmentContentsReadCallback) {
-                            m_dataSegmentContentsReadCallback(m_segmentTypeFlags, m_sessionId, m_dataSegment_clientServiceData, m_dataSegmentMetadata, m_headerExtensions, m_trailerExtensions);
+                            operationIsOngoing = m_dataSegmentContentsReadCallback(m_segmentTypeFlags, m_sessionId, m_dataSegment_clientServiceData, m_dataSegmentMetadata, m_headerExtensions, m_trailerExtensions);
                         }
                         SetBeginningState();
                     }
@@ -932,7 +933,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                     }
                     else if (m_currentTrailerExtensionLength == 0) {
                         if (m_trailerExtensions.extensionsVec.size() == m_numTrailerExtensionTlvs) {
-                            if(!NextStateAfterTrailerExtensions(errorMessage)) return false;
+                            if(!NextStateAfterTrailerExtensions(operationIsOngoing, errorMessage)) return false;
                         }
                         else {
                             m_trailerRxState = LTP_TRAILER_RX_STATE::READ_ONE_TRAILER_EXTENSION_TAG_BYTE;
@@ -949,7 +950,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 valueVec.push_back(rxVal);
                 if (valueVec.size() == m_currentTrailerExtensionLength) {
                     if (m_trailerExtensions.extensionsVec.size() == m_numTrailerExtensionTlvs) {
-                        if (!NextStateAfterTrailerExtensions(errorMessage)) return false;
+                        if (!NextStateAfterTrailerExtensions(operationIsOngoing, errorMessage)) return false;
                     }
                     else {
                         m_trailerRxState = LTP_TRAILER_RX_STATE::READ_ONE_TRAILER_EXTENSION_TAG_BYTE; //continue loop
@@ -1001,7 +1002,7 @@ const uint8_t * Ltp::NextStateAfterHeaderExtensions(const uint8_t * rxVals, std:
     return rxVals;
 }
 
-bool Ltp::NextStateAfterTrailerExtensions(std::string & errorMessage) {
+bool Ltp::NextStateAfterTrailerExtensions(bool& operationIsOngoing, std::string & errorMessage) {
     
     if (m_numTrailerExtensionTlvs) {
         //callback trailer
@@ -1020,7 +1021,7 @@ bool Ltp::NextStateAfterTrailerExtensions(std::string & errorMessage) {
     else if (m_segmentTypeFlags <= 7) {
         //callback data segment
         if (m_dataSegmentContentsReadCallback) {
-            m_dataSegmentContentsReadCallback(m_segmentTypeFlags, m_sessionId, m_dataSegment_clientServiceData, m_dataSegmentMetadata, m_headerExtensions, m_trailerExtensions);
+            operationIsOngoing = m_dataSegmentContentsReadCallback(m_segmentTypeFlags, m_sessionId, m_dataSegment_clientServiceData, m_dataSegmentMetadata, m_headerExtensions, m_trailerExtensions);
         }
     }
     else if (m_segmentTypeFlags == 8) {

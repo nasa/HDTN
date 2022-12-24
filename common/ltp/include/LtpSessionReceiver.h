@@ -37,6 +37,8 @@ typedef boost::function<void(const Ltp::session_id_t & sessionId, bool wasCancel
 
 typedef boost::function<void(const Ltp::session_id_t & sessionId)> NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t;
 
+typedef boost::function<void()> NotifyEngineThatThisReceiverCompletedDeferredOperationFunction_t;
+
 class LtpSessionReceiver : private boost::noncopyable {
 private:
     LtpSessionReceiver() = delete;
@@ -62,6 +64,7 @@ public:
             LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& timeManagerOfSendingDelayedReceptionReportsRef,
             const NotifyEngineThatThisReceiverNeedsDeletedCallback_t& notifyEngineThatThisReceiverNeedsDeletedCallbackRef,
             const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t& notifyEngineThatThisReceiversTimersHasProducibleDataFunctionRef,
+            const NotifyEngineThatThisReceiverCompletedDeferredOperationFunction_t& notifyEngineThatThisReceiverCompletedDeferredOperationFunctionRef,
             const RedPartReceptionCallback_t& redPartReceptionCallbackRef,
             const GreenPartSegmentArrivalCallback_t& greenPartSegmentArrivalCallbackRef,
             std::unique_ptr<MemoryInFiles>& memoryInFilesPtrRef);
@@ -76,6 +79,7 @@ public:
         LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& m_timeManagerOfSendingDelayedReceptionReportsRef;
         const NotifyEngineThatThisReceiverNeedsDeletedCallback_t& m_notifyEngineThatThisReceiverNeedsDeletedCallbackRef;
         const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t& m_notifyEngineThatThisReceiversTimersHasProducibleDataFunctionRef;
+        const NotifyEngineThatThisReceiverCompletedDeferredOperationFunction_t& m_notifyEngineThatThisReceiverCompletedDeferredOperationFunctionRef;
         const RedPartReceptionCallback_t& m_redPartReceptionCallbackRef;
         const GreenPartSegmentArrivalCallback_t& m_greenPartSegmentArrivalCallbackRef;
         std::unique_ptr<MemoryInFiles>& m_memoryInFilesPtrRef;
@@ -104,7 +108,10 @@ public:
     LTP_LIB_EXPORT bool IsSafeToDelete() const noexcept;
     LTP_LIB_EXPORT void ReportAcknowledgementSegmentReceivedCallback(uint64_t reportSerialNumberBeingAcknowledged,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
-    LTP_LIB_EXPORT void DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
+
+    //return true if operation is ongoing (possibly due to disk writes),
+    // false if operation is done (and udp packet circular buffer can reduce its size)
+    LTP_LIB_EXPORT bool DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
         std::vector<uint8_t> & clientServiceDataVec, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
 private:
