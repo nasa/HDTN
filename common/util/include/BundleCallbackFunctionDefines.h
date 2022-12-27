@@ -24,9 +24,15 @@
 #include <vector>
 #include <boost/function.hpp>
 #include <zmq.hpp>
-
-typedef boost::function<void(std::vector<uint8_t> & movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid)> OnFailedBundleVecSendCallback_t;
-typedef boost::function<void(zmq::message_t & movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid)> OnFailedBundleZmqSendCallback_t;
+//bool successCallbackCalled shall denote that, if ltp sender session is storing to disk, an OnSuccessfulBundleSendCallback_t shall be called
+// NOT when confirmation that red part was received by the receiver to close the session,
+// BUT RATHER when the session was fully written to disk and the SessionStart callback was called.
+// The OnSuccessfulBundleSendCallback_t (or OnFailed callbacks) are needed for Egress to send acks to storage or ingress in order
+// to free up ZMQ bundle pipeline.
+// If successCallbackCalled is true, then the OnFailed callbacks shall not ack ingress or storage to free up ZMQ pipeline,
+// but instead treat the returned movableBundle as a new bundle.
+typedef boost::function<void(std::vector<uint8_t> & movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled)> OnFailedBundleVecSendCallback_t;
+typedef boost::function<void(zmq::message_t & movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled)> OnFailedBundleZmqSendCallback_t;
 typedef boost::function<void(std::vector<uint8_t>& userData, uint64_t outductUuid)> OnSuccessfulBundleSendCallback_t;
 typedef boost::function<void(bool isLinkDownEvent, uint64_t outductUuid)> OnOutductLinkStatusChangedCallback_t;
 

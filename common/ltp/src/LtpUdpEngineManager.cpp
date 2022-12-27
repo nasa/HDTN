@@ -190,6 +190,10 @@ bool LtpUdpEngineManager::AddLtpUdpEngine(const LtpEngineConfig& ltpRxOrTxCfg)
             LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: activeSessionDataOnDiskDirectory must be defined when activeSessionDataOnDisk feature is enabled.";
             return false;
         }
+        else if (ltpRxOrTxCfg.maxSimultaneousSessions < 8) { //because of "static constexpr uint64_t diskPipelineLimit = 6;" in LtpEngine.cpp, want a number greater than 6
+            LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: when activeSessionDataOnDisk feature is enabled, maxSimultaneousSessions must be at least 8.";
+            return false;
+        }
     }
     std::map<uint64_t, LtpUdpEngine> * const whichMap = (isInduct) ? &m_mapRemoteEngineIdToLtpUdpEngineReceiver : &m_mapRemoteEngineIdToLtpUdpEngineTransmitter;
     std::map<uint64_t, LtpUdpEngine>::iterator it = whichMap->find(ltpRxOrTxCfg.remoteEngineId);

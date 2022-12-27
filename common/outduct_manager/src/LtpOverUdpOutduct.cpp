@@ -70,6 +70,9 @@ void LtpOverUdpOutduct::SetOnOutductLinkStatusChangedCallback(const OnOutductLin
 void LtpOverUdpOutduct::SetUserAssignedUuid(uint64_t userAssignedUuid) {
     m_ltpBundleSourcePtr->SetUserAssignedUuid(userAssignedUuid);
 }
+uint64_t LtpOverUdpOutduct::GetOutductMaxNumberOfBundlesInPipeline() const {
+    return m_ltpBundleSourcePtr->GetOutductMaxNumberOfBundlesInPipeline();
+}
 
 void LtpOverUdpOutduct::Connect() {
 

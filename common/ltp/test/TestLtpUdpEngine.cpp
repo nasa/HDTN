@@ -1559,7 +1559,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
     ltpRxCfg.maxRetriesPerSerialNumber = 5;
     ltpRxCfg.force32BitRandomNumbers = false;
     ltpRxCfg.maxSendRateBitsPerSecOrZeroToDisable = 0;
-    ltpRxCfg.maxSimultaneousSessions = 5;
+    ltpRxCfg.maxSimultaneousSessions = 8;
     ltpRxCfg.rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable = 1000;
     ltpRxCfg.maxUdpPacketsToSendPerSystemCall = 1;
     ltpRxCfg.senderPingSecondsOrZeroToDisable = 0; //unused for inducts
@@ -1587,7 +1587,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
     ltpTxCfg.maxRetriesPerSerialNumber = 5;
     ltpTxCfg.force32BitRandomNumbers = false;
     ltpTxCfg.maxSendRateBitsPerSecOrZeroToDisable = 0;
-    ltpTxCfg.maxSimultaneousSessions = 5;
+    ltpTxCfg.maxSimultaneousSessions = 8;
     ltpTxCfg.rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable = 0; //unused for outducts
     ltpTxCfg.maxUdpPacketsToSendPerSystemCall = 1;
     ltpTxCfg.senderPingSecondsOrZeroToDisable = 0;

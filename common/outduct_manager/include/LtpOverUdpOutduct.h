@@ -20,6 +20,7 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT virtual void SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback);
     OUTDUCT_MANAGER_LIB_EXPORT virtual void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     OUTDUCT_MANAGER_LIB_EXPORT virtual void SetUserAssignedUuid(uint64_t userAssignedUuid);
+    OUTDUCT_MANAGER_LIB_EXPORT virtual uint64_t GetOutductMaxNumberOfBundlesInPipeline() const override;
     OUTDUCT_MANAGER_LIB_EXPORT virtual void Connect();
     OUTDUCT_MANAGER_LIB_EXPORT virtual bool ReadyToForward();
     OUTDUCT_MANAGER_LIB_EXPORT virtual void Stop();

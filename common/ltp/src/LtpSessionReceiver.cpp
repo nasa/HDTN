@@ -775,4 +775,5 @@ void LtpSessionReceiver::OnRedDataRecoveredFromDisk(bool success, bool isEndOfBl
         m_ltpSessionReceiverCommonDataRef.m_redPartReceptionCallbackRef(M_SESSION_ID,
             m_dataReceivedRed, m_lengthOfRedPart, m_ltpSessionReceiverCommonDataRef.m_clientServiceId, isEndOfBlock);
     }
+    m_dataReceivedRed = padded_vector_uint8_t(); //clear the memory if it was not moved by the m_redPartReceptionCallbackRef
 }

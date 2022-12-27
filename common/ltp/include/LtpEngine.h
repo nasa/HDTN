@@ -113,6 +113,7 @@ public:
 
     LTP_LIB_EXPORT std::size_t NumActiveReceivers() const;
     LTP_LIB_EXPORT std::size_t NumActiveSenders() const;
+    LTP_LIB_EXPORT uint64_t GetMaxNumberOfSessionsInPipeline() const;
 
     LTP_LIB_EXPORT void UpdateRate(const uint64_t maxSendRateBitsPerSecOrZeroToDisable);
     LTP_LIB_EXPORT void UpdateRate_ThreadSafe(const uint64_t maxSendRateBitsPerSecOrZeroToDisable);
@@ -194,6 +195,8 @@ private:
     boost::posix_time::ptime M_NEXT_PING_START_EXPIRY;
     bool m_transmissionRequestServedAsPing;
     const uint64_t M_MAX_SIMULTANEOUS_SESSIONS;
+    const uint64_t M_MAX_SESSIONS_IN_PIPELINE; //less than (for disk) or equal to (for memory) M_MAX_SIMULTANEOUS_SESSIONS
+    const uint64_t M_DISK_BUNDLE_ACK_CALLBACK_LIMIT;
     const uint64_t M_MAX_RX_DATA_SEGMENT_HISTORY_OR_ZERO_DISABLE;//rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable
     boost::random_device m_randomDevice;
 
@@ -297,6 +300,8 @@ private:
     //memory in files
     std::unique_ptr<MemoryInFiles> m_memoryInFilesPtr;
     std::queue<uint64_t> m_memoryBlockIdsPendingDeletionQueue;
+    std::queue<std::vector<uint8_t> > m_userDataPendingSuccessfulBundleSendCallbackQueue;
+
 
     //reference structs common to all sessions
     LtpSessionSender::LtpSessionSenderCommonData m_ltpSessionSenderCommonData;
@@ -309,6 +314,7 @@ public:
     uint64_t m_countAsyncSendsLimitedByRate;
     uint64_t m_countPacketsWithOngoingOperations;
     uint64_t m_countPacketsThatCompletedOngoingOperations;
+    uint64_t m_numEventsTransmissionRequestDiskWritesTooSlow;
 
     //session sender stats (references to variables within m_ltpSessionSenderCommonData)
     uint64_t & m_numCheckpointTimerExpiredCallbacksRef;

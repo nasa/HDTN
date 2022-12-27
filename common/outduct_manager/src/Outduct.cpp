@@ -14,7 +14,7 @@ uint64_t Outduct::GetOutductUuid() const {
     return m_outductUuid;
 }
 uint64_t Outduct::GetOutductMaxNumberOfBundlesInPipeline() const {
-    return m_outductConfig.maxNumberOfBundlesInPipeline;
+    return m_outductConfig.maxNumberOfBundlesInPipeline; //virtual method override for LTP (special case for disk sessions)
 }
 uint64_t Outduct::GetOutductMaxSumOfBundleBytesInPipeline() const {
     return m_outductConfig.maxSumOfBundleBytesInPipeline;

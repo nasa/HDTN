@@ -131,7 +131,7 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
         if (!m_outductManager.LoadOutductsFromConfig(*outductsConfigPtr, m_myEid.nodeId, UINT16_MAX,
             10000000, //todo 10MB max rx opportunistic bundle
             outductOpportunisticProcessReceivedBundleCallback,
-            boost::bind(&BpSourcePattern::OnFailedBundleVecSendCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
+            boost::bind(&BpSourcePattern::OnFailedBundleVecSendCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4),
             OnFailedBundleZmqSendCallback_t(), //bpsourcepattern only sends vec8 bundles (not zmq) so this will never be needed
             boost::bind(&BpSourcePattern::OnSuccessfulBundleSendCallback, this, boost::placeholders::_1, boost::placeholders::_2),
             boost::bind(&BpSourcePattern::OnOutductLinkStatusChangedCallback, this, boost::placeholders::_1, boost::placeholders::_2)))
@@ -880,26 +880,31 @@ void BpSourcePattern::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNo
     LOG_INFO(subprocess) << "Deleted opportunistic link on Tcpcl induct for ipn:" << remoteNodeId << ".*";
 }
 
-void BpSourcePattern::OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid) {
-    bundleid_payloadsize_pair_t * p = (bundleid_payloadsize_pair_t*)userData.data();
-    const uint64_t bundleId = p->first;
-    LOG_WARNING(subprocess) << "Bundle failed to send: id=" << bundleId << " bundle size=" << movableBundle.size();
-    std::size_t sizeErased;
-    {
-        boost::mutex::scoped_lock lock(m_mutexQueueBundlesThatFailedToSend);
-        boost::mutex::scoped_lock lock2(m_mutexCurrentlySendingBundleIdSet);
-        m_queueBundlesThatFailedToSend.emplace(std::move(movableBundle), std::move(*p));
-        sizeErased = m_currentlySendingBundleIdSet.erase(bundleId);
+void BpSourcePattern::OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled) {
+    if (successCallbackCalled) { //ltp sender with sessions from disk enabled
+        LOG_ERROR(subprocess) << "OnFailedBundleVecSendCallback called, dropping bundle for now";
     }
-    if (sizeErased == 0) {
-        LOG_ERROR(subprocess) << "BpSourcePattern::OnFailedBundleVecSendCallback: cannot find bundleId " << bundleId;
+    else {
+        bundleid_payloadsize_pair_t* p = (bundleid_payloadsize_pair_t*)userData.data();
+        const uint64_t bundleId = p->first;
+        LOG_WARNING(subprocess) << "Bundle failed to send: id=" << bundleId << " bundle size=" << movableBundle.size();
+        std::size_t sizeErased;
+        {
+            boost::mutex::scoped_lock lock(m_mutexQueueBundlesThatFailedToSend);
+            boost::mutex::scoped_lock lock2(m_mutexCurrentlySendingBundleIdSet);
+            m_queueBundlesThatFailedToSend.emplace(std::move(movableBundle), std::move(*p));
+            sizeErased = m_currentlySendingBundleIdSet.erase(bundleId);
+        }
+        if (sizeErased == 0) {
+            LOG_ERROR(subprocess) << "BpSourcePattern::OnFailedBundleVecSendCallback: cannot find bundleId " << bundleId;
+        }
+
+        if (!m_linkIsDown) {
+            LOG_INFO(subprocess) << "Setting link status to DOWN";
+            m_linkIsDown = true;
+        }
+        m_cvCurrentlySendingBundleIdSet.notify_one();
     }
-    
-    if (!m_linkIsDown) {
-        LOG_INFO(subprocess) << "Setting link status to DOWN";
-        m_linkIsDown = true;
-    }
-    m_cvCurrentlySendingBundleIdSet.notify_one();
 }
 void BpSourcePattern::OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData, uint64_t outductUuid) {
     bundleid_payloadsize_pair_t* p = (bundleid_payloadsize_pair_t*)userData.data();

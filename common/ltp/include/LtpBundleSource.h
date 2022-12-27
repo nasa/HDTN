@@ -59,6 +59,7 @@ public:
     LTP_LIB_EXPORT void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     LTP_LIB_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
     LTP_LIB_EXPORT void SyncTelemetry();
+    LTP_LIB_EXPORT uint64_t GetOutductMaxNumberOfBundlesInPipeline() const;
 private:
     LTP_LIB_NO_EXPORT void RemoveCallback();
 

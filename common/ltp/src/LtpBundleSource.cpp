@@ -191,6 +191,10 @@ bool LtpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size,
     return Forward(vec, std::move(userData));
 }
 
+uint64_t LtpBundleSource::GetOutductMaxNumberOfBundlesInPipeline() const {
+    return m_ltpUdpEnginePtr->GetMaxNumberOfSessionsInPipeline();
+}
+
 
 
 void LtpBundleSource::SessionStartCallback(const Ltp::session_id_t & sessionId) {
