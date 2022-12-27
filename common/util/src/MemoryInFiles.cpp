@@ -19,6 +19,7 @@
 #endif
 
 #include "MemoryInFiles.h"
+#include "ForwardListQueue.h"
 #include "FragmentSet.h"
 #include <boost/thread.hpp>
 #include <memory>
@@ -146,9 +147,7 @@ private:
         bool DoWriteOrRead(const uint64_t deferredOffset, const uint64_t deferredLength,
             void* readToThisLocationPtr, const void* writeFromThisLocationPtr, void* handlerPtrPtr);
         const uint64_t m_memoryBlockId;
-        typedef std::forward_list<MemoryBlockFragmentInfo> fragment_flist_t;
-        fragment_flist_t m_memoryBlockFragmentInfoFlist;
-        fragment_flist_t::iterator m_memoryBlockFragmentInfoFlistLastIterator;
+        ForwardListQueue<MemoryBlockFragmentInfo> m_memoryBlockFragmentInfoFlistQueue;
         uint64_t m_lengthAlignedToBlockSize;
         unsigned int m_queuedOperationsReferenceCount;
         bool m_markedForDeletion;
@@ -392,16 +391,9 @@ uint64_t MemoryInFiles::Impl::MemoryBlockInfo::Resize(const std::shared_ptr<File
     const uint64_t diffSize = newLengthAlignedToBlockSize - m_lengthAlignedToBlockSize;
     m_lengthAlignedToBlockSize = newLengthAlignedToBlockSize;
 
-    //insert into list (order by FIFO, so newest elements will be last)
-    if (m_memoryBlockFragmentInfoFlist.empty()) {
-        m_memoryBlockFragmentInfoFlist.emplace_front(currentFileInfoPtr, currentBaseOffsetWithinFile, diffSize);
-        m_memoryBlockFragmentInfoFlistLastIterator = m_memoryBlockFragmentInfoFlist.begin();
-    }
-    else {
-        m_memoryBlockFragmentInfoFlistLastIterator = m_memoryBlockFragmentInfoFlist.emplace_after(
-            m_memoryBlockFragmentInfoFlistLastIterator,
-            currentFileInfoPtr, currentBaseOffsetWithinFile, diffSize);
-    }
+    //insert (order by FIFO, so newest elements will be last)
+    m_memoryBlockFragmentInfoFlistQueue.emplace_back(currentFileInfoPtr, currentBaseOffsetWithinFile, diffSize);
+
     return diffSize;
 }
 
@@ -569,7 +561,7 @@ bool MemoryInFiles::Impl::MemoryBlockInfo::DoWriteOrRead(
     FragmentSet::data_fragment_t thisFragment(0, 0);
     //LOG_DEBUG(subprocess) << "DoWriteOrRead";
     uint64_t operationPtrOffset = 0;
-    for (MemoryBlockInfo::fragment_flist_t::const_iterator it = m_memoryBlockFragmentInfoFlist.cbegin(); it != m_memoryBlockFragmentInfoFlist.cend(); ++it) {
+    for (ForwardListQueue<MemoryBlockFragmentInfo>::const_iterator it = m_memoryBlockFragmentInfoFlistQueue.cbegin(); it != m_memoryBlockFragmentInfoFlistQueue.cend(); ++it) {
         const MemoryBlockFragmentInfo& frag = *it;
         thisFragment.endIndex += frag.m_length;
         //LOG_DEBUG(subprocess) << "Frag owf=" << frag.m_baseOffsetWithinFile << " len=" << frag.m_length;
