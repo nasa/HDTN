@@ -150,7 +150,7 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t
         else {
             //resend 
             ++(resendFragment.retryCount);
-            m_resendFragmentsQueue.push(resendFragment);
+            m_resendFragmentsFlistQueue.push_back(resendFragment);
             m_ltpSessionSenderCommonDataRef.m_notifyEngineThatThisSenderHasProducibleDataFunctionRef(M_SESSION_ID.sessionNumber);
         }
     }
@@ -180,26 +180,26 @@ void LtpSessionSender::LtpDelaySendDataSegmentsTimerExpiredCallback(const uint64
 }
 
 bool LtpSessionSender::NextTimeCriticalDataToSend(UdpSendPacketInfo& udpSendPacketInfo) {
-    if (!m_nonDataToSend.empty()) { //includes report ack segments
+    if (!m_nonDataToSendFlistQueue.empty()) { //includes report ack segments
         //highest priority
         udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1);
-        (*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0] = std::move(m_nonDataToSend.front());
-        m_nonDataToSend.pop();
+        (*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0] = std::move(m_nonDataToSendFlistQueue.front());
+        m_nonDataToSendFlistQueue.pop();
         udpSendPacketInfo.constBufferVec.resize(1);
         udpSendPacketInfo.constBufferVec[0] = boost::asio::buffer((*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0]);
         return true;
     }
 
-    while (!m_resendFragmentsQueue.empty()) {
+    while (!m_resendFragmentsFlistQueue.empty()) {
         if (m_allRedDataReceivedByRemote) {
             //Continuation of Github issue 23:
             //If the sender detects that all Red data has been acknowledged by the remote,
             //the sender shall remove all Red data segments (checkpoint or non-checkpoint) from the
             //outgoing transmission queue.
-            m_resendFragmentsQueue.pop();
+            m_resendFragmentsFlistQueue.pop();
             continue;
         }
-        LtpSessionSender::resend_fragment_t& resendFragment = m_resendFragmentsQueue.front();
+        LtpSessionSender::resend_fragment_t& resendFragment = m_resendFragmentsFlistQueue.front();
         Ltp::data_segment_metadata_t meta;
         meta.clientServiceId = M_CLIENT_SERVICE_ID;
         meta.offset = resendFragment.offset;
@@ -272,7 +272,7 @@ bool LtpSessionSender::NextTimeCriticalDataToSend(UdpSendPacketInfo& udpSendPack
         if (!needsToReadClientServiceDataFromDisk) {
             udpSendPacketInfo.underlyingCsDataToDeleteOnSentCallback = m_dataToSendSharedPtr;
         }
-        m_resendFragmentsQueue.pop();
+        m_resendFragmentsFlistQueue.pop();
         return true;
     }
 
@@ -431,8 +431,8 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
     //Response: first, an RA segment with the same report serial number as
     //the RS segment is issued and is, in concept, appended to the queue of
     //internal operations traffic bound for the receiver.
-    m_nonDataToSend.emplace(); //m_notifyEngineThatThisSenderHasProducibleDataFunction at the end of this function
-    Ltp::GenerateReportAcknowledgementSegmentLtpPacket(m_nonDataToSend.back(),
+    m_nonDataToSendFlistQueue.emplace_back(); //m_notifyEngineThatThisSenderHasProducibleDataFunction at the end of this function
+    Ltp::GenerateReportAcknowledgementSegmentLtpPacket(m_nonDataToSendFlistQueue.back(),
         M_SESSION_ID, reportSegment.reportSerialNumber, NULL, NULL);
 
     //If the RS segment is redundant -- i.e., either the indicated session is unknown
@@ -631,7 +631,7 @@ void LtpSessionSender::ResendDataFromReport(const std::set<LtpFragmentSet::data_
                 }
             }
 
-            m_resendFragmentsQueue.emplace(dataIndex, bytesToSendRed, checkpointSerialNumber, reportSerialNumber, flags);
+            m_resendFragmentsFlistQueue.emplace_back(dataIndex, bytesToSendRed, checkpointSerialNumber, reportSerialNumber, flags);
             dataIndex += bytesToSendRed;
         }
     }

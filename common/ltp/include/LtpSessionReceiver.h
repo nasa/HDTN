@@ -25,7 +25,7 @@
 #include "LtpRandomNumberGenerator.h"
 #include "LtpTimerManager.h"
 #include "MemoryInFiles.h"
-#include <queue>
+#include "ForwardListQueue.h"
 #include <set>
 #include <map>
 #include <boost/asio.hpp>
@@ -129,7 +129,7 @@ private:
     //std::set<LtpFragmentSet::data_fragment_t> m_receivedDataFragmentsThatSenderKnowsAboutSet;
     std::set<uint64_t> m_checkpointSerialNumbersReceivedSet;
     typedef std::pair<report_segments_sent_map_t::const_iterator, uint32_t> it_retrycount_pair_t; //pair<iterator from m_mapAllReportSegmentsSent, retryCount>
-    std::queue<it_retrycount_pair_t> m_reportsToSendQueue;
+    ForwardListQueue<it_retrycount_pair_t> m_reportsToSendFlistQueue;
     
     std::list<uint64_t> m_reportSerialNumberActiveTimersList;
     
@@ -146,12 +146,11 @@ private:
     
     uint64_t m_nextReportSegmentReportSerialNumber;
     padded_vector_uint8_t m_dataReceivedRed;
-    uint64_t m_dataReceivedRedSize; //cannot just use variable in m_dataReceivedRed.size() because may be using disk instead
     uint64_t m_memoryBlockIdReservedSize; //since its resize rounds up
     const Ltp::session_id_t M_SESSION_ID;
     uint64_t m_lengthOfRedPart;
     uint64_t m_lowestGreenOffsetReceived;
-    uint64_t m_currentRedLength;
+    uint64_t m_currentRedLength; //cannot just use variable in m_dataReceivedRed.size() because may be using disk instead
     LtpSessionReceiverCommonData& m_ltpSessionReceiverCommonDataRef;
     uint64_t m_memoryBlockId;
 public:

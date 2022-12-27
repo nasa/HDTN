@@ -67,7 +67,6 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
     //
     m_itLastPrimaryReportSegmentSent(m_mapAllReportSegmentsSent.end()),
     m_nextReportSegmentReportSerialNumber(randomNextReportSegmentReportSerialNumber),
-    m_dataReceivedRedSize(0),
     m_memoryBlockIdReservedSize(0),
     M_SESSION_ID(sessionId),
     m_lengthOfRedPart(UINT64_MAX),
@@ -201,7 +200,7 @@ void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(const Ltp::session
 
     if (userDataPtr->retryCount <= m_ltpSessionReceiverCommonDataRef.m_maxRetriesPerSerialNumberRef) {
         //resend
-        m_reportsToSendQueue.emplace(userDataPtr->itMapAllReportSegmentsSent, userDataPtr->retryCount + 1); //initial retryCount of 1
+        m_reportsToSendFlistQueue.emplace_back(userDataPtr->itMapAllReportSegmentsSent, userDataPtr->retryCount + 1); //initial retryCount of 1
         m_ltpSessionReceiverCommonDataRef.m_notifyEngineThatThisReceiversTimersHasProducibleDataFunctionRef(M_SESSION_ID);
     }
     else {
@@ -214,8 +213,8 @@ void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(const Ltp::session
 
 bool LtpSessionReceiver::NextDataToSend(UdpSendPacketInfo& udpSendPacketInfo) {
 
-    if (!m_reportsToSendQueue.empty()) {
-        const it_retrycount_pair_t & p = m_reportsToSendQueue.front();
+    if (!m_reportsToSendFlistQueue.empty()) {
+        const it_retrycount_pair_t & p = m_reportsToSendFlistQueue.front();
         const report_segments_sent_map_t::const_iterator & reportSegmentIt = p.first;
         const uint64_t rsn = reportSegmentIt->first;
         const uint32_t retryCount = p.second;
@@ -226,8 +225,7 @@ bool LtpSessionReceiver::NextDataToSend(UdpSendPacketInfo& udpSendPacketInfo) {
             M_SESSION_ID, reportSegmentIt->second, NULL, NULL);
         udpSendPacketInfo.constBufferVec.resize(1);
         udpSendPacketInfo.constBufferVec[0] = boost::asio::buffer((*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0]);
-        m_reportsToSendQueue.pop();
-            
+        
         // within a session would normally be LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timeManagerOfReportSerialNumbers;
         // but now sharing a single LtpTimerManager among all sessions, so use a
         // LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> (which has hash map hashing function support)
@@ -249,6 +247,7 @@ bool LtpSessionReceiver::NextDataToSend(UdpSendPacketInfo& udpSendPacketInfo) {
             m_reportSerialNumberActiveTimersList.erase(m_reportSerialNumberActiveTimersList.begin());
             LOG_ERROR(subprocess) << "LtpSessionReceiver::NextDataToSend: did not start timer";
         }
+        m_reportsToSendFlistQueue.pop(); //fixed bug by moving this after usage of reference reportSegmentIt
         return true;
     }
 
@@ -291,7 +290,7 @@ void LtpSessionReceiver::ReportAcknowledgementSegmentReceivedCallback(uint64_t r
             m_reportSerialNumberActiveTimersList.erase(userDataPtr->itReportSerialNumberActiveTimersList);
         }
     }
-    if (m_reportsToSendQueue.empty() && m_reportSerialNumberActiveTimersList.empty()) { // cannot do within a shared timer: m_timeManagerOfReportSerialNumbers.Empty()) {
+    if (m_reportsToSendFlistQueue.empty() && m_reportSerialNumberActiveTimersList.empty()) { // cannot do within a shared timer: m_timeManagerOfReportSerialNumbers.Empty()) {
         //TODO.. NOT SURE WHAT TO DO WHEN GREEN EOB LOST
         if (m_receivedEobFromGreenOrRed && m_didRedPartReceptionCallback) {
             if (!m_didNotifyForDeletion) {
@@ -326,7 +325,10 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
         m_receivedEobFromGreenOrRed = true;
     }
     if (isRedData) {
-        m_currentRedLength = std::max(offsetPlusLength, m_currentRedLength);
+        const bool neededResize = (m_currentRedLength < offsetPlusLength);
+        if (neededResize) {
+            m_currentRedLength = offsetPlusLength;
+        }
         //6.21.  Handle Miscolored Segment
         //This procedure is triggered by the arrival of either(a) a red - part
         //data segment whose block offset begins at an offset higher than the
@@ -369,14 +371,9 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
             LtpFragmentSet::data_fragment_t(dataSegmentMetadata.offset, offsetPlusLength - 1));
 
         if (dataReceivedWasNew) {
-            const bool neededResize = (m_dataReceivedRedSize < offsetPlusLength);
-            if (neededResize) {
-                m_dataReceivedRedSize = offsetPlusLength;
-            }
-            
             if (m_ltpSessionReceiverCommonDataRef.m_memoryInFilesPtrRef && m_memoryBlockId) { //storing session data to disk (asynchronously)
-                if (neededResize && (m_memoryBlockIdReservedSize < m_dataReceivedRedSize)) {
-                    m_memoryBlockIdReservedSize = m_ltpSessionReceiverCommonDataRef.m_memoryInFilesPtrRef->Resize(m_memoryBlockId, m_dataReceivedRedSize);
+                if (neededResize && (m_memoryBlockIdReservedSize < m_currentRedLength)) {
+                    m_memoryBlockIdReservedSize = m_ltpSessionReceiverCommonDataRef.m_memoryInFilesPtrRef->Resize(m_memoryBlockId, m_currentRedLength);
                 }
                 std::shared_ptr<std::vector<uint8_t> > clientServiceDataReceivedSharedPtr = std::make_shared<std::vector<uint8_t> >(std::move(clientServiceDataVec));
 
@@ -403,7 +400,7 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
             }
             else { //storing session data to memory
                 if (neededResize) {
-                    m_dataReceivedRed.resize(m_dataReceivedRedSize);
+                    m_dataReceivedRed.resize(m_currentRedLength);
                 }
                 memcpy(m_dataReceivedRed.data() + dataSegmentMetadata.offset, clientServiceDataVec.data(), dataSegmentMetadata.length);
             }
@@ -742,7 +739,7 @@ void LtpSessionReceiver::HandleGenerateAndSendReportSegment(const uint64_t check
             m_itLastPrimaryReportSegmentSent = itRsSent;
             //m_mapPrimaryReportSegmentsSent.emplace_hint(m_mapPrimaryReportSegmentsSent.end(), rsn, reportSegment); //m_mapPrimaryReportSegmentsSent[rsn] = reportSegment;
         }
-        m_reportsToSendQueue.emplace(itRsSent, 1); //initial retryCount of 1
+        m_reportsToSendFlistQueue.emplace_back(itRsSent, 1); //initial retryCount of 1
         m_ltpSessionReceiverCommonDataRef.m_notifyEngineThatThisReceiversTimersHasProducibleDataFunctionRef(M_SESSION_ID);
     }
 }
@@ -750,10 +747,10 @@ void LtpSessionReceiver::HandleGenerateAndSendReportSegment(const uint64_t check
 void LtpSessionReceiver::OnDataSegmentWrittenToDisk(std::shared_ptr<std::vector<uint8_t> > & clientServiceDataReceivedSharedPtr, bool isEndOfBlock) {
     --m_numActiveAsyncDiskOperations;
     if ((m_numActiveAsyncDiskOperations == 0) && m_didRedPartReceptionCallback) { //read data back from disk and do deferred m_redPartReceptionCallbackRef
-        m_dataReceivedRed.resize(m_dataReceivedRedSize);
+        m_dataReceivedRed.resize(m_currentRedLength);
         MemoryInFiles::deferred_read_t deferredRead;
         deferredRead.memoryBlockId = m_memoryBlockId;
-        deferredRead.length = m_dataReceivedRedSize;
+        deferredRead.length = m_currentRedLength;
         deferredRead.offset = 0;
         deferredRead.readToThisLocationPtr = m_dataReceivedRed.data();
         if (!m_ltpSessionReceiverCommonDataRef.m_memoryInFilesPtrRef->ReadMemoryAsync(deferredRead,

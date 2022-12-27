@@ -107,6 +107,10 @@ BOOST_AUTO_TEST_CASE(ForwardListQueueTestCase)
             BOOST_REQUIRE(flq == expected);
         }
         {
+            BOOST_REQUIRE_EQUAL(flq.front(), "-1");
+            BOOST_REQUIRE_EQUAL(flq.back(), "8");
+        }
+        {
             flq.pop();
             const flq_t expected({ "0", "1", "2", "3", "4", "5", "6", "7", "8" });
             BOOST_REQUIRE(flq == expected);
@@ -159,6 +163,31 @@ BOOST_AUTO_TEST_CASE(ForwardListQueueTestCase)
         {
             flq.pop();
             const flq_t expected({ "8" });
+            BOOST_REQUIRE(flq == expected);
+            BOOST_REQUIRE(!flq.empty());
+        }
+        {
+            std::string sanityCheckString( 5, '9');
+            BOOST_REQUIRE_EQUAL(sanityCheckString, "99999");
+            flq.emplace_back(5, '9');
+            BOOST_REQUIRE_EQUAL(flq.back(), "99999");
+            const flq_t expected({ "8", "99999" });
+            BOOST_REQUIRE(flq == expected);
+        }
+        {
+            flq.pop();
+            const flq_t expected({ "99999" });
+            BOOST_REQUIRE(flq == expected);
+            BOOST_REQUIRE(!flq.empty());
+        }
+        {
+            flq.emplace_front(5, 'a');
+            const flq_t expected({ "aaaaa", "99999" });
+            BOOST_REQUIRE(flq == expected);
+        }
+        {
+            flq.pop();
+            const flq_t expected({ "99999" });
             BOOST_REQUIRE(flq == expected);
             BOOST_REQUIRE(!flq.empty());
         }

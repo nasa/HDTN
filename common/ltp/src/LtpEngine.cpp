@@ -178,7 +178,8 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
             ltpRxOrTxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable,
             M_MAX_SIMULTANEOUS_SESSIONS * 2);
     }
-
+    //sizeof(LtpSessionSender); //272 => 224 using two ForwardListQueue's instead of two std::queue's
+    //sizeof(LtpSessionReceiver); //248 => 216 using one ForwardListQueue instead of one std::queue and removing m_dataReceivedRedSize
     if (startIoServiceThread) {
         m_ioServiceLtpEngineThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioServiceLtpEngine));
     }

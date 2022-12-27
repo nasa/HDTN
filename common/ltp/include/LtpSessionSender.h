@@ -23,7 +23,7 @@
 #include "LtpFragmentSet.h"
 #include "Ltp.h"
 #include "LtpRandomNumberGenerator.h"
-#include <queue>
+#include "ForwardListQueue.h"
 #include <set>
 #include <boost/asio.hpp>
 #include <memory>
@@ -115,8 +115,8 @@ private:
     };
 
     std::set<LtpFragmentSet::data_fragment_t> m_dataFragmentsAckedByReceiver;
-    std::queue<std::vector<uint8_t> > m_nonDataToSend;
-    std::queue<resend_fragment_t> m_resendFragmentsQueue;
+    ForwardListQueue<std::vector<uint8_t> > m_nonDataToSendFlistQueue;
+    ForwardListQueue<resend_fragment_t> m_resendFragmentsFlistQueue;
     std::set<uint64_t> m_reportSegmentSerialNumbersReceivedSet;
 
     
