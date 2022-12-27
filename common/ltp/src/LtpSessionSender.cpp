@@ -25,7 +25,9 @@ LtpSessionSender::LtpSessionSenderCommonData::LtpSessionSenderCommonData(
     uint64_t checkpointEveryNthDataPacket,
     uint32_t& maxRetriesPerSerialNumberRef,
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& timeManagerOfCheckpointSerialNumbersRef,
+    const LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t& csnTimerExpiredCallbackRef,
     LtpTimerManager<uint64_t, std::hash<uint64_t> >& timeManagerOfSendingDelayedDataSegmentsRef,
+    const LtpTimerManager<uint64_t, std::hash<uint64_t> >::LtpTimerExpiredCallback_t& delayedDataSegmentsTimerExpiredCallbackRef,
     const NotifyEngineThatThisSenderNeedsDeletedCallback_t& notifyEngineThatThisSenderNeedsDeletedCallbackRef,
     const NotifyEngineThatThisSenderHasProducibleDataFunction_t& notifyEngineThatThisSenderHasProducibleDataFunctionRef,
     const InitialTransmissionCompletedCallback_t& initialTransmissionCompletedCallbackRef) :
@@ -34,7 +36,9 @@ LtpSessionSender::LtpSessionSenderCommonData::LtpSessionSenderCommonData(
     m_checkpointEveryNthDataPacket(checkpointEveryNthDataPacket),
     m_maxRetriesPerSerialNumberRef(maxRetriesPerSerialNumberRef),
     m_timeManagerOfCheckpointSerialNumbersRef(timeManagerOfCheckpointSerialNumbersRef),
+    m_csnTimerExpiredCallbackRef(csnTimerExpiredCallbackRef),
     m_timeManagerOfSendingDelayedDataSegmentsRef(timeManagerOfSendingDelayedDataSegmentsRef),
+    m_delayedDataSegmentsTimerExpiredCallbackRef(delayedDataSegmentsTimerExpiredCallbackRef),
     m_notifyEngineThatThisSenderNeedsDeletedCallbackRef(notifyEngineThatThisSenderNeedsDeletedCallbackRef),
     m_notifyEngineThatThisSenderHasProducibleDataFunctionRef(notifyEngineThatThisSenderHasProducibleDataFunctionRef),
     m_initialTransmissionCompletedCallbackRef(initialTransmissionCompletedCallbackRef),
@@ -64,8 +68,7 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     m_isFailedSession(false),
     m_calledCancelledOrCompletedCallback(false)
 {
-    m_timerExpiredCallback = boost::bind(&LtpSessionSender::LtpCheckpointTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2);
-    m_delayedDataSegmentsTimerExpiredCallback = boost::bind(&LtpSessionSender::LtpDelaySendDataSegmentsTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2);
+    
     
     //after creation by a transmission request, the transmission request function shall add this to a "first pass needing data sent" queue
     //m_notifyEngineThatThisSenderHasProducibleDataFunction(M_SESSION_ID.sessionNumber); //(old behavior) to trigger first pass of red data 
@@ -233,7 +236,7 @@ bool LtpSessionSender::NextTimeCriticalDataToSend(UdpSendPacketInfo& udpSendPack
             m_checkpointSerialNumberActiveTimersList.emplace_front(resendFragment.checkpointSerialNumber); //keep track of this sending session's active timers within the shared LtpTimerManager
             userDataPtr->itCheckpointSerialNumberActiveTimersList = m_checkpointSerialNumberActiveTimersList.begin();
             if (!m_ltpSessionSenderCommonDataRef.m_timeManagerOfCheckpointSerialNumbersRef.StartTimer(
-                checkpointSerialNumberPlusSessionNumber, &m_timerExpiredCallback, std::move(userData)))
+                this, checkpointSerialNumberPlusSessionNumber, &m_ltpSessionSenderCommonDataRef.m_csnTimerExpiredCallbackRef, std::move(userData)))
             {
                 m_checkpointSerialNumberActiveTimersList.erase(m_checkpointSerialNumberActiveTimersList.begin());
                 LOG_ERROR(subprocess) << "LtpSessionSender::NextDataToSend: did not start timer";
@@ -323,7 +326,7 @@ bool LtpSessionSender::NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketI
                 m_checkpointSerialNumberActiveTimersList.emplace_front(cp); //keep track of this sending session's active timers within the shared LtpTimerManager
                 userDataPtr->itCheckpointSerialNumberActiveTimersList = m_checkpointSerialNumberActiveTimersList.begin();
                 if (!m_ltpSessionSenderCommonDataRef.m_timeManagerOfCheckpointSerialNumbersRef.StartTimer(
-                    checkpointSerialNumberPlusSessionNumber, &m_timerExpiredCallback, std::move(userData)))
+                    this, checkpointSerialNumberPlusSessionNumber, &m_ltpSessionSenderCommonDataRef.m_csnTimerExpiredCallbackRef, std::move(userData)))
                 {
                     m_checkpointSerialNumberActiveTimersList.erase(m_checkpointSerialNumberActiveTimersList.begin());
                     LOG_ERROR(subprocess) << "LtpSessionSender::NextDataToSend: did not start timer";
@@ -567,7 +570,7 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
                         m_largestEndIndexPendingGeneration = boundsUnique.endIndex;
                         m_mapRsBoundsToRsnPendingGeneration.emplace(boundsUnique, reportSegment.reportSerialNumber);
                         if (!m_ltpSessionSenderCommonDataRef.m_timeManagerOfSendingDelayedDataSegmentsRef.StartTimer(
-                            M_SESSION_ID.sessionNumber, &m_delayedDataSegmentsTimerExpiredCallback))
+                            this, M_SESSION_ID.sessionNumber, &m_ltpSessionSenderCommonDataRef.m_delayedDataSegmentsTimerExpiredCallbackRef))
                         {
                             LOG_ERROR(subprocess) << "LtpSessionSender::ReportSegmentReceivedCallback: unable to start m_timeManagerOfSendingDelayedDataSegmentsRef timer";
                         }

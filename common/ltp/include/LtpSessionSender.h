@@ -43,7 +43,6 @@ typedef boost::function<void(const uint64_t sessionNumber)> NotifyEngineThatThis
 class LtpSessionSender : private boost::noncopyable {
 private:
     LtpSessionSender() = delete;
-    LTP_LIB_NO_EXPORT void LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t& checkpointSerialNumberPlusSessionNumber, std::vector<uint8_t> & userData);
 public:
 
     //The LtpEngine shall have one copy of this struct and pass it's reference to each LtpSessionSender
@@ -54,7 +53,9 @@ public:
             uint64_t checkpointEveryNthDataPacket,
             uint32_t & maxRetriesPerSerialNumberRef,
             LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& timeManagerOfCheckpointSerialNumbersRef,
+            const LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t& csnTimerExpiredCallbackRef,
             LtpTimerManager<uint64_t, std::hash<uint64_t> >& timeManagerOfSendingDelayedDataSegmentsRef,
+            const LtpTimerManager<uint64_t, std::hash<uint64_t> >::LtpTimerExpiredCallback_t& delayedDataSegmentsTimerExpiredCallbackRef,
             const NotifyEngineThatThisSenderNeedsDeletedCallback_t& notifyEngineThatThisSenderNeedsDeletedCallbackRef,
             const NotifyEngineThatThisSenderHasProducibleDataFunction_t& notifyEngineThatThisSenderHasProducibleDataFunctionRef,
             const InitialTransmissionCompletedCallback_t& initialTransmissionCompletedCallbackRef);
@@ -63,7 +64,10 @@ public:
         uint64_t m_checkpointEveryNthDataPacket;
         uint32_t & m_maxRetriesPerSerialNumberRef;
         LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& m_timeManagerOfCheckpointSerialNumbersRef;
+        const LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t& m_csnTimerExpiredCallbackRef;
         LtpTimerManager<uint64_t, std::hash<uint64_t> >& m_timeManagerOfSendingDelayedDataSegmentsRef;
+        const LtpTimerManager<uint64_t, std::hash<uint64_t> >::LtpTimerExpiredCallback_t& m_delayedDataSegmentsTimerExpiredCallbackRef;
+        
         const NotifyEngineThatThisSenderNeedsDeletedCallback_t& m_notifyEngineThatThisSenderNeedsDeletedCallbackRef;
         const NotifyEngineThatThisSenderHasProducibleDataFunction_t& m_notifyEngineThatThisSenderHasProducibleDataFunctionRef;
         const InitialTransmissionCompletedCallback_t& m_initialTransmissionCompletedCallbackRef;
@@ -86,9 +90,13 @@ public:
     LTP_LIB_EXPORT void ReportSegmentReceivedCallback(const Ltp::report_segment_t & reportSegment,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
     
+    //these two are public now because they are invoked by LtpEngine (eliminates need for each session to have its own expensive boost::function) 
+    LTP_LIB_EXPORT void LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t& checkpointSerialNumberPlusSessionNumber, std::vector<uint8_t>& userData);
+    LTP_LIB_EXPORT void LtpDelaySendDataSegmentsTimerExpiredCallback(const uint64_t& sessionNumber, std::vector<uint8_t>& userData);
+
 private:
     LTP_LIB_NO_EXPORT void ResendDataFromReport(const std::set<LtpFragmentSet::data_fragment_t>& fragmentsNeedingResent, const uint64_t reportSerialNumber);
-    LTP_LIB_NO_EXPORT void LtpDelaySendDataSegmentsTimerExpiredCallback(const uint64_t& sessionNumber, std::vector<uint8_t>& userData);
+    
 
     struct resend_fragment_t {
         resend_fragment_t() {}
@@ -111,10 +119,10 @@ private:
     std::queue<resend_fragment_t> m_resendFragmentsQueue;
     std::set<uint64_t> m_reportSegmentSerialNumbersReceivedSet;
 
-    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_timerExpiredCallback;
+    
     std::list<uint64_t> m_checkpointSerialNumberActiveTimersList;
 
-    LtpTimerManager<uint64_t, std::hash<uint64_t> >::LtpTimerExpiredCallback_t m_delayedDataSegmentsTimerExpiredCallback;
+    
     //(rsLowerBound, rsUpperBound) to (reportSerialNumber) map
     typedef std::map<FragmentSet::data_fragment_unique_overlapping_t, uint64_t> ds_pending_map_t;
     ds_pending_map_t m_mapRsBoundsToRsnPendingGeneration;

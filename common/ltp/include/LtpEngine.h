@@ -176,6 +176,12 @@ private:
     LTP_LIB_NO_EXPORT void OnHousekeeping_TimerExpired(const boost::system::error_code& e);
 
     LTP_LIB_NO_EXPORT void DoExternalLinkDownEvent();
+
+    //these four functions eliminate need for each session to have its own expensive boost::function/boost::bind using a reinterpret_cast of classPtr
+    LTP_LIB_NO_EXPORT void LtpSessionReceiverReportSegmentTimerExpiredCallback(void* classPtr, const Ltp::session_id_t& reportSerialNumberPlusSessionNumber, std::vector<uint8_t>& userData);
+    LTP_LIB_NO_EXPORT void LtpSessionReceiverDelaySendReportSegmentTimerExpiredCallback(void* classPtr, const Ltp::session_id_t& checkpointSerialNumberPlusSessionNumber, std::vector<uint8_t>& userData);
+    LTP_LIB_NO_EXPORT void LtpSessionSenderCheckpointTimerExpiredCallback(void* classPtr, const Ltp::session_id_t& checkpointSerialNumberPlusSessionNumber, std::vector<uint8_t>& userData);
+    LTP_LIB_NO_EXPORT void LtpSessionSenderDelaySendDataSegmentsTimerExpiredCallback(void* classPtr, const uint64_t& sessionNumber, std::vector<uint8_t>& userData);
 private:
     Ltp m_ltpRxStateMachine;
     LtpRandomNumberGenerator m_rng;
@@ -256,12 +262,14 @@ private:
     //  sessionNumber = the session number
     //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> m_timeManagerOfReportSerialNumbers;
+    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_rsnTimerExpiredCallback;
 
     boost::asio::deadline_timer m_deadlineTimerForTimeManagerOfSendingDelayedReceptionReports;
     //  sessionOriginatorEngineId = CHECKPOINT serial number to which RS pertains
     //  sessionNumber = the session number
     //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> m_timeManagerOfSendingDelayedReceptionReports;
+    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_delayedReceptionReportTimerExpiredCallback;
 
     boost::asio::deadline_timer m_deadlineTimerForTimeManagerOfCheckpointSerialNumbers;
     // within a session would normally be LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timeManagerOfCheckpointSerialNumbers;
@@ -272,6 +280,7 @@ private:
     //  sessionNumber = the session number
     //  since this is a sender, the real sessionOriginatorEngineId is constant among all sending sessions and is not needed
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> m_timeManagerOfCheckpointSerialNumbers;
+    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_csnTimerExpiredCallback;
 
     boost::asio::deadline_timer m_deadlineTimerForTimeManagerOfSendingDelayedDataSegments;
     // within a session would normally be a single deadline timer;
@@ -281,6 +290,7 @@ private:
     //  uint64_t = the session number
     //  since this is a sender, the real sessionOriginatorEngineId is constant among all sending sessions and is not needed
     LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timeManagerOfSendingDelayedDataSegments;
+    LtpTimerManager<uint64_t, std::hash<uint64_t> >::LtpTimerExpiredCallback_t m_delayedDataSegmentsTimerExpiredCallback;
 
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_cancelSegmentTimerExpiredCallback;
     boost::asio::deadline_timer m_deadlineTimerForTimeManagerOfCancelSegments;

@@ -73,10 +73,16 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     m_maxSendRateBitsPerSecOrZeroToDisable(ltpRxOrTxCfg.maxSendRateBitsPerSecOrZeroToDisable),
     m_tokenRefreshTimerIsRunning(false),
     m_lastTimeTokensWereRefreshed(boost::posix_time::special_values::neg_infin),
-    m_ltpSessionSenderCommonData(ltpRxOrTxCfg.mtuClientServiceData, ltpRxOrTxCfg.checkpointEveryNthDataPacketSender,
+    m_ltpSessionSenderCommonData(
+        ltpRxOrTxCfg.mtuClientServiceData,
+        ltpRxOrTxCfg.checkpointEveryNthDataPacketSender,
         m_maxRetriesPerSerialNumber, //reference
-        m_timeManagerOfCheckpointSerialNumbers, m_timeManagerOfSendingDelayedDataSegments,
-        m_notifyEngineThatThisSenderNeedsDeletedCallback, m_notifyEngineThatThisSenderHasProducibleDataFunction,
+        m_timeManagerOfCheckpointSerialNumbers,
+        m_csnTimerExpiredCallback,
+        m_timeManagerOfSendingDelayedDataSegments,
+        m_delayedDataSegmentsTimerExpiredCallback,
+        m_notifyEngineThatThisSenderNeedsDeletedCallback,
+        m_notifyEngineThatThisSenderHasProducibleDataFunction,
         m_initialTransmissionCompletedCallbackCalledBySender),
     m_ltpSessionReceiverCommonData(
         ltpRxOrTxCfg.clientServiceId,
@@ -85,7 +91,9 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
         ltpRxOrTxCfg.maxRedRxBytesPerSession,
         m_maxRetriesPerSerialNumber, //reference
         m_timeManagerOfReportSerialNumbers,
+        m_rsnTimerExpiredCallback,
         m_timeManagerOfSendingDelayedReceptionReports,
+        m_delayedReceptionReportTimerExpiredCallback,
         m_notifyEngineThatThisReceiverNeedsDeletedCallback,
         m_notifyEngineThatThisReceiversTimersHasProducibleDataFunction,
         m_notifyEngineThatThisReceiverCompletedDeferredOperationFunction,
@@ -106,7 +114,7 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     m_numDelayedPartiallyClaimedSecondaryReportSegmentsSentRef(m_ltpSessionReceiverCommonData.m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent)
 {
     m_cancelSegmentTimerExpiredCallback = boost::bind(&LtpEngine::CancelSegmentTimerExpiredCallback,
-        this, boost::placeholders::_1, boost::placeholders::_2);
+        this, boost::placeholders::_2, boost::placeholders::_3); //boost::placeholders::_1 is unused for classPtr, 
 
     //session receiver functions to be passed in AS REFERENCES
     m_notifyEngineThatThisReceiverNeedsDeletedCallback = boost::bind(&LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback,
@@ -115,6 +123,10 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
         this, boost::placeholders::_1);
     m_notifyEngineThatThisReceiverCompletedDeferredOperationFunction = boost::bind(&LtpEngine::NotifyEngineThatThisReceiverCompletedDeferredOperation,
         this);
+    m_rsnTimerExpiredCallback = boost::bind(&LtpEngine::LtpSessionReceiverReportSegmentTimerExpiredCallback, this,
+        boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3);
+    m_delayedReceptionReportTimerExpiredCallback = boost::bind(&LtpEngine::LtpSessionReceiverDelaySendReportSegmentTimerExpiredCallback, this,
+        boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3);
 
     //session sender functions to be passed in AS REFERENCES
     m_notifyEngineThatThisSenderNeedsDeletedCallback = boost::bind(&LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback,
@@ -123,6 +135,10 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
         this, boost::placeholders::_1);
     m_initialTransmissionCompletedCallbackCalledBySender = boost::bind(&LtpEngine::InitialTransmissionCompletedCallback,
         this, boost::placeholders::_1, boost::placeholders::_2);
+    m_csnTimerExpiredCallback = boost::bind(&LtpEngine::LtpSessionSenderCheckpointTimerExpiredCallback, this,
+        boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3);
+    m_delayedDataSegmentsTimerExpiredCallback = boost::bind(&LtpEngine::LtpSessionSenderDelaySendDataSegmentsTimerExpiredCallback, this,
+        boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3);
 
     m_ltpRxStateMachine.SetCancelSegmentContentsReadCallback(boost::bind(&LtpEngine::CancelSegmentReceivedCallback, this,
         boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
@@ -616,7 +632,7 @@ bool LtpEngine::GetNextPacketToSend(UdpSendPacketInfo& udpSendPacketInfo) {
         udpSendPacketInfo.sessionOriginatorEngineId = info.sessionId.sessionOriginatorEngineId;
 
         const uint8_t * const infoPtr = (uint8_t*)&info;
-        m_timeManagerOfCancelSegments.StartTimer(info.sessionId, &m_cancelSegmentTimerExpiredCallback, std::vector<uint8_t>(infoPtr, infoPtr + sizeof(info)));
+        m_timeManagerOfCancelSegments.StartTimer(NULL, info.sessionId, &m_cancelSegmentTimerExpiredCallback, std::vector<uint8_t>(infoPtr, infoPtr + sizeof(info)));
         m_queueCancelSegmentTimerInfo.pop();
         return true;
     }
@@ -1589,4 +1605,17 @@ void LtpEngine::EraseTxSession(map_session_number_to_session_sender_t::iterator&
 void LtpEngine::EraseRxSession(map_session_id_to_session_receiver_t::iterator& rxSessionIt) {
     //const LtpSessionReceiver & rxSession = rxSessionIt->second;
     m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
+}
+
+void LtpEngine::LtpSessionReceiverReportSegmentTimerExpiredCallback(void* classPtr, const Ltp::session_id_t& reportSerialNumberPlusSessionNumber, std::vector<uint8_t>& userData) {
+    (reinterpret_cast<LtpSessionReceiver*>(classPtr))->LtpReportSegmentTimerExpiredCallback(reportSerialNumberPlusSessionNumber, userData);
+}
+void LtpEngine::LtpSessionReceiverDelaySendReportSegmentTimerExpiredCallback(void* classPtr, const Ltp::session_id_t& checkpointSerialNumberPlusSessionNumber, std::vector<uint8_t>& userData) {
+    (reinterpret_cast<LtpSessionReceiver*>(classPtr))->LtpDelaySendReportSegmentTimerExpiredCallback(checkpointSerialNumberPlusSessionNumber, userData);
+}
+void LtpEngine::LtpSessionSenderCheckpointTimerExpiredCallback(void* classPtr, const Ltp::session_id_t& checkpointSerialNumberPlusSessionNumber, std::vector<uint8_t>& userData) {
+    (reinterpret_cast<LtpSessionSender*>(classPtr))->LtpCheckpointTimerExpiredCallback(checkpointSerialNumberPlusSessionNumber, userData);
+}
+void LtpEngine::LtpSessionSenderDelaySendDataSegmentsTimerExpiredCallback(void* classPtr, const uint64_t& sessionNumber, std::vector<uint8_t>& userData) {
+    (reinterpret_cast<LtpSessionSender*>(classPtr))->LtpDelaySendDataSegmentsTimerExpiredCallback(sessionNumber, userData);
 }

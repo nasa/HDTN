@@ -26,7 +26,9 @@ LtpSessionReceiver::LtpSessionReceiverCommonData::LtpSessionReceiverCommonData(
     uint64_t maxRedRxBytes,
     uint32_t& maxRetriesPerSerialNumberRef,
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& timeManagerOfReportSerialNumbersRef,
+    const LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t& rsnTimerExpiredCallbackRef,
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& timeManagerOfSendingDelayedReceptionReportsRef,
+    const LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t& delayedReceptionReportTimerExpiredCallbackRef,
     const NotifyEngineThatThisReceiverNeedsDeletedCallback_t& notifyEngineThatThisReceiverNeedsDeletedCallbackRef,
     const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t& notifyEngineThatThisReceiversTimersHasProducibleDataFunctionRef,
     const NotifyEngineThatThisReceiverCompletedDeferredOperationFunction_t& notifyEngineThatThisReceiverCompletedDeferredOperationFunctionRef,
@@ -40,7 +42,9 @@ LtpSessionReceiver::LtpSessionReceiverCommonData::LtpSessionReceiverCommonData(
     m_maxRedRxBytes(maxRedRxBytes),
     m_maxRetriesPerSerialNumberRef(maxRetriesPerSerialNumberRef),
     m_timeManagerOfReportSerialNumbersRef(timeManagerOfReportSerialNumbersRef),
+    m_rsnTimerExpiredCallbackRef(rsnTimerExpiredCallbackRef),
     m_timeManagerOfSendingDelayedReceptionReportsRef(timeManagerOfSendingDelayedReceptionReportsRef),
+    m_delayedReceptionReportTimerExpiredCallbackRef(delayedReceptionReportTimerExpiredCallbackRef),
     m_notifyEngineThatThisReceiverNeedsDeletedCallbackRef(notifyEngineThatThisReceiverNeedsDeletedCallbackRef),
     m_notifyEngineThatThisReceiversTimersHasProducibleDataFunctionRef(notifyEngineThatThisReceiversTimersHasProducibleDataFunctionRef),
     m_notifyEngineThatThisReceiverCompletedDeferredOperationFunctionRef(notifyEngineThatThisReceiverCompletedDeferredOperationFunctionRef),
@@ -78,9 +82,6 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
     m_receivedEobFromGreenOrRed(false),
     m_calledCancelledCallback(false)
 {
-    m_timerExpiredCallback = boost::bind(&LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2);
-    m_delayedReceptionReportTimerExpiredCallback = boost::bind(&LtpSessionReceiver::LtpDelaySendReportSegmentTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2);
-
     if (m_ltpSessionReceiverCommonDataRef.m_memoryInFilesPtrRef) {
         m_memoryBlockId = m_ltpSessionReceiverCommonDataRef.m_memoryInFilesPtrRef->AllocateNewWriteMemoryBlock(
             m_ltpSessionReceiverCommonDataRef.m_estimatedBytesToReceive + (static_cast<bool>(m_ltpSessionReceiverCommonDataRef.m_estimatedBytesToReceive == 0)));
@@ -242,7 +243,9 @@ bool LtpSessionReceiver::NextDataToSend(UdpSendPacketInfo& udpSendPacketInfo) {
         m_reportSerialNumberActiveTimersList.emplace_front(rsn); //keep track of this receiving session's active timers within the shared LtpTimerManager
         userDataPtr->itReportSerialNumberActiveTimersList = m_reportSerialNumberActiveTimersList.begin();
         userDataPtr->retryCount = retryCount;
-        if (!m_ltpSessionReceiverCommonDataRef.m_timeManagerOfReportSerialNumbersRef.StartTimer(reportSerialNumberPlusSessionNumber, &m_timerExpiredCallback, std::move(userData))) {
+        if (!m_ltpSessionReceiverCommonDataRef.m_timeManagerOfReportSerialNumbersRef.StartTimer(this,
+            reportSerialNumberPlusSessionNumber, &m_ltpSessionReceiverCommonDataRef.m_rsnTimerExpiredCallbackRef, std::move(userData)))
+        {
             m_reportSerialNumberActiveTimersList.erase(m_reportSerialNumberActiveTimersList.begin());
             LOG_ERROR(subprocess) << "LtpSessionReceiver::NextDataToSend: did not start timer";
         }
@@ -575,7 +578,9 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                         std::vector<uint8_t> userData(sizeof(itRsPending));
                         rs_pending_map_t::iterator* itRsPendingPtr = (rs_pending_map_t::iterator*) userData.data();
                         *itRsPendingPtr = itRsPending;
-                        if (!m_ltpSessionReceiverCommonDataRef.m_timeManagerOfSendingDelayedReceptionReportsRef.StartTimer(checkpointSerialNumberPlusSessionNumber, &m_delayedReceptionReportTimerExpiredCallback, std::move(userData))) {
+                        if (!m_ltpSessionReceiverCommonDataRef.m_timeManagerOfSendingDelayedReceptionReportsRef.StartTimer(this,
+                            checkpointSerialNumberPlusSessionNumber, &m_ltpSessionReceiverCommonDataRef.m_delayedReceptionReportTimerExpiredCallbackRef, std::move(userData)))
+                        {
                             LOG_ERROR(subprocess) << "unexpected error in LtpSessionReceiver::DataSegmentReceivedCallback: unable to start m_timeManagerOfSendingDelayedReceptionReportsRef timer for "
                                 << ((checkpointIsResponseToReportSegment) ? "secondary" : "primary") << " reception report";
                         }

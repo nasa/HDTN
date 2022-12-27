@@ -43,13 +43,14 @@ class LtpSessionReceiver : private boost::noncopyable {
 private:
     LtpSessionReceiver() = delete;
 
-    LTP_LIB_NO_EXPORT void LtpDelaySendReportSegmentTimerExpiredCallback(const Ltp::session_id_t& checkpointSerialNumberPlusSessionNumber, std::vector<uint8_t>& userData);
-    LTP_LIB_NO_EXPORT void LtpReportSegmentTimerExpiredCallback(const Ltp::session_id_t & reportSerialNumberPlusSessionNumber, std::vector<uint8_t> & userData);
     LTP_LIB_NO_EXPORT void HandleGenerateAndSendReportSegment(const uint64_t checkpointSerialNumber,
         const uint64_t lowerBound, const uint64_t upperBound, const bool checkpointIsResponseToReportSegment);
     LTP_LIB_NO_EXPORT void OnDataSegmentWrittenToDisk(std::shared_ptr<std::vector<uint8_t> >& clientServiceDataReceivedSharedPtr, bool isEndOfBlock);
     LTP_LIB_NO_EXPORT void OnRedDataRecoveredFromDisk(bool success, bool isEndOfBlock);
 public:
+    //these two are public now because they are invoked by LtpEngine (eliminates need for each session to have its own expensive boost::function) 
+    LTP_LIB_EXPORT void LtpDelaySendReportSegmentTimerExpiredCallback(const Ltp::session_id_t& checkpointSerialNumberPlusSessionNumber, std::vector<uint8_t>& userData);
+    LTP_LIB_EXPORT void LtpReportSegmentTimerExpiredCallback(const Ltp::session_id_t& reportSerialNumberPlusSessionNumber, std::vector<uint8_t>& userData);
 
     //The LtpEngine shall have one copy of this struct and pass it's reference to each LtpSessionReceiver
     struct LtpSessionReceiverCommonData : private boost::noncopyable {
@@ -61,7 +62,9 @@ public:
             uint64_t maxRedRxBytes,
             uint32_t& maxRetriesPerSerialNumberRef,
             LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& timeManagerOfReportSerialNumbersRef,
+            const LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t& rsnTimerExpiredCallbackRef,
             LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& timeManagerOfSendingDelayedReceptionReportsRef,
+            const LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t& delayedReceptionReportTimerExpiredCallbackRef,
             const NotifyEngineThatThisReceiverNeedsDeletedCallback_t& notifyEngineThatThisReceiverNeedsDeletedCallbackRef,
             const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t& notifyEngineThatThisReceiversTimersHasProducibleDataFunctionRef,
             const NotifyEngineThatThisReceiverCompletedDeferredOperationFunction_t& notifyEngineThatThisReceiverCompletedDeferredOperationFunctionRef,
@@ -76,7 +79,10 @@ public:
         uint32_t& m_maxRetriesPerSerialNumberRef;
 
         LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& m_timeManagerOfReportSerialNumbersRef;
+        const LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t& m_rsnTimerExpiredCallbackRef;
         LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& m_timeManagerOfSendingDelayedReceptionReportsRef;
+        const LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t& m_delayedReceptionReportTimerExpiredCallbackRef;
+
         const NotifyEngineThatThisReceiverNeedsDeletedCallback_t& m_notifyEngineThatThisReceiverNeedsDeletedCallbackRef;
         const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t& m_notifyEngineThatThisReceiversTimersHasProducibleDataFunctionRef;
         const NotifyEngineThatThisReceiverCompletedDeferredOperationFunction_t& m_notifyEngineThatThisReceiverCompletedDeferredOperationFunctionRef;
@@ -125,7 +131,6 @@ private:
     typedef std::pair<report_segments_sent_map_t::const_iterator, uint32_t> it_retrycount_pair_t; //pair<iterator from m_mapAllReportSegmentsSent, retryCount>
     std::queue<it_retrycount_pair_t> m_reportsToSendQueue;
     
-    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_timerExpiredCallback;
     std::list<uint64_t> m_reportSerialNumberActiveTimersList;
     
     struct rsntimer_userdata_t {
@@ -134,7 +139,6 @@ private:
         uint32_t retryCount;
     };
 
-    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_delayedReceptionReportTimerExpiredCallback;
     //(rsLowerBound, rsUpperBound) to (checkpointSerialNumberToWhichRsPertains, checkpointIsResponseToReportSegment) map
     typedef std::pair<uint64_t, bool> csn_issecondary_pair_t;
     typedef std::map<FragmentSet::data_fragment_no_overlap_allow_abut_t, csn_issecondary_pair_t> rs_pending_map_t;
