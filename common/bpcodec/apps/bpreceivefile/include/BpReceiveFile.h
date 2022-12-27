@@ -25,10 +25,10 @@ public:
     typedef std::map<boost::filesystem::path, fragments_ofstream_pair_t> filename_to_writeinfo_map_t;
 
     BpReceiveFile(const boost::filesystem::path & saveDirectory);
-    virtual ~BpReceiveFile();
+    virtual ~BpReceiveFile() override;
 
 protected:
-    virtual bool ProcessPayload(const uint8_t * data, const uint64_t size);
+    virtual bool ProcessPayload(const uint8_t * data, const uint64_t size) override;
 public:
     boost::filesystem::path m_saveDirectory;
     filename_to_writeinfo_map_t m_filenameToWriteInfoMap;

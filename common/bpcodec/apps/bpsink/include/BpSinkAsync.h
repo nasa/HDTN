@@ -17,10 +17,10 @@ struct FinalStatsBpSink {
 class BpSinkAsync : public BpSinkPattern {
 public:
     BpSinkAsync();
-    virtual ~BpSinkAsync();
+    virtual ~BpSinkAsync() override;
 
 protected:
-    virtual bool ProcessPayload(const uint8_t * data, const uint64_t size);
+    virtual bool ProcessPayload(const uint8_t * data, const uint64_t size) override;
 public:
 
     FinalStatsBpSink m_FinalStatsBpSink;

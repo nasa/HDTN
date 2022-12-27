@@ -35,7 +35,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
     struct MyTransmissionUserData : public LtpTransmissionRequestUserData {
         MyTransmissionUserData() : m_data(0) {}
         MyTransmissionUserData(const unsigned int data) : m_data(data) {}
-        virtual ~MyTransmissionUserData() {}
+        virtual ~MyTransmissionUserData() override {}
 
         unsigned int m_data;
     };

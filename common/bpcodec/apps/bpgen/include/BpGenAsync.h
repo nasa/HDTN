@@ -8,11 +8,11 @@ private:
     BpGenAsync();
 public:
     BpGenAsync(uint64_t bundleSizeBytes);
-    virtual ~BpGenAsync();
+    virtual ~BpGenAsync() override;
     
 protected:
-    virtual uint64_t GetNextPayloadLength_Step1();
-    virtual bool CopyPayload_Step2(uint8_t * destinationBuffer);
+    virtual uint64_t GetNextPayloadLength_Step1() override;
+    virtual bool CopyPayload_Step2(uint8_t * destinationBuffer) override;
 private:
     uint64_t m_bundleSizeBytes;
     uint64_t m_bpGenSequenceNumber;

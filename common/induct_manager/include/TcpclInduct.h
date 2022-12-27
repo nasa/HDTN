@@ -13,7 +13,7 @@ public:
     INDUCT_MANAGER_LIB_EXPORT TcpclInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig,
         const uint64_t myNodeId, const uint64_t maxBundleSizeBytes, const OnNewOpportunisticLinkCallback_t & onNewOpportunisticLinkCallback,
         const OnDeletedOpportunisticLinkCallback_t & onDeletedOpportunisticLinkCallback);
-    INDUCT_MANAGER_LIB_EXPORT virtual ~TcpclInduct();
+    INDUCT_MANAGER_LIB_EXPORT virtual ~TcpclInduct() override;
     
 private:
     
@@ -26,7 +26,7 @@ private:
     INDUCT_MANAGER_LIB_EXPORT void DisableRemoveInactiveTcpConnections();
     INDUCT_MANAGER_LIB_EXPORT void OnContactHeaderCallback_FromIoServiceThread(TcpclBundleSink * thisTcpclBundleSinkPtr);
     INDUCT_MANAGER_LIB_EXPORT void NotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId);
-    INDUCT_MANAGER_LIB_EXPORT virtual void Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId);
+    INDUCT_MANAGER_LIB_EXPORT virtual void Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId) override;
 
     boost::asio::io_service m_ioService;
     boost::asio::ip::tcp::acceptor m_tcpAcceptor;

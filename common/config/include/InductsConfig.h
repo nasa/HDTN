@@ -123,8 +123,8 @@ public:
     CONFIG_LIB_EXPORT static InductsConfig_ptr CreateFromPtree(const boost::property_tree::ptree & pt);
     CONFIG_LIB_EXPORT static InductsConfig_ptr CreateFromJson(const std::string& jsonString, bool verifyNoUnusedJsonKeys = true);
     CONFIG_LIB_EXPORT static InductsConfig_ptr CreateFromJsonFilePath(const boost::filesystem::path& jsonFilePath, bool verifyNoUnusedJsonKeys = true);
-    CONFIG_LIB_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const;
-    CONFIG_LIB_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree & pt);
+    CONFIG_LIB_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CONFIG_LIB_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree & pt) override;
 
 public:
 

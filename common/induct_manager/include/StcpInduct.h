@@ -10,7 +10,7 @@
 class CLASS_VISIBILITY_INDUCT_MANAGER_LIB StcpInduct : public Induct {
 public:
     INDUCT_MANAGER_LIB_EXPORT StcpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig, const uint64_t maxBundleSizeBytes);
-    INDUCT_MANAGER_LIB_EXPORT virtual ~StcpInduct();
+    INDUCT_MANAGER_LIB_EXPORT virtual ~StcpInduct() override;
     
 private:
     INDUCT_MANAGER_LIB_EXPORT StcpInduct();

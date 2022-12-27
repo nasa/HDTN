@@ -54,7 +54,7 @@ public:
         //const TryGetOpportunisticDataFunction_t & tryGetOpportunisticDataFunction = TryGetOpportunisticDataFunction_t(),
         //const NotifyOpportunisticDataAckedCallback_t & notifyOpportunisticDataAckedCallback = NotifyOpportunisticDataAckedCallback_t(),
         const unsigned int maxUnacked = 10, const uint64_t maxFragmentSize = 100000000 ); //todo
-    TCPCL_LIB_EXPORT virtual ~TcpclV4BundleSink();
+    TCPCL_LIB_EXPORT virtual ~TcpclV4BundleSink() override;
     TCPCL_LIB_EXPORT bool ReadyToBeDeleted();
     TCPCL_LIB_EXPORT uint64_t GetRemoteNodeId() const;
     TCPCL_LIB_EXPORT void TrySendOpportunisticBundleIfAvailable_FromIoServiceThread();
@@ -73,12 +73,12 @@ private:
     TCPCL_LIB_NO_EXPORT void HandleTcpReceiveSomeUnsecure(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
     TCPCL_LIB_NO_EXPORT void PopCbThreadFunc();
     
-    TCPCL_LIB_NO_EXPORT virtual void Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread();
-    TCPCL_LIB_NO_EXPORT virtual void Virtual_OnSuccessfulWholeBundleAcknowledged();
-    TCPCL_LIB_NO_EXPORT virtual void Virtual_WholeBundleReady(padded_vector_uint8_t & wholeBundleVec);
-    TCPCL_LIB_NO_EXPORT virtual void Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread();
-    TCPCL_LIB_NO_EXPORT virtual void Virtual_OnTcpSendContactHeaderSuccessful_CalledFromIoServiceThread();
-    TCPCL_LIB_NO_EXPORT virtual void Virtual_OnSessionInitReceivedAndProcessedSuccessfully();
+    TCPCL_LIB_NO_EXPORT virtual void Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread() override;
+    TCPCL_LIB_NO_EXPORT virtual void Virtual_OnSuccessfulWholeBundleAcknowledged() override;
+    TCPCL_LIB_NO_EXPORT virtual void Virtual_WholeBundleReady(padded_vector_uint8_t & wholeBundleVec) override;
+    TCPCL_LIB_NO_EXPORT virtual void Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread() override;
+    TCPCL_LIB_NO_EXPORT virtual void Virtual_OnTcpSendContactHeaderSuccessful_CalledFromIoServiceThread() override;
+    TCPCL_LIB_NO_EXPORT virtual void Virtual_OnSessionInitReceivedAndProcessedSuccessfully() override;
 
     
 

@@ -22,13 +22,13 @@ public:
         uint8_t unused3;
     };
     BpSendFile(const boost::filesystem::path & fileOrFolderPath, uint64_t maxBundleSizeBytes, bool uploadExistingFiles, bool uploadNewFiles, unsigned int recurseDirectoriesDepth);
-    virtual ~BpSendFile();
+    virtual ~BpSendFile() override;
     std::size_t GetNumberOfFilesToSend() const;
 
 protected:
-    virtual bool TryWaitForDataAvailable(const boost::posix_time::time_duration& timeout);
-    virtual uint64_t GetNextPayloadLength_Step1();
-    virtual bool CopyPayload_Step2(uint8_t * destinationBuffer);
+    virtual bool TryWaitForDataAvailable(const boost::posix_time::time_duration& timeout) override;
+    virtual uint64_t GetNextPayloadLength_Step1() override;
+    virtual bool CopyPayload_Step2(uint8_t * destinationBuffer) override;
 private:
     void Shutdown_NotThreadSafe();
 private:

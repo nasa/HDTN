@@ -29,14 +29,14 @@ public:
     STORAGE_LIB_EXPORT BundleStorageManagerMT();
     STORAGE_LIB_EXPORT BundleStorageManagerMT(const boost::filesystem::path& jsonConfigFilePath);
     STORAGE_LIB_EXPORT BundleStorageManagerMT(const StorageConfig_ptr & storageConfigPtr);
-    STORAGE_LIB_EXPORT virtual ~BundleStorageManagerMT();
-    STORAGE_LIB_EXPORT virtual void Start();
+    STORAGE_LIB_EXPORT virtual ~BundleStorageManagerMT() override;
+    STORAGE_LIB_EXPORT virtual void Start() override;
 
 
 private:
     STORAGE_LIB_NO_EXPORT void StopAllDiskThreads();
     STORAGE_LIB_NO_EXPORT void ThreadFunc(unsigned int threadIndex);
-    STORAGE_LIB_NO_EXPORT virtual void CommitWriteAndNotifyDiskOfWorkToDo_ThreadSafe(const unsigned int diskId);
+    STORAGE_LIB_NO_EXPORT virtual void CommitWriteAndNotifyDiskOfWorkToDo_ThreadSafe(const unsigned int diskId) override;
 private:
 
     //boost::condition_variable m_conditionVariables[NUM_STORAGE_THREADS];
