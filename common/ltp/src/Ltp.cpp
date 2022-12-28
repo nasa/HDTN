@@ -23,6 +23,9 @@
 #include <nmmintrin.h>
 #endif
 
+ /// The largest possible encoding of a 64-bit value
+static constexpr unsigned int SdnvMaximumEncodedSize = 10;
+
 Ltp::session_id_t::session_id_t() : sessionOriginatorEngineId(0), sessionNumber(0) { } //a default constructor: X()
 Ltp::session_id_t::session_id_t(uint64_t paramSessionOriginatorEngineId, uint64_t paramSessionNumber) :
     sessionOriginatorEngineId(paramSessionOriginatorEngineId), sessionNumber(paramSessionNumber) { }
@@ -190,7 +193,7 @@ uint64_t Ltp::report_segment_t::Serialize(uint8_t * serialization) const {
     return serialization - serializationBase;
 }
 uint64_t Ltp::report_segment_t::GetMaximumDataRequiredForSerialization() const {
-    return (5 * 10) + (receptionClaims.size() * (2 * 10)); //5 sdnvs * 10 bytes sdnv max + reception claims * 2sdnvs per claim
+    return (5 * SdnvMaximumEncodedSize) + (receptionClaims.size() * (2 * SdnvMaximumEncodedSize)); //5 sdnvs * 10 bytes sdnv max + reception claims * 2sdnvs per claim
 }
 
 Ltp::ltp_extension_t::ltp_extension_t() : tag(0) { } //a default constructor: X()
@@ -218,7 +221,7 @@ void Ltp::ltp_extension_t::AppendSerialize(std::vector<uint8_t> & serialization)
 
     //sdnv encode length (valueVec.size())
     const uint64_t originalSize = serialization.size();
-    serialization.resize(originalSize + 10); //10 is largest sdnv buffer required for encode
+    serialization.resize(originalSize + SdnvMaximumEncodedSize); // SdnvMaximumEncodedSize (10) is largest sdnv buffer required for encode
     const unsigned int outputSizeBytesLengthSdnv = SdnvEncodeU64BufSize10(&serialization[originalSize], valueVec.size());
     serialization.resize(originalSize + outputSizeBytesLengthSdnv);
 
@@ -269,7 +272,7 @@ uint64_t Ltp::ltp_extensions_t::Serialize(uint8_t * serialization) const {
     return serialization - serializationBase;
 }
 uint64_t Ltp::ltp_extensions_t::GetMaximumDataRequiredForSerialization() const {
-    uint64_t maximumBytesRequired = extensionsVec.size() * 11; //tag plus 10 bytes sdnv max
+    uint64_t maximumBytesRequired = extensionsVec.size() * (1 + SdnvMaximumEncodedSize); //tag plus 10 bytes sdnv max
     for (std::vector<ltp_extension_t>::const_iterator it = extensionsVec.cbegin(); it != extensionsVec.cend(); ++it) {
         maximumBytesRequired += it->valueVec.size();
     }
@@ -316,7 +319,14 @@ uint64_t Ltp::data_segment_metadata_t::Serialize(uint8_t * serialization) const 
     return serialization - serializationBase;
 }
 uint64_t Ltp::data_segment_metadata_t::GetMaximumDataRequiredForSerialization() const {
-    return (3 * 10) + ((static_cast<bool>(checkpointSerialNumber && reportSerialNumber)) * (static_cast<uint8_t>(2 * 10))); //5 sdnvs * 10 bytes sdnv max + reception claims * 2sdnvs per claim
+    //5 sdnvs if it's a checkpoint and 3 otherwise, per LTP RFC:
+    //If the data segment is a checkpoint, the segment MUST additionally
+    //include the following two serial numbers (checkpoint serial number
+    //and report serial number) to support efficient retransmission. Data
+    //segments that are not checkpoints MUST NOT have these two fields in
+    //the header and MUST continue on directly with the client service data.
+    return (3 * SdnvMaximumEncodedSize)
+        + ((static_cast<bool>(checkpointSerialNumber && reportSerialNumber)) * (static_cast<uint8_t>(2 * SdnvMaximumEncodedSize))); 
 }
 
 Ltp::Ltp() {
@@ -445,8 +455,8 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, bool
             }
             else if (headerRxState == LTP_HEADER_RX_STATE::READ_SESSION_ORIGINATOR_ENGINE_ID_SDNV) {
                 m_sdnvTempVec.push_back(rxVal);
-                if (m_sdnvTempVec.size() > 10) {
-                    errorMessage = "error in LTP_HEADER_RX_STATE::READ_SESSION_ORIGINATOR_ENGINE_ID_SDNV, sdnv > 10 bytes";
+                if (m_sdnvTempVec.size() > SdnvMaximumEncodedSize) {
+                    errorMessage = "error in LTP_HEADER_RX_STATE::READ_SESSION_ORIGINATOR_ENGINE_ID_SDNV, sdnv > SdnvMaximumEncodedSize bytes";
                     return false;
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
@@ -467,8 +477,8 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, bool
             }
             else if (headerRxState == LTP_HEADER_RX_STATE::READ_SESSION_NUMBER_SDNV) {
                 m_sdnvTempVec.push_back(rxVal);
-                if (m_sdnvTempVec.size() > 10) {
-                    errorMessage = "error in LTP_HEADER_RX_STATE::READ_SESSION_NUMBER_SDNV, sdnv > 10 bytes";
+                if (m_sdnvTempVec.size() > SdnvMaximumEncodedSize) {
+                    errorMessage = "error in LTP_HEADER_RX_STATE::READ_SESSION_NUMBER_SDNV, sdnv > SdnvMaximumEncodedSize bytes";
                     return false;
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
@@ -515,8 +525,8 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, bool
             }
             else if (headerRxState == LTP_HEADER_RX_STATE::READ_ONE_HEADER_EXTENSION_LENGTH_SDNV) {
                 m_sdnvTempVec.push_back(rxVal);
-                if (m_sdnvTempVec.size() > 10) {
-                    errorMessage = "error in LTP_HEADER_RX_STATE::READ_ONE_HEADER_EXTENSION_LENGTH_SDNV, sdnv > 10 bytes";
+                if (m_sdnvTempVec.size() > SdnvMaximumEncodedSize) {
+                    errorMessage = "error in LTP_HEADER_RX_STATE::READ_ONE_HEADER_EXTENSION_LENGTH_SDNV, sdnv > SdnvMaximumEncodedSize bytes";
                     return false;
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
@@ -567,8 +577,8 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, bool
             const LTP_DATA_SEGMENT_RX_STATE dataSegmentRxState = m_dataSegmentRxState; //const for optimization
             if (dataSegmentRxState == LTP_DATA_SEGMENT_RX_STATE::READ_CLIENT_SERVICE_ID_SDNV) {
                 m_sdnvTempVec.push_back(rxVal);
-                if (m_sdnvTempVec.size() > 10) {
-                    errorMessage = "error in LTP_DATA_SEGMENT_RX_STATE::READ_CLIENT_SERVICE_ID_SDNV, sdnv > 10 bytes";
+                if (m_sdnvTempVec.size() > SdnvMaximumEncodedSize) {
+                    errorMessage = "error in LTP_DATA_SEGMENT_RX_STATE::READ_CLIENT_SERVICE_ID_SDNV, sdnv > SdnvMaximumEncodedSize bytes";
                     return false;
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
@@ -586,8 +596,8 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, bool
             }
             else if (dataSegmentRxState == LTP_DATA_SEGMENT_RX_STATE::READ_OFFSET_SDNV) {
                 m_sdnvTempVec.push_back(rxVal);
-                if (m_sdnvTempVec.size() > 10) {
-                    errorMessage = "error in LTP_DATA_SEGMENT_RX_STATE::READ_OFFSET_SDNV, sdnv > 10 bytes";
+                if (m_sdnvTempVec.size() > SdnvMaximumEncodedSize) {
+                    errorMessage = "error in LTP_DATA_SEGMENT_RX_STATE::READ_OFFSET_SDNV, sdnv > SdnvMaximumEncodedSize bytes";
                     return false;
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
@@ -605,8 +615,8 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, bool
             }
             else if (dataSegmentRxState == LTP_DATA_SEGMENT_RX_STATE::READ_LENGTH_SDNV) {
                 m_sdnvTempVec.push_back(rxVal);
-                if (m_sdnvTempVec.size() > 10) {
-                    errorMessage = "error in LTP_DATA_SEGMENT_RX_STATE::READ_LENGTH_SDNV, sdnv > 10 bytes";
+                if (m_sdnvTempVec.size() > SdnvMaximumEncodedSize) {
+                    errorMessage = "error in LTP_DATA_SEGMENT_RX_STATE::READ_LENGTH_SDNV, sdnv > SdnvMaximumEncodedSize bytes";
                     return false;
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
@@ -637,8 +647,8 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, bool
             }
             else if (dataSegmentRxState == LTP_DATA_SEGMENT_RX_STATE::READ_CHECKPOINT_SERIAL_NUMBER_SDNV) {
                 m_sdnvTempVec.push_back(rxVal);
-                if (m_sdnvTempVec.size() > 10) {
-                    errorMessage = "error in LTP_DATA_SEGMENT_RX_STATE::READ_CHECKPOINT_SERIAL_NUMBER_SDNV, sdnv > 10 bytes";
+                if (m_sdnvTempVec.size() > SdnvMaximumEncodedSize) {
+                    errorMessage = "error in LTP_DATA_SEGMENT_RX_STATE::READ_CHECKPOINT_SERIAL_NUMBER_SDNV, sdnv > SdnvMaximumEncodedSize bytes";
                     return false;
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
@@ -656,8 +666,8 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, bool
             }
             else if (dataSegmentRxState == LTP_DATA_SEGMENT_RX_STATE::READ_REPORT_SERIAL_NUMBER_SDNV) {
                 m_sdnvTempVec.push_back(rxVal);
-                if (m_sdnvTempVec.size() > 10) {
-                    errorMessage = "error in LTP_DATA_SEGMENT_RX_STATE::READ_REPORT_SERIAL_NUMBER_SDNV, sdnv > 10 bytes";
+                if (m_sdnvTempVec.size() > SdnvMaximumEncodedSize) {
+                    errorMessage = "error in LTP_DATA_SEGMENT_RX_STATE::READ_REPORT_SERIAL_NUMBER_SDNV, sdnv > SdnvMaximumEncodedSize bytes";
                     return false;
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
@@ -706,8 +716,8 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, bool
             const LTP_REPORT_SEGMENT_RX_STATE reportSegmentRxState = m_reportSegmentRxState; //const for optimization
             if (reportSegmentRxState == LTP_REPORT_SEGMENT_RX_STATE::READ_REPORT_SERIAL_NUMBER_SDNV) {
                 m_sdnvTempVec.push_back(rxVal);
-                if (m_sdnvTempVec.size() > 10) {
-                    errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_REPORT_SERIAL_NUMBER_SDNV, sdnv > 10 bytes";
+                if (m_sdnvTempVec.size() > SdnvMaximumEncodedSize) {
+                    errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_REPORT_SERIAL_NUMBER_SDNV, sdnv > SdnvMaximumEncodedSize bytes";
                     return false;
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
@@ -725,8 +735,8 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, bool
             }
             else if (reportSegmentRxState == LTP_REPORT_SEGMENT_RX_STATE::READ_CHECKPOINT_SERIAL_NUMBER_SDNV) {
                 m_sdnvTempVec.push_back(rxVal);
-                if (m_sdnvTempVec.size() > 10) {
-                    errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_CHECKPOINT_SERIAL_NUMBER_SDNV, sdnv > 10 bytes";
+                if (m_sdnvTempVec.size() > SdnvMaximumEncodedSize) {
+                    errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_CHECKPOINT_SERIAL_NUMBER_SDNV, sdnv > SdnvMaximumEncodedSize bytes";
                     return false;
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
@@ -744,8 +754,8 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, bool
             }
             else if (reportSegmentRxState == LTP_REPORT_SEGMENT_RX_STATE::READ_UPPER_BOUND_SDNV) {
                 m_sdnvTempVec.push_back(rxVal);
-                if (m_sdnvTempVec.size() > 10) {
-                    errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_UPPER_BOUND_SDNV, sdnv > 10 bytes";
+                if (m_sdnvTempVec.size() > SdnvMaximumEncodedSize) {
+                    errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_UPPER_BOUND_SDNV, sdnv > SdnvMaximumEncodedSize bytes";
                     return false;
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
@@ -763,8 +773,8 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, bool
             }
             else if (reportSegmentRxState == LTP_REPORT_SEGMENT_RX_STATE::READ_LOWER_BOUND_SDNV) {
                 m_sdnvTempVec.push_back(rxVal);
-                if (m_sdnvTempVec.size() > 10) {
-                    errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_LOWER_BOUND_SDNV, sdnv > 10 bytes";
+                if (m_sdnvTempVec.size() > SdnvMaximumEncodedSize) {
+                    errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_LOWER_BOUND_SDNV, sdnv > SdnvMaximumEncodedSize bytes";
                     return false;
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
@@ -782,8 +792,8 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, bool
             }
             else if (reportSegmentRxState == LTP_REPORT_SEGMENT_RX_STATE::READ_RECEPTION_CLAIM_COUNT_SDNV) {
                 m_sdnvTempVec.push_back(rxVal);
-                if (m_sdnvTempVec.size() > 10) {
-                    errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_RECEPTION_CLAIM_COUNT_SDNV, sdnv > 10 bytes";
+                if (m_sdnvTempVec.size() > SdnvMaximumEncodedSize) {
+                    errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_RECEPTION_CLAIM_COUNT_SDNV, sdnv > SdnvMaximumEncodedSize bytes";
                     return false;
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
@@ -807,8 +817,8 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, bool
             }
             else if (reportSegmentRxState == LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV) {
                 m_sdnvTempVec.push_back(rxVal);
-                if (m_sdnvTempVec.size() > 10) {
-                    errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV, sdnv > 10 bytes";
+                if (m_sdnvTempVec.size() > SdnvMaximumEncodedSize) {
+                    errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV, sdnv > SdnvMaximumEncodedSize bytes";
                     return false;
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
@@ -828,8 +838,8 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, bool
             }
             else if (reportSegmentRxState == LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_LENGTH_SDNV) {
                 m_sdnvTempVec.push_back(rxVal);
-                if (m_sdnvTempVec.size() > 10) {
-                    errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_LENGTH_SDNV, sdnv > 10 bytes";
+                if (m_sdnvTempVec.size() > SdnvMaximumEncodedSize) {
+                    errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_LENGTH_SDNV, sdnv > SdnvMaximumEncodedSize bytes";
                     return false;
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
@@ -866,8 +876,8 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, bool
         }
         else if (mainRxState == LTP_MAIN_RX_STATE::READ_REPORT_ACKNOWLEDGEMENT_SEGMENT_CONTENT) {
             m_sdnvTempVec.push_back(rxVal);
-            if (m_sdnvTempVec.size() > 10) {
-                errorMessage = "error in LTP_MAIN_RX_STATE::READ_REPORT_ACKNOWLEDGEMENT_SEGMENT_CONTENT, sdnv > 10 bytes";
+            if (m_sdnvTempVec.size() > SdnvMaximumEncodedSize) {
+                errorMessage = "error in LTP_MAIN_RX_STATE::READ_REPORT_ACKNOWLEDGEMENT_SEGMENT_CONTENT, sdnv > SdnvMaximumEncodedSize bytes";
                 return false;
             }
             else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
@@ -920,8 +930,8 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, bool
             }
             else if (trailerRxState == LTP_TRAILER_RX_STATE::READ_ONE_TRAILER_EXTENSION_LENGTH_SDNV) {
                 m_sdnvTempVec.push_back(rxVal);
-                if (m_sdnvTempVec.size() > 10) {
-                    errorMessage = "error in LTP_TRAILER_RX_STATE::READ_ONE_TRAILER_EXTENSION_LENGTH_SDNV, sdnv > 10 bytes";
+                if (m_sdnvTempVec.size() > SdnvMaximumEncodedSize) {
+                    errorMessage = "error in LTP_TRAILER_RX_STATE::READ_ONE_TRAILER_EXTENSION_LENGTH_SDNV, sdnv > SdnvMaximumEncodedSize bytes";
                     return false;
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
@@ -1462,7 +1472,9 @@ void Ltp::GenerateLtpHeaderPlusDataSegmentMetadata(std::vector<uint8_t> & ltpHea
         numHeaderExtensions = static_cast<uint8_t>(headerExtensions->extensionsVec.size());
         maxBytesRequiredForHeaderExtensions = headerExtensions->GetMaximumDataRequiredForSerialization();
     }
-    ltpHeaderPlusDataSegmentMetadata.resize(1 + 1 + (2 * 10) + dataSegmentMetadata.GetMaximumDataRequiredForSerialization() + maxBytesRequiredForHeaderExtensions); //flags + extensionCounts + 2 10-byte session sdnvs + metadata sdnvs + header extensions
+    ltpHeaderPlusDataSegmentMetadata.resize(1 + 1 + (2 * SdnvMaximumEncodedSize)
+        + dataSegmentMetadata.GetMaximumDataRequiredForSerialization()
+        + maxBytesRequiredForHeaderExtensions); //flags + extensionCounts + 2 10-byte session sdnvs + metadata sdnvs + header extensions
     uint8_t * encodedPtr = ltpHeaderPlusDataSegmentMetadata.data();
     *encodedPtr++ = static_cast<uint8_t>(dataSegmentTypeFlags); //assumes version 0 in most significant 4 bits
     encodedPtr += SdnvEncodeU64BufSize10(encodedPtr, sessionId.sessionOriginatorEngineId);
@@ -1490,7 +1502,9 @@ void Ltp::GenerateReportSegmentLtpPacket(std::vector<uint8_t> & ltpReportSegment
         numTrailerExtensions = static_cast<uint8_t>(trailerExtensions->extensionsVec.size());
         maxBytesRequiredForTrailerExtensions = trailerExtensions->GetMaximumDataRequiredForSerialization();
     }
-    ltpReportSegmentPacket.resize(1 + 1 + (2 * 10) + reportSegmentStruct.GetMaximumDataRequiredForSerialization() + maxBytesRequiredForHeaderExtensions + maxBytesRequiredForTrailerExtensions); //flags + extensionCounts + 2 session 10-byte sdnvs + rest of data
+    ltpReportSegmentPacket.resize(1 + 1 + (2 * SdnvMaximumEncodedSize)
+        + reportSegmentStruct.GetMaximumDataRequiredForSerialization()
+        + maxBytesRequiredForHeaderExtensions + maxBytesRequiredForTrailerExtensions); //flags + extensionCounts + 2 session 10-byte sdnvs + rest of data
     uint8_t * encodedPtr = ltpReportSegmentPacket.data();
     *encodedPtr++ = static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::REPORT_SEGMENT); //assumes version 0 in most significant 4 bits
     encodedPtr += SdnvEncodeU64BufSize10(encodedPtr, sessionId.sessionOriginatorEngineId);
@@ -1521,7 +1535,8 @@ void Ltp::GenerateReportAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & l
         numTrailerExtensions = static_cast<uint8_t>(trailerExtensions->extensionsVec.size());
         maxBytesRequiredForTrailerExtensions = trailerExtensions->GetMaximumDataRequiredForSerialization();
     }
-    ltpReportAcknowledgementSegmentPacket.resize(1 + 1 + (2 * 10) + (1 * 10) + maxBytesRequiredForHeaderExtensions + maxBytesRequiredForTrailerExtensions); //flags + extensionCounts + 2 session 10-byte sdnvs + 1 report serial number 10-byte sdnv + rest of data
+    ltpReportAcknowledgementSegmentPacket.resize(1 + 1 + (2 * SdnvMaximumEncodedSize) + (1 * SdnvMaximumEncodedSize)
+        + maxBytesRequiredForHeaderExtensions + maxBytesRequiredForTrailerExtensions); //flags + extensionCounts + 2 session 10-byte sdnvs + 1 report serial number 10-byte sdnv + rest of data
     uint8_t * encodedPtr = ltpReportAcknowledgementSegmentPacket.data();
     *encodedPtr++ = static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::REPORT_ACK_SEGMENT); //assumes version 0 in most significant 4 bits
     encodedPtr += SdnvEncodeU64BufSize10(encodedPtr, sessionId.sessionOriginatorEngineId);
@@ -1552,7 +1567,8 @@ void Ltp::GenerateCancelSegmentLtpPacket(std::vector<uint8_t> & ltpCancelSegment
         numTrailerExtensions = static_cast<uint8_t>(trailerExtensions->extensionsVec.size());
         maxBytesRequiredForTrailerExtensions = trailerExtensions->GetMaximumDataRequiredForSerialization();
     }
-    ltpCancelSegmentPacket.resize(1 + 1 + (2 * 10) + 1 + maxBytesRequiredForHeaderExtensions + maxBytesRequiredForTrailerExtensions); //flags + extensionCounts + 2 session 10-byte sdnvs + 1 one-byte reason code + rest of data
+    ltpCancelSegmentPacket.resize(1 + 1 + (2 * SdnvMaximumEncodedSize) + 1
+        + maxBytesRequiredForHeaderExtensions + maxBytesRequiredForTrailerExtensions); //flags + extensionCounts + 2 session 10-byte sdnvs + 1 one-byte reason code + rest of data
     uint8_t * encodedPtr = ltpCancelSegmentPacket.data();
     *encodedPtr++ = static_cast<uint8_t>(isFromSender ? LTP_SEGMENT_TYPE_FLAGS::CANCEL_SEGMENT_FROM_BLOCK_SENDER : LTP_SEGMENT_TYPE_FLAGS::CANCEL_SEGMENT_FROM_BLOCK_RECEIVER); //assumes version 0 in most significant 4 bits
     encodedPtr += SdnvEncodeU64BufSize10(encodedPtr, sessionId.sessionOriginatorEngineId);
@@ -1583,7 +1599,8 @@ void Ltp::GenerateCancelAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & l
         numTrailerExtensions = static_cast<uint8_t>(trailerExtensions->extensionsVec.size());
         maxBytesRequiredForTrailerExtensions = trailerExtensions->GetMaximumDataRequiredForSerialization();
     }
-    ltpCancelAcknowledgementSegmentPacket.resize(1 + 1 + (2 * 10) + 0 + maxBytesRequiredForHeaderExtensions + maxBytesRequiredForTrailerExtensions); //flags + extensionCounts + 2 session 10-byte sdnvs + no payload data + rest of data
+    ltpCancelAcknowledgementSegmentPacket.resize(1 + 1 + (2 * SdnvMaximumEncodedSize) + 0
+        + maxBytesRequiredForHeaderExtensions + maxBytesRequiredForTrailerExtensions); //flags + extensionCounts + 2 session 10-byte sdnvs + no payload data + rest of data
     uint8_t * encodedPtr = ltpCancelAcknowledgementSegmentPacket.data();
     *encodedPtr++ = static_cast<uint8_t>(isToSender ? LTP_SEGMENT_TYPE_FLAGS::CANCEL_ACK_SEGMENT_TO_BLOCK_SENDER : LTP_SEGMENT_TYPE_FLAGS::CANCEL_ACK_SEGMENT_TO_BLOCK_RECEIVER); //assumes version 0 in most significant 4 bits
     encodedPtr += SdnvEncodeU64BufSize10(encodedPtr, sessionId.sessionOriginatorEngineId);
