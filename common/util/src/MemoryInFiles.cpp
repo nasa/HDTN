@@ -26,7 +26,6 @@
 #include <unordered_map>
 #include <vector>
 #include <queue>
-#include <forward_list>
 #include "Logger.h"
 #include <boost/make_unique.hpp>
 #include <boost/filesystem/fstream.hpp>

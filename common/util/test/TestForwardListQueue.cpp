@@ -221,5 +221,82 @@ BOOST_AUTO_TEST_CASE(ForwardListQueueTestCase)
         }
     }
 
+    { //test remove_by_key
+        flq_t flq({ "0", "1", "2", "3", "4", "5", "6", "7", "8" });
+        BOOST_REQUIRE(!flq.empty());
+        BOOST_REQUIRE_EQUAL(flq.back(), "8");
+        BOOST_REQUIRE_EQUAL(flq.front(), "0");
 
+        {
+            BOOST_REQUIRE(flq.remove_by_key("8"));
+            const flq_t expected({ "0", "1", "2", "3", "4", "5", "6", "7" });
+            BOOST_REQUIRE(flq == expected);
+            BOOST_REQUIRE_EQUAL(flq.back(), "7");
+            BOOST_REQUIRE_EQUAL(flq.front(), "0");
+        }
+        {
+            BOOST_REQUIRE(flq.remove_by_key("7"));
+            const flq_t expected({ "0", "1", "2", "3", "4", "5", "6" });
+            BOOST_REQUIRE(flq == expected);
+            BOOST_REQUIRE_EQUAL(flq.back(), "6");
+            BOOST_REQUIRE_EQUAL(flq.front(), "0");
+            //fail remove again
+            BOOST_REQUIRE(!flq.remove_by_key("7"));
+            BOOST_REQUIRE(flq == expected);
+            BOOST_REQUIRE_EQUAL(flq.back(), "6");
+            BOOST_REQUIRE_EQUAL(flq.front(), "0");
+        }
+        {
+            BOOST_REQUIRE(flq.remove_by_key("0"));
+            const flq_t expected({ "1", "2", "3", "4", "5", "6"});
+            BOOST_REQUIRE(flq == expected);
+            BOOST_REQUIRE_EQUAL(flq.back(), "6");
+            BOOST_REQUIRE_EQUAL(flq.front(), "1");
+        }
+        {
+            BOOST_REQUIRE(flq.remove_by_key("1"));
+            const flq_t expected({ "2", "3", "4", "5", "6" });
+            BOOST_REQUIRE(flq == expected);
+            BOOST_REQUIRE_EQUAL(flq.back(), "6");
+            BOOST_REQUIRE_EQUAL(flq.front(), "2");
+        }
+        {
+            BOOST_REQUIRE(flq.remove_by_key("4"));
+            const flq_t expected({ "2", "3", "5", "6" });
+            BOOST_REQUIRE(flq == expected);
+            BOOST_REQUIRE_EQUAL(flq.back(), "6");
+            BOOST_REQUIRE_EQUAL(flq.front(), "2");
+        }
+        {
+            BOOST_REQUIRE(flq.remove_by_key("3"));
+            const flq_t expected({ "2", "5", "6" });
+            BOOST_REQUIRE(flq == expected);
+            BOOST_REQUIRE_EQUAL(flq.back(), "6");
+            BOOST_REQUIRE_EQUAL(flq.front(), "2");
+        }
+        {
+            BOOST_REQUIRE(flq.remove_by_key("6"));
+            const flq_t expected({ "2", "5" });
+            BOOST_REQUIRE(flq == expected);
+            BOOST_REQUIRE_EQUAL(flq.back(), "5");
+            BOOST_REQUIRE_EQUAL(flq.front(), "2");
+        }
+        {
+            BOOST_REQUIRE(flq.remove_by_key("5"));
+            const flq_t expected({ "2" });
+            BOOST_REQUIRE(flq == expected);
+            BOOST_REQUIRE_EQUAL(flq.back(), "2");
+            BOOST_REQUIRE_EQUAL(flq.front(), "2");
+        }
+        {
+            BOOST_REQUIRE(flq.remove_by_key("2"));
+            const flq_t expected({});
+            BOOST_REQUIRE(flq == expected);
+            BOOST_REQUIRE(flq.empty());
+            //fail remove again
+            BOOST_REQUIRE(!flq.remove_by_key("2"));
+            BOOST_REQUIRE(flq == expected);
+            BOOST_REQUIRE(flq.empty());
+        }
+    }
 }
