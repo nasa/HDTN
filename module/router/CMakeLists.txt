@@ -11,6 +11,7 @@ target_link_libraries(hdtn-router
 	Boost::program_options
 	cgr_lib
 	log_lib
+	telemetry_definitions
 )
 
 target_include_directories(hdtn-router

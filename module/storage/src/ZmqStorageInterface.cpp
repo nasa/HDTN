@@ -277,7 +277,8 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context
         //All release messages shall be prefixed by "aaaaaaaa" before the common header
         //Ingress unique subscription shall be "a"
         //Storage unique subscription shall be "aa"
-        m_zmqSubSock_boundReleaseToConnectingStoragePtr->set(zmq::sockopt::subscribe, "aa"); 
+        //Router unique subscription shall be "aaa"
+	m_zmqSubSock_boundReleaseToConnectingStoragePtr->set(zmq::sockopt::subscribe, "aa"); 
         LOG_INFO(subprocess) << "Subscribed to all events from scheduler";
     }
     catch (const zmq::error_t& ex) {
@@ -308,8 +309,6 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context
         LOG_ERROR(subprocess) << "error: cannot set timeout on receive sockets: " << ex.what();
         return false;
     }
-    
-   
     
     if (!m_running) {
         m_running = true;
