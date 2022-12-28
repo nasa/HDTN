@@ -1,3 +1,32 @@
+/**
+ * @file BpSourcePattern.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * The BpSourcePattern class is a pure virtual base class for any application
+ * that needs to implement sending user-defined bundles, either at a defined rate,
+ * or as fast as possible, or periodic wait for a response (such as a ping application),
+ * or episodic when new data becomes available.
+ * The application needs only to override the virtual functions GetNextPayloadLength_Step1
+ * and CopyPayload_Step2.  If episodic, such as monitoring a folder for new files to become
+ * available, the user will also need to override the virtual function TryWaitForDataAvailable.
+ * This class takes an HDTN outduct config with one outduct in the outductVector
+ * for sending the bundles.
+ * In the event that the outduct is not a bidirectional TCPCL outduct,
+ * this class can take an optional HDTN induct config with one induct in the inductVector
+ * for automatically receiving custody signals and for receiving echo responses (if this is a ping app).
+ */
+
 #ifndef _BP_SOURCE_PATTERN_H
 #define _BP_SOURCE_PATTERN_H 1
 #include "bp_app_patterns_lib_export.h"
@@ -53,7 +82,7 @@ private:
     BP_APP_PATTERNS_LIB_NO_EXPORT void WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr);
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId);
-    BP_APP_PATTERNS_LIB_NO_EXPORT void OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid);
+    BP_APP_PATTERNS_LIB_NO_EXPORT void OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled);
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData, uint64_t outductUuid);
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid);
 

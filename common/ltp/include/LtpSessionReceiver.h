@@ -24,7 +24,8 @@
 #include "Ltp.h"
 #include "LtpRandomNumberGenerator.h"
 #include "LtpTimerManager.h"
-#include <queue>
+#include "MemoryInFiles.h"
+#include "ForwardListQueue.h"
 #include <set>
 #include <map>
 #include <boost/asio.hpp>
@@ -36,36 +37,89 @@ typedef boost::function<void(const Ltp::session_id_t & sessionId, bool wasCancel
 
 typedef boost::function<void(const Ltp::session_id_t & sessionId)> NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t;
 
+typedef boost::function<void()> NotifyEngineThatThisReceiverCompletedDeferredOperationFunction_t;
+
 class LtpSessionReceiver : private boost::noncopyable {
 private:
     LtpSessionReceiver() = delete;
 
-    LTP_LIB_NO_EXPORT void LtpDelaySendReportSegmentTimerExpiredCallback(const Ltp::session_id_t& checkpointSerialNumberPlusSessionNumber, std::vector<uint8_t>& userData);
-    LTP_LIB_NO_EXPORT void LtpReportSegmentTimerExpiredCallback(const Ltp::session_id_t & reportSerialNumberPlusSessionNumber, std::vector<uint8_t> & userData);
     LTP_LIB_NO_EXPORT void HandleGenerateAndSendReportSegment(const uint64_t checkpointSerialNumber,
         const uint64_t lowerBound, const uint64_t upperBound, const bool checkpointIsResponseToReportSegment);
+    LTP_LIB_NO_EXPORT void OnDataSegmentWrittenToDisk(std::shared_ptr<std::vector<uint8_t> >& clientServiceDataReceivedSharedPtr, bool isEndOfBlock);
+    LTP_LIB_NO_EXPORT void OnRedDataRecoveredFromDisk(bool success, bool isEndOfBlock);
 public:
+    //these two are public now because they are invoked by LtpEngine (eliminates need for each session to have its own expensive boost::function) 
+    LTP_LIB_EXPORT void LtpDelaySendReportSegmentTimerExpiredCallback(const Ltp::session_id_t& checkpointSerialNumberPlusSessionNumber, std::vector<uint8_t>& userData);
+    LTP_LIB_EXPORT void LtpReportSegmentTimerExpiredCallback(const Ltp::session_id_t& reportSerialNumberPlusSessionNumber, std::vector<uint8_t>& userData);
+
+    //The LtpEngine shall have one copy of this struct and pass it's reference to each LtpSessionReceiver
+    struct LtpSessionReceiverCommonData : private boost::noncopyable {
+        LtpSessionReceiverCommonData() = delete;
+        LTP_LIB_EXPORT LtpSessionReceiverCommonData(
+            const uint64_t clientServiceId,
+            uint64_t maxReceptionClaims,
+            uint64_t estimatedBytesToReceive,
+            uint64_t maxRedRxBytes,
+            uint32_t& maxRetriesPerSerialNumberRef,
+            LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& timeManagerOfReportSerialNumbersRef,
+            const LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t& rsnTimerExpiredCallbackRef,
+            LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& timeManagerOfSendingDelayedReceptionReportsRef,
+            const LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t& delayedReceptionReportTimerExpiredCallbackRef,
+            const NotifyEngineThatThisReceiverNeedsDeletedCallback_t& notifyEngineThatThisReceiverNeedsDeletedCallbackRef,
+            const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t& notifyEngineThatThisReceiversTimersHasProducibleDataFunctionRef,
+            const NotifyEngineThatThisReceiverCompletedDeferredOperationFunction_t& notifyEngineThatThisReceiverCompletedDeferredOperationFunctionRef,
+            const RedPartReceptionCallback_t& redPartReceptionCallbackRef,
+            const GreenPartSegmentArrivalCallback_t& greenPartSegmentArrivalCallbackRef,
+            std::unique_ptr<MemoryInFiles>& memoryInFilesPtrRef);
+
+        const uint64_t m_clientServiceId;
+        uint64_t m_maxReceptionClaims;
+        uint64_t m_estimatedBytesToReceive;
+        uint64_t m_maxRedRxBytes;
+        uint32_t& m_maxRetriesPerSerialNumberRef;
+
+        LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& m_timeManagerOfReportSerialNumbersRef;
+        const LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t& m_rsnTimerExpiredCallbackRef;
+        LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& m_timeManagerOfSendingDelayedReceptionReportsRef;
+        const LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t& m_delayedReceptionReportTimerExpiredCallbackRef;
+
+        const NotifyEngineThatThisReceiverNeedsDeletedCallback_t& m_notifyEngineThatThisReceiverNeedsDeletedCallbackRef;
+        const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t& m_notifyEngineThatThisReceiversTimersHasProducibleDataFunctionRef;
+        const NotifyEngineThatThisReceiverCompletedDeferredOperationFunction_t& m_notifyEngineThatThisReceiverCompletedDeferredOperationFunctionRef;
+        const RedPartReceptionCallback_t& m_redPartReceptionCallbackRef;
+        const GreenPartSegmentArrivalCallback_t& m_greenPartSegmentArrivalCallbackRef;
+        std::unique_ptr<MemoryInFiles>& m_memoryInFilesPtrRef;
+
+        //session receiver stats
+        uint64_t m_numReportSegmentTimerExpiredCallbacks;
+        uint64_t m_numReportSegmentsUnableToBeIssued;
+        uint64_t m_numReportSegmentsTooLargeAndNeedingSplit;
+        uint64_t m_numReportSegmentsCreatedViaSplit;
+        uint64_t m_numGapsFilledByOutOfOrderDataSegments;
+        uint64_t m_numDelayedFullyClaimedPrimaryReportSegmentsSent;
+        uint64_t m_numDelayedFullyClaimedSecondaryReportSegmentsSent;
+        uint64_t m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent;
+        uint64_t m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent;
+    };
     
     
-    LTP_LIB_EXPORT LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber, const uint64_t MAX_RECEPTION_CLAIMS,
-        const uint64_t ESTIMATED_BYTES_TO_RECEIVE, const uint64_t maxRedRxBytes,
-        const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
-        LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> & timeManagerOfReportSerialNumbersRef,
-        LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& timeManagerOfSendingDelayedReceptionReportsRef,
-        const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & notifyEngineThatThisReceiverNeedsDeletedCallbackRef,
-        const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t & notifyEngineThatThisSendersTimersHasProducibleDataFunctionRef,
-        const uint32_t maxRetriesPerSerialNumber);
+    LTP_LIB_EXPORT LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber,
+        const Ltp::session_id_t & sessionId,
+        LtpSessionReceiverCommonData& ltpSessionReceiverCommonDataRef);
 
     LTP_LIB_EXPORT ~LtpSessionReceiver();
     LTP_LIB_EXPORT bool NextDataToSend(UdpSendPacketInfo& udpSendPacketInfo);
     
     LTP_LIB_EXPORT std::size_t GetNumActiveTimers() const; //stagnant rx session detection in ltp engine with periodic housekeeping timer
+    LTP_LIB_EXPORT bool IsSafeToDelete() const noexcept;
     LTP_LIB_EXPORT void ReportAcknowledgementSegmentReceivedCallback(uint64_t reportSerialNumberBeingAcknowledged,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
-    LTP_LIB_EXPORT void DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
+
+    //return true if operation is ongoing (possibly due to disk writes),
+    // false if operation is done (and udp packet circular buffer can reduce its size)
+    LTP_LIB_EXPORT bool DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
         std::vector<uint8_t> & clientServiceDataVec, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
-        Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions, const RedPartReceptionCallback_t & redPartReceptionCallback,
-        const GreenPartSegmentArrivalCallback_t & greenPartSegmentArrivalCallback);
+        Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
 private:
     std::set<LtpFragmentSet::data_fragment_t> m_receivedDataFragmentsSet;
     typedef std::map<uint64_t, Ltp::report_segment_t> report_segments_sent_map_t;
@@ -75,10 +129,8 @@ private:
     //std::set<LtpFragmentSet::data_fragment_t> m_receivedDataFragmentsThatSenderKnowsAboutSet;
     std::set<uint64_t> m_checkpointSerialNumbersReceivedSet;
     typedef std::pair<report_segments_sent_map_t::const_iterator, uint32_t> it_retrycount_pair_t; //pair<iterator from m_mapAllReportSegmentsSent, retryCount>
-    std::queue<it_retrycount_pair_t> m_reportsToSendQueue;
+    ForwardListQueue<it_retrycount_pair_t> m_reportsToSendFlistQueue;
     
-    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_timerExpiredCallback;
-    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> & m_timeManagerOfReportSerialNumbersRef;
     std::list<uint64_t> m_reportSerialNumberActiveTimersList;
     
     struct rsntimer_userdata_t {
@@ -87,8 +139,6 @@ private:
         uint32_t retryCount;
     };
 
-    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_delayedReceptionReportTimerExpiredCallback;
-    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> & m_timeManagerOfSendingDelayedReceptionReportsRef;
     //(rsLowerBound, rsUpperBound) to (checkpointSerialNumberToWhichRsPertains, checkpointIsResponseToReportSegment) map
     typedef std::pair<uint64_t, bool> csn_issecondary_pair_t;
     typedef std::map<FragmentSet::data_fragment_no_overlap_allow_abut_t, csn_issecondary_pair_t> rs_pending_map_t;
@@ -96,37 +146,22 @@ private:
     
     uint64_t m_nextReportSegmentReportSerialNumber;
     padded_vector_uint8_t m_dataReceivedRed;
-    const uint64_t M_MAX_RECEPTION_CLAIMS;
-    const uint64_t M_ESTIMATED_BYTES_TO_RECEIVE;
-    const uint64_t M_MAX_RED_RX_BYTES;
+    uint64_t m_memoryBlockIdReservedSize; //since its resize rounds up
     const Ltp::session_id_t M_SESSION_ID;
-    const uint64_t M_CLIENT_SERVICE_ID;
-    const uint32_t M_MAX_RETRIES_PER_SERIAL_NUMBER;
     uint64_t m_lengthOfRedPart;
     uint64_t m_lowestGreenOffsetReceived;
-    uint64_t m_currentRedLength;
+    uint64_t m_currentRedLength; //cannot just use variable in m_dataReceivedRed.size() because may be using disk instead
+    LtpSessionReceiverCommonData& m_ltpSessionReceiverCommonDataRef;
+    uint64_t m_memoryBlockId;
+public:
+    boost::posix_time::ptime m_lastSegmentReceivedTimestamp; //stagnant rx session detection in ltp engine with periodic housekeeping timer
+private:
+    uint32_t m_numActiveAsyncDiskOperations;
     bool m_didRedPartReceptionCallback;
     bool m_didNotifyForDeletion;
     bool m_receivedEobFromGreenOrRed;
-    const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & m_notifyEngineThatThisReceiverNeedsDeletedCallbackRef;
-    const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t & m_notifyEngineThatThisSendersTimersHasProducibleDataFunctionRef;
-
 public:
-    //stagnant rx session detection in ltp engine with periodic housekeeping timer
-    boost::posix_time::ptime m_lastSegmentReceivedTimestamp;
-
     bool m_calledCancelledCallback;
-
-    //stats
-    uint64_t m_numReportSegmentTimerExpiredCallbacks;
-    uint64_t m_numReportSegmentsUnableToBeIssued;
-    uint64_t m_numReportSegmentsTooLargeAndNeedingSplit;
-    uint64_t m_numReportSegmentsCreatedViaSplit;
-    uint64_t m_numGapsFilledByOutOfOrderDataSegments;
-    uint64_t m_numDelayedFullyClaimedPrimaryReportSegmentsSent;
-    uint64_t m_numDelayedFullyClaimedSecondaryReportSegmentsSent;
-    uint64_t m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent;
-    uint64_t m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent;
 };
 
 #endif // LTP_SESSION_RECEIVER_H

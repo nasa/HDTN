@@ -46,6 +46,28 @@ bool FragmentSet::data_fragment_t::SimulateSetKeyFind(const data_fragment_t & ke
     //equal defined as !(a<b) && !(b<a)
     return !(key < keyInSet) && !(keyInSet < key);
 }
+bool FragmentSet::data_fragment_t::GetOverlap(const data_fragment_t& key1, const data_fragment_t& key2, data_fragment_t& overlap) { //static
+    //https://eli.thegreenplace.net/2008/08/15/intersection-of-1d-segments
+    //The two segments intersect if and only if X2 >= Y1 and Y2 >= X1
+    //
+    //https://scicomp.stackexchange.com/questions/26258/the-easiest-way-to-find-intersection-of-two-intervals
+    //if ( bs>ae or as>be ) { return 0 }
+    //if ( y1>x2 or x1>y2 ) { return 0 } //(rewritten)
+    //if ( y1<=x2 AND x1<=y2 ) { intersect=true } //rewriten
+    //if(intersect) {
+    //    os=max(as,bs) 
+    //    oe=min(ae,be)
+    //}
+    const bool interects = ((key2.beginIndex <= key1.endIndex) && (key1.beginIndex <= key2.endIndex));
+    if (interects) {
+        overlap.beginIndex = std::max(key1.beginIndex, key2.beginIndex);
+        overlap.endIndex = std::min(key1.endIndex, key2.endIndex);
+    }
+    return interects;
+}
+bool FragmentSet::data_fragment_t::GetOverlap(const data_fragment_t& o, data_fragment_t& overlap) const {
+    return GetOverlap(*this, o, overlap);
+}
 
 //class which allows searching ignoring whether or not the keys abut
 bool FragmentSet::data_fragment_no_overlap_allow_abut_t::operator<(const data_fragment_no_overlap_allow_abut_t& o) const { //operator < (no overlap allow abut)

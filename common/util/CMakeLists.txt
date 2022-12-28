@@ -57,6 +57,7 @@ set(MY_PUBLIC_HEADERS
 	include/DirectoryScanner.h
 	include/EnumAsFlagsMacro.h
     include/Environment.h
+	include/ForwardListQueue.h
 	include/FragmentSet.h
 	include/JsonSerializable.h
 	include/LtpClientServiceDataToSend.h

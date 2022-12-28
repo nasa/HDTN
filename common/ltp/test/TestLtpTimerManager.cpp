@@ -43,10 +43,11 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_deadlineTimer(m_ioService),
             m_timerManager(m_deadlineTimer, m_transmissionToAckReceivedTime, 100)
         {
-            m_timerExpiredCallback = boost::bind(&Test::LtpTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2);
+            m_timerExpiredCallback = boost::bind(&Test::LtpTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3);
         }
 
-        void LtpTimerExpiredCallback(const uint64_t & serialNumber, std::vector<uint8_t> & userData) {
+        void LtpTimerExpiredCallback(void* classPtr, const uint64_t & serialNumber, std::vector<uint8_t> & userData) {
+            BOOST_REQUIRE(classPtr == NULL);
             if (m_testNumber == 1) {
                 BOOST_REQUIRE_EQUAL(userData.size(), 0);
                 m_serialNumbersInCallback.push_back(serialNumber);
@@ -58,7 +59,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
                 //std::cout << "sn " << serialNumber << std::endl;
                 ++m_numCallbacks;
                 if (m_numCallbacks <= 3) {
-                    BOOST_REQUIRE(m_timerManager.StartTimer(serialNumber, &m_timerExpiredCallback, std::vector<uint8_t>({ 1,2,3 }))); //restart
+                    BOOST_REQUIRE(m_timerManager.StartTimer(NULL, serialNumber, &m_timerExpiredCallback, std::vector<uint8_t>({ 1,2,3 }))); //restart
                 }
             }
         }
@@ -72,7 +73,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_serialNumbersInCallback.clear();
             m_desired_serialNumbers = std::vector<uint64_t>({ 5,10,15 });
             for (std::size_t i = 0; i < m_desired_serialNumbers.size(); ++i) {
-                BOOST_REQUIRE(m_timerManager.StartTimer(m_desired_serialNumbers[i], &m_timerExpiredCallback));
+                BOOST_REQUIRE(m_timerManager.StartTimer(NULL, m_desired_serialNumbers[i], &m_timerExpiredCallback));
             }
             m_ioService.run();
             
@@ -89,7 +90,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_serialNumbersInCallback.clear();
             m_desired_serialNumbers = std::vector<uint64_t>({ 5,10,15 });
             for (std::size_t i = 0; i < m_desired_serialNumbers.size(); ++i) {
-                BOOST_REQUIRE(m_timerManager.StartTimer(m_desired_serialNumbers[i], &m_timerExpiredCallback, std::vector<uint8_t>({ 1,2,3 })));
+                BOOST_REQUIRE(m_timerManager.StartTimer(NULL, m_desired_serialNumbers[i], &m_timerExpiredCallback, std::vector<uint8_t>({ 1,2,3 })));
             }
             m_ioService.run();
 
@@ -109,7 +110,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_serialNumbersInCallback.clear();
             m_desired_serialNumbers = std::vector<uint64_t>({ 5,10,15 });
             for (std::size_t i = 0; i < m_desired_serialNumbers.size(); ++i) {
-                BOOST_REQUIRE(m_timerManager.StartTimer(m_desired_serialNumbers[i], &m_timerExpiredCallback));
+                BOOST_REQUIRE(m_timerManager.StartTimer(NULL, m_desired_serialNumbers[i], &m_timerExpiredCallback));
             }
             //boost::asio::deadline_timer dt(m_ioService);
             //dt.expires_from_now(boost::posix_time::milliseconds(0));
@@ -132,7 +133,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_serialNumbersInCallback.clear();
             m_desired_serialNumbers = std::vector<uint64_t>({ 5,10,15 });
             for (std::size_t i = 0; i < m_desired_serialNumbers.size(); ++i) {
-                BOOST_REQUIRE(m_timerManager.StartTimer(m_desired_serialNumbers[i], &m_timerExpiredCallback));
+                BOOST_REQUIRE(m_timerManager.StartTimer(NULL, m_desired_serialNumbers[i], &m_timerExpiredCallback));
             }
             //boost::asio::deadline_timer dt(m_ioService);
             //dt.expires_from_now(boost::posix_time::milliseconds(0));
@@ -174,10 +175,11 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_deadlineTimer(m_ioService),
             m_timerManager(m_deadlineTimer, m_transmissionToAckReceivedTime, 100)
         {
-            m_timerExpiredCallback = boost::bind(&TestWithSessionId::LtpTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2);
+            m_timerExpiredCallback = boost::bind(&TestWithSessionId::LtpTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3);
         }
 
-        void LtpTimerExpiredCallback(const Ltp::session_id_t & serialNumber, std::vector<uint8_t> & userData) {
+        void LtpTimerExpiredCallback(void* classPtr, const Ltp::session_id_t & serialNumber, std::vector<uint8_t> & userData) {
+            BOOST_REQUIRE(classPtr == NULL);
             if (m_testNumber == 1) {
                 BOOST_REQUIRE_EQUAL(userData.size(), 0);
                 m_serialNumbersInCallback.push_back(serialNumber);
@@ -189,7 +191,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
                 //std::cout << "sn " << serialNumber << std::endl;
                 ++m_numCallbacks;
                 if (m_numCallbacks <= 3) {
-                    BOOST_REQUIRE(m_timerManager.StartTimer(serialNumber, &m_timerExpiredCallback, std::vector<uint8_t>({ 1,2,3 }))); //restart
+                    BOOST_REQUIRE(m_timerManager.StartTimer(NULL, serialNumber, &m_timerExpiredCallback, std::vector<uint8_t>({ 1,2,3 }))); //restart
                 }
             }
         }
@@ -203,7 +205,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_serialNumbersInCallback.clear();
             m_desired_serialNumbers = std::vector<Ltp::session_id_t>({ Ltp::session_id_t(5,6),Ltp::session_id_t(10,11),Ltp::session_id_t(15,16) });
             for (std::size_t i = 0; i < m_desired_serialNumbers.size(); ++i) {
-                BOOST_REQUIRE(m_timerManager.StartTimer(m_desired_serialNumbers[i], &m_timerExpiredCallback));
+                BOOST_REQUIRE(m_timerManager.StartTimer(NULL, m_desired_serialNumbers[i], &m_timerExpiredCallback));
             }
             m_ioService.run();
 
@@ -220,7 +222,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_serialNumbersInCallback.clear();
             m_desired_serialNumbers = std::vector<Ltp::session_id_t>({ Ltp::session_id_t(5,6),Ltp::session_id_t(10,11),Ltp::session_id_t(15,16) });
             for (std::size_t i = 0; i < m_desired_serialNumbers.size(); ++i) {
-                BOOST_REQUIRE(m_timerManager.StartTimer(m_desired_serialNumbers[i], &m_timerExpiredCallback, std::vector<uint8_t>({ 1,2,3 })));
+                BOOST_REQUIRE(m_timerManager.StartTimer(NULL, m_desired_serialNumbers[i], &m_timerExpiredCallback, std::vector<uint8_t>({ 1,2,3 })));
             }
             m_ioService.run();
 
@@ -242,7 +244,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_serialNumbersInCallback.clear();
             m_desired_serialNumbers = std::vector<Ltp::session_id_t>({ Ltp::session_id_t(5,6),Ltp::session_id_t(10,11),Ltp::session_id_t(15,16) });
             for (std::size_t i = 0; i < m_desired_serialNumbers.size(); ++i) {
-                BOOST_REQUIRE(m_timerManager.StartTimer(m_desired_serialNumbers[i], &m_timerExpiredCallback));
+                BOOST_REQUIRE(m_timerManager.StartTimer(NULL, m_desired_serialNumbers[i], &m_timerExpiredCallback));
             }
             //boost::asio::deadline_timer dt(m_ioService);
             //dt.expires_from_now(boost::posix_time::milliseconds(0));
@@ -265,7 +267,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_serialNumbersInCallback.clear();
             m_desired_serialNumbers = std::vector<Ltp::session_id_t>({ Ltp::session_id_t(5,6),Ltp::session_id_t(10,11),Ltp::session_id_t(15,16) });
             for (std::size_t i = 0; i < m_desired_serialNumbers.size(); ++i) {
-                BOOST_REQUIRE(m_timerManager.StartTimer(m_desired_serialNumbers[i], &m_timerExpiredCallback));
+                BOOST_REQUIRE(m_timerManager.StartTimer(NULL, m_desired_serialNumbers[i], &m_timerExpiredCallback));
             }
             //boost::asio::deadline_timer dt(m_ioService);
             //dt.expires_from_now(boost::posix_time::milliseconds(0));
@@ -309,7 +311,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_serialNumbersInCallback.clear();
             m_desired_serialNumbers = m_desired_serialNumbers = std::vector<Ltp::session_id_t>({ Ltp::session_id_t(5,6),Ltp::session_id_t(10,11),Ltp::session_id_t(15,16) });
             for (std::size_t i = 0; i < m_desired_serialNumbers.size(); ++i) {
-                BOOST_REQUIRE(m_timerManager.StartTimer(m_desired_serialNumbers[i], &m_timerExpiredCallback));
+                BOOST_REQUIRE(m_timerManager.StartTimer(NULL, m_desired_serialNumbers[i], &m_timerExpiredCallback));
             }
             boost::asio::post(m_ioService, boost::bind(&TestWithSessionId::Test5ChangeTimeUp, this));
             m_ioService.run();
@@ -326,7 +328,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_serialNumbersInCallback.clear();
             m_desired_serialNumbers = m_desired_serialNumbers = std::vector<Ltp::session_id_t>({ Ltp::session_id_t(5,6),Ltp::session_id_t(10,11),Ltp::session_id_t(15,16) });
             for (std::size_t i = 0; i < m_desired_serialNumbers.size(); ++i) {
-                BOOST_REQUIRE(m_timerManager.StartTimer(m_desired_serialNumbers[i], &m_timerExpiredCallback));
+                BOOST_REQUIRE(m_timerManager.StartTimer(NULL, m_desired_serialNumbers[i], &m_timerExpiredCallback));
             }
             boost::asio::post(m_ioService, boost::bind(&TestWithSessionId::Test5ChangeTimeDown, this));
             m_ioService.run();

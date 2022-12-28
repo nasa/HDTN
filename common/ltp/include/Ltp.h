@@ -244,10 +244,12 @@ public:
         uint64_t * reportSerialNumber;
     };
     
-    
-	typedef boost::function<void(uint8_t segmentTypeFlags, const session_id_t & sessionId,
+    //return true if operation is ongoing (possibly due to disk writes),
+    // false if operation is done (and udp packet circular buffer can reduce its size)
+	typedef boost::function<bool(uint8_t segmentTypeFlags, const session_id_t & sessionId,
         std::vector<uint8_t> & clientServiceDataVec, const data_segment_metadata_t & dataSegmentMetadata,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)> DataSegmentContentsReadCallback_t;
+
     typedef boost::function<void(const session_id_t & sessionId, const report_segment_t & reportSegment,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)> ReportSegmentContentsReadCallback_t;
     typedef boost::function<void(const session_id_t & sessionId, uint64_t reportSerialNumberBeingAcknowledged,
@@ -270,8 +272,9 @@ public:
 
 
     LTP_LIB_EXPORT void InitRx();
-    LTP_LIB_EXPORT bool HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std::string & errorMessage, SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr = NULL);
-    LTP_LIB_EXPORT void HandleReceivedChar(const uint8_t rxVal, std::string & errorMessage);
+    LTP_LIB_EXPORT bool HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, bool& operationIsOngoing, std::string & errorMessage,
+        SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr = NULL);
+    LTP_LIB_EXPORT bool HandleReceivedChar(const uint8_t rxVal, bool& operationIsOngoing, std::string & errorMessage);
     LTP_LIB_EXPORT bool IsAtBeginningState() const; //unit testing convenience function
 
     
@@ -293,7 +296,7 @@ public:
 private:
     LTP_LIB_NO_EXPORT void SetBeginningState();
     LTP_LIB_NO_EXPORT const uint8_t * NextStateAfterHeaderExtensions(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage);
-    LTP_LIB_NO_EXPORT bool NextStateAfterTrailerExtensions(std::string & errorMessage);
+    LTP_LIB_NO_EXPORT bool NextStateAfterTrailerExtensions(bool& operationIsOngoing, std::string & errorMessage);
     LTP_LIB_NO_EXPORT const uint8_t * TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage);
     LTP_LIB_NO_EXPORT const uint8_t * TryShortcutReadReportSegmentSdnvs(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage);
 public:

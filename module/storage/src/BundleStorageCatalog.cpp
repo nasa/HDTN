@@ -23,20 +23,16 @@ BundleStorageCatalog::BundleStorageCatalog() {}
 
 BundleStorageCatalog::~BundleStorageCatalog() {}
 
-bool BundleStorageCatalog::Insert_OrderBySequence(custids_flist_plus_lastiterator_t & custodyIdFlistPlusLastIt, const uint64_t custodyIdToInsert, const uint64_t mySequence) {
-    custids_flist_t & custodyIdFlist = custodyIdFlistPlusLastIt.first;
-    custids_flist_t::iterator & custodyIdFlistLastIterator = custodyIdFlistPlusLastIt.second;
-    if (custodyIdFlist.empty()) {
-        custodyIdFlist.emplace_front(custodyIdToInsert);
-        custodyIdFlistLastIterator = custodyIdFlist.begin();
+bool BundleStorageCatalog::Insert_OrderBySequence(custids_flist_queue_t& custodyIdFlistQueue, const uint64_t custodyIdToInsert, const uint64_t mySequence) {
+    if (custodyIdFlistQueue.empty()) {
+        custodyIdFlistQueue.emplace_front(custodyIdToInsert);
         return true;
     }
     else {
-        
         //Chances are that bundle sequences will arrive in numerical order.
         //To optimize ordered insertion into an ordered singly-linked list, check if greater than the
         //last iterator first before iterating through the list.
-        const uint64_t lastCustodyIdInList = *custodyIdFlistLastIterator;
+        const uint64_t lastCustodyIdInList = custodyIdFlistQueue.back();
         catalog_entry_t * lastEntryInList = m_custodyIdToCatalogEntryHashmap.GetValuePtr(lastCustodyIdInList);
         if (lastEntryInList == NULL) {
             return false; //unexpected error
@@ -44,14 +40,14 @@ bool BundleStorageCatalog::Insert_OrderBySequence(custids_flist_plus_lastiterato
         const uint64_t lastSequenceInList = lastEntryInList->sequence;
         if (lastSequenceInList < mySequence) {
             //sequence is greater than every element in the bucket, insert at the end
-            custodyIdFlistLastIterator = custodyIdFlist.emplace_after(custodyIdFlistLastIterator, custodyIdToInsert);
+            custodyIdFlistQueue.emplace_back(custodyIdToInsert);
             return true;
         }
         
 
         //An out of order sequence arrived.  Revert to classic insertion
-        custids_flist_t::const_iterator itPrev = custodyIdFlist.cbefore_begin();
-        for (custids_flist_t::const_iterator it = custodyIdFlist.cbegin(); it != custodyIdFlist.cend(); ++it, ++itPrev) {
+        custids_flist_queue_t::const_iterator itPrev = custodyIdFlistQueue.cbefore_begin();
+        for (custids_flist_queue_t::const_iterator it = custodyIdFlistQueue.cbegin(); it != custodyIdFlistQueue.cend(); ++it, ++itPrev) {
             const uint64_t custodyIdInList = *it;
             catalog_entry_t * entryInList = m_custodyIdToCatalogEntryHashmap.GetValuePtr(custodyIdInList);
             if (entryInList == NULL) {
@@ -69,53 +65,21 @@ bool BundleStorageCatalog::Insert_OrderBySequence(custids_flist_plus_lastiterato
             }
         }
         //sequence is greater than every element iterated thus far in the bucket (but less than the last element), insert here
-        custodyIdFlist.emplace_after(itPrev, custodyIdToInsert);
+        custodyIdFlistQueue.get_underlying_container().emplace_after(itPrev, custodyIdToInsert);
         return true;
     }
 }
 //won't detect duplicates
-void BundleStorageCatalog::Insert_OrderByFifo(custids_flist_plus_lastiterator_t & custodyIdFlistPlusLastIt, const uint64_t custodyIdToInsert) {
-    custids_flist_t & custodyIdFlist = custodyIdFlistPlusLastIt.first;
-    custids_flist_t::iterator & custodyIdFlistLastIterator = custodyIdFlistPlusLastIt.second;
-    if (custodyIdFlist.empty()) {
-        custodyIdFlist.emplace_front(custodyIdToInsert);
-        custodyIdFlistLastIterator = custodyIdFlist.begin();
-    }
-    else {
-        custodyIdFlistLastIterator = custodyIdFlist.emplace_after(custodyIdFlistLastIterator, custodyIdToInsert);
-    }
+void BundleStorageCatalog::Insert_OrderByFifo(custids_flist_queue_t& custodyIdFlistQueue, const uint64_t custodyIdToInsert) {
+    custodyIdFlistQueue.emplace_back(custodyIdToInsert);
 }
 //won't detect duplicates
-void BundleStorageCatalog::Insert_OrderByFilo(custids_flist_plus_lastiterator_t & custodyIdFlistPlusLastIt, const uint64_t custodyIdToInsert) {
-    custids_flist_t & custodyIdFlist = custodyIdFlistPlusLastIt.first;
-    custids_flist_t::iterator & custodyIdFlistLastIterator = custodyIdFlistPlusLastIt.second;
-    const bool startedAsEmpty = custodyIdFlist.empty();
-    custodyIdFlist.emplace_front(custodyIdToInsert);
-    if (startedAsEmpty) {
-        custodyIdFlistLastIterator = custodyIdFlist.begin();
-    }
+void BundleStorageCatalog::Insert_OrderByFilo(custids_flist_queue_t& custodyIdFlistQueue, const uint64_t custodyIdToInsert) {
+    custodyIdFlistQueue.emplace_front(custodyIdToInsert);
 }
 
-bool BundleStorageCatalog::Remove(custids_flist_plus_lastiterator_t & custodyIdFlistPlusLastIt, const uint64_t custodyIdToRemove) {
-    custids_flist_t & custodyIdFlist = custodyIdFlistPlusLastIt.first;
-    custids_flist_t::iterator & custodyIdFlistLastIterator = custodyIdFlistPlusLastIt.second;
-    if (custodyIdFlist.empty()) {
-        return false;
-    }
-    else {
-        for (custids_flist_t::iterator itPrev = custodyIdFlist.before_begin(), it = custodyIdFlist.begin(); it != custodyIdFlist.end(); ++it, ++itPrev) {
-            const uint64_t custodyIdInList = *it;
-            if (custodyIdToRemove == custodyIdInList) { //equal, remove it
-                if (it == custodyIdFlistLastIterator) {
-                    custodyIdFlistLastIterator = itPrev;
-                }
-                custodyIdFlist.erase_after(itPrev);
-                return true;
-            }
-        }
-        //not found
-        return false;
-    }
+bool BundleStorageCatalog::Remove(custids_flist_queue_t& custodyIdFlistQueue, const uint64_t custodyIdToRemove) {
+    return custodyIdFlistQueue.remove_by_key(custodyIdToRemove);
 }
 
 bool BundleStorageCatalog::CatalogIncomingBundleForStore(catalog_entry_t & catalogEntryToTake, const PrimaryBlock & primary, const uint64_t custodyId, const DUPLICATE_EXPIRY_ORDER order) {
@@ -147,16 +111,16 @@ bool BundleStorageCatalog::CatalogIncomingBundleForStore(catalog_entry_t & catal
 bool BundleStorageCatalog::AddEntryToAwaitingSend(const catalog_entry_t & catalogEntry, const uint64_t custodyId, const DUPLICATE_EXPIRY_ORDER order) {
     priorities_to_expirations_array_t & priorityArray = m_destEidToPrioritiesMap[catalogEntry.destEid]; //created if not exist
     expirations_to_custids_map_t & expirationMap = priorityArray[catalogEntry.GetPriorityIndex()];
-    custids_flist_plus_lastiterator_t & custodyIdFlistPlusLastIt = expirationMap[catalogEntry.GetAbsExpiration()];
+    custids_flist_queue_t& custodyIdFlistQueue = expirationMap[catalogEntry.GetAbsExpiration()];
     if (order == DUPLICATE_EXPIRY_ORDER::SEQUENCE_NUMBER) {
-        return Insert_OrderBySequence(custodyIdFlistPlusLastIt, custodyId, catalogEntry.sequence);
+        return Insert_OrderBySequence(custodyIdFlistQueue, custodyId, catalogEntry.sequence);
     }
     else if (order == DUPLICATE_EXPIRY_ORDER::FIFO) {
-        Insert_OrderByFifo(custodyIdFlistPlusLastIt, custodyId);
+        Insert_OrderByFifo(custodyIdFlistQueue, custodyId);
         return true;
     }
     else if (order == DUPLICATE_EXPIRY_ORDER::FILO) {
-        Insert_OrderByFilo(custodyIdFlistPlusLastIt, custodyId);
+        Insert_OrderByFilo(custodyIdFlistQueue, custodyId);
         return true;
     }
     else {
@@ -174,8 +138,8 @@ bool BundleStorageCatalog::RemoveEntryFromAwaitingSend(const catalog_entry_t & c
         expirations_to_custids_map_t & expirationMap = priorityArray[catalogEntry.GetPriorityIndex()];
         expirations_to_custids_map_t::iterator expirationsIt = expirationMap.find(catalogEntry.GetAbsExpiration());
         if (expirationsIt != expirationMap.end()) {
-            custids_flist_plus_lastiterator_t & custodyIdFlistPlusLastIt = expirationsIt->second;
-            return Remove(custodyIdFlistPlusLastIt, custodyId);
+            custids_flist_queue_t& custodyIdFlistQueue = expirationsIt->second;
+            return Remove(custodyIdFlistQueue, custodyId);
         }
     }
     return false;
@@ -252,7 +216,7 @@ catalog_entry_t * BundleStorageCatalog::PopEntryFromAwaitingSend(uint64_t & cust
     for (int i = NUMBER_OF_PRIORITIES - 1; i >= 0; --i) { //00 = bulk, 01 = normal, 10 = expedited
         uint64_t lowestExpiration = UINT64_MAX;
         expirations_to_custids_map_t * expirationMapPtr = NULL;
-        custids_flist_plus_lastiterator_t * custIdFlistPlusLastItPtr = NULL;
+        custids_flist_queue_t * custodyIdFlistQueuePtr = NULL;
         expirations_to_custids_map_t::iterator expirationMapIterator;
 
         for (std::size_t j = 0; j < destEidPlusPriorityArrayPtrs.size(); ++j) {
@@ -264,17 +228,16 @@ catalog_entry_t * BundleStorageCatalog::PopEntryFromAwaitingSend(uint64_t & cust
                 if (lowestExpiration > thisExpiration) {
                     lowestExpiration = thisExpiration;
                     expirationMapPtr = &expirationMap;
-                    custIdFlistPlusLastItPtr = &it->second;
+                    custodyIdFlistQueuePtr = &it->second;
                     expirationMapIterator = it;
                 }
             }
         }
-        if (custIdFlistPlusLastItPtr) {
-            custids_flist_t & cidFlist = custIdFlistPlusLastItPtr->first;
-            custodyId = cidFlist.front();
-            cidFlist.pop_front();
+        if (custodyIdFlistQueuePtr) {
+            custodyId = custodyIdFlistQueuePtr->front();
+            custodyIdFlistQueuePtr->pop();
 
-            if (cidFlist.empty()) {
+            if (custodyIdFlistQueuePtr->empty()) {
                 expirationMapPtr->erase(expirationMapIterator);
             }
 
@@ -358,9 +321,9 @@ bool BundleStorageCatalog::GetStorageExpiringBeforeThresholdTelemetry(StorageExp
         for (expirations_to_custids_map_t::iterator expirationsIt = expirationsMap.begin(); expirationsIt != expirationsMap.end(); ++expirationsIt) {
             const uint64_t thisExpiration = expirationsIt->first;
             if (thisExpiration <= expiry) {
-                custids_flist_t& cidFlist = expirationsIt->second.first;
+                custids_flist_queue_t& custodyIdFlistQueue = expirationsIt->second;
                 StorageExpiringBeforeThresholdTelemetry_t::bundle_count_plus_bundle_bytes_pair_t & bundleCountAndBytes = telem.map_node_id_to_expiring_before_threshold_count[eid.nodeId];
-                for (custids_flist_t::iterator cidFlistIt = cidFlist.begin(); cidFlistIt != cidFlist.end(); ++cidFlistIt) {
+                for (custids_flist_queue_t::iterator cidFlistIt = custodyIdFlistQueue.begin(); cidFlistIt != custodyIdFlistQueue.end(); ++cidFlistIt) {
                     ++bundleCountAndBytes.first;
                     const uint64_t custodyId = *cidFlistIt;
                     catalog_entry_t * catalogEntryPtr = m_custodyIdToCatalogEntryHashmap.GetValuePtr(custodyId);

@@ -27,8 +27,7 @@
 
 class HDTN_UTIL_EXPORT Environment {
 protected:
-    Environment() = default;
-    virtual ~Environment() = default;
+    Environment() = delete;
 public:
     static std::string GetValue(const std::string & variableName);
     static boost::filesystem::path GetPathHdtnSourceRoot();

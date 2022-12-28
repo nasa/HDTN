@@ -30,7 +30,6 @@
 #include <boost/integer.hpp>
 #include <stdint.h>
 #include <map>
-#include <forward_list>
 #include <array>
 #include <vector>
 #include <utility>

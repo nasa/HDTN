@@ -53,14 +53,14 @@ void LtpTimerManager<idType, hashType>::Reset() {
 
 
 template <typename idType, typename hashType>
-bool LtpTimerManager<idType, hashType>::StartTimer(const idType serialNumber, const LtpTimerExpiredCallback_t* callbackPtr, std::vector<uint8_t> userData) {
+bool LtpTimerManager<idType, hashType>::StartTimer(void* classPtr, const idType serialNumber, const LtpTimerExpiredCallback_t* callbackPtr, std::vector<uint8_t> userData) {
     //expiry will always be appended to list (always greater than previous) (duplicate expiries ok)
     const boost::posix_time::ptime expiry = boost::posix_time::microsec_clock::universal_time() + m_transmissionToAckReceivedTimeRef;
     
     std::pair<typename id_to_data_map_t::iterator, bool> retVal = m_mapIdToTimerData.emplace(serialNumber, typename timer_data_list_t::iterator());
     if (retVal.second) {
         //value was inserted
-        m_listTimerData.emplace_back(serialNumber, expiry, callbackPtr, std::move(userData));
+        m_listTimerData.emplace_back(classPtr, serialNumber, expiry, callbackPtr, std::move(userData));
         retVal.first->second = std::prev(m_listTimerData.end()); //For a non-empty container c, the expression c.back() is equivalent to *std::prev(c.end())
         if (!m_isTimerActive) { //timer is not running
             m_activeSerialNumberBeingTimed = serialNumber;
@@ -77,17 +77,20 @@ template <typename idType, typename hashType>
 bool LtpTimerManager<idType, hashType>::DeleteTimer(const idType serialNumber) {
     std::vector<uint8_t> userDataToDiscard;
     const LtpTimerExpiredCallback_t* callbackPtrToDiscard;
-    return DeleteTimer(serialNumber, userDataToDiscard, callbackPtrToDiscard);
+    void* classPtrToDiscard;
+    return DeleteTimer(serialNumber, userDataToDiscard, callbackPtrToDiscard, classPtrToDiscard);
 }
 
 template <typename idType, typename hashType>
 bool LtpTimerManager<idType, hashType>::DeleteTimer(const idType serialNumber, std::vector<uint8_t> & userDataReturned) {
     const LtpTimerExpiredCallback_t* callbackPtrToDiscard;
-    return DeleteTimer(serialNumber, userDataReturned, callbackPtrToDiscard);
+    void* classPtrToDiscard;
+    return DeleteTimer(serialNumber, userDataReturned, callbackPtrToDiscard, classPtrToDiscard);
 }
 
 template <typename idType, typename hashType>
-bool LtpTimerManager<idType, hashType>::DeleteTimer(const idType serialNumber, std::vector<uint8_t> & userDataReturned, const LtpTimerExpiredCallback_t *& callbackPtrReturned) {
+bool LtpTimerManager<idType, hashType>::DeleteTimer(const idType serialNumber, std::vector<uint8_t> & userDataReturned,
+    const LtpTimerExpiredCallback_t *& callbackPtrReturned, void*& classPtrReturned) {
     
     typename id_to_data_map_t::iterator mapIt = m_mapIdToTimerData.find(serialNumber);
     if (mapIt != m_mapIdToTimerData.end()) {
@@ -95,6 +98,7 @@ bool LtpTimerManager<idType, hashType>::DeleteTimer(const idType serialNumber, s
         timer_data_t& timerDataRef = *timerDataListIt;
         userDataReturned = std::move(timerDataRef.m_userData);
         callbackPtrReturned = timerDataRef.m_callbackPtr;
+        classPtrReturned = timerDataRef.m_classPtr;
         m_listTimerData.erase(timerDataListIt);
         m_mapIdToTimerData.erase(mapIt);
         if (m_isTimerActive && (m_activeSerialNumberBeingTimed == serialNumber)) { 
@@ -123,11 +127,12 @@ void LtpTimerManager<idType, hashType>::OnTimerExpired(const boost::system::erro
         if (!(serialNumberThatExpired == 0)) { //if not deleted externally when active after expiration
             std::vector<uint8_t> userData; //grab any user data before DeleteTimer deletes it
             const LtpTimerExpiredCallback_t * callbackPtr; //grab before DeleteTimer deletes it
+            void* classPtr;
             m_activeSerialNumberBeingTimed = 0; //so DeleteTimer does not try to cancel timer that already expired
-            DeleteTimer(serialNumberThatExpired, userData, callbackPtr); //callback function can choose to readd it later
+            DeleteTimer(serialNumberThatExpired, userData, callbackPtr, classPtr); //callback function can choose to readd it later
 
             const LtpTimerExpiredCallback_t& callbackRef = *callbackPtr;
-            callbackRef(serialNumberThatExpired, userData); //called after DeleteTimer in case callback readds it
+            callbackRef(classPtr, serialNumberThatExpired, userData); //called after DeleteTimer in case callback readds it
         }
     }
 

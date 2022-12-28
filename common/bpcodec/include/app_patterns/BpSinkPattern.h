@@ -1,3 +1,29 @@
+/**
+ * @file BpSinkPattern.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * The BpSinkPattern class is a pure virtual base class for any application
+ * that needs to implement receiving user-defined bundles and processing them.
+ * The application needs only to override the virtual function ProcessPayload.
+ * This class takes an HDTN induct config with one induct in the inductVector
+ * for receiving the bundles.
+ * In the event that the induct is not a bidirectional TCPCL induct,
+ * this class can take an optional HDTN outduct config with one outduct in the outductVector
+ * for automatically sending optional custody signals and for automatically
+ * sending echo responses via a user-specified echo service number.
+ */
+
 #ifndef _BP_SINK_PATTERN_H
 #define _BP_SINK_PATTERN_H 1
 #include "bp_app_patterns_lib_export.h"

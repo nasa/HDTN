@@ -801,4 +801,39 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
             BOOST_REQUIRE(originalReceivedFragments == fragmentSet);
         }
     }
+
+    //intersection test (used in MemoryInFiles.cpp)
+    {
+        //https://scicomp.stackexchange.com/questions/26258/the-easiest-way-to-find-intersection-of-two-intervals
+        { //Intersection of [0, 3] & [2, 4] is [2, 3]
+            const df k1(0, 3);
+            const df k2(2, 4);
+            df overlap;
+            const df expectedOverlap(2, 3);
+            BOOST_REQUIRE(k1.GetOverlap(k2, overlap)); //intersects
+            BOOST_REQUIRE(overlap == expectedOverlap);
+            BOOST_REQUIRE(k2.GetOverlap(k1, overlap)); //intersects
+            BOOST_REQUIRE(overlap == expectedOverlap);
+
+            BOOST_REQUIRE(k1.GetOverlap(k1, overlap)); //intersects
+            BOOST_REQUIRE(overlap == k1);
+        }
+        { //Intersection of [-1, 34]&[0, 4] is [0, 4]
+            const df k1(0, 34);
+            const df k2(0, 4);
+            df overlap;
+            const df& expectedOverlap = k2;
+            BOOST_REQUIRE(k1.GetOverlap(k2, overlap)); //intersects
+            BOOST_REQUIRE(overlap == expectedOverlap);
+            BOOST_REQUIRE(k2.GetOverlap(k1, overlap)); //intersects
+            BOOST_REQUIRE(overlap == expectedOverlap);
+        }
+        { //Intersection of [0, 3]&[4, 4] is empty set
+            const df k1(0, 3);
+            const df k2(4, 4);
+            df overlap;
+            BOOST_REQUIRE(!k1.GetOverlap(k2, overlap)); //does not intersect
+            BOOST_REQUIRE(!k2.GetOverlap(k1, overlap)); //does not intersect
+        }
+    }
 }

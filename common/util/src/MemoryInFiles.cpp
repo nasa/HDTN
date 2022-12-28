@@ -19,6 +19,8 @@
 #endif
 
 #include "MemoryInFiles.h"
+#include "ForwardListQueue.h"
+#include "FragmentSet.h"
 #include <boost/thread.hpp>
 #include <memory>
 #include <unordered_map>
@@ -34,7 +36,20 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
+static constexpr uint64_t BLOCK_SIZE_MULTIPLE = 4096;
+static constexpr uint64_t BLOCK_SIZE_MULTIPLE_MASK = BLOCK_SIZE_MULTIPLE - 1;
+static constexpr uint64_t BLOCK_SIZE_MULTIPLE_SHIFT = 12; //(1<<12) == 4096
+uint64_t MemoryInFiles::CeilToNearestBlockMultiple(const uint64_t minimumDesiredBytes) {
+    //const uint64_t totalBlocksRequired = (minimumDesiredBytes / BLOCK_SIZE_MULTIPLE) + ((minimumDesiredBytes % BLOCK_SIZE_MULTIPLE) == 0 ? 0 : 1);
+    const bool addOne = ((minimumDesiredBytes & BLOCK_SIZE_MULTIPLE_MASK) != 0); //((minimumDesiredBytes % BLOCK_SIZE_MULTIPLE) == 0 ? 0 : 1);
+    const uint64_t totalBlocksRequired = (minimumDesiredBytes >> BLOCK_SIZE_MULTIPLE_SHIFT) + addOne;
+    const uint64_t allocationSize = (totalBlocksRequired << BLOCK_SIZE_MULTIPLE_SHIFT);
+    return allocationSize;
+}
+
 struct MemoryInFiles::Impl : private boost::noncopyable {
+
+    
 
     Impl() = delete;
     Impl(boost::asio::io_service& ioServiceRef,
@@ -43,17 +58,23 @@ struct MemoryInFiles::Impl : private boost::noncopyable {
         const uint64_t estimatedMaxAllocatedBlocks);
     ~Impl();
     void Stop();
-    uint64_t AllocateNewWriteMemoryBlock(std::size_t totalSize);
+    uint64_t AllocateNewWriteMemoryBlock(uint64_t totalSize);
+    uint64_t Resize(const uint64_t memoryBlockId, uint64_t newSize); //returns the new size
+    uint64_t GetSizeOfMemoryBlock(const uint64_t memoryBlockId) const noexcept;
     void ForceDeleteMemoryBlock(const uint64_t memoryBlockId); //intended only for boost::asio::post calls to defer delete when io operations in progress
     bool DeleteMemoryBlock(const uint64_t memoryBlockId);
+    void AsyncDeleteMemoryBlock(const uint64_t memoryBlockId);
     bool WriteMemoryAsync(const deferred_write_t& deferredWrite, std::shared_ptr<write_memory_handler_t>& handlerPtr);
     bool WriteMemoryAsync(const std::vector<deferred_write_t>& deferredWritesVec, std::shared_ptr<write_memory_handler_t>& handlerPtr);
     bool ReadMemoryAsync(const deferred_read_t& deferredRead, std::shared_ptr<read_memory_handler_t>& handlerPtr);
     bool ReadMemoryAsync(const std::vector<deferred_read_t>& deferredReadsVec, std::shared_ptr<read_memory_handler_t>& handlerPtr);
 
-    
-
 private:
+    void HandleAsyncDeleteMemoryBlock(const uint64_t memoryBlockId); //to print messages if error
+
+    struct MemoryBlockInfo;
+    uint64_t Resize(MemoryBlockInfo& mbi, uint64_t newSize); //returns the new size
+    bool SetupNextFileIfNeeded();
 
 #ifdef _WIN32
     typedef boost::asio::windows::random_access_handle file_handle_t;
@@ -61,14 +82,14 @@ private:
     typedef boost::asio::posix::stream_descriptor file_handle_t;
 #endif
 
-    struct MemoryBlockInfo;
+    
 
     struct io_operation_t : private boost::noncopyable {
         io_operation_t() = delete;
         io_operation_t(
             MemoryBlockInfo& memoryBlockInfoRef,
             uint64_t offsetWithinFile,
-            std::size_t length,
+            uint64_t length,
             const void* writeLocationPtr,
             std::shared_ptr<write_memory_handler_t>& writeHandlerPtr);
 
@@ -76,12 +97,12 @@ private:
             MemoryBlockInfo& memoryBlockInfoRef,
             std::shared_ptr<read_memory_handler_t>& readHandlerPtr,
             uint64_t offsetWithinFile,
-            std::size_t length,
+            uint64_t length,
             void* readLocationPtr);
 
         MemoryBlockInfo& m_memoryBlockInfoRef; //references to unordered_map never get invalidated, only iterators
         uint64_t m_offsetWithinFile;
-        std::size_t m_length;
+        uint64_t m_length;
         void* m_readToThisLocationPtr;
         const void* m_writeFromThisLocationPtr;
         std::shared_ptr<read_memory_handler_t> m_readHandlerPtr;
@@ -92,8 +113,8 @@ private:
         FileInfo() = delete;
         FileInfo(const boost::filesystem::path& filePath, boost::asio::io_service & ioServiceRef, MemoryInFiles::Impl& implRef);
         ~FileInfo();
-        bool WriteMemoryAsync(MemoryBlockInfo& memoryBlockInfoRef, const uint64_t offsetWithinFile, const void* data, std::size_t length, std::shared_ptr<write_memory_handler_t>& handlerPtr);
-        bool ReadMemoryAsync(MemoryBlockInfo& memoryBlockInfoRef, const uint64_t offsetWithinFile, void* data, std::size_t length, std::shared_ptr<read_memory_handler_t>& handlerPtr);
+        bool WriteMemoryAsync(MemoryBlockInfo& memoryBlockInfoRef, const uint64_t offsetWithinFile, const void* data, uint64_t length, std::shared_ptr<write_memory_handler_t>& handlerPtr);
+        bool ReadMemoryAsync(MemoryBlockInfo& memoryBlockInfoRef, const uint64_t offsetWithinFile, void* data, uint64_t length, std::shared_ptr<read_memory_handler_t>& handlerPtr);
     private:
         void HandleDiskWriteCompleted(const boost::system::error_code& error, std::size_t bytes_transferred);
         void HandleDiskReadCompleted(const boost::system::error_code& error, std::size_t bytes_transferred);
@@ -109,13 +130,24 @@ private:
         bool m_valid;
     };
 
-    struct MemoryBlockInfo : private boost::noncopyable {
-        MemoryBlockInfo() = delete;
-        MemoryBlockInfo(const uint64_t memoryBlockId, const std::shared_ptr<FileInfo>& fileInfoPtr, const uint64_t baseOffsetWithinFile, const std::size_t length);
-        const uint64_t m_memoryBlockId;
+    struct MemoryBlockFragmentInfo : private boost::noncopyable {
+        MemoryBlockFragmentInfo() = delete;
+        MemoryBlockFragmentInfo(const std::shared_ptr<FileInfo>& fileInfoPtr, const uint64_t baseOffsetWithinFile, const uint64_t lengthAlignedToBlockSize);
         std::shared_ptr<FileInfo> m_fileInfoPtr;
         const uint64_t m_baseOffsetWithinFile;
-        const std::size_t m_length;
+        const uint64_t m_length;
+    };
+
+    struct MemoryBlockInfo : private boost::noncopyable {
+        MemoryBlockInfo() = delete;
+        MemoryBlockInfo(const uint64_t memoryBlockId);
+        uint64_t Resize(const std::shared_ptr<FileInfo>& currentFileInfoPtr, //returns the increase in size
+            const uint64_t currentBaseOffsetWithinFile, const uint64_t newLengthAlignedToBlockSize);
+        bool DoWriteOrRead(const uint64_t deferredOffset, const uint64_t deferredLength,
+            void* readToThisLocationPtr, const void* writeFromThisLocationPtr, void* handlerPtrPtr);
+        const uint64_t m_memoryBlockId;
+        ForwardListQueue<MemoryBlockFragmentInfo> m_memoryBlockFragmentInfoFlistQueue;
+        uint64_t m_lengthAlignedToBlockSize;
         unsigned int m_queuedOperationsReferenceCount;
         bool m_markedForDeletion;
     };
@@ -148,7 +180,7 @@ public: //stats
 MemoryInFiles::Impl::io_operation_t::io_operation_t(
     MemoryBlockInfo& memoryBlockInfoRef,
     uint64_t offsetWithinFile,
-    std::size_t length,
+    uint64_t length,
     const void* writeLocationPtr,
     std::shared_ptr<write_memory_handler_t>& writeHandlerPtr) :
     ///
@@ -163,7 +195,7 @@ MemoryInFiles::Impl::io_operation_t::io_operation_t(
     MemoryBlockInfo& memoryBlockInfoRef,
     std::shared_ptr<read_memory_handler_t>& readHandlerPtr,
     uint64_t offsetWithinFile,
-    std::size_t length,
+    uint64_t length,
     void* readLocationPtr) :
     ///
     m_memoryBlockInfoRef(memoryBlockInfoRef),
@@ -254,7 +286,7 @@ void MemoryInFiles::Impl::FileInfo::TryStartNextQueuedIoOperation() {
         }
     }
 }
-bool MemoryInFiles::Impl::FileInfo::WriteMemoryAsync(MemoryBlockInfo& memoryBlockInfoRef, const uint64_t offsetWithinFile, const void* data, std::size_t length, std::shared_ptr<write_memory_handler_t>& handlerPtr) {
+bool MemoryInFiles::Impl::FileInfo::WriteMemoryAsync(MemoryBlockInfo& memoryBlockInfoRef, const uint64_t offsetWithinFile, const void* data, uint64_t length, std::shared_ptr<write_memory_handler_t>& handlerPtr) {
     if (m_valid) {
         m_queueIoOperations.emplace(memoryBlockInfoRef, offsetWithinFile, length, data, handlerPtr);
         ++memoryBlockInfoRef.m_queuedOperationsReferenceCount;
@@ -278,7 +310,7 @@ void MemoryInFiles::Impl::FileInfo::HandleDiskWriteCompleted(const boost::system
     FinishCompletionHandler(op);
 }
 
-bool MemoryInFiles::Impl::FileInfo::ReadMemoryAsync(MemoryBlockInfo& memoryBlockInfoRef, const uint64_t offsetWithinFile, void* data, std::size_t length, std::shared_ptr<read_memory_handler_t>& handlerPtr) {
+bool MemoryInFiles::Impl::FileInfo::ReadMemoryAsync(MemoryBlockInfo& memoryBlockInfoRef, const uint64_t offsetWithinFile, void* data, uint64_t length, std::shared_ptr<read_memory_handler_t>& handlerPtr) {
     if (m_valid) {
         m_queueIoOperations.emplace(memoryBlockInfoRef, handlerPtr, offsetWithinFile, length, data);
         ++memoryBlockInfoRef.m_queuedOperationsReferenceCount;
@@ -329,18 +361,39 @@ void MemoryInFiles::Impl::OnNewFileAggregation_TimerExpired(const boost::system:
     }
 }
 
-MemoryInFiles::Impl::MemoryBlockInfo::MemoryBlockInfo(
-    const uint64_t memoryBlockId,
+MemoryInFiles::Impl::MemoryBlockFragmentInfo::MemoryBlockFragmentInfo(
     const std::shared_ptr<FileInfo>& fileInfoPtr,
-    const uint64_t baseOffsetWithinFile, const std::size_t length) :
-    m_memoryBlockId(memoryBlockId),
+    const uint64_t baseOffsetWithinFile,
+    const uint64_t lengthAlignedToBlockSize) :
+    //
     m_fileInfoPtr(fileInfoPtr),
     m_baseOffsetWithinFile(baseOffsetWithinFile),
-    m_length(length),
+    m_length(lengthAlignedToBlockSize) {}
+
+
+MemoryInFiles::Impl::MemoryBlockInfo::MemoryBlockInfo(const uint64_t memoryBlockId) :
+    m_memoryBlockId(memoryBlockId),
+    m_lengthAlignedToBlockSize(0),
     m_queuedOperationsReferenceCount(0),
     m_markedForDeletion(false)
 {
 
+}
+
+//returns the increase in size
+uint64_t MemoryInFiles::Impl::MemoryBlockInfo::Resize(const std::shared_ptr<FileInfo>& currentFileInfoPtr,
+    const uint64_t currentBaseOffsetWithinFile, const uint64_t newLengthAlignedToBlockSize)
+{
+    if (newLengthAlignedToBlockSize <= m_lengthAlignedToBlockSize) {
+        return 0; //0-byte increase in file size
+    }
+    const uint64_t diffSize = newLengthAlignedToBlockSize - m_lengthAlignedToBlockSize;
+    m_lengthAlignedToBlockSize = newLengthAlignedToBlockSize;
+
+    //insert (order by FIFO, so newest elements will be last)
+    m_memoryBlockFragmentInfoFlistQueue.emplace_back(currentFileInfoPtr, currentBaseOffsetWithinFile, diffSize);
+
+    return diffSize;
 }
 
 MemoryInFiles::Impl::Impl(boost::asio::io_service& ioServiceRef,
@@ -385,39 +438,71 @@ MemoryInFiles::Impl::~Impl() {
     }
 }
 
-uint64_t MemoryInFiles::Impl::AllocateNewWriteMemoryBlock(std::size_t totalSize) {
+bool MemoryInFiles::Impl::SetupNextFileIfNeeded() {
     if (!m_currentWritingFileInfoPtr) {
         m_nextOffsetOfCurrentFile = 0;
         static const boost::format fmtTemplate("ltp_%09d.bin");
         boost::format fmt(fmtTemplate);
-        fmt % m_nextFileId++;
+        fmt% m_nextFileId++;
         const boost::filesystem::path fullFilePath = m_rootStorageDirectory / boost::filesystem::path(fmt.str());
 
         if (boost::filesystem::exists(fullFilePath)) {
             LOG_ERROR(subprocess) << "MemoryInFiles::Impl::WriteMemoryAsync: " << fullFilePath << " already exists";
-            return 0;
+            return false;
         }
         m_currentWritingFileInfoPtr = std::make_shared<FileInfo>(fullFilePath, m_ioServiceRef, *this);
         TryRestartNewFileAggregationTimer(); //only start timer on new write allocation to prevent periodic empty files from being created
         ++m_countTotalFilesCreated;
         ++m_countTotalFilesActive;
     }
-    const uint64_t memoryBlockId = m_nextMemoryBlockId++;
+    return true;
+}
 
+uint64_t MemoryInFiles::Impl::AllocateNewWriteMemoryBlock(uint64_t totalSize) {
+    const uint64_t memoryBlockId = m_nextMemoryBlockId;
     //try_emplace does not work with piecewise_construct
     std::pair<id_to_memoryblockinfo_map_t::iterator, bool> ret = m_mapIdToMemoryBlockInfo.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(memoryBlockId),
-            std::forward_as_tuple(memoryBlockId, m_currentWritingFileInfoPtr, m_nextOffsetOfCurrentFile, totalSize));
+            std::forward_as_tuple(memoryBlockId));
     //(true if insertion happened, false if it did not).
     if (ret.second) {
-        m_nextOffsetOfCurrentFile += totalSize;
+        ++m_nextMemoryBlockId;
+        MemoryBlockInfo& mbi = ret.first->second;
+        if (Resize(mbi, totalSize) == 0) {
+            return 0; //fail
+        }
         return memoryBlockId;
     }
     else {
         //LOG_ERROR(subprocess) << "Unable to insert memoryBlockId " << memoryBlockId;
         return 0;
     }
+}
+uint64_t MemoryInFiles::Impl::Resize(const uint64_t memoryBlockId, uint64_t newSize) { //returns the new size
+    id_to_memoryblockinfo_map_t::iterator it = m_mapIdToMemoryBlockInfo.find(memoryBlockId);
+    if (it == m_mapIdToMemoryBlockInfo.end()) {
+        return 0; //fail
+    }
+    MemoryBlockInfo& mbi = it->second;
+    return Resize(mbi, newSize);
+}
+uint64_t MemoryInFiles::Impl::Resize(MemoryBlockInfo& mbi, uint64_t newSize) { //returns the new size
+    if (!SetupNextFileIfNeeded()) {
+        return 0;
+    }
+    newSize = CeilToNearestBlockMultiple(newSize);
+    const uint64_t fileSizeIncrease = mbi.Resize(m_currentWritingFileInfoPtr, m_nextOffsetOfCurrentFile, newSize);
+    m_nextOffsetOfCurrentFile += fileSizeIncrease;
+    return newSize;
+}
+uint64_t MemoryInFiles::Impl::GetSizeOfMemoryBlock(const uint64_t memoryBlockId) const noexcept {
+    id_to_memoryblockinfo_map_t::const_iterator it = m_mapIdToMemoryBlockInfo.find(memoryBlockId);
+    if (it == m_mapIdToMemoryBlockInfo.cend()) {
+        return false;
+    }
+    const MemoryBlockInfo& mbi = it->second;
+    return mbi.m_lengthAlignedToBlockSize;
 }
 void MemoryInFiles::Impl::ForceDeleteMemoryBlock(const uint64_t memoryBlockId) {
     if (m_mapIdToMemoryBlockInfo.erase(memoryBlockId)) {
@@ -444,6 +529,83 @@ bool MemoryInFiles::Impl::DeleteMemoryBlock(const uint64_t memoryBlockId) {
     m_mapIdToMemoryBlockInfo.erase(it);
     return true;
 }
+void MemoryInFiles::Impl::AsyncDeleteMemoryBlock(const uint64_t memoryBlockId) {
+    boost::asio::post(m_ioServiceRef, boost::bind(&MemoryInFiles::Impl::HandleAsyncDeleteMemoryBlock, this, memoryBlockId));
+}
+void MemoryInFiles::Impl::HandleAsyncDeleteMemoryBlock(const uint64_t memoryBlockId) {
+    if (!DeleteMemoryBlock(memoryBlockId)) {
+        LOG_ERROR(subprocess) << "Unable to async delete memoryBlockId=" << memoryBlockId;
+    }
+    else {
+        //LOG_DEBUG(subprocess) << "Async delete successful of memoryBlockId=" << memoryBlockId;
+    }
+}
+bool MemoryInFiles::Impl::MemoryBlockInfo::DoWriteOrRead(
+    const uint64_t deferredOffset, const uint64_t deferredLength, void* readToThisLocationPtr, const void* writeFromThisLocationPtr,
+    void * handlerPtrPtr)
+{
+    if (m_markedForDeletion) {
+        LOG_ERROR(subprocess) << ((readToThisLocationPtr != NULL) ? "ReadMemoryAsync" : "WriteMemoryAsync")
+            << " called on marked for deletion block with memoryBlockId = " << m_memoryBlockId;
+        return false;
+    }
+
+    if ((deferredOffset + deferredLength) > m_lengthAlignedToBlockSize) {
+        //LOG_ERROR(subprocess) << "out of bounds " << (deferredOffset + deferredLength) << " > " << m_lengthAlignedToBlockSize;
+        return false;
+    }
+
+    //endIndex shall be treated as endIndexPlus1
+    const FragmentSet::data_fragment_t fullBlock(deferredOffset, deferredOffset + deferredLength);
+    FragmentSet::data_fragment_t thisFragment(0, 0);
+    //LOG_DEBUG(subprocess) << "DoWriteOrRead";
+    uint64_t operationPtrOffset = 0;
+    for (ForwardListQueue<MemoryBlockFragmentInfo>::const_iterator it = m_memoryBlockFragmentInfoFlistQueue.cbegin(); it != m_memoryBlockFragmentInfoFlistQueue.cend(); ++it) {
+        const MemoryBlockFragmentInfo& frag = *it;
+        thisFragment.endIndex += frag.m_length;
+        //LOG_DEBUG(subprocess) << "Frag owf=" << frag.m_baseOffsetWithinFile << " len=" << frag.m_length;
+        FragmentSet::data_fragment_t overlap;
+        if (thisFragment.GetOverlap(fullBlock, overlap)) {
+            //LOG_DEBUG(subprocess) << "overlap fb[" << fullBlock.beginIndex << "," << fullBlock.endIndex << "] frag[" << thisFragment.beginIndex << "," << thisFragment.endIndex 
+            //    << "] overlap[" << overlap.beginIndex << "," << overlap.endIndex << "]";
+            const uint64_t offsetWithinFragment = (overlap.beginIndex - thisFragment.beginIndex);
+            const uint64_t offsetWithinFile = frag.m_baseOffsetWithinFile + offsetWithinFragment;
+            const uint64_t thisFragmentOperationLength = overlap.endIndex - overlap.beginIndex;
+            if (writeFromThisLocationPtr) {
+                std::shared_ptr<write_memory_handler_t>& handlerPtr = *(reinterpret_cast<std::shared_ptr<write_memory_handler_t> *>(handlerPtrPtr));
+                //LOG_DEBUG(subprocess) << "Write owfile=" << offsetWithinFile << " owfrag=" << offsetWithinFragment
+                //    << " oplen=" << thisFragmentOperationLength << " bi=" << overlap.beginIndex << " ei=" << overlap.endIndex;
+                if (!frag.m_fileInfoPtr->WriteMemoryAsync(*this, offsetWithinFile,
+                    ((const uint8_t*)writeFromThisLocationPtr) + operationPtrOffset, thisFragmentOperationLength, handlerPtr))
+                {
+                    return false;
+                }
+            }
+            else {
+                std::shared_ptr<read_memory_handler_t>& handlerPtr = *(reinterpret_cast<std::shared_ptr<read_memory_handler_t> *>(handlerPtrPtr));
+                //LOG_DEBUG(subprocess) << "read owf=" << offsetWithinFile << " oplen=" << thisFragmentOperationLength
+                //    << " bi=" << overlap.beginIndex << " ei=" << overlap.endIndex;
+                if (!frag.m_fileInfoPtr->ReadMemoryAsync(*this, offsetWithinFile,
+                    ((uint8_t*)readToThisLocationPtr) + operationPtrOffset, thisFragmentOperationLength, handlerPtr))
+                {
+                    return false;
+                }
+            }
+            operationPtrOffset += thisFragmentOperationLength;
+        }
+        //else {
+            //LOG_DEBUG(subprocess) << "no overlap fb[" << fullBlock.beginIndex << "," << fullBlock.endIndex << "] frag[" << thisFragment.beginIndex << "," << thisFragment.endIndex << "]";
+        //}
+        
+        thisFragment.beginIndex = thisFragment.endIndex;
+    }
+  
+    //old behavior before resize capability and fragment list were added:
+    //const uint64_t offsetWithinFile = mbi.m_baseOffsetWithinFile + deferredWrite.offset;
+    //return mbi.m_fileInfoPtr->WriteMemoryAsync(mbi, offsetWithinFile, deferredWrite.writeFromThisLocationPtr, deferredWrite.length, handlerPtr);
+
+    return true;
+}
 bool MemoryInFiles::Impl::WriteMemoryAsync(const deferred_write_t& deferredWrite, std::shared_ptr<write_memory_handler_t>& handlerPtr) {
     
     id_to_memoryblockinfo_map_t::iterator it = m_mapIdToMemoryBlockInfo.find(deferredWrite.memoryBlockId);
@@ -451,15 +613,7 @@ bool MemoryInFiles::Impl::WriteMemoryAsync(const deferred_write_t& deferredWrite
         return false;
     }
     MemoryBlockInfo& mbi = it->second;
-    if (mbi.m_markedForDeletion) {
-        LOG_ERROR(subprocess) << "WriteMemoryAsync called on marked for deletion block with memoryBlockId=" << deferredWrite.memoryBlockId;
-        return false;
-    }
-    if ((deferredWrite.offset + deferredWrite.length) > mbi.m_length) {
-        return false;
-    }
-    const uint64_t offsetWithinFile = mbi.m_baseOffsetWithinFile + deferredWrite.offset;
-    return mbi.m_fileInfoPtr->WriteMemoryAsync(mbi, offsetWithinFile, deferredWrite.writeFromThisLocationPtr, deferredWrite.length, handlerPtr);
+    return mbi.DoWriteOrRead(deferredWrite.offset, deferredWrite.length, NULL, deferredWrite.writeFromThisLocationPtr, &handlerPtr);
 }
 bool MemoryInFiles::Impl::WriteMemoryAsync(const std::vector<deferred_write_t>& deferredWritesVec, std::shared_ptr<write_memory_handler_t>& handlerPtr) {
     for (std::size_t i = 0; i < deferredWritesVec.size(); ++i) {
@@ -475,15 +629,7 @@ bool MemoryInFiles::Impl::ReadMemoryAsync(const deferred_read_t& deferredRead, s
         return false;
     }
     MemoryBlockInfo& mbi = it->second;
-    if (mbi.m_markedForDeletion) {
-        LOG_ERROR(subprocess) << "ReadMemoryAsync called on marked for deletion block with memoryBlockId=" << deferredRead.memoryBlockId;
-        return false;
-    }
-    if ((deferredRead.offset + deferredRead.length) > mbi.m_length) {
-        return false;
-    }
-    const uint64_t offsetWithinFile = mbi.m_baseOffsetWithinFile + deferredRead.offset;
-    return mbi.m_fileInfoPtr->ReadMemoryAsync(mbi, offsetWithinFile, deferredRead.readToThisLocationPtr, deferredRead.length, handlerPtr);
+    return mbi.DoWriteOrRead(deferredRead.offset, deferredRead.length, deferredRead.readToThisLocationPtr, NULL, &handlerPtr);
 }
 bool MemoryInFiles::Impl::ReadMemoryAsync(const std::vector<deferred_read_t>& deferredReadsVec, std::shared_ptr<read_memory_handler_t>& handlerPtr) {
     for (std::size_t i = 0; i < deferredReadsVec.size(); ++i) {
@@ -502,11 +648,20 @@ MemoryInFiles::MemoryInFiles(boost::asio::io_service& ioServiceRef,
 {}
 MemoryInFiles::~MemoryInFiles() {}
 
-uint64_t MemoryInFiles::AllocateNewWriteMemoryBlock(std::size_t totalSize) {
+uint64_t MemoryInFiles::AllocateNewWriteMemoryBlock(uint64_t totalSize) {
     return m_pimpl->AllocateNewWriteMemoryBlock(totalSize);
+}
+uint64_t MemoryInFiles::GetSizeOfMemoryBlock(const uint64_t memoryBlockId) const noexcept {
+    return m_pimpl->GetSizeOfMemoryBlock(memoryBlockId);
+}
+uint64_t MemoryInFiles::Resize(const uint64_t memoryBlockId, uint64_t newSize) {
+    return m_pimpl->Resize(memoryBlockId, newSize);
 }
 bool MemoryInFiles::DeleteMemoryBlock(const uint64_t memoryBlockId) {
     return m_pimpl->DeleteMemoryBlock(memoryBlockId);
+}
+void MemoryInFiles::AsyncDeleteMemoryBlock(const uint64_t memoryBlockId) {
+    return m_pimpl->AsyncDeleteMemoryBlock(memoryBlockId);
 }
 
 bool MemoryInFiles::WriteMemoryAsync(const deferred_write_t& deferredWrite, const write_memory_handler_t& handler) {

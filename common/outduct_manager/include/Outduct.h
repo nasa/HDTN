@@ -1,3 +1,22 @@
+/**
+ * @file Outduct.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * The Outduct class is the base class for all HDTN outducts
+ * which are used by the OutductManager.
+ */
+
 #ifndef OUTDUCT_H
 #define OUTDUCT_H 1
 #include "outduct_manager_lib_export.h"
@@ -49,7 +68,7 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT virtual uint64_t GetOutductTelemetry(uint8_t* data, uint64_t bufferSize);
 
     OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetOutductUuid() const;
-    OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetOutductMaxNumberOfBundlesInPipeline() const;
+    OUTDUCT_MANAGER_LIB_EXPORT virtual uint64_t GetOutductMaxNumberOfBundlesInPipeline() const;
     OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetOutductMaxSumOfBundleBytesInPipeline() const;
     OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetOutductNextHopNodeId() const;
     OUTDUCT_MANAGER_LIB_EXPORT std::string GetConvergenceLayerName() const;

@@ -65,8 +65,8 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
         ltpRxOrTxCfg.senderPingSecondsOrZeroToDisable = 0; //unused for inducts
         ltpRxOrTxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable = 0;
         ltpRxOrTxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable = 0; //unused for inducts (must be set to 0)
-        ltpRxOrTxCfg.senderNewFileDurationMsToStoreSessionDataOrZeroToDisable = 0;
-        ltpRxOrTxCfg.senderWriteSessionDataToFilesPath = "./";
+        ltpRxOrTxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable = 0;
+        ltpRxOrTxCfg.activeSessionDataOnDiskDirectory = "./";
 
         boost::program_options::options_description desc("Allowed options");
         try {

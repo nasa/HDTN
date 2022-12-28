@@ -50,6 +50,10 @@ outduct_element_config_t::outduct_element_config_t() :
     ltpMaxSendRateBitsPerSecOrZeroToDisable(0),
     ltpMaxUdpPacketsToSendPerSystemCall(0),
     ltpSenderPingSecondsOrZeroToDisable(0),
+    delaySendingOfDataSegmentsTimeMsOrZeroToDisable(20),
+    keepActiveSessionDataOnDisk(false),
+    activeSessionDataOnDiskNewFileDurationMs(2000),
+    activeSessionDataOnDiskDirectory("./"),
 
     udpRateBps(0),
 
@@ -93,6 +97,10 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     ltpMaxSendRateBitsPerSecOrZeroToDisable(o.ltpMaxSendRateBitsPerSecOrZeroToDisable),
     ltpMaxUdpPacketsToSendPerSystemCall(o.ltpMaxUdpPacketsToSendPerSystemCall),
     ltpSenderPingSecondsOrZeroToDisable(o.ltpSenderPingSecondsOrZeroToDisable),
+    delaySendingOfDataSegmentsTimeMsOrZeroToDisable(o.delaySendingOfDataSegmentsTimeMsOrZeroToDisable),
+    keepActiveSessionDataOnDisk(o.keepActiveSessionDataOnDisk),
+    activeSessionDataOnDiskNewFileDurationMs(o.activeSessionDataOnDiskNewFileDurationMs),
+    activeSessionDataOnDiskDirectory(o.activeSessionDataOnDiskDirectory),
 
     udpRateBps(o.udpRateBps),
 
@@ -133,6 +141,10 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     ltpMaxSendRateBitsPerSecOrZeroToDisable(o.ltpMaxSendRateBitsPerSecOrZeroToDisable),
     ltpMaxUdpPacketsToSendPerSystemCall(o.ltpMaxUdpPacketsToSendPerSystemCall),
     ltpSenderPingSecondsOrZeroToDisable(o.ltpSenderPingSecondsOrZeroToDisable),
+    delaySendingOfDataSegmentsTimeMsOrZeroToDisable(o.delaySendingOfDataSegmentsTimeMsOrZeroToDisable),
+    keepActiveSessionDataOnDisk(o.keepActiveSessionDataOnDisk),
+    activeSessionDataOnDiskNewFileDurationMs(o.activeSessionDataOnDiskNewFileDurationMs),
+    activeSessionDataOnDiskDirectory(std::move(o.activeSessionDataOnDiskDirectory)),
 
     udpRateBps(o.udpRateBps),
 
@@ -173,6 +185,10 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
     ltpMaxSendRateBitsPerSecOrZeroToDisable = o.ltpMaxSendRateBitsPerSecOrZeroToDisable;
     ltpMaxUdpPacketsToSendPerSystemCall = o.ltpMaxUdpPacketsToSendPerSystemCall;
     ltpSenderPingSecondsOrZeroToDisable = o.ltpSenderPingSecondsOrZeroToDisable;
+    delaySendingOfDataSegmentsTimeMsOrZeroToDisable = o.delaySendingOfDataSegmentsTimeMsOrZeroToDisable;
+    keepActiveSessionDataOnDisk = o.keepActiveSessionDataOnDisk;
+    activeSessionDataOnDiskNewFileDurationMs = o.activeSessionDataOnDiskNewFileDurationMs;
+    activeSessionDataOnDiskDirectory = o.activeSessionDataOnDiskDirectory;
 
     udpRateBps = o.udpRateBps;
 
@@ -216,6 +232,10 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
     ltpMaxSendRateBitsPerSecOrZeroToDisable = o.ltpMaxSendRateBitsPerSecOrZeroToDisable;
     ltpMaxUdpPacketsToSendPerSystemCall = o.ltpMaxUdpPacketsToSendPerSystemCall;
     ltpSenderPingSecondsOrZeroToDisable = o.ltpSenderPingSecondsOrZeroToDisable;
+    delaySendingOfDataSegmentsTimeMsOrZeroToDisable = o.delaySendingOfDataSegmentsTimeMsOrZeroToDisable;
+    keepActiveSessionDataOnDisk = o.keepActiveSessionDataOnDisk;
+    activeSessionDataOnDiskNewFileDurationMs = o.activeSessionDataOnDiskNewFileDurationMs;
+    activeSessionDataOnDiskDirectory = std::move(o.activeSessionDataOnDiskDirectory);
 
     udpRateBps = o.udpRateBps;
 
@@ -258,6 +278,10 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
         (ltpMaxSendRateBitsPerSecOrZeroToDisable == o.ltpMaxSendRateBitsPerSecOrZeroToDisable) &&
         (ltpMaxUdpPacketsToSendPerSystemCall == o.ltpMaxUdpPacketsToSendPerSystemCall) &&
         (ltpSenderPingSecondsOrZeroToDisable == o.ltpSenderPingSecondsOrZeroToDisable) &&
+        (delaySendingOfDataSegmentsTimeMsOrZeroToDisable == o.delaySendingOfDataSegmentsTimeMsOrZeroToDisable) &&
+        (keepActiveSessionDataOnDisk == o.keepActiveSessionDataOnDisk) &&
+        (activeSessionDataOnDiskNewFileDurationMs == o.activeSessionDataOnDiskNewFileDurationMs) &&
+        (activeSessionDataOnDiskDirectory == o.activeSessionDataOnDiskDirectory) &&
 
         (udpRateBps == o.udpRateBps) &&
 
@@ -400,6 +424,10 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 }
 #endif //UIO_MAXIOV
                 outductElementConfig.ltpSenderPingSecondsOrZeroToDisable = outductElementConfigPt.second.get<uint64_t>("ltpSenderPingSecondsOrZeroToDisable");
+                outductElementConfig.delaySendingOfDataSegmentsTimeMsOrZeroToDisable = outductElementConfigPt.second.get<uint64_t>("delaySendingOfDataSegmentsTimeMsOrZeroToDisable");
+                outductElementConfig.keepActiveSessionDataOnDisk = outductElementConfigPt.second.get<bool>("keepActiveSessionDataOnDisk");
+                outductElementConfig.activeSessionDataOnDiskNewFileDurationMs = outductElementConfigPt.second.get<uint64_t>("activeSessionDataOnDiskNewFileDurationMs");
+                outductElementConfig.activeSessionDataOnDiskDirectory = outductElementConfigPt.second.get<boost::filesystem::path>("activeSessionDataOnDiskDirectory");
             }
             else {
                 static const std::vector<std::string> LTP_ONLY_VALUES = { "thisLtpEngineId" , "remoteLtpEngineId", "ltpDataSegmentMtu", "oneWayLightTimeMs", "oneWayMarginTimeMs",
@@ -457,7 +485,7 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 outductElementConfig.useTlsVersion1_3 = outductElementConfigPt.second.get<bool>("useTlsVersion1_3");
                 outductElementConfig.doX509CertificateVerification = outductElementConfigPt.second.get<bool>("doX509CertificateVerification");
                 outductElementConfig.verifySubjectAltNameInX509Certificate = outductElementConfigPt.second.get<bool>("verifySubjectAltNameInX509Certificate");
-                outductElementConfig.certificationAuthorityPemFileForVerification = outductElementConfigPt.second.get<std::string>("certificationAuthorityPemFileForVerification");
+                outductElementConfig.certificationAuthorityPemFileForVerification = outductElementConfigPt.second.get<boost::filesystem::path>("certificationAuthorityPemFileForVerification");
             }
             else {
                 static const std::vector<std::string> VALID_TCPCL_V4_OUTDUCT_PARAMETERS = { 
@@ -559,6 +587,10 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
             outductElementConfigPt.put("ltpMaxSendRateBitsPerSecOrZeroToDisable", outductElementConfig.ltpMaxSendRateBitsPerSecOrZeroToDisable);
             outductElementConfigPt.put("ltpMaxUdpPacketsToSendPerSystemCall", outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall);
             outductElementConfigPt.put("ltpSenderPingSecondsOrZeroToDisable", outductElementConfig.ltpSenderPingSecondsOrZeroToDisable);
+            outductElementConfigPt.put("delaySendingOfDataSegmentsTimeMsOrZeroToDisable", outductElementConfig.delaySendingOfDataSegmentsTimeMsOrZeroToDisable);
+            outductElementConfigPt.put("keepActiveSessionDataOnDisk", outductElementConfig.keepActiveSessionDataOnDisk);
+            outductElementConfigPt.put("activeSessionDataOnDiskNewFileDurationMs", outductElementConfig.activeSessionDataOnDiskNewFileDurationMs);
+            outductElementConfigPt.put("activeSessionDataOnDiskDirectory", outductElementConfig.activeSessionDataOnDiskDirectory.string()); //.string() prevents nested quotes in json file
         }
         if (outductElementConfig.convergenceLayer == "udp") {
             outductElementConfigPt.put("udpRateBps", outductElementConfig.udpRateBps);
@@ -579,7 +611,7 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
             outductElementConfigPt.put("useTlsVersion1_3", outductElementConfig.useTlsVersion1_3);
             outductElementConfigPt.put("doX509CertificateVerification", outductElementConfig.doX509CertificateVerification);
             outductElementConfigPt.put("verifySubjectAltNameInX509Certificate", outductElementConfig.verifySubjectAltNameInX509Certificate);
-            outductElementConfigPt.put("certificationAuthorityPemFileForVerification", outductElementConfig.certificationAuthorityPemFileForVerification);
+            outductElementConfigPt.put("certificationAuthorityPemFileForVerification", outductElementConfig.certificationAuthorityPemFileForVerification.string()); //.string() prevents nested quotes in json file
         }
     }
 

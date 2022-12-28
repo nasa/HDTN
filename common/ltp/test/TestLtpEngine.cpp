@@ -465,8 +465,8 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
     ltpRxCfg.senderPingSecondsOrZeroToDisable = 0; //unused for inducts
     ltpRxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable = 0; //must be 0 for this test
     ltpRxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable = 0; //unused for inducts (must be set to 0) //must be 0 for this test
-    ltpRxCfg.senderNewFileDurationMsToStoreSessionDataOrZeroToDisable = 0; //unused for inducts (must be set to 0) //must be 0 for this test
-    ltpRxCfg.senderWriteSessionDataToFilesPath = "./"; //unused for inducts
+    ltpRxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable = 0; //unused for inducts (must be set to 0) //must be 0 for this test
+    ltpRxCfg.activeSessionDataOnDiskDirectory = "./"; //unused for inducts
 
     LtpEngineConfig ltpTxCfg;
     ltpTxCfg.thisEngineId = ENGINE_ID_SRC;
@@ -493,8 +493,8 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
     ltpTxCfg.senderPingSecondsOrZeroToDisable = 0;
     ltpTxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable = 0; //unused for outducts //must be 0 for this test
     ltpTxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable = 0; //must be 0 for this test
-    ltpTxCfg.senderNewFileDurationMsToStoreSessionDataOrZeroToDisable = 0; //must be 0 for this test
-    ltpTxCfg.senderWriteSessionDataToFilesPath = "./";
+    ltpTxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable = 0; //must be 0 for this test
+    ltpTxCfg.activeSessionDataOnDiskDirectory = "./";
 
     Test t(ltpRxCfg, ltpTxCfg);
     t.DoTest();

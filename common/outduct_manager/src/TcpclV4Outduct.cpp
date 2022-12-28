@@ -1,3 +1,17 @@
+/**
+ * @file TcpclV4Outduct.cpp
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ */
+
 #include "TcpclV4Outduct.h"
 #include "Logger.h"
 #include <boost/make_unique.hpp>
@@ -38,7 +52,7 @@ TcpclV4Outduct::TcpclV4Outduct(const outduct_element_config_t & outductConfig, c
         }
 #endif
         try {
-            m_shareableSslContext.load_verify_file(outductConfig.certificationAuthorityPemFileForVerification);//"C:/hdtn_ssl_certificates/cert.pem");
+            m_shareableSslContext.load_verify_file(outductConfig.certificationAuthorityPemFileForVerification.string());//"C:/hdtn_ssl_certificates/cert.pem");
             m_shareableSslContext.set_verify_mode(boost::asio::ssl::verify_peer);
         }
         catch (boost::system::system_error & e) {

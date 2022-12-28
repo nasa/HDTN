@@ -46,6 +46,8 @@ public:
         bool operator!=(const data_fragment_t & o) const; //operator !=
         bool operator<(const data_fragment_t & o) const; //operator < (no overlap no abut)
         static bool SimulateSetKeyFind(const data_fragment_t & key, const data_fragment_t & keyInSet);
+        static bool GetOverlap(const data_fragment_t& key1, const data_fragment_t& key2, data_fragment_t& overlap);
+        bool GetOverlap(const data_fragment_t& o, data_fragment_t& overlap) const;
     };
 
     struct HDTN_UTIL_EXPORT data_fragment_no_overlap_allow_abut_t : public data_fragment_t { //class which allows searching ignoring whether or not the keys abut

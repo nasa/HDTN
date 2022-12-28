@@ -1,3 +1,21 @@
+/**
+ * @file bpv7.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * The bpv7.h file defines all of the classes used for Bundle Protocol Version 7.
+ */
+
 #ifndef BPV7_H
 #define BPV7_H 1
 #include <cstdint>
@@ -312,16 +330,16 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7CbhePrimaryBlock : public PrimaryBlock {
     BPCODEC_EXPORT bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize); //serialization must be temporarily modifyable to zero crc and restore it
     BPCODEC_EXPORT uint64_t GetMillisecondsSinceCreate() const;
 
-    BPCODEC_EXPORT virtual bool HasCustodyFlagSet() const;
-    BPCODEC_EXPORT virtual bool HasFragmentationFlagSet() const;
-    BPCODEC_EXPORT virtual cbhe_bundle_uuid_t GetCbheBundleUuidFromPrimary() const;
-    BPCODEC_EXPORT virtual cbhe_bundle_uuid_nofragment_t GetCbheBundleUuidNoFragmentFromPrimary() const;
-    BPCODEC_EXPORT virtual cbhe_eid_t GetFinalDestinationEid() const;
-    BPCODEC_EXPORT virtual uint8_t GetPriority() const;
-    BPCODEC_EXPORT virtual uint64_t GetExpirationSeconds() const;
-    BPCODEC_EXPORT virtual uint64_t GetSequenceForSecondsScale() const;
-    BPCODEC_EXPORT virtual uint64_t GetExpirationMilliseconds() const;
-    BPCODEC_EXPORT virtual uint64_t GetSequenceForMillisecondsScale() const;
+    BPCODEC_EXPORT virtual bool HasCustodyFlagSet() const override;
+    BPCODEC_EXPORT virtual bool HasFragmentationFlagSet() const override;
+    BPCODEC_EXPORT virtual cbhe_bundle_uuid_t GetCbheBundleUuidFromPrimary() const override;
+    BPCODEC_EXPORT virtual cbhe_bundle_uuid_nofragment_t GetCbheBundleUuidNoFragmentFromPrimary() const override;
+    BPCODEC_EXPORT virtual cbhe_eid_t GetFinalDestinationEid() const override;
+    BPCODEC_EXPORT virtual uint8_t GetPriority() const override;
+    BPCODEC_EXPORT virtual uint64_t GetExpirationSeconds() const override;
+    BPCODEC_EXPORT virtual uint64_t GetSequenceForSecondsScale() const override;
+    BPCODEC_EXPORT virtual uint64_t GetExpirationMilliseconds() const override;
+    BPCODEC_EXPORT virtual uint64_t GetSequenceForMillisecondsScale() const override;
 };
 
 struct CLASS_VISIBILITY_BPCODEC Bpv7CanonicalBlock {
@@ -382,17 +400,17 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7PreviousNodeCanonicalBlock : public Bpv7Cano
         9; //service number
         
     BPCODEC_EXPORT Bpv7PreviousNodeCanonicalBlock(); //a default constructor: X()
-    BPCODEC_EXPORT virtual ~Bpv7PreviousNodeCanonicalBlock(); //a destructor: ~X()
+    BPCODEC_EXPORT virtual ~Bpv7PreviousNodeCanonicalBlock() override; //a destructor: ~X()
     BPCODEC_EXPORT Bpv7PreviousNodeCanonicalBlock(const Bpv7PreviousNodeCanonicalBlock& o); //a copy constructor: X(const X&)
     BPCODEC_EXPORT Bpv7PreviousNodeCanonicalBlock(Bpv7PreviousNodeCanonicalBlock&& o); //a move constructor: X(X&&)
     BPCODEC_EXPORT Bpv7PreviousNodeCanonicalBlock& operator=(const Bpv7PreviousNodeCanonicalBlock& o); //a copy assignment: operator=(const X&)
     BPCODEC_EXPORT Bpv7PreviousNodeCanonicalBlock& operator=(Bpv7PreviousNodeCanonicalBlock&& o); //a move assignment: operator=(X&&)
     BPCODEC_EXPORT bool operator==(const Bpv7PreviousNodeCanonicalBlock & o) const; //operator ==
     BPCODEC_EXPORT bool operator!=(const Bpv7PreviousNodeCanonicalBlock & o) const; //operator !=
-    BPCODEC_EXPORT virtual void SetZero();
-    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
-    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
+    BPCODEC_EXPORT virtual void SetZero() override;
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization) override; //modifies m_dataPtr to serialized location
+    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const override;
+    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv7() override;
 
     cbhe_eid_t m_previousNode;
 };
@@ -401,17 +419,17 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7BundleAgeCanonicalBlock : public Bpv7Canonic
     static constexpr uint64_t largestSerializedDataOnlySize = 9;
 
     BPCODEC_EXPORT Bpv7BundleAgeCanonicalBlock(); //a default constructor: X()
-    BPCODEC_EXPORT virtual ~Bpv7BundleAgeCanonicalBlock(); //a destructor: ~X()
+    BPCODEC_EXPORT virtual ~Bpv7BundleAgeCanonicalBlock() override; //a destructor: ~X()
     BPCODEC_EXPORT Bpv7BundleAgeCanonicalBlock(const Bpv7BundleAgeCanonicalBlock& o); //a copy constructor: X(const X&)
     BPCODEC_EXPORT Bpv7BundleAgeCanonicalBlock(Bpv7BundleAgeCanonicalBlock&& o); //a move constructor: X(X&&)
     BPCODEC_EXPORT Bpv7BundleAgeCanonicalBlock& operator=(const Bpv7BundleAgeCanonicalBlock& o); //a copy assignment: operator=(const X&)
     BPCODEC_EXPORT Bpv7BundleAgeCanonicalBlock& operator=(Bpv7BundleAgeCanonicalBlock&& o); //a move assignment: operator=(X&&)
     BPCODEC_EXPORT bool operator==(const Bpv7BundleAgeCanonicalBlock & o) const; //operator ==
     BPCODEC_EXPORT bool operator!=(const Bpv7BundleAgeCanonicalBlock & o) const; //operator !=
-    BPCODEC_EXPORT virtual void SetZero();
-    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
-    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
+    BPCODEC_EXPORT virtual void SetZero() override;
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization) override; //modifies m_dataPtr to serialized location
+    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const override;
+    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv7() override;
 
     uint64_t m_bundleAgeMilliseconds;
 };
@@ -423,17 +441,17 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7HopCountCanonicalBlock : public Bpv7Canonica
         9; //hop count
 
     BPCODEC_EXPORT Bpv7HopCountCanonicalBlock(); //a default constructor: X()
-    BPCODEC_EXPORT virtual ~Bpv7HopCountCanonicalBlock(); //a destructor: ~X()
+    BPCODEC_EXPORT virtual ~Bpv7HopCountCanonicalBlock() override; //a destructor: ~X()
     BPCODEC_EXPORT Bpv7HopCountCanonicalBlock(const Bpv7HopCountCanonicalBlock& o); //a copy constructor: X(const X&)
     BPCODEC_EXPORT Bpv7HopCountCanonicalBlock(Bpv7HopCountCanonicalBlock&& o); //a move constructor: X(X&&)
     BPCODEC_EXPORT Bpv7HopCountCanonicalBlock& operator=(const Bpv7HopCountCanonicalBlock& o); //a copy assignment: operator=(const X&)
     BPCODEC_EXPORT Bpv7HopCountCanonicalBlock& operator=(Bpv7HopCountCanonicalBlock&& o); //a move assignment: operator=(X&&)
     BPCODEC_EXPORT bool operator==(const Bpv7HopCountCanonicalBlock & o) const; //operator ==
     BPCODEC_EXPORT bool operator!=(const Bpv7HopCountCanonicalBlock & o) const; //operator !=
-    BPCODEC_EXPORT virtual void SetZero();
-    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
-    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
+    BPCODEC_EXPORT virtual void SetZero() override;
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization) override; //modifies m_dataPtr to serialized location
+    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const override;
+    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv7() override;
     BPCODEC_EXPORT bool TryReserializeExtensionBlockDataWithoutResizeBpv7();
 
     uint64_t m_hopLimit;
@@ -448,20 +466,20 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7AbstractSecurityBlockValueBase {
     virtual bool IsEqual(const Bpv7AbstractSecurityBlockValueBase * otherPtr) const = 0;
 };
 struct CLASS_VISIBILITY_BPCODEC Bpv7AbstractSecurityBlockValueUint : public Bpv7AbstractSecurityBlockValueBase {
-    BPCODEC_EXPORT virtual ~Bpv7AbstractSecurityBlockValueUint();
-    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize);
-    BPCODEC_EXPORT virtual uint64_t GetSerializationSize() const;
-    BPCODEC_EXPORT virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
-    BPCODEC_EXPORT virtual bool IsEqual(const Bpv7AbstractSecurityBlockValueBase * otherPtr) const;
+    BPCODEC_EXPORT virtual ~Bpv7AbstractSecurityBlockValueUint() override;
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) override;
+    BPCODEC_EXPORT virtual uint64_t GetSerializationSize() const override;
+    BPCODEC_EXPORT virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) override;
+    BPCODEC_EXPORT virtual bool IsEqual(const Bpv7AbstractSecurityBlockValueBase * otherPtr) const override;
 
     uint64_t m_uintValue;
 };
 struct CLASS_VISIBILITY_BPCODEC Bpv7AbstractSecurityBlockValueByteString : public Bpv7AbstractSecurityBlockValueBase {
-    BPCODEC_EXPORT virtual ~Bpv7AbstractSecurityBlockValueByteString();
-    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize);
-    BPCODEC_EXPORT virtual uint64_t GetSerializationSize() const;
-    BPCODEC_EXPORT virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
-    BPCODEC_EXPORT virtual bool IsEqual(const Bpv7AbstractSecurityBlockValueBase * otherPtr) const;
+    BPCODEC_EXPORT virtual ~Bpv7AbstractSecurityBlockValueByteString() override;
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) override;
+    BPCODEC_EXPORT virtual uint64_t GetSerializationSize() const override;
+    BPCODEC_EXPORT virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) override;
+    BPCODEC_EXPORT virtual bool IsEqual(const Bpv7AbstractSecurityBlockValueBase * otherPtr) const override;
 
     std::vector<uint8_t> m_byteString;
 };
@@ -489,17 +507,17 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7AbstractSecurityBlock : public Bpv7Canonical
 
 
     BPCODEC_EXPORT Bpv7AbstractSecurityBlock(); //a default constructor: X()
-    BPCODEC_EXPORT virtual ~Bpv7AbstractSecurityBlock(); //a destructor: ~X()
+    BPCODEC_EXPORT virtual ~Bpv7AbstractSecurityBlock() override; //a destructor: ~X()
     BPCODEC_EXPORT Bpv7AbstractSecurityBlock(const Bpv7AbstractSecurityBlock& o) = delete; //a copy constructor: X(const X&)
     BPCODEC_EXPORT Bpv7AbstractSecurityBlock(Bpv7AbstractSecurityBlock&& o); //a move constructor: X(X&&)
     BPCODEC_EXPORT Bpv7AbstractSecurityBlock& operator=(const Bpv7AbstractSecurityBlock& o) = delete; //a copy assignment: operator=(const X&)
     BPCODEC_EXPORT Bpv7AbstractSecurityBlock& operator=(Bpv7AbstractSecurityBlock&& o); //a move assignment: operator=(X&&)
     BPCODEC_EXPORT bool operator==(const Bpv7AbstractSecurityBlock & o) const; //operator ==
     BPCODEC_EXPORT bool operator!=(const Bpv7AbstractSecurityBlock & o) const; //operator !=
-    BPCODEC_EXPORT virtual void SetZero();
-    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
-    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
+    BPCODEC_EXPORT virtual void SetZero() override;
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization) override; //modifies m_dataPtr to serialized location
+    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const override;
+    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv7() override;
     BPCODEC_EXPORT bool IsSecurityContextParametersPresent() const;
     BPCODEC_EXPORT void SetSecurityContextParametersPresent();
     BPCODEC_EXPORT void ClearSecurityContextParametersPresent();
@@ -527,14 +545,14 @@ protected:
 
 struct CLASS_VISIBILITY_BPCODEC Bpv7BlockIntegrityBlock : public Bpv7AbstractSecurityBlock {
     BPCODEC_EXPORT Bpv7BlockIntegrityBlock(); //a default constructor: X()
-    BPCODEC_EXPORT virtual ~Bpv7BlockIntegrityBlock(); //a destructor: ~X()
+    BPCODEC_EXPORT virtual ~Bpv7BlockIntegrityBlock() override; //a destructor: ~X()
     BPCODEC_EXPORT Bpv7BlockIntegrityBlock(const Bpv7BlockIntegrityBlock& o) = delete; //a copy constructor: X(const X&)
     BPCODEC_EXPORT Bpv7BlockIntegrityBlock(Bpv7BlockIntegrityBlock&& o); //a move constructor: X(X&&)
     BPCODEC_EXPORT Bpv7BlockIntegrityBlock& operator=(const Bpv7BlockIntegrityBlock& o) = delete; //a copy assignment: operator=(const X&)
     BPCODEC_EXPORT Bpv7BlockIntegrityBlock& operator=(Bpv7BlockIntegrityBlock&& o); //a move assignment: operator=(X&&)
     BPCODEC_EXPORT bool operator==(const Bpv7BlockIntegrityBlock & o) const; //operator ==
     BPCODEC_EXPORT bool operator!=(const Bpv7BlockIntegrityBlock & o) const; //operator !=
-    BPCODEC_EXPORT virtual void SetZero();
+    BPCODEC_EXPORT virtual void SetZero() override;
     
     BPCODEC_EXPORT bool AddOrUpdateSecurityParameterShaVariant(COSE_ALGORITHMS alg);
     BPCODEC_EXPORT COSE_ALGORITHMS GetSecurityParameterShaVariant(bool & success) const;
@@ -547,14 +565,14 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7BlockIntegrityBlock : public Bpv7AbstractSec
 
 struct CLASS_VISIBILITY_BPCODEC Bpv7BlockConfidentialityBlock : public Bpv7AbstractSecurityBlock {
     BPCODEC_EXPORT Bpv7BlockConfidentialityBlock(); //a default constructor: X()
-    BPCODEC_EXPORT virtual ~Bpv7BlockConfidentialityBlock(); //a destructor: ~X()
+    BPCODEC_EXPORT virtual ~Bpv7BlockConfidentialityBlock() override; //a destructor: ~X()
     BPCODEC_EXPORT Bpv7BlockConfidentialityBlock(const Bpv7BlockConfidentialityBlock& o) = delete; //a copy constructor: X(const X&)
     BPCODEC_EXPORT Bpv7BlockConfidentialityBlock(Bpv7BlockConfidentialityBlock&& o); //a move constructor: X(X&&)
     BPCODEC_EXPORT Bpv7BlockConfidentialityBlock& operator=(const Bpv7BlockConfidentialityBlock& o) = delete; //a copy assignment: operator=(const X&)
     BPCODEC_EXPORT Bpv7BlockConfidentialityBlock& operator=(Bpv7BlockConfidentialityBlock&& o); //a move assignment: operator=(X&&)
     BPCODEC_EXPORT bool operator==(const Bpv7BlockConfidentialityBlock & o) const; //operator ==
     BPCODEC_EXPORT bool operator!=(const Bpv7BlockConfidentialityBlock & o) const; //operator !=
-    BPCODEC_EXPORT virtual void SetZero();
+    BPCODEC_EXPORT virtual void SetZero() override;
 
     BPCODEC_EXPORT bool AddOrUpdateSecurityParameterAesVariant(COSE_ALGORITHMS alg);
     BPCODEC_EXPORT COSE_ALGORITHMS GetSecurityParameterAesVariant(bool & success) const;
@@ -579,11 +597,11 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7AdministrativeRecordContentBundleStatusRepor
     typedef std::pair<bool, uint64_t> status_info_content_t; //[status-indicator: bool, optional_timestamp: dtn_time]
     typedef std::array<status_info_content_t, 4> bundle_status_information_t;
 
-    BPCODEC_EXPORT virtual ~Bpv7AdministrativeRecordContentBundleStatusReport();
-    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize);
-    BPCODEC_EXPORT virtual uint64_t GetSerializationSize() const;
-    BPCODEC_EXPORT virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
-    BPCODEC_EXPORT virtual bool IsEqual(const Bpv7AdministrativeRecordContentBase * otherPtr) const;
+    BPCODEC_EXPORT virtual ~Bpv7AdministrativeRecordContentBundleStatusReport() override;
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) override;
+    BPCODEC_EXPORT virtual uint64_t GetSerializationSize() const override;
+    BPCODEC_EXPORT virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) override;
+    BPCODEC_EXPORT virtual bool IsEqual(const Bpv7AdministrativeRecordContentBase * otherPtr) const override;
 
     
     // status-record-content = [
@@ -607,11 +625,11 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7AdministrativeRecordContentBundleStatusRepor
 };
 struct CLASS_VISIBILITY_BPCODEC Bpv7AdministrativeRecordContentBibePduMessage : public Bpv7AdministrativeRecordContentBase {
     
-    BPCODEC_EXPORT virtual ~Bpv7AdministrativeRecordContentBibePduMessage();
-    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize);
-    BPCODEC_EXPORT virtual uint64_t GetSerializationSize() const;
-    BPCODEC_EXPORT virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
-    BPCODEC_EXPORT virtual bool IsEqual(const Bpv7AdministrativeRecordContentBase * otherPtr) const;
+    BPCODEC_EXPORT virtual ~Bpv7AdministrativeRecordContentBibePduMessage() override;
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) override;
+    BPCODEC_EXPORT virtual uint64_t GetSerializationSize() const override;
+    BPCODEC_EXPORT virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) override;
+    BPCODEC_EXPORT virtual bool IsEqual(const Bpv7AdministrativeRecordContentBase * otherPtr) const override;
 
     uint64_t m_transmissionId;
     uint64_t m_custodyRetransmissionTime;
@@ -625,34 +643,34 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7AdministrativeRecord : public Bpv7CanonicalB
     std::unique_ptr<Bpv7AdministrativeRecordContentBase> m_adminRecordContentPtr;
     
     BPCODEC_EXPORT Bpv7AdministrativeRecord(); //a default constructor: X()
-    BPCODEC_EXPORT virtual ~Bpv7AdministrativeRecord(); //a destructor: ~X()
+    BPCODEC_EXPORT virtual ~Bpv7AdministrativeRecord() override; //a destructor: ~X()
     BPCODEC_EXPORT Bpv7AdministrativeRecord(const Bpv7AdministrativeRecord& o) = delete;; //a copy constructor: X(const X&)
     BPCODEC_EXPORT Bpv7AdministrativeRecord(Bpv7AdministrativeRecord&& o); //a move constructor: X(X&&)
     BPCODEC_EXPORT Bpv7AdministrativeRecord& operator=(const Bpv7AdministrativeRecord& o) = delete;; //a copy assignment: operator=(const X&)
     BPCODEC_EXPORT Bpv7AdministrativeRecord& operator=(Bpv7AdministrativeRecord&& o); //a move assignment: operator=(X&&)
     BPCODEC_EXPORT bool operator==(const Bpv7AdministrativeRecord & o) const; //operator ==
     BPCODEC_EXPORT bool operator!=(const Bpv7AdministrativeRecord & o) const; //operator !=
-    BPCODEC_EXPORT virtual void SetZero();
-    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
-    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
+    BPCODEC_EXPORT virtual void SetZero() override;
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization) override; //modifies m_dataPtr to serialized location
+    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const override;
+    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv7() override;
 };
 
 struct CLASS_VISIBILITY_BPCODEC Bpv7PriorityCanonicalBlock : public Bpv7CanonicalBlock {
     static constexpr uint64_t largestSerializedDataOnlySize = 9;
 
     BPCODEC_EXPORT Bpv7PriorityCanonicalBlock();
-    BPCODEC_EXPORT virtual ~Bpv7PriorityCanonicalBlock();
+    BPCODEC_EXPORT virtual ~Bpv7PriorityCanonicalBlock() override;
     BPCODEC_EXPORT Bpv7PriorityCanonicalBlock(const Bpv7PriorityCanonicalBlock& o);
     BPCODEC_EXPORT Bpv7PriorityCanonicalBlock(Bpv7PriorityCanonicalBlock&& o);
     BPCODEC_EXPORT Bpv7PriorityCanonicalBlock& operator=(const Bpv7PriorityCanonicalBlock& o);
     BPCODEC_EXPORT Bpv7PriorityCanonicalBlock& operator=(Bpv7PriorityCanonicalBlock&& o);
     BPCODEC_EXPORT bool operator==(const Bpv7PriorityCanonicalBlock & o) const;
     BPCODEC_EXPORT bool operator!=(const Bpv7PriorityCanonicalBlock & o) const;
-    BPCODEC_EXPORT virtual void SetZero();
-    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization);
-    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
-    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
+    BPCODEC_EXPORT virtual void SetZero() override;
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization) override;
+    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const override;
+    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv7() override;
 
     uint64_t m_bundlePriority;
 };

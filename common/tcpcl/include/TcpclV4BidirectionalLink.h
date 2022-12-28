@@ -91,14 +91,14 @@ public:
     TCPCL_LIB_EXPORT bool BaseClass_Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData);
     TCPCL_LIB_EXPORT bool BaseClass_Forward(std::unique_ptr<zmq::message_t> & zmqMessageUniquePtr, std::vector<uint8_t> & vecMessage, const bool usingZmqData, std::vector<uint8_t>&& userData);
 
-    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundlesAcked();
-    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundlesSent();
-    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundlesUnacked();
-    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundleBytesAcked();
-    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundleBytesSent();
-    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundleBytesUnacked();
+    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundlesAcked() override;
+    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundlesSent() override;
+    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundlesUnacked() override;
+    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundleBytesAcked() override;
+    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundleBytesSent() override;
+    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundleBytesUnacked() override;
 
-    TCPCL_LIB_EXPORT virtual unsigned int Virtual_GetMaxTxBundlesInPipeline();
+    TCPCL_LIB_EXPORT virtual unsigned int Virtual_GetMaxTxBundlesInPipeline() override;
 
     TCPCL_LIB_EXPORT void BaseClass_SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
     TCPCL_LIB_EXPORT void BaseClass_SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);

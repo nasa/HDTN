@@ -22,7 +22,7 @@
 
 #include <cstdint>
 #include <map>
-#include <forward_list>
+#include "ForwardListQueue.h"
 #include <array>
 #include <vector>
 #include <utility>
@@ -37,9 +37,8 @@
 #include "storage_lib_export.h"
 
 //Awaiting Send data structures
-typedef std::forward_list<uint64_t> custids_flist_t;
-typedef std::pair<custids_flist_t, custids_flist_t::iterator> custids_flist_plus_lastiterator_t;
-typedef std::map<uint64_t, custids_flist_plus_lastiterator_t> expirations_to_custids_map_t;
+typedef ForwardListQueue<uint64_t> custids_flist_queue_t;
+typedef std::map<uint64_t, custids_flist_queue_t> expirations_to_custids_map_t;
 typedef std::array<expirations_to_custids_map_t, NUMBER_OF_PRIORITIES> priorities_to_expirations_array_t;
 typedef std::map<cbhe_eid_t, priorities_to_expirations_array_t> dest_eid_to_priorities_map_t;
 
@@ -76,10 +75,10 @@ public:
 private:
     STORAGE_LIB_NO_EXPORT catalog_entry_t * PopEntryFromAwaitingSend(uint64_t & custodyId,
         const std::vector<std::pair<const cbhe_eid_t*, priorities_to_expirations_array_t *> > & destEidPlusPriorityArrayPtrs);
-    STORAGE_LIB_NO_EXPORT bool Insert_OrderBySequence(custids_flist_plus_lastiterator_t & custodyIdFlistPlusLastIt, const uint64_t custodyIdToInsert, const uint64_t mySequence);
-    STORAGE_LIB_NO_EXPORT void Insert_OrderByFifo(custids_flist_plus_lastiterator_t & custodyIdFlistPlusLastIt, const uint64_t custodyIdToInsert);
-    STORAGE_LIB_NO_EXPORT void Insert_OrderByFilo(custids_flist_plus_lastiterator_t & custodyIdFlistPlusLastIt, const uint64_t custodyIdToInsert);
-    STORAGE_LIB_NO_EXPORT bool Remove(custids_flist_plus_lastiterator_t & custodyIdFlistPlusLastIt, const uint64_t custodyIdToRemove);
+    STORAGE_LIB_NO_EXPORT bool Insert_OrderBySequence(custids_flist_queue_t& custodyIdFlistQueue, const uint64_t custodyIdToInsert, const uint64_t mySequence);
+    STORAGE_LIB_NO_EXPORT void Insert_OrderByFifo(custids_flist_queue_t& custodyIdFlistQueue, const uint64_t custodyIdToInsert);
+    STORAGE_LIB_NO_EXPORT void Insert_OrderByFilo(custids_flist_queue_t& custodyIdFlistQueue, const uint64_t custodyIdToInsert);
+    STORAGE_LIB_NO_EXPORT bool Remove(custids_flist_queue_t& custodyIdFlistQueue, const uint64_t custodyIdToRemove);
 
 protected:
     dest_eid_to_priorities_map_t m_destEidToPrioritiesMap;

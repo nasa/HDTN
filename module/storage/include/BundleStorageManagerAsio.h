@@ -31,8 +31,8 @@ public:
     STORAGE_LIB_EXPORT BundleStorageManagerAsio();
     STORAGE_LIB_EXPORT BundleStorageManagerAsio(const boost::filesystem::path& jsonConfigFilePath);
     STORAGE_LIB_EXPORT BundleStorageManagerAsio(const StorageConfig_ptr & storageConfigPtr);
-    STORAGE_LIB_EXPORT virtual ~BundleStorageManagerAsio();
-    STORAGE_LIB_EXPORT virtual void Start();
+    STORAGE_LIB_EXPORT virtual ~BundleStorageManagerAsio() override;
+    STORAGE_LIB_EXPORT virtual void Start() override;
 
 
 private:
@@ -40,7 +40,7 @@ private:
     STORAGE_LIB_NO_EXPORT void HandleDiskOperationCompleted(const boost::system::error_code& error, std::size_t bytes_transferred,
         const unsigned int diskId, const unsigned int consumeIndex, const bool wasReadOperation);
 
-    STORAGE_LIB_NO_EXPORT virtual void CommitWriteAndNotifyDiskOfWorkToDo_ThreadSafe(const unsigned int diskId);
+    STORAGE_LIB_NO_EXPORT virtual void CommitWriteAndNotifyDiskOfWorkToDo_ThreadSafe(const unsigned int diskId) override;
 
 private:
 

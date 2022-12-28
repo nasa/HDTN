@@ -1,0 +1,95 @@
+{
+    "hdtnConfigName": "my hdtn config",
+    "userInterfaceOn": true,
+    "mySchemeName": "unused_scheme_name",
+    "myNodeId": 10,
+    "myBpEchoServiceId": 2047,
+    "myCustodialSsp": "unused_custodial_ssp",
+    "myCustodialServiceId": 0,
+    "isAcsAware": true,
+    "acsMaxFillsPerAcsPacket": 100,
+    "acsSendPeriodMilliseconds": 1000,
+    "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
+    "maxBundleSizeBytes": 10000000,
+    "maxIngressBundleWaitOnEgressMilliseconds": 2000,
+    "bufferRxToStorageOnLinkUpSaturation": false,
+    "maxLtpReceiveUdpPacketSizeBytes": 65536,
+    "zmqIngressAddress": "localhost",
+    "zmqEgressAddress": "localhost",
+    "zmqStorageAddress": "localhost",
+    "zmqSchedulerAddress": "localhost",
+    "zmqRouterAddress": "localhost",
+    "zmqBoundIngressToConnectingEgressPortPath": 10100,
+    "zmqConnectingEgressToBoundIngressPortPath": 10160,
+    "zmqConnectingEgressBundlesOnlyToBoundIngressPortPath": 10161,
+    "zmqConnectingEgressToBoundSchedulerPortPath": 10162,
+    "zmqBoundIngressToConnectingStoragePortPath": 10110,
+    "zmqConnectingStorageToBoundIngressPortPath": 10150,
+    "zmqConnectingStorageToBoundEgressPortPath": 10120,
+    "zmqBoundEgressToConnectingStoragePortPath": 10130,
+    "zmqBoundSchedulerPubSubPortPath": 10200,
+    "zmqBoundRouterPubSubPortPath": 10210,
+    "inductsConfig": {
+        "inductConfigName": "myconfig",
+        "inductVector": [
+            {
+                "name": "stcp_ingress",
+                "convergenceLayer": "stcp",
+                "boundPort": 4556,
+                "numRxCircularBufferElements": 200,
+                "keepAliveIntervalSeconds": 15
+            }
+        ]
+    },
+    "outductsConfig": {
+        "outductConfigName": "myconfig",
+        "outductVector": [
+            {
+                "name": "for egress",
+                "convergenceLayer": "ltp_over_udp",
+                "nextHopNodeId": 2,
+                "remoteHostname": "localhost",
+                "remotePort": 1114,
+                "maxNumberOfBundlesInPipeline": 40000,
+                "maxSumOfBundleBytesInPipeline": 50000000000,
+                "finalDestinationEidUris": [
+                    "ipn:2.*"
+                ],
+                "thisLtpEngineId": 20004558,
+                "remoteLtpEngineId": 10004558,
+                "ltpDataSegmentMtu": 60000,
+                "oneWayLightTimeMs": 20000,
+                "oneWayMarginTimeMs": 400,
+                "clientServiceId": 400,
+                "numRxCircularBufferElements": 100,
+                "ltpMaxRetriesPerSerialNumber": 5,
+                "ltpCheckpointEveryNthDataSegment": 0,
+                "ltpRandomNumberSizeBits": 64,
+                "ltpSenderBoundPort": 1113,
+                "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0,
+                "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+                "ltpSenderPingSecondsOrZeroToDisable": 15,
+                "delaySendingOfDataSegmentsTimeMsOrZeroToDisable": 20,
+                "keepActiveSessionDataOnDisk": true,
+                "activeSessionDataOnDiskNewFileDurationMs": 2000,
+                "activeSessionDataOnDiskDirectory": "V:\/"
+            }
+        ]
+    },
+    "storageConfig": {
+        "storageImplementation": "asio_single_threaded",
+        "tryToRestoreFromDisk": false,
+        "autoDeleteFilesOnExit": true,
+        "totalStorageCapacityBytes": 8192000000,
+        "storageDiskConfigVector": [
+            {
+                "name": "d1",
+                "storeFilePath": ".\/store1.bin"
+            },
+            {
+                "name": "d2",
+                "storeFilePath": ".\/store2.bin"
+            }
+        ]
+    }
+}

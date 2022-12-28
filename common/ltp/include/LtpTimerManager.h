@@ -38,17 +38,18 @@ class LtpTimerManager : private boost::noncopyable {
 private:
     LtpTimerManager() = delete;
 public:
-    typedef boost::function<void(const idType & serialNumber, std::vector<uint8_t> & userData)> LtpTimerExpiredCallback_t;
+    typedef boost::function<void(void * classPtr, const idType & serialNumber, std::vector<uint8_t> & userData)> LtpTimerExpiredCallback_t;
     LTP_LIB_EXPORT LtpTimerManager(boost::asio::deadline_timer & deadlineTimerRef,
         boost::posix_time::time_duration & transmissionToAckReceivedTimeRef,
         const uint64_t hashMapNumBuckets);
     LTP_LIB_EXPORT ~LtpTimerManager();
     LTP_LIB_EXPORT void Reset();
        
-    LTP_LIB_EXPORT bool StartTimer(const idType serialNumber, const LtpTimerExpiredCallback_t* callbackPtr, std::vector<uint8_t> userData = std::vector<uint8_t>());
+    LTP_LIB_EXPORT bool StartTimer(void* classPtr, const idType serialNumber, const LtpTimerExpiredCallback_t* callbackPtr, std::vector<uint8_t> userData = std::vector<uint8_t>());
     LTP_LIB_EXPORT bool DeleteTimer(const idType serialNumber);
     LTP_LIB_EXPORT bool DeleteTimer(const idType serialNumber, std::vector<uint8_t> & userDataReturned);
-    LTP_LIB_EXPORT bool DeleteTimer(const idType serialNumber, std::vector<uint8_t> & userDataReturned, const LtpTimerExpiredCallback_t*& callbackPtrReturned);
+    LTP_LIB_EXPORT bool DeleteTimer(const idType serialNumber, std::vector<uint8_t> & userDataReturned,
+        const LtpTimerExpiredCallback_t*& callbackPtrReturned, void*& classPtrReturned);
     LTP_LIB_EXPORT void AdjustRunningTimers(const boost::posix_time::time_duration & diffNewMinusOld);
     LTP_LIB_EXPORT bool Empty() const;
     LTP_LIB_EXPORT const boost::posix_time::time_duration& GetTimeDurationRef() const;
@@ -61,6 +62,7 @@ private:
     //boost::bimap<idType, boost::posix_time::ptime> m_bimapCheckpointSerialNumberToExpiry;
     //std::map<idType, std::vector<uint8_t> > m_mapSerialNumberToUserData;
     struct timer_data_t {
+        void* m_classPtr;
         idType m_id;
         boost::posix_time::ptime m_expiry;
         const LtpTimerExpiredCallback_t * m_callbackPtr;
@@ -68,7 +70,8 @@ private:
 
         timer_data_t() = delete;
         //a move constructor: X(X&&)
-        timer_data_t(idType id, const boost::posix_time::ptime& expiry, const LtpTimerExpiredCallback_t* callbackPtr, std::vector<uint8_t>&& userData) :
+        timer_data_t(void* classPtr, idType id, const boost::posix_time::ptime& expiry, const LtpTimerExpiredCallback_t* callbackPtr, std::vector<uint8_t>&& userData) :
+            m_classPtr(classPtr),
             m_id(id),
             m_expiry(expiry),
             m_callbackPtr(callbackPtr),

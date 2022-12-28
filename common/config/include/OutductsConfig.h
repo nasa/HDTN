@@ -24,6 +24,7 @@
 #include <string>
 #include <memory>
 #include <boost/integer.hpp>
+#include <boost/filesystem.hpp>
 #include <set>
 #include <vector>
 #include <utility>
@@ -58,6 +59,10 @@ struct outduct_element_config_t {
     uint64_t ltpMaxSendRateBitsPerSecOrZeroToDisable;
     uint64_t ltpMaxUdpPacketsToSendPerSystemCall;
     uint64_t ltpSenderPingSecondsOrZeroToDisable;
+    uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable;
+    bool keepActiveSessionDataOnDisk;
+    uint64_t activeSessionDataOnDiskNewFileDurationMs;
+    boost::filesystem::path activeSessionDataOnDiskDirectory;
 
     //specific to udp
     uint64_t udpRateBps;
@@ -78,7 +83,7 @@ struct outduct_element_config_t {
     bool useTlsVersion1_3;
     bool doX509CertificateVerification;
     bool verifySubjectAltNameInX509Certificate;
-    std::string certificationAuthorityPemFileForVerification;
+    boost::filesystem::path certificationAuthorityPemFileForVerification;
 
     CONFIG_LIB_EXPORT outduct_element_config_t();
     CONFIG_LIB_EXPORT ~outduct_element_config_t();
@@ -130,8 +135,8 @@ public:
     CONFIG_LIB_EXPORT static OutductsConfig_ptr CreateFromPtree(const boost::property_tree::ptree & pt);
     CONFIG_LIB_EXPORT static OutductsConfig_ptr CreateFromJson(const std::string& jsonString, bool verifyNoUnusedJsonKeys = true);
     CONFIG_LIB_EXPORT static OutductsConfig_ptr CreateFromJsonFilePath(const boost::filesystem::path& jsonFilePath, bool verifyNoUnusedJsonKeys = true);
-    CONFIG_LIB_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const;
-    CONFIG_LIB_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree & pt);
+    CONFIG_LIB_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CONFIG_LIB_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree & pt) override;
 
 public:
 

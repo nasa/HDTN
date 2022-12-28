@@ -200,19 +200,25 @@ struct LtpEngineConfig {
      * should create a new file for storing new LTP session data for
      * this period of time.  Once all sessions contained in a file are closed,
      * the file is automatically deleted.  Files are stored in
-     * "senderWriteSessionDataToFilesPath/randomly_generated_directory/ltp_%09d.bin"
+     * "activeSessionDataOnDiskDirectory/randomly_generated_directory/ltp_%09d.bin"
      * If zero, makes LTP keep session data in memory (default behavior).
-     * This parameter should be set to zero for a receiver.
+     * If enabled for senders, data will be written to disk first on a transmission request and
+     * then after the disk write is complete, the session will be created and data segments will
+     * read their data from disk as needed.
+     * If enabled for receivers, red data segments will be written to disk, and once
+     * all data is present, the whole red data will be read into memory and
+     * will call the red part reception callback before the memory is
+     * destroyed (i.e. destroyed if the memory wasn't std::move'd within the red part reception callback).
      */
-    uint64_t senderNewFileDurationMsToStoreSessionDataOrZeroToDisable = 0;
+    uint64_t activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable = 0;
 
     /**
-     * If and only if senderNewFileDurationMsToStoreSessionDataOrZeroToDisable is non-zero,
+     * If and only if activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable is non-zero,
      * then this is the base directory for which LTP keeps session data on disk instead of in memory,
      * which is useful for high rate data with extremely long delays.
      * This path should point to a directory that is mounted on a solid state drive.
      */
-    boost::filesystem::path senderWriteSessionDataToFilesPath = "./";
+    boost::filesystem::path activeSessionDataOnDiskDirectory = "./";
 };
 
     

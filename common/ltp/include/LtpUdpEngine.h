@@ -44,10 +44,10 @@ public:
         const uint64_t maxUdpRxPacketSizeBytes,
         const LtpEngineConfig& ltpRxOrTxCfg);
 
-    LTP_LIB_EXPORT virtual ~LtpUdpEngine();
+    LTP_LIB_EXPORT virtual ~LtpUdpEngine() override;
 
     LTP_LIB_EXPORT void Reset_ThreadSafe_Blocking();
-    LTP_LIB_EXPORT virtual void Reset();
+    LTP_LIB_EXPORT virtual void Reset() override;
     
     LTP_LIB_EXPORT void PostPacketFromManager_ThreadSafe(std::vector<uint8_t> & packetIn_thenSwappedForAnotherSameSizeVector, std::size_t size);
 
@@ -55,16 +55,16 @@ public:
     LTP_LIB_EXPORT void SetEndpoint_ThreadSafe(const std::string& remoteHostname, const uint16_t remotePort);
 
 private:
-    LTP_LIB_NO_EXPORT virtual void PacketInFullyProcessedCallback(bool success);
+    LTP_LIB_NO_EXPORT virtual void PacketInFullyProcessedCallback(bool success) override;
     LTP_LIB_NO_EXPORT virtual void SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec,
         std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback,
-        std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback);
+        std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback) override;
     LTP_LIB_NO_EXPORT void HandleUdpSend(std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback,
         std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback,
         const boost::system::error_code& error, std::size_t bytes_transferred);
     LTP_LIB_NO_EXPORT virtual void SendPackets(std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
         std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback,
-        std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallback);
+        std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallback) override;
     LTP_LIB_NO_EXPORT void OnSentPacketsCallback(bool success, std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
         std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback,
         std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallback);

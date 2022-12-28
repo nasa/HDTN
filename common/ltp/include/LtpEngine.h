@@ -100,7 +100,8 @@ public:
     LTP_LIB_EXPORT void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     LTP_LIB_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
 
-    LTP_LIB_EXPORT bool PacketIn(const uint8_t * data, const std::size_t size, Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr = NULL);
+    LTP_LIB_EXPORT bool PacketIn(const bool isLastChunkOfPacket, const uint8_t * data, const std::size_t size,
+        Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr = NULL);
     LTP_LIB_EXPORT bool PacketIn(const std::vector<boost::asio::const_buffer> & constBufferVec); //for testing
 
     LTP_LIB_EXPORT void PacketIn_ThreadSafe(const uint8_t * data, const std::size_t size, Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr = NULL);
@@ -112,6 +113,7 @@ public:
 
     LTP_LIB_EXPORT std::size_t NumActiveReceivers() const;
     LTP_LIB_EXPORT std::size_t NumActiveSenders() const;
+    LTP_LIB_EXPORT uint64_t GetMaxNumberOfSessionsInPipeline() const;
 
     LTP_LIB_EXPORT void UpdateRate(const uint64_t maxSendRateBitsPerSecOrZeroToDisable);
     LTP_LIB_EXPORT void UpdateRate_ThreadSafe(const uint64_t maxSendRateBitsPerSecOrZeroToDisable);
@@ -153,7 +155,9 @@ private:
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
     LTP_LIB_NO_EXPORT void ReportSegmentReceivedCallback(const Ltp::session_id_t & sessionId, const Ltp::report_segment_t & reportSegment,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
-    LTP_LIB_NO_EXPORT void DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp::session_id_t & sessionId,
+    //return true if operation is ongoing (possibly due to disk writes),
+    // false if operation is done (and udp packet circular buffer can reduce its size)
+    LTP_LIB_NO_EXPORT bool DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp::session_id_t & sessionId,
         std::vector<uint8_t> & clientServiceDataVec, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
 
@@ -162,6 +166,7 @@ private:
     LTP_LIB_NO_EXPORT void NotifyEngineThatThisSenderHasProducibleData(const uint64_t sessionNumber);
     LTP_LIB_NO_EXPORT void NotifyEngineThatThisReceiverNeedsDeletedCallback(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode);
     LTP_LIB_NO_EXPORT void NotifyEngineThatThisReceiversTimersHasProducibleData(const Ltp::session_id_t & sessionId);
+    LTP_LIB_NO_EXPORT void NotifyEngineThatThisReceiverCompletedDeferredOperation();
     LTP_LIB_NO_EXPORT void InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr);
 
     LTP_LIB_NO_EXPORT void TryRestartTokenRefreshTimer();
@@ -171,13 +176,16 @@ private:
     LTP_LIB_NO_EXPORT void OnHousekeeping_TimerExpired(const boost::system::error_code& e);
 
     LTP_LIB_NO_EXPORT void DoExternalLinkDownEvent();
+
+    //these four functions eliminate need for each session to have its own expensive boost::function/boost::bind using a reinterpret_cast of classPtr
+    LTP_LIB_NO_EXPORT void LtpSessionReceiverReportSegmentTimerExpiredCallback(void* classPtr, const Ltp::session_id_t& reportSerialNumberPlusSessionNumber, std::vector<uint8_t>& userData);
+    LTP_LIB_NO_EXPORT void LtpSessionReceiverDelaySendReportSegmentTimerExpiredCallback(void* classPtr, const Ltp::session_id_t& checkpointSerialNumberPlusSessionNumber, std::vector<uint8_t>& userData);
+    LTP_LIB_NO_EXPORT void LtpSessionSenderCheckpointTimerExpiredCallback(void* classPtr, const Ltp::session_id_t& checkpointSerialNumberPlusSessionNumber, std::vector<uint8_t>& userData);
+    LTP_LIB_NO_EXPORT void LtpSessionSenderDelaySendDataSegmentsTimerExpiredCallback(void* classPtr, const uint64_t& sessionNumber, std::vector<uint8_t>& userData);
 private:
     Ltp m_ltpRxStateMachine;
     LtpRandomNumberGenerator m_rng;
-    const uint64_t M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION;
-    const uint64_t M_MAX_RED_RX_BYTES_PER_SESSION;
     const uint64_t M_THIS_ENGINE_ID;
-    uint64_t m_mtuClientServiceData;
     unsigned int m_numSendPacketsPendingSystemCalls;
 protected:
     const uint64_t M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL;
@@ -193,12 +201,15 @@ private:
     boost::posix_time::ptime M_NEXT_PING_START_EXPIRY;
     bool m_transmissionRequestServedAsPing;
     const uint64_t M_MAX_SIMULTANEOUS_SESSIONS;
+    const uint64_t M_MAX_SESSIONS_IN_PIPELINE; //less than (for disk) or equal to (for memory) M_MAX_SIMULTANEOUS_SESSIONS
+    const uint64_t M_DISK_BUNDLE_ACK_CALLBACK_LIMIT;
     const uint64_t M_MAX_RX_DATA_SEGMENT_HISTORY_OR_ZERO_DISABLE;//rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable
     boost::random_device m_randomDevice;
 
     //session receiver functions to be passed in AS REFERENCES (note declared before m_mapSessionIdToSessionReceiver so destroyed after map)
     NotifyEngineThatThisReceiverNeedsDeletedCallback_t m_notifyEngineThatThisReceiverNeedsDeletedCallback;
-    NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t m_notifyEngineThatThisSendersTimersHasProducibleDataFunction;
+    NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t m_notifyEngineThatThisReceiversTimersHasProducibleDataFunction;
+    NotifyEngineThatThisReceiverCompletedDeferredOperationFunction_t m_notifyEngineThatThisReceiverCompletedDeferredOperationFunction;
 
     //session sender functions to be passed in AS REFERENCES (note declared before m_mapSessionNumberToSessionSender so destroyed after map)
     NotifyEngineThatThisSenderNeedsDeletedCallback_t m_notifyEngineThatThisSenderNeedsDeletedCallback;
@@ -212,13 +223,14 @@ private:
     LTP_LIB_NO_EXPORT void EraseTxSession(map_session_number_to_session_sender_t::iterator& txSessionIt);
     LTP_LIB_NO_EXPORT void EraseRxSession(map_session_id_to_session_receiver_t::iterator& rxSessionIt);
     
-
+    std::set<Ltp::session_id_t> m_ltpSessionsWithWrongClientServiceId;
     std::queue<std::pair<uint64_t, std::vector<uint8_t> > > m_queueClosedSessionDataToSend; //sessionOriginatorEngineId, data
     std::queue<cancel_segment_timer_info_t> m_queueCancelSegmentTimerInfo;
     std::queue<uint64_t> m_queueSendersNeedingDeleted;
     std::queue<uint64_t> m_queueSendersNeedingTimeCriticalDataSent;
     std::queue<uint64_t> m_queueSendersNeedingFirstPassDataSent;
     std::queue<Ltp::session_id_t> m_queueReceiversNeedingDeleted;
+    std::queue<Ltp::session_id_t> m_queueReceiversNeedingDeletedButUnsafeToDelete;
     std::queue<Ltp::session_id_t> m_queueReceiversNeedingDataSent;
 
     SessionStartCallback_t m_sessionStartCallback;
@@ -235,8 +247,6 @@ private:
     OnOutductLinkStatusChangedCallback_t m_onOutductLinkStatusChangedCallback;
     uint64_t m_userAssignedUuid;
 
-    uint64_t m_checkpointEveryNthDataPacketSender;
-    uint64_t m_maxReceptionClaims;
     uint32_t m_maxRetriesPerSerialNumber;
 protected:
     boost::asio::io_service m_ioServiceLtpEngine; //for timers and post calls only
@@ -252,12 +262,14 @@ private:
     //  sessionNumber = the session number
     //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> m_timeManagerOfReportSerialNumbers;
+    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_rsnTimerExpiredCallback;
 
     boost::asio::deadline_timer m_deadlineTimerForTimeManagerOfSendingDelayedReceptionReports;
     //  sessionOriginatorEngineId = CHECKPOINT serial number to which RS pertains
     //  sessionNumber = the session number
     //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> m_timeManagerOfSendingDelayedReceptionReports;
+    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_delayedReceptionReportTimerExpiredCallback;
 
     boost::asio::deadline_timer m_deadlineTimerForTimeManagerOfCheckpointSerialNumbers;
     // within a session would normally be LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timeManagerOfCheckpointSerialNumbers;
@@ -268,6 +280,7 @@ private:
     //  sessionNumber = the session number
     //  since this is a sender, the real sessionOriginatorEngineId is constant among all sending sessions and is not needed
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> m_timeManagerOfCheckpointSerialNumbers;
+    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_csnTimerExpiredCallback;
 
     boost::asio::deadline_timer m_deadlineTimerForTimeManagerOfSendingDelayedDataSegments;
     // within a session would normally be a single deadline timer;
@@ -277,6 +290,7 @@ private:
     //  uint64_t = the session number
     //  since this is a sender, the real sessionOriginatorEngineId is constant among all sending sessions and is not needed
     LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timeManagerOfSendingDelayedDataSegments;
+    LtpTimerManager<uint64_t, std::hash<uint64_t> >::LtpTimerExpiredCallback_t m_delayedDataSegmentsTimerExpiredCallback;
 
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_cancelSegmentTimerExpiredCallback;
     boost::asio::deadline_timer m_deadlineTimerForTimeManagerOfCancelSegments;
@@ -296,27 +310,37 @@ private:
     //memory in files
     std::unique_ptr<MemoryInFiles> m_memoryInFilesPtr;
     std::queue<uint64_t> m_memoryBlockIdsPendingDeletionQueue;
+    std::queue<std::vector<uint8_t> > m_userDataPendingSuccessfulBundleSendCallbackQueue;
+
+
+    //reference structs common to all sessions
+    LtpSessionSender::LtpSessionSenderCommonData m_ltpSessionSenderCommonData;
+    LtpSessionReceiver::LtpSessionReceiverCommonData m_ltpSessionReceiverCommonData;
 
 public:
     //stats
 
+    //LtpEngine
     uint64_t m_countAsyncSendsLimitedByRate;
+    uint64_t m_countPacketsWithOngoingOperations;
+    uint64_t m_countPacketsThatCompletedOngoingOperations;
+    uint64_t m_numEventsTransmissionRequestDiskWritesTooSlow;
 
-    //session sender stats
-    uint64_t m_numCheckpointTimerExpiredCallbacks;
-    uint64_t m_numDiscretionaryCheckpointsNotResent;
-    uint64_t m_numDeletedFullyClaimedPendingReports;
+    //session sender stats (references to variables within m_ltpSessionSenderCommonData)
+    uint64_t & m_numCheckpointTimerExpiredCallbacksRef;
+    uint64_t & m_numDiscretionaryCheckpointsNotResentRef;
+    uint64_t & m_numDeletedFullyClaimedPendingReportsRef;
 
     //session receiver stats
-    uint64_t m_numReportSegmentTimerExpiredCallbacks;
-    uint64_t m_numReportSegmentsUnableToBeIssued;
-    uint64_t m_numReportSegmentsTooLargeAndNeedingSplit;
-    uint64_t m_numReportSegmentsCreatedViaSplit;
-    uint64_t m_numGapsFilledByOutOfOrderDataSegments;
-    uint64_t m_numDelayedFullyClaimedPrimaryReportSegmentsSent;
-    uint64_t m_numDelayedFullyClaimedSecondaryReportSegmentsSent;
-    uint64_t m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent;
-    uint64_t m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent;
+    uint64_t & m_numReportSegmentTimerExpiredCallbacksRef;
+    uint64_t & m_numReportSegmentsUnableToBeIssuedRef;
+    uint64_t & m_numReportSegmentsTooLargeAndNeedingSplitRef;
+    uint64_t & m_numReportSegmentsCreatedViaSplitRef;
+    uint64_t & m_numGapsFilledByOutOfOrderDataSegmentsRef;
+    uint64_t & m_numDelayedFullyClaimedPrimaryReportSegmentsSentRef;
+    uint64_t & m_numDelayedFullyClaimedSecondaryReportSegmentsSentRef;
+    uint64_t & m_numDelayedPartiallyClaimedPrimaryReportSegmentsSentRef;
+    uint64_t & m_numDelayedPartiallyClaimedSecondaryReportSegmentsSentRef;
 };
 
 #endif // LTP_ENGINE_H
