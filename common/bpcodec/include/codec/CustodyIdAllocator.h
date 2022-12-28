@@ -1,3 +1,26 @@
+/**
+ * @file CustodyIdAllocator.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This is a class to help intelligently allocate custody ids with CTEB/ACS.
+ * Custody Ids should be allocated with the smallest number possible, and also
+ * a the bundle sources should have as much contiguous custody ids as possible.
+ * This will minimize CTEB/ACS total bytes transferred when encoded to sdnvs and ACS.
+ * In case of interleaving from multiple bundle sources,
+ * allocate integer range from [N*256+0, N*256+1, ... ,  N*256+255]
+ */
+
 #ifndef CUSTODY_ID_ALLOCATOR_H
 #define CUSTODY_ID_ALLOCATOR_H 1
 
@@ -7,16 +30,7 @@
 #include "FragmentSet.h"
 #include "codec/bpv6.h"
 #include <map>
-/*
-This is a class to help intelligently allocate custody ids with CTEB/ACS.
-Custody Ids should be allocated with the smallest number possible, and also
-a the bundle sources should have as much contiguous custody ids as possible.
-This will minimize CTEB/ACS total bytes transferred when encoded to sdnvs and ACS.
 
-In case of interleaving from multiple bundle sources,
-allocate integer range from [N*256+0, N*256+1, ... ,  N*256+255]
-
-*/
 class CustodyIdAllocator {
 public:
     

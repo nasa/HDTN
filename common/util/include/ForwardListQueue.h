@@ -42,6 +42,7 @@ public:
     template <class... Args>
     void emplace_back(Args&&... args) {
         //insert into list (order by FIFO, so newest elements will be last)
+        //https://codereview.stackexchange.com/questions/57494/perfect-forwarding-while-implementing-emplace
         if (m_fl.empty()) {
             m_fl.emplace_front(std::forward<Args>(args)...);
             m_flLastIt = m_fl.begin();

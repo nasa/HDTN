@@ -1,3 +1,31 @@
+/**
+ * @file BundleViewV7.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * The BundleViewV7 class is a helper class for reading/parsing/validating
+ * all blocks within Bundle Protocol Version 7 bundles.
+ * The class makes it easy to modify specific blocks and
+ * rewrite (rerender) bundles to new memory.
+ * Bundles may be rerendered in-place if 
+ * the bundle is decreasing in size or if there
+ * is enough padding available if the bundle is growing in size.
+ * The class keeps track of which blocks have been modified (marked dirty)
+ * so that CBOR serializaton does not need to be performed on unmodified
+ * blocks during a rerender.
+ * See TestBundleViewV7.cpp for usage examples.
+ */
+
 #ifndef BUNDLE_VIEW_V7_H
 #define BUNDLE_VIEW_V7_H 1
 

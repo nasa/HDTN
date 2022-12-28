@@ -1,8 +1,21 @@
-/***************************************************************************
- * NASA Glenn Research Center, Cleveland, OH
+/**
+ * @file test_main.cpp
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
  * Released under the NASA Open Source Agreement (NOSA)
- * May  2021
- ****************************************************************************
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This file launches all HDTN unit tests (using Boost Test) into a process.
+ * These unit tests are being compiled from a CMake installed version of HDTN
+ * rather than from within the HDTN project itself.
  */
 
 
