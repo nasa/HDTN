@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* Fix bug where LtpSessionReceiver::NextDataToSend used a reference (reportSegmentIt) after queue.pop().
 * Separate the LtpSessionSender data into high-priority-time-critical and low-priority-first-pass queues.  First pass data is lowest priority compared to time-critical data (e.g. report acks), so this priority separation prevents long first passes from starving and expiring the time-critical data.
 * Static analysis fix for non-throw versions of `boost::property_tree::ptree::get_child` which return a reference to a destroyed second parameter.
 
@@ -17,13 +18,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Config file additions:
     - add: `bufferRxToStorageOnLinkUpSaturation` (boolean default=`false`) to the hdtn global configs
     - add: `maxSumOfBundleBytesInPipeline` (`uint64_t`) to the outducts
+    - add: `delaySendingOfDataSegmentsTimeMsOrZeroToDisable` (default=`20`) to LTP outducts for efficiently handling out-of-order report segments by deferring data retransmission.
+    - add: `delaySendingOfReportSegmentsTimeMsOrZeroToDisable` (default=`20`) to LTP inducts for efficiently handling out-of-order data segments by deferring report retransmission.
+    - add: Experimental feature `keepActiveSessionDataOnDisk` (boolean default=`false`) to both LTP inducts and outducts for supporting the running of LTP sessions (both for receivers and senders) from a solid-state disk drive in lieu of keeping session data-segments in memory.  If this feature is enabled, it also uses the added configuration values `activeSessionDataOnDiskNewFileDurationMs` and `activeSessionDataOnDiskDirectory` to determine where on the drive to temporarily store sessions.  Note: currently if a LTP link goes down, bundles don't yet get transferred to storage and get dropped, as this is still experimental.
 * Add check for unused variables when loading hdtn config json files (uses regex). Prevent hdtn from starting until unused variable is removed.
 * An error is thrown on startup `if (maxBundleSizeBytes * 2) > maxSumOfBundleBytesInPipeline`
 * Add `AllOutductCapabilitiesTelemetry_t` to Telemetry.h and send it from egress to ingress, storage, and scheduler
+* Add override specifier to virtual methods.
+* Add a ForwardListQueue template class to util as a lightweight singly-linked list queue with low memory usage, intended for queues that are not heavily used and for use in objects that are frequently created and deleted but require a queue member variable.
 
 
 ### Changed
 
+* The size of an LTP session object (both for senders and receivers) has been greatly reduced by sharing a reference to common data as opposed to copying.
 * All config files now use boost::filesystem::path instead of std::string.
 * Config file changes:
     - rename: `bundlePipelineLimit` to `maxNumberOfBundlesInPipeline` in the outducts
