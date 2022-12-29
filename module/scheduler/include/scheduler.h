@@ -69,11 +69,11 @@ public:
     Scheduler();
     ~Scheduler();
     bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
-    bool ProcessContactsPtPtr(std::shared_ptr<boost::property_tree::ptree>& contactsPtPtr, bool useUnixTimestamps);
-    bool ProcessContacts(const boost::property_tree::ptree & pt, bool useUnixTimestamps);
-    bool ProcessContactsJsonText(char* jsonText, bool useUnixTimestamps);
-    bool ProcessContactsJsonText(const std::string& jsonText, bool useUnixTimestamps);
-    bool ProcessContactsFile(const boost::filesystem::path& jsonEventFilePath, bool useUnixTimestamps);
+    bool ProcessContactsPtPtr(std::shared_ptr<boost::property_tree::ptree>& contactsPtPtr);
+    bool ProcessContacts(const boost::property_tree::ptree & pt);
+    bool ProcessContactsJsonText(char* jsonText);
+    bool ProcessContactsJsonText(const std::string& jsonText);
+    bool ProcessContactsFile(const boost::filesystem::path& jsonEventFilePath);
 
     static boost::filesystem::path GetFullyQualifiedFilename(const boost::filesystem::path & filename) {
         return (Environment::GetPathHdtnSourceRoot() / "module/scheduler/src/") / filename;
@@ -96,7 +96,7 @@ private:
     void OnContactPlan_TimerExpired(const boost::system::error_code& e);
     bool AddContact_NotThreadSafe(const contactPlan_t& contact);
     boost::mutex m_contactUpSetMutex;
-    bool using_unix_timestamp;
+    bool m_usingUnixTimestamp;
 
 private:
     volatile bool m_runningFromSigHandler;
@@ -127,6 +127,8 @@ private:
     boost::posix_time::ptime m_epoch;
     uint64_t m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds;
     uint64_t m_numOutductCapabilityTelemetriesReceived;
+
+    zmq::message_t m_zmqMessageOutductCapabilitiesTelem;
 };
 
 

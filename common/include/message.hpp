@@ -165,6 +165,19 @@ struct IreleaseChangeHdr {
     uint64_t nextHopNodeId;
     uint64_t time;
     uint64_t contact; //stop events only
+
+    //Subscription message is a byte 1 (for subscriptions) or byte 0 (for unsubscriptions) followed by the subscription body.
+    //All release messages shall be prefixed by "aaaaaaaa" before the common header
+    //Router unique subscription shall be "a" (gets all messages that start with "a") (e.g "aaa", "ab", etc.)
+    //Ingress unique subscription shall be "aa"
+    //Storage unique subscription shall be "aaa"
+    void SetSubscribeAll() {
+        subscriptionBytes = 0x6161616161616161; //"aaaaaaaa"
+    }
+    void SetSubscribeRouterOnly() {
+        SetSubscribeAll();
+        ((char*)&subscriptionBytes)[1] = 'b'; //"abaaaaaa"
+    }
 };
 
 struct RouteUpdateHdr {

@@ -68,7 +68,6 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running, bo
     	running = true;
         m_runningFromSigHandler = true;
         m_timersFinished = false;
-        boost::filesystem::path jsonEventFileName;
         boost::filesystem::path contactsFile = Router::DEFAULT_FILE;
 
         SignalHandler sigHandler(boost::bind(&Router::MonitorExitKeypressThreadFunction, this));
@@ -110,13 +109,15 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running, bo
                 return false;
             }
 
-            jsonEventFileName =  Router::GetFullyQualifiedFilename(contactsFile);
-            if ( !boost::filesystem::exists(jsonEventFileName) ) {
-               LOG_ERROR(subprocess) << "ContactPlan File not found: " << jsonEventFileName;
-               return false;
+            if (!boost::filesystem::exists(contactsFile)) { //first see if the user specified an already valid path name not dependent on HDTN's source root
+                contactsFile = Router::GetFullyQualifiedFilename(contactsFile);
+                if (!boost::filesystem::exists(contactsFile)) {
+                    LOG_ERROR(subprocess) << "ContactPlan File not found: " << contactsFile;
+                    return false;
+                }
             }
 
-	    LOG_INFO(subprocess) << "ContactPlan file: " << jsonEventFileName;
+            LOG_INFO(subprocess) << "ContactPlan file: " << contactsFile;
 
  	}
 
@@ -157,19 +158,7 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running, bo
             LOG_ERROR(subprocess) << "Cannot connect to scheduler socket at " << connect_boundSchedulerPubSubPath << " : " << ex.what();
             return false;
         }
-        try {
-            //Sends one-byte 0x1 message to scheduler XPub socket plus strlen of subscription
-            //All release messages shall be prefixed by "aaaaaaaa" before the common header
-            //Ingress unique subscription shall be "a"
-            //Storage unique subscription shall be "aa"
-	    ////Router unique subscription shall be "aaa"
-            m_zmqSubSock_boundSchedulerToConnectingRouterPtr->set(zmq::sockopt::subscribe, "aaa");
-            LOG_INFO(subprocess) << "Subscribed to all events from scheduler";
-        }
-        catch (const zmq::error_t& ex) {
-            LOG_ERROR(subprocess) << "Cannot subscribe to all events from scheduler: " << ex.what();
-            return false;
-        }
+        
 
 	try {
             static const int timeout = 250;  // milliseconds
@@ -182,7 +171,7 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running, bo
 
 	m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
             boost::bind(&Router::ReadZmqAcksThreadFunc, this, 
-		    boost::ref(running), jsonEventFileName)); //create and start the worker thread
+		    boost::ref(running), contactsFile)); //create and start the worker thread
 
         boost::this_thread::sleep(boost::posix_time::seconds(2));
 
@@ -241,34 +230,37 @@ void Router::SchedulerEventsHandler(const boost::filesystem::path & jsonEventFil
         m_latestTime = releaseChangeHdr.time;
         LOG_INFO(subprocess) << "Contact up ";
         LOG_INFO(subprocess) << "Updated time to " << m_latestTime;
-   }
-   else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY) {
-       AllOutductCapabilitiesTelemetry_t aoct;
-       uint64_t numBytesTakenToDecode;
-       zmq::message_t zmqMessageOutductTelem;
-       //message guaranteed to be there due to the zmq::send_flags::sndmore
-       if (!m_zmqSubSock_boundSchedulerToConnectingRouterPtr->recv(zmqMessageOutductTelem, 
-			          zmq::recv_flags::none)) {
-           LOG_ERROR(subprocess) << "error receiving AllOutductCapabilitiesTelemetry";
-       }
-       else if (!aoct.DeserializeFromLittleEndian((uint8_t*)zmqMessageOutductTelem.data(),
-		numBytesTakenToDecode, zmqMessageOutductTelem.size())) {
-           LOG_ERROR(subprocess) << "error deserializing AllOutductCapabilitiesTelemetry";
-       }
-       LOG_INFO(subprocess) << "Received Telemetry message from Scheduler " << aoct;
-        for (std::list<OutductCapabilityTelemetry_t>::const_iterator itAoct 
-			= aoct.outductCapabilityTelemetryList.cbegin(); 
-			itAoct != aoct.outductCapabilityTelemetryList.cend(); ++itAoct) {
-            const OutductCapabilityTelemetry_t& oct = *itAoct;
-            for (std::list<uint64_t>::const_iterator it = 
-              oct.finalDestinationNodeIdList.cbegin(); 
-	      it != oct.finalDestinationNodeIdList.cend(); ++it) {
-                const uint64_t nodeId = *it;
-                LOG_INFO(subprocess) << "Compute Optimal Route for finalDestination node" << nodeId;
-		ComputeOptimalRoute(jsonEventFileName, srcNode, nodeId);
+    }
+    else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY) {
+        AllOutductCapabilitiesTelemetry_t aoct;
+        uint64_t numBytesTakenToDecode;
+        zmq::message_t zmqMessageOutductTelem;
+        //message guaranteed to be there due to the zmq::send_flags::sndmore
+        if (!m_zmqSubSock_boundSchedulerToConnectingRouterPtr->recv(zmqMessageOutductTelem, zmq::recv_flags::none)) {
+            LOG_ERROR(subprocess) << "error receiving AllOutductCapabilitiesTelemetry";
+        }
+        else if (!aoct.DeserializeFromLittleEndian((uint8_t*)zmqMessageOutductTelem.data(),
+            numBytesTakenToDecode, zmqMessageOutductTelem.size()))
+        {
+            LOG_ERROR(subprocess) << "error deserializing AllOutductCapabilitiesTelemetry";
+        }
+        else {
+            LOG_INFO(subprocess) << "Received Telemetry message from Scheduler " << aoct;
+            for (std::list<OutductCapabilityTelemetry_t>::const_iterator itAoct = aoct.outductCapabilityTelemetryList.cbegin();
+                itAoct != aoct.outductCapabilityTelemetryList.cend(); ++itAoct)
+            {
+                const OutductCapabilityTelemetry_t& oct = *itAoct;
+                for (std::list<uint64_t>::const_iterator it = oct.finalDestinationNodeIdList.cbegin();
+                    it != oct.finalDestinationNodeIdList.cend(); ++it)
+                {
+                    const uint64_t nodeId = *it;
+                    LOG_INFO(subprocess) << "Compute Optimal Route for finalDestination node" << nodeId;
+                    ComputeOptimalRoute(jsonEventFileName, srcNode, nodeId);
+                }
             }
         }
-    } else {
+    }
+    else {
         LOG_ERROR(subprocess) << "[Router] unknown message type " << releaseChangeHdr.base.type;
     }
 }
@@ -277,9 +269,24 @@ void Router::ReadZmqAcksThreadFunc(volatile bool & running,
 		const boost::filesystem::path & jsonEventFilePath) {
 
         static constexpr unsigned int NUM_SOCKETS = 1;
-        zmq::pollitem_t items[NUM_SOCKETS] = {{m_zmqSubSock_boundSchedulerToConnectingRouterPtr->handle(),
-                                              0, ZMQ_POLLIN, 0} };
+        zmq::pollitem_t items[NUM_SOCKETS] = {
+            {m_zmqSubSock_boundSchedulerToConnectingRouterPtr->handle(), 0, ZMQ_POLLIN, 0}
+        };
         static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
+
+        try {
+            //Sends one-byte 0x1 message to scheduler XPub socket plus strlen of subscription
+            //All release messages shall be prefixed by "aaaaaaaa" before the common header
+            //Router unique subscription shall be "a" (gets all messages that start with "a") (e.g "aaa", "ab", etc.)
+            //Ingress unique subscription shall be "aa"
+            //Storage unique subscription shall be "aaa"
+            m_zmqSubSock_boundSchedulerToConnectingRouterPtr->set(zmq::sockopt::subscribe, "a");
+            LOG_INFO(subprocess) << "Subscribed to all events from scheduler";
+        }
+        catch (const zmq::error_t& ex) {
+            LOG_ERROR(subprocess) << "Cannot subscribe to all events from scheduler: " << ex.what();
+            //return false;
+        }
 
         while (running && m_runningFromSigHandler) {
             int rc = 0;
@@ -290,10 +297,9 @@ void Router::ReadZmqAcksThreadFunc(volatile bool & running,
                 LOG_ERROR(subprocess) << "zmq::poll threw zmq::error_t in hdtn::Router::Run: " << e.what();
                 continue;
             }
-            assert(rc >= 0);
             if (rc > 0) {
                 if (items[0].revents & ZMQ_POLLIN) { //events from scheduler
-                        SchedulerEventsHandler(jsonEventFilePath);
+                    SchedulerEventsHandler(jsonEventFilePath);
                 }
             }
         }

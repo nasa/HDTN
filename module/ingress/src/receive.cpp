@@ -414,7 +414,7 @@ bool Ingress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOne
         std::string(":") +
         boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
         
-	try {
+        try {
             m_zmqSubSock_boundSchedulerToConnectingIngressPtr->connect(connect_boundSchedulerPubSubPath);
             LOG_INFO(subprocess) << "Connected to scheduler at " << connect_boundSchedulerPubSubPath << " , subscribing...";
         } catch (const zmq::error_t & ex) {
@@ -424,9 +424,10 @@ bool Ingress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOne
         try {
             //Sends one-byte 0x1 message to scheduler XPub socket plus strlen of subscription
             //All release messages shall be prefixed by "aaaaaaaa" before the common header
-            //Ingress unique subscription shall be "a"
-            //Storage unique subscription shall be "aa"
-            m_zmqSubSock_boundSchedulerToConnectingIngressPtr->set(zmq::sockopt::subscribe, "a");
+            //Router unique subscription shall be "a" (gets all messages that start with "a") (e.g "aaa", "ab", etc.)
+            //Ingress unique subscription shall be "aa"
+            //Storage unique subscription shall be "aaa"
+            m_zmqSubSock_boundSchedulerToConnectingIngressPtr->set(zmq::sockopt::subscribe, "aa");
             LOG_INFO(subprocess) << "Subscribed to all events from scheduler";
         }
         catch (const zmq::error_t& ex) {
