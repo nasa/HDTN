@@ -23,113 +23,36 @@
 #ifndef SCHEDULER_H
 #define SCHEDULER_H 
 
-#include <boost/asio.hpp>
-#include <boost/algorithm/string.hpp>
-#include <boost/foreach.hpp>
-#include <boost/date_time.hpp>
-#include <boost/program_options.hpp>
-#include <boost/make_unique.hpp>
-#include <boost/bimap.hpp>
-#include <cstdlib>
-#include <iostream>
-#include "message.hpp"
-#include "Environment.h"
-#include "JsonSerializable.h"
-#include "HdtnConfig.h"
+
+
+#include <cstdint>
 #include "zmq.hpp"
+#include <memory>
+#include "HdtnConfig.h"
+#include <boost/core/noncopyable.hpp>
+#include <boost/filesystem.hpp>
+#include "scheduler_lib_export.h"
 
-typedef std::unique_ptr<boost::asio::deadline_timer> SmartDeadlineTimer;
-struct contactPlan_t {
-    uint64_t contact;
-    uint64_t source;
-    uint64_t dest;
-    uint64_t finalDest;
-    uint64_t start;
-    uint64_t end;
-    uint64_t rate;
 
-    bool operator<(const contactPlan_t& o) const; //operator < so it can be used as a map key
-};
-
-struct contact_t {
-    uint64_t source;
-    uint64_t dest;
-    bool operator<(const contact_t& o) const;
-
-};
-
-class Scheduler {
+class Scheduler : private boost::noncopyable {
 public:
-    typedef std::pair<boost::posix_time::ptime, uint64_t> ptime_index_pair_t; //used in case of identical ptimes for starting events
-    typedef std::pair<contactPlan_t, bool> contactplan_islinkup_pair_t; //second parameter isLinkUp
-    typedef boost::bimap<ptime_index_pair_t, contactplan_islinkup_pair_t> ptime_to_contactplan_bimap_t;
+    SCHEDULER_LIB_EXPORT Scheduler();
+    SCHEDULER_LIB_EXPORT ~Scheduler();
+    SCHEDULER_LIB_EXPORT void Stop();
+    SCHEDULER_LIB_EXPORT bool Init(const HdtnConfig& hdtnConfig,
+        const boost::filesystem::path & contactPlanFilePath,
+        zmq::context_t* hdtnOneProcessZmqInprocContextPtr = NULL);
 
-    std::map<contact_t, bool> m_mapContactUp;
+    SCHEDULER_LIB_EXPORT static boost::filesystem::path GetFullyQualifiedFilename(const boost::filesystem::path& filename);
 
-    Scheduler();
-    ~Scheduler();
-    bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
-    bool ProcessContactsPtPtr(std::shared_ptr<boost::property_tree::ptree>& contactsPtPtr);
-    bool ProcessContacts(const boost::property_tree::ptree & pt);
-    bool ProcessContactsJsonText(char* jsonText);
-    bool ProcessContactsJsonText(const std::string& jsonText);
-    bool ProcessContactsFile(const boost::filesystem::path& jsonEventFilePath);
 
-    static boost::filesystem::path GetFullyQualifiedFilename(const boost::filesystem::path & filename) {
-        return (Environment::GetPathHdtnSourceRoot() / "module/scheduler/src/") / filename;
-    }
-
-    static const boost::filesystem::path DEFAULT_FILE;
-
+    // Internal implementation class
+    class Impl; //public for ostream operators
 private:
-    void Stop();
-    void SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex, 
-		    uint64_t time);
-    void SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
-		      uint64_t time, uint64_t cid);
-     
-    void MonitorExitKeypressThreadFunction();
-    void EgressEventsHandler();
-    void UisEventsHandler();
-    void ReadZmqAcksThreadFunc(volatile bool & running);
-    void TryRestartContactPlanTimer();
-    void OnContactPlan_TimerExpired(const boost::system::error_code& e);
-    bool AddContact_NotThreadSafe(const contactPlan_t& contact);
-    boost::mutex m_contactUpSetMutex;
-    bool m_usingUnixTimestamp;
+    // Pointer to the internal implementation
+    std::unique_ptr<Impl> m_pimpl;
 
-private:
-    volatile bool m_runningFromSigHandler;
-    HdtnConfig m_hdtnConfig;
-    std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
 
-    std::unique_ptr<zmq::context_t> m_zmqCtxPtr;
-    std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundEgressToConnectingSchedulerPtr;
-    std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundUisToConnectingSchedulerPtr;
-    std::unique_ptr<zmq::socket_t> m_zmqXPubSock_boundSchedulerToConnectingSubsPtr;
-    boost::mutex m_mutexZmqPubSock;
-
-    std::map<uint64_t, uint64_t> m_mapOutductArrayIndexToNextHopNodeId;
-    std::map<uint64_t, uint64_t> m_mapNextHopNodeIdToOutductArrayIndex;
-    std::map<uint64_t, uint64_t> m_mapFinalDestNodeIdToOutductArrayIndex;
-    std::map<cbhe_eid_t, uint64_t> m_mapFinalDestEidToOutductArrayIndex;
-    boost::mutex m_mutexFinalDestsToOutductArrayIndexMaps;
-
-    boost::filesystem::path m_contactsFile;
-    
-    ptime_to_contactplan_bimap_t m_ptimeToContactPlanBimap;
-    boost::asio::io_service m_ioService;
-    boost::asio::deadline_timer m_contactPlanTimer;
-    std::unique_ptr<boost::asio::io_service::work> m_workPtr;
-    std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
-    bool m_contactPlanTimerIsRunning;
-    volatile bool m_egressFullyInitialized;
-    boost::posix_time::ptime m_epoch;
-    uint64_t m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds;
-    uint64_t m_numOutductCapabilityTelemetriesReceived;
-
-    zmq::message_t m_zmqMessageOutductCapabilitiesTelem;
 };
-
 
 #endif // SCHEDULER_H

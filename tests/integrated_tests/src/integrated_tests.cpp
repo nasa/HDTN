@@ -40,7 +40,7 @@
 #include "EgressAsyncRunner.h"
 #include "StorageRunner.h"
 #include "SignalHandler.h"
-#include "scheduler.h"
+#include "SchedulerRunner.h"
 
 #define DELAY_THREAD 3
 #define DELAY_TEST 3
@@ -133,7 +133,7 @@ int RunStorage(const char * argv[], int argc, bool & running, uint64_t* ptrBundl
 
 int RunScheduler(const char * argv[], int argc, bool & running) {
     {
-        Scheduler runner;
+        SchedulerRunner runner;
         runner.Run(argc, argv, running, true);
     }
     return 0;
@@ -194,17 +194,12 @@ bool TestSchedulerTcpcl() {
     Delay(DELAY_THREAD);
 
     //scheduler
-    Scheduler scheduler;
+    SchedulerRunner scheduler;
     const boost::filesystem::path contactsFile = "contactPlan.json";
-    const boost::filesystem::path jsonFileName =  Scheduler::GetFullyQualifiedFilename(contactsFile);
-    if ( !boost::filesystem::exists( jsonFileName ) ) {
-        std::cerr << "ContactPlan File not found: " << jsonFileName << std::endl << std::flush;
-        return false;
-    }
 
     const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
     const char * argsScheduler[] = { "scheduler", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
-    std::thread threadScheduler(&Scheduler::Run, &scheduler, 3, argsScheduler, std::ref(runningScheduler), true);
+    std::thread threadScheduler(&SchedulerRunner::Run, &scheduler, 3, argsScheduler, std::ref(runningScheduler), true);
     Delay(1);
 
     

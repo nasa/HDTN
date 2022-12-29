@@ -1,7 +1,6 @@
 add_executable(hdtn-router 
     src/router.cpp
     src/main.cpp
-    src/cgrServer.cpp
 )
 install(TARGETS hdtn-router DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_link_libraries(hdtn-router

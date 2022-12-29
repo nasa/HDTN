@@ -1,5 +1,4 @@
 add_executable(hdtn-storage
-        src/StorageRunner.cpp
         src/main.cpp
 )
 install(TARGETS hdtn-storage DESTINATION ${CMAKE_INSTALL_BINDIR})
@@ -16,6 +15,7 @@ add_library(storage_lib
 		src/CustodyTimers.cpp
 		src/CatalogEntry.cpp
         src/ZmqStorageInterface.cpp
+		src/StorageRunner.cpp
 )
 target_compile_options(storage_lib PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 GENERATE_EXPORT_HEADER(storage_lib)

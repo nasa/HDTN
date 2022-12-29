@@ -27,10 +27,6 @@
 #include <boost/core/noncopyable.hpp>
 #include "storage_lib_export.h"
 
-//addresses for ZMQ IPC transport
-#define HDTN_STORAGE_TELEM_PATH "tcp://127.0.0.1:10460"
-#define HDTN_RELEASE_TELEM_PATH "tcp://127.0.0.1:10461"
-
 
 class ZmqStorageInterface : private boost::noncopyable {
 public:

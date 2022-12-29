@@ -14,24 +14,121 @@
 
 #include "scheduler.h"
 #include "Uri.h"
-#include "SignalHandler.h"
 #include "TimestampUtil.h"
 #include "Logger.h"
 #include <fstream>
 #include "message.hpp"
 #include <boost/filesystem.hpp>
-#include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/date_time.hpp>
 #include <boost/make_unique.hpp>
 #include <memory>
 #include <fstream>
 #include "TelemetryDefinitions.h"
+#include <boost/asio.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/foreach.hpp>
+#include <boost/bimap.hpp>
+#include <cstdlib>
+#include "Environment.h"
+#include "JsonSerializable.h"
 
-namespace opt = boost::program_options;
 
-const boost::filesystem::path Scheduler::DEFAULT_FILE = "contactPlan.json";
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::scheduler;
+
+struct contactPlan_t {
+    uint64_t contact;
+    uint64_t source;
+    uint64_t dest;
+    uint64_t finalDest;
+    uint64_t start;
+    uint64_t end;
+    uint64_t rate;
+
+    bool operator<(const contactPlan_t& o) const; //operator < so it can be used as a map key
+};
+
+struct contact_t {
+    uint64_t source;
+    uint64_t dest;
+    bool operator<(const contact_t& o) const;
+
+};
+
+class Scheduler::Impl {
+public:
+    Impl();
+    ~Impl();
+    void Stop();
+    bool Init(const HdtnConfig& hdtnConfig,
+        const boost::filesystem::path& contactPlanFilePath,
+        zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
+
+private:
+    bool ProcessContactsPtPtr(std::shared_ptr<boost::property_tree::ptree>& contactsPtPtr);
+    bool ProcessContacts(const boost::property_tree::ptree & pt);
+    bool ProcessContactsJsonText(char* jsonText);
+    bool ProcessContactsJsonText(const std::string& jsonText);
+    bool ProcessContactsFile(const boost::filesystem::path& jsonEventFilePath);
+
+    void SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
+            uint64_t time);
+    void SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
+            uint64_t time, uint64_t cid);
+
+    void EgressEventsHandler();
+    void UisEventsHandler();
+    void ReadZmqAcksThreadFunc();
+    void TryRestartContactPlanTimer();
+    void OnContactPlan_TimerExpired(const boost::system::error_code& e);
+    bool AddContact_NotThreadSafe(const contactPlan_t& contact);
+    boost::mutex m_contactUpSetMutex;
+    bool m_usingUnixTimestamp;
+
+private:
+    typedef std::pair<boost::posix_time::ptime, uint64_t> ptime_index_pair_t; //used in case of identical ptimes for starting events
+    typedef std::pair<contactPlan_t, bool> contactplan_islinkup_pair_t; //second parameter isLinkUp
+    typedef boost::bimap<ptime_index_pair_t, contactplan_islinkup_pair_t> ptime_to_contactplan_bimap_t;
+
+    std::map<contact_t, bool> m_mapContactUp;
+
+    volatile bool m_running;
+    HdtnConfig m_hdtnConfig;
+    std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
+
+    std::unique_ptr<zmq::context_t> m_zmqCtxPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundEgressToConnectingSchedulerPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundUisToConnectingSchedulerPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqXPubSock_boundSchedulerToConnectingSubsPtr;
+    boost::mutex m_mutexZmqPubSock;
+
+    std::map<uint64_t, uint64_t> m_mapOutductArrayIndexToNextHopNodeId;
+    std::map<uint64_t, uint64_t> m_mapNextHopNodeIdToOutductArrayIndex;
+    std::map<uint64_t, uint64_t> m_mapFinalDestNodeIdToOutductArrayIndex;
+    std::map<cbhe_eid_t, uint64_t> m_mapFinalDestEidToOutductArrayIndex;
+    boost::mutex m_mutexFinalDestsToOutductArrayIndexMaps;
+
+    boost::filesystem::path m_contactPlanFilePath;
+
+    ptime_to_contactplan_bimap_t m_ptimeToContactPlanBimap;
+    boost::asio::io_service m_ioService;
+    boost::asio::deadline_timer m_contactPlanTimer;
+    std::unique_ptr<boost::asio::io_service::work> m_workPtr;
+    std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
+    bool m_contactPlanTimerIsRunning;
+    volatile bool m_egressFullyInitialized;
+    boost::posix_time::ptime m_epoch;
+    uint64_t m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds;
+    uint64_t m_numOutductCapabilityTelemetriesReceived;
+
+    zmq::message_t m_zmqMessageOutductCapabilitiesTelem;
+};
+
+
+
+boost::filesystem::path Scheduler::GetFullyQualifiedFilename(const boost::filesystem::path& filename) {
+    return (Environment::GetPathHdtnSourceRoot() / "module/scheduler/src/") / filename;
+}
 
 bool contactPlan_t::operator<(const contactPlan_t& o) const {
     if (contact == o.contact) {
@@ -56,13 +153,32 @@ bool contact_t::operator<(const contact_t& o) const {
     return (source < o.source);
 }
 
-Scheduler::Scheduler() : 
-    m_contactPlanTimer(m_ioService)
-{
-    
+Scheduler::Impl::Impl() : m_running(false), m_contactPlanTimer(m_ioService) {}
+
+Scheduler::Impl::~Impl() {
+    Stop();
+}
+
+Scheduler::Scheduler() : m_pimpl(boost::make_unique<Scheduler::Impl>()) {}
+
+Scheduler::~Scheduler() {
+    Stop();
+}
+
+
+
+
+bool Scheduler::Init(const HdtnConfig& hdtnConfig,
+    const boost::filesystem::path& contactPlanFilePath,
+    zmq::context_t* hdtnOneProcessZmqInprocContextPtr) {
+    return m_pimpl->Init(hdtnConfig, contactPlanFilePath, hdtnOneProcessZmqInprocContextPtr);
 }
 
 void Scheduler::Stop() {
+    m_pimpl->Stop();
+}
+void Scheduler::Impl::Stop() {
+    m_running = false; //thread stopping criteria
     if (m_threadZmqAckReaderPtr) {
         m_threadZmqAckReaderPtr->join();
         m_threadZmqAckReaderPtr.reset(); //delete it
@@ -84,176 +200,83 @@ void Scheduler::Stop() {
     }
 }
 
-Scheduler::~Scheduler() {
-    Stop();
-}
+bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
+    const boost::filesystem::path& contactPlanFilePath,
+    zmq::context_t* hdtnOneProcessZmqInprocContextPtr)
+{
+    m_hdtnConfig = hdtnConfig;
+    m_contactPlanFilePath = contactPlanFilePath;
+    if (m_running) {
+        return false;
+    }
+    m_running = true;
+    LOG_INFO(subprocess) << "starting Scheduler..";
 
-void Scheduler::MonitorExitKeypressThreadFunction() {
-    LOG_INFO(subprocess) << "Keyboard Interrupt.. exiting";
-    m_runningFromSigHandler = false;
-}
-
-bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler) {
-    //Scope to ensure clean exit before return
-    {
-        running = false;
-        Stop();
-        running = true;
-        m_runningFromSigHandler = true;
-        m_egressFullyInitialized = false;
-        m_numOutductCapabilityTelemetriesReceived = 0;
-
-        SignalHandler sigHandler(boost::bind(&Scheduler::MonitorExitKeypressThreadFunction, this));
-        HdtnConfig_ptr hdtnConfig;
-        opt::options_description desc("Allowed options");
-
-        try {
-            desc.add_options()
-                ("help", "Produce help message.")
-                ("use-unix-timestamp", "Use unix timestamp in contact plan.") 
-                ("hdtn-config-file", opt::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
-                ("contact-plan-file", opt::value<boost::filesystem::path>()->default_value(Scheduler::DEFAULT_FILE), "Contact Plan file that scheudler relies on for link availability.");
-
-            opt::variables_map vm;
-            opt::store(opt::parse_command_line(argc, argv, desc, opt::command_line_style::unix_style | opt::command_line_style::case_insensitive), vm);
-            opt::notify(vm);
-
-            if (vm.count("help")) {
-                LOG_INFO(subprocess) << desc;
-                return false;
-            }
-
-            m_usingUnixTimestamp = (vm.count("use-unix-timestamp") != 0);
-
-            const boost::filesystem::path configFileName = vm["hdtn-config-file"].as<boost::filesystem::path>();
-
-            if(HdtnConfig_ptr ptrConfig = HdtnConfig::CreateFromJsonFilePath(configFileName)) {
-                m_hdtnConfig = *ptrConfig;
-            }
-            else {
-                LOG_ERROR(subprocess) << "error loading config file: " << configFileName;
-                return false;
-            }
-
-            m_contactsFile = vm["contact-plan-file"].as<boost::filesystem::path>();
-            if (m_contactsFile.empty()) {
-                LOG_INFO(subprocess) << desc;
-                return false;
-            }
-
-            if (!boost::filesystem::exists(m_contactsFile)) { //first see if the user specified an already valid path name not dependent on HDTN's source root
-                m_contactsFile = Scheduler::GetFullyQualifiedFilename(m_contactsFile);
-                if (!boost::filesystem::exists(m_contactsFile)) {
-                    LOG_ERROR(subprocess) << "ContactPlan File not found: " << m_contactsFile;
-                    return false;
-                }
-            }
-
-            LOG_INFO(subprocess) << "ContactPlan file: " << m_contactsFile;
-        }
-
-        catch (boost::bad_any_cast & e) {
-            LOG_ERROR(subprocess) << "invalid data error: " << e.what();
-            LOG_ERROR(subprocess) << desc;
-            return false;
-        }
-        catch (std::exception& e) {
-            LOG_ERROR(subprocess) << "error: " << e.what();
-            return false;
-        }
-        catch (...) {
-             LOG_ERROR(subprocess) << "Exception of unknown type!";
-             return false;
-        }
-
-        LOG_INFO(subprocess) << "starting Scheduler..";
-
-        m_ioService.reset();
-        m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioService);
-        m_contactPlanTimerIsRunning = false;
-        m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    m_ioService.reset();
+    m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioService);
+    m_contactPlanTimerIsRunning = false;
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 
  
-        //socket for receiving events from Egress
-        m_zmqCtxPtr = boost::make_unique<zmq::context_t>();
-        m_zmqPullSock_boundEgressToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
-        const std::string connect_connectingEgressToBoundSchedulerPath(
-        std::string("tcp://") +
-        m_hdtnConfig.m_zmqEgressAddress +
-        std::string(":") +
-        boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressToBoundSchedulerPortPath));
-        try {
-            m_zmqPullSock_boundEgressToConnectingSchedulerPtr->connect(connect_connectingEgressToBoundSchedulerPath);
-            LOG_INFO(subprocess) << "Scheduler connected and listening to events from Egress " << connect_connectingEgressToBoundSchedulerPath;
-        }
-        catch (const zmq::error_t & ex) {
-            LOG_ERROR(subprocess) << "error: scheduler cannot connect to egress socket: " << ex.what();
-            return false;
-        }
-
-        //socket for receiving events from UIS
-        m_zmqSubSock_boundUisToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::sub);
-        const std::string connect_boundUisPubSubPath(
-            std::string("tcp://") +
-            std::string("localhost") +
-            std::string(":") +
-            boost::lexical_cast<std::string>(29001)); //TODO
-        try {
-            m_zmqSubSock_boundUisToConnectingSchedulerPtr->connect(connect_boundUisPubSubPath);
-            m_zmqSubSock_boundUisToConnectingSchedulerPtr->set(zmq::sockopt::subscribe, "");
-            LOG_INFO(subprocess) << "Scheduler connected and listening to events from UIS " << connect_boundUisPubSubPath;
-        }
-        catch (const zmq::error_t& ex) {
-            LOG_ERROR(subprocess) << "error: scheduler cannot connect to UIS socket: " << ex.what();
-            return false;
-        }
-
-        LOG_INFO(subprocess) << "Scheduler up and running";
-
-        // Socket for sending events to Ingress, Storage and Router
-        m_zmqXPubSock_boundSchedulerToConnectingSubsPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::xpub);
-        const std::string bind_boundSchedulerPubSubPath(
-        std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
-
-        try {
-            m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->bind(bind_boundSchedulerPubSubPath);
-            LOG_INFO(subprocess) << "XPub socket bound successfully to " << bind_boundSchedulerPubSubPath;
-
-        }
-        catch (const zmq::error_t & ex) {
-            LOG_ERROR(subprocess) << "XPub socket failed to bind: " << ex.what();
-            return false;
-        }
-
-        m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
-            boost::bind(&Scheduler::ReadZmqAcksThreadFunc, this, boost::ref(running))); //create and start the worker thread
-
-        boost::this_thread::sleep(boost::posix_time::seconds(2));
-
-        //Wait until egress up and running and get the first outduct capabilities telemetry.
-        //The m_threadZmqAckReaderPtr will call ProcessContactsFile to complete initialization once egress telemetry received for the first time
-
-        if (useSignalHandler) {
-            sigHandler.Start(false);
-        }
-        while (running && m_runningFromSigHandler) {
-            boost::this_thread::sleep(boost::posix_time::millisec(250));
-            if (useSignalHandler) {
-                sigHandler.PollOnce();
-            }
-        }
-
-        Stop();
-
-        boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-
-        LOG_INFO(subprocess) << "Scheduler currentTime  " << timeLocal;
+    //socket for receiving events from Egress
+    m_zmqCtxPtr = boost::make_unique<zmq::context_t>();
+    m_zmqPullSock_boundEgressToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
+    const std::string connect_connectingEgressToBoundSchedulerPath(
+    std::string("tcp://") +
+    m_hdtnConfig.m_zmqEgressAddress +
+    std::string(":") +
+    boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressToBoundSchedulerPortPath));
+    try {
+        m_zmqPullSock_boundEgressToConnectingSchedulerPtr->connect(connect_connectingEgressToBoundSchedulerPath);
+        LOG_INFO(subprocess) << "Scheduler connected and listening to events from Egress " << connect_connectingEgressToBoundSchedulerPath;
     }
-    LOG_INFO(subprocess) << "Scheduler exited cleanly..";
+    catch (const zmq::error_t & ex) {
+        LOG_ERROR(subprocess) << "error: scheduler cannot connect to egress socket: " << ex.what();
+        return false;
+    }
+
+    //socket for receiving events from UIS
+    m_zmqSubSock_boundUisToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::sub);
+    const std::string connect_boundUisPubSubPath(
+        std::string("tcp://") +
+        std::string("localhost") +
+        std::string(":") +
+        boost::lexical_cast<std::string>(29001)); //TODO
+    try {
+        m_zmqSubSock_boundUisToConnectingSchedulerPtr->connect(connect_boundUisPubSubPath);
+        m_zmqSubSock_boundUisToConnectingSchedulerPtr->set(zmq::sockopt::subscribe, "");
+        LOG_INFO(subprocess) << "Scheduler connected and listening to events from UIS " << connect_boundUisPubSubPath;
+    }
+    catch (const zmq::error_t& ex) {
+        LOG_ERROR(subprocess) << "error: scheduler cannot connect to UIS socket: " << ex.what();
+        return false;
+    }
+
+    LOG_INFO(subprocess) << "Scheduler up and running";
+
+    // Socket for sending events to Ingress, Storage and Router
+    m_zmqXPubSock_boundSchedulerToConnectingSubsPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::xpub);
+    const std::string bind_boundSchedulerPubSubPath(
+    std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
+
+    try {
+        m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->bind(bind_boundSchedulerPubSubPath);
+        LOG_INFO(subprocess) << "XPub socket bound successfully to " << bind_boundSchedulerPubSubPath;
+
+    }
+    catch (const zmq::error_t & ex) {
+        LOG_ERROR(subprocess) << "XPub socket failed to bind: " << ex.what();
+        return false;
+    }
+
+    m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
+        boost::bind(&Scheduler::Impl::ReadZmqAcksThreadFunc, this)); //create and start the worker thread
+
+    
     return true;
 }
 
-void Scheduler::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
+void Scheduler::Impl::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
 		             uint64_t time, uint64_t cid) {
 
     hdtn::IreleaseChangeHdr stopMsg;
@@ -277,7 +300,7 @@ void Scheduler::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayI
         << "  src(" << src << ") == = > dest(" << dest << ") at time " << timeLocal;
 }
 
-void Scheduler::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex, uint64_t time) {
+void Scheduler::Impl::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex, uint64_t time) {
     
     hdtn::IreleaseChangeHdr releaseMsg;
     
@@ -299,7 +322,7 @@ void Scheduler::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayInd
         << "  src(" << src << ") == = > dest(" << dest << ") at time " << timeLocal;
 }
 
-void Scheduler::EgressEventsHandler() {
+void Scheduler::Impl::EgressEventsHandler() {
     //force this hdtn message struct to be aligned on a 64-byte boundary using zmq::mutable_buffer
     hdtn::LinkStatusHdr linkStatusHdr;
     const zmq::recv_buffer_result_t res = m_zmqPullSock_boundEgressToConnectingSchedulerPtr->recv(zmq::mutable_buffer(&linkStatusHdr, sizeof(linkStatusHdr)), zmq::recv_flags::none);
@@ -399,7 +422,7 @@ void Scheduler::EgressEventsHandler() {
     }
 }
 
-void Scheduler::UisEventsHandler() {
+void Scheduler::Impl::UisEventsHandler() {
     hdtn::ContactPlanReloadHdr hdr;
     const zmq::recv_buffer_result_t res = m_zmqSubSock_boundUisToConnectingSchedulerPtr->recv(zmq::mutable_buffer(&hdr, sizeof(hdr)), zmq::recv_flags::none);
     if (!res) {
@@ -420,7 +443,7 @@ void Scheduler::UisEventsHandler() {
             LOG_ERROR(subprocess) << "[UisEventsHandler] JSON message invalid";
         }
         std::shared_ptr<boost::property_tree::ptree> ptPtr = std::make_shared<boost::property_tree::ptree>(pt);
-        boost::asio::post(m_ioService, boost::bind(&Scheduler::ProcessContactsPtPtr, this, std::move(ptPtr)));
+        boost::asio::post(m_ioService, boost::bind(&Scheduler::Impl::ProcessContactsPtPtr, this, std::move(ptPtr)));
         LOG_INFO(subprocess) << "received Reload contact Plan event with data " << (char*)message.data();
     }
     else {
@@ -430,7 +453,7 @@ void Scheduler::UisEventsHandler() {
     
 }
 
-void Scheduler::ReadZmqAcksThreadFunc(volatile bool & running) {
+void Scheduler::Impl::ReadZmqAcksThreadFunc() {
 
     static constexpr unsigned int NUM_SOCKETS = 3;
 
@@ -446,7 +469,7 @@ void Scheduler::ReadZmqAcksThreadFunc(volatile bool & running) {
 
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
 
-    while (running && m_runningFromSigHandler) { //keep thread alive if running
+    while (m_running) { //keep thread alive if running
         int rc = 0;
         try {
             rc = zmq::poll(items, NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL);
@@ -514,31 +537,31 @@ void Scheduler::ReadZmqAcksThreadFunc(volatile bool & running) {
                     }
                 }
 
-                LOG_INFO(subprocess) << "Now running and fully initialized and connected to egress.. reading contact file " << m_contactsFile;
-                ProcessContactsFile(m_contactsFile);
+                LOG_INFO(subprocess) << "Now running and fully initialized and connected to egress.. reading contact file " << m_contactPlanFilePath;
+                ProcessContactsFile(m_contactPlanFilePath);
             }
         }
     }
 }
 
-bool Scheduler::ProcessContactsPtPtr(std::shared_ptr<boost::property_tree::ptree>& contactsPtPtr) {
+bool Scheduler::Impl::ProcessContactsPtPtr(std::shared_ptr<boost::property_tree::ptree>& contactsPtPtr) {
     return ProcessContacts(*contactsPtPtr);
 }
-bool Scheduler::ProcessContactsJsonText(char * jsonText) {
+bool Scheduler::Impl::ProcessContactsJsonText(char * jsonText) {
     boost::property_tree::ptree pt;
     if (!JsonSerializable::GetPropertyTreeFromJsonCharArray(jsonText, strlen(jsonText), pt)) {
         return false;
     }
     return ProcessContacts(pt);
 }
-bool Scheduler::ProcessContactsJsonText(const std::string& jsonText) {
+bool Scheduler::Impl::ProcessContactsJsonText(const std::string& jsonText) {
     boost::property_tree::ptree pt;
     if (!JsonSerializable::GetPropertyTreeFromJsonString(jsonText, pt)) {
         return false;
     }
     return ProcessContacts(pt);
 }
-bool Scheduler::ProcessContactsFile(const boost::filesystem::path& jsonEventFilePath) {
+bool Scheduler::Impl::ProcessContactsFile(const boost::filesystem::path& jsonEventFilePath) {
     boost::property_tree::ptree pt;
     if (!JsonSerializable::GetPropertyTreeFromJsonFilePath(jsonEventFilePath, pt)) {
         return false;
@@ -546,7 +569,7 @@ bool Scheduler::ProcessContactsFile(const boost::filesystem::path& jsonEventFile
     return ProcessContacts(pt);
 }
 
-bool Scheduler::ProcessContacts(const boost::property_tree::ptree& pt) {
+bool Scheduler::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
     
 
     m_contactPlanTimer.cancel(); //cancel any running contacts in the timer
@@ -612,13 +635,13 @@ bool Scheduler::ProcessContacts(const boost::property_tree::ptree& pt) {
 
 
 //restarts the timer if it is not running
-void Scheduler::TryRestartContactPlanTimer() {
+void Scheduler::Impl::TryRestartContactPlanTimer() {
     if (!m_contactPlanTimerIsRunning) {
         ptime_to_contactplan_bimap_t::left_iterator it = m_ptimeToContactPlanBimap.left.begin(); //get first event expiring
         if (it != m_ptimeToContactPlanBimap.left.end()) {
             const boost::posix_time::ptime& expiry = it->first.first;
             m_contactPlanTimer.expires_at(expiry);
-            m_contactPlanTimer.async_wait(boost::bind(&Scheduler::OnContactPlan_TimerExpired, this, boost::asio::placeholders::error));
+            m_contactPlanTimer.async_wait(boost::bind(&Scheduler::Impl::OnContactPlan_TimerExpired, this, boost::asio::placeholders::error));
             m_contactPlanTimerIsRunning = true;
         }
         else {
@@ -627,7 +650,7 @@ void Scheduler::TryRestartContactPlanTimer() {
     }
 }
 
-void Scheduler::OnContactPlan_TimerExpired(const boost::system::error_code& e) {
+void Scheduler::Impl::OnContactPlan_TimerExpired(const boost::system::error_code& e) {
     m_contactPlanTimerIsRunning = false;
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
@@ -677,7 +700,7 @@ void Scheduler::OnContactPlan_TimerExpired(const boost::system::error_code& e) {
     }
 }
 
-bool Scheduler::AddContact_NotThreadSafe(const contactPlan_t& contact) {
+bool Scheduler::Impl::AddContact_NotThreadSafe(const contactPlan_t& contact) {
     {
         ptime_index_pair_t pipStart(m_epoch + boost::posix_time::seconds(contact.start), 0);
         while (m_ptimeToContactPlanBimap.left.count(pipStart)) {

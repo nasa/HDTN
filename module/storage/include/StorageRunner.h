@@ -31,13 +31,13 @@
 
 class StorageRunner {
 public:
-    StorageRunner();
-    ~StorageRunner();
-    bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
+    STORAGE_LIB_EXPORT StorageRunner();
+    STORAGE_LIB_EXPORT ~StorageRunner();
+    STORAGE_LIB_EXPORT bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
     std::size_t m_totalBundlesErasedFromStorage;
     std::size_t m_totalBundlesSentToEgressFromStorage;
 
-    std::size_t GetCurrentNumberOfBundlesDeletedFromStorage();
+    STORAGE_LIB_EXPORT std::size_t GetCurrentNumberOfBundlesDeletedFromStorage();
 
 private:
     void MonitorExitKeypressThreadFunction();
