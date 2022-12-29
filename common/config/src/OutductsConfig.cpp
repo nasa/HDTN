@@ -485,7 +485,12 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 outductElementConfig.useTlsVersion1_3 = outductElementConfigPt.second.get<bool>("useTlsVersion1_3");
                 outductElementConfig.doX509CertificateVerification = outductElementConfigPt.second.get<bool>("doX509CertificateVerification");
                 outductElementConfig.verifySubjectAltNameInX509Certificate = outductElementConfigPt.second.get<bool>("verifySubjectAltNameInX509Certificate");
-                outductElementConfig.certificationAuthorityPemFileForVerification = outductElementConfigPt.second.get<boost::filesystem::path>("certificationAuthorityPemFileForVerification");
+                try {
+                    outductElementConfig.certificationAuthorityPemFileForVerification = outductElementConfigPt.second.get<boost::filesystem::path>("certificationAuthorityPemFileForVerification");
+                }
+                catch (const boost::property_tree::ptree_bad_data&) {
+                    outductElementConfig.certificationAuthorityPemFileForVerification.clear();
+                }
             }
             else {
                 static const std::vector<std::string> VALID_TCPCL_V4_OUTDUCT_PARAMETERS = { 

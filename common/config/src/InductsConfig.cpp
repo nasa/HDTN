@@ -398,9 +398,24 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
             if (inductElementConfig.convergenceLayer == "tcpcl_v4") {
                 inductElementConfig.tcpclV4MyMaxRxSegmentSizeBytes = inductElementConfigPt.second.get<uint64_t>("tcpclV4MyMaxRxSegmentSizeBytes");
                 inductElementConfig.tlsIsRequired = inductElementConfigPt.second.get<bool>("tlsIsRequired");
-                inductElementConfig.certificatePemFile = inductElementConfigPt.second.get<boost::filesystem::path>("certificatePemFile");
-                inductElementConfig.privateKeyPemFile = inductElementConfigPt.second.get<boost::filesystem::path>("privateKeyPemFile");
-                inductElementConfig.diffieHellmanParametersPemFile = inductElementConfigPt.second.get<boost::filesystem::path>("diffieHellmanParametersPemFile");
+                try {
+                    inductElementConfig.certificatePemFile = inductElementConfigPt.second.get<boost::filesystem::path>("certificatePemFile");
+                }
+                catch (const boost::property_tree::ptree_bad_data&) {
+                    inductElementConfig.certificatePemFile.clear();
+                }
+                try {
+                    inductElementConfig.privateKeyPemFile = inductElementConfigPt.second.get<boost::filesystem::path>("privateKeyPemFile");
+                }
+                catch (const boost::property_tree::ptree_bad_data&) {
+                    inductElementConfig.privateKeyPemFile.clear();
+                }
+                try {
+                    inductElementConfig.diffieHellmanParametersPemFile = inductElementConfigPt.second.get<boost::filesystem::path>("diffieHellmanParametersPemFile");
+                }
+                catch (const boost::property_tree::ptree_bad_data&) {
+                    inductElementConfig.diffieHellmanParametersPemFile.clear();
+                }
             }
             else {
                 static const std::vector<std::string> VALID_TCPCL_V4_INDUCT_PARAMETERS = {
