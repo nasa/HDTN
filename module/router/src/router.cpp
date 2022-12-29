@@ -78,7 +78,8 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running, bo
         try {
             desc.add_options()
                 ("help", "Produce help message.")
-                ("hdtn-config-file", opt::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
+                ("use-mgr", "Use Multigraph Routing Algorithm")
+	       	("hdtn-config-file", opt::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
                 ("contact-plan-file", opt::value<boost::filesystem::path>()->default_value(Router::DEFAULT_FILE),
                 "Contact Plan file needed by CGR to compute the optimal route")
 		;
@@ -93,6 +94,8 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running, bo
 	        LOG_INFO(subprocess) << desc << "\n";
                 return false;
             }
+
+	    m_usingMGR = (vm.count("use-mgr") != 0);
 
             const boost::filesystem::path configFileName = vm["hdtn-config-file"].as<boost::filesystem::path>();
    
@@ -223,7 +226,8 @@ void Router::SchedulerEventsHandler(const boost::filesystem::path & jsonEventFil
         boost::mutex::scoped_lock lock(m_mutexRouteTableMap);
         std::map<uint64_t, uint64_t>::const_iterator it = m_routeTable.find(releaseChangeHdr.contact);
         if (it == m_routeTable.cend()) {
-            LOG_ERROR(subprocess) << " Got link down event for unknown contact index " << releaseChangeHdr.contact << " which does not correspont to a final destination";
+            LOG_ERROR(subprocess) << " Got link down event for unknown contact index " << 
+            releaseChangeHdr.contact << " which does not correspont to a final destination";
             return;
         }
         finalDestNodeId = it->second;
@@ -336,30 +340,36 @@ int Router::ComputeOptimalRoute(const boost::filesystem::path& jsonEventFilePath
 {
     m_timersFinished = false;
 
+    cgr::Route bestRoute;
+
     LOG_INFO(subprocess) << "[Router] Reading contact plan and computing next hop";
     std::vector<cgr::Contact> contactPlan = cgr::cp_load(jsonEventFilePath);
 
-    cgr::Contact rootContact = cgr::Contact(sourceNode, sourceNode, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
+    cgr::Contact rootContact = cgr::Contact(sourceNode, 
+		    sourceNode, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
     rootContact.arrival_time = m_latestTime;
-    cgr::Route bestRoute = cgr::dijkstra(&rootContact, finalDestNodeId, contactPlan);
-    //cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, finalDestEid.nodeId, contactPlan);
+    if (!m_usingMGR) {
+	LOG_INFO(subprocess) << "Computing Optimal Route using CGR dijkstra for " 
+	     " final Destination " << finalDestNodeId;	
+        bestRoute = cgr::dijkstra(&rootContact, 
+			     finalDestNodeId, contactPlan);
+    } else {
+        bestRoute = cgr::cmr_dijkstra(&rootContact, 
+			      finalDestNodeId, contactPlan);
+        LOG_INFO(subprocess) << "Computing Optimal Route using CMR algorithm for "
+             " final Destination " << finalDestNodeId;
+    }
 
-    const uint64_t nextHop = bestRoute.next_node;
-
-    boost::mutex::scoped_lock lock(m_mutexRouteTableMap);
-
-    m_routeTable[bestRoute.get_hops()[0].id + 1] = finalDestNodeId;
-    
-    LOG_INFO(subprocess) << "[Router] Computed next hop: " << nextHop << " for final Destination " << finalDestNodeId;
-    LOG_INFO(subprocess) << "Contact in m_routeTable for this final destination is " << bestRoute.get_hops()[0].id; 
-    
     //if (bestRoute != NULL) { // successfully computed a route
         const uint64_t nextHopNodeId = bestRoute.next_node;
-
-        LOG_INFO(subprocess) << "[Router] CGR computed next hop: " << nextHopNodeId;
-
+        boost::mutex::scoped_lock lock(m_mutexRouteTableMap);
+        m_routeTable[bestRoute.get_hops()[0].id] = finalDestNodeId;
+        LOG_INFO(subprocess) << "Successfully Computed next hop: " 
+	    << nextHopNodeId << " for final Destination " << finalDestNodeId;
+        LOG_INFO(subprocess) << "Contact in m_routeTable for this final destination is " 
+	        << bestRoute.get_hops()[0].id; 
         cbhe_eid_t nextHopEid;
-        nextHopEid.nodeId = nextHop;
+        nextHopEid.nodeId = nextHopNodeId;
         nextHopEid.serviceId= 1;
 
         //boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
@@ -394,6 +404,7 @@ int Router::ComputeOptimalRoute(const boost::filesystem::path& jsonEventFilePath
     //}
     //else {
         // what should we do if no route is found?
+      //  LOG_ERROR(subprocess) << "No route is found!!";
     //}
     
     return 1;

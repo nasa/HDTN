@@ -554,6 +554,7 @@ uint64_t contact_search_predecessor(const std::vector<uint64_t>& contacts_i, tim
 
 
 Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vector<Contact> & contact_plan) {
+    
     // Construct Contact Multigraph from Contact Plan
     ContactMultigraph CM(contact_plan, destination);
     // Set root vertex's arrival time
@@ -573,7 +574,7 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
     PQ.pop();
     ContactMultigraph::cmr_node_map_t::iterator vCurrItNodeMap = CM.m_nodeMap.find(v_curr.first->id); //not const, modifies m_visited
     if (vCurrItNodeMap == CM.m_nodeMap.cend()) {
-        LOG_WARNING(subprocess) << "vCurrItNodeMap not found!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
+        LOG_WARNING(subprocess) << "vCurrItNodeMap not found!!";
         return Route();
     }
     
@@ -662,7 +663,7 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
             v_curr = v_next;
             vCurrItNodeMap = CM.m_nodeMap.find(v_curr.first->id);
             if (vCurrItNodeMap == CM.m_nodeMap.cend()) {
-                LOG_WARNING(subprocess) << "vCurrItNodeMap from v_next not found!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
+                LOG_WARNING(subprocess) << "vCurrItNodeMap from v_next not found!";
                 return Route();
             }
         }
@@ -682,7 +683,7 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
     while (true) {
         ContactMultigraph::cmr_node_map_t::const_iterator vNextItNodeMap = CM.m_nodeMap.find(predecessorIndex);
         if (vNextItNodeMap == CM.m_nodeMap.cend()) {
-            LOG_WARNING(subprocess) << "vNextItNodeMap not found!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
+            LOG_WARNING(subprocess) << "vNextItNodeMap not found!!";
             break;
         }
         const nodeId_t contactPlanIndex = vNextItNodeMap->second.m_predecessorNodeId;
@@ -700,7 +701,7 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
         }
         ContactMultigraph::cmr_node_map_t::const_iterator contactFromItNodeMap = CM.m_nodeMap.find(contact.frm);
         if (contactFromItNodeMap == CM.m_nodeMap.cend()) {
-            LOG_WARNING(subprocess) << "contactFromItNodeMap not found!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
+            LOG_WARNING(subprocess) << "contactFromItNodeMap not found!!";
             break;
         }
         predecessorIndex = contactFromItNodeMap->second.m_vertex.id;

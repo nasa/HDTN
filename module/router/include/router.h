@@ -49,5 +49,6 @@ private:
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
     boost::mutex m_mutexRouteTableMap;
+    bool m_usingMGR;
 };
 #endif // ROUTER_H

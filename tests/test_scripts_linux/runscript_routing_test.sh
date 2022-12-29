@@ -29,7 +29,8 @@ sleep 6
 scheduler_PID=$!
 sleep 1
 
-#Router
+#Router -The default routing Algorithm is CGR Dijkstra
+# use the option --use-mgr to use Multigraph Routing Algorithm 
 ./build/module/router/hdtn-router --contact-plan-file=contactPlan.json --hdtn-config-file=$hdtn_config &
 router_PID=$!
 sleep 5
