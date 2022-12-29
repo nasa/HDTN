@@ -48,5 +48,6 @@ private:
     std::unique_ptr<boost::asio::io_service::work> m_workPtr;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
+    boost::mutex m_mutexRouteTableMap;
 };
 #endif // ROUTER_H

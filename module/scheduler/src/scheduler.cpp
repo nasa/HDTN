@@ -135,8 +135,6 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
                 return false;
             }
 
-            //int src = m_hdtnConfig.m_myNodeId;
-
             m_contactsFile = vm["contact-plan-file"].as<boost::filesystem::path>();
             if (m_contactsFile.empty()) {
                 LOG_INFO(subprocess) << desc;

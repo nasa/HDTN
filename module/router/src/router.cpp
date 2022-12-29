@@ -219,11 +219,16 @@ void Router::SchedulerEventsHandler(const boost::filesystem::path & jsonEventFil
     if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKDOWN) {
         m_latestTime = releaseChangeHdr.time;
         LOG_INFO(subprocess) << "Received Link Down for contact: " << releaseChangeHdr.contact;
-        // for (cbhe_eid_t& node : finalDestEids) {
-       // if (m_routeTable[releaseChangeHdr.contact] == finalDestEid.nodeId) {
-        ComputeOptimalRoute(jsonEventFileName, srcNode, m_routeTable[releaseChangeHdr.contact]);
-        //}
-        //}
+        uint64_t finalDestNodeId;
+        boost::mutex::scoped_lock lock(m_mutexRouteTableMap);
+        std::map<uint64_t, uint64_t>::const_iterator it = m_routeTable.find(releaseChangeHdr.contact);
+        if (it == m_routeTable.cend()) {
+            LOG_ERROR(subprocess) << " Got link down event for unknown contact index " << releaseChangeHdr.contact << " which does not correspont to a final destination";
+            return;
+        }
+        finalDestNodeId = it->second;
+        LOG_INFO(subprocess) << "FinalDest nodeId found is:  " << finalDestNodeId;
+	ComputeOptimalRoute(jsonEventFileName, srcNode, finalDestNodeId);
         LOG_INFO(subprocess) << "Updated time to " << m_latestTime;
     }
     else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKUP) {
@@ -254,7 +259,7 @@ void Router::SchedulerEventsHandler(const boost::filesystem::path & jsonEventFil
                     it != oct.finalDestinationNodeIdList.cend(); ++it)
                 {
                     const uint64_t nodeId = *it;
-                    LOG_INFO(subprocess) << "Compute Optimal Route for finalDestination node" << nodeId;
+                    LOG_INFO(subprocess) << "Compute Optimal Route for finalDestination node " << nodeId;
                     ComputeOptimalRoute(jsonEventFileName, srcNode, nodeId);
                 }
             }
@@ -341,9 +346,12 @@ int Router::ComputeOptimalRoute(const boost::filesystem::path& jsonEventFilePath
 
     const uint64_t nextHop = bestRoute.next_node;
 
+    boost::mutex::scoped_lock lock(m_mutexRouteTableMap);
+
     m_routeTable[bestRoute.get_hops()[0].id + 1] = finalDestNodeId;
     
-    LOG_INFO(subprocess) << "[Router] Computed next hop: " << nextHop;
+    LOG_INFO(subprocess) << "[Router] Computed next hop: " << nextHop << " for final Destination " << finalDestNodeId;
+    LOG_INFO(subprocess) << "Contact in m_routeTable for this final destination is " << bestRoute.get_hops()[0].id; 
     
     //if (bestRoute != NULL) { // successfully computed a route
         const uint64_t nextHopNodeId = bestRoute.next_node;
