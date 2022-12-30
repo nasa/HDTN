@@ -47,7 +47,7 @@ class TelemetryRunner::Impl : private boost::noncopyable {
 
     private:
         void ThreadFunc(zmq::context_t * inprocContextPtr);
-        template <typename T> void OnNewTelemetry(T& telem);
+        void OnNewTelemetry(uint8_t* buffer, uint64_t bufferSize);
 
         volatile bool m_running;
         std::unique_ptr<boost::thread> m_threadPtr;
@@ -172,18 +172,18 @@ void TelemetryRunner::Impl::ThreadFunc(zmq::context_t *inprocContextPtr)
 
             if (poller.HasNewMessage(*ingressConnection)) {
                 receiveEventsMask |= REC_INGRESS;
-                IngressTelemetry_t telem = ingressConnection->ReadMessage<IngressTelemetry_t>();
-                OnNewTelemetry(telem);
+                zmq::message_t msg = ingressConnection->ReadMessage();
+                OnNewTelemetry((uint8_t*)msg.data(), msg.size());
             }
             if (poller.HasNewMessage(*egressConnection)) {
                 receiveEventsMask |= REC_EGRESS;
-                EgressTelemetry_t telem = egressConnection->ReadMessage<EgressTelemetry_t>();
-                OnNewTelemetry(telem);
+                zmq::message_t msg = egressConnection->ReadMessage();
+                OnNewTelemetry((uint8_t*)msg.data(), msg.size());
             }
             if (poller.HasNewMessage(*storageConnection)) {
                 receiveEventsMask |= REC_STORAGE;
-                StorageTelemetry_t telem = storageConnection->ReadMessage<StorageTelemetry_t>();
-                OnNewTelemetry(telem);
+                zmq::message_t msg = storageConnection->ReadMessage();
+                OnNewTelemetry((uint8_t*)msg.data(), msg.size());
             }
         }
         if (receiveEventsMask != REC_ALL) {
@@ -193,13 +193,22 @@ void TelemetryRunner::Impl::ThreadFunc(zmq::context_t *inprocContextPtr)
     LOG_DEBUG(subprocess) << "ThreadFunc exiting";
 }
 
-template <typename T> void TelemetryRunner::Impl::OnNewTelemetry(T& telem)
+void TelemetryRunner::Impl::OnNewTelemetry(uint8_t* buffer, uint64_t bufferSize)
 {
     if (m_websocketServerPtr) {
-        m_websocketServerPtr->SendNewBinaryData((const char *)(&telem), sizeof(telem));
+        m_websocketServerPtr->SendNewBinaryData((const char*)buffer, bufferSize);
     }
     if (m_telemetryLoggerPtr) {
-        m_telemetryLoggerPtr->LogTelemetry(telem);
+        std::vector<std::shared_ptr<Telemetry_t>> telemList;
+        try {
+            telemList = TelemetryFactory::DeserializeFromLittleEndian(buffer, bufferSize);
+        } catch (std::exception& e) {
+            LOG_ERROR(subprocess) << e.what();
+            return;
+        }
+        for (std::shared_ptr<Telemetry_t> telem : telemList) {
+            m_telemetryLoggerPtr->LogTelemetry(telem.get());
+        }
     }
 }
 

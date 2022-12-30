@@ -6,14 +6,6 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::telem;
 
-/**
- * Declare all possible types for the ReadMessage template 
- */
-template IngressTelemetry_t TelemetryConnection::ReadMessage();
-template EgressTelemetry_t TelemetryConnection::ReadMessage();
-template StorageTelemetry_t TelemetryConnection::ReadMessage();
-template uint8_t TelemetryConnection::ReadMessage();
-
 
 TelemetryConnection::TelemetryConnection(std::string addr, zmq::context_t* inprocContextPtr) {
     try {
@@ -49,18 +41,14 @@ bool TelemetryConnection::SendMessage(zmq::const_buffer buffer) {
     return true;
 }
 
-template <typename T> T TelemetryConnection::ReadMessage()
+zmq::message_t TelemetryConnection::ReadMessage()
 {
-    T telem;
-    const zmq::recv_buffer_result_t res = m_requestSocket->recv(zmq::mutable_buffer(&telem, sizeof(telem)), zmq::recv_flags::dontwait);
+    zmq::message_t msg;
+    const zmq::recv_result_t res = m_requestSocket->recv(msg, zmq::recv_flags::dontwait);
     if (!res) {
         LOG_ERROR(subprocess) << "cannot read telemetry message from address " << m_addr;
     }
-    else if ((res->truncated()) || (res->size != sizeof(telem))) {
-        LOG_ERROR(subprocess) << "telemetry message mismatch from address " << m_addr << ": untruncated = " << res->untruncated_size
-            << " truncated = " << res->size << " expected = " << sizeof(telem);
-    }
-    return telem;
+    return msg;
 }
 
 void* TelemetryConnection::GetSocketHandle()

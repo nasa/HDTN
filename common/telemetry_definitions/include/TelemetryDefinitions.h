@@ -23,42 +23,145 @@
 #include <cstdint>
 #include <map>
 #include <list>
-#include "codec/Cbhe.h"
-#include "telemetry_definitions_export.h"
+#include <vector>
 
-struct IngressTelemetry_t{
+#include <zmq.hpp>
+
+#include "telemetry_definitions_export.h"
+#include "codec/Cbhe.h"
+
+enum TelemetryType {
+    ingress = 1,
+    egress,
+    storage,
+    ltpoutduct,
+    stcpoutduct,
+};
+
+class Telemetry_t {
+    public:
+        TELEMETRY_DEFINITIONS_EXPORT Telemetry_t();
+
+        /**
+         * Gets the underlying telemetry type
+         */
+        TELEMETRY_DEFINITIONS_EXPORT TelemetryType GetType();
+
+        /**
+         *  Gets the size, in bytes, to allocate for the serialized telemetry
+         */
+        TELEMETRY_DEFINITIONS_EXPORT uint64_t GetSize();
+
+        /**
+         * Serializes a telemetry object into little-endian format
+         * @param buffer the buffer to place the serialized result
+         * @param bufferSize the size of the provided buffer
+         * @return the number of bytes serialized
+         */
+        TELEMETRY_DEFINITIONS_EXPORT virtual uint64_t SerializeToLittleEndian(uint8_t* buffer, uint64_t bufferSize);
+
+        /**
+         * Deserializes a little-endian uint8_t buffer into the telemetry object. By default,
+         * this function will deserialize all fields that were appended to m_fieldsToSerialize.
+         * @return the number of bytes that were deserialized
+         */
+        TELEMETRY_DEFINITIONS_EXPORT virtual uint64_t DeserializeFromLittleEndian(uint8_t* buffer, uint64_t bufferSize);
+
+    protected:
+        uint64_t m_type;
+        std::vector<uint64_t*> m_fieldsToSerialize;
+};
+
+struct IngressTelemetry_t : public Telemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT IngressTelemetry_t();
 
-    uint64_t type;
-    double totalDataBytes;
+    uint64_t totalDataBytes;
     uint64_t bundleCountEgress;
     uint64_t bundleCountStorage;
-
-    TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t * data, uint64_t bufferSize) const;
 };
 
-struct EgressTelemetry_t{
+struct EgressTelemetry_t : public Telemetry_t
+{
     TELEMETRY_DEFINITIONS_EXPORT EgressTelemetry_t();
 
-    uint64_t type;
     uint64_t egressBundleCount;
-    double totalDataBytes;
+    uint64_t totalDataBytes;
     uint64_t egressMessageCount;
-
-    TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
-
 };
 
-struct StorageTelemetry_t{
+struct StorageTelemetry_t : public Telemetry_t
+{
     TELEMETRY_DEFINITIONS_EXPORT StorageTelemetry_t();
 
-    uint64_t type;
     uint64_t totalBundlesErasedFromStorage;
     uint64_t totalBundlesSentToEgressFromStorage;
     uint64_t usedSpaceBytes;
     uint64_t freeSpaceBytes;
+};
 
-    TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
+struct OutductTelemetry_t : public Telemetry_t
+{
+    TELEMETRY_DEFINITIONS_EXPORT OutductTelemetry_t();
+
+    uint64_t convergenceLayerType;
+    uint64_t totalBundlesAcked;
+    uint64_t totalBundleBytesAcked;
+    uint64_t totalBundlesSent;
+    uint64_t totalBundleBytesSent;
+    uint64_t totalBundlesFailedToSend;
+    
+
+    TELEMETRY_DEFINITIONS_EXPORT uint64_t GetTotalBundlesQueued() const;
+    TELEMETRY_DEFINITIONS_EXPORT uint64_t GetTotalBundleBytesQueued() const;
+};
+
+struct StcpOutductTelemetry_t : public OutductTelemetry_t {
+    TELEMETRY_DEFINITIONS_EXPORT StcpOutductTelemetry_t();
+
+    uint64_t totalStcpBytesSent;
+};
+
+struct LtpOutductTelemetry_t : public OutductTelemetry_t {
+    TELEMETRY_DEFINITIONS_EXPORT LtpOutductTelemetry_t();
+
+    //ltp engine session sender stats
+    uint64_t numCheckpointsExpired;
+    uint64_t numDiscretionaryCheckpointsNotResent;
+
+    //ltp udp engine
+    uint64_t countUdpPacketsSent;
+    uint64_t countRxUdpCircularBufferOverruns;
+    uint64_t countTxUdpPacketsLimitedByRate;
+};
+
+class TelemetryFactory {
+    public:
+        class TelemetryDeserializeUnknownTypeException : public std::exception {
+            public:
+                const char* what() {
+                    return "failed to deserialize telemetry: unknown type";
+                }
+        };
+
+        class TelemetryDeserializeInvalidFormatException : public std::exception {
+            public:
+                const char* what() {
+                    return "failed to deserialize telemetry: invalid format";
+                }
+        };
+
+        /**
+         * Deserializes a buffer that contains one or more serialized telemetry objects.
+         * After deserializing, GetType can be used to determine the underlying type of each
+         * object.
+         * @return a vector of Telemetry_t points
+         * @throws TelemetryDeserializeUnknownTypeException
+         */
+        TELEMETRY_DEFINITIONS_EXPORT static std::vector<std::shared_ptr<Telemetry_t>>
+            DeserializeFromLittleEndian(
+                uint8_t* buffer,
+                uint64_t bufferSize
+            );
 };
 
 struct StorageTelemetryRequest_t {
@@ -80,46 +183,6 @@ struct StorageExpiringBeforeThresholdTelemetry_t {
     uint64_t thresholdSecondsSinceStartOfYear2000;
     typedef std::pair<uint64_t, uint64_t> bundle_count_plus_bundle_bytes_pair_t;
     std::map<uint64_t, bundle_count_plus_bundle_bytes_pair_t> map_node_id_to_expiring_before_threshold_count;
-
-    TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
-};
-
-struct OutductTelemetry_t {
-    TELEMETRY_DEFINITIONS_EXPORT OutductTelemetry_t();
-
-    uint64_t type;
-    uint64_t convergenceLayerType;
-    uint64_t totalBundlesAcked;
-    uint64_t totalBundleBytesAcked;
-    uint64_t totalBundlesSent;
-    uint64_t totalBundleBytesSent;
-    uint64_t totalBundlesFailedToSend;
-    
-
-    TELEMETRY_DEFINITIONS_EXPORT uint64_t GetTotalBundlesQueued() const;
-    TELEMETRY_DEFINITIONS_EXPORT uint64_t GetTotalBundleBytesQueued() const;
-};
-
-struct StcpOutductTelemetry_t : public OutductTelemetry_t {
-    TELEMETRY_DEFINITIONS_EXPORT StcpOutductTelemetry_t();
-
-    uint64_t totalStcpBytesSent;
-
-    TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
-};
-
-struct LtpOutductTelemetry_t : public OutductTelemetry_t {
-    TELEMETRY_DEFINITIONS_EXPORT LtpOutductTelemetry_t();
-
-    //ltp engine session sender stats
-    uint64_t numCheckpointsExpired;
-    uint64_t numDiscretionaryCheckpointsNotResent;
-
-    //ltp udp engine
-    uint64_t countUdpPacketsSent;
-    uint64_t countRxUdpCircularBufferOverruns;
-
-    uint64_t countTxUdpPacketsLimitedByRate;
 
     TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
 };

@@ -634,10 +634,13 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                 else {
                     //send telemetry
                     IngressTelemetry_t telem;
-                    telem.totalDataBytes = static_cast<double>(m_bundleData);
+                    telem.totalDataBytes = m_bundleData;
                     telem.bundleCountEgress = m_bundleCountEgress;
                     telem.bundleCountStorage = m_bundleCountStorage;
-                    if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(zmq::const_buffer(&telem, sizeof(telem)), zmq::send_flags::dontwait)) {
+                    std::vector<uint8_t> serializedTelem = std::vector<uint8_t>(telem.GetSize());
+                    telem.SerializeToLittleEndian(serializedTelem.data(), serializedTelem.size());
+                    zmq::message_t msg(serializedTelem.data(), serializedTelem.size());
+                    if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(msg), zmq::send_flags::dontwait)) {
                         LOG_ERROR(subprocess) << "can't send telemetry to telem";
                     }
                 }

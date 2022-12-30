@@ -64,10 +64,11 @@ BOOST_AUTO_TEST_CASE(TelemetryConnectionReadMessageTestCase)
 
     std::unique_ptr<TelemetryConnection> requester = boost::make_unique<TelemetryConnection>("inproc://my-connection", contextPtr.get());
     responder->Send(TELEM_REQ_MSG);
-    uint8_t data = requester->ReadMessage<uint8_t>();
+    zmq::message_t msg = requester->ReadMessage();
     requester.reset();
     responder.reset();
-    BOOST_REQUIRE_EQUAL(TELEM_REQ_MSG, data);
+    BOOST_REQUIRE_EQUAL(msg.size(), 1);
+    BOOST_REQUIRE_EQUAL(TELEM_REQ_MSG, *((uint8_t*)(msg.data())));
 }
 
 BOOST_AUTO_TEST_CASE(TelemetryConnectionSendMessageTestCase)

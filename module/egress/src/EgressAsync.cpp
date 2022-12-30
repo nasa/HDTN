@@ -503,12 +503,10 @@ void Egress::Impl::ReadZmqThreadFunc() {
                     telemBufferSize -= egressTelemSize;
                     telemPtr += egressTelemSize;
 
-                    // TODO: This isn't being used by the GUI and is resulting in a truncated telemetry
-                    // message. Fix in future merge request.
                     //append all outduct telemetry to same zmq message right after egress telemetry
-                    // const uint64_t outductTelemSize = m_outductManager.GetAllOutductTelemetry(telemPtr, telemBufferSize);
-                    // telemBufferSize -= outductTelemSize;
-                    // telemPtr += outductTelemSize;
+                    const uint64_t outductTelemSize = m_outductManager.GetAllOutductTelemetry(telemPtr, telemBufferSize);
+                    telemBufferSize -= outductTelemSize;
+                    telemPtr += outductTelemSize;
 
                     vecUint8RawPointer->resize(telemPtr - telemSerializationBase);
 

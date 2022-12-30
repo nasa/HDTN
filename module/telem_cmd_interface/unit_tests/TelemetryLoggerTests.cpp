@@ -39,11 +39,12 @@ BOOST_AUTO_TEST_CASE(TelemetryLoggerLogTelemetryIngressTestCase)
     TelemetryLogger logger;
     IngressTelemetry_t telem;
     telem.totalDataBytes = 1000;
-    logger.LogTelemetry(telem);
+    Telemetry_t* t = &telem;
+    logger.LogTelemetry(t);
 
     boost::this_thread::sleep(boost::posix_time::milliseconds(200));
     telem.totalDataBytes = 4000;
-    logger.LogTelemetry(telem);
+    logger.LogTelemetry(t);
 
     // Ensure stats are flushed
     boost::log::core::get()->flush();
@@ -64,7 +65,7 @@ BOOST_AUTO_TEST_CASE(TelemetryLoggerLogTelemetryIngressTestCase)
         file_contents_to_str(fileName),
         boost::regex(
             header_regex +
-            timestamp_regex + ",0.1\\d+\n$"
+            timestamp_regex + ",0.\\d+\n$"
         )
     ));
 }
@@ -79,11 +80,12 @@ BOOST_AUTO_TEST_CASE(TelemetryLoggerLogTelemetryEgressTestCase)
     TelemetryLogger logger;
     EgressTelemetry_t telem;
     telem.totalDataBytes = 1000;
-    logger.LogTelemetry(telem);
+    Telemetry_t* t = &telem;
+    logger.LogTelemetry(t);
 
     boost::this_thread::sleep(boost::posix_time::milliseconds(200));
     telem.totalDataBytes = 4000;
-    logger.LogTelemetry(telem);
+    logger.LogTelemetry(t);
 
     // Ensure stats are flushed
     boost::log::core::get()->flush();

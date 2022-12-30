@@ -139,7 +139,7 @@ window.addEventListener("load", function(event){
         
             if(type == 1){
                 //Ingress
-                var totalDataBytes = dv.getFloat64(byteIndex, littleEndian);
+                var totalDataBytes = dv.getUint64(byteIndex, littleEndian);
                 byteIndex += 8;
                 var bundleCountEgress = dv.getUint64(byteIndex, littleEndian);
                 byteIndex += 8;
@@ -169,7 +169,7 @@ window.addEventListener("load", function(event){
                 //Egress
                 egressBundleCount = dv.getUint64(byteIndex, littleEndian);
                 byteIndex += 8;
-                var egressTotalDataBytes = dv.getFloat64(byteIndex, littleEndian);
+                var egressTotalDataBytes = dv.getUint64(byteIndex, littleEndian);
                 byteIndex += 8;
                 var egressMessageCount = dv.getUint64(byteIndex, littleEndian);
                 egressRateCalculator.appendVal(egressTotalDataBytes);

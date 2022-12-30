@@ -37,7 +37,7 @@ class TelemetryConnection
         /**
          * Reads a new message from the connection, if available 
          */
-        TELEM_LIB_EXPORT template <typename T> T ReadMessage();
+        TELEM_LIB_EXPORT zmq::message_t ReadMessage();
 
         /**
          * Gets the underlying socket handle 
