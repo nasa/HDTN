@@ -130,7 +130,6 @@ private:
     zmq::context_t* m_hdtnOneProcessZmqInprocContextPtr;
     std::unique_ptr<boost::thread> m_threadPtr;
     volatile bool m_running;
-    volatile bool m_threadStartupComplete;
 
     //variables initialized and used only by ThreadFunc()
     std::unique_ptr<BundleStorageManagerBase> m_bsmPtr;
@@ -142,6 +141,11 @@ private:
     std::vector<OutductInfoPtr_t> m_vectorOutductInfo; //outductIndex to info
     std::map<uint64_t, OutductInfoPtr_t> m_mapOpportunisticNextHopNodeIdToOutductInfo;
     std::vector<OutductInfo_t*> m_vectorUpLinksOutductInfoPtrs; //outductIndex to info
+
+    //for blocking until worker-thread startup
+    volatile bool m_workerThreadStartupInProgress;
+    boost::mutex m_workerThreadStartupMutex;
+    boost::condition_variable m_workerThreadStartupConditionVariable;
 };
 
 ZmqStorageInterface::Impl::Impl() : m_running(false) {}
@@ -181,6 +185,12 @@ bool ZmqStorageInterface::Init(const HdtnConfig& hdtnConfig, zmq::context_t* hdt
     return m_pimpl->Init(hdtnConfig, hdtnOneProcessZmqInprocContextPtr);
 }
 bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
+
+    if (m_running) {
+        LOG_ERROR(subprocess) << "ZmqStorageInterface::Init called while ZmqStorageInterface is already running";
+        return false;
+    }
+
     m_hdtnConfig = hdtnConfig;
     //according to ION.pdf v4.0.1 on page 100 it says:
     //  Remember that the format for this argument is ipn:element_number.0 and that
@@ -310,20 +320,23 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context
         return false;
     }
     
-    if (!m_running) {
+    { //start worker thread
         m_running = true;
         LOG_INFO(subprocess) << "[ZmqStorageInterface] Launching worker thread ...";
-        m_threadStartupComplete = false;
+        boost::mutex::scoped_lock workerThreadStartupLock(m_workerThreadStartupMutex);
+        m_workerThreadStartupInProgress = true;
+        
         m_threadPtr = boost::make_unique<boost::thread>(
             boost::bind(&ZmqStorageInterface::Impl::ThreadFunc, this)); //create and start the worker thread
-        for (unsigned int attempt = 0; attempt < 10; ++attempt) {
-            if (m_threadStartupComplete) {
+
+        while (m_workerThreadStartupInProgress) { //lock mutex (above) before checking condition
+            //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
+            if (!m_workerThreadStartupConditionVariable.timed_wait(workerThreadStartupLock, boost::posix_time::seconds(3))) {
+                LOG_ERROR(subprocess) << "timed out waiting (for 3 seconds) for storage worker thread to start up";
                 break;
             }
-            LOG_DEBUG(subprocess) << "waiting for worker thread to start up...";
-            boost::this_thread::sleep(boost::posix_time::seconds(1));
         }
-        if (!m_threadStartupComplete) {
+        if (m_workerThreadStartupInProgress) {
             LOG_ERROR(subprocess) << "error: storage thread took too long to start up.. exiting";
             return false;
         }
@@ -801,7 +814,13 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
     long timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL; //0 => no blocking
     boost::posix_time::ptime acsSendNowExpiry = boost::posix_time::microsec_clock::universal_time() + ACS_SEND_PERIOD;
-    m_threadStartupComplete = true;
+
+    //notify Init function that worker thread startup is complete
+    m_workerThreadStartupMutex.lock();
+    m_workerThreadStartupInProgress = false;
+    m_workerThreadStartupMutex.unlock();
+    m_workerThreadStartupConditionVariable.notify_one();
+
     while (m_running) {
         int rc = 0;
         try {

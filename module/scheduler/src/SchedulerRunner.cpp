@@ -51,7 +51,7 @@ bool SchedulerRunner::Run(int argc, const char* const argv[], volatile bool & ru
                 ("help", "Produce help message.")
                 ("use-unix-timestamp", "Use unix timestamp in contact plan.")
                 ("hdtn-config-file", opt::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
-                ("contact-plan-file", opt::value<boost::filesystem::path>()->default_value(DEFAULT_FILE), "Contact Plan file that scheudler relies on for link availability.");
+                ("contact-plan-file", opt::value<boost::filesystem::path>()->default_value(DEFAULT_FILE), "Contact Plan file that scheduler relies on for link availability.");
 
             opt::variables_map vm;
             opt::store(boost::program_options::parse_command_line(argc, argv, desc, opt::command_line_style::unix_style | opt::command_line_style::case_insensitive), vm);
@@ -106,7 +106,7 @@ bool SchedulerRunner::Run(int argc, const char* const argv[], volatile bool & ru
         LOG_INFO(subprocess) << "Starting scheduler..";
         
         Scheduler scheduler;
-        if (!scheduler.Init(*hdtnConfig, contactPlanFilePath)) {
+        if (!scheduler.Init(*hdtnConfig, contactPlanFilePath, usingUnixTimestamp)) {
             return false;
         }
 

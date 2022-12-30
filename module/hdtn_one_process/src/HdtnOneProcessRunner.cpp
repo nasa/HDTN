@@ -15,6 +15,7 @@
 #include "ingress.h"
 #include "ZmqStorageInterface.h"
 #include "EgressAsync.h"
+#include "scheduler.h"
 #include "HdtnOneProcessRunner.h"
 #include "SignalHandler.h"
 #include "Environment.h"
@@ -31,17 +32,10 @@
 #ifdef RUN_TELEMETRY
 #include "TelemetryRunner.h"
 #include "TelemetryRunnerProgramOptions.h"
-// since boost versions below 1.76 use deprecated bind.hpp in its property_tree/json_parser/detail/parser.hpp,
-// and since BOOST_BIND_GLOBAL_PLACEHOLDERS was introduced in 1.73
-// the following fixes warning:  The practice of declaring the Bind placeholders (_1, _2, ...) in the global namespace is deprecated....
-// this fixes the warning caused by boost/property_tree/json_parser/detail/parser.hpp
-#if (BOOST_VERSION < 107600) && (BOOST_VERSION >= 107300) && !defined(BOOST_BIND_GLOBAL_PLACEHOLDERS)
-#define BOOST_BIND_GLOBAL_PLACEHOLDERS
-#endif
-#include <boost/property_tree/json_parser.hpp> //make sure this is the very last include
 #endif
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
+static const boost::filesystem::path DEFAULT_CONTACT_FILE = "contactPlan.json";
 
 void HdtnOneProcessRunner::MonitorExitKeypressThreadFunction()
 {
@@ -61,6 +55,9 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         SignalHandler sigHandler(boost::bind(&HdtnOneProcessRunner::MonitorExitKeypressThreadFunction, this));
 
         HdtnConfig_ptr hdtnConfig;
+        bool usingUnixTimestamp;
+        boost::filesystem::path contactPlanFilePath;
+
 
 #ifdef RUN_TELEMETRY
         TelemetryRunnerProgramOptions telemetryRunnerOptions;
@@ -68,8 +65,12 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
 
         boost::program_options::options_description desc("Allowed options");
         try {
-            desc.add_options()("help", "Produce help message.")("hdtn-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.");
-
+            desc.add_options()
+                ("help", "Produce help message.")
+                ("hdtn-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
+                ("contact-plan-file", boost::program_options::value<boost::filesystem::path>()->default_value(DEFAULT_CONTACT_FILE), "Contact Plan file that scheduler relies on for link availability.")
+                ("use-unix-timestamp", "Use unix timestamp in contact plan.")
+    	        ;
 #ifdef RUN_TELEMETRY
             TelemetryRunnerProgramOptions::AppendToDesc(desc);
 #endif
@@ -92,6 +93,24 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
                 LOG_ERROR(subprocess) << "error loading config file: " << configFileName;
                 return false;
             }
+
+            usingUnixTimestamp = (vm.count("use-unix-timestamp") != 0);
+
+            contactPlanFilePath = vm["contact-plan-file"].as<boost::filesystem::path>();
+            if (contactPlanFilePath.empty()) {
+                LOG_INFO(subprocess) << desc;
+                return false;
+            }
+
+            if (!boost::filesystem::exists(contactPlanFilePath)) { //first see if the user specified an already valid path name not dependent on HDTN's source root
+                contactPlanFilePath = Scheduler::GetFullyQualifiedFilename(contactPlanFilePath);
+                if (!boost::filesystem::exists(contactPlanFilePath)) {
+                    LOG_ERROR(subprocess) << "ContactPlan File not found: " << contactPlanFilePath;
+                    return false;
+                }
+            }
+
+            LOG_INFO(subprocess) << "ContactPlan file: " << contactPlanFilePath;
         }
         catch (boost::bad_any_cast & e) {
             LOG_ERROR(subprocess) << "invalid data error: " << e.what();
@@ -111,7 +130,14 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         //If your application is using only the inproc transport for messaging you may set this to zero, otherwise set it to at least one.
         std::unique_ptr<zmq::context_t> hdtnOneProcessZmqInprocContextPtr = boost::make_unique<zmq::context_t>(0);// 0 Threads
 
-        LOG_INFO(subprocess) << "starting EgressAsync..";
+        LOG_INFO(subprocess) << "starting Scheduler..";
+
+        Scheduler scheduler;
+        if (!scheduler.Init(*hdtnConfig, contactPlanFilePath, usingUnixTimestamp, hdtnOneProcessZmqInprocContextPtr.get())) {
+            return false;
+        }
+
+        LOG_INFO(subprocess) << "starting Egress..";
 
         //No need to create Egress, Ingress, and Storage on heap with unique_ptr to prevent stack overflows because they use the pimpl pattern
         hdtn::Egress egress;
@@ -119,14 +145,14 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
             return false;
         }
 
-        LOG_INFO(subprocess) << "starting ingress..";
+        LOG_INFO(subprocess) << "starting Ingress..";
         hdtn::Ingress ingress;
         if (!ingress.Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
             return false;
         }
 
         ZmqStorageInterface storage;
-        LOG_INFO(subprocess) << "Initializing storage manager ...";
+        LOG_INFO(subprocess) << "starting Storage..";
         if (!storage.Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
             return false;
         }

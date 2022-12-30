@@ -40,7 +40,8 @@ public:
     SCHEDULER_LIB_EXPORT ~Scheduler();
     SCHEDULER_LIB_EXPORT void Stop();
     SCHEDULER_LIB_EXPORT bool Init(const HdtnConfig& hdtnConfig,
-        const boost::filesystem::path & contactPlanFilePath,
+        const boost::filesystem::path& contactPlanFilePath,
+        bool usingUnixTimestamp,
         zmq::context_t* hdtnOneProcessZmqInprocContextPtr = NULL);
 
     SCHEDULER_LIB_EXPORT static boost::filesystem::path GetFullyQualifiedFilename(const boost::filesystem::path& filename);

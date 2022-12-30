@@ -155,6 +155,11 @@ private:
 
     std::map<uint64_t, Induct*> m_availableDestOpportunisticNodeIdToTcpclInductMap;
     boost::mutex m_availableDestOpportunisticNodeIdToTcpclInductMapMutex;
+
+    //for blocking until worker-thread startup
+    volatile bool m_workerThreadStartupInProgress;
+    boost::mutex m_workerThreadStartupMutex;
+    boost::condition_variable m_workerThreadStartupConditionVariable;
 };
 
 Ingress::Impl::BundlePipelineAckingSet::BundlePipelineAckingSet(const uint64_t paramMaxBundlesInPipeline,
@@ -315,131 +320,155 @@ bool Ingress::Init(const HdtnConfig& hdtnConfig, zmq::context_t* hdtnOneProcessZ
 }
 bool Ingress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
 
-    if (!m_running) {
-        m_running = true;
-        m_hdtnConfig = hdtnConfig;
-        //according to ION.pdf v4.0.1 on page 100 it says:
-        //  Remember that the format for this argument is ipn:element_number.0 and that
-        //  the final 0 is required, as custodial/administration service is always service 0.
-        //HDTN shall default m_myCustodialServiceId to 0 although it is changeable in the hdtn config json file
-        M_HDTN_EID_CUSTODY.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_myCustodialServiceId);
+    if (m_running) {
+        LOG_ERROR(subprocess) << "Ingress::Init called while Ingress is already running";
+        return false;
+    }
 
-        M_HDTN_EID_ECHO.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_myBpEchoServiceId);
+    m_hdtnConfig = hdtnConfig;
+    //according to ION.pdf v4.0.1 on page 100 it says:
+    //  Remember that the format for this argument is ipn:element_number.0 and that
+    //  the final 0 is required, as custodial/administration service is always service 0.
+    //HDTN shall default m_myCustodialServiceId to 0 although it is changeable in the hdtn config json file
+    M_HDTN_EID_CUSTODY.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_myCustodialServiceId);
 
-        M_MAX_INGRESS_BUNDLE_WAIT_ON_EGRESS_TIME_DURATION = boost::posix_time::milliseconds(m_hdtnConfig.m_maxIngressBundleWaitOnEgressMilliseconds);
+    M_HDTN_EID_ECHO.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_myBpEchoServiceId);
 
-        m_zmqCtxPtr = boost::make_unique<zmq::context_t>(); //needed at least by scheduler (and if one-process is not used)
-        try {
-            if (hdtnOneProcessZmqInprocContextPtr) {
+    M_MAX_INGRESS_BUNDLE_WAIT_ON_EGRESS_TIME_DURATION = boost::posix_time::milliseconds(m_hdtnConfig.m_maxIngressBundleWaitOnEgressMilliseconds);
 
-                // socket for cut-through mode straight to egress
-                //The io_threads argument specifies the size of the 0MQ thread pool to handle I/O operations.
-                //If your application is using only the inproc transport for messaging you may set this to zero, otherwise set it to at least one.      
-                m_zmqPushSock_boundIngressToConnectingEgressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-                m_zmqPushSock_boundIngressToConnectingEgressPtr->bind(std::string("inproc://bound_ingress_to_connecting_egress"));
-                // socket for sending bundles to storage
-                m_zmqPushSock_boundIngressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-                m_zmqPushSock_boundIngressToConnectingStoragePtr->bind(std::string("inproc://bound_ingress_to_connecting_storage"));
-                // socket for receiving acks from storage
-                m_zmqPullSock_connectingStorageToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-                m_zmqPullSock_connectingStorageToBoundIngressPtr->bind(std::string("inproc://connecting_storage_to_bound_ingress"));
-                // socket for receiving acks from egress
-                m_zmqPullSock_connectingEgressToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-                m_zmqPullSock_connectingEgressToBoundIngressPtr->bind(std::string("inproc://connecting_egress_to_bound_ingress"));
-                // socket for receiving bundles from egress via tcpcl outduct opportunistic link (because tcpcl can be bidirectional)
-                m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-                m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr->bind(std::string("inproc://connecting_egress_bundles_only_to_bound_ingress"));
+    m_zmqCtxPtr = boost::make_unique<zmq::context_t>(); //needed at least by scheduler (and if one-process is not used)
+    try {
+        if (hdtnOneProcessZmqInprocContextPtr) {
 
-                //from telemetry socket
-                m_zmqRepSock_connectingTelemToFromBoundIngressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-                m_zmqRepSock_connectingTelemToFromBoundIngressPtr->bind(std::string("inproc://connecting_telem_to_from_bound_ingress"));
+            // socket for cut-through mode straight to egress
+            //The io_threads argument specifies the size of the 0MQ thread pool to handle I/O operations.
+            //If your application is using only the inproc transport for messaging you may set this to zero, otherwise set it to at least one.      
+            m_zmqPushSock_boundIngressToConnectingEgressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+            m_zmqPushSock_boundIngressToConnectingEgressPtr->bind(std::string("inproc://bound_ingress_to_connecting_egress"));
+            // socket for sending bundles to storage
+            m_zmqPushSock_boundIngressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+            m_zmqPushSock_boundIngressToConnectingStoragePtr->bind(std::string("inproc://bound_ingress_to_connecting_storage"));
+            // socket for receiving acks from storage
+            m_zmqPullSock_connectingStorageToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+            m_zmqPullSock_connectingStorageToBoundIngressPtr->bind(std::string("inproc://connecting_storage_to_bound_ingress"));
+            // socket for receiving acks from egress
+            m_zmqPullSock_connectingEgressToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+            m_zmqPullSock_connectingEgressToBoundIngressPtr->bind(std::string("inproc://connecting_egress_to_bound_ingress"));
+            // socket for receiving bundles from egress via tcpcl outduct opportunistic link (because tcpcl can be bidirectional)
+            m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+            m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr->bind(std::string("inproc://connecting_egress_bundles_only_to_bound_ingress"));
 
-            }
-            else {
-                // socket for cut-through mode straight to egress
-                m_zmqPushSock_boundIngressToConnectingEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::push);
-                const std::string bind_boundIngressToConnectingEgressPath(
-                    std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundIngressToConnectingEgressPortPath));
-                m_zmqPushSock_boundIngressToConnectingEgressPtr->bind(bind_boundIngressToConnectingEgressPath);
-                // socket for sending bundles to storage
-                m_zmqPushSock_boundIngressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::push);
-                const std::string bind_boundIngressToConnectingStoragePath(
-                    std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundIngressToConnectingStoragePortPath));
-                m_zmqPushSock_boundIngressToConnectingStoragePtr->bind(bind_boundIngressToConnectingStoragePath);
-                // socket for receiving acks from storage
-                m_zmqPullSock_connectingStorageToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
-                const std::string bind_connectingStorageToBoundIngressPath(
-                    std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingStorageToBoundIngressPortPath));
-                m_zmqPullSock_connectingStorageToBoundIngressPtr->bind(bind_connectingStorageToBoundIngressPath);
-                // socket for receiving acks from egress
-                m_zmqPullSock_connectingEgressToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
-                const std::string bind_connectingEgressToBoundIngressPath(
-                    std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressToBoundIngressPortPath));
-                m_zmqPullSock_connectingEgressToBoundIngressPtr->bind(bind_connectingEgressToBoundIngressPath);
-                // socket for receiving bundles from egress via tcpcl outduct opportunistic link (because tcpcl can be bidirectional)
-                m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
-                const std::string bind_connectingEgressBundlesOnlyToBoundIngressPath(
-                    std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath));
-                m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr->bind(bind_connectingEgressBundlesOnlyToBoundIngressPath);
+            //from telemetry socket
+            m_zmqRepSock_connectingTelemToFromBoundIngressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+            m_zmqRepSock_connectingTelemToFromBoundIngressPtr->bind(std::string("inproc://connecting_telem_to_from_bound_ingress"));
+        }
+        else {
+            // socket for cut-through mode straight to egress
+            m_zmqPushSock_boundIngressToConnectingEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::push);
+            const std::string bind_boundIngressToConnectingEgressPath(
+                std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundIngressToConnectingEgressPortPath));
+            m_zmqPushSock_boundIngressToConnectingEgressPtr->bind(bind_boundIngressToConnectingEgressPath);
+            // socket for sending bundles to storage
+            m_zmqPushSock_boundIngressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::push);
+            const std::string bind_boundIngressToConnectingStoragePath(
+                std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundIngressToConnectingStoragePortPath));
+            m_zmqPushSock_boundIngressToConnectingStoragePtr->bind(bind_boundIngressToConnectingStoragePath);
+            // socket for receiving acks from storage
+            m_zmqPullSock_connectingStorageToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
+            const std::string bind_connectingStorageToBoundIngressPath(
+                std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingStorageToBoundIngressPortPath));
+            m_zmqPullSock_connectingStorageToBoundIngressPtr->bind(bind_connectingStorageToBoundIngressPath);
+            // socket for receiving acks from egress
+            m_zmqPullSock_connectingEgressToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
+            const std::string bind_connectingEgressToBoundIngressPath(
+                std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressToBoundIngressPortPath));
+            m_zmqPullSock_connectingEgressToBoundIngressPtr->bind(bind_connectingEgressToBoundIngressPath);
+            // socket for receiving bundles from egress via tcpcl outduct opportunistic link (because tcpcl can be bidirectional)
+            m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
+            const std::string bind_connectingEgressBundlesOnlyToBoundIngressPath(
+                std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath));
+            m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr->bind(bind_connectingEgressBundlesOnlyToBoundIngressPath);
 
-                //from telemetry socket
-                m_zmqRepSock_connectingTelemToFromBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::rep);
-                const std::string bind_connectingTelemToFromBoundIngressPath("tcp://*:10301");
-                m_zmqRepSock_connectingTelemToFromBoundIngressPtr->bind(bind_connectingTelemToFromBoundIngressPath);
+            //from telemetry socket
+            m_zmqRepSock_connectingTelemToFromBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::rep);
+            const std::string bind_connectingTelemToFromBoundIngressPath("tcp://*:10301");
+            m_zmqRepSock_connectingTelemToFromBoundIngressPtr->bind(bind_connectingTelemToFromBoundIngressPath);
                 
-            }
         }
-        catch (const zmq::error_t & ex) {
-            LOG_ERROR(subprocess) << "cannot connect bind zmq socket: " << ex.what();
-            return false;
-        }
+    }
+    catch (const zmq::error_t & ex) {
+        LOG_ERROR(subprocess) << "cannot connect bind zmq socket: " << ex.what();
+        return false;
+    }
 
-        //Caution: All options, with the exception of ZMQ_SUBSCRIBE, ZMQ_UNSUBSCRIBE and ZMQ_LINGER, only take effect for subsequent socket bind/connects.
-        //The value of 0 specifies no linger period. Pending messages shall be discarded immediately when the socket is closed with zmq_close().
-        m_zmqRepSock_connectingTelemToFromBoundIngressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
-        m_zmqPushSock_boundIngressToConnectingEgressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
-        m_zmqPushSock_boundIngressToConnectingStoragePtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
+    //Caution: All options, with the exception of ZMQ_SUBSCRIBE, ZMQ_UNSUBSCRIBE and ZMQ_LINGER, only take effect for subsequent socket bind/connects.
+    //The value of 0 specifies no linger period. Pending messages shall be discarded immediately when the socket is closed with zmq_close().
+    m_zmqRepSock_connectingTelemToFromBoundIngressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
+    m_zmqPushSock_boundIngressToConnectingEgressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
+    m_zmqPushSock_boundIngressToConnectingStoragePtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
 
-        //THIS PROBABLY DOESNT WORK SINCE IT HAPPENED AFTER BIND/CONNECT BUT NOT USED ANYWAY BECAUSE OF POLLITEMS
-        //static const int timeout = 250;  // milliseconds
-        //m_zmqPullSock_connectingStorageToBoundIngressPtr->set(zmq::sockopt::rcvtimeo, timeout);
-        //m_zmqPullSock_connectingEgressToBoundIngressPtr->set(zmq::sockopt::rcvtimeo, timeout);
-        //m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr->set(zmq::sockopt::rcvtimeo, timeout);
+    //THIS PROBABLY DOESNT WORK SINCE IT HAPPENED AFTER BIND/CONNECT BUT NOT USED ANYWAY BECAUSE OF POLLITEMS
+    //static const int timeout = 250;  // milliseconds
+    //m_zmqPullSock_connectingStorageToBoundIngressPtr->set(zmq::sockopt::rcvtimeo, timeout);
+    //m_zmqPullSock_connectingEgressToBoundIngressPtr->set(zmq::sockopt::rcvtimeo, timeout);
+    //m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr->set(zmq::sockopt::rcvtimeo, timeout);
 
-        // socket for receiving events from scheduler
-        m_zmqSubSock_boundSchedulerToConnectingIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::sub);
-        const std::string connect_boundSchedulerPubSubPath(
-        std::string("tcp://") +
-        m_hdtnConfig.m_zmqSchedulerAddress +
-        std::string(":") +
-        boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
+    // socket for receiving events from scheduler
+    m_zmqSubSock_boundSchedulerToConnectingIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::sub);
+    const std::string connect_boundSchedulerPubSubPath(
+    std::string("tcp://") +
+    m_hdtnConfig.m_zmqSchedulerAddress +
+    std::string(":") +
+    boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
         
-        try {
-            m_zmqSubSock_boundSchedulerToConnectingIngressPtr->connect(connect_boundSchedulerPubSubPath);
-            LOG_INFO(subprocess) << "Connected to scheduler at " << connect_boundSchedulerPubSubPath << " , subscribing...";
-        } catch (const zmq::error_t & ex) {
-            LOG_ERROR(subprocess) << "Cannot connect to scheduler socket at " << connect_boundSchedulerPubSubPath << " : " << ex.what();
-            return false;
-        }
-        try {
-            //Sends one-byte 0x1 message to scheduler XPub socket plus strlen of subscription
-            //All release messages shall be prefixed by "aaaaaaaa" before the common header
-            //Router unique subscription shall be "a" (gets all messages that start with "a") (e.g "aaa", "ab", etc.)
-            //Ingress unique subscription shall be "aa"
-            //Storage unique subscription shall be "aaa"
-            m_zmqSubSock_boundSchedulerToConnectingIngressPtr->set(zmq::sockopt::subscribe, "aa");
-            LOG_INFO(subprocess) << "Subscribed to all events from scheduler";
-        }
-        catch (const zmq::error_t& ex) {
-            LOG_ERROR(subprocess) << "Cannot subscribe to all events from scheduler: " << ex.what();
-            return false;
-        }
-        
+    try {
+        m_zmqSubSock_boundSchedulerToConnectingIngressPtr->connect(connect_boundSchedulerPubSubPath);
+        LOG_INFO(subprocess) << "Connected to scheduler at " << connect_boundSchedulerPubSubPath << " , subscribing...";
+    } catch (const zmq::error_t & ex) {
+        LOG_ERROR(subprocess) << "Cannot connect to scheduler socket at " << connect_boundSchedulerPubSubPath << " : " << ex.what();
+        return false;
+    }
+    try {
+        //Sends one-byte 0x1 message to scheduler XPub socket plus strlen of subscription
+        //All release messages shall be prefixed by "aaaaaaaa" before the common header
+        //Router unique subscription shall be "a" (gets all messages that start with "a") (e.g "aaa", "ab", etc.)
+        //Ingress unique subscription shall be "aa"
+        //Storage unique subscription shall be "aaa"
+        m_zmqSubSock_boundSchedulerToConnectingIngressPtr->set(zmq::sockopt::subscribe, "aa");
+        LOG_INFO(subprocess) << "Subscribed to all events from scheduler";
+    }
+    catch (const zmq::error_t& ex) {
+        LOG_ERROR(subprocess) << "Cannot subscribe to all events from scheduler: " << ex.what();
+        return false;
+    }
+
+    { //start worker thread
+        m_running = true;
+        boost::mutex::scoped_lock workerThreadStartupLock(m_workerThreadStartupMutex);
+        m_workerThreadStartupInProgress = true;
+
         m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
             boost::bind(&Ingress::Impl::ReadZmqAcksThreadFunc, this)); //create and start the worker thread
+
+        while (m_workerThreadStartupInProgress) { //lock mutex (above) before checking condition
+            //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
+            if (!m_workerThreadStartupConditionVariable.timed_wait(workerThreadStartupLock, boost::posix_time::seconds(3))) {
+                LOG_ERROR(subprocess) << "timed out waiting (for 3 seconds) for worker thread to start up";
+                break;
+            }
+        }
+        if (m_workerThreadStartupInProgress) {
+            LOG_ERROR(subprocess) << "error: worker thread took too long to start up.. exiting";
+            return false;
+        }
+        else {
+            LOG_INFO(subprocess) << "worker thread started";
+        }
+
         //Wait until egress up and running and get the first outduct capabilities telemetry.
         //The m_threadZmqAckReaderPtr will start remaining ingress initialization once egress telemetry received for the first time
     }
+    
     return true;
 }
 
@@ -476,6 +505,12 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
     std::size_t totalAcksFromStorage = 0;
 
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
+
+    //notify Init function that worker thread startup is complete
+    m_workerThreadStartupMutex.lock();
+    m_workerThreadStartupInProgress = false;
+    m_workerThreadStartupMutex.unlock();
+    m_workerThreadStartupConditionVariable.notify_one();
 
     while (m_running) { //keep thread alive if running
         int rc = 0;

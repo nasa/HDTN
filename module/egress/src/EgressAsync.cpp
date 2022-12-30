@@ -79,6 +79,11 @@ private:
 
     std::unique_ptr<boost::thread> m_threadZmqReaderPtr;
     volatile bool m_running;
+
+    //for blocking until worker-thread startup
+    volatile bool m_workerThreadStartupInProgress;
+    boost::mutex m_workerThreadStartupMutex;
+    boost::condition_variable m_workerThreadStartupConditionVariable;
 };
 
 Egress::Impl::Impl() : m_running(false) {
@@ -117,7 +122,7 @@ bool Egress::Init(const HdtnConfig& hdtnConfig, zmq::context_t* hdtnOneProcessZm
 bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
     
     if (m_running) {
-        LOG_ERROR(subprocess) << "HegrManagerAsync::Init called while Egress is already running";
+        LOG_ERROR(subprocess) << "Egress::Init called while Egress is already running";
         return false;
     }
 
@@ -155,6 +160,10 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneP
             //from telem socket
             m_zmqRepSock_connectingTelemToFromBoundEgressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
             m_zmqRepSock_connectingTelemToFromBoundEgressPtr->bind(std::string("inproc://connecting_telem_to_from_bound_egress"));
+
+            //socket for sending LinkStatus events from Egress to Scheduler
+            m_zmqPushSock_boundEgressToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+            m_zmqPushSock_boundEgressToConnectingSchedulerPtr->bind(std::string("inproc://bound_egress_to_connecting_scheduler"));
         }
         else {
             // socket for cut-through mode straight to egress
@@ -195,13 +204,15 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneP
             m_zmqRepSock_connectingTelemToFromBoundEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::rep);
             const std::string bind_connectingTelemToFromBoundEgressPath("tcp://*:10302");
             m_zmqRepSock_connectingTelemToFromBoundEgressPtr->bind(bind_connectingTelemToFromBoundEgressPath);
+
+            //socket for sending LinkStatus events from Egress to Scheduler
+            m_zmqPushSock_boundEgressToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::push);
+            const std::string bind_boundEgressToConnectingSchedulerPath(
+                std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressToBoundSchedulerPortPath));
+            m_zmqPushSock_boundEgressToConnectingSchedulerPtr->bind(bind_boundEgressToConnectingSchedulerPath);
         }
 
-        //socket for sending LinkStatus events from Egress to Scheduler
-        m_zmqPushSock_boundEgressToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::push);
-        const std::string bind_boundEgressToConnectingSchedulerPath(
-            std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressToBoundSchedulerPortPath));
-        m_zmqPushSock_boundEgressToConnectingSchedulerPtr->bind(bind_boundEgressToConnectingSchedulerPath);
+        
 
         //an inproc to make sure link status sent from within the zmq polling loop
         static const std::string zmqLinkStatusAddress = "inproc://egress_ls";
@@ -264,10 +275,29 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneP
     }
 
 
-    if (!m_running) {
+    { //start worker thread
         m_running = true;
+
+        boost::mutex::scoped_lock workerThreadStartupLock(m_workerThreadStartupMutex);
+        m_workerThreadStartupInProgress = true;
+
         m_threadZmqReaderPtr = boost::make_unique<boost::thread>(
             boost::bind(&Egress::Impl::ReadZmqThreadFunc, this)); //create and start the worker thread
+
+        while (m_workerThreadStartupInProgress) { //lock mutex (above) before checking condition
+            //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
+            if (!m_workerThreadStartupConditionVariable.timed_wait(workerThreadStartupLock, boost::posix_time::seconds(3))) {
+                LOG_ERROR(subprocess) << "timed out waiting (for 3 seconds) for worker thread to start up";
+                break;
+            }
+        }
+        if (m_workerThreadStartupInProgress) {
+            LOG_ERROR(subprocess) << "error: worker thread took too long to start up.. exiting";
+            return false;
+        }
+        else {
+            LOG_INFO(subprocess) << "worker thread started";
+        }
     }
     return true;
 }
@@ -350,6 +380,12 @@ void Egress::Impl::ReadZmqThreadFunc() {
         m_zmqPullSock_boundIngressToConnectingEgressPtr.get(),
         m_zmqPullSock_connectingStorageToBoundEgressPtr.get()
     };
+
+    //notify Init function that worker thread startup is complete
+    m_workerThreadStartupMutex.lock();
+    m_workerThreadStartupInProgress = false;
+    m_workerThreadStartupMutex.unlock();
+    m_workerThreadStartupConditionVariable.notify_one();
 
     //Get initial outduct capabilities and send to ingress and storage
     ResendOutductCapabilities();
@@ -581,6 +617,7 @@ void Egress::Impl::ResendOutductCapabilities() {
     { //storage
         boost::mutex::scoped_lock lock(m_mutex_zmqPushSock_boundEgressToConnectingStorage);
         while (m_running && !m_zmqPushSock_boundEgressToConnectingStoragePtr->send(headerMessageEgressAck, zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+            //send returns false if(!res.has_value() AND zmq_errno()=EAGAIN)
             LOG_INFO(subprocess) << "waiting for storage to become available to send outduct capabilities header";
             boost::this_thread::sleep(boost::posix_time::seconds(1));
             //LOG_FATAL(subprocess) << "m_zmqPushSock_boundEgressToConnectingStoragePtr could not send outduct capabilities header: " << zmq_strerror(zmq_errno());
@@ -617,6 +654,13 @@ void Egress::Impl::ResendOutductCapabilities() {
             LOG_FATAL(subprocess) << "m_zmqPubSock_boundEgressToConnectingSchedulerPtr could not send outduct capabilities";
             return;
         }
+        
+    }
+    if (!m_running) {
+        LOG_FATAL(subprocess) << "terminated before ResendOutductCapabilities could finish";
+    }
+    else {
+        LOG_DEBUG(subprocess) << "sent outduct capabilities";
     }
 }
 

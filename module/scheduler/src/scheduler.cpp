@@ -62,6 +62,7 @@ public:
     void Stop();
     bool Init(const HdtnConfig& hdtnConfig,
         const boost::filesystem::path& contactPlanFilePath,
+        bool usingUnixTimestamp,
         zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
 
 private:
@@ -122,6 +123,11 @@ private:
     uint64_t m_numOutductCapabilityTelemetriesReceived;
 
     zmq::message_t m_zmqMessageOutductCapabilitiesTelem;
+
+    //for blocking until worker-thread startup
+    volatile bool m_workerThreadStartupInProgress;
+    boost::mutex m_workerThreadStartupMutex;
+    boost::condition_variable m_workerThreadStartupConditionVariable;
 };
 
 
@@ -170,8 +176,10 @@ Scheduler::~Scheduler() {
 
 bool Scheduler::Init(const HdtnConfig& hdtnConfig,
     const boost::filesystem::path& contactPlanFilePath,
-    zmq::context_t* hdtnOneProcessZmqInprocContextPtr) {
-    return m_pimpl->Init(hdtnConfig, contactPlanFilePath, hdtnOneProcessZmqInprocContextPtr);
+    bool usingUnixTimestamp,
+    zmq::context_t* hdtnOneProcessZmqInprocContextPtr)
+{
+    return m_pimpl->Init(hdtnConfig, contactPlanFilePath, usingUnixTimestamp, hdtnOneProcessZmqInprocContextPtr);
 }
 
 void Scheduler::Stop() {
@@ -202,15 +210,20 @@ void Scheduler::Impl::Stop() {
 
 bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
     const boost::filesystem::path& contactPlanFilePath,
+    bool usingUnixTimestamp,
     zmq::context_t* hdtnOneProcessZmqInprocContextPtr)
 {
-    m_hdtnConfig = hdtnConfig;
-    m_contactPlanFilePath = contactPlanFilePath;
     if (m_running) {
+        LOG_ERROR(subprocess) << "Scheduler::Init called while Scheduler is already running";
         return false;
     }
-    m_running = true;
-    LOG_INFO(subprocess) << "starting Scheduler..";
+
+    m_hdtnConfig = hdtnConfig;
+    m_contactPlanFilePath = contactPlanFilePath;
+    m_usingUnixTimestamp = usingUnixTimestamp;
+    
+    
+    LOG_INFO(subprocess) << "initializing Scheduler..";
 
     m_ioService.reset();
     m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioService);
@@ -220,19 +233,32 @@ bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
  
     //socket for receiving events from Egress
     m_zmqCtxPtr = boost::make_unique<zmq::context_t>();
-    m_zmqPullSock_boundEgressToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
-    const std::string connect_connectingEgressToBoundSchedulerPath(
-    std::string("tcp://") +
-    m_hdtnConfig.m_zmqEgressAddress +
-    std::string(":") +
-    boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressToBoundSchedulerPortPath));
-    try {
-        m_zmqPullSock_boundEgressToConnectingSchedulerPtr->connect(connect_connectingEgressToBoundSchedulerPath);
-        LOG_INFO(subprocess) << "Scheduler connected and listening to events from Egress " << connect_connectingEgressToBoundSchedulerPath;
+
+    if (hdtnOneProcessZmqInprocContextPtr) {
+        m_zmqPullSock_boundEgressToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+        try {
+            m_zmqPullSock_boundEgressToConnectingSchedulerPtr->connect(std::string("inproc://bound_egress_to_connecting_scheduler"));
+        }
+        catch (const zmq::error_t& ex) {
+            LOG_ERROR(subprocess) << "error in Scheduler::Init: cannot connect inproc socket: " << ex.what();
+            return false;
+        }
     }
-    catch (const zmq::error_t & ex) {
-        LOG_ERROR(subprocess) << "error: scheduler cannot connect to egress socket: " << ex.what();
-        return false;
+    else {
+        m_zmqPullSock_boundEgressToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
+        const std::string connect_boundEgressToConnectingSchedulerPath(
+            std::string("tcp://") +
+            m_hdtnConfig.m_zmqEgressAddress +
+            std::string(":") +
+            boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressToBoundSchedulerPortPath));
+        try {
+            m_zmqPullSock_boundEgressToConnectingSchedulerPtr->connect(connect_boundEgressToConnectingSchedulerPath);
+            LOG_INFO(subprocess) << "Scheduler connected and listening to events from Egress " << connect_boundEgressToConnectingSchedulerPath;
+        }
+        catch (const zmq::error_t& ex) {
+            LOG_ERROR(subprocess) << "error: scheduler cannot connect to egress socket: " << ex.what();
+            return false;
+        }
     }
 
     //socket for receiving events from UIS
@@ -269,10 +295,31 @@ bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
         return false;
     }
 
-    m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
-        boost::bind(&Scheduler::Impl::ReadZmqAcksThreadFunc, this)); //create and start the worker thread
+    { //launch worker thread
+        m_running = true;
 
-    
+        boost::mutex::scoped_lock workerThreadStartupLock(m_workerThreadStartupMutex);
+        m_workerThreadStartupInProgress = true;
+
+        m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
+            boost::bind(&Scheduler::Impl::ReadZmqAcksThreadFunc, this)); //create and start the worker thread
+
+        while (m_workerThreadStartupInProgress) { //lock mutex (above) before checking condition
+            //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
+            if (!m_workerThreadStartupConditionVariable.timed_wait(workerThreadStartupLock, boost::posix_time::seconds(3))) {
+                LOG_ERROR(subprocess) << "timed out waiting (for 3 seconds) for worker thread to start up";
+                break;
+            }
+        }
+        if (m_workerThreadStartupInProgress) {
+            LOG_ERROR(subprocess) << "error: worker thread took too long to start up.. exiting";
+            return false;
+        }
+        else {
+            LOG_INFO(subprocess) << "worker thread started";
+        }
+    }
+
     return true;
 }
 
@@ -291,8 +338,11 @@ void Scheduler::Impl::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outduct
     stopMsg.contact = cid;
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
-        m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(zmq::const_buffer(&stopMsg,
-                                                 sizeof(stopMsg)), zmq::send_flags::none);
+        if(!m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(
+            zmq::const_buffer(&stopMsg, sizeof(stopMsg)), zmq::send_flags::dontwait))
+        {
+            LOG_FATAL(subprocess) << "Cannot sent link down message to all subscribers";
+        }
     }
     
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
@@ -313,8 +363,11 @@ void Scheduler::Impl::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductAr
     releaseMsg.time = time;
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
-        m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(zmq::const_buffer(&releaseMsg, sizeof(releaseMsg)),
-                                                              zmq::send_flags::none);
+        if (!m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(
+            zmq::const_buffer(&releaseMsg, sizeof(releaseMsg)), zmq::send_flags::dontwait))
+        {
+            LOG_FATAL(subprocess) << "Cannot sent link down message to all subscribers";
+        }
     }
 
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
@@ -469,6 +522,12 @@ void Scheduler::Impl::ReadZmqAcksThreadFunc() {
 
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
 
+    //notify Init function that worker thread startup is complete
+    m_workerThreadStartupMutex.lock();
+    m_workerThreadStartupInProgress = false;
+    m_workerThreadStartupMutex.unlock();
+    m_workerThreadStartupConditionVariable.notify_one();
+
     while (m_running) { //keep thread alive if running
         int rc = 0;
         try {
@@ -528,7 +587,9 @@ void Scheduler::Impl::ReadZmqAcksThreadFunc() {
 
                 {
                     boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
-                    while (!m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(zmq::const_buffer(&releaseMsgHdr, sizeof(releaseMsgHdr)), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+                    while (m_running && !m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(
+                        zmq::const_buffer(&releaseMsgHdr, sizeof(releaseMsgHdr)), zmq::send_flags::sndmore | zmq::send_flags::dontwait))
+                    {
                         LOG_INFO(subprocess) << "waiting for router to become available to send outduct capabilities header";
                         boost::this_thread::sleep(boost::posix_time::seconds(1));
                     }
