@@ -973,7 +973,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                         //std::cout << aoct << std::endl;
 
                         if (m_vectorOutductInfo.empty()) {
-                            LOG_INFO(subprocess) << "Received initial " << aoct.outductCapabilityTelemetryList.size() << " outduct telemetries from egress";
+                            LOG_INFO(subprocess) << "Storage received initial " << aoct.outductCapabilityTelemetryList.size() << " outduct telemetries from egress";
                             m_vectorOutductInfo.resize(aoct.outductCapabilityTelemetryList.size());
                             for (std::size_t i = 0; i < m_vectorOutductInfo.size(); ++i) {
                                 m_vectorOutductInfo[i] = boost::make_unique<OutductInfo_t>();

@@ -16,6 +16,7 @@
 #include "ZmqStorageInterface.h"
 #include "EgressAsync.h"
 #include "scheduler.h"
+#include "router.h"
 #include "HdtnOneProcessRunner.h"
 #include "SignalHandler.h"
 #include "Environment.h"
@@ -56,6 +57,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
 
         HdtnConfig_ptr hdtnConfig;
         bool usingUnixTimestamp;
+        bool useMgr;
         boost::filesystem::path contactPlanFilePath;
 
 
@@ -70,6 +72,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
                 ("hdtn-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
                 ("contact-plan-file", boost::program_options::value<boost::filesystem::path>()->default_value(DEFAULT_CONTACT_FILE), "Contact Plan file that scheduler relies on for link availability.")
                 ("use-unix-timestamp", "Use unix timestamp in contact plan.")
+                ("use-mgr", "Use Multigraph Routing Algorithm")
     	        ;
 #ifdef RUN_TELEMETRY
             TelemetryRunnerProgramOptions::AppendToDesc(desc);
@@ -95,6 +98,8 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
             }
 
             usingUnixTimestamp = (vm.count("use-unix-timestamp") != 0);
+
+            useMgr = (vm.count("use-mgr") != 0);
 
             contactPlanFilePath = vm["contact-plan-file"].as<boost::filesystem::path>();
             if (contactPlanFilePath.empty()) {
@@ -131,14 +136,18 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         std::unique_ptr<zmq::context_t> hdtnOneProcessZmqInprocContextPtr = boost::make_unique<zmq::context_t>(0);// 0 Threads
 
         LOG_INFO(subprocess) << "starting Scheduler..";
-
         Scheduler scheduler;
         if (!scheduler.Init(*hdtnConfig, contactPlanFilePath, usingUnixTimestamp, hdtnOneProcessZmqInprocContextPtr.get())) {
             return false;
         }
 
-        LOG_INFO(subprocess) << "starting Egress..";
+        LOG_INFO(subprocess) << "starting Router..";
+        Router router;
+        if (!router.Init(*hdtnConfig, contactPlanFilePath, usingUnixTimestamp, useMgr, hdtnOneProcessZmqInprocContextPtr.get())) {
+            return false;
+        }
 
+        LOG_INFO(subprocess) << "starting Egress..";
         //No need to create Egress, Ingress, and Storage on heap with unique_ptr to prevent stack overflows because they use the pimpl pattern
         hdtn::Egress egress;
         if (!egress.Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get())) {

@@ -576,7 +576,7 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                             ingress_exclusive_lock_t lockExclusive(m_sharedMutexFinalDestsToOutductArrayIndexMaps);
                             const bool isInitial = m_vectorBundlePipelineAckingSet.empty();
                             if (isInitial) {
-                                LOG_INFO(subprocess) << "Received initial " << aoct.outductCapabilityTelemetryList.size() << " outduct telemetries from egress";
+                                LOG_INFO(subprocess) << "Ingress received initial " << aoct.outductCapabilityTelemetryList.size() << " outduct telemetries from egress";
                                 m_vectorBundlePipelineAckingSet.reserve(aoct.outductCapabilityTelemetryList.size());
                             }
 

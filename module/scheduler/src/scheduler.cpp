@@ -83,8 +83,7 @@ private:
     void TryRestartContactPlanTimer();
     void OnContactPlan_TimerExpired(const boost::system::error_code& e);
     bool AddContact_NotThreadSafe(const contactPlan_t& contact);
-    boost::mutex m_contactUpSetMutex;
-    bool m_usingUnixTimestamp;
+    
 
 private:
     typedef std::pair<boost::posix_time::ptime, uint64_t> ptime_index_pair_t; //used in case of identical ptimes for starting events
@@ -92,6 +91,7 @@ private:
     typedef boost::bimap<ptime_index_pair_t, contactplan_islinkup_pair_t> ptime_to_contactplan_bimap_t;
 
     std::map<contact_t, bool> m_mapContactUp;
+    boost::mutex m_contactUpSetMutex;
 
     volatile bool m_running;
     HdtnConfig m_hdtnConfig;
@@ -110,6 +110,7 @@ private:
     boost::mutex m_mutexFinalDestsToOutductArrayIndexMaps;
 
     boost::filesystem::path m_contactPlanFilePath;
+    bool m_usingUnixTimestamp;
 
     ptime_to_contactplan_bimap_t m_ptimeToContactPlanBimap;
     boost::asio::io_service m_ioService;
@@ -449,6 +450,7 @@ void Scheduler::Impl::EgressEventsHandler() {
             LOG_ERROR(subprocess) << "error deserializing AllOutductCapabilitiesTelemetry";
         }
         else {
+            LOG_INFO(subprocess) << "Scheduler received initial " << aoct.outductCapabilityTelemetryList.size() << " outduct telemetries from egress";
             boost::mutex::scoped_lock lock(m_mutexFinalDestsToOutductArrayIndexMaps);
             m_mapOutductArrayIndexToNextHopNodeId.clear();
             m_mapNextHopNodeIdToOutductArrayIndex.clear();

@@ -1,54 +1,55 @@
+/**
+ * @file router.h
+ * @author Nadia Kortas <nadia.kortas@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * Router - sends events to egress on the optimal route and next hop.
+ */
+
 #ifndef ROUTER_H
-#define ROUTER_H
+#define ROUTER_H 1
 
-#include <boost/asio.hpp>
-#include <boost/algorithm/string.hpp>
-#include <boost/foreach.hpp>
-#include <boost/date_time.hpp>
-#include <boost/program_options.hpp>
-#include <boost/make_unique.hpp>
-#include <cstdlib>
-#include <iostream>
-#include "message.hpp"
-#include "Environment.h"
-#include "JsonSerializable.h"
-#include "HdtnConfig.h"
+#include <cstdint>
 #include "zmq.hpp"
+#include <memory>
+#include "HdtnConfig.h"
+#include <boost/core/noncopyable.hpp>
+#include <boost/filesystem.hpp>
+#include "router_lib_export.h"
 
-typedef std::unique_ptr<boost::asio::deadline_timer> SmartDeadlineTimer;
 
-class Router {
+class Router : private boost::noncopyable {
 public:
-    static const boost::filesystem::path DEFAULT_FILE;
-    Router();
-    ~Router();
-    bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
-    int ComputeOptimalRoute(const boost::filesystem::path & jsonEventFilePath,
-                            uint64_t sourceNode, uint64_t finalDestNodeId);
+    ROUTER_LIB_EXPORT Router();
+    ROUTER_LIB_EXPORT ~Router();
+    ROUTER_LIB_EXPORT void Stop();
+    ROUTER_LIB_EXPORT bool Init(const HdtnConfig& hdtnConfig,
+        const boost::filesystem::path& contactPlanFilePath,
+        bool usingUnixTimestamp,
+        bool useMgr,
+        zmq::context_t* hdtnOneProcessZmqInprocContextPtr = NULL);
 
-    static boost::filesystem::path GetFullyQualifiedFilename(const boost::filesystem::path& filename) {
-        return (Environment::GetPathHdtnSourceRoot() / "module/scheduler/src/") / filename;
-    }
-    volatile bool m_timersFinished;
+    ROUTER_LIB_EXPORT static boost::filesystem::path GetFullyQualifiedFilename(const boost::filesystem::path& filename);
+
+
+    // Internal implementation class
+    class Impl; //public for ostream operators
 private:
-    void Stop();
-    void ReadZmqAcksThreadFunc(volatile bool & running, 
-		    const boost::filesystem::path & jsonEventFilePath);
-    void SchedulerEventsHandler(const boost::filesystem::path & jsonEventFilePath);
-    std::unique_ptr<zmq::context_t> m_zmqContextPtr;
-    std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundSchedulerToConnectingRouterPtr;
-    void RouteUpdate(const boost::system::error_code& e, uint64_t nextHopNodeId,
-        uint64_t finalDestNodeId, std::string event, zmq::socket_t * ptrSocket);
-    HdtnConfig m_hdtnConfig;
-    void MonitorExitKeypressThreadFunction();
-    volatile bool m_runningFromSigHandler;
-    uint64_t m_latestTime;
-    std::map<uint64_t, uint64_t> m_routeTable;
-    boost::asio::io_service m_ioService;
-    std::unique_ptr<boost::asio::io_service::work> m_workPtr;
-    std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
-    std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
-    boost::mutex m_mutexRouteTableMap;
-    bool m_usingMGR;
+    // Pointer to the internal implementation
+    std::unique_ptr<Impl> m_pimpl;
+
+
 };
+
+
 #endif // ROUTER_H

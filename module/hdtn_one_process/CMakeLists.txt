@@ -20,6 +20,7 @@ target_link_libraries(hdtn-one-process
 		egress_async_lib
 		$<TARGET_NAME_IF_EXISTS:telem_lib>
 		scheduler_lib
+		router_lib
 		Boost::program_options
 )
 target_include_directories(hdtn-one-process

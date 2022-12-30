@@ -63,8 +63,8 @@ private:
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundEgressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundEgressToConnectingStoragePtr;
     boost::mutex m_mutex_zmqPushSock_boundEgressToConnectingStorage;
-    std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundRouterToConnectingEgressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundEgressToConnectingSchedulerPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingRouterToBoundEgressPtr;
 
     std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingTelemToFromBoundEgressPtr;
 
@@ -164,6 +164,10 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneP
             //socket for sending LinkStatus events from Egress to Scheduler
             m_zmqPushSock_boundEgressToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
             m_zmqPushSock_boundEgressToConnectingSchedulerPtr->bind(std::string("inproc://bound_egress_to_connecting_scheduler"));
+
+            //socket for getting Route Update events from Router to Egress
+            m_zmqPullSock_connectingRouterToBoundEgressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+            m_zmqPullSock_connectingRouterToBoundEgressPtr->bind(std::string("inproc://connecting_router_to_bound_egress"));
         }
         else {
             // socket for cut-through mode straight to egress
@@ -210,6 +214,12 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneP
             const std::string bind_boundEgressToConnectingSchedulerPath(
                 std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressToBoundSchedulerPortPath));
             m_zmqPushSock_boundEgressToConnectingSchedulerPtr->bind(bind_boundEgressToConnectingSchedulerPath);
+
+            //socket for getting Route Update events from Router to Egress
+            m_zmqPullSock_connectingRouterToBoundEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
+            const std::string bind_connectingRouterToBoundEgressPath(
+                std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundRouterPubSubPortPath));
+            m_zmqPullSock_connectingRouterToBoundEgressPtr->bind(bind_connectingRouterToBoundEgressPath);
         }
 
         
@@ -228,25 +238,6 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneP
         m_zmqPushSock_boundEgressToConnectingStoragePtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
         m_zmqPushSock_connectingEgressToBoundIngressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
         m_zmqPushSock_boundEgressToConnectingSchedulerPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
-
-        // socket for receiving events from router
-        m_zmqSubSock_boundRouterToConnectingEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::sub);
-        //const std::string connect_boundRouterPubSubPath(std::string("tcp://localhost:10210"));
-
-        const std::string connect_boundRouterPubSubPath(
-            std::string("tcp://") +
-            m_hdtnConfig.m_zmqRouterAddress +
-            std::string(":") +
-            boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundRouterPubSubPortPath));
-        try {
-            m_zmqSubSock_boundRouterToConnectingEgressPtr->connect(connect_boundRouterPubSubPath);
-            m_zmqSubSock_boundRouterToConnectingEgressPtr->set(zmq::sockopt::subscribe, "");
-            LOG_INFO(subprocess) << "Egress connected and listening to events from Router " << connect_boundRouterPubSubPath;
-        }
-        catch (const zmq::error_t & ex) {
-            LOG_ERROR(subprocess) << "error: egress cannot connect to router socket: " << ex.what();
-            return false;
-        }
         
         //The ZMQ_SNDHWM option shall set the high water mark for outbound messages on the specified socket.
         //The high water mark is a hard limit on the maximum number of outstanding messages MQ shall queue 
@@ -314,12 +305,13 @@ static void CustomCleanupStdVecUint8(void* data, void* hint) {
 }
 static void CustomCleanupSharedPtrStdVecUint8(void* data, void* hint) {
     std::shared_ptr<std::vector<uint8_t> >* serializedRawPtrToSharedPtr = static_cast<std::shared_ptr<std::vector<uint8_t> > *>(hint);
+    LOG_DEBUG(subprocess) << "cleanup refcnt=" << serializedRawPtrToSharedPtr->use_count();
     delete serializedRawPtrToSharedPtr; //reduce ref count and delete shared_ptr object
 }
 
 void Egress::Impl::RouterEventHandler() {
     zmq::message_t message;
-    if (!m_zmqSubSock_boundRouterToConnectingEgressPtr->recv(message, zmq::recv_flags::none)) {
+    if (!m_zmqPullSock_connectingRouterToBoundEgressPtr->recv(message, zmq::recv_flags::none)) {
     LOG_ERROR(subprocess) << "Egress didn't receive event from Router process";
         return;
     }
@@ -372,7 +364,7 @@ void Egress::Impl::ReadZmqThreadFunc() {
     zmq::pollitem_t items[NUM_SOCKETS] = {
         {m_zmqPullSock_boundIngressToConnectingEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqPullSock_connectingStorageToBoundEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_zmqSubSock_boundRouterToConnectingEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_zmqPullSock_connectingRouterToBoundEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqRepSock_connectingTelemToFromBoundEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqPairSock_LinkStatusWaitPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
