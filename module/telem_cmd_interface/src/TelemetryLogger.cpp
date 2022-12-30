@@ -8,15 +8,27 @@ TelemetryLogger::TelemetryLogger()
 void TelemetryLogger::LogTelemetry(Telemetry_t* telem)
 {
     switch (telem->GetType()) {
-        case TelemetryType::ingress:
-            LogTelemetry(dynamic_cast<IngressTelemetry_t*>(telem));
+        case TelemetryType::ingress: {
+            IngressTelemetry_t* ingressTelem = dynamic_cast<IngressTelemetry_t*>(telem);
+            if (ingressTelem != nullptr) {
+                LogTelemetry(ingressTelem);
+            }
             break;
-        case TelemetryType::egress:
-            LogTelemetry(dynamic_cast<EgressTelemetry_t*>(telem));
+        }
+        case TelemetryType::egress: {
+            EgressTelemetry_t* egressTelem = dynamic_cast<EgressTelemetry_t*>(telem);
+            if (egressTelem != nullptr) {
+                LogTelemetry(egressTelem);
+            }
             break;
-        case TelemetryType::storage:
-            LogTelemetry(dynamic_cast<StorageTelemetry_t*>(telem));
+        }
+        case TelemetryType::storage: {
+            StorageTelemetry_t* storageTelem = dynamic_cast<StorageTelemetry_t*>(telem);
+            if (storageTelem != nullptr) {
+                LogTelemetry(storageTelem);
+            }
             break;
+        }
     }
 }
 

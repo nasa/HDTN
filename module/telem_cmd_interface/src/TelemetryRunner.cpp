@@ -199,14 +199,14 @@ void TelemetryRunner::Impl::OnNewTelemetry(uint8_t* buffer, uint64_t bufferSize)
         m_websocketServerPtr->SendNewBinaryData((const char*)buffer, bufferSize);
     }
     if (m_telemetryLoggerPtr) {
-        std::vector<std::shared_ptr<Telemetry_t>> telemList;
+        std::vector<std::unique_ptr<Telemetry_t>> telemList;
         try {
             telemList = TelemetryFactory::DeserializeFromLittleEndian(buffer, bufferSize);
         } catch (std::exception& e) {
             LOG_ERROR(subprocess) << e.what();
             return;
         }
-        for (std::shared_ptr<Telemetry_t> telem : telemList) {
+        for (std::unique_ptr<Telemetry_t>& telem : telemList) {
             m_telemetryLoggerPtr->LogTelemetry(telem.get());
         }
     }

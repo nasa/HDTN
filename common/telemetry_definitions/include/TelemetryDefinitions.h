@@ -41,6 +41,7 @@ enum TelemetryType {
 class Telemetry_t {
     public:
         TELEMETRY_DEFINITIONS_EXPORT Telemetry_t();
+        TELEMETRY_DEFINITIONS_EXPORT virtual ~Telemetry_t();
 
         /**
          * Gets the underlying telemetry type
@@ -50,7 +51,7 @@ class Telemetry_t {
         /**
          *  Gets the size, in bytes, to allocate for the serialized telemetry
          */
-        TELEMETRY_DEFINITIONS_EXPORT uint64_t GetSize();
+        TELEMETRY_DEFINITIONS_EXPORT uint64_t GetSerializationSize();
 
         /**
          * Serializes a telemetry object into little-endian format
@@ -74,6 +75,7 @@ class Telemetry_t {
 
 struct IngressTelemetry_t : public Telemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT IngressTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~IngressTelemetry_t() override;
 
     uint64_t totalDataBytes;
     uint64_t bundleCountEgress;
@@ -83,6 +85,7 @@ struct IngressTelemetry_t : public Telemetry_t {
 struct EgressTelemetry_t : public Telemetry_t
 {
     TELEMETRY_DEFINITIONS_EXPORT EgressTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~EgressTelemetry_t() override;
 
     uint64_t egressBundleCount;
     uint64_t totalDataBytes;
@@ -92,6 +95,7 @@ struct EgressTelemetry_t : public Telemetry_t
 struct StorageTelemetry_t : public Telemetry_t
 {
     TELEMETRY_DEFINITIONS_EXPORT StorageTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~StorageTelemetry_t() override;
 
     uint64_t totalBundlesErasedFromStorage;
     uint64_t totalBundlesSentToEgressFromStorage;
@@ -102,6 +106,7 @@ struct StorageTelemetry_t : public Telemetry_t
 struct OutductTelemetry_t : public Telemetry_t
 {
     TELEMETRY_DEFINITIONS_EXPORT OutductTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~OutductTelemetry_t() override;
 
     uint64_t convergenceLayerType;
     uint64_t totalBundlesAcked;
@@ -117,12 +122,14 @@ struct OutductTelemetry_t : public Telemetry_t
 
 struct StcpOutductTelemetry_t : public OutductTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT StcpOutductTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~StcpOutductTelemetry_t() override;
 
     uint64_t totalStcpBytesSent;
 };
 
 struct LtpOutductTelemetry_t : public OutductTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT LtpOutductTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~LtpOutductTelemetry_t() override;
 
     //ltp engine session sender stats
     uint64_t numCheckpointsExpired;
@@ -157,7 +164,7 @@ class TelemetryFactory {
          * @return a vector of Telemetry_t points
          * @throws TelemetryDeserializeUnknownTypeException
          */
-        TELEMETRY_DEFINITIONS_EXPORT static std::vector<std::shared_ptr<Telemetry_t>>
+        TELEMETRY_DEFINITIONS_EXPORT static std::vector<std::unique_ptr<Telemetry_t>>
             DeserializeFromLittleEndian(
                 uint8_t* buffer,
                 uint64_t bufferSize

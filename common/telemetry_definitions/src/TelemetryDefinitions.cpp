@@ -45,9 +45,11 @@ Telemetry_t::Telemetry_t()
     m_fieldsToSerialize.push_back(&m_type);
 }
 
+Telemetry_t::~Telemetry_t() {};
+
 uint64_t Telemetry_t::SerializeToLittleEndian(uint8_t* buffer, uint64_t bufferSize)
 {
-    uint64_t numBytes = GetSize();
+    uint64_t numBytes = GetSerializationSize();
     if (numBytes > bufferSize) {
         return 0;
     }
@@ -64,14 +66,14 @@ TelemetryType Telemetry_t::GetType()
     return TelemetryType(m_type); 
 }
 
-uint64_t Telemetry_t::GetSize()
+uint64_t Telemetry_t::GetSerializationSize()
 {
     return m_fieldsToSerialize.size() * sizeof(uint64_t);
 }
 
 uint64_t Telemetry_t::DeserializeFromLittleEndian(uint8_t* buffer, uint64_t bufferSize)
 {
-    uint64_t numBytes = GetSize();
+    uint64_t numBytes = GetSerializationSize();
     if (bufferSize < numBytes) {
         return 0;
     }
@@ -97,6 +99,8 @@ IngressTelemetry_t::IngressTelemetry_t()
     });
 }
 
+IngressTelemetry_t::~IngressTelemetry_t() {};
+
 /////////////////////////////////////
 //EgressTelemetry_t
 /////////////////////////////////////
@@ -110,6 +114,8 @@ EgressTelemetry_t::EgressTelemetry_t()
         &egressMessageCount
     });
 }
+
+EgressTelemetry_t::~EgressTelemetry_t() {};
 
 /////////////////////////////////////
 //StorageTelemetry_t
@@ -127,6 +133,8 @@ StorageTelemetry_t::StorageTelemetry_t()
     });
 }
 
+StorageTelemetry_t::~StorageTelemetry_t() {};
+
 /////////////////////////////////////
 //OutductTelemetry_t
 /////////////////////////////////////
@@ -143,6 +151,8 @@ OutductTelemetry_t::OutductTelemetry_t()
     });
 }
 
+OutductTelemetry_t::~OutductTelemetry_t() {};
+
 StcpOutductTelemetry_t::StcpOutductTelemetry_t()
     : OutductTelemetry_t(), totalStcpBytesSent(0)
 {
@@ -151,6 +161,8 @@ StcpOutductTelemetry_t::StcpOutductTelemetry_t()
         &totalStcpBytesSent
     });
 }
+
+StcpOutductTelemetry_t::~StcpOutductTelemetry_t() {};
 
 LtpOutductTelemetry_t::LtpOutductTelemetry_t() : OutductTelemetry_t(),
     numCheckpointsExpired(0), numDiscretionaryCheckpointsNotResent(0), countUdpPacketsSent(0),
@@ -166,19 +178,21 @@ LtpOutductTelemetry_t::LtpOutductTelemetry_t() : OutductTelemetry_t(),
     });
 }
 
+LtpOutductTelemetry_t::~LtpOutductTelemetry_t() {};
+
 /////////////////////////////////////
 //TelemetryFactory
 /////////////////////////////////////
-std::vector<std::shared_ptr<Telemetry_t>> TelemetryFactory::DeserializeFromLittleEndian(uint8_t* buffer, uint64_t bufferSize)
+std::vector<std::unique_ptr<Telemetry_t> > TelemetryFactory::DeserializeFromLittleEndian(uint8_t* buffer, uint64_t bufferSize)
 {
-    std::vector<std::shared_ptr<Telemetry_t>> telemList;
+    std::vector<std::unique_ptr<Telemetry_t> > telemList;
     while (bufferSize > 0) {
         // First determine the type
         uint64_t* buffer64 = reinterpret_cast<uint64_t*>(buffer);
         TelemetryType type = TelemetryType(*buffer64);
 
         // Attempt to deserialize
-        std::shared_ptr<Telemetry_t> telem;
+        std::unique_ptr<Telemetry_t> telem;
         switch (type) {
             case ingress:
                 telem = std::make_unique<IngressTelemetry_t>();
@@ -204,7 +218,7 @@ std::vector<std::shared_ptr<Telemetry_t>> TelemetryFactory::DeserializeFromLittl
             // a formatting issue.
             throw TelemetryFactory::TelemetryDeserializeInvalidFormatException();
         }
-        telemList.push_back(telem);
+        telemList.push_back(std::move(telem));
 
         bufferSize -= bytesWritten;
         buffer += bytesWritten;

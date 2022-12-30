@@ -441,6 +441,24 @@ bool Ingress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOne
     return true;
 }
 
+static void CustomCleanupZmqMessage(void *data, void *hint) {
+    delete static_cast<zmq::message_t*>(hint);
+}
+static void CustomCleanupPaddedVecUint8(void *data, void *hint) {
+    delete static_cast<padded_vector_uint8_t*>(hint);
+}
+
+static void CustomCleanupStdVecUint8(void *data, void *hint) {
+    delete static_cast<std::vector<uint8_t>*>(hint);
+}
+
+static void CustomCleanupToEgressHdr(void *data, void *hint) {
+    delete static_cast<hdtn::ToEgressHdr*>(hint);
+}
+
+static void CustomCleanupToStorageHdr(void *data, void *hint) {
+    delete static_cast<hdtn::ToStorageHdr*>(hint);
+}
 
 void Ingress::Impl::ReadZmqAcksThreadFunc() {
 
@@ -637,10 +655,20 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                     telem.totalDataBytes = m_bundleData;
                     telem.bundleCountEgress = m_bundleCountEgress;
                     telem.bundleCountStorage = m_bundleCountStorage;
-                    std::vector<uint8_t> serializedTelem = std::vector<uint8_t>(telem.GetSize());
-                    telem.SerializeToLittleEndian(serializedTelem.data(), serializedTelem.size());
-                    zmq::message_t msg(serializedTelem.data(), serializedTelem.size());
-                    if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(msg), zmq::send_flags::dontwait)) {
+                    std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(telem.GetSerializationSize()); //will be 64-bit aligned
+                    uint8_t* telemPtr = vecUint8RawPointer->data();
+                    const uint8_t* const telemSerializationBase = telemPtr;
+                    uint64_t telemBufferSize = vecUint8RawPointer->size();
+
+                    //start zmq message with telemetry
+                    const uint64_t ingressTelemSize = telem.SerializeToLittleEndian(telemPtr, telemBufferSize);
+                    telemBufferSize -= ingressTelemSize;
+                    telemPtr += ingressTelemSize;
+
+                    vecUint8RawPointer->resize(telemPtr - telemSerializationBase);
+
+                    zmq::message_t zmqTelemMessage(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
+                    if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(zmqTelemMessage), zmq::send_flags::dontwait)) {
                         LOG_ERROR(subprocess) << "can't send telemetry to telem";
                     }
                 }
@@ -743,26 +771,6 @@ void Ingress::Impl::SchedulerEventHandler() {
         LOG_ERROR(subprocess) << "unknown IreleaseChangeHdr message type " << releaseChangeHdr.base.type;
     }
 }
-
-static void CustomCleanupZmqMessage(void *data, void *hint) {
-    delete static_cast<zmq::message_t*>(hint);
-}
-static void CustomCleanupPaddedVecUint8(void *data, void *hint) {
-    delete static_cast<padded_vector_uint8_t*>(hint);
-}
-
-static void CustomCleanupStdVecUint8(void *data, void *hint) {
-    delete static_cast<std::vector<uint8_t>*>(hint);
-}
-
-static void CustomCleanupToEgressHdr(void *data, void *hint) {
-    delete static_cast<hdtn::ToEgressHdr*>(hint);
-}
-
-static void CustomCleanupToStorageHdr(void *data, void *hint) {
-    delete static_cast<hdtn::ToStorageHdr*>(hint);
-}
-
 
 bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCurrentSize,
     std::unique_ptr<zmq::message_t> & zmqPaddedMessageUnderlyingDataUniquePtr, padded_vector_uint8_t & paddedVecMessageUnderlyingData, const bool usingZmqData, const bool needsProcessing)
