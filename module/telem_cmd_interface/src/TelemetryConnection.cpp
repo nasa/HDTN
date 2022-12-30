@@ -7,7 +7,7 @@
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::telem;
 
 
-TelemetryConnection::TelemetryConnection(std::string addr, zmq::context_t* inprocContextPtr) {
+TelemetryConnection::TelemetryConnection(const std::string& addr, zmq::context_t* inprocContextPtr) {
     try {
         if (inprocContextPtr) {
             m_requestSocket = boost::make_unique<zmq::socket_t>(*inprocContextPtr, zmq::socket_type::pair);
@@ -27,7 +27,7 @@ TelemetryConnection::TelemetryConnection(std::string addr, zmq::context_t* inpro
     }
 }
 
-bool TelemetryConnection::SendMessage(zmq::const_buffer buffer) {
+bool TelemetryConnection::SendZmqConstBufferMessage(const zmq::const_buffer& buffer) {
     try {
         if (!m_requestSocket->send(buffer, zmq::send_flags::dontwait)) {
             LOG_ERROR(subprocess) << "error sending zmq signal";

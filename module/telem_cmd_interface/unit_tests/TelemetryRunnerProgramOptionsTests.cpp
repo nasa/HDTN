@@ -23,7 +23,7 @@ BOOST_AUTO_TEST_CASE(TelemetryRunnerProgramOptionsDefaultTestCase)
     TelemetryRunnerProgramOptions::AppendToDesc(desc);
     boost::program_options::variables_map vm;
     int argc = 0;
-    const char *const argv[0] = {};
+    const char *const argv[1] = {}; //cannot be size 0
     boost::program_options::store(
         boost::program_options::parse_command_line(argc, argv, desc, boost::program_options::command_line_style::unix_style | boost::program_options::command_line_style::case_insensitive),
         vm);

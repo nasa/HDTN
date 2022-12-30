@@ -154,9 +154,9 @@ void TelemetryRunner::Impl::ThreadFunc(zmq::context_t *inprocContextPtr)
 
         // Send signals to all hdtn modules
         static const zmq::const_buffer byteSignalBuf(&TELEM_REQ_MSG, sizeof(TELEM_REQ_MSG));
-        ingressConnection->SendMessage(byteSignalBuf);
-        egressConnection->SendMessage(byteSignalBuf);
-        storageConnection->SendMessage(byteSignalBuf);
+        ingressConnection->SendZmqConstBufferMessage(byteSignalBuf);
+        egressConnection->SendZmqConstBufferMessage(byteSignalBuf);
+        storageConnection->SendZmqConstBufferMessage(byteSignalBuf);
 
         // Wait for telemetry from all modules
         unsigned int receiveEventsMask = 0;

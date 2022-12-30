@@ -25,14 +25,14 @@
 class TelemetryConnection
 {
     public:
-        TELEM_LIB_EXPORT TelemetryConnection(std::string addr, zmq::context_t* inprocContextPtr);
+        TELEM_LIB_EXPORT TelemetryConnection(const std::string& addr, zmq::context_t* inprocContextPtr);
         TELEM_LIB_EXPORT ~TelemetryConnection();
 
         /**
          * Sends a new message on the connnection
          * @param buffer the zmq::const_buffer to send
          */
-        TELEM_LIB_EXPORT bool SendMessage(zmq::const_buffer buffer);
+        TELEM_LIB_EXPORT bool SendZmqConstBufferMessage(const zmq::const_buffer& buffer); //note: SendMessage is a reserved define in Windows
 
         /**
          * Reads a new message from the connection, if available 
@@ -45,10 +45,10 @@ class TelemetryConnection
         TELEM_LIB_EXPORT void* GetSocketHandle();
 
     private:
-        TELEM_LIB_NO_EXPORT TelemetryConnection();
-        TELEM_LIB_NO_EXPORT std::string m_addr;
-        TELEM_LIB_NO_EXPORT std::unique_ptr<zmq::socket_t> m_requestSocket;
-        TELEM_LIB_NO_EXPORT std::unique_ptr<zmq::context_t> m_contextPtr;
+        TelemetryConnection() = delete;
+        std::string m_addr;
+        std::unique_ptr<zmq::socket_t> m_requestSocket;
+        std::unique_ptr<zmq::context_t> m_contextPtr;
 };
 
 #endif //TELEMETRY_CONNECTION_H

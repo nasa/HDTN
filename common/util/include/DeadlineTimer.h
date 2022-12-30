@@ -1,7 +1,7 @@
 /**
  * @file DeadlineTimer.h
  *
- * @copyright Copyright Ⓒ 2021 United States Government as represented by
+ * @copyright Copyright © 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -22,14 +22,14 @@
 
 #include "hdtn_util_export.h"
 
-class HDTN_UTIL_EXPORT DeadlineTimer
+class DeadlineTimer
 {
     public:
-        DeadlineTimer(unsigned int intervalMs);
-        bool SleepUntilNextInterval();
+        HDTN_UTIL_EXPORT DeadlineTimer(unsigned int intervalMs);
+        HDTN_UTIL_EXPORT bool SleepUntilNextInterval();
 
     private:
-        DeadlineTimer();
+        DeadlineTimer() = delete;
         boost::asio::io_service m_ioService;
         boost::posix_time::time_duration m_sleepValTimeDuration;
         boost::asio::deadline_timer m_deadlineTimer;

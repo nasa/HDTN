@@ -11,7 +11,7 @@ hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::telem;
 void TelemetryConnectionPoller::AddConnection(TelemetryConnection& connection)
 {   
     zmq::pollitem_t pollItem = {connection.GetSocketHandle(), 0, ZMQ_POLLIN, 0};
-    m_connectionHandleToPollItemLocMap[connection.GetSocketHandle()] = m_pollItems.size();
+    m_connectionHandleToPollItemLocMap[connection.GetSocketHandle()] = static_cast<unsigned int>(m_pollItems.size());
     m_pollItems.push_back(pollItem);
 }
 
@@ -38,8 +38,9 @@ bool TelemetryConnectionPoller::HasNewMessage(TelemetryConnection& connection)
 
 zmq::pollitem_t* TelemetryConnectionPoller::FindPollItem(TelemetryConnection& connection)
 {
-    if (m_connectionHandleToPollItemLocMap.count(connection.GetSocketHandle())) {
-        unsigned int loc = m_connectionHandleToPollItemLocMap[connection.GetSocketHandle()];
+    std::map<void*, unsigned int>::const_iterator it = m_connectionHandleToPollItemLocMap.find(connection.GetSocketHandle());
+    if (it != m_connectionHandleToPollItemLocMap.cend()) {
+        unsigned int loc = it->second;
         return &m_pollItems[loc];
     }
     return NULL;

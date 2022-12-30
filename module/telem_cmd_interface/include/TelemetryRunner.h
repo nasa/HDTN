@@ -50,7 +50,7 @@ class TelemetryRunner
 
     private:
         // Internal implementation class and pointer
-        struct Impl;
+        class Impl;
         std::unique_ptr<Impl> m_pimpl;
 };
 

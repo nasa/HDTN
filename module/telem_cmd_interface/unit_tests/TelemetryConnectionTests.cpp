@@ -82,7 +82,7 @@ BOOST_AUTO_TEST_CASE(TelemetryConnectionSendMessageTestCase)
     std::unique_ptr<TelemetryConnection> requester = boost::make_unique<TelemetryConnection>("inproc://my-connection", contextPtr.get());
     uint8_t sendData = 0x05;
     static const zmq::const_buffer buf(&sendData, sizeof(sendData));
-    requester->SendMessage(buf);
+    requester->SendZmqConstBufferMessage(buf);
     uint8_t receiveData = responder->Read();
     BOOST_REQUIRE_EQUAL(sendData, receiveData);
 }

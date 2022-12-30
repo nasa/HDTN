@@ -40,8 +40,8 @@ void TelemetryLogger::LogTelemetry(IngressTelemetry_t* telem)
     // Skip calculating the bitrate the first time through
     if (nowTime > lastProcessedTime) {
         double currentRateMbps = CalculateMbpsRate(
-            telem->totalDataBytes,
-            lastTotalDataBytes,
+            static_cast<double>(telem->totalDataBytes),
+            static_cast<double>(lastTotalDataBytes),
             nowTime,
             lastProcessedTime);
         LOG_STAT("ingress_data_rate_mbps") << currentRateMbps;
@@ -60,8 +60,8 @@ void TelemetryLogger::LogTelemetry(EgressTelemetry_t* telem)
     // Skip calculating the bitrate the first time through
     if (nowTime > lastProcessedTime) {
         double currentRateMbps = CalculateMbpsRate(
-            telem->totalDataBytes,
-            lastTotalDataBytes,
+            static_cast<double>(telem->totalDataBytes),
+            static_cast<double>(lastTotalDataBytes),
             nowTime,
             lastProcessedTime);
         LOG_STAT("egress_data_rate_mbps") << currentRateMbps;

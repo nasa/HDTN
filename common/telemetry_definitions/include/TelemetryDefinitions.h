@@ -238,6 +238,6 @@ struct AllOutductCapabilitiesTelemetry_t {
 
 TELEMETRY_DEFINITIONS_EXPORT bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size);
 
-TELEMETRY_DEFINITIONS_EXPORT const uint8_t TELEM_REQ_MSG = 1;
+static const uint8_t TELEM_REQ_MSG = 1;
 
 #endif // HDTN_TELEMETRY_H
