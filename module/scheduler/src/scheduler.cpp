@@ -123,7 +123,7 @@ private:
     uint64_t m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds;
     uint64_t m_numOutductCapabilityTelemetriesReceived;
 
-    zmq::message_t m_zmqMessageOutductCapabilitiesTelem;
+    std::unique_ptr<zmq::message_t> m_zmqMessageOutductCapabilitiesTelemPtr;
 
     //for blocking until worker-thread startup
     volatile bool m_workerThreadStartupInProgress;
@@ -441,12 +441,12 @@ void Scheduler::Impl::EgressEventsHandler() {
     else if (linkStatusHdr.base.type == HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY) {
         AllOutductCapabilitiesTelemetry_t aoct;
         uint64_t numBytesTakenToDecode;
-        
+        m_zmqMessageOutductCapabilitiesTelemPtr = boost::make_unique<zmq::message_t>();
         //message guaranteed to be there due to the zmq::send_flags::sndmore
-        if (!m_zmqPullSock_boundEgressToConnectingSchedulerPtr->recv(m_zmqMessageOutductCapabilitiesTelem, zmq::recv_flags::none)) {
+        if (!m_zmqPullSock_boundEgressToConnectingSchedulerPtr->recv(*m_zmqMessageOutductCapabilitiesTelemPtr, zmq::recv_flags::none)) {
             LOG_ERROR(subprocess) << "error receiving AllOutductCapabilitiesTelemetry";
         }
-        else if (!aoct.DeserializeFromLittleEndian((uint8_t*)m_zmqMessageOutductCapabilitiesTelem.data(), numBytesTakenToDecode, m_zmqMessageOutductCapabilitiesTelem.size())) {
+        else if (!aoct.DeserializeFromLittleEndian((uint8_t*)m_zmqMessageOutductCapabilitiesTelemPtr->data(), numBytesTakenToDecode, m_zmqMessageOutductCapabilitiesTelemPtr->size())) {
             LOG_ERROR(subprocess) << "error deserializing AllOutductCapabilitiesTelemetry";
         }
         else {
@@ -577,7 +577,7 @@ void Scheduler::Impl::ReadZmqAcksThreadFunc() {
             }
 
             if ((!m_egressFullyInitialized) && (ingressSubscribed) && (storageSubscribed) && (routerSubscribed) 
-                && (m_numOutductCapabilityTelemetriesReceived))
+                && (m_zmqMessageOutductCapabilitiesTelemPtr))
             {
                 //first time this outduct capabilities telemetry received, start remaining scheduler threads
                 m_egressFullyInitialized = true;
@@ -595,9 +595,10 @@ void Scheduler::Impl::ReadZmqAcksThreadFunc() {
                         LOG_INFO(subprocess) << "waiting for router to become available to send outduct capabilities header";
                         boost::this_thread::sleep(boost::posix_time::seconds(1));
                     }
-                    if (!m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(std::move(m_zmqMessageOutductCapabilitiesTelem), zmq::send_flags::dontwait)) {
+                    if (!m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(std::move(*m_zmqMessageOutductCapabilitiesTelemPtr), zmq::send_flags::dontwait)) {
                         LOG_FATAL(subprocess) << "m_zmqXPubSock_boundSchedulerToConnectingSubsPtr could not send outduct capabilities";
                     }
+                    m_zmqMessageOutductCapabilitiesTelemPtr.reset();
                 }
 
                 LOG_INFO(subprocess) << "Now running and fully initialized and connected to egress.. reading contact file " << m_contactPlanFilePath;

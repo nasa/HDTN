@@ -266,7 +266,8 @@ void Router::Impl::SchedulerEventsHandler() {
             LOG_ERROR(subprocess) << "error deserializing AllOutductCapabilitiesTelemetry of size " << zmqMessageOutductTelem.size();
         }
         else {
-            LOG_INFO(subprocess) << "Received Telemetry message from Scheduler " << aoct;
+            LOG_INFO(subprocess) << "Received and successfully decoded AllOutductCapabilitiesTelemetry_t message from Scheduler containing "
+                << aoct.outductCapabilityTelemetryList.size() << " outducts.";
             for (std::list<OutductCapabilityTelemetry_t>::const_iterator itAoct = aoct.outductCapabilityTelemetryList.cbegin();
                 itAoct != aoct.outductCapabilityTelemetryList.cend(); ++itAoct)
             {
@@ -342,16 +343,16 @@ int Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t finalDestNod
         sourceNode, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
     rootContact.arrival_time = m_latestTime;
     if (!m_usingMGR) {
-        LOG_INFO(subprocess) << "Computing Optimal Route using CGR dijkstra for "
-            " final Destination " << finalDestNodeId;
+        LOG_INFO(subprocess) << "Computing Optimal Route using CGR dijkstra for final Destination "
+            << finalDestNodeId;
         bestRoute = cgr::dijkstra(&rootContact,
             finalDestNodeId, contactPlan);
     }
     else {
         bestRoute = cgr::cmr_dijkstra(&rootContact,
             finalDestNodeId, contactPlan);
-        LOG_INFO(subprocess) << "Computing Optimal Route using CMR algorithm for "
-            " final Destination " << finalDestNodeId;
+        LOG_INFO(subprocess) << "Computing Optimal Route using CMR algorithm for final Destination "
+            << finalDestNodeId;
     }
 
     //if (bestRoute != NULL) { // successfully computed a route

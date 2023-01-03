@@ -305,7 +305,7 @@ static void CustomCleanupStdVecUint8(void* data, void* hint) {
 }
 static void CustomCleanupSharedPtrStdVecUint8(void* data, void* hint) {
     std::shared_ptr<std::vector<uint8_t> >* serializedRawPtrToSharedPtr = static_cast<std::shared_ptr<std::vector<uint8_t> > *>(hint);
-    LOG_DEBUG(subprocess) << "cleanup refcnt=" << serializedRawPtrToSharedPtr->use_count();
+    //LOG_DEBUG(subprocess) << "cleanup refcnt=" << serializedRawPtrToSharedPtr->use_count();
     delete serializedRawPtrToSharedPtr; //reduce ref count and delete shared_ptr object
 }
 
@@ -571,17 +571,18 @@ void Egress::Impl::ResendOutductCapabilities() {
     AllOutductCapabilitiesTelemetry_t allOutductCapabilitiesTelemetry;
     m_outductManager.GetAllOutductCapabilitiesTelemetry_ThreadSafe(allOutductCapabilitiesTelemetry);
     const uint64_t serializationSize = allOutductCapabilitiesTelemetry.GetSerializationSize();
+#if 1 //one serialization in one memory location, 3 shared_ptr references
     std::shared_ptr<std::vector<uint8_t> >* serializedRawPtrToSharedPtr = new std::shared_ptr<std::vector<uint8_t> >(std::make_shared<std::vector<uint8_t> >(serializationSize));
     std::vector<uint8_t> & serialized = *(*serializedRawPtrToSharedPtr);
+    if (!allOutductCapabilitiesTelemetry.SerializeToLittleEndian(serialized.data(), serializationSize)) {
+        LOG_FATAL(subprocess) << "Cannot serialize outduct capabilities";
+        return;
+    }
     zmq::message_t zmqMsgToIngress(
         serializedRawPtrToSharedPtr->get()->data(),
         serializedRawPtrToSharedPtr->get()->size(),
         CustomCleanupSharedPtrStdVecUint8,
         serializedRawPtrToSharedPtr);
-    if (!allOutductCapabilitiesTelemetry.SerializeToLittleEndian(serialized.data(), serializationSize)) {
-        LOG_FATAL(subprocess) << "Cannot serialize outduct capabilities";
-        return;
-    }
     std::shared_ptr<std::vector<uint8_t> >* serializedRawPtrToSharedPtr2 = new std::shared_ptr<std::vector<uint8_t> >(*serializedRawPtrToSharedPtr); //ref count 2
     zmq::message_t zmqMsgToStorage(
         serializedRawPtrToSharedPtr2->get()->data(),
@@ -595,7 +596,18 @@ void Egress::Impl::ResendOutductCapabilities() {
         serializedRawPtrToSharedPtr3->get()->size(),
         CustomCleanupSharedPtrStdVecUint8,
         serializedRawPtrToSharedPtr3);
-
+#else //one serialization in 3 copied memory location
+    std::vector<uint8_t>* vecUint8RawPointerIngress = new std::vector<uint8_t>(serializationSize); //will be 64-bit aligned
+    if (!allOutductCapabilitiesTelemetry.SerializeToLittleEndian(vecUint8RawPointerIngress->data(), serializationSize)) {
+        LOG_FATAL(subprocess) << "Cannot serialize outduct capabilities";
+        return;
+    }
+    std::vector<uint8_t>* vecUint8RawPointerStorage = new std::vector<uint8_t>(*vecUint8RawPointerIngress); //will be 64-bit aligned
+    std::vector<uint8_t>* vecUint8RawPointerScheduler = new std::vector<uint8_t>(*vecUint8RawPointerIngress); //will be 64-bit aligned
+    zmq::message_t zmqMsgToIngress(vecUint8RawPointerIngress->data(), vecUint8RawPointerIngress->size(), CustomCleanupStdVecUint8, vecUint8RawPointerIngress);
+    zmq::message_t zmqMsgToStorage(vecUint8RawPointerStorage->data(), vecUint8RawPointerStorage->size(), CustomCleanupStdVecUint8, vecUint8RawPointerStorage);
+    zmq::message_t zmqMsgToScheduler(vecUint8RawPointerScheduler->data(), vecUint8RawPointerScheduler->size(), CustomCleanupStdVecUint8, vecUint8RawPointerScheduler);
+#endif
     hdtn::EgressAckHdr egressAck;
     //memset 0 not needed because remaining values are "don't care"
     egressAck.base.type = HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY;
