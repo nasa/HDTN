@@ -38,7 +38,11 @@ boost::filesystem::path TelemetryRunnerProgramOptions::GetDocumentRootAndValidat
 {
     try
     {
-        const boost::filesystem::path documentRoot = vm["document-root"].as<boost::filesystem::path>();
+        const boost::program_options::variable_value val = vm["document-root"];
+        if (val.empty()) {
+            return "";
+        }
+        const boost::filesystem::path documentRoot = val.as<boost::filesystem::path>();
         const boost::filesystem::path htmlMainFilePath = documentRoot / GUI_HTML_FILE_NAME;
         if (boost::filesystem::is_regular_file(htmlMainFilePath))
         {
@@ -60,7 +64,11 @@ std::string TelemetryRunnerProgramOptions::GetPortNumberAsString(boost::program_
 {
     try
     {
-        const uint16_t portNumber = vm["port-number"].as<uint16_t>();
+        const boost::program_options::variable_value val = vm["port-number"];
+        if (val.empty()) {
+            return "";
+        }
+        const uint16_t portNumber = val.as<uint16_t>();
         return boost::lexical_cast<std::string>(portNumber);
     }
     catch (boost::bad_any_cast &e)
