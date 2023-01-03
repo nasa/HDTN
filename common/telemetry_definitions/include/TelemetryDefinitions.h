@@ -145,14 +145,14 @@ class TelemetryFactory {
     public:
         class TelemetryDeserializeUnknownTypeException : public std::exception {
             public:
-                const char* what() {
+                const char* what() const noexcept override {
                     return "failed to deserialize telemetry: unknown type";
                 }
         };
 
         class TelemetryDeserializeInvalidFormatException : public std::exception {
             public:
-                const char* what() {
+                const char* what() const noexcept override {
                     return "failed to deserialize telemetry: invalid format";
                 }
         };

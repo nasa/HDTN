@@ -140,7 +140,7 @@ StorageTelemetry_t::~StorageTelemetry_t() {};
 /////////////////////////////////////
 OutductTelemetry_t::OutductTelemetry_t()
     : totalBundlesAcked(0), totalBundleBytesAcked(0), totalBundlesSent(0), totalBundleBytesSent(0),
-    totalBundlesFailedToSend(0)
+    totalBundlesFailedToSend(0), convergenceLayerType(0)
 {
     Telemetry_t::m_fieldsToSerialize.insert(m_fieldsToSerialize.end(), {
         &totalBundlesAcked,
@@ -156,6 +156,7 @@ OutductTelemetry_t::~OutductTelemetry_t() {};
 StcpOutductTelemetry_t::StcpOutductTelemetry_t()
     : OutductTelemetry_t(), totalStcpBytesSent(0)
 {
+    OutductTelemetry_t::convergenceLayerType = 1;
     Telemetry_t::m_type = uint64_t(TelemetryType::stcpoutduct);
     Telemetry_t::m_fieldsToSerialize.insert(m_fieldsToSerialize.end(), {
         &totalStcpBytesSent
@@ -168,6 +169,7 @@ LtpOutductTelemetry_t::LtpOutductTelemetry_t() : OutductTelemetry_t(),
     numCheckpointsExpired(0), numDiscretionaryCheckpointsNotResent(0), countUdpPacketsSent(0),
     countRxUdpCircularBufferOverruns(0), countTxUdpPacketsLimitedByRate(0)
 {
+    OutductTelemetry_t::convergenceLayerType = 2;
     Telemetry_t::m_type = uint64_t(TelemetryType::ltpoutduct);
     Telemetry_t::m_fieldsToSerialize.insert(m_fieldsToSerialize.end(), {
         &numCheckpointsExpired,
