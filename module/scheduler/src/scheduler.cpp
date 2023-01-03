@@ -118,7 +118,6 @@ private:
     std::unique_ptr<boost::asio::io_service::work> m_workPtr;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     bool m_contactPlanTimerIsRunning;
-    volatile bool m_egressFullyInitialized;
     boost::posix_time::ptime m_epoch;
     uint64_t m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds;
     uint64_t m_numOutductCapabilityTelemetriesReceived;
@@ -518,6 +517,7 @@ void Scheduler::Impl::ReadZmqAcksThreadFunc() {
         {m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
     std::size_t totalAcksFromEgress = 0;
+    bool schedulerFullyInitialized = false;
     bool ingressSubscribed = false;
     bool storageSubscribed = false;
     bool routerSubscribed = false;
@@ -576,11 +576,11 @@ void Scheduler::Impl::ReadZmqAcksThreadFunc() {
                 }
             }
 
-            if ((!m_egressFullyInitialized) && (ingressSubscribed) && (storageSubscribed) && (routerSubscribed) 
+            if ((!schedulerFullyInitialized) && (ingressSubscribed) && (storageSubscribed) && (routerSubscribed)
                 && (m_zmqMessageOutductCapabilitiesTelemPtr))
             {
                 //first time this outduct capabilities telemetry received, start remaining scheduler threads
-                m_egressFullyInitialized = true;
+                schedulerFullyInitialized = true;
 
                 LOG_INFO(subprocess) << "Forwarding outduct capabilities telemetry to Router";
                 hdtn::IreleaseChangeHdr releaseMsgHdr;

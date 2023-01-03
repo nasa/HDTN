@@ -310,25 +310,29 @@ static void CustomCleanupSharedPtrStdVecUint8(void* data, void* hint) {
 }
 
 void Egress::Impl::RouterEventHandler() {
-    zmq::message_t message;
-    if (!m_zmqPullSock_connectingRouterToBoundEgressPtr->recv(message, zmq::recv_flags::none)) {
-    LOG_ERROR(subprocess) << "Egress didn't receive event from Router process";
-        return;
+    hdtn::RouteUpdateHdr routeUpdateHdr;
+    const zmq::recv_buffer_result_t res = m_zmqPullSock_connectingRouterToBoundEgressPtr->recv(
+        zmq::mutable_buffer(&routeUpdateHdr, sizeof(routeUpdateHdr)), zmq::recv_flags::dontwait);
+    if (!res) {
+        LOG_ERROR(subprocess) << "cannot read RouteUpdateHdr";
     }
-    if (message.size() < sizeof(CommonHdr)) {
-        return;
+    else if ((res->truncated()) || (res->size != sizeof(routeUpdateHdr))) {
+        LOG_ERROR(subprocess) << "RouteUpdateHdr message mismatch: untruncated = " << res->untruncated_size
+            << " truncated = " << res->size << " expected = " << sizeof(routeUpdateHdr);
     }
-    CommonHdr *common = (CommonHdr *)message.data();
-    if (common->type == HDTN_MSGTYPE_ROUTEUPDATE) {
-        hdtn::RouteUpdateHdr * routeUpdateHdr = (hdtn::RouteUpdateHdr *)message.data();
-        if (m_outductManager.Reroute_ThreadSafe(routeUpdateHdr->finalDestNodeId, routeUpdateHdr->nextHopNodeId)) {
-            LOG_INFO(subprocess) << "Updated the outduct based on the optimal Route for finalDestNodeId " << routeUpdateHdr->finalDestNodeId
-                << ": New Outduct Next Hop is " << routeUpdateHdr->nextHopNodeId;
+    else if (routeUpdateHdr.base.type == HDTN_MSGTYPE_ROUTEUPDATE) {
+        if (m_outductManager.Reroute_ThreadSafe(routeUpdateHdr.finalDestNodeId, routeUpdateHdr.nextHopNodeId)) {
+            ResendOutductCapabilities();
+            LOG_INFO(subprocess) << "Updated the outduct based on the optimal Route for finalDestNodeId " << routeUpdateHdr.finalDestNodeId
+                << ": New Outduct Next Hop is " << routeUpdateHdr.nextHopNodeId;
         }
         else {
-            LOG_INFO(subprocess) << "Failed to update the outduct based on the optimal Route for finalDestNodeId " << routeUpdateHdr->finalDestNodeId
-                << " to a next hop outduct node id " << routeUpdateHdr->nextHopNodeId;
+            LOG_INFO(subprocess) << "Failed to update the outduct based on the optimal Route for finalDestNodeId " << routeUpdateHdr.finalDestNodeId
+                << " to a next hop outduct node id " << routeUpdateHdr.nextHopNodeId;
         }
+    }
+    else {
+        LOG_ERROR(subprocess) << "RouterEventHandler received unknown message type " << routeUpdateHdr.base.type;
     }
 }
 

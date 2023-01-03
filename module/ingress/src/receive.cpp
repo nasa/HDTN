@@ -526,8 +526,7 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                 EgressAckHdr receivedEgressAckHdr;
                 const zmq::recv_buffer_result_t res = m_zmqPullSock_connectingEgressToBoundIngressPtr->recv(zmq::mutable_buffer(&receivedEgressAckHdr, sizeof(hdtn::EgressAckHdr)), zmq::recv_flags::dontwait);
                 if (!res) {
-                    LOG_ERROR(subprocess) << "BpIngressSyscall::ReadZmqAcksThreadFunc: cannot read egress BlockHdr ack";
-                        "Error in BpIngressSyscall::ReadZmqAcksThreadFunc: cannot read egress BlockHdr ack";
+                    LOG_ERROR(subprocess) << "cannot read EgressAckHdr";
                 }
                 else if ((res->truncated()) || (res->size != sizeof(hdtn::EgressAckHdr))) {
                     LOG_ERROR(subprocess) << "EgressAckHdr message mismatch: untruncated = " << res->untruncated_size
