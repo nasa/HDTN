@@ -166,6 +166,7 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
         boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
     try {
         m_zmqSubSock_boundSchedulerToConnectingRouterPtr->connect(connect_boundSchedulerPubSubPath);
+        m_zmqSubSock_boundSchedulerToConnectingRouterPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
         LOG_INFO(subprocess) << "Connected to scheduler at " << connect_boundSchedulerPubSubPath << " , subscribing...";
     }
     catch (const zmq::error_t& ex) {
