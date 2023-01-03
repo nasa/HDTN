@@ -9,6 +9,8 @@ timeout /t 3
 REM on 10 off 20 on 30 off 40
 START "Scheduler" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\module\scheduler\hdtn-scheduler.exe" "--contact-plan-file=contactPlanIpn2.1.json" "%HDTN_CONFIG_FILE_PARAM%"
 timeout /t 1
+START "Router" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\module\router\hdtn-router.exe" "%HDTN_CONFIG_FILE_PARAM%" "--contact-plan-file=contactPlanIpn2.1.json"
+timeout /t 2
 START "Ingress" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\module\ingress\hdtn-ingress.exe" "%HDTN_CONFIG_FILE_PARAM%"
 timeout /t 3
 START "Storage" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\module\storage\hdtn-storage.exe" "%HDTN_CONFIG_FILE_PARAM%"
