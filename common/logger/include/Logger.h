@@ -191,7 +191,7 @@ public:
         boost::log::trivial::severity_level,
         Logger::SubProcess
     > severity_channel_logger_t; //mt for multithreaded
-    static Logger::severity_channel_logger_t m_severityChannelLogger;
+    LOG_LIB_EXPORT static Logger::severity_channel_logger_t m_severityChannelLogger;
 
     // Deprecated -- use LOG_* macros instead.
     LOG_LIB_EXPORT static SubProcess fromString(std::string subprocess);
