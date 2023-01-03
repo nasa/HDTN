@@ -31,6 +31,7 @@
 #include <boost/log/sources/severity_logger.hpp>
 #include <boost/log/support/date_time.hpp>
 #include <boost/log/trivial.hpp>
+#include <boost/log/utility/manipulators/add_value.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/log/utility/value_ref.hpp>
@@ -63,51 +64,45 @@ namespace hdtn{
 #if LOG_LEVEL > LOG_LEVEL_TRACE
     #define LOG_TRACE(subprocess) _NO_OP_STREAM_LOGGER
 #else
-    #define LOG_TRACE(subprocess) _LOG_INTERNAL(subprocess, trace)
+    #define LOG_TRACE(subprocess) _LOG_INTERNAL(subprocess, boost::log::trivial::severity_level::trace)
 #endif
    
 #if LOG_LEVEL > LOG_LEVEL_DEBUG
     #define LOG_DEBUG(subprocess) _NO_OP_STREAM_LOGGER
 #else
-    #define LOG_DEBUG(subprocess) _LOG_INTERNAL(subprocess, debug)
+    #define LOG_DEBUG(subprocess) _LOG_INTERNAL(subprocess, boost::log::trivial::severity_level::debug)
 #endif
 
 #if LOG_LEVEL > LOG_LEVEL_INFO
     #define LOG_INFO(subprocess) _NO_OP_STREAM_LOGGER
 #else
-    #define LOG_INFO(subprocess) _LOG_INTERNAL(subprocess, info)
+    #define LOG_INFO(subprocess) _LOG_INTERNAL(subprocess, boost::log::trivial::severity_level::info)
 #endif
 
 #if LOG_LEVEL > LOG_LEVEL_WARNING
     #define LOG_WARNING(subprocess) _NO_OP_STREAM_LOGGER
 #else
-    #define LOG_WARNING(subprocess) _LOG_INTERNAL(subprocess, warning)
+    #define LOG_WARNING(subprocess) _LOG_INTERNAL(subprocess, boost::log::trivial::severity_level::warning)
 #endif
 
 #if LOG_LEVEL > LOG_LEVEL_ERROR
     #define LOG_ERROR(subprocess) _NO_OP_STREAM_LOGGER
 #else
-    #define LOG_ERROR(subprocess) _LOG_INTERNAL(subprocess, error)
+    #define LOG_ERROR(subprocess) _LOG_INTERNAL(subprocess, boost::log::trivial::severity_level::error)
 #endif
 
 #if LOG_LEVEL > LOG_LEVEL_FATAL
     #define LOG_FATAL(subprocess) _NO_OP_STREAM_LOGGER
 #else
-    #define LOG_FATAL(subprocess) _LOG_INTERNAL(subprocess, fatal)
+    #define LOG_FATAL(subprocess) _LOG_INTERNAL(subprocess, boost::log::trivial::severity_level::fatal)
 #endif
 
 #define _LOG_INTERNAL(subprocess, lvl)\
     hdtn::Logger::ensureInitialized();\
-    _ADD_LOG_ATTRIBUTES(subprocess);\
-    BOOST_LOG_TRIVIAL(lvl)
+    BOOST_LOG_STREAM_CHANNEL_SEV(hdtn::Logger::m_severityChannelLogger, subprocess, lvl)\
+        << boost::log::add_value("File", __FILE__)\
+        << boost::log::add_value("Line", __LINE__)
 
-/**
- * _ADD_LOG_ATTRIBUTES adds attributes to the logger
- */
-#define _ADD_LOG_ATTRIBUTES(subprocess)\
-    hdtn::Logger::subprocess_attr.set(subprocess);\
-    hdtn::Logger::file_attr.set(__FILE__);\
-    hdtn::Logger::line_attr.set(__LINE__)
 
 typedef boost::log::sinks::synchronous_sink<boost::log::sinks::text_file_backend> sink_t;
 
@@ -178,45 +173,25 @@ public:
     LOG_LIB_EXPORT static std::string toString(Logger::SubProcess subProcess);
 
     /**
-     * Attribute types that can be safely accessed from multiple threads.
-     * Shared lock for read, exclusive lock for write.
+     * Process attribute
      */
     typedef boost::log::attributes::constant<Logger::Process> process_attr_t;
-
-    typedef boost::log::attributes::mutable_constant<
-        Logger::SubProcess,
-        boost::shared_mutex,
-        boost::unique_lock< boost::shared_mutex >,
-        boost::shared_lock< boost::shared_mutex >
-    > subprocess_attr_t;
-
-    typedef boost::log::attributes::mutable_constant<
-        std::string,
-        boost::shared_mutex,
-        boost::unique_lock< boost::shared_mutex >,
-        boost::shared_lock< boost::shared_mutex >
-    > file_attr_t;
-
-    typedef boost::log::attributes::mutable_constant<
-        int,
-        boost::shared_mutex,
-        boost::unique_lock< boost::shared_mutex >,
-        boost::shared_lock< boost::shared_mutex >
-    > line_attr_t;
-
-    /**
-     * Attributes to be included in log messages
-     */
     LOG_LIB_EXPORT static Logger::process_attr_t process_attr;
-    LOG_LIB_EXPORT static Logger::subprocess_attr_t subprocess_attr;
-    LOG_LIB_EXPORT static Logger::file_attr_t file_attr;
-    LOG_LIB_EXPORT static Logger::line_attr_t line_attr;
 
     /*
      * Initializes the logger with a process identifier to be
      * used in all messages
      */
     LOG_LIB_EXPORT static void initializeWithProcess(Logger::Process process);
+
+    /**
+     * Underlying boost logger 
+     */
+    typedef boost::log::sources::severity_channel_logger_mt<
+        boost::log::trivial::severity_level,
+        Logger::SubProcess
+    > severity_channel_logger_t; //mt for multithreaded
+    static Logger::severity_channel_logger_t m_severityChannelLogger;
 
     // Deprecated -- use LOG_* macros instead.
     LOG_LIB_EXPORT static SubProcess fromString(std::string subprocess);
@@ -229,6 +204,7 @@ public:
     // End deprecation.
 
     LOG_LIB_EXPORT ~Logger();
+
 private:
     LOG_LIB_EXPORT Logger();
     LOG_LIB_EXPORT Logger(Logger const&) = delete;
@@ -293,7 +269,6 @@ private:
      */
     LOG_LIB_EXPORT static boost::log::formatter processFileFormatter();
 
-    boost::log::sources::severity_logger_mt<boost::log::trivial::severity_level> log_; //mt for multithreaded
     static std::unique_ptr<Logger> logger_; //singleton instance
     static boost::mutex mutexSingletonInstance_;
     static volatile bool loggerSingletonFullyInitialized_;

@@ -141,10 +141,10 @@ BOOST_AUTO_TEST_CASE(LoggerStdoutTestCase)
     output_tester.redirect_cout_cerr();
 
     // Do logging with sub-processes
-    _LOG_INTERNAL(hdtn::Logger::SubProcess::egress, trace) << "Egress foo bar";
-    _LOG_INTERNAL(hdtn::Logger::SubProcess::ingress, debug) << "Ingress foo bar";
-    _LOG_INTERNAL(hdtn::Logger::SubProcess::router, info) << "Router foo bar";
-    _LOG_INTERNAL(hdtn::Logger::SubProcess::scheduler, warning) << "Scheduler foo bar";
+    _LOG_INTERNAL(hdtn::Logger::SubProcess::egress, boost::log::trivial::severity_level::trace) << "Egress foo bar";
+    _LOG_INTERNAL(hdtn::Logger::SubProcess::ingress, boost::log::trivial::severity_level::debug) << "Ingress foo bar";
+    _LOG_INTERNAL(hdtn::Logger::SubProcess::router, boost::log::trivial::severity_level::info) << "Router foo bar";
+    _LOG_INTERNAL(hdtn::Logger::SubProcess::scheduler, boost::log::trivial::severity_level::warning) << "Scheduler foo bar";
 
     // Put buffers back
     output_tester.reset_cout_cerr();
@@ -153,7 +153,7 @@ BOOST_AUTO_TEST_CASE(LoggerStdoutTestCase)
     BOOST_REQUIRE_EQUAL(output_tester.cout_test_stream.str(),
         std::string("[ egress   ][ trace]: Egress foo bar\n") +
         std::string("[ ingress  ][ debug]: Ingress foo bar\n") +
-        std::string("[ router   ][ info]: Router foo bar\n") +
+        std::string("[ router   ][ info ]: Router foo bar\n") +
         std::string("[ scheduler][ warning]: Scheduler foo bar\n")
     );
 }
@@ -168,8 +168,8 @@ BOOST_AUTO_TEST_CASE(LoggerStderrTestCase)
     output_tester.redirect_cout_cerr();
 
     // Do logging
-    _LOG_INTERNAL(hdtn::Logger::SubProcess::egress, error) << "Egress foo bar!";
-    _LOG_INTERNAL(hdtn::Logger::SubProcess::ingress, fatal) << "Ingress foo bar!";
+    _LOG_INTERNAL(hdtn::Logger::SubProcess::egress, boost::log::trivial::severity_level::error) << "Egress foo bar!";
+    _LOG_INTERNAL(hdtn::Logger::SubProcess::ingress, boost::log::trivial::severity_level::fatal) << "Ingress foo bar!";
 
     // Put cout back
     output_tester.reset_cout_cerr();
@@ -190,11 +190,11 @@ BOOST_AUTO_TEST_CASE(LoggerMatchingSubprocessAndProcessTestCase)
     OutputTester output_tester;
     output_tester.redirect_cout_cerr();
 
-    _LOG_INTERNAL(hdtn::Logger::SubProcess::unittest, info) << "Unittest foo bar";
+    _LOG_INTERNAL(hdtn::Logger::SubProcess::unittest, boost::log::trivial::severity_level::info) << "Unittest foo bar";
 
     output_tester.reset_cout_cerr();
     BOOST_REQUIRE_EQUAL(output_tester.cout_test_stream.str(),
-        std::string("[ unittest ][ info]: Unittest foo bar\n")
+        std::string("[ unittest ][ info ]: Unittest foo bar\n")
     );
 }
 #endif
@@ -207,8 +207,8 @@ BOOST_AUTO_TEST_CASE(LoggerProcessFileTestCase)
     OutputTester output_tester;
     output_tester.redirect_cout_cerr();
 
-    _LOG_INTERNAL(hdtn::Logger::SubProcess::egress, info) << "Egress file test case";
-    _LOG_INTERNAL(hdtn::Logger::SubProcess::ingress, error) << "Ingress file test case";
+    _LOG_INTERNAL(hdtn::Logger::SubProcess::egress, boost::log::trivial::severity_level::info) << "Egress file test case";
+    _LOG_INTERNAL(hdtn::Logger::SubProcess::ingress, boost::log::trivial::severity_level::error) << "Ingress file test case";
 
     // Put cerr + cout back
     output_tester.reset_cout_cerr();
@@ -218,7 +218,7 @@ BOOST_AUTO_TEST_CASE(LoggerProcessFileTestCase)
     BOOST_TEST(boost::filesystem::exists("logs/unittest_00000.log"));
     BOOST_TEST(boost::regex_match(
         file_contents_to_str("logs/unittest_00000.log", 2),
-        boost::regex("^\\[ egress]" + date_regex + "\\[ info]: Egress file test case\n\\[ ingress]" + date_regex + "\\[ error]: Ingress file test case\n$"))
+        boost::regex("^\\[ egress   ]" + date_regex + "\\[ info]: Egress file test case\n\\[ ingress  ]" + date_regex + "\\[ error]: Ingress file test case\n$"))
     );
 }
 #endif
@@ -230,8 +230,8 @@ BOOST_AUTO_TEST_CASE(LoggerSubProcessFilesTestCase) {
     OutputTester output_tester;
     output_tester.redirect_cout_cerr();
 
-    _LOG_INTERNAL(hdtn::Logger::SubProcess::storage, info) << "Storage file test case";
-    _LOG_INTERNAL(hdtn::Logger::SubProcess::egress, error) << "Egress file test case";
+    _LOG_INTERNAL(hdtn::Logger::SubProcess::storage, boost::log::trivial::severity_level::info) << "Storage file test case";
+    _LOG_INTERNAL(hdtn::Logger::SubProcess::egress, boost::log::trivial::severity_level::error) << "Egress file test case";
 
     output_tester.reset_cout_cerr();
 
@@ -254,7 +254,7 @@ BOOST_AUTO_TEST_CASE(LoggerErrorFileTestCase) {
     OutputTester output_tester;
     output_tester.redirect_cout_cerr();
 
-    _LOG_INTERNAL(hdtn::Logger::SubProcess::ingress, error) << "Error file test case";
+    _LOG_INTERNAL(hdtn::Logger::SubProcess::ingress, boost::log::trivial::severity_level::error) << "Error file test case";
 
     output_tester.reset_cout_cerr();
 

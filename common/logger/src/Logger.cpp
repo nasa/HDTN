@@ -54,7 +54,8 @@ static const std::string subprocess_strings[static_cast<unsigned int>(hdtn::Logg
 };
 
 static const uint32_t file_rotation_size = 5 * 1024 * 1024; //5 MiB
-static const uint8_t console_message_offset = 9;
+static const uint8_t console_message_offset_process = 9;
+static const uint8_t console_message_offset_severity = 5;
 
 // Namespaces recommended by the Boost log library
 namespace logging = boost::log;
@@ -67,6 +68,7 @@ namespace keywords = boost::log::keywords;
 namespace hdtn{
 
 BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", logging::trivial::severity_level);
+BOOST_LOG_ATTRIBUTE_KEYWORD(channel, "Channel", Logger::SubProcess);
 
 /**
  * Overloads the stream operator to support the Process enum
@@ -95,9 +97,7 @@ std::unique_ptr<Logger> Logger::logger_; //initialized to "null"
 boost::mutex Logger::mutexSingletonInstance_;
 volatile bool Logger::loggerSingletonFullyInitialized_ = false;
 Logger::process_attr_t Logger::process_attr(Logger::Process::none);
-Logger::subprocess_attr_t Logger::subprocess_attr(Logger::SubProcess::none);
-Logger::file_attr_t Logger::file_attr("");
-Logger::line_attr_t Logger::line_attr(-1);
+Logger::severity_channel_logger_t Logger::m_severityChannelLogger;
 
 void Logger::initializeWithProcess(Logger::Process process) {
     Logger::process_attr = process_attr_t(process);
@@ -127,6 +127,9 @@ void Logger::init()
     //To prevent crash on termination
     boost::filesystem::path::imbue(std::locale("C"));
 
+    Logger::m_severityChannelLogger = Logger::severity_channel_logger_t(
+        keywords::channel = Logger::SubProcess::none
+    );
     registerAttributes();
 
     #ifdef LOG_TO_PROCESS_FILE
@@ -155,10 +158,7 @@ void Logger::init()
 
 void Logger::registerAttributes()
 {   
-    boost::log::trivial::logger::get().add_attribute("Process", Logger::process_attr);
-    boost::log::trivial::logger::get().add_attribute("SubProcess", Logger::subprocess_attr);
-    boost::log::trivial::logger::get().add_attribute("Line", Logger::line_attr);
-    boost::log::trivial::logger::get().add_attribute("File", Logger::file_attr);
+    m_severityChannelLogger.add_attribute("Process", Logger::process_attr);
 }
 
 void Logger::createFileSinkForProcess(Logger::Process process)
@@ -181,11 +181,16 @@ void Logger::createFileSinkForProcess(Logger::Process process)
 logging::formatter Logger::processFileFormatter() 
 {
     static const logging::formatter fmt = expr::stream
-        << expr::if_ (expr::has_attr<Logger::SubProcess>("SubProcess")
-            && expr::attr<Logger::SubProcess>("SubProcess") != Logger::SubProcess::none)
+        << "[ " << std::setw(console_message_offset_process) << std::left
+        << expr::if_ (channel != Logger::SubProcess::none)
         [
-            expr::stream << "[ " << expr::attr<Logger::SubProcess>("SubProcess") << "]"
+            expr::stream << channel
         ]
+        .else_
+        [
+            expr::stream << expr::attr<Logger::Process>("Process")
+        ]
+        << "]"
         << "[ " << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S") << "]"
         << "[ " << severity << "]: " << expr::smessage;
     return fmt;
@@ -205,7 +210,7 @@ void Logger::createFileSinkForSubProcess(const Logger::SubProcess subprocess)
     boost::shared_ptr<sink_t> sink = boost::make_shared<sink_t>(sink_backend);
 
     sink->set_formatter(module_log_fmt);
-    sink->set_filter(expr::attr<Logger::SubProcess>("SubProcess") == subprocess);
+    sink->set_filter(channel == subprocess);
     sink->locked_backend()->auto_flush(true);
     logging::core::get()->add_sink(sink);
 }
@@ -231,11 +236,9 @@ logging::formatter Logger::levelFileFormatter()
         [
             expr::stream << "[ " << expr::attr<Logger::Process>("Process") << "]"
         ]
-        << expr::if_ (expr::has_attr<Logger::SubProcess>("SubProcess")
-            && expr::attr<Logger::SubProcess>("SubProcess") != Logger::SubProcess::none
-        )
+        << expr::if_ (channel != Logger::SubProcess::none)
         [
-            expr::stream << "[ " << expr::attr<Logger::SubProcess>("SubProcess") << "]"
+            expr::stream << "[ " << channel << "]"
         ]
         << "[ " << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S") << "]"
         << "[ " << expr::attr<std::string>("File") << ":"
@@ -309,20 +312,18 @@ void Logger::createStderrSink() {
 
 boost::log::formatter Logger::consoleFormatter() {
    static const logging::formatter fmt = expr::stream
-        << "[ " << std::setw(console_message_offset) << std::left
-        << expr::if_ (
-            expr::has_attr<Logger::SubProcess>("SubProcess")
-            && expr::attr<Logger::SubProcess>("SubProcess") != Logger::SubProcess::none
-        )
+        << "[ " << std::setw(console_message_offset_process) << std::left
+        << expr::if_ (channel != Logger::SubProcess::none)
         [
-            expr::stream << expr::attr<Logger::SubProcess>("SubProcess")
+            expr::stream << channel
         ]
         .else_
         [
             expr::stream << expr::attr<Logger::Process>("Process")
         ]
         << "]"
-        << "[ " << severity << "]: " << expr::smessage;
+        << "[ " << std::setw(console_message_offset_severity) << std::left 
+        << severity << "]: " << expr::smessage;
 
     return fmt;
 }
@@ -339,32 +340,47 @@ Logger::Process Logger::getProcessAttributeVal()
 
 void Logger::logInfo(const std::string & subprocess, const std::string & message)
 {
-    _ADD_LOG_ATTRIBUTES(fromString(subprocess));
-    BOOST_LOG_TRIVIAL(debug) << message;
+    BOOST_LOG_STREAM_CHANNEL_SEV(
+        hdtn::Logger::m_severityChannelLogger,
+        fromString(subprocess),
+        boost::log::trivial::severity_level::debug
+    );
 }
 
 void Logger::logNotification(const std::string & subprocess, const std::string & message)
 {
-    _ADD_LOG_ATTRIBUTES(fromString(subprocess));
-    BOOST_LOG_TRIVIAL(info) << message;
+    BOOST_LOG_STREAM_CHANNEL_SEV(
+        hdtn::Logger::m_severityChannelLogger,
+        fromString(subprocess),
+        boost::log::trivial::severity_level::info
+    );
 }
 
 void Logger::logWarning(const std::string & subprocess, const std::string & message)
 {
-    _ADD_LOG_ATTRIBUTES(fromString(subprocess));
-    BOOST_LOG_TRIVIAL(warning) << message;
+    BOOST_LOG_STREAM_CHANNEL_SEV(
+        hdtn::Logger::m_severityChannelLogger,
+        fromString(subprocess),
+        boost::log::trivial::severity_level::warning
+    );
 }
 
 void Logger::logError(const std::string & subprocess, const std::string & message)
 {
-    _ADD_LOG_ATTRIBUTES(fromString(subprocess));
-    BOOST_LOG_TRIVIAL(error) << message;
+    BOOST_LOG_STREAM_CHANNEL_SEV(
+        hdtn::Logger::m_severityChannelLogger,
+        fromString(subprocess),
+        boost::log::trivial::severity_level::error
+    );
 }
 
 void Logger::logCritical(const std::string & subprocess, const std::string & message)
 {
-    _ADD_LOG_ATTRIBUTES(fromString(subprocess));
-    BOOST_LOG_TRIVIAL(fatal) << message;
+    BOOST_LOG_STREAM_CHANNEL_SEV(
+        hdtn::Logger::m_severityChannelLogger,
+        fromString(subprocess),
+        boost::log::trivial::severity_level::fatal
+    );
 }
 
 
