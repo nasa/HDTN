@@ -245,11 +245,6 @@ private:
     LOG_LIB_EXPORT void createStdoutSink();
 
     /**
-     * Creates a new sink for writing messages to stderr
-     */
-    LOG_LIB_EXPORT void createStderrSink();
-
-    /**
      * Extracts the process attribute value
      */
     LOG_LIB_EXPORT Logger::Process getProcessAttributeVal();

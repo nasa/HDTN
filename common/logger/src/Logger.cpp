@@ -150,7 +150,6 @@ void Logger::init()
 
     #ifdef LOG_TO_CONSOLE
         createStdoutSink();
-        createStderrSink();
     #endif
 
     logging::add_common_attributes(); //necessary for timestamp
@@ -286,28 +285,10 @@ void Logger::createStdoutSink() {
     typedef sinks::synchronous_sink< sinks::text_ostream_backend > sink_t;
     boost::shared_ptr<sink_t> stdout_sink = boost::make_shared<sink_t>(stdout_sink_backend);
 
-    stdout_sink->set_filter(severity != logging::trivial::severity_level::error &&
-        severity != logging::trivial::severity_level::fatal);
+    stdout_sink->set_filter(expr::has_attr<logging::trivial::severity_level>("Severity"));
     stdout_sink->set_formatter(Logger::consoleFormatter());
     stdout_sink->locked_backend()->auto_flush(true);
     logging::core::get()->add_sink(stdout_sink);
-}
-
-void Logger::createStderrSink() {
-    boost::shared_ptr<sinks::text_ostream_backend> stderr_sink_backend =
-        boost::make_shared<sinks::text_ostream_backend>();
-    stderr_sink_backend->add_stream(
-        boost::shared_ptr<std::ostream>(&std::cerr, boost::null_deleter())
-    );
-
-    typedef sinks::synchronous_sink< sinks::text_ostream_backend > sink_t;
-    boost::shared_ptr<sink_t> stderr_sink = boost::make_shared<sink_t>(stderr_sink_backend);
-
-    stderr_sink->set_filter(severity == logging::trivial::severity_level::error ||
-        severity == logging::trivial::severity_level::fatal);
-    stderr_sink->set_formatter(Logger::consoleFormatter());
-    stderr_sink->locked_backend()->auto_flush(true);
-    logging::core::get()->add_sink(stderr_sink);
 }
 
 boost::log::formatter Logger::consoleFormatter() {

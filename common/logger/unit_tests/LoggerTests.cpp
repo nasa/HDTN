@@ -145,6 +145,8 @@ BOOST_AUTO_TEST_CASE(LoggerStdoutTestCase)
     _LOG_INTERNAL(hdtn::Logger::SubProcess::ingress, boost::log::trivial::severity_level::debug) << "Ingress foo bar";
     _LOG_INTERNAL(hdtn::Logger::SubProcess::router, boost::log::trivial::severity_level::info) << "Router foo bar";
     _LOG_INTERNAL(hdtn::Logger::SubProcess::scheduler, boost::log::trivial::severity_level::warning) << "Scheduler foo bar";
+    _LOG_INTERNAL(hdtn::Logger::SubProcess::egress, boost::log::trivial::severity_level::error) << "Egress foo bar!";
+    _LOG_INTERNAL(hdtn::Logger::SubProcess::ingress, boost::log::trivial::severity_level::fatal) << "Ingress foo bar!";
 
     // Put buffers back
     output_tester.reset_cout_cerr();
@@ -154,28 +156,7 @@ BOOST_AUTO_TEST_CASE(LoggerStdoutTestCase)
         std::string("[ egress   ][ trace]: Egress foo bar\n") +
         std::string("[ ingress  ][ debug]: Ingress foo bar\n") +
         std::string("[ router   ][ info ]: Router foo bar\n") +
-        std::string("[ scheduler][ warning]: Scheduler foo bar\n")
-    );
-}
-#endif
-
-#ifdef LOG_TO_CONSOLE
-BOOST_AUTO_TEST_CASE(LoggerStderrTestCase)
-{
-    // First, swap out the cerr buffer with the boost test stream
-    // so we can capture output
-    OutputTester output_tester;
-    output_tester.redirect_cout_cerr();
-
-    // Do logging
-    _LOG_INTERNAL(hdtn::Logger::SubProcess::egress, boost::log::trivial::severity_level::error) << "Egress foo bar!";
-    _LOG_INTERNAL(hdtn::Logger::SubProcess::ingress, boost::log::trivial::severity_level::fatal) << "Ingress foo bar!";
-
-    // Put cout back
-    output_tester.reset_cout_cerr();
-
-    // Assert results
-    BOOST_REQUIRE_EQUAL(output_tester.cerr_test_stream.str(),
+        std::string("[ scheduler][ warning]: Scheduler foo bar\n") +
         std::string("[ egress   ][ error]: Egress foo bar!\n") +
         std::string("[ ingress  ][ fatal]: Ingress foo bar!\n")
     );
