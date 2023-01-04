@@ -26,9 +26,9 @@ pycgr/py_cgr/py_cgr_lib/__pycache__/*
 
 .vscode/
 
-module/gui/build/*
-module/gui/external/lib/*
-module/gui/external.install/*
-module/gui/root/*
+module/telem_cmd_interface/build/*
+module/telem_cmd_interface/external/lib/*
+module/telem_cmd_interface/external.install/*
+module/telem_cmd_interface/root/*
 
 *.bin

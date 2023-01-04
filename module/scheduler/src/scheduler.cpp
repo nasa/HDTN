@@ -26,7 +26,7 @@
 #include <boost/make_unique.hpp>
 #include <memory>
 #include <fstream>
-#include "Telemetry.h"
+#include "TelemetryDefinitions.h"
 
 namespace opt = boost::program_options;
 

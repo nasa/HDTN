@@ -13,12 +13,15 @@
  * See LICENSE.md in the source root directory for more information.
  */
 
-#include "Telemetry.h"
-#include "Logger.h"
-#include "Uri.h"
 #include <boost/endian/conversion.hpp>
 
+#include "TelemetryDefinitions.h"
+#include "Logger.h"
+#include "Uri.h"
+
+
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
+
 
 static void SerializeUint64ArrayToLittleEndian(uint64_t* dest, const uint64_t* src, const uint64_t numElements) {
     for (uint64_t i = 0; i < numElements; ++i) {
@@ -33,62 +36,204 @@ static double LittleToNativeDouble(const uint64_t* doubleAsUint64Little) {
     return *(reinterpret_cast<const double*>(&doubleAsUint64Native));
 }
 
-IngressTelemetry_t::IngressTelemetry_t() : type(1) {}
-EgressTelemetry_t::EgressTelemetry_t() : type(2) {}
-StorageTelemetry_t::StorageTelemetry_t() : type(3) {}
+/////////////////////////////////////
+//Telemetry_t (base class)
+/////////////////////////////////////
+Telemetry_t::Telemetry_t()
+    :m_type(0)
+{
+    m_fieldsToSerialize.push_back(&m_type);
+}
+
+Telemetry_t::~Telemetry_t() {};
+
+uint64_t Telemetry_t::SerializeToLittleEndian(uint8_t* buffer, uint64_t bufferSize)
+{
+    uint64_t numBytes = GetSerializationSize();
+    if (numBytes > bufferSize) {
+        return 0;
+    }
+    uint64_t* buffer64 = reinterpret_cast<uint64_t*>(buffer);
+    for (uint64_t* field : m_fieldsToSerialize) {
+        const uint64_t fieldLittleEndian = boost::endian::native_to_little(*field);
+        *buffer64++ = fieldLittleEndian;
+    }
+    return numBytes;
+}
+
+TelemetryType Telemetry_t::GetType()
+{
+    return TelemetryType(m_type); 
+}
+
+uint64_t Telemetry_t::GetSerializationSize()
+{
+    return m_fieldsToSerialize.size() * sizeof(uint64_t);
+}
+
+uint64_t Telemetry_t::DeserializeFromLittleEndian(uint8_t* buffer, uint64_t bufferSize)
+{
+    uint64_t numBytes = GetSerializationSize();
+    if (bufferSize < numBytes) {
+        return 0;
+    }
+    uint64_t* buffer64 = reinterpret_cast<uint64_t*>(buffer);
+    for (uint64_t i = 0; i < m_fieldsToSerialize.size(); ++i) {
+        *m_fieldsToSerialize[i] = boost::endian::little_to_native(*buffer64);
+        buffer64++;
+    }
+    return numBytes;
+}
+
+/////////////////////////////////////
+//IngressTelemetry_t
+/////////////////////////////////////
+IngressTelemetry_t::IngressTelemetry_t() 
+    :totalDataBytes(0), bundleCountEgress(0), bundleCountStorage(0)
+{
+    Telemetry_t::m_type = uint64_t(TelemetryType::ingress);
+    Telemetry_t::m_fieldsToSerialize.insert(m_fieldsToSerialize.end(), {
+        &totalDataBytes,
+        &bundleCountEgress,
+        &bundleCountStorage
+    });
+}
+
+IngressTelemetry_t::~IngressTelemetry_t() {};
+
+/////////////////////////////////////
+//EgressTelemetry_t
+/////////////////////////////////////
+EgressTelemetry_t::EgressTelemetry_t()
+    :totalDataBytes(0), egressBundleCount(0), egressMessageCount(0)
+{
+    Telemetry_t::m_type = uint64_t(TelemetryType::egress);
+    Telemetry_t::m_fieldsToSerialize.insert(m_fieldsToSerialize.end(), {
+        &egressBundleCount,
+        &totalDataBytes,
+        &egressMessageCount
+    });
+}
+
+EgressTelemetry_t::~EgressTelemetry_t() {};
+
+/////////////////////////////////////
+//StorageTelemetry_t
+/////////////////////////////////////
+StorageTelemetry_t::StorageTelemetry_t() 
+    :totalBundlesErasedFromStorage(0), totalBundlesSentToEgressFromStorage(0),
+        usedSpaceBytes(0), freeSpaceBytes(0)
+{
+    Telemetry_t::m_type = uint64_t(TelemetryType::storage);
+    Telemetry_t::m_fieldsToSerialize.insert(m_fieldsToSerialize.end(), {
+        &totalBundlesErasedFromStorage,
+        &totalBundlesSentToEgressFromStorage,
+        &usedSpaceBytes,
+        &freeSpaceBytes
+    });
+}
+
+StorageTelemetry_t::~StorageTelemetry_t() {};
+
+/////////////////////////////////////
+//OutductTelemetry_t
+/////////////////////////////////////
+OutductTelemetry_t::OutductTelemetry_t()
+    : totalBundlesAcked(0), totalBundleBytesAcked(0), totalBundlesSent(0), totalBundleBytesSent(0),
+    totalBundlesFailedToSend(0), convergenceLayerType(0)
+{
+    Telemetry_t::m_fieldsToSerialize.insert(m_fieldsToSerialize.end(), {
+        &totalBundlesAcked,
+        &totalBundleBytesAcked,
+        &totalBundlesSent,
+        &totalBundleBytesSent,
+        &totalBundlesFailedToSend
+    });
+}
+
+OutductTelemetry_t::~OutductTelemetry_t() {};
+
+StcpOutductTelemetry_t::StcpOutductTelemetry_t()
+    : OutductTelemetry_t(), totalStcpBytesSent(0)
+{
+    OutductTelemetry_t::convergenceLayerType = 1;
+    Telemetry_t::m_type = uint64_t(TelemetryType::stcpoutduct);
+    Telemetry_t::m_fieldsToSerialize.insert(m_fieldsToSerialize.end(), {
+        &totalStcpBytesSent
+    });
+}
+
+StcpOutductTelemetry_t::~StcpOutductTelemetry_t() {};
+
+LtpOutductTelemetry_t::LtpOutductTelemetry_t() : OutductTelemetry_t(),
+    numCheckpointsExpired(0), numDiscretionaryCheckpointsNotResent(0), countUdpPacketsSent(0),
+    countRxUdpCircularBufferOverruns(0), countTxUdpPacketsLimitedByRate(0)
+{
+    OutductTelemetry_t::convergenceLayerType = 2;
+    Telemetry_t::m_type = uint64_t(TelemetryType::ltpoutduct);
+    Telemetry_t::m_fieldsToSerialize.insert(m_fieldsToSerialize.end(), {
+        &numCheckpointsExpired,
+        &numDiscretionaryCheckpointsNotResent,
+        &countUdpPacketsSent,
+        &countRxUdpCircularBufferOverruns,
+        &countTxUdpPacketsLimitedByRate,
+    });
+}
+
+LtpOutductTelemetry_t::~LtpOutductTelemetry_t() {};
+
+/////////////////////////////////////
+//TelemetryFactory
+/////////////////////////////////////
+std::vector<std::unique_ptr<Telemetry_t> > TelemetryFactory::DeserializeFromLittleEndian(uint8_t* buffer, uint64_t bufferSize)
+{
+    std::vector<std::unique_ptr<Telemetry_t> > telemList;
+    while (bufferSize > 0) {
+        // First determine the type
+        uint64_t* buffer64 = reinterpret_cast<uint64_t*>(buffer);
+        TelemetryType type = TelemetryType(*buffer64);
+
+        // Attempt to deserialize
+        std::unique_ptr<Telemetry_t> telem;
+        switch (type) {
+            case ingress:
+                telem = std::make_unique<IngressTelemetry_t>();
+                break;
+            case egress:
+                telem = std::make_unique<EgressTelemetry_t>();
+                break;
+            case storage:
+                telem = std::make_unique<StorageTelemetry_t>();
+                break;
+            case stcpoutduct:
+                telem = std::make_unique<StcpOutductTelemetry_t>();
+                break;
+            case ltpoutduct:
+                telem = std::make_unique<LtpOutductTelemetry_t>();
+                break;
+            default:
+                throw TelemetryFactory::TelemetryDeserializeUnknownTypeException();
+        };
+        uint64_t bytesWritten = telem->DeserializeFromLittleEndian(buffer, bufferSize);
+        if (bytesWritten == 0) {
+            // We know the buffer isn't empty. So if nothing was written, there is
+            // a formatting issue.
+            throw TelemetryFactory::TelemetryDeserializeInvalidFormatException();
+        }
+        telemList.push_back(std::move(telem));
+
+        bufferSize -= bytesWritten;
+        buffer += bytesWritten;
+    }
+    return telemList;
+}
+
 StorageTelemetryRequest_t::StorageTelemetryRequest_t() : type(10) {}
 StorageExpiringBeforeThresholdTelemetry_t::StorageExpiringBeforeThresholdTelemetry_t() : type(10) {}
-OutductTelemetry_t::OutductTelemetry_t() : type(4), totalBundlesAcked(0), totalBundleBytesAcked(0), totalBundlesSent(0), totalBundleBytesSent(0), totalBundlesFailedToSend(0) {}
-StcpOutductTelemetry_t::StcpOutductTelemetry_t() : OutductTelemetry_t(), totalStcpBytesSent(0) {
-    convergenceLayerType = 1;
-}
-LtpOutductTelemetry_t::LtpOutductTelemetry_t() : OutductTelemetry_t(),
-    numCheckpointsExpired(0), numDiscretionaryCheckpointsNotResent(0), countUdpPacketsSent(0), countRxUdpCircularBufferOverruns(0), countTxUdpPacketsLimitedByRate(0)
-{
-    convergenceLayerType = 2;
-}
+
 OutductCapabilityTelemetry_t::OutductCapabilityTelemetry_t() : type(5), outductArrayIndex(0), maxBundlesInPipeline(0), maxBundleSizeBytesInPipeline(0) {}
 AllOutductCapabilitiesTelemetry_t::AllOutductCapabilitiesTelemetry_t() : type(6) {}
 
-uint64_t IngressTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const {
-    static constexpr uint64_t NUM_BYTES = sizeof(IngressTelemetry_t);
-    static constexpr uint64_t NUM_ELEMENTS = NUM_BYTES / sizeof(uint64_t);
-    if (bufferSize < NUM_BYTES) {
-        return 0; //failure
-    }
-    SerializeUint64ArrayToLittleEndian(reinterpret_cast<uint64_t*>(data), reinterpret_cast<const uint64_t*>(this), NUM_ELEMENTS);
-    return NUM_BYTES;
-}
-
-uint64_t EgressTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const {
-    static constexpr uint64_t NUM_BYTES = sizeof(EgressTelemetry_t);
-    static constexpr uint64_t NUM_ELEMENTS = NUM_BYTES / sizeof(uint64_t);
-    if (bufferSize < NUM_BYTES) {
-        return 0; //failure
-    }
-    SerializeUint64ArrayToLittleEndian(reinterpret_cast<uint64_t*>(data), reinterpret_cast<const uint64_t*>(this), NUM_ELEMENTS);
-    return NUM_BYTES;
-}
-
-uint64_t StorageTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const {
-    static constexpr uint64_t NUM_BYTES = sizeof(StorageTelemetry_t);
-    static constexpr uint64_t NUM_ELEMENTS = NUM_BYTES / sizeof(uint64_t);
-    if (bufferSize < NUM_BYTES) {
-        return 0; //failure
-    }
-    SerializeUint64ArrayToLittleEndian(reinterpret_cast<uint64_t*>(data), reinterpret_cast<const uint64_t*>(this), NUM_ELEMENTS);
-    return NUM_BYTES;
-}
-
-uint64_t StorageTelemetryRequest_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const {
-    static constexpr uint64_t NUM_BYTES = sizeof(StorageTelemetryRequest_t);
-    static constexpr uint64_t NUM_ELEMENTS = NUM_BYTES / sizeof(uint64_t);
-    if (bufferSize < NUM_BYTES) {
-        return 0; //failure
-    }
-    SerializeUint64ArrayToLittleEndian(reinterpret_cast<uint64_t*>(data), reinterpret_cast<const uint64_t*>(this), NUM_ELEMENTS);
-    return NUM_BYTES;
-}
 
 uint64_t StorageExpiringBeforeThresholdTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const {
     const uint8_t* const dataStartPtr = data;
@@ -116,26 +261,6 @@ uint64_t StorageExpiringBeforeThresholdTelemetry_t::SerializeToLittleEndian(uint
         *data64Ptr++ = boost::endian::native_to_little(it->second.second); //total bundle bytes
     }
     return (reinterpret_cast<uint8_t*>(data64Ptr)) - dataStartPtr;
-}
-
-uint64_t StcpOutductTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const {
-    static constexpr uint64_t NUM_BYTES = sizeof(StcpOutductTelemetry_t);
-    static constexpr uint64_t NUM_ELEMENTS = NUM_BYTES / sizeof(uint64_t);
-    if (bufferSize < NUM_BYTES) {
-        return 0; //failure
-    }
-    SerializeUint64ArrayToLittleEndian(reinterpret_cast<uint64_t*>(data), reinterpret_cast<const uint64_t*>(this), NUM_ELEMENTS);
-    return NUM_BYTES;
-}
-
-uint64_t LtpOutductTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const {
-    static constexpr uint64_t NUM_BYTES = sizeof(LtpOutductTelemetry_t);
-    static constexpr uint64_t NUM_ELEMENTS = NUM_BYTES / sizeof(uint64_t);
-    if (bufferSize < NUM_BYTES) {
-        return 0; //failure
-    }
-    SerializeUint64ArrayToLittleEndian(reinterpret_cast<uint64_t*>(data), reinterpret_cast<const uint64_t*>(this), NUM_ELEMENTS);
-    return NUM_BYTES;
 }
 
 uint64_t OutductTelemetry_t::GetTotalBundlesQueued() const {

@@ -24,7 +24,7 @@
 #include <boost/thread.hpp>
 #include "HdtnConfig.h"
 #include "codec/bpv6.h"
-#include "Telemetry.h"
+#include "TelemetryDefinitions.h"
 #include <boost/core/noncopyable.hpp>
 #include <set>
 #include <unordered_map>
@@ -122,7 +122,7 @@ private:
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundEgressToConnectingStoragePtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingStorageToBoundIngressPtr;
 
-    std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingGuiToFromBoundStoragePtr;
+    std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingTelemToFromBoundStoragePtr;
     std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingUisToFromBoundStoragePtr;
 
     HdtnConfig m_hdtnConfig;
@@ -199,13 +199,13 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context
         m_zmqPullSock_boundEgressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         m_zmqPushSock_connectingStorageToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         m_zmqPullSock_boundIngressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-        m_zmqRepSock_connectingGuiToFromBoundStoragePtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+        m_zmqRepSock_connectingTelemToFromBoundStoragePtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         try {
             m_zmqPushSock_connectingStorageToBoundEgressPtr->connect(std::string("inproc://connecting_storage_to_bound_egress")); // egress should bind
             m_zmqPullSock_boundEgressToConnectingStoragePtr->connect(std::string("inproc://bound_egress_to_connecting_storage")); // egress should bind
             m_zmqPushSock_connectingStorageToBoundIngressPtr->connect(std::string("inproc://connecting_storage_to_bound_ingress"));
             m_zmqPullSock_boundIngressToConnectingStoragePtr->connect(std::string("inproc://bound_ingress_to_connecting_storage"));
-            m_zmqRepSock_connectingGuiToFromBoundStoragePtr->bind(std::string("inproc://connecting_gui_to_from_bound_storage"));
+            m_zmqRepSock_connectingTelemToFromBoundStoragePtr->bind(std::string("inproc://connecting_telem_to_from_bound_storage"));
         }
         catch (const zmq::error_t & ex) {
             LOG_ERROR(subprocess) << "error in ZmqStorageInterface::Init: cannot connect inproc socket: " << ex.what();
@@ -241,16 +241,16 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context
             std::string(":") +
             boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundIngressToConnectingStoragePortPath));
 
-        //from gui socket
-        m_zmqRepSock_connectingGuiToFromBoundStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::rep);
-        const std::string bind_connectingGuiToFromBoundStoragePath("tcp://*:10303");
+        //from telemetry socket
+        m_zmqRepSock_connectingTelemToFromBoundStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::rep);
+        const std::string bind_connectingTelemToFromBoundStoragePath("tcp://*:10303");
 
         try {
             m_zmqPushSock_connectingStorageToBoundEgressPtr->connect(connect_connectingStorageToBoundEgressPath); // egress should bind
             m_zmqPullSock_boundEgressToConnectingStoragePtr->connect(connect_boundEgressToConnectingStoragePath); // egress should bind
             m_zmqPushSock_connectingStorageToBoundIngressPtr->connect(connect_connectingStorageToBoundIngressPath);
             m_zmqPullSock_boundIngressToConnectingStoragePtr->connect(connect_boundIngressToConnectingStoragePath);
-            m_zmqRepSock_connectingGuiToFromBoundStoragePtr->bind(bind_connectingGuiToFromBoundStoragePath);
+            m_zmqRepSock_connectingTelemToFromBoundStoragePtr->bind(bind_connectingTelemToFromBoundStoragePath);
         }
         catch (const zmq::error_t & ex) {
             LOG_ERROR(subprocess) << "error: cannot connect socket: " << ex.what();
@@ -796,7 +796,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
         {m_zmqPullSock_boundEgressToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqPullSock_boundIngressToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqSubSock_boundReleaseToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_zmqRepSock_connectingGuiToFromBoundStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_zmqRepSock_connectingTelemToFromBoundStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqRepSock_connectingUisToFromBoundStoragePtr->handle(), 0, ZMQ_POLLIN, 0}
     };
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
@@ -1174,17 +1174,17 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     LOG_ERROR(subprocess) << "unknown IreleaseChangeHdr message type " << releaseChangeHdr.base.type;
                 }
             }
-            if (pollItems[3].revents & ZMQ_POLLIN) { //gui requests data
-                uint8_t guiMsgByte;
-                const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingGuiToFromBoundStoragePtr->recv(zmq::mutable_buffer(&guiMsgByte, sizeof(guiMsgByte)), zmq::recv_flags::dontwait);
+            if (pollItems[3].revents & ZMQ_POLLIN) { //telem requests data
+                uint8_t telemMsgByte;
+                const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingTelemToFromBoundStoragePtr->recv(zmq::mutable_buffer(&telemMsgByte, sizeof(telemMsgByte)), zmq::recv_flags::dontwait);
                 if (!res) {
-                    LOG_ERROR(subprocess) << "error in ZmqStorageInterface::ThreadFunc: cannot read guiMsgByte";
+                    LOG_ERROR(subprocess) << "error in ZmqStorageInterface::ThreadFunc: cannot read telemMsgByte";
                 }
-                else if ((res->truncated()) || (res->size != sizeof(guiMsgByte))) {
-                    LOG_ERROR(subprocess) << "guiMsgByte message mismatch: untruncated = " << res->untruncated_size
-                        << " truncated = " << res->size << " expected = " << sizeof(guiMsgByte);
+                else if ((res->truncated()) || (res->size != sizeof(telemMsgByte))) {
+                    LOG_ERROR(subprocess) << "telemMsgByte message mismatch: untruncated = " << res->untruncated_size
+                        << " truncated = " << res->size << " expected = " << sizeof(telemMsgByte);
                 }
-                else if (guiMsgByte == 1) {                    
+                else if (telemMsgByte == TELEM_REQ_MSG) {                    
                     //send telemetry
                     StorageTelemetry_t telem;
                     telem.totalBundlesErasedFromStorage = GetCurrentNumberOfBundlesDeletedFromStorage();
@@ -1192,7 +1192,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     telem.usedSpaceBytes = m_bsmPtr->GetUsedSpaceBytes();
                     telem.freeSpaceBytes = m_bsmPtr->GetFreeSpaceBytes();
 
-                    std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(sizeof(StorageTelemetry_t)); //will be 64-bit aligned
+                    std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(telem.GetSerializationSize()); //will be 64-bit aligned
                     uint8_t* telemPtr = vecUint8RawPointer->data();
                     const uint8_t* const telemSerializationBase = telemPtr;
                     uint64_t telemBufferSize = vecUint8RawPointer->size();
@@ -1206,12 +1206,12 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
 
                     zmq::message_t zmqTelemMessageWithDataStolen(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
 
-                    if (!m_zmqRepSock_connectingGuiToFromBoundStoragePtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::dontwait)) {
-                        LOG_ERROR(subprocess) << "storage can't send telemetry to gui";
+                    if (!m_zmqRepSock_connectingTelemToFromBoundStoragePtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::dontwait)) {
+                        LOG_ERROR(subprocess) << "storage can't send telemetry to telem";
                     }
                 }
                 /*
-                else if (guiMsgByte == 2) {
+                else if (telemMsgByte == 2) {
                     //send telemetry
                     //std::cout << "storage send telem";
                     StorageExpiringBeforeThresholdTelemetry_t telem;
@@ -1234,13 +1234,13 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                         vecUint8RawPointer->resize(telemPtr - telemSerializationBase);
 
                         zmq::message_t zmqTelemMessageWithDataStolen(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
-                        if (!m_zmqRepSock_connectingGuiToFromBoundStoragePtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::dontwait)) {
+                        if (!m_zmqRepSock_connectingTelemToFromBoundStoragePtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::dontwait)) {
                         }
                     }
                 }
                 */
                 else {
-                    LOG_ERROR(subprocess) << "error guiMsgByte not 1 or 2";
+                    LOG_ERROR(subprocess) << "error telemMsgByte not 1 or 2";
                 }
             }
             if (pollItems[4].revents & ZMQ_POLLIN) { //uis requests data
@@ -1250,7 +1250,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     LOG_ERROR(subprocess) << "error in ZmqStorageInterface::ThreadFunc: cannot read telemReq";
                 }
                 else if ((res->truncated()) || (res->size != sizeof(telemReq))) {
-                    LOG_ERROR(subprocess) << "guiMsgByte message mismatch: untruncated = " << res->untruncated_size
+                    LOG_ERROR(subprocess) << "telemMsgByte message mismatch: untruncated = " << res->untruncated_size
                         << " truncated = " << res->size << " expected = " << sizeof(telemReq);
                 }
                 else if (telemReq.type == 10) {

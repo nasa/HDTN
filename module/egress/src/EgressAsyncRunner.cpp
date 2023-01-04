@@ -100,7 +100,7 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
         LOG_INFO(subprocess) << "EgressAsyncRunner: exiting cleanly..";
         egress.Stop();
         m_bundleCount = egress.m_telemetry.egressBundleCount;
-        m_bundleData = static_cast<uint64_t>(egress.m_telemetry.egressBundleData);
+        m_bundleData = static_cast<uint64_t>(egress.m_telemetry.totalDataBytes);
         m_messageCount = egress.m_telemetry.egressMessageCount;
     }
     LOG_INFO(subprocess) << "EgressAsyncRunner: exited cleanly";

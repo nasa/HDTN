@@ -24,10 +24,11 @@ add_executable(unit-tests
 	../../common/util/test/TestDirectoryScanner.cpp
 	../../common/util/test/TestMemoryInFiles.cpp
 	../../common/util/test/TestForwardListQueue.cpp
+	../../common/util/test/TestDeadlineTimer.cpp
 	../../common/util/test/dir_monitor/test_async.cpp
 	../../common/util/test/dir_monitor/test_sync.cpp
 	#../../common/util/test/test_running.cpp
-	../../common/telemetry/test/TestTelemetry.cpp
+	../../common/telemetry_definitions/test/TestTelemetryDefinitions.cpp
 	../../common/bpcodec/test/TestAggregateCustodySignal.cpp
 	../../common/bpcodec/test/TestCustodyTransfer.cpp
 	../../common/bpcodec/test/TestCustodyIdAllocator.cpp
@@ -49,6 +50,11 @@ add_executable(unit-tests
 	../../module/storage/unit_tests/TestBundleUuidToUint64HashMap.cpp
 	../../module/storage/unit_tests/TestCustodyTimers.cpp
     #../../module/storage/unit_tests/BundleStorageManagerMtAsFifoTests.cpp
+	../../module/telem_cmd_interface/unit_tests/TelemetryRunnerTests.cpp
+	../../module/telem_cmd_interface/unit_tests/TelemetryConnectionTests.cpp
+	../../module/telem_cmd_interface/unit_tests/TelemetryConnectionPollerTests.cpp
+	../../module/telem_cmd_interface/unit_tests/TelemetryLoggerTests.cpp
+	../../module/telem_cmd_interface/unit_tests/TelemetryRunnerProgramOptionsTests.cpp
 )
 install(TARGETS unit-tests DESTINATION ${CMAKE_INSTALL_BINDIR})
 
@@ -65,10 +71,10 @@ target_link_libraries(unit-tests
 	udp_delay_sim_lib
 	log_lib
 	stats_lib
+	telem_lib
 	Boost::unit_test_framework
 	Boost::timer
 )
-
 
 set_property(
 	SOURCE ../../common/logger/unit_tests/LoggerTests.cpp
@@ -79,3 +85,14 @@ set_property(
 		$<$<BOOL:${LOG_TO_ERROR_FILE}>:LOG_TO_ERROR_FILE>
 )
 
+set_property(
+	SOURCE ../../module/telem_cmd_interface/unit_tests/TelemetryRunnerTests.cpp
+	PROPERTY COMPILE_DEFINITIONS
+		$<$<BOOL:${USE_WEB_INTERFACE}>:USE_WEB_INTERFACE> 
+)
+
+set_property(
+	SOURCE ../../module/telem_cmd_interface/unit_tests/TelemetryRunnerProgramOptionsTests.cpp
+	PROPERTY COMPILE_DEFINITIONS
+		$<$<BOOL:${USE_WEB_INTERFACE}>:USE_WEB_INTERFACE> 
+)

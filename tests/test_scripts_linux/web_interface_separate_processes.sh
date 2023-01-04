@@ -27,4 +27,4 @@ storage_PID=$!
 sleep 3
 
 #Web Interface
-./build/module/gui/web_interface
+./build/module/telem_cmd_interface/telem_cmd_interface

@@ -87,14 +87,8 @@ var pie_layout = {
 //Launch Pie Chart
 Plotly.newPlot('storage_egress_chart', pie_data, pie_layout, { displaylogo: false });
 
-var ingressRateCount = 0;
-var egressRateCount = 0;
-var egressBundleCount = 0;
-var egressRate = 0;
-var startTime = new Date().getTime()*1000;
-var lastEgressData = 0;
-var lastTime = startTime;
-var lastEgressData = 0;
+var ingressRateCalculator = new RateCalculator();
+var egressRateCalculator = new RateCalculator();
 
 window.addEventListener("load", function(event){
     if(!("WebSocket" in window)){
@@ -123,20 +117,20 @@ window.addEventListener("load", function(event){
             console.log("Binary Data Received");
 
             littleEndian = true;
-        //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DataView
-        DataView.prototype.getUint64 = function(byteOffset, littleEndian) {
-            // split 64-bit number into two 32-bit (4-byte) parts
-            const left =  this.getUint32(byteOffset, littleEndian);
-            const right = this.getUint32(byteOffset+4, littleEndian);
+            //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DataView
+            DataView.prototype.getUint64 = function(byteOffset, littleEndian) {
+                // split 64-bit number into two 32-bit (4-byte) parts
+                const left =  this.getUint32(byteOffset, littleEndian);
+                const right = this.getUint32(byteOffset+4, littleEndian);
 
-            // combine the two 32-bit values
-            const combined = littleEndian? left + 2**32*right : 2**32*left + right;
+                // combine the two 32-bit values
+                const combined = littleEndian? left + 2**32*right : 2**32*left + right;
 
-            if (!Number.isSafeInteger(combined))
-                console.warn(combined, 'exceeds MAX_SAFE_INTEGER. Precision may be lost');
+                if (!Number.isSafeInteger(combined))
+                    console.warn(combined, 'exceeds MAX_SAFE_INTEGER. Precision may be lost');
 
-            return combined;
-        }
+                return combined;
+            }
     
             var dv = new DataView(e.data);
             var byteIndex = 0;
@@ -145,51 +139,53 @@ window.addEventListener("load", function(event){
         
             if(type == 1){
                 //Ingress
-                var rate = dv.getFloat64(byteIndex, littleEndian);
-                byteIndex += 8;
-                var averageRate = dv.getFloat64(byteIndex, littleEndian);
-                byteIndex += 8;
-                var totalData = dv.getFloat64(byteIndex, littleEndian);
+                var totalDataBytes = dv.getUint64(byteIndex, littleEndian);
                 byteIndex += 8;
                 var bundleCountEgress = dv.getUint64(byteIndex, littleEndian);
                 byteIndex += 8;
                 var bundleCountStorage = dv.getUint64(byteIndex, littleEndian);
-        
-                rate_data_ingress[0]['x'].push(ingressRateCount++);
-                rate_data_ingress[0]['y'].push(rate);
-                Plotly.update("ingress_rate_graph", rate_data_ingress, ingressLayout);
-        	pie_data[0]['values'] = [bundleCountStorage, bundleCountEgress];
-		Plotly.update('storage_egress_chart', pie_data, pie_layout);
-                document.getElementById("rate_data").innerHTML = rate.toFixed(3);
-                document.getElementById("max_data").innerHTML = Math.max.apply(Math, rate_data_ingress[0].y).toFixed(3);
-                document.getElementById("avg_data").innerHTML = averageRate.toFixed(3);
-                document.getElementById("ingressBundleData").innerHTML = totalData.toFixed(2);              
-	        document.getElementById("ingressBundleCountStorage").innerHTML = bundleCountStorage;
-        	document.getElementById("ingressBundleCountEgress").innerHTML = bundleCountEgress;
-        	document.getElementById("ingressBundleCount").innerHTML = bundleCountStorage + bundleCountEgress;
+                ingressRateCalculator.appendVal(totalDataBytes);
+                if (ingressRateCalculator.count == 1) {
+                    // Don't plot anything the first time through, since we don't have
+                    // sufficient data
+                    return;
+                }
 
-	    }
+                rate_data_ingress[0]['x'].push(ingressRateCalculator.count);
+                rate_data_ingress[0]['y'].push(ingressRateCalculator.currentMbpsRate);
+                Plotly.update("ingress_rate_graph", rate_data_ingress, ingressLayout);
+                pie_data[0]['values'] = [bundleCountStorage, bundleCountEgress];
+                Plotly.update('storage_egress_chart', pie_data, pie_layout);
+                document.getElementById("rate_data").innerHTML = ingressRateCalculator.currentMbpsRate.toFixed(3);
+                document.getElementById("max_data").innerHTML = Math.max.apply(Math, rate_data_ingress[0].y).toFixed(3);
+                document.getElementById("avg_data").innerHTML = ingressRateCalculator.averageMbpsRate.toFixed(3);
+                document.getElementById("ingressBundleData").innerHTML = totalDataBytes.toFixed(2);
+                document.getElementById("ingressBundleCountStorage").innerHTML = bundleCountStorage;
+                document.getElementById("ingressBundleCountEgress").innerHTML = bundleCountEgress;
+                document.getElementById("ingressBundleCount").innerHTML = bundleCountStorage + bundleCountEgress;
+
+            }
             else if(type == 2){
                 //Egress
-		egressBundleCount = dv.getUint64(byteIndex, littleEndian);
+                egressBundleCount = dv.getUint64(byteIndex, littleEndian);
                 byteIndex += 8;
-                var egressBundleData = dv.getFloat64(byteIndex, littleEndian);
+                var egressTotalDataBytes = dv.getUint64(byteIndex, littleEndian);
                 byteIndex += 8;
                 var egressMessageCount = dv.getUint64(byteIndex, littleEndian);
+                egressRateCalculator.appendVal(egressTotalDataBytes);
+                if (egressRateCalculator.count == 1) {
+                    // Don't plot anything the first time through, since we don't have
+                    // sufficient data
+                    return;
+                }
 
-		var newTime = new Date().getTime()*1000;
-		var duration = newTime - lastTime;
-		lastTime = newTime;
-		egressRate = (8.0 * (egressBundleData - lastEgressData))/duration;
-		lastEgressData = egressBundleData;
-
-		rate_data_egress[0]['x'].push(egressRateCount++);
-                rate_data_egress[0]['y'].push(egressRate);
+                rate_data_egress[0]['x'].push(egressRateCalculator.count);
+                rate_data_egress[0]['y'].push(egressRateCalculator.currentMbpsRate);
                 Plotly.update("egress_rate_graph", rate_data_egress, egressLayout);
 
-		document.getElementById("egressDataRate").innerHTML = egressRate.toFixed(3);
-		document.getElementById("egressBundleCount").innerHTML = egressBundleCount;
-                document.getElementById("egressBundleData").innerHTML = egressBundleData.toFixed(2);
+                document.getElementById("egressDataRate").innerHTML = egressRateCalculator.currentMbpsRate.toFixed(3);
+                document.getElementById("egressBundleCount").innerHTML = egressBundleCount;
+                document.getElementById("egressBundleData").innerHTML = egressTotalDataBytes.toFixed(2);
                 document.getElementById("egressMessageCount").innerHTML = egressMessageCount;
             }
             else if(type == 3){
@@ -207,8 +203,6 @@ window.addEventListener("load", function(event){
                 document.getElementById("usedSpaceBytes").innerHTML = usedSpaceBytes;
                 document.getElementById("freeSpaceBytes").innerHTML = freeSpaceBytes;
             }
-
-
         }
         //else this is text data
         else{
@@ -229,6 +223,3 @@ window.addEventListener("load", function(event){
         }
     }
 });
-
-
-

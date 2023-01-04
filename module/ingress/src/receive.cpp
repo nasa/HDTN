@@ -34,7 +34,7 @@
 #include "codec/BundleViewV7.h"
 #include "TcpclInduct.h"
 #include "TcpclV4Induct.h"
-#include "Telemetry.h"
+#include "TelemetryDefinitions.h"
 #include <unordered_map>
 #if (__cplusplus >= 201703L)
 #include <shared_mutex>
@@ -113,7 +113,7 @@ private:
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundIngressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundSchedulerToConnectingIngressPtr;
 
-    std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingGuiToFromBoundIngressPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingTelemToFromBoundIngressPtr;
 
     //std::shared_ptr<zmq::context_t> m_zmqTelemCtx;
     //std::shared_ptr<zmq::socket_t> m_zmqTelemSock;
@@ -350,9 +350,9 @@ bool Ingress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOne
                 m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
                 m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr->bind(std::string("inproc://connecting_egress_bundles_only_to_bound_ingress"));
 
-                //from gui socket
-                m_zmqRepSock_connectingGuiToFromBoundIngressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-                m_zmqRepSock_connectingGuiToFromBoundIngressPtr->bind(std::string("inproc://connecting_gui_to_from_bound_ingress"));
+                //from telemetry socket
+                m_zmqRepSock_connectingTelemToFromBoundIngressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+                m_zmqRepSock_connectingTelemToFromBoundIngressPtr->bind(std::string("inproc://connecting_telem_to_from_bound_ingress"));
 
             }
             else {
@@ -382,10 +382,10 @@ bool Ingress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOne
                     std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath));
                 m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr->bind(bind_connectingEgressBundlesOnlyToBoundIngressPath);
 
-                //from gui socket
-                m_zmqRepSock_connectingGuiToFromBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::rep);
-                const std::string bind_connectingGuiToFromBoundIngressPath("tcp://*:10301");
-                m_zmqRepSock_connectingGuiToFromBoundIngressPtr->bind(bind_connectingGuiToFromBoundIngressPath);
+                //from telemetry socket
+                m_zmqRepSock_connectingTelemToFromBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::rep);
+                const std::string bind_connectingTelemToFromBoundIngressPath("tcp://*:10301");
+                m_zmqRepSock_connectingTelemToFromBoundIngressPtr->bind(bind_connectingTelemToFromBoundIngressPath);
                 
             }
         }
@@ -396,7 +396,7 @@ bool Ingress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOne
 
         //Caution: All options, with the exception of ZMQ_SUBSCRIBE, ZMQ_UNSUBSCRIBE and ZMQ_LINGER, only take effect for subsequent socket bind/connects.
         //The value of 0 specifies no linger period. Pending messages shall be discarded immediately when the socket is closed with zmq_close().
-        m_zmqRepSock_connectingGuiToFromBoundIngressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
+        m_zmqRepSock_connectingTelemToFromBoundIngressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
         m_zmqPushSock_boundIngressToConnectingEgressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
         m_zmqPushSock_boundIngressToConnectingStoragePtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
 
@@ -441,6 +441,24 @@ bool Ingress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOne
     return true;
 }
 
+static void CustomCleanupZmqMessage(void *data, void *hint) {
+    delete static_cast<zmq::message_t*>(hint);
+}
+static void CustomCleanupPaddedVecUint8(void *data, void *hint) {
+    delete static_cast<padded_vector_uint8_t*>(hint);
+}
+
+static void CustomCleanupStdVecUint8(void *data, void *hint) {
+    delete static_cast<std::vector<uint8_t>*>(hint);
+}
+
+static void CustomCleanupToEgressHdr(void *data, void *hint) {
+    delete static_cast<hdtn::ToEgressHdr*>(hint);
+}
+
+static void CustomCleanupToStorageHdr(void *data, void *hint) {
+    delete static_cast<hdtn::ToStorageHdr*>(hint);
+}
 
 void Ingress::Impl::ReadZmqAcksThreadFunc() {
 
@@ -450,7 +468,7 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
         {m_zmqPullSock_connectingEgressToBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqPullSock_connectingStorageToBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqSubSock_boundSchedulerToConnectingIngressPtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_zmqRepSock_connectingGuiToFromBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0}
+        {m_zmqRepSock_connectingTelemToFromBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
     std::size_t totalAcksFromEgress = 0;
     std::size_t totalAcksFromStorage = 0;
@@ -618,27 +636,40 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
             if (items[2].revents & ZMQ_POLLIN) { //events from Scheduler
                 SchedulerEventHandler();
             }
-            if (items[3].revents & ZMQ_POLLIN) { //gui requests data
-                uint8_t guiMsgByte;
-                const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingGuiToFromBoundIngressPtr->recv(zmq::mutable_buffer(&guiMsgByte, sizeof(guiMsgByte)), zmq::recv_flags::dontwait);
+            if (items[3].revents & ZMQ_POLLIN) { //telem requests data
+                uint8_t telemMsgByte;
+                const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingTelemToFromBoundIngressPtr->recv(zmq::mutable_buffer(&telemMsgByte, sizeof(telemMsgByte)), zmq::recv_flags::dontwait);
                 if (!res) {
-                    LOG_ERROR(subprocess) << "ReadZmqAcksThreadFunc: cannot read guiMsgByte";
+                    LOG_ERROR(subprocess) << "ReadZmqAcksThreadFunc: cannot read telemMsgByte";
                 }
-                else if ((res->truncated()) || (res->size != sizeof(guiMsgByte))) {
-                    LOG_ERROR(subprocess) << "guiMsgByte message mismatch: untruncated = " << res->untruncated_size
-                        << " truncated = " << res->size << " expected = " << sizeof(guiMsgByte);
+                else if ((res->truncated()) || (res->size != sizeof(telemMsgByte))) {
+                    LOG_ERROR(subprocess) << "telemMsgByte message mismatch: untruncated = " << res->untruncated_size
+                        << " truncated = " << res->size << " expected = " << sizeof(telemMsgByte);
                 }
-                else if (guiMsgByte != 1) {
-                    LOG_ERROR(subprocess) << "guiMsgByte not 1";
+                else if (telemMsgByte != TELEM_REQ_MSG) {
+                    LOG_ERROR(subprocess) << "telemMsgByte not 1";
                 }
                 else {
                     //send telemetry
                     IngressTelemetry_t telem;
-                    telem.totalData = static_cast<double>(m_bundleData);
+                    telem.totalDataBytes = m_bundleData;
                     telem.bundleCountEgress = m_bundleCountEgress;
                     telem.bundleCountStorage = m_bundleCountStorage;
-                    if (!m_zmqRepSock_connectingGuiToFromBoundIngressPtr->send(zmq::const_buffer(&telem, sizeof(telem)), zmq::send_flags::dontwait)) {
-                        LOG_ERROR(subprocess) << "can't send telemetry to gui";
+                    std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(telem.GetSerializationSize()); //will be 64-bit aligned
+                    uint8_t* telemPtr = vecUint8RawPointer->data();
+                    const uint8_t* const telemSerializationBase = telemPtr;
+                    uint64_t telemBufferSize = vecUint8RawPointer->size();
+
+                    //start zmq message with telemetry
+                    const uint64_t ingressTelemSize = telem.SerializeToLittleEndian(telemPtr, telemBufferSize);
+                    telemBufferSize -= ingressTelemSize;
+                    telemPtr += ingressTelemSize;
+
+                    vecUint8RawPointer->resize(telemPtr - telemSerializationBase);
+
+                    zmq::message_t zmqTelemMessage(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
+                    if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(zmqTelemMessage), zmq::send_flags::dontwait)) {
+                        LOG_ERROR(subprocess) << "can't send telemetry to telem";
                     }
                 }
             }
@@ -740,26 +771,6 @@ void Ingress::Impl::SchedulerEventHandler() {
         LOG_ERROR(subprocess) << "unknown IreleaseChangeHdr message type " << releaseChangeHdr.base.type;
     }
 }
-
-static void CustomCleanupZmqMessage(void *data, void *hint) {
-    delete static_cast<zmq::message_t*>(hint);
-}
-static void CustomCleanupPaddedVecUint8(void *data, void *hint) {
-    delete static_cast<padded_vector_uint8_t*>(hint);
-}
-
-static void CustomCleanupStdVecUint8(void *data, void *hint) {
-    delete static_cast<std::vector<uint8_t>*>(hint);
-}
-
-static void CustomCleanupToEgressHdr(void *data, void *hint) {
-    delete static_cast<hdtn::ToEgressHdr*>(hint);
-}
-
-static void CustomCleanupToStorageHdr(void *data, void *hint) {
-    delete static_cast<hdtn::ToStorageHdr*>(hint);
-}
-
 
 bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCurrentSize,
     std::unique_ptr<zmq::message_t> & zmqPaddedMessageUnderlyingDataUniquePtr, padded_vector_uint8_t & paddedVecMessageUnderlyingData, const bool usingZmqData, const bool needsProcessing)

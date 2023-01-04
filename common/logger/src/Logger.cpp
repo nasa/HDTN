@@ -22,7 +22,7 @@ static const std::string process_strings[static_cast<unsigned int>(hdtn::Logger:
     "bpsink",
     "ltpfiletransfer",
     "egress",
-    "gui",
+    "telem",
     "hdtn",
     "ingress",
     "router",
@@ -47,6 +47,7 @@ static const std::string subprocess_strings[static_cast<unsigned int>(hdtn::Logg
     "router",
     "scheduler",
     "storage",
+    "telem",
     "gui",
     "unittest",
     ""
@@ -138,7 +139,6 @@ void Logger::init()
         createFileSinkForSubProcess(Logger::SubProcess::storage);
         createFileSinkForSubProcess(Logger::SubProcess::router);
         createFileSinkForSubProcess(Logger::SubProcess::scheduler);
-        createFileSinkForSubProcess(Logger::SubProcess::gui);
     #endif
 
     #ifdef LOG_TO_ERROR_FILE

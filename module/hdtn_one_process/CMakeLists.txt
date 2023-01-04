@@ -6,7 +6,7 @@ add_executable(hdtn-one-process
 set_property(
 	SOURCE src/HdtnOneProcessRunner.cpp
 	PROPERTY COMPILE_DEFINITIONS
-		$<$<BOOL:${USE_WEB_INTERFACE}>:USE_WEB_INTERFACE> 
+		$<$<BOOL:${RUN_TELEMETRY}>:RUN_TELEMETRY>
 )
 
 install(TARGETS hdtn-one-process DESTINATION ${CMAKE_INSTALL_BINDIR})
@@ -18,7 +18,7 @@ target_link_libraries(hdtn-one-process
 		ingress_async_lib
 		storage_lib
 		egress_async_lib
-		$<TARGET_NAME_IF_EXISTS:gui_lib>
+		$<TARGET_NAME_IF_EXISTS:telem_lib>
 		Boost::program_options
 )
 target_include_directories(hdtn-one-process

@@ -1,0 +1,16 @@
+get_filename_component(HDTNTELEMLIB_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+include(CMakeFindDependencyMacro)
+
+find_dependency(HDTNUtil REQUIRED)
+find_dependency(LoggerLib REQUIRED)
+find_dependency(Bpcodec REQUIRED)
+
+if(NOT TARGET HDTN::HdtnTelemLib)
+    include("${HDTNTELEMLIB_CMAKE_DIR}/HdtnTelemLibTargets.cmake")
+endif()
+
+set(civetweb_INCLUDE @civetweb_INCLUDE@)
+set(civetweb_LIB @civetweb_LIB@)
+set(civetwebcpp_LIB @civetwebcpp_LIB@)
+
+set(HDTNTELEMLIB_LIBRARIES HDTN::HdtnTelemLib)

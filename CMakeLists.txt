@@ -120,12 +120,9 @@ endif()
 
 #Stats option
 OPTION(DO_STATS_LOGGING "Should stats be logged to files" Off)
-#for now, if we want stats logged we need to also enable the web interface
 if (DO_STATS_LOGGING)
 	add_compile_definitions(DO_STATS_LOGGING)
-	set(USE_WEB_INTERFACE On)
 endif()
-
 OPTION(USE_WEB_INTERFACE "Use CivetWeb HDTN Web Interface" OFF)
 if(USE_WEB_INTERFACE)
 	#add_compile_definitions(USE_WEB_INTERFACE) #not needed globally, rather this is set specifically to HdtnOneProcessRunner.cpp in the one process CMakeLists.txt
@@ -138,6 +135,10 @@ if(USE_WEB_INTERFACE)
 		set(civetweb_LIB "${CMAKE_CURRENT_SOURCE_DIR}/external/lib/libcivetweb.a" CACHE FILEPATH "Civetweb library")
 		set(civetwebcpp_LIB "" CACHE FILEPATH "Civetweb CPP library")
 	endif()
+endif()
+
+if (DO_STATS_LOGGING OR USE_WEB_INTERFACE)
+	set(RUN_TELEMETRY ON)
 endif()
 
 OPTION(ENABLE_OPENSSL_SUPPORT "TcpclV4 can use OpenSSL" ON)
@@ -154,7 +155,7 @@ endif()
 include(${CMAKE_SOURCE_DIR}/add_hdtn_package_export.cmake)
 
 add_subdirectory(common/bpcodec)
-add_subdirectory(common/telemetry)
+add_subdirectory(common/telemetry_definitions)
 add_subdirectory(common/logger)
 add_subdirectory(common/util)
 add_subdirectory(common/config)
@@ -166,8 +167,8 @@ add_subdirectory(common/ltp)
 add_subdirectory(common/stcp)
 add_subdirectory(common/udp)
 add_subdirectory(common/stats_logger)
-if(USE_WEB_INTERFACE)
-	add_subdirectory(module/gui)
+if(RUN_TELEMETRY)
+	add_subdirectory(module/telem_cmd_interface)
 endif()
 add_subdirectory(module/storage)
 add_subdirectory(module/ingress)
