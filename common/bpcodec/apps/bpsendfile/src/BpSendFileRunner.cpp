@@ -59,25 +59,25 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
 
         boost::program_options::options_description desc("Allowed options");
         try {
-                desc.add_options()
-                    ("help", "Produce help message.")
-                    ("max-bundle-size-bytes", boost::program_options::value<uint64_t>()->default_value(4000000), "Max size bundle for file fragments (default 4MB).")
-                    ("file-or-folder-path", boost::program_options::value<boost::filesystem::path>()->default_value(""), "File or folder paths. Folders are recursive.")
-                    ("my-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:1.1"), "BpGen Source Node Id.")
-                    ("dest-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:2.1"), "BpGen sends to this final destination Eid.")
-                    ("my-custodian-service-id", boost::program_options::value<uint64_t>()->default_value(0), "Custodian service ID is always 0.")
-                    ("outducts-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "Outducts Configuration File.")
-                    ("custody-transfer-inducts-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "Inducts Configuration File for custody transfer (use custody if present).")
-                    ("skip-upload-existing-files", "Do not upload existing files in the directory if and only if file-or-folder-path is a directory.")
-                    ("upload-new-files", "Upload new files copied or moved into the directory if and only if file-or-folder-path is a directory.")
-                    ("recurse-directories-depth", boost::program_options::value<unsigned int>()->default_value(3), "Upload all files within max specified depth of subdirectories if file-or-folder-path is a directory (0->no recursion).")
-                    ("custody-transfer-use-acs", "Custody transfer should use Aggregate Custody Signals instead of RFC5050.")
-                    ("force-disable-custody", "Custody transfer turned off regardless of link bidirectionality.")
-                    ("use-bp-version-7", "Send bundles using bundle protocol version 7.")
-                    ("bundle-send-timeout-seconds", boost::program_options::value<unsigned int>()->default_value(3), "Max time to send a bundle and get acknowledgement.")
-                    ("bundle-lifetime-milliseconds", boost::program_options::value<uint64_t>()->default_value(1000000), "Bundle lifetime in milliseconds.")
-                    ("bundle-priority", boost::program_options::value<uint64_t>()->default_value(2), "Bundle priority. 0 = Bulk 1 = Normal 2 = Expedited")
-                    ;
+            desc.add_options()
+                ("help", "Produce help message.")
+                ("max-bundle-size-bytes", boost::program_options::value<uint64_t>()->default_value(4000000), "Max size bundle for file fragments (default 4MB).")
+                ("file-or-folder-path", boost::program_options::value<boost::filesystem::path>()->default_value(""), "File or folder paths. Folders are recursive.")
+                ("my-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:1.1"), "BpGen Source Node Id.")
+                ("dest-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:2.1"), "BpGen sends to this final destination Eid.")
+                ("my-custodian-service-id", boost::program_options::value<uint64_t>()->default_value(0), "Custodian service ID is always 0.")
+                ("outducts-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "Outducts Configuration File.")
+                ("custody-transfer-inducts-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "Inducts Configuration File for custody transfer (use custody if present).")
+                ("skip-upload-existing-files", "Do not upload existing files in the directory if and only if file-or-folder-path is a directory.")
+                ("upload-new-files", "Upload new files copied or moved into the directory if and only if file-or-folder-path is a directory.")
+                ("recurse-directories-depth", boost::program_options::value<unsigned int>()->default_value(3), "Upload all files within max specified depth of subdirectories if file-or-folder-path is a directory (0->no recursion).")
+                ("custody-transfer-use-acs", "Custody transfer should use Aggregate Custody Signals instead of RFC5050.")
+                ("force-disable-custody", "Custody transfer turned off regardless of link bidirectionality.")
+                ("use-bp-version-7", "Send bundles using bundle protocol version 7.")
+                ("bundle-send-timeout-seconds", boost::program_options::value<unsigned int>()->default_value(3), "Max time to send a bundle and get acknowledgement.")
+                ("bundle-lifetime-milliseconds", boost::program_options::value<uint64_t>()->default_value(1000000), "Bundle lifetime in milliseconds.")
+                ("bundle-priority", boost::program_options::value<uint64_t>()->default_value(2), "Bundle priority. 0 = Bulk 1 = Normal 2 = Expedited")
+                ;
 
                 boost::program_options::variables_map vm;
                 boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc, boost::program_options::command_line_style::unix_style | boost::program_options::command_line_style::case_insensitive), vm);
@@ -169,7 +169,8 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
         LOG_INFO(subprocess) << "starting..";
 
         BpSendFile bpSendFile(fileOrFolderPath, maxBundleSizeBytes, uploadExistingFiles, uploadNewFiles, recurseDirectoriesDepth);
-        if (bpSendFile.GetNumberOfFilesToSend() == 0) {
+        if ((bpSendFile.GetNumberOfFilesToSend() == 0) && (!uploadNewFiles)) {
+            LOG_ERROR(subprocess) << "Terminating because there are no files to send and monitoring of new files is disabled!";
             return false;
         }
         bpSendFile.Start(
