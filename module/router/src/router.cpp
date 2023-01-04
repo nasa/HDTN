@@ -23,7 +23,7 @@
 #include <memory>
 #include "libcgr.h"
 #include "Logger.h"
-#include "Telemetry.h"
+#include "TelemetryDefinitions.h"
 #include <boost/make_unique.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/foreach.hpp>
