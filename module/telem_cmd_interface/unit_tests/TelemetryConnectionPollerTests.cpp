@@ -28,7 +28,7 @@ BOOST_AUTO_TEST_CASE(TelemetryConnectionPollerPollConnectionsTestCase)
     poller.m_pollItems[1].revents |= ZMQ_POLLIN;
     boost::timer::cpu_timer timer;
     poller.PollConnections(100);
-    BOOST_REQUIRE_GE(timer.elapsed().wall, 100 * 1000000);
+    BOOST_REQUIRE_CLOSE(double(timer.elapsed().wall), 100 * 1000000.0, 20);
     BOOST_REQUIRE_EQUAL(0, poller.m_pollItems[0].revents);
     BOOST_REQUIRE_EQUAL(0, poller.m_pollItems[1].revents);
 }
