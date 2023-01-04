@@ -50,11 +50,11 @@ add_executable(unit-tests
 	../../module/storage/unit_tests/TestBundleUuidToUint64HashMap.cpp
 	../../module/storage/unit_tests/TestCustodyTimers.cpp
     #../../module/storage/unit_tests/BundleStorageManagerMtAsFifoTests.cpp
-	../../module/telem_cmd_interface/unit_tests/TelemetryRunnerTests.cpp
-	../../module/telem_cmd_interface/unit_tests/TelemetryConnectionTests.cpp
-	../../module/telem_cmd_interface/unit_tests/TelemetryConnectionPollerTests.cpp
-	../../module/telem_cmd_interface/unit_tests/TelemetryLoggerTests.cpp
-	../../module/telem_cmd_interface/unit_tests/TelemetryRunnerProgramOptionsTests.cpp
+	$<$<BOOL:${RUN_TELEMETRY}>:../../module/telem_cmd_interface/unit_tests/TelemetryRunnerTests.cpp>
+	$<$<BOOL:${RUN_TELEMETRY}>:../../module/telem_cmd_interface/unit_tests/TelemetryConnectionTests.cpp>
+	$<$<BOOL:${RUN_TELEMETRY}>:../../module/telem_cmd_interface/unit_tests/TelemetryConnectionPollerTests.cpp>
+	$<$<BOOL:${RUN_TELEMETRY}>:../../module/telem_cmd_interface/unit_tests/TelemetryLoggerTests.cpp>
+	$<$<BOOL:${RUN_TELEMETRY}>:../../module/telem_cmd_interface/unit_tests/TelemetryRunnerProgramOptionsTests.cpp>
 )
 install(TARGETS unit-tests DESTINATION ${CMAKE_INSTALL_BINDIR})
 
@@ -71,7 +71,7 @@ target_link_libraries(unit-tests
 	udp_delay_sim_lib
 	log_lib
 	stats_lib
-	telem_lib
+	$<$<BOOL:${RUN_TELEMETRY}>:telem_lib>
 	Boost::unit_test_framework
 	Boost::timer
 )
