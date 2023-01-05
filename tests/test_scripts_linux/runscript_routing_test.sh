@@ -20,20 +20,9 @@ bpsink2_PID=$!
 sleep 3
 
 #hdtn-one-process
-./build/module/hdtn_one_process/hdtn-one-process --hdtn-config-file=$hdtn_config &
+./build/module/hdtn_one_process/hdtn-one-process --contact-plan-file=contactPlan.json --hdtn-config-file=$hdtn_config &
 one_process_PID=$!
 sleep 6
-
-#Scheduler
-./build/module/scheduler/hdtn-scheduler --contact-plan-file=contactPlan.json --hdtn-config-file=$hdtn_config &
-scheduler_PID=$!
-sleep 1
-
-#Router -The default routing Algorithm is CGR Dijkstra
-# use the option --use-mgr to use Multigraph Routing Algorithm 
-./build/module/router/hdtn-router --contact-plan-file=contactPlan.json --hdtn-config-file=$hdtn_config &
-router_PID=$!
-sleep 5
 
 # bpgen1
 ./build/common/bpcodec/apps/bpgen-async  --use-bp-version-7 --bundle-rate=100 --my-uri-eid=ipn:101.1 --dest-uri-eid=ipn:1.1 --outducts-config-file=$gen_config &

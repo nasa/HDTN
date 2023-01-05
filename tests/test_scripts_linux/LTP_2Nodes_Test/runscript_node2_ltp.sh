@@ -12,12 +12,9 @@ cd $HDTN_SOURCE_ROOT
 sleep 3
 
 # HDTN one process
-./build/module/hdtn_one_process/hdtn-one-process  --hdtn-config-file=$hdtn_config &
+./build/module/hdtn_one_process/hdtn-one-process --contact-plan-file=contactPlan2Nodes.json  --hdtn-config-file=$hdtn_config &
 sleep 10
 
-#Scheduler
-./build/module/scheduler/hdtn-scheduler --contact-plan-file=contactPlan2Nodes.json --hdtn-config-file=$hdtn_config &
-sleep 1
 
 
 

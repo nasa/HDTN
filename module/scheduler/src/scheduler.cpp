@@ -412,7 +412,7 @@ void Scheduler::Impl::EgressEventsHandler() {
 
         LOG_INFO(subprocess) << "EgressEventsHandler nextHopNodeId " << destNode << " and srcNode " << srcNode;
         
-	    contact_t contact;
+	contact_t contact;
         contact.source = srcNode;
         contact.dest = destNode;
 
@@ -428,7 +428,7 @@ void Scheduler::Impl::EgressEventsHandler() {
                 contactIsUp = it->second;
             }
             if (contactIsUp) {
-	            LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Up event ";
+	        LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Up event ";
                 SendLinkUp(srcNode, destNode, outductArrayIndex, timeSecondsSinceSchedulerEpoch);
             }
         }
@@ -647,10 +647,11 @@ bool Scheduler::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
         contact.dest = contactPlan.first.dest;
 
 
-        if (!isLinkUp) {
-            m_contactUpSetMutex.lock();
-            m_mapContactUp[contact] = false;
-            m_contactUpSetMutex.unlock();
+	m_contactUpSetMutex.lock();
+	m_mapContactUp[contact] = isLinkUp;
+        m_contactUpSetMutex.unlock();
+       	
+	if (!isLinkUp) {
             LOG_INFO(subprocess) << "m_mapContactUp " << false << " for source " << contact.source << " destination " << contact.dest;
             SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest, 
                 contactPlan.first.end + 1, contactPlan.first.contact);

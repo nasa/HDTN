@@ -14,14 +14,9 @@ bpreceive_PID=$!
 sleep 3
 
 # HDTN one process
-./build/module/hdtn_one_process/hdtn-one-process --hdtn-config-file=$hdtn_config &
+./build/module/hdtn_one_process/hdtn-one-process --contact-plan-file=contactPlanCutThroughMode.json --hdtn-config-file=$hdtn_config &
 one_process_PID=$!
 sleep 6
-
-#Scheduler
-./build/module/scheduler/hdtn-scheduler --contact-plan-file=contactPlanCutThroughMode.json --hdtn-config-file=$hdtn_config &
-scheduler_PID=$!
-sleep 5
 
 # BP Send File 
 ./build/common/bpcodec/apps/bpsendfile  --use-bp-version-7  --max-bundle-size-bytes=4000000 --file-or-folder-path=test.txt --my-uri-eid=ipn:1.1 --dest-uri-eid=ipn:2.1 --outducts-config-file=$gen_config &

@@ -21,24 +21,9 @@ bpsink2_PID=$!
 sleep 3
 
 #HDTN One Process
-./build/module/hdtn_one_process/hdtn-one-process --hdtn-config-file=$hdtn_config &
+./build/module/hdtn_one_process/hdtn-one-process --contact-plan-file=contactPlan.json --hdtn-config-file=$hdtn_config &
 hdtn_one_process_PID=$!
 sleep 3
-
-#Routing
-# CGR server
-python3 ./pycgr/py_cgr_client.py -c module/scheduler/src/contactPlan.json &
-sleep 1
-
-#Router
-./build/module/router/hdtn-router --contact-plan-file=contactPlan.json --dest-uri-eid=ipn:2.1 --hdtn-config-file=$hdtn_config &
-router_PID=$!
-sleep 1
-
-#Scheduler
-./build/module/scheduler/hdtn-scheduler --contact-plan-file=contactPlan.json --hdtn-config-file=$hdtn_config &
-scheduler_PID=$!
-sleep 1
 
 # bpgen1
 ./build/common/bpcodec/apps/bpgen-async --bundle-rate=100 --my-uri-eid=ipn:101.1 --dest-uri-eid=ipn:1.1 --duration=40 --outducts-config-file=$gen_config &
