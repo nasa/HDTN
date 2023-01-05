@@ -198,7 +198,7 @@ struct LinkStatusHdr {
 
 struct ContactPlanReloadHdr {
     CommonHdr base;
-    uint8_t unusedPadding[3];
+    uint8_t unusedPadding[4];
  };
 
 };  // namespace hdtn

@@ -19,26 +19,6 @@
             "endTime": 2000,
             "rate": 1000,
             "owlt":  1
-        },
-        {
-            "contact": 2,
-            "source": 10,
-            "dest": 1,
-            "finalDestination": 1,
-            "startTime": 0,
-            "endTime": 2000,
-            "rate": 1000,
-            "owlt":  1
-        },
-        {
-            "contact": 3,
-            "source": 2,
-            "dest": 1,
-            "finalDestination": 1,
-            "startTime": 0,
-            "endTime": 2000,
-            "rate": 1000,
-            "owlt":  1
         }
     ]
 }

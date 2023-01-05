@@ -29,7 +29,5 @@ echo "\nkilling bp send file..." && kill -2 $bpsend_PID
 sleep 2
 echo "\nkilling HDTN one process ..." && kill -2 $one_process_PID
 sleep 2
-echo "\nkilling HDTN scheduler ..." && kill -2 $scheduler_PID
-sleep 2
 echo "\nkilling bp receive file..." && kill -2 $bpreceive_PID
 
