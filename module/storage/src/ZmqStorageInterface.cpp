@@ -1165,7 +1165,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                             }
                         }
                         else {
-                            LOG_ERROR(subprocess) << "release message received with out of bounds outductArrayIndex " << releaseChangeHdr.outductArrayIndex;
+                            LOG_ERROR(subprocess) << "link up message received with out of bounds outductArrayIndex " << releaseChangeHdr.outductArrayIndex;
                         }
                     }
                     else {
@@ -1182,7 +1182,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                             SetLinkDown(info);
                         }
                         else {
-                            LOG_ERROR(subprocess) << "release message received with out of bounds outductArrayIndex " << releaseChangeHdr.outductArrayIndex;
+                            LOG_ERROR(subprocess) << "link down message received with out of bounds outductArrayIndex " << releaseChangeHdr.outductArrayIndex;
                         }
                     }
                     else {
