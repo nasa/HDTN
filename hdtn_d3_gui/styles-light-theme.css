@@ -1,0 +1,48 @@
+div.tooltip {
+    color: black;
+    background: lightsteelblue;
+}
+
+.solar_array_text, .wire_text {
+    fill: black;
+}
+
+.battery_text_label, .battery_text_soc {
+    fill: black;
+}
+.battery_terminal {
+    stroke: black;
+    fill: black;
+}
+
+.battery_outline {
+    stroke: black;
+}
+
+.battery_juice_color {
+    stop-color: lawngreen;
+}
+.battery_nonjuice_color {
+    stop-color: white;
+}
+
+.arrowHead {
+    stroke: black;
+    fill: black;
+}
+
+.wire_on {
+    stroke: limegreen;
+}
+.wire_off {
+    stroke: black;
+}
+.system_outline_group_rect {
+    stroke: black;
+}
+.system_outline_group_text {
+    fill: black;
+}
+.bus_bar {
+    stroke: green;
+}

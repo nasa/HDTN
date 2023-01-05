@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>Hidra Gui</title>
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link type="text/css" rel="stylesheet" href="modal-websocket-disconnect.css">
+    <link type="text/css" rel="stylesheet" href="styles.css">
+    <link type="text/css" rel="stylesheet" href="styles-light-theme.css" title="light-theme" />
+    <link type="text/css" rel="alternate stylesheet" href="styles-dark-theme.css" title="dark-theme" />
+</head>
+<body>
+
+    <style type="text/css">
+        body {
+            font-family: helvetica, sans-serif;
+        }
+
+
+        .background {
+            color: blue;
+        }
+        div.tooltip {
+            position: absolute;
+            text-align: left;
+            width: 200px;
+            height: 300px;
+            padding: 2px;
+            font: 12px sans-serif;
+            background: lightsteelblue;
+            border: 0px;
+            border-radius: 8px;
+            pointer-events: none;
+        }
+        svg text {
+            pointer-events: none;
+        }
+
+
+        .wire_tx {
+            stroke: green;
+            fill: none;
+            stroke-width: 3;
+        }
+        .wire_rx {
+            stroke: red;
+            fill: none;
+            stroke-width: 3;
+        }
+        .connected_node_circle {
+            fill: red;
+        }
+
+        .buffer_fill_color {
+            stop-color: green;
+        }
+        .buffer_nonfill_color {
+            stop-color: white;
+        }
+
+
+    </style>
+
+    <div id="myModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span id="idModalClose" class="close">&times;</span>
+                <h2>Websocket Connection Lost</h2>
+            </div>
+            <div class="modal-body">
+                <p>Websocket connection lost to the server.  Please refresh your browser.</p>
+            </div>
+            <div class="modal-footer"></div>
+        </div>
+    </div>
+    <!--<button onclick="MyToggleRbi()">Toggle RBI</button>-->
+    <label>Theme: </label>
+    <select id="idThemeSelect" onchange="onThemeChanged(this.value)">
+        <option value="light-theme" selected="">Light Theme</option>
+        <option value="dark-theme">Dark Theme</option>
+    </select>
+    <label>Wire Width: </label>
+    <select id="idWireWidthSelect" onchange="onWireWidthChanged(this.value)">
+        <option value="3" selected="">3px</option>
+        <option value="4">4px</option>
+        <option value="5">5px</option>
+        <option value="6">6px</option>
+    </select>
+    <label>Wire Dashes: </label>
+    <select id="idWireDashArraySelect" onchange="onWireDashArrayChanged(this.value)">
+        <option value="7 1">7-1</option>
+        <option value="6 2" selected="">6-2</option>
+        <option value="5 3">5-3</option>
+        <option value="4 4">4-4</option>
+        <option value="3 5">3-5</option>
+    </select>
+    <select id="idDeclutterSelect">
+        <option value="cluttered" selected="">Cluttered</option>
+        <option value="decluttered_shrink">Decluttered Shrink</option>
+        <option value="decluttered_gaps">Decluttered Gaps</option>
+    </select>
+    <select id="idViewSelect">
+        <option value="full" selected="">Full System (Centered)</option>
+        <option value="native_size">Native Size (Left)</option>
+    </select>
+    <input type="checkbox" id="id_showVoltage" checked /><Label>Show Voltage</Label>
+    <input type="checkbox" id="id_showCurrent" checked /><Label>Show Current</Label>
+    <div id="mygui"></div>
+    <div class="tooltip"></div>
+
+
+    <script src="d3.v5.min.js"></script>
+    <script src="hdtn.js"></script>
+    <script src="ParseHdtnConfig.js"></script>
+    <script src="RectComponents.js"></script>
+    <script src="WireComponents.js"></script>
+    <script src="ToolTip.js"></script>
+
+    <script type="text/javascript">
+        document.getElementById("idModalClose").onclick = function() {
+            document.getElementById('myModal').style.display = "none";
+        }
+
+        var lightThemeLink = document.querySelector("link[title=light-theme]");
+        var darkThemeLink = document.querySelector("link[title=dark-theme]");
+        lightThemeLink.disabled = false;
+        darkThemeLink.disabled = true;
+
+        function SwitchStyle(cssTitle) {
+            if(cssTitle === "light-theme" && lightThemeLink.disabled) {
+                lightThemeLink.disabled = false;
+                darkThemeLink.disabled = true;
+            }
+            else if(cssTitle === "dark-theme" && darkThemeLink.disabled) {
+                darkThemeLink.disabled = false;
+                lightThemeLink.disabled = true;
+            }
+        }
+
+        function onThemeChanged(newTheme) {
+            SwitchStyle(newTheme);
+        }
+
+         // Define the div for the tooltip
+        var divTooltip = d3.select(".tooltip")
+            .style("opacity", 0);
+
+        var globalToolTipObject = null;
+        function UpdateActiveToolTip() {
+            if(globalToolTipObject != null) {
+                UpdateToolTipText(globalToolTipObject, false);
+            }
+        }
+        function UpdateToolTipText(obj, isMouseEvent) {
+            globalToolTipObject = obj;
+            var dataObj = {};
+            if(obj === "Storage" && currentStorageObj != null) {
+                dataObj = currentStorageObj;
+            }
+            else if(obj === "Ingress" && currentIngressObj != null) {
+                dataObj = currentIngressObj;
+            }
+            else if(obj === "Egress" && currentEgressObj != null) {
+                dataObj = currentEgressObj;
+            }
+
+            var textStr = "";
+            for(var propName in dataObj) {
+                textStr += "<br/>" + propName + ": " + dataObj[propName];
+            }
+
+            divTooltip.html(textStr);
+            if(isMouseEvent) {
+                divTooltip.style("left", (d3.event.pageX) + "px");
+                divTooltip.style("top", (d3.event.pageY - 310) + "px");
+            }
+
+        }
+        function MouseEventToolTip(d) {
+            if(d3.event.type === "mouseover") {
+                divTooltip.transition()
+                    .duration(200)
+                    .style("opacity", .9);
+                UpdateToolTipText(d, true);
+            }
+            else if(d3.event.type === "mousemove") {
+                UpdateToolTipText(d, true);
+            }
+            else if(d3.event.type === "mouseout") {
+                divTooltip.transition()
+                    .duration(200)
+                    .style("opacity", 0);
+            }
+        }
+
+        function ExponentialMovingAverage(paramAlpha) {
+
+            var alpha = paramAlpha;
+            var oneMinusAlpha = 1.0 - alpha;
+            var mean = 0;
+
+
+            return {
+                Update: function(newValue) {
+                    mean = (mean * oneMinusAlpha) + (newValue * alpha);
+                    return mean;
+                },
+                GetMean: function() {
+                    return mean;
+                }
+            };
+        }
+        //TEST CODE FOR ExponentialMovingAverage
+        //var em = ExponentialMovingAverage(0.1);
+        //for(var i=0; i<100; ++i) {
+        //    console.log(em.Update(10));
+        //}
+
+        function SystemOutline(paramSvgRootGroup, paramX, paramY, paramWidth, paramHeight) {
+
+            var svgRootGroup = paramSvgRootGroup;
+            var x = paramX;
+            var y = paramY;
+            var width = paramWidth;
+            var height = paramHeight;
+
+            var systemOutlineGroup = svgRootGroup.append("svg:g")
+                .attr("class", "system_outline_group");
+
+
+            //DRAW THE NODE
+            systemOutlineGroup.append("svg:rect")
+                .attr("x", x)
+                .attr("y", y)
+                .attr("width", width)
+                .attr("height", height)
+                .attr("class", "block_component_group_rect")
+                .attr("rx", 10)
+                .attr("ry", 10)
+                .attr("fill", "none")
+                .style("stroke-width", 5)
+                .style("stroke", "black")
+                .attr("stroke-dasharray", "10 5");;
+
+
+
+
+
+
+            return {
+                SetDiskUsage: function(percentage){
+                    SetUsage(percentage);
+                }
+            };
+        }
+
+        function BlockComponent(paramSvgRootGroup, paramLabelText, paramX, paramY, paramWidth, paramHeight) {
+
+            var svgRootGroup = paramSvgRootGroup;
+            var labelText = paramLabelText;
+            var x = paramX;
+            var y = paramY;
+            var width = paramWidth;
+            var height = paramHeight;
+
+            var blockComponentGroup = svgRootGroup.append("svg:g")
+                .attr("class", "block_component_group");
+
+            function GetRightWirePosition() {
+                return {
+                    x: x + width,
+                    y: y + height * .5
+                };
+            }
+            function GetLeftWirePosition() {
+                return {
+                    x: x,
+                    y: y + height * .5
+                };
+            }
+            function GetBottomWirePosition() {
+                return {
+                    x: x + width * .5,
+                    y: y + height
+                };
+            }
+            function GetTopWirePosition() {
+                return {
+                    x: x + width * .5,
+                    y: y
+                };
+            }
+            function GetSizes() {
+                return {
+                    width: width,
+                    height: height
+                };
+            }
+
+
+            //DRAW THE NODE
+            blockComponentGroup.append("svg:rect")
+                .attr("x", x)
+                .attr("y", y)
+                .attr("width", width)
+                .attr("height", height)
+                .attr("class", "block_component_group_rect")
+                .attr("rx", 5)
+                .attr("ry", 5)
+                .attr("fill", "gainsboro")
+                .on("mouseover mousemove mouseout", MouseEventToolTip)
+                .datum(labelText) //for tooltip id
+                .style("stroke-width", 2)
+                .style("stroke", "black");
+
+
+
+            blockComponentGroup.append("svg:text")
+                .attr("class", "block_component_text")
+                .attr("dy", ".35em")
+                //.attr("text-anchor", "end")
+                .attr("transform", "translate(" + (x + width*.5) + "," + (y + height*.5) +")")
+                .attr("text-anchor", "middle")
+                .text(labelText);
+
+
+
+
+
+            return {
+                SetDiskUsage: function(percentage){
+                    SetUsage(percentage);
+                },
+                GetWirePos: function(posStr) {
+                    if(posStr === "right") return GetRightWirePosition();
+                    if(posStr === "left") return GetLeftWirePosition();
+                    if(posStr === "top") return GetTopWirePosition();
+                    if(posStr === "bottom") return GetBottomWirePosition();
+                },
+                GetSize: function() {
+                    return GetSizes();
+                }
+            };
+        }
+
+        function Disk(paramSvgRootGroup, paramX, paramY, paramRadius, paramPerspectiveRadius, paramHeight, paramDiskName) {
+
+            var svgRootGroup = paramSvgRootGroup;
+            var x = paramX;
+            var y = paramY;
+            var radius = paramRadius;
+            var perspectiveRadius = paramPerspectiveRadius;
+            var height = paramHeight;
+            var diskName = paramDiskName;
+
+            var diskGroup = svgRootGroup.append("svg:g")
+                .attr("transform", "translate(" + x + "," + y +")")
+                .attr("class", "disk_node_group");
+
+            function GetCylinderFillPath(rx, ry, height) {
+                return "M" + (-rx) + ",0"
+                    + "a" + rx + "," + ry + " 0 1 0 " + (2 * rx) + ",0" //arc bottom left to bottom right
+                    + "l 0," + (-height)
+                    + "a" + rx + "," + ry + " 0 1 0 " + (2 * -rx) + ",0" //arc top right to top left
+                    + "z";
+            }
+            function GetCylinderDashedLinePath(rx, ry) {
+                return "M" + (-rx) + ",0"
+                    + "a" + rx + "," + ry + " 0 1 1 " + (2 * rx) + ",0"; //arc bottom left to bottom right
+            }
+            function GetCylinderTopFrontLinePath(rx, ry, height) {
+                return "M" + (-rx) + "," + (-height)
+                    + "a" + rx + "," + ry + " 0 1 0 " + (2 * rx) + ",0"; //arc top left to top right
+            }
+
+            function SetUsage(percentage, bufferPercentage) {
+                diskGroup.selectAll("path.cylinder_top_front_line_path")
+                    .attr("d", GetCylinderTopFrontLinePath(radius, perspectiveRadius, height*percentage*.01));
+
+
+                diskGroup.selectAll("path.cylinder_fill_path")
+                    .attr("d", GetCylinderFillPath(radius, perspectiveRadius, height*percentage*.01));
+
+                diskGroup.selectAll("text.cylinder_text")
+                    .text(percentage.toFixed(0) + "%");
+
+                diskGroup.selectAll("stop")
+                    .attr('offset', bufferPercentage*.01);
+
+            }
+
+            function GetRightWirePosition() {
+                return {
+                    x: x + radius,
+                    y: y - height * .5
+                };
+            }
+            function GetLeftWirePosition() {
+                return {
+                    x: x - radius,
+                    y: y - height * .5
+                };
+            }
+            function GetBottomWirePosition() {
+                return {
+                    x: x,
+                    y: y
+                };
+            }
+            function GetTopWirePosition() {
+                return {
+                    x: x,
+                    y: y - (height + perspectiveRadius)
+                };
+            }
+
+
+
+            //DRAW THE HIDRA NODE
+            diskGroup.append("svg:path")
+                .attr("d", GetCylinderFillPath(radius, perspectiveRadius, height))
+                .attr("stroke", "black")
+                .attr("fill", "none");
+
+            diskGroup.append("svg:path")
+                .attr("d", GetCylinderDashedLinePath(radius, perspectiveRadius))
+                .attr("stroke", "black")
+                .attr("fill", "none")
+                .attr("stroke-dasharray", "4 2");
+
+            diskGroup.append("svg:path")
+                .attr("d", GetCylinderTopFrontLinePath(radius, perspectiveRadius, height))
+                .attr("stroke", "black")
+                .attr("fill", "none");
+
+            diskGroup.append("svg:path")
+                .attr("class", "cylinder_top_front_line_path")
+                .attr("d", GetCylinderTopFrontLinePath(radius, perspectiveRadius, height*.5))
+                .attr("stroke", "black")
+                .attr("fill", "none");
+
+            diskGroup.append("svg:path")
+                .attr("class", "cylinder_fill_path")
+                .attr("d", GetCylinderFillPath(radius, perspectiveRadius, height*.5))
+                .attr("stroke", "none")
+                .attr("fill", "red")
+                .style("opacity", .2);
+
+            diskGroup.append("svg:path")
+                .attr("class", "cylinder_fill_path")
+                .attr("d", GetCylinderFillPath(radius, perspectiveRadius, height*.5))
+                .attr("stroke", "black")
+                .attr("fill", "none");
+
+            diskGroup.append("svg:text")
+                .attr("class", "cylinder_text")
+                .attr("dy", ".35em")
+                //.attr("text-anchor", "end")
+                .attr("transform", "translate(0," + (-height*.5) +")")
+                .attr("text-anchor", "middle")
+                .text("");
+
+            diskGroup.append("svg:text")
+                .attr("class", "disk_name_text")
+                .attr("dy", ".35em")
+                //.attr("text-anchor", "end")
+                .attr("transform", "translate(0," + (30) +")")
+                .attr("text-anchor", "middle")
+                .text(diskName);
+
+
+
+            var bufferGradient = diskGroup.append('linearGradient')
+                .attr('id', "gradient_" + diskName)
+                .attr("x1", "0%")
+                .attr("y1", "100%")
+                .attr("x2", "0%")
+                .attr("y2", "0%");
+            bufferGradient.append('stop')
+                .attr("class", "buffer_fill_color");
+                //.attr('stop-color', 'lawngreen');
+            bufferGradient.append('stop')
+                .attr("class", "buffer_nonfill_color");
+                //.attr('stop-color', 'white');
+            bufferGradient.selectAll("stop")
+                .attr('offset', function(d) {
+                    return .2;
+                });
+
+
+
+            diskGroup.append("svg:rect")
+                .attr("x", radius + 10)
+                .attr("y", -height)
+                .attr("width", 10)
+                .attr("height", height)
+                .attr("class", "buffer_rect")
+                .attr("rx", 2)
+                .attr("ry", 2)
+                .attr("fill", "url(#gradient_" + diskName + ")")
+                .style("stroke-width", 1)
+                .style("stroke", "black");
+
+
+
+            return {
+                SetDiskUsage: function(percentage, bufferPercentage){
+                    SetUsage(percentage, bufferPercentage);
+                },
+                GetWirePos: function(posStr) {
+                    if(posStr === "right") return GetRightWirePosition();
+                    if(posStr === "left") return GetLeftWirePosition();
+                    if(posStr === "top") return GetTopWirePosition();
+                    if(posStr === "bottom") return GetBottomWirePosition();
+                }
+            };
+        }
+
+        function Wire(paramSvgRootGroup, paramTextAngleDegrees, paramUnit, paramSrcX, paramSrcY, paramDestX, paramDestY) {
+
+            var svgRootGroup = paramSvgRootGroup;
+            var srcX = paramSrcX;
+            var srcY = paramSrcY;
+            var destX = paramDestX;
+            var destY = paramDestY;
+            var unit = paramUnit;
+            var textAngleDegrees = paramTextAngleDegrees;
+            var speedBps = 0;
+            var speedBpsAverageCalculator = ExponentialMovingAverage(0.1);
+            var WIRE_DASHARRAY = "6 2";
+
+            function GetWirePathStr() {
+                return "M" + paramSrcX + " " + paramSrcY + " L" + paramDestX + " " + paramDestY;
+            }
+
+
+            //https://stackoverflow.com/questions/15900485/correct-way-to-convert-size-in-bytes-to-kb-mb-gb-in-javascript
+            function formatBytes(bytes,decimals) {
+               if(bytes == 0) return '0 Bytes/s';
+               var k = 1024,
+                   dm = decimals <= 0 ? 0 : decimals || 2,
+                   sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'],
+                   i = Math.floor(Math.log(bytes) / Math.log(k));
+               return ((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i] + '/s';
+            }
+            function formatBundles(bytes,decimals) {
+               if(bytes == 0) return '0 Bun/s';
+               var k = 1000,
+                   dm = decimals <= 0 ? 0 : decimals || 2,
+                   sizes = ['Bun', 'K-Bun', 'M-Bun', 'G-Bun', 'T-Bun', 'P-Bun', 'E-Bun', 'Z-Bun', 'Y-Bun'],
+                   i = Math.floor(Math.log(bytes) / Math.log(k));
+               return ((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i] + '/s';
+            }
+            function formatMessages(bytes,decimals) {
+               if(bytes == 0) return '0 Msg/s';
+               var k = 1000,
+                   dm = decimals <= 0 ? 0 : decimals || 2,
+                   sizes = ['Msg', 'K-Msg', 'M-Msg', 'G-Msg', 'T-Msg', 'P-Msg', 'E-Msg', 'Z-Msg', 'Y-Msg'],
+                   i = Math.floor(Math.log(bytes) / Math.log(k));
+               return ((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i] + '/s';
+            }
+
+            function GetWireText() {
+                if(unit === "bundles") return formatBundles(speedBps, 2);
+                if(unit === "bytes") return formatBytes(speedBps, 2);
+                if(unit === "messages") return formatMessages(speedBps, 2);
+                return "";
+            }
+
+
+
+
+
+            var wirePathObj = svgRootGroup.append("svg:path")
+                .attr("d", GetWirePathStr)
+                .attr("marker-end", "url(#arrow)")
+                .attr("class", "wire_tx")
+                .attr("stroke-dasharray", (unit === "") ? null : WIRE_DASHARRAY)
+                .attr("stroke-dashoffset", 0);
+
+
+
+            var wireText = svgRootGroup.append("svg:text")
+                    .attr("class", "wire_txt")
+                    .attr("text-anchor", "middle")
+                    .attr("transform", "translate(" + ((srcX + destX) * 0.5) + "," + ((srcY + destY) * 0.5) + ") rotate(" + textAngleDegrees + ") translate(0,-5)")
+                    .text(GetWireText);
+
+            WireRepeatFunc();
+            function WireRepeatFunc() {
+                if(unit !== "") {
+                    DoRepeat();
+                }
+                function DoRepeat() {
+                    wirePathObj
+                        .attr("stroke-dasharray", WIRE_DASHARRAY)
+                        .attr("stroke-dashoffset", function(link) {
+                            var divider = 1000.0; //for bundles (0 to 10000) -> (0 to 10)
+                            if(unit === "bytes") divider = 250000000.0; //for bytes (0 to 20Gbps, 2.5GBps) -> (0 to 10)
+                            return Math.round(parseInt(speedBps)/divider) * 8;
+                        })
+                        .transition().ease(d3.easeLinear).duration(1000)
+                        .attr("stroke-dashoffset", 0)
+                        .on("end", DoRepeat);  // when the transition finishes start again
+
+                }
+
+            };
+
+
+
+            return {
+                SetSpeedBps: function(paramSpeedBps){
+                    speedBps = speedBpsAverageCalculator.Update(paramSpeedBps);
+                    wireText.text(GetWireText);
+                }
+            };
+        }
+
+
+
+
+
+
+
+
+
+
+
+    function HidraGui(paramParentDiv, paramUniqueId) {
+
+        var d3ContentDiv = paramParentDiv;
+
+        //document.getElementById('idDeclutterSelect').addEventListener('change', DeclutterSelectChanged, false);
+        document.getElementById('idViewSelect').addEventListener('change', ViewSelectChanged, false);
+
+
+
+        /*
+
+
+        var toolTipObj = ToolTip();
+
+
+
+        */
+
+        var svgDiv = d3.select(d3ContentDiv); //.append("div").attr("class", "guiClass");
+
+        var svg = svgDiv.append("svg:svg")
+            .attr("id","svgId");
+
+        var toolTipObj = ToolTip();
+
+        var defs = svg.append("svg:defs");
+        var arrowMarker = defs.append("svg:marker");
+
+
+
+
+        arrowMarker
+            .attr("id", "arrow")
+            .attr("viewBox", "0 -5 10 10")
+            .attr("refX", 5)
+            .attr("refY", 0)
+            .attr("markerWidth", 1)
+            .attr("markerHeight", 1)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,-5L10,0L0,5")
+            .attr("class", "arrowHead");
+        arrowMarker.attr("markerWidth", 4).attr("markerHeight", 4); //??
+
+
+
+        var guiGroup = svg.append("g");
+        guiGroup.attr("transform", "translate(" + (10) + "," + 10 + ")");
+
+
+        var backgroundRect = guiGroup.append("rect")
+            .attr("class", "background")
+            .attr("width", 1500)
+            .attr("height", 1000)
+            .attr("fill", "none");
+
+
+        var centralGroup = guiGroup.append("g")
+            .attr("transform", "translate(" + 600 + "," + 250 + ")");
+
+        var connectedNodeGroup = centralGroup.append("g");
+
+
+        var wiresGroup = centralGroup.append("g");
+
+
+        var outductGroup = guiGroup.append("g");
+        var nextHopGroup = guiGroup.append("g");
+        //var wiresGroup = guiGroup.append("g");
+/*
+
+
+        */
+
+
+        var HIDRA_NODE_RADIUS_PX = 50;
+        var CONNECTED_NODE_RADIUS_PX = 25;
+
+        var sharedTransition;
+
+        var SVG_WIDTH_PX = 1500;
+        var SVG_HEIGHT_PX = 800;
+
+        var viewsMap = {
+            "full" : {
+                "class" : "svgViewBoxClass",
+                "svgWidth" : null, //auto
+                "svgHeight" : null, //auto
+                "viewBox" : ("0" + " " + "0" + " " + (SVG_WIDTH_PX*1) + " " + (SVG_HEIGHT_PX*1) + ""),
+                "preserveAspectRatio": "xMidYMin meet" //middle top alignment
+                //"preserveAspectRatio": "xMinYMin meet" //left top alignment
+            },
+            "native_size" : {
+                "class" : "svgNativeClass",
+                "svgWidth" : SVG_WIDTH_PX, //auto
+                "svgHeight" : SVG_HEIGHT_PX, //auto
+                "viewBox" : null,
+                "preserveAspectRatio": null
+            }
+        };
+        //svgDiv.style("width", (1500) + "px")
+        //        .style("height", (1000) + "px");
+        //    svg.attr("width", 1500)
+        //        .attr("height", 1000);
+
+        function UpdateViewBox(viewsMapKey) {
+            svg.attr("class", viewsMap[viewsMapKey].class)
+                .attr("width", viewsMap[viewsMapKey].svgWidth)
+                .attr("height", viewsMap[viewsMapKey].svgHeight)
+                .attr("viewBox", viewsMap[viewsMapKey].viewBox)
+                .attr("preserveAspectRatio", viewsMap[viewsMapKey].preserveAspectRatio);
+        }
+        function ViewSelectChanged(event) {
+            UpdateViewBox(event.target.value);
+        }
+        UpdateViewBox(document.getElementById('idViewSelect').options[document.getElementById('idViewSelect').selectedIndex].value);
+
+
+        function GetSwitchRectClass(d) {
+            //if(d.pathName in d3FaultsMap) return "faulted_switch_rect";
+            return (d.isLinkUp) ? "on_switch_rect" : "off_switch_rect";
+        }
+
+        function GetOruRectClass(d) {
+            //if(d.pathName in d3FaultsMap) return "faulted_oru_rect";
+            //return (d.isLinkUp) ? "off_oru_rect" : "on_oru_rect";
+            return "on_rect";
+        }
+
+        var ABS_POSITION_MAP = {
+            "ingress" : {"X" : 300, "Y" : 100, "WIDTH": 130, "HEIGHT": 500},
+            "egress" : {"X" : 900, "Y" : 100, "WIDTH": 130, "HEIGHT": 500},
+            "next_hops" : {"X" : 1100, "Y" : 100, "WIDTH": 100, "HEIGHT": 500},
+            "final_dests" : {"X" : 1400, "Y" : 100, "WIDTH": 100, "HEIGHT": 500}
+        };
+
+
+        //var myIngress = BlockComponent(guiGroup, "Ingress", 300, 100, 100, 500);
+        var myIngressRectComponent = RectComponents(
+            guiGroup, //paramSvgRootGroup, , ,
+            "ingress_group", //paramSvgRootGroupClass
+            "induct_group", //paramSvgChildGroupClass
+            "pdu_body", //paramParentRectStyleClass
+            false, //paramHideParent
+            toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
+            ContextMenuEvent, //paramContextMenuEventFunction
+            GetOruRectClass, //paramGetParentRectClassFunction
+            GetSwitchRectClass //paramGetChildRectClassFunction
+        );
+
+        var myStorage = BlockComponent(guiGroup, "Storage",
+                                ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH + 200,
+                                ABS_POSITION_MAP.ingress.Y + 100,
+                                100,
+                                150);
+        /*var myEgress = BlockComponent(guiGroup, "Egress",
+                                myStorage.GetWirePos("right").x + 200,
+                                myIngress.GetWirePos("top").y,
+                                100,
+                                myIngress.GetSize().height);*/
+        var myEgressRectComponent = RectComponents(
+            guiGroup, //paramSvgRootGroup, , ,
+            "egress_group", //paramSvgRootGroupClass
+            "outduct_group", //paramSvgChildGroupClass
+            "pdu_body", //paramParentRectStyleClass
+            false, //paramHideParent
+            toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
+            ContextMenuEvent, //paramContextMenuEventFunction
+            GetOruRectClass, //paramGetParentRectClassFunction
+            GetSwitchRectClass //paramGetChildRectClassFunction
+        );
+
+        var myNextHopsRectComponent = RectComponents(
+            guiGroup, //paramSvgRootGroup, , ,
+            "loadBank_group", //paramSvgRootGroupClass
+            "load_group", //paramSvgChildGroupClass
+            "pdu_body", //paramParentRectStyleClass
+            false, //paramHideParent
+            toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
+            ContextMenuEvent, //paramContextMenuEventFunction
+            GetOruRectClass, //paramGetParentRectClassFunction
+            GetSwitchRectClass //paramGetChildRectClassFunction
+        );
+
+        var myFinalDestsRectComponent = RectComponents(
+            guiGroup, //paramSvgRootGroup, , ,
+            "finalDests_group", //paramSvgRootGroupClass
+            "finalDest_group", //paramSvgChildGroupClass
+            "", //paramParentRectStyleClass
+            true, //paramHideParent
+            toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
+            ContextMenuEvent, //paramContextMenuEventFunction
+            GetOruRectClass, //paramGetParentRectClassFunction
+            GetSwitchRectClass //paramGetChildRectClassFunction
+        );
+
+        var wiresComponent = WireComponents(guiGroup, "wires_group", arrowMarker);
+
+        //sar
+        //var sars = RectComponents(sarGroup, "sar_group", "", "", false, toolTipObj.MouseEventToolTip, ContextMenuEvent, GetOruRectClass, GetSwitchRectClass);
+
+        //var loadbanks = RectComponents(loadBankGroup, "loadBank_group", "load_group", "", true, toolTipObj.MouseEventToolTip, ContextMenuEvent, GetOruRectClass, GetSwitchRectClass);
+        //var wires = WireComponents(wiresGroup, "wires_group", arrowMarker, WIRE_CONNECTIONS);
+        var myDisk = Disk(guiGroup,
+                                myStorage.GetWirePos("bottom").x,
+                                myStorage.GetWirePos("bottom").y + 250,
+                                50,
+                                10,
+                                100,
+                                "Disk1");
+        var myOutline = SystemOutline(guiGroup,
+                                ABS_POSITION_MAP.ingress.X - 50,
+                                ABS_POSITION_MAP.ingress.Y - 50,
+                                50 + ABS_POSITION_MAP.egress.X + ABS_POSITION_MAP.egress.WIDTH - ABS_POSITION_MAP.ingress.X,
+                                100 + myDisk.GetWirePos("bottom").y - ABS_POSITION_MAP.ingress.Y);
+
+        var myWireIngressToStorage = Wire(guiGroup, 0, "bytes",
+            ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, myStorage.GetWirePos("right").y,
+            myStorage.GetWirePos("left").x, myStorage.GetWirePos("left").y);
+        var myWireStorageToEgress = Wire(guiGroup, 0, "bytes",
+            myStorage.GetWirePos("right").x, myStorage.GetWirePos("right").y,
+            ABS_POSITION_MAP.egress.X, myStorage.GetWirePos("left").y);
+        var myWireIngressToEgress = Wire(guiGroup, 0, "bytes",
+            ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, ABS_POSITION_MAP.ingress.Y + 20,
+            ABS_POSITION_MAP.egress.X, ABS_POSITION_MAP.egress.Y + 20);
+        var myWireStorageToDisk = Wire(guiGroup, -90, "bytes",
+            myStorage.GetWirePos("bottom").x - 10, myStorage.GetWirePos("bottom").y,
+            myDisk.GetWirePos("top").x - 10, myDisk.GetWirePos("top").y);
+        var myWireDiskToStorage = Wire(guiGroup, 90, "bytes",
+            myDisk.GetWirePos("top").x + 10, myDisk.GetWirePos("top").y,
+            myStorage.GetWirePos("bottom").x + 10, myStorage.GetWirePos("bottom").y);
+        //var myWireOutsideToIngress = Wire(guiGroup, 0, "bundles",
+        //    myIngress.GetWirePos("left").x - 200, myIngress.GetWirePos("left").y,
+        //    myIngress.GetWirePos("left").x, myIngress.GetWirePos("left").y);
+        //var myWireEgressToOutside = Wire(guiGroup, 0, "bundles",
+        //    myEgress.GetWirePos("right").x, myEgress.GetWirePos("right").y,
+        //    myEgress.GetWirePos("right").x + 200, myEgress.GetWirePos("right").y);
+
+        /*
+        var diskUsage = 0;
+        myDisk.SetDiskUsage(diskUsage, diskUsage*.5);
+        function TimeoutDiskFunc() {
+            diskUsage = (diskUsage + 1) % 101;
+            myDisk.SetDiskUsage(diskUsage, diskUsage*.5);
+            setTimeout(TimeoutDiskFunc, 300);
+        }
+        setTimeout(TimeoutDiskFunc, 300);
+        */
+
+        /*
+        function ReceivedNewTelemetry(obj) {
+            myWireIngressToStorage.SetSpeedBps(obj.speedIngressToStorage);
+            myWireStorageToEgress.SetSpeedBps(obj.speedStorageToEgress);
+            myWireStorageToDisk.SetSpeedBps(obj.speedStorageToDisk);
+            myWireDiskToStorage.SetSpeedBps(obj.speedDiskToStorage);
+            myWireOutsideToIngress.SetSpeedBps(obj.speedIngressIn);
+            myWireEgressToOutside.SetSpeedBps(obj.speedEgressOut);
+
+            myDisk.SetDiskUsage((obj.diskUsageBytes/obj.diskSizeBytes) * 100, obj.diskBufferUsageNormalized * 100);
+        }
+        */
+
+        function ContextMenuEvent(d) {
+            if(d3.event.type === "contextmenu") {
+                var menu = contextMenu().items(
+                    {
+                        "text" : "Set " + d.id + " On",
+                        "func" : SetState_Closure(d, 1)
+                    },
+                    {
+                        "text" : "Set " + d.id + " Off",
+                        "func" : SetState_Closure(d, 0)
+                    },
+                    {
+                        "text" : "Set Fault on " + d.id,
+                        "func" : SetFault_Closure(d, true)
+                    },
+                    {
+                        "text" : "Remove Fault on " + d.id,
+                        "func" : SetFault_Closure(d, false)
+                    }
+                );
+                d3.event.preventDefault();
+                menu(d3.mouse(svg.node())[0], d3.mouse(svg.node())[1]);
+            }
+        }
+
+        function SetState_Closure(paramObj, paramState) {
+            var obj = paramObj;
+            var state = paramState;
+            return function () {
+                var oruId = (obj.parent) ? obj.parent.id : obj.id;
+                var switchId = (obj.parent) ? obj.id : "";
+                console.log("Setting state of oruId=" + oruId + ", switchId=" + obj.id + " to " + state);
+                WebSocketSend("SET_SWITCH_STATE," + oruId + "," + switchId + "," + state);
+            }
+        }
+
+        function SetFault_Closure(paramObj, paramFault) {
+            var obj = paramObj;
+            var fault = paramFault;
+            return function () {
+                console.log("Setting the fault of " + obj.id + " to " + fault);
+            }
+        }
+
+        Update();
+
+        var inTransition = false;
+        function Update(delayMs) {
+            if (typeof delayMs === 'undefined') delayMs = 2000;
+
+            inTransition = true;
+            var retObj = ParseHdtnConfig(
+                INITIAL_HDTN_CONFIG,
+                false, // declutter,
+                false, // shrink,
+                null, // d3FaultsMap,
+                null,// MAP_NAMES,
+                null,// SUB_MAP_NAMES,
+                null,// D3_SHAPE_ATTRIBUTES,
+                ABS_POSITION_MAP,
+                null// FLIP_HORIZONTAL_MAP
+            );
+            //ParsePowerSystem(powerSystem, declutter, shrink, d3FaultsMap, MAP_NAMES, SUB_MAP_NAMES, D3_SHAPE_ATTRIBUTES, ABS_POSITION_MAP, FLIP_HORIZONTAL_MAP);
+            wiresComponent.ComputeWires(retObj.wireConnections);
+
+
+
+            sharedTransition = d3.transition().duration(delayMs);
+
+            sharedTransition
+                .on("interrupt", function() {
+                    inTransition = false;
+                })
+                .on("end", function() {
+                    inTransition = false;
+                });
+
+
+            myIngressRectComponent.Update(retObj.ingressD3Array, sharedTransition);
+            myEgressRectComponent.Update(retObj.egressD3Array, sharedTransition);
+            myNextHopsRectComponent.Update(retObj.nextHopsD3Array, sharedTransition);
+            myFinalDestsRectComponent.Update(retObj.finalDestsD3Array, sharedTransition);
+            wiresComponent.Update(sharedTransition);
+/*
+            solararrays.Update(D3_SHAPE_ATTRIBUTES.solarArrayMap.d3Array, sharedTransition);
+            sars.Update(D3_SHAPE_ATTRIBUTES.sarMap.d3Array, sharedTransition);
+            batteries.Update(D3_SHAPE_ATTRIBUTES.batteryMap.d3Array, sharedTransition);
+            bcdus.Update(D3_SHAPE_ATTRIBUTES.bcduMap.d3Array, sharedTransition);
+            ddcus.Update(D3_SHAPE_ATTRIBUTES.ddcuMap.d3Array, sharedTransition);
+            ppus.Update(D3_SHAPE_ATTRIBUTES.ppuMap.d3Array, sharedTransition);
+            mbsus.Update(D3_SHAPE_ATTRIBUTES.mbsuMap.d3Array, sharedTransition);
+            pdus.Update(D3_SHAPE_ATTRIBUTES.pduMap.d3Array, sharedTransition);
+            loadbanks.Update(D3_SHAPE_ATTRIBUTES.loadBankMap.d3Array, sharedTransition);
+            wires.Update(sharedTransition);
+*/
+
+        }
+
+
+
+        function UpdateLite() {
+            //++updateCounter;
+            //ParsePowerSystem();
+            batteries.UpdateSoc(D3_SHAPE_ATTRIBUTES.batteryMap.d3Array);
+            wires.UpdateLite();
+
+            toolTipObj.Update();
+        }
+
+
+
+        function ReceivedNewTelemetryDisk(obj) {
+            myWireStorageToDisk.SetSpeedBps(obj.speedStorageToDisk);
+            myWireDiskToStorage.SetSpeedBps(obj.speedDiskToStorage);
+            myDisk.SetDiskUsage((obj.diskUsageBytes/obj.diskSizeBytes) * 100, obj.diskBufferUsageNormalized * 100);
+        }
+        function ReceivedNewTelemetryIngress(obj) {
+            myWireOutsideToIngress.SetSpeedBps(obj.speedBundlesIn);
+            myWireIngressToStorage.SetSpeedBps(obj.speedBytesOut);
+        }
+        function ReceivedNewTelemetryEgress(obj) {
+            myWireStorageToEgress.SetSpeedBps(obj.speedBytesIn);
+            myWireEgressToOutside.SetSpeedBps(obj.speedBundlesOut);
+        }
+
+        return {
+            UpdateWithData: function(objJson){
+                if("speedBundlesIn" in objJson) {
+                    ReceivedNewTelemetryIngress(objJson);
+                }
+                else if("speedBundlesOut" in objJson) {
+                    ReceivedNewTelemetryEgress(objJson);
+                }
+                else if("speedStorageToDisk" in objJson) {
+                    ReceivedNewTelemetryDisk(objJson);
+                }
+            }
+        };
+    }
+
+    //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DataView
+    DataView.prototype.getUint64 = function(byteOffset, littleEndian) {
+        // split 64-bit number into two 32-bit (4-byte) parts
+        const left =  this.getUint32(byteOffset, littleEndian);
+        const right = this.getUint32(byteOffset+4, littleEndian);
+
+        // combine the two 32-bit values
+        const combined = littleEndian? left + 2**32*right : 2**32*left + right;
+
+        if (!Number.isSafeInteger(combined))
+            console.warn(combined, 'exceeds MAX_SAFE_INTEGER. Precision may be lost');
+
+        return combined;
+    }
+
+    var app = null;
+    var connection = null;
+    //var globalStorageObj = {
+    //    previousTimeStamp : 0,
+    //    previousWrittenBytes : 0,
+    //    previousReadBytes : 0
+    //};
+    var currentStorageObj = null;
+    var previousStorageObj = null;
+    var currentEgressObj = null;
+    var previousEgressObj = null;
+    var currentIngressObj = null;
+    var previousIngressObj = null;
+    window.addEventListener("load", function(event) {
+        console.log("All resources finished loading!");
+
+    ////////////
+
+
+
+        app = HidraGui(document.getElementById("mygui"), "aaa");
+        if (!("WebSocket" in window)) {
+            alert("WebSocket is not supported by your Browser!");
+        }
+
+        var wsproto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
+        connection = new WebSocket(wsproto + '//' + window.location.host + '/websocket');
+        connection.binaryType = "arraybuffer";
+
+
+        //This event occurs when socket connection is established.
+        connection.onopen = function() {
+            console.log("ws opened");
+        }
+
+        //This event occurs when connection is closed.
+        connection.onclose = function() {
+            console.log("ws closed");
+            document.getElementById('myModal').style.display = "block";
+        }
+
+        //This event occurs when client receives data from server.
+        connection.onmessage = function(e) {
+            console.log("rcvd");
+            if(e.data instanceof ArrayBuffer) { //this is binary data
+                //console.log("binary data received");
+
+                var dv = new DataView(e.data);
+                var type = dv.getUint16(0, false);
+                var flags = dv.getUint16(2, false);
+                var length = dv.getUint16(4, false);
+                var reserved = dv.getUint16(6, false);
+                if(type == 2) { //BP_TELEM_TYPE_STORAGE
+                    previousStorageObj = currentStorageObj;
+                    currentStorageObj = {
+                        timestamp : dv.getUint64(8, false), //uint64_t
+                        msg_count : dv.getUint64(16, false), //uint64_t
+                        msg_bytes : dv.getUint64(24, false), //uint64_t
+                        dropped_count : dv.getUint64(32, false), //uint64_t
+                        dropped_bytes : dv.getUint64(40, false), //uint64_t
+                        read_count : dv.getUint64(48, false), //uint64_t
+                        read_bytes : dv.getUint64(56, false), //uint64_t
+                        written_count : dv.getUint64(64, false), //uint64_t
+                        written_bytes : dv.getUint64(72, false), //uint64_t
+                        storage_available : dv.getUint64(80, false), //uint64_t
+                        storage_total : dv.getUint64(88, false), //uint64_t
+                        storage_count : dv.getUint16(90, false), //uint16_t
+                        worker_count : dv.getUint16(92, false), //uint16_t
+                        buffer_used : dv.getUint16(94, false), //uint16_t
+                        buffer_available : dv.getUint16(96, false) //uint16_t
+                    };
+                    if(previousStorageObj != null) { //had at least 2 telemetries received
+                        var c = currentStorageObj;
+                        var p = previousStorageObj;
+
+                        var timeStampDeltaSec = (c.timestamp - p.timestamp) * 0.001;
+                        var writtenBytesDelta = c.written_bytes - p.written_bytes;
+                        var readBytesDelta = c.read_bytes - p.read_bytes;
+
+                        var telemObj = {
+                            speedStorageToDisk : writtenBytesDelta / timeStampDeltaSec,
+                            speedDiskToStorage : readBytesDelta / timeStampDeltaSec,
+                            diskSizeBytes : c.storage_total,
+                            diskUsageBytes : c.storage_total - c.storage_available,
+                            diskBufferUsageNormalized : c.buffer_used / (c.buffer_used + c.buffer_available)
+                        }
+                        app.UpdateWithData(telemObj);
+                    }
+                }
+                else if(type == 3) { //BP_TELEM_TYPE_EGRESS
+                    previousEgressObj = currentEgressObj;
+                    currentEgressObj = {
+                        timestamp : dv.getUint64(8, false), //uint64_t
+                        msg_count : dv.getUint64(16, false), //uint64_t
+                        msg_bytes : dv.getUint64(24, false), //uint64_t
+                        dropped_count : dv.getUint64(32, false), //uint64_t
+                        dropped_bytes : dv.getUint64(40, false), //uint64_t
+                        bundles_out : dv.getUint64(48, false), //uint64_t
+                        bytes_out : dv.getUint64(56, false), //uint64_t
+                        receipt_tsc : dv.getUint64(64, false), //uint64_t
+                        encode_tsc : dv.getUint64(72, false) //uint64_t
+                    };
+
+                    if(previousEgressObj != null) { //had at least 2 telemetries received
+                        var c = currentEgressObj;
+                        var p = previousEgressObj;
+
+                        var timeStampDeltaSec = (c.timestamp - p.timestamp) * 0.001;
+                        var msgCountDelta = c.msg_count - p.msg_count;
+                        var msgBytesDelta = c.msg_bytes - p.msg_bytes;
+                        var bundlesOutDelta = c.bundles_out - p.bundles_out;
+                        var bytesOutDelta = c.bytes_out - p.bytes_out;
+
+                        var telemObj = {
+                            speedMessagesIn : msgCountDelta / timeStampDeltaSec,
+                            speedBytesIn : msgBytesDelta / timeStampDeltaSec,
+                            speedBundlesOut : bundlesOutDelta / timeStampDeltaSec,
+                            speedBytesOut : bytesOutDelta / timeStampDeltaSec
+                        }
+                        app.UpdateWithData(telemObj);
+                    }
+                }
+                else if(type == 4) { //BP_TELEM_TYPE_INGRESS
+                    previousIngressObj = currentIngressObj;
+                    currentIngressObj = {
+                        timestamp : dv.getUint64(8, false), //uint64_t
+                        msg_count : dv.getUint64(16, false), //uint64_t
+                        msg_bytes : dv.getUint64(24, false), //uint64_t
+                        dropped_count : dv.getUint64(32, false), //uint64_t
+                        dropped_bytes : dv.getUint64(40, false), //uint64_t
+                        bundles_in : dv.getUint64(48, false), //uint64_t
+                        bytes_in : dv.getUint64(56, false), //uint64_t
+                        receipt_tsc : dv.getUint64(64, false), //uint64_t
+                        encode_tsc : dv.getUint64(72, false) //uint64_t
+                    };
+
+                    if(previousIngressObj != null) { //had at least 2 telemetries received
+                        var c = currentIngressObj;
+                        var p = previousIngressObj;
+
+                        var timeStampDeltaSec = (c.timestamp - p.timestamp) * 0.001;
+                        var msgCountDelta = c.msg_count - p.msg_count;
+                        var msgBytesDelta = c.msg_bytes - p.msg_bytes;
+                        var bundlesInDelta = c.bundles_in - p.bundles_in;
+                        var bytesInDelta = c.bytes_in - p.bytes_in;
+
+                        var telemObj = {
+                            speedMessagesOut : msgCountDelta / timeStampDeltaSec,
+                            speedBytesOut : msgBytesDelta / timeStampDeltaSec,
+                            speedBundlesIn : bundlesInDelta / timeStampDeltaSec,
+                            speedBytesIn : bytesInDelta / timeStampDeltaSec
+                        }
+                        app.UpdateWithData(telemObj);
+                    }
+                }
+
+                UpdateActiveToolTip();
+
+
+            }
+            else { //this is text data such as json
+                if(e.data === "Hello websocket") {
+                    console.log(e.data);
+                }
+                else { //json data
+                    var obj = JSON.parse(e.data); //this could error based on encodings
+                    //console.log(obj);
+                    app.UpdateWithData(obj);
+
+                }
+                //console.log(e.data);
+            }
+        }
+
+        //This event occurs when there is any error in communication.
+        connection.onerror = function(error) {
+            //alert('WebSocket error');
+            connection.close();
+        }
+
+    });
+
+
+
+
+
+
+    </script>
+</body>
+</html>
+
