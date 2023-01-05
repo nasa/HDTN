@@ -63,7 +63,6 @@ private:
 
     std::map<uint64_t, uint64_t> m_routeTable;
     std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
-    boost::mutex m_mutexRouteTableMap;
 
 
     //for blocking until worker-thread startup
@@ -235,17 +234,15 @@ void Router::Impl::SchedulerEventsHandler() {
     if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKDOWN) {
         m_latestTime = releaseChangeHdr.time;
         LOG_INFO(subprocess) << "Received Link Down for contact: " << releaseChangeHdr.contact;
-        uint64_t finalDestNodeId;
-        {
-            boost::mutex::scoped_lock lock(m_mutexRouteTableMap);
-            std::map<uint64_t, uint64_t>::const_iterator it = m_routeTable.find(releaseChangeHdr.contact);
-            if (it == m_routeTable.cend()) {
-                LOG_ERROR(subprocess) << " Got link down event for unknown contact index "
-                    << releaseChangeHdr.contact << " which does not correspont to a final destination";
-                return;
-            }
-            finalDestNodeId = it->second;
+        
+        //no mutex necessary (everything within the ReadZmqThreadFunc)
+        std::map<uint64_t, uint64_t>::const_iterator it = m_routeTable.find(releaseChangeHdr.contact);
+        if (it == m_routeTable.cend()) {
+            LOG_ERROR(subprocess) << " Got link down event for unknown contact index "
+                << releaseChangeHdr.contact << " which does not correspont to a final destination";
+            return;
         }
+        const uint64_t finalDestNodeId = it->second;
         
         LOG_INFO(subprocess) << "FinalDest nodeId found is:  " << finalDestNodeId;
         ComputeOptimalRoute(srcNode, finalDestNodeId);
@@ -362,10 +359,10 @@ bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t finalDestNo
     if (bestRoute.valid()) { // successfully computed a route
 
         const uint64_t nextHopNodeId = bestRoute.next_node;
-        {
-            boost::mutex::scoped_lock lock(m_mutexRouteTableMap);
-            m_routeTable[bestRoute.get_hops()[0].id] = finalDestNodeId;
-        }
+
+        //no mutex necessary (everything within the ReadZmqThreadFunc)
+        m_routeTable[bestRoute.get_hops()[0].id] = finalDestNodeId;
+
         LOG_INFO(subprocess) << "Successfully Computed next hop: "
             << nextHopNodeId << " for final Destination " << finalDestNodeId;
         LOG_INFO(subprocess) << "Contact in m_routeTable for this final destination is "
