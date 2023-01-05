@@ -114,6 +114,11 @@ bool Route::visited(nodeId_t node) {
     return __visited.count(node) && __visited[node];
 }
 
+bool Route::valid() const noexcept {
+    //return ((parent != NULL) && (!hops.empty()));
+    return (!hops.empty());
+}
+
 void Route::append(const Contact &contact) {
     assert(eligible(contact));
     hops.push_back(contact);
