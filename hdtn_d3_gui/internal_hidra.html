@@ -115,6 +115,7 @@
     <script src="RectComponents.js"></script>
     <script src="WireComponents.js"></script>
     <script src="ToolTip.js"></script>
+    <script src="SystemOutline.js"></script>
 
     <script type="text/javascript">
         document.getElementById("idModalClose").onclick = function() {
@@ -216,132 +217,8 @@
         //    console.log(em.Update(10));
         //}
 
-        function SystemOutline(paramSvgRootGroup, paramX, paramY, paramWidth, paramHeight) {
-
-            var svgRootGroup = paramSvgRootGroup;
-            var x = paramX;
-            var y = paramY;
-            var width = paramWidth;
-            var height = paramHeight;
-
-            var systemOutlineGroup = svgRootGroup.append("svg:g")
-                .attr("class", "system_outline_group");
 
 
-            //DRAW THE NODE
-            systemOutlineGroup.append("svg:rect")
-                .attr("x", x)
-                .attr("y", y)
-                .attr("width", width)
-                .attr("height", height)
-                .attr("class", "block_component_group_rect")
-                .attr("rx", 10)
-                .attr("ry", 10)
-                .attr("fill", "none")
-                .style("stroke-width", 5)
-                .style("stroke", "black")
-                .attr("stroke-dasharray", "10 5");;
-
-
-
-
-
-
-            return {
-                SetDiskUsage: function(percentage){
-                    SetUsage(percentage);
-                }
-            };
-        }
-
-        function BlockComponent(paramSvgRootGroup, paramLabelText, paramX, paramY, paramWidth, paramHeight) {
-
-            var svgRootGroup = paramSvgRootGroup;
-            var labelText = paramLabelText;
-            var x = paramX;
-            var y = paramY;
-            var width = paramWidth;
-            var height = paramHeight;
-
-            var blockComponentGroup = svgRootGroup.append("svg:g")
-                .attr("class", "block_component_group");
-
-            function GetRightWirePosition() {
-                return {
-                    x: x + width,
-                    y: y + height * .5
-                };
-            }
-            function GetLeftWirePosition() {
-                return {
-                    x: x,
-                    y: y + height * .5
-                };
-            }
-            function GetBottomWirePosition() {
-                return {
-                    x: x + width * .5,
-                    y: y + height
-                };
-            }
-            function GetTopWirePosition() {
-                return {
-                    x: x + width * .5,
-                    y: y
-                };
-            }
-            function GetSizes() {
-                return {
-                    width: width,
-                    height: height
-                };
-            }
-
-
-            //DRAW THE NODE
-            blockComponentGroup.append("svg:rect")
-                .attr("x", x)
-                .attr("y", y)
-                .attr("width", width)
-                .attr("height", height)
-                .attr("class", "block_component_group_rect")
-                .attr("rx", 5)
-                .attr("ry", 5)
-                .attr("fill", "gainsboro")
-                .on("mouseover mousemove mouseout", MouseEventToolTip)
-                .datum(labelText) //for tooltip id
-                .style("stroke-width", 2)
-                .style("stroke", "black");
-
-
-
-            blockComponentGroup.append("svg:text")
-                .attr("class", "block_component_text")
-                .attr("dy", ".35em")
-                //.attr("text-anchor", "end")
-                .attr("transform", "translate(" + (x + width*.5) + "," + (y + height*.5) +")")
-                .attr("text-anchor", "middle")
-                .text(labelText);
-
-
-
-
-
-            return {
-                SetDiskUsage: function(percentage){
-                    SetUsage(percentage);
-                },
-                GetWirePos: function(posStr) {
-                    if(posStr === "right") return GetRightWirePosition();
-                    if(posStr === "left") return GetLeftWirePosition();
-                    if(posStr === "top") return GetTopWirePosition();
-                    if(posStr === "bottom") return GetBottomWirePosition();
-                },
-                GetSize: function() {
-                    return GetSizes();
-                }
-            };
-        }
 
         function Disk(paramSvgRootGroup, paramX, paramY, paramRadius, paramPerspectiveRadius, paramHeight, paramDiskName) {
 
@@ -759,12 +636,12 @@
         var ABS_POSITION_MAP = {
             "ingress" : {"X" : 300, "Y" : 100, "WIDTH": 130, "HEIGHT": 500},
             "egress" : {"X" : 900, "Y" : 100, "WIDTH": 130, "HEIGHT": 500},
+            "storage" : {"X" : (300 + 130 + 200), "Y" : (100 + 100), "WIDTH": 100, "HEIGHT": 150},
             "next_hops" : {"X" : 1100, "Y" : 100, "WIDTH": 100, "HEIGHT": 500},
             "final_dests" : {"X" : 1400, "Y" : 100, "WIDTH": 100, "HEIGHT": 500}
         };
 
 
-        //var myIngress = BlockComponent(guiGroup, "Ingress", 300, 100, 100, 500);
         var myIngressRectComponent = RectComponents(
             guiGroup, //paramSvgRootGroup, , ,
             "ingress_group", //paramSvgRootGroupClass
@@ -777,16 +654,18 @@
             GetSwitchRectClass //paramGetChildRectClassFunction
         );
 
-        var myStorage = BlockComponent(guiGroup, "Storage",
-                                ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH + 200,
-                                ABS_POSITION_MAP.ingress.Y + 100,
-                                100,
-                                150);
-        /*var myEgress = BlockComponent(guiGroup, "Egress",
-                                myStorage.GetWirePos("right").x + 200,
-                                myIngress.GetWirePos("top").y,
-                                100,
-                                myIngress.GetSize().height);*/
+        var myStorageRectComponent = RectComponents(
+            guiGroup, //paramSvgRootGroup, , ,
+            "storage_group", //paramSvgRootGroupClass
+            "", //paramSvgChildGroupClass
+            "pdu_body", //paramParentRectStyleClass
+            false, //paramHideParent
+            toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
+            ContextMenuEvent, //paramContextMenuEventFunction
+            GetOruRectClass, //paramGetParentRectClassFunction
+            GetSwitchRectClass //paramGetChildRectClassFunction
+        );
+
         var myEgressRectComponent = RectComponents(
             guiGroup, //paramSvgRootGroup, , ,
             "egress_group", //paramSvgRootGroupClass
@@ -831,8 +710,8 @@
         //var loadbanks = RectComponents(loadBankGroup, "loadBank_group", "load_group", "", true, toolTipObj.MouseEventToolTip, ContextMenuEvent, GetOruRectClass, GetSwitchRectClass);
         //var wires = WireComponents(wiresGroup, "wires_group", arrowMarker, WIRE_CONNECTIONS);
         var myDisk = Disk(guiGroup,
-                                myStorage.GetWirePos("bottom").x,
-                                myStorage.GetWirePos("bottom").y + 250,
+                                ABS_POSITION_MAP.storage.X + ABS_POSITION_MAP.storage.WIDTH/2,
+                                ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT + 250,
                                 50,
                                 10,
                                 100,
@@ -841,23 +720,24 @@
                                 ABS_POSITION_MAP.ingress.X - 50,
                                 ABS_POSITION_MAP.ingress.Y - 50,
                                 50 + ABS_POSITION_MAP.egress.X + ABS_POSITION_MAP.egress.WIDTH - ABS_POSITION_MAP.ingress.X,
-                                100 + myDisk.GetWirePos("bottom").y - ABS_POSITION_MAP.ingress.Y);
+                                100 + myDisk.GetWirePos("bottom").y - ABS_POSITION_MAP.ingress.Y,
+                                "HDTN");
 
         var myWireIngressToStorage = Wire(guiGroup, 0, "bytes",
-            ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, myStorage.GetWirePos("right").y,
-            myStorage.GetWirePos("left").x, myStorage.GetWirePos("left").y);
+            ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, ABS_POSITION_MAP.storage.Y + 20,
+            ABS_POSITION_MAP.storage.X, ABS_POSITION_MAP.storage.Y + 20);
         var myWireStorageToEgress = Wire(guiGroup, 0, "bytes",
-            myStorage.GetWirePos("right").x, myStorage.GetWirePos("right").y,
-            ABS_POSITION_MAP.egress.X, myStorage.GetWirePos("left").y);
+            ABS_POSITION_MAP.storage.X + ABS_POSITION_MAP.storage.WIDTH, ABS_POSITION_MAP.storage.Y + 20,
+            ABS_POSITION_MAP.egress.X, ABS_POSITION_MAP.storage.Y + 20);
         var myWireIngressToEgress = Wire(guiGroup, 0, "bytes",
             ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, ABS_POSITION_MAP.ingress.Y + 20,
             ABS_POSITION_MAP.egress.X, ABS_POSITION_MAP.egress.Y + 20);
         var myWireStorageToDisk = Wire(guiGroup, -90, "bytes",
-            myStorage.GetWirePos("bottom").x - 10, myStorage.GetWirePos("bottom").y,
+            myDisk.GetWirePos("top").x - 10, ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT,
             myDisk.GetWirePos("top").x - 10, myDisk.GetWirePos("top").y);
         var myWireDiskToStorage = Wire(guiGroup, 90, "bytes",
             myDisk.GetWirePos("top").x + 10, myDisk.GetWirePos("top").y,
-            myStorage.GetWirePos("bottom").x + 10, myStorage.GetWirePos("bottom").y);
+            myDisk.GetWirePos("top").x + 10, ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT);
         //var myWireOutsideToIngress = Wire(guiGroup, 0, "bundles",
         //    myIngress.GetWirePos("left").x - 200, myIngress.GetWirePos("left").y,
         //    myIngress.GetWirePos("left").x, myIngress.GetWirePos("left").y);
@@ -969,6 +849,7 @@
 
             myIngressRectComponent.Update(retObj.ingressD3Array, sharedTransition);
             myEgressRectComponent.Update(retObj.egressD3Array, sharedTransition);
+            myStorageRectComponent.Update(retObj.storageD3Array, sharedTransition);
             myNextHopsRectComponent.Update(retObj.nextHopsD3Array, sharedTransition);
             myFinalDestsRectComponent.Update(retObj.finalDestsD3Array, sharedTransition);
             wiresComponent.Update(sharedTransition);

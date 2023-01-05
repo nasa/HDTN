@@ -13,11 +13,26 @@ function ParseHdtnConfig(paramHdtnConfig, paramDeclutter, paramShrink, paramD3Fa
 
     wireConnections = [];
 
+    var storageAbsPosition = PARAM_ABS_POSITION_MAP["storage"];
+    var storageObj = {};
+    storageObj.parent = null;
+    //storageObj.d3ChildArray = []; //keep undefined
+    storageObj.id = "storage";
+    storageObj.name = "Storage";
+    storageObj.absX = storageAbsPosition.X;
+    storageObj.absY = storageAbsPosition.Y;
+    storageObj.width = storageAbsPosition.WIDTH;
+    storageObj.height = storageAbsPosition.HEIGHT;
+    var storageD3Array = [storageObj];
+    storageObj.topHeaderHeight = PARENT_TOP_HEADER_PX;
+
+
     var ingressAbsPosition = PARAM_ABS_POSITION_MAP["ingress"];
     var ingressObj = {};
     ingressObj.parent = null;
     ingressObj.d3ChildArray = [];
-    ingressObj.id = "ingress"
+    ingressObj.id = "ingress";
+    ingressObj.name = "Ingress";
     ingressObj.absX = ingressAbsPosition.X;
     ingressObj.absY = ingressAbsPosition.Y;
     ingressObj.width = ingressAbsPosition.WIDTH;
@@ -97,7 +112,8 @@ function ParseHdtnConfig(paramHdtnConfig, paramDeclutter, paramShrink, paramD3Fa
     var egressObj = {};
     egressObj.parent = null;
     egressObj.d3ChildArray = [];
-    egressObj.id = "egress"
+    egressObj.id = "egress";
+    egressObj.name = "Egress";
     egressObj.absX = egressAbsPosition.X;
     egressObj.absY = egressAbsPosition.Y;
     egressObj.width = egressAbsPosition.WIDTH;
@@ -274,131 +290,6 @@ function ParseHdtnConfig(paramHdtnConfig, paramDeclutter, paramShrink, paramD3Fa
         }
 
 
-
-        /*
-        var map = paramPowerSystem[mapName];
-        var objShapeAttr = PARAM_D3_SHAPE_ATTRIBUTES[mapName];
-        objShapeAttr.d3Array = [];
-
-        for(var objName in outduct) {
-            console.log(objName);
-            /*var obj = map[objName];
-            obj.parent = null;
-            obj.pathName = mapName + "." + obj.id;
-            var absPosition = PARAM_ABS_POSITION_MAP[obj.pathName];
-            obj.flipHorizontal = (obj.pathName in PARAM_FLIP_HORIZONTAL_MAP);
-
-            var subObjRelYRight = objShapeAttr.top_header;
-            var subObjRelYLeft =  objShapeAttr.top_header + objShapeAttr.switch_height/2;
-            if(!paramDeclutter || (obj.state > 0.5) || (obj.pathName in paramD3FaultsMap)) { //if cluttered or on or faulted
-                activeObjectsMap[obj.pathName] = obj;
-                objShapeAttr.d3Array.push(obj);
-
-                obj.absX = absPosition.X;
-                obj.absY = absPosition.Y;
-
-                obj.width = objShapeAttr.width;
-            }
-        }
-
-
-            if(PARAM_SUB_MAP_NAMES[i].length == 0) { //oru with no switches
-
-                obj.height = objShapeAttr.height;
-                obj.terminalWidth = (objShapeAttr.hasOwnProperty("terminalWidth")) ? objShapeAttr.terminalWidth : 0;
-
-                var wireXScale = (objShapeAttr.hasOwnProperty("wireXScale")) ? objShapeAttr.wireXScale : 1;
-                var wireYScale = (objShapeAttr.hasOwnProperty("wireYScale")) ? objShapeAttr.wireYScale : 0.5;
-
-                obj.absWireOutY = obj.absY + (obj.height * wireYScale);
-                obj.absWireInY = obj.absWireOutY;
-
-
-                if(obj.flipHorizontal) {
-                    obj.absWireInX = obj.absX + (obj.width * wireXScale);
-                    obj.absWireOutX = obj.absX - obj.terminalWidth;
-                }
-                else {
-                    obj.absWireOutX = obj.absX + (obj.width * wireXScale) + obj.terminalWidth;
-                    obj.absWireInX = obj.absX;
-                }
-
-
-            }
-            else {
-                obj.d3ChildArray = [];
-                PARAM_SUB_MAP_NAMES[i].forEach(function(subMapName) {
-                    var subMap = obj[subMapName];
-                    var subObjShapeAttr = objShapeAttr[subMapName]; //move this up
-
-                    //support custom ordering
-                    var subObjNames = [];
-                    if(absPosition.hasOwnProperty("subObjOrder") && absPosition.subObjOrder.hasOwnProperty(subMapName)) {
-                        subObjNames = absPosition.subObjOrder[subMapName];
-                    }
-                    else { //default order
-                        for(var subObjName in subMap) {
-                            subObjNames.push(subObjName);
-                        }
-                    }
-
-                    subObjNames.forEach(function(subObjName) {
-
-                        var subObj = subMap[subObjName];
-                        subObj.parent = obj;
-                        subObj.pathName = obj.pathName + "." + subMapName + "." + subObj.id;
-                        subObj.flipHorizontal = (subObj.pathName in PARAM_FLIP_HORIZONTAL_MAP);
-
-
-                        if(!paramDeclutter || (subObj.state > 0.5) || (subObj.pathName in paramD3FaultsMap)) { //if cluttered or on or faulted
-                            activeObjectsMap[subObj.pathName] = subObj;
-                            obj.d3ChildArray.push(subObj);
-                        }
-                        if(!paramShrink || (subObj.state > 0.5) || (subObj.pathName in paramD3FaultsMap)) { //if cluttered or decluttered_gaps or on or faulted
-                            subObj.width = subObjShapeAttr.width;
-                            subObj.height = objShapeAttr.switch_height;
-                            if(subObjShapeAttr.hasOwnProperty("leftSideMap") && (subObj.pathName in subObjShapeAttr.leftSideMap)) {
-                                subObj.relX = subObjShapeAttr.relXLeft;
-                                subObj.relY = subObjRelYLeft;
-                                subObjRelYLeft += subObj.height + objShapeAttr.switch_bottom_margin;
-                            }
-                            else { //right
-                                subObj.relX = subObjShapeAttr.hasOwnProperty("relXRight") ? subObjShapeAttr.relXRight : subObjShapeAttr.relX;
-                                subObj.relY = subObjRelYRight;
-                                subObjRelYRight += subObj.height + objShapeAttr.switch_bottom_margin;
-                            }
-
-
-                            subObj.absWireOutY = obj.absY + subObj.relY + subObj.height/2;
-                            subObj.absWireInY = subObj.absWireOutY;
-
-                            if(subObj.flipHorizontal) {
-                                subObj.absWireInX = obj.absX + subObj.relX + subObj.width;
-                                subObj.absWireOutX = obj.absX + subObj.relX;
-                            }
-                            else {
-                                subObj.absWireOutX = obj.absX + subObj.relX + subObj.width;
-                                subObj.absWireInX = obj.absX + subObj.relX;
-                            }
-                        }
-
-
-                    });
-                });
-
-                obj.height = Math.max(subObjRelYLeft, subObjRelYRight);
-                obj.topHeaderHeight = objShapeAttr.top_header;
-
-                if(objShapeAttr.hasOwnProperty("busBar")) {
-                    obj.busBar = {
-                        "x1": objShapeAttr.busBar.relX,
-                        "y1": objShapeAttr.top_header,
-                        "x2": objShapeAttr.busBar.relX,
-                        "y2": objShapeAttr.top_header + obj.height - objShapeAttr.top_header - objShapeAttr.switch_bottom_margin
-                    };
-                }
-            }
-        }*/
     });
 
     //obj.height = Math.max(subObjRelYLeft, subObjRelYRight);
@@ -418,6 +309,7 @@ function ParseHdtnConfig(paramHdtnConfig, paramDeclutter, paramShrink, paramD3Fa
     return {
         "ingressD3Array": ingressD3Array,
         "egressD3Array": egressD3Array,
+        "storageD3Array": storageD3Array,
         "nextHopsD3Array": nextHopsD3Array,
         "finalDestsD3Array": finalDestsD3Array,
         "wireConnections": wireConnections
