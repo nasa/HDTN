@@ -61,7 +61,7 @@ public:
      */
     HDTN_UTIL_EXPORT bool Init(const std::string& remoteHostname, const uint16_t remotePort);
     
-    /** Initialize the underlying I/O and connect to given UDP endpoint
+    /** Initialize the underlying I/O and connect to given UDP endpoint.
      *
      * @param udpDestinationEndpoint The remote UDP endpoint to connect to.
      * @return True if the connection could be established, or False if connection failed or the object has already been initialized.
@@ -74,7 +74,7 @@ public:
      */
     HDTN_UTIL_EXPORT boost::asio::ip::udp::endpoint GetCurrentUdpEndpoint() const;
 
-    /** Initiate a packet batch send operation.
+    /** Initiate a packet batch send operation (thread-safe).
      *
      * Initiates an asynchronous request to UdpBatchSender::PerformSendPacketsOperation().
      * @param constBufferVecs The packets to send.
@@ -91,14 +91,14 @@ public:
      */
     HDTN_UTIL_EXPORT void SetOnSentPacketsCallback(const OnSentPacketsCallback_t& callback);
     
-    /** Initiate a request to connect (thread-safe)
+    /** Initiate a request to connect (thread-safe).
      *
      * Initiates an asynchronous request to UdpBatchSender::SetEndpointAndReconnect().
      * @param remoteEndpoint The remote UDP endpoint to connect to.
      */
     HDTN_UTIL_EXPORT void SetEndpointAndReconnect_ThreadSafe(const boost::asio::ip::udp::endpoint& remoteEndpoint);
     
-    /** Initiate a request to connect (thread-safe)
+    /** Initiate a request to connect (thread-safe).
      *
      * Initiates an asynchronous request to UdpBatchSender::SetEndpointAndReconnect().
      * @param remoteHostname The remote host to connect to.
