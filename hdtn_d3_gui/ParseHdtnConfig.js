@@ -85,7 +85,7 @@ function ParseHdtnConfig(paramHdtnConfig, paramDeclutter, paramShrink, paramD3Fa
 
 
 
-        console.log(induct);
+        //console.log(induct);
         ingressObj.d3ChildArray.push(induct);
 
 
