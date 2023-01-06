@@ -75,7 +75,7 @@ private:
     void SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
             uint64_t time);
     void SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
-            uint64_t time, uint64_t cid);
+            uint64_t time);
 
     void EgressEventsHandler();
     void UisEventsHandler();
@@ -324,7 +324,7 @@ bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
 }
 
 void Scheduler::Impl::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
-		             uint64_t time, uint64_t cid) {
+		             uint64_t time) {
 
     hdtn::IreleaseChangeHdr stopMsg;
     
@@ -335,7 +335,6 @@ void Scheduler::Impl::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outduct
     stopMsg.prevHopNodeId = src;
     stopMsg.outductArrayIndex = outductArrayIndex;
     stopMsg.time = time;
-    stopMsg.contact = cid;
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
         if(!m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(
@@ -434,7 +433,7 @@ void Scheduler::Impl::EgressEventsHandler() {
         }
         else {
             LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Down event ";
-            SendLinkDown(srcNode, destNode, outductArrayIndex, timeSecondsSinceSchedulerEpoch, 1);
+            SendLinkDown(srcNode, destNode, outductArrayIndex, timeSecondsSinceSchedulerEpoch);
         }
     }
     else if (linkStatusHdr.base.type == HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY) {
@@ -576,11 +575,7 @@ void Scheduler::Impl::ReadZmqAcksThreadFunc() {
                 }
             }
 
-            if ((!schedulerFullyInitialized) && (ingressSubscribed) && (storageSubscribed) && (routerSubscribed)
-                && (m_zmqMessageOutductCapabilitiesTelemPtr))
-            {
-                //first time this outduct capabilities telemetry received, start remaining scheduler threads
-                schedulerFullyInitialized = true;
+            if ((ingressSubscribed) && (storageSubscribed) && (routerSubscribed) && (m_zmqMessageOutductCapabilitiesTelemPtr)) {
 
                 LOG_INFO(subprocess) << "Forwarding outduct capabilities telemetry to Router";
                 hdtn::IreleaseChangeHdr releaseMsgHdr;
@@ -601,8 +596,13 @@ void Scheduler::Impl::ReadZmqAcksThreadFunc() {
                     m_zmqMessageOutductCapabilitiesTelemPtr.reset();
                 }
 
-                LOG_INFO(subprocess) << "Now running and fully initialized and connected to egress.. reading contact file " << m_contactPlanFilePath;
-                ProcessContactsFile(m_contactPlanFilePath);
+                if (!schedulerFullyInitialized) {
+                    //first time this outduct capabilities telemetry received, start remaining scheduler threads
+                    schedulerFullyInitialized = true;
+                    LOG_INFO(subprocess) << "Now running and fully initialized and connected to egress.. reading contact file " << m_contactPlanFilePath;
+                    ProcessContactsFile(m_contactPlanFilePath);
+                }
+                
             }
         }
     }
@@ -646,6 +646,9 @@ bool Scheduler::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
         contact.source = contactPlan.first.source;
         contact.dest = contactPlan.first.dest;
 
+        if (contact.dest == m_hdtnConfig.m_myNodeId) {
+            continue;
+        }
 
         uint64_t outductArrayIndex;
         bool didFindOutductArrayIndex;
@@ -672,7 +675,7 @@ bool Scheduler::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
         if (!isLinkUp) {
             LOG_INFO(subprocess) << "m_mapContactUp " << false << " for source " << contact.source << " destination " << contact.dest;
             SendLinkDown(contactPlan.first.source, contactPlan.first.dest, outductArrayIndex,
-                contactPlan.first.end + 1, contactPlan.first.contact);
+                contactPlan.first.end + 1);
         }
     }
 
@@ -771,11 +774,16 @@ void Scheduler::Impl::OnContactPlan_TimerExpired(const boost::system::error_code
                 }
                 else {
                     SendLinkDown(contactPlan.source, contactPlan.dest, outductArrayIndex,
-                        contactPlan.end + 1, contactPlan.contact);
+                        contactPlan.end + 1);
                 }
             }
+            else if(contact.dest == m_hdtnConfig.m_myNodeId) {
+                LOG_WARNING(subprocess) << "OnContactPlan_TimerExpired cannot find next hop node id " << contact.dest
+                    << " because the contact plan has a contact with a destination that is my node id.";
+            }
             else {
-                LOG_ERROR(subprocess) << "OnContactPlan_TimerExpired cannot find next hop node id " << contact.dest;
+                LOG_WARNING(subprocess) << "OnContactPlan_TimerExpired cannot find next hop node id " << contact.dest 
+                    << " because the contact plan has an extra contact that is not in the hdtn config outduct vector.";
             }
             m_ptimeToContactPlanBimap.left.erase(it);
             TryRestartContactPlanTimer(); //wait for next event
