@@ -114,6 +114,7 @@
     <script src="ParseHdtnConfig.js"></script>
     <script src="RectComponents.js"></script>
     <script src="WireComponents.js"></script>
+    <script src="StraightWire.js"></script>
     <script src="Disk.js"></script>
     <script src="ToolTip.js"></script>
     <script src="SystemOutline.js"></script>
@@ -219,110 +220,34 @@
         //}
 
 
-
-
-
-
-        function Wire(paramSvgRootGroup, paramTextAngleDegrees, paramUnit, paramSrcX, paramSrcY, paramDestX, paramDestY) {
-
-            var svgRootGroup = paramSvgRootGroup;
-            var srcX = paramSrcX;
-            var srcY = paramSrcY;
-            var destX = paramDestX;
-            var destY = paramDestY;
-            var unit = paramUnit;
-            var textAngleDegrees = paramTextAngleDegrees;
-            var speedBps = 0;
-            var speedBpsAverageCalculator = ExponentialMovingAverage(0.1);
-            var WIRE_DASHARRAY = "6 2";
-
-            function GetWirePathStr() {
-                return "M" + paramSrcX + " " + paramSrcY + " L" + paramDestX + " " + paramDestY;
-            }
-
-
-            //https://stackoverflow.com/questions/15900485/correct-way-to-convert-size-in-bytes-to-kb-mb-gb-in-javascript
-            function formatBytes(bytes,decimals) {
-               if(bytes == 0) return '0 Bytes/s';
-               var k = 1024,
-                   dm = decimals <= 0 ? 0 : decimals || 2,
-                   sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'],
-                   i = Math.floor(Math.log(bytes) / Math.log(k));
-               return ((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i] + '/s';
-            }
-            function formatBundles(bytes,decimals) {
-               if(bytes == 0) return '0 Bun/s';
-               var k = 1000,
-                   dm = decimals <= 0 ? 0 : decimals || 2,
-                   sizes = ['Bun', 'K-Bun', 'M-Bun', 'G-Bun', 'T-Bun', 'P-Bun', 'E-Bun', 'Z-Bun', 'Y-Bun'],
-                   i = Math.floor(Math.log(bytes) / Math.log(k));
-               return ((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i] + '/s';
-            }
-            function formatMessages(bytes,decimals) {
-               if(bytes == 0) return '0 Msg/s';
-               var k = 1000,
-                   dm = decimals <= 0 ? 0 : decimals || 2,
-                   sizes = ['Msg', 'K-Msg', 'M-Msg', 'G-Msg', 'T-Msg', 'P-Msg', 'E-Msg', 'Z-Msg', 'Y-Msg'],
-                   i = Math.floor(Math.log(bytes) / Math.log(k));
-               return ((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i] + '/s';
-            }
-
-            function GetWireText() {
-                if(unit === "bundles") return formatBundles(speedBps, 2);
-                if(unit === "bytes") return formatBytes(speedBps, 2);
-                if(unit === "messages") return formatMessages(speedBps, 2);
-                return "";
-            }
-
-
-
-
-
-            var wirePathObj = svgRootGroup.append("svg:path")
-                .attr("d", GetWirePathStr)
-                .attr("marker-end", "url(#arrow)")
-                .attr("class", "wire_tx")
-                .attr("stroke-dasharray", (unit === "") ? null : WIRE_DASHARRAY)
-                .attr("stroke-dashoffset", 0);
-
-
-
-            var wireText = svgRootGroup.append("svg:text")
-                    .attr("class", "wire_txt")
-                    .attr("text-anchor", "middle")
-                    .attr("transform", "translate(" + ((srcX + destX) * 0.5) + "," + ((srcY + destY) * 0.5) + ") rotate(" + textAngleDegrees + ") translate(0,-5)")
-                    .text(GetWireText);
-
-            WireRepeatFunc();
-            function WireRepeatFunc() {
-                if(unit !== "") {
-                    DoRepeat();
-                }
-                function DoRepeat() {
-                    wirePathObj
-                        .attr("stroke-dasharray", WIRE_DASHARRAY)
-                        .attr("stroke-dashoffset", function(link) {
-                            var divider = 1000.0; //for bundles (0 to 10000) -> (0 to 10)
-                            if(unit === "bytes") divider = 250000000.0; //for bytes (0 to 20Gbps, 2.5GBps) -> (0 to 10)
-                            return Math.round(parseInt(speedBps)/divider) * 8;
-                        })
-                        .transition().ease(d3.easeLinear).duration(1000)
-                        .attr("stroke-dashoffset", 0)
-                        .on("end", DoRepeat);  // when the transition finishes start again
-
-                }
-
-            };
-
-
-
-            return {
-                SetSpeedBps: function(paramSpeedBps){
-                    speedBps = speedBpsAverageCalculator.Update(paramSpeedBps);
-                    wireText.text(GetWireText);
-                }
-            };
+        //https://stackoverflow.com/questions/15900485/correct-way-to-convert-size-in-bytes-to-kb-mb-gb-in-javascript
+        function formatBytes(bytes,decimals) {
+           if(bytes == 0) return '0 Bytes/s';
+           var k = 1024,
+               dm = decimals <= 0 ? 0 : decimals || 2,
+               sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'],
+               i = Math.floor(Math.log(bytes) / Math.log(k));
+           return ((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i] + '/s';
         }
+        function formatBundles(bytes,decimals) {
+           if(bytes == 0) return '0 Bun/s';
+           var k = 1000,
+               dm = decimals <= 0 ? 0 : decimals || 2,
+               sizes = ['Bun', 'K-Bun', 'M-Bun', 'G-Bun', 'T-Bun', 'P-Bun', 'E-Bun', 'Z-Bun', 'Y-Bun'],
+               i = Math.floor(Math.log(bytes) / Math.log(k));
+           return ((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i] + '/s';
+        }
+        function formatMessages(bytes,decimals) {
+           if(bytes == 0) return '0 Msg/s';
+           var k = 1000,
+               dm = decimals <= 0 ? 0 : decimals || 2,
+               sizes = ['Msg', 'K-Msg', 'M-Msg', 'G-Msg', 'T-Msg', 'P-Msg', 'E-Msg', 'Z-Msg', 'Y-Msg'],
+               i = Math.floor(Math.log(bytes) / Math.log(k));
+           return ((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i] + '/s';
+        }
+
+
+
 
 
 
@@ -566,25 +491,26 @@
                                 (2 * SYSTEM_OUTLINE_MARGIN_Y) + myDisk.GetWirePos("bottom").y - ABS_POSITION_MAP.ingress.Y,
                                 "HDTN");
 
-        var myWireIngressToStorage = Wire(internalHdtnWiresGroup, 0, "bytes",
+        var speedUpperLimitBps = 1000;
+        var myWireIngressToStorage = StraightWire(internalHdtnWiresGroup, 0, formatBytes, speedUpperLimitBps, ExponentialMovingAverage(0.1),
             ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, ABS_POSITION_MAP.storage.Y + 20,
             ABS_POSITION_MAP.storage.X, ABS_POSITION_MAP.storage.Y + 20);
-        var myWireStorageToEgress = Wire(internalHdtnWiresGroup, 0, "bytes",
+        var myWireStorageToEgress = StraightWire(internalHdtnWiresGroup, 0, formatBytes, speedUpperLimitBps, ExponentialMovingAverage(0.1),
             ABS_POSITION_MAP.storage.X + ABS_POSITION_MAP.storage.WIDTH, ABS_POSITION_MAP.storage.Y + 20,
             ABS_POSITION_MAP.egress.X, ABS_POSITION_MAP.storage.Y + 20);
-        var myWireIngressToEgress = Wire(internalHdtnWiresGroup, 0, "bytes",
+        var myWireIngressToEgress = StraightWire(internalHdtnWiresGroup, 0, formatBytes, speedUpperLimitBps, ExponentialMovingAverage(0.1),
             ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, ABS_POSITION_MAP.ingress.Y + 20,
             ABS_POSITION_MAP.egress.X, ABS_POSITION_MAP.egress.Y + 20);
-        var myWireStorageToDisk = Wire(internalHdtnWiresGroup, -90, "bytes",
+        var myWireStorageToDisk = StraightWire(internalHdtnWiresGroup, -90, formatBytes, speedUpperLimitBps, ExponentialMovingAverage(0.1),
             myDisk.GetWirePos("top").x - 10, ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT,
             myDisk.GetWirePos("top").x - 10, myDisk.GetWirePos("top").y);
-        var myWireDiskToStorage = Wire(internalHdtnWiresGroup, 90, "bytes",
+        var myWireDiskToStorage = StraightWire(internalHdtnWiresGroup, 90, formatBytes, speedUpperLimitBps, ExponentialMovingAverage(0.1),
             myDisk.GetWirePos("top").x + 10, myDisk.GetWirePos("top").y,
             myDisk.GetWirePos("top").x + 10, ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT);
-        //var myWireOutsideToIngress = Wire(guiGroup, 0, "bundles",
+        //var myWireOutsideToIngress = StraightWire(guiGroup, 0, formatBundles,
         //    myIngress.GetWirePos("left").x - 200, myIngress.GetWirePos("left").y,
         //    myIngress.GetWirePos("left").x, myIngress.GetWirePos("left").y);
-        //var myWireEgressToOutside = Wire(guiGroup, 0, "bundles",
+        //var myWireEgressToOutside = StraightWire(guiGroup, 0, formatBundles,
         //    myEgress.GetWirePos("right").x, myEgress.GetWirePos("right").y,
         //    myEgress.GetWirePos("right").x + 200, myEgress.GetWirePos("right").y);
 
