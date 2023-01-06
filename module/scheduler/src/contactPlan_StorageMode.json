@@ -20,7 +20,7 @@
             "rate": 1000,
             "owlt":  1
         },
-    {
+        {
             "contact": 2,
             "source": 2,
             "dest": 10,
@@ -30,7 +30,7 @@
             "rate": 1000,
             "owlt":  1
         },
-    {
+        {
             "contact": 3,
             "source": 10,
             "dest": 1,
