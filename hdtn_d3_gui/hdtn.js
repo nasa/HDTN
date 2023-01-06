@@ -54,14 +54,16 @@ var INITIAL_HDTN_CONFIG = {
                 "delaySendingOfReportSegmentsTimeMsOrZeroToDisable": 20,
                 "keepActiveSessionDataOnDisk": false,
                 "activeSessionDataOnDiskNewFileDurationMs": 2000,
-                "activeSessionDataOnDiskDirectory": ".\/"
+                "activeSessionDataOnDiskDirectory": ".\/",
+                "activeConnections": ["Engine 103"]
             },
             {
                 "name": "i2",
                 "convergenceLayer": "udp",
                 "boundPort": 4557,
                 "numRxCircularBufferElements": 107,
-                "numRxCircularBufferBytesPerElement": 65533
+                "numRxCircularBufferBytesPerElement": 65533,
+                "activeConnections": ["UDP Src[0]"]
             },
             {
                 "name": "i3",
@@ -70,7 +72,8 @@ var INITIAL_HDTN_CONFIG = {
                 "numRxCircularBufferElements": 1009,
                 "numRxCircularBufferBytesPerElement": 2000,
                 "keepAliveIntervalSeconds": 16,
-                "tcpclV3MyMaxTxSegmentSizeBytes": 100000000
+                "tcpclV3MyMaxTxSegmentSizeBytes": 100000000,
+                "activeConnections": ["Node 160", "Node 161"]
             },
             {
                 "name": "i4",
@@ -83,14 +86,16 @@ var INITIAL_HDTN_CONFIG = {
                 "tlsIsRequired": false,
                 "certificatePemFile": "C:\/hdtn_ssl_certificates\/cert.pem",
                 "privateKeyPemFile": "C:\/hdtn_ssl_certificates\/privatekey.pem",
-                "diffieHellmanParametersPemFile": "C:\/hdtn_ssl_certificates\/dh4096.pem"
+                "diffieHellmanParametersPemFile": "C:\/hdtn_ssl_certificates\/dh4096.pem",
+                "activeConnections": ["Node 170", "Node 171", "Node 172"]
             },
             {
                 "name": "i5",
                 "convergenceLayer": "stcp",
                 "boundPort": 4559,
                 "numRxCircularBufferElements": 1000,
-                "keepAliveIntervalSeconds": 17
+                "keepAliveIntervalSeconds": 17,
+                "activeConnections": ["STCP Src[0]", "STCP Src[1]"]
             }
         ]
     },

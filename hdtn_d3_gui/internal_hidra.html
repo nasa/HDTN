@@ -389,21 +389,18 @@
 
         var wiresGroup = centralGroup.append("g");
 
-
+        //establish draw order so last append (wires) gets drawn on top
+        var systemOutlineGroup = guiGroup.append("g");
+        var activeInductConnsGroup = guiGroup.append("g");
         var egressGroup = guiGroup.append("g");
         var ingressGroup = guiGroup.append("g");
         var storageGroup = guiGroup.append("g");
+        var diskGroup = guiGroup.append("g");
         var nextHopsGroup = guiGroup.append("g");
         var finalDestsGroup = guiGroup.append("g");
+        var internalHdtnWiresGroup = guiGroup.append("g");
         var wiresComponentGroup = guiGroup.append("g");
-/*
 
-
-        */
-
-
-        var HIDRA_NODE_RADIUS_PX = 50;
-        var CONNECTED_NODE_RADIUS_PX = 25;
 
         var sharedTransition;
 
@@ -457,12 +454,25 @@
         }
 
         var ABS_POSITION_MAP = {
+            "active_induct_conns" : {"X" : 0, "Y" : 100, "WIDTH": 130, "HEIGHT": 500},
             "ingress" : {"X" : 300, "Y" : 100, "WIDTH": 130, "HEIGHT": 500},
             "egress" : {"X" : 900, "Y" : 100, "WIDTH": 130, "HEIGHT": 500},
             "storage" : {"X" : (300 + 130 + 200), "Y" : (100 + 100), "WIDTH": 100, "HEIGHT": 150},
             "next_hops" : {"X" : 1100, "Y" : 100, "WIDTH": 100, "HEIGHT": 500},
             "final_dests" : {"X" : 1400, "Y" : 100, "WIDTH": 100, "HEIGHT": 500}
         };
+
+        var myActiveInductConnsRectComponent = RectComponents(
+            activeInductConnsGroup, //paramSvgRootGroup, , ,
+            "activeInductConns_group", //paramSvgRootGroupClass
+            "activeInductConn_group", //paramSvgChildGroupClass
+            "", //paramParentRectStyleClass
+            true, //paramHideParent
+            toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
+            ContextMenuEvent, //paramContextMenuEventFunction
+            GetOruRectClass, //paramGetParentRectClassFunction
+            GetSwitchRectClass //paramGetChildRectClassFunction
+        );
 
 
         var myIngressRectComponent = RectComponents(
@@ -532,33 +542,35 @@
 
         //var loadbanks = RectComponents(loadBankGroup, "loadBank_group", "load_group", "", true, toolTipObj.MouseEventToolTip, ContextMenuEvent, GetOruRectClass, GetSwitchRectClass);
         //var wires = WireComponents(wiresGroup, "wires_group", arrowMarker, WIRE_CONNECTIONS);
-        var myDisk = Disk(guiGroup,
+        var myDisk = Disk(diskGroup,
                                 ABS_POSITION_MAP.storage.X + ABS_POSITION_MAP.storage.WIDTH/2,
                                 ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT + 250,
                                 50,
                                 10,
                                 100,
                                 "Disk1");
-        var myOutline = SystemOutline(guiGroup,
-                                ABS_POSITION_MAP.ingress.X - 50,
-                                ABS_POSITION_MAP.ingress.Y - 50,
-                                50 + ABS_POSITION_MAP.egress.X + ABS_POSITION_MAP.egress.WIDTH - ABS_POSITION_MAP.ingress.X,
-                                100 + myDisk.GetWirePos("bottom").y - ABS_POSITION_MAP.ingress.Y,
+        var SYSTEM_OUTLINE_MARGIN_X = 0;
+        var SYSTEM_OUTLINE_MARGIN_Y = 50;
+        var myOutline = SystemOutline(systemOutlineGroup,
+                                ABS_POSITION_MAP.ingress.X - SYSTEM_OUTLINE_MARGIN_X,
+                                ABS_POSITION_MAP.ingress.Y - SYSTEM_OUTLINE_MARGIN_Y,
+                                (2 * SYSTEM_OUTLINE_MARGIN_X) + ABS_POSITION_MAP.egress.X + ABS_POSITION_MAP.egress.WIDTH - ABS_POSITION_MAP.ingress.X,
+                                (2 * SYSTEM_OUTLINE_MARGIN_Y) + myDisk.GetWirePos("bottom").y - ABS_POSITION_MAP.ingress.Y,
                                 "HDTN");
 
-        var myWireIngressToStorage = Wire(guiGroup, 0, "bytes",
+        var myWireIngressToStorage = Wire(internalHdtnWiresGroup, 0, "bytes",
             ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, ABS_POSITION_MAP.storage.Y + 20,
             ABS_POSITION_MAP.storage.X, ABS_POSITION_MAP.storage.Y + 20);
-        var myWireStorageToEgress = Wire(guiGroup, 0, "bytes",
+        var myWireStorageToEgress = Wire(internalHdtnWiresGroup, 0, "bytes",
             ABS_POSITION_MAP.storage.X + ABS_POSITION_MAP.storage.WIDTH, ABS_POSITION_MAP.storage.Y + 20,
             ABS_POSITION_MAP.egress.X, ABS_POSITION_MAP.storage.Y + 20);
-        var myWireIngressToEgress = Wire(guiGroup, 0, "bytes",
+        var myWireIngressToEgress = Wire(internalHdtnWiresGroup, 0, "bytes",
             ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, ABS_POSITION_MAP.ingress.Y + 20,
             ABS_POSITION_MAP.egress.X, ABS_POSITION_MAP.egress.Y + 20);
-        var myWireStorageToDisk = Wire(guiGroup, -90, "bytes",
+        var myWireStorageToDisk = Wire(internalHdtnWiresGroup, -90, "bytes",
             myDisk.GetWirePos("top").x - 10, ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT,
             myDisk.GetWirePos("top").x - 10, myDisk.GetWirePos("top").y);
-        var myWireDiskToStorage = Wire(guiGroup, 90, "bytes",
+        var myWireDiskToStorage = Wire(internalHdtnWiresGroup, 90, "bytes",
             myDisk.GetWirePos("top").x + 10, myDisk.GetWirePos("top").y,
             myDisk.GetWirePos("top").x + 10, ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT);
         //var myWireOutsideToIngress = Wire(guiGroup, 0, "bundles",
@@ -669,25 +681,13 @@
                     inTransition = false;
                 });
 
-
+            myActiveInductConnsRectComponent.Update(retObj.activeInductConnsD3Array, sharedTransition);
             myIngressRectComponent.Update(retObj.ingressD3Array, sharedTransition);
             myEgressRectComponent.Update(retObj.egressD3Array, sharedTransition);
             myStorageRectComponent.Update(retObj.storageD3Array, sharedTransition);
             myNextHopsRectComponent.Update(retObj.nextHopsD3Array, sharedTransition);
             myFinalDestsRectComponent.Update(retObj.finalDestsD3Array, sharedTransition);
             wiresComponent.Update(sharedTransition);
-/*
-            solararrays.Update(D3_SHAPE_ATTRIBUTES.solarArrayMap.d3Array, sharedTransition);
-            sars.Update(D3_SHAPE_ATTRIBUTES.sarMap.d3Array, sharedTransition);
-            batteries.Update(D3_SHAPE_ATTRIBUTES.batteryMap.d3Array, sharedTransition);
-            bcdus.Update(D3_SHAPE_ATTRIBUTES.bcduMap.d3Array, sharedTransition);
-            ddcus.Update(D3_SHAPE_ATTRIBUTES.ddcuMap.d3Array, sharedTransition);
-            ppus.Update(D3_SHAPE_ATTRIBUTES.ppuMap.d3Array, sharedTransition);
-            mbsus.Update(D3_SHAPE_ATTRIBUTES.mbsuMap.d3Array, sharedTransition);
-            pdus.Update(D3_SHAPE_ATTRIBUTES.pduMap.d3Array, sharedTransition);
-            loadbanks.Update(D3_SHAPE_ATTRIBUTES.loadBankMap.d3Array, sharedTransition);
-            wires.Update(sharedTransition);
-*/
 
         }
 

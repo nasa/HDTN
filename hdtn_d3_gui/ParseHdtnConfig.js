@@ -39,60 +39,107 @@ function ParseHdtnConfig(paramHdtnConfig, paramDeclutter, paramShrink, paramD3Fa
     ingressObj.height = ingressAbsPosition.HEIGHT;
     var ingressD3Array = [ingressObj];
 
+
+    var activeInductConnsAbsPosition = PARAM_ABS_POSITION_MAP["active_induct_conns"];
+    var activeInductConnsObj = {};
+    activeInductConnsObj.parent = null;
+    activeInductConnsObj.d3ChildArray = [];
+    activeInductConnsObj.id = "final_dests"
+    activeInductConnsObj.absX = activeInductConnsAbsPosition.X;
+    activeInductConnsObj.absY = activeInductConnsAbsPosition.Y;
+    activeInductConnsObj.width = activeInductConnsAbsPosition.WIDTH;
+    activeInductConnsObj.height = 500;
+    var activeInductConnsD3Array = [activeInductConnsObj];
+
+
     var inductsConfig = paramHdtnConfig["inductsConfig"];
     var inductVector = inductsConfig["inductVector"];
 
-    var subObjRelYLeft =  PARENT_TOP_HEADER_PX;// + CHILD_HEIGHT_PX/2;
-
+    var inductRelYLeft =  PARENT_TOP_HEADER_PX;// + CHILD_HEIGHT_PX/2;
+    var activeInductConnsRelY = PARENT_TOP_HEADER_PX;
 
     inductVector.forEach(function(ind, i) {
         //console.log(i);
 
-        ///////////induct
-        var induct = {};
-        induct.linkIsUp = true;
-        induct.parent = egressObj;
-        induct.id = "induct_" + i;
-        var cvName = "??";
-        if(ind.convergenceLayer === "ltp_over_udp") {
-            cvName = "LTP";
-        }
-        else if(ind.convergenceLayer === "udp") {
-            cvName = "UDP";
-        }
-        else if(ind.convergenceLayer === "tcpcl_v3") {
-            cvName = "TCP3";
-        }
-        else if(ind.convergenceLayer === "tcpcl_v4") {
-            cvName = "TCP4";
-        }
-        else if(ind.convergenceLayer === "stcp") {
-            cvName = "STCP";
-        }
-        induct.name = cvName + "[" + i + "]";
+        var activeInductConnsNames = ind["activeConnections"];
+        activeInductConnsNames.forEach(function(connName, j) {
 
-        induct.width = (ingressAbsPosition.WIDTH - 2*CHILD_SIDE_MARGIN_PX) * (3/4) - BUSBAR_WIDTH_PX/2;
-        induct.height = CHILD_HEIGHT_PX;
-        //left side
-        induct.relX = CHILD_SIDE_MARGIN_PX;
-        induct.relY = subObjRelYLeft;
-        subObjRelYLeft += CHILD_HEIGHT_PX + CHILD_BOTTOM_MARGIN_PX;
+            var baseId = "induct_" + i + "_conn_" + connName + "_" + j;
+            ///////////induct
+            var induct = {};
+            induct.linkIsUp = true;
+            induct.parent = egressObj;
+            induct.id = "induct_" + baseId;
+            var cvName = "??";
+            if(ind.convergenceLayer === "ltp_over_udp") {
+                cvName = "LTP";
+            }
+            else if(ind.convergenceLayer === "udp") {
+                cvName = "UDP";
+            }
+            else if(ind.convergenceLayer === "tcpcl_v3") {
+                cvName = "TCP3";
+            }
+            else if(ind.convergenceLayer === "tcpcl_v4") {
+                cvName = "TCP4";
+            }
+            else if(ind.convergenceLayer === "stcp") {
+                cvName = "STCP";
+            }
+            induct.name = cvName + "[" + i + "]";
 
-        induct.absWireOutY = ingressObj.absY + induct.relY + induct.height/2;
-        induct.absWireInY = induct.absWireOutY;
-        induct.absWireOutX = ingressObj.absX + induct.relX + induct.width;
-        induct.absWireInX = ingressObj.absX + induct.relX;
+            induct.width = (ingressAbsPosition.WIDTH - 2*CHILD_SIDE_MARGIN_PX) * (3/4) - BUSBAR_WIDTH_PX/2;
+            induct.height = CHILD_HEIGHT_PX;
+            //left side
+            induct.relX = CHILD_SIDE_MARGIN_PX;
+            induct.relY = inductRelYLeft;
+            inductRelYLeft += CHILD_HEIGHT_PX + CHILD_BOTTOM_MARGIN_PX;
+
+            induct.absWireOutY = ingressObj.absY + induct.relY + induct.height/2;
+            induct.absWireInY = induct.absWireOutY;
+            induct.absWireOutX = ingressObj.absX + induct.relX + induct.width;
+            induct.absWireInX = ingressObj.absX + induct.relX;
+
+            //console.log(induct);
+            ingressObj.d3ChildArray.push(induct);
 
 
 
-        //console.log(induct);
-        ingressObj.d3ChildArray.push(induct);
+            ////////////////active induct connections
+            var connObj = {};
+            connObj.linkIsUp = true;
+            connObj.parent = activeInductConnsObj;
+            connObj.id = "conn_" + baseId;
+            connObj.name = connName;
+
+            connObj.width = (activeInductConnsAbsPosition.WIDTH - 2*CHILD_SIDE_MARGIN_PX);
+            connObj.height = CHILD_HEIGHT_PX;
+            connObj.relX = CHILD_SIDE_MARGIN_PX;
+            connObj.relY = activeInductConnsRelY;
+            activeInductConnsRelY += CHILD_HEIGHT_PX + CHILD_BOTTOM_MARGIN_PX;
+
+
+            connObj.absWireOutY = activeInductConnsObj.absY + connObj.relY + connObj.height/2;
+            connObj.absWireInY = connObj.absWireOutY;
+            connObj.absWireOutX = activeInductConnsObj.absX + connObj.relX + connObj.width;
+            connObj.absWireInX = activeInductConnsObj.absX + connObj.relX;
+
+            activeInductConnsObj.d3ChildArray.push(connObj);
+
+            wireConnections.push({
+                "src": connObj,
+                "dest": induct,
+                "groupName": "conn_induct"
+            });
+        });
 
 
     });
 
     //obj.height = Math.max(subObjRelYLeft, subObjRelYRight);
     ingressObj.topHeaderHeight = PARENT_TOP_HEADER_PX;
+
+    activeInductConnsObj.topHeaderHeight = PARENT_TOP_HEADER_PX;
 
     ingressObj.busBar = {
         "x1": ingressAbsPosition.WIDTH * 3.0 / 4.0,
@@ -143,9 +190,7 @@ function ParseHdtnConfig(paramHdtnConfig, paramDeclutter, paramShrink, paramD3Fa
 
 
 
-    //obj=oru, subObj=switch
-
-    var subObjRelYRight = PARENT_TOP_HEADER_PX;
+    var outductRelYRight = PARENT_TOP_HEADER_PX;
 
 
     var finalDestRelY = PARENT_TOP_HEADER_PX;
@@ -180,8 +225,8 @@ function ParseHdtnConfig(paramHdtnConfig, paramDeclutter, paramShrink, paramD3Fa
         outduct.height = CHILD_HEIGHT_PX;
         //right side
         outduct.relX = CHILD_SIDE_MARGIN_PX + (egressAbsPosition.WIDTH - 2*CHILD_SIDE_MARGIN_PX) * (1/4) + BUSBAR_WIDTH_PX/2;
-        outduct.relY = subObjRelYRight;
-        subObjRelYRight += CHILD_HEIGHT_PX + CHILD_BOTTOM_MARGIN_PX;
+        outduct.relY = outductRelYRight;
+        outductRelYRight += CHILD_HEIGHT_PX + CHILD_BOTTOM_MARGIN_PX;
 
         outduct.absWireOutY = egressObj.absY + outduct.relY + outduct.height/2;
         outduct.absWireInY = outduct.absWireOutY;
@@ -307,6 +352,7 @@ function ParseHdtnConfig(paramHdtnConfig, paramDeclutter, paramShrink, paramD3Fa
     };
 
     return {
+        "activeInductConnsD3Array": activeInductConnsD3Array,
         "ingressD3Array": ingressD3Array,
         "egressD3Array": egressD3Array,
         "storageD3Array": storageD3Array,
