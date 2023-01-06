@@ -46,7 +46,7 @@ public:
         zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
 
 private:
-    int ComputeOptimalRoute(uint64_t sourceNode, uint64_t finalDestNodeId);
+    bool ComputeOptimalRoute(uint64_t sourceNode, uint64_t finalDestNodeId);
     void ReadZmqThreadFunc();
     void SchedulerEventsHandler();
 
@@ -63,7 +63,6 @@ private:
 
     std::map<uint64_t, uint64_t> m_routeTable;
     std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
-    boost::mutex m_mutexRouteTableMap;
 
 
     //for blocking until worker-thread startup
@@ -235,15 +234,16 @@ void Router::Impl::SchedulerEventsHandler() {
     if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKDOWN) {
         m_latestTime = releaseChangeHdr.time;
         LOG_INFO(subprocess) << "Received Link Down for contact: " << releaseChangeHdr.contact;
-        uint64_t finalDestNodeId;
-        boost::mutex::scoped_lock lock(m_mutexRouteTableMap);
+        
+        //no mutex necessary (everything within the ReadZmqThreadFunc)
         std::map<uint64_t, uint64_t>::const_iterator it = m_routeTable.find(releaseChangeHdr.contact);
         if (it == m_routeTable.cend()) {
             LOG_ERROR(subprocess) << " Got link down event for unknown contact index "
                 << releaseChangeHdr.contact << " which does not correspont to a final destination";
             return;
         }
-        finalDestNodeId = it->second;
+        const uint64_t finalDestNodeId = it->second;
+        
         LOG_INFO(subprocess) << "FinalDest nodeId found is:  " << finalDestNodeId;
         ComputeOptimalRoute(srcNode, finalDestNodeId);
         LOG_INFO(subprocess) << "Updated time to " << m_latestTime;
@@ -333,7 +333,7 @@ void Router::Impl::ReadZmqThreadFunc() {
     }
 }
 
-int Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t finalDestNodeId) {
+bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t finalDestNodeId) {
 
     cgr::Route bestRoute;
 
@@ -356,46 +356,50 @@ int Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t finalDestNod
             << finalDestNodeId;
     }
 
-    //if (bestRoute != NULL) { // successfully computed a route
-    const uint64_t nextHopNodeId = bestRoute.next_node;
-    boost::mutex::scoped_lock lock(m_mutexRouteTableMap);
-    m_routeTable[bestRoute.get_hops()[0].id] = finalDestNodeId;
-    LOG_INFO(subprocess) << "Successfully Computed next hop: "
-        << nextHopNodeId << " for final Destination " << finalDestNodeId;
-    LOG_INFO(subprocess) << "Contact in m_routeTable for this final destination is "
-        << bestRoute.get_hops()[0].id;
-    cbhe_eid_t nextHopEid;
-    nextHopEid.nodeId = nextHopNodeId;
-    nextHopEid.serviceId = 1;
+    if (bestRoute.valid()) { // successfully computed a route
+
+        const uint64_t nextHopNodeId = bestRoute.next_node;
+
+        //no mutex necessary (everything within the ReadZmqThreadFunc)
+        m_routeTable[bestRoute.get_hops()[0].id] = finalDestNodeId;
+
+        LOG_INFO(subprocess) << "Successfully Computed next hop: "
+            << nextHopNodeId << " for final Destination " << finalDestNodeId;
+        LOG_INFO(subprocess) << "Contact in m_routeTable for this final destination is "
+            << bestRoute.get_hops()[0].id;
+        cbhe_eid_t nextHopEid;
+        nextHopEid.nodeId = nextHopNodeId;
+        nextHopEid.serviceId = 1;
 
 
 
-    {
-        boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-        // Timer was not cancelled, take necessary action.
-        LOG_INFO(subprocess) << timeLocal << ": [Router] Sending RouteUpdate event to Egress ";
-
-        hdtn::RouteUpdateHdr routingMsg;
-        memset(&routingMsg, 0, sizeof(hdtn::RouteUpdateHdr));
-        routingMsg.base.type = HDTN_MSGTYPE_ROUTEUPDATE;
-        routingMsg.nextHopNodeId = nextHopNodeId;
-        routingMsg.finalDestNodeId = finalDestNodeId;
-
-        while (m_running && !m_zmqPushSock_connectingRouterToBoundEgressPtr->send(
-            zmq::const_buffer(&routingMsg, sizeof(hdtn::RouteUpdateHdr)),
-            zmq::send_flags::dontwait))
         {
-            //send returns false if(!res.has_value() AND zmq_errno()=EAGAIN)
-            LOG_INFO(subprocess) << "waiting for egress to become available to send route update";
-            boost::this_thread::sleep(boost::posix_time::seconds(1));
+            boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
+            // Timer was not cancelled, take necessary action.
+            LOG_INFO(subprocess) << timeLocal << ": [Router] Sending RouteUpdate event to Egress ";
+
+            hdtn::RouteUpdateHdr routingMsg;
+            memset(&routingMsg, 0, sizeof(hdtn::RouteUpdateHdr));
+            routingMsg.base.type = HDTN_MSGTYPE_ROUTEUPDATE;
+            routingMsg.nextHopNodeId = nextHopNodeId;
+            routingMsg.finalDestNodeId = finalDestNodeId;
+
+            while (m_running && !m_zmqPushSock_connectingRouterToBoundEgressPtr->send(
+                zmq::const_buffer(&routingMsg, sizeof(hdtn::RouteUpdateHdr)),
+                zmq::send_flags::dontwait))
+            {
+                //send returns false if(!res.has_value() AND zmq_errno()=EAGAIN)
+                LOG_INFO(subprocess) << "waiting for egress to become available to send route update";
+                boost::this_thread::sleep(boost::posix_time::seconds(1));
+            }
         }
+
+    }
+    else {
+        // what should we do if no route is found?
+        LOG_ERROR(subprocess) << "No route is found!!";
+        return false;
     }
 
-    //}
-    //else {
-        // what should we do if no route is found?
-      //  LOG_ERROR(subprocess) << "No route is found!!";
-    //}
-
-    return 1;
+    return true;
 }

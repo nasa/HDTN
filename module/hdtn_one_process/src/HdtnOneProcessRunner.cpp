@@ -136,41 +136,41 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         std::unique_ptr<zmq::context_t> hdtnOneProcessZmqInprocContextPtr = boost::make_unique<zmq::context_t>(0);// 0 Threads
 
         LOG_INFO(subprocess) << "starting Scheduler..";
-        Scheduler scheduler;
-        if (!scheduler.Init(*hdtnConfig, contactPlanFilePath, usingUnixTimestamp, hdtnOneProcessZmqInprocContextPtr.get())) {
+        std::unique_ptr<Scheduler> schedulerPtr = boost::make_unique<Scheduler>();
+        if (!schedulerPtr->Init(*hdtnConfig, contactPlanFilePath, usingUnixTimestamp, hdtnOneProcessZmqInprocContextPtr.get())) {
             return false;
         }
 
         LOG_INFO(subprocess) << "starting Router..";
-        Router router;
-        if (!router.Init(*hdtnConfig, contactPlanFilePath, usingUnixTimestamp, useMgr, hdtnOneProcessZmqInprocContextPtr.get())) {
+        std::unique_ptr<Router> routerPtr = boost::make_unique<Router>();
+        if (!routerPtr->Init(*hdtnConfig, contactPlanFilePath, usingUnixTimestamp, useMgr, hdtnOneProcessZmqInprocContextPtr.get())) {
             return false;
         }
 
         LOG_INFO(subprocess) << "starting Egress..";
         //No need to create Egress, Ingress, and Storage on heap with unique_ptr to prevent stack overflows because they use the pimpl pattern
-        hdtn::Egress egress;
-        if (!egress.Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
+        //However, the unique_ptr reset() function is useful for isolating destructor hangs on exit
+        std::unique_ptr<hdtn::Egress> egressPtr = boost::make_unique<hdtn::Egress>();
+        if (!egressPtr->Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
             return false;
         }
 
         LOG_INFO(subprocess) << "starting Ingress..";
-        hdtn::Ingress ingress;
-        if (!ingress.Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
+        std::unique_ptr<hdtn::Ingress> ingressPtr = boost::make_unique<hdtn::Ingress>();
+        if (!ingressPtr->Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
             return false;
         }
 
-        ZmqStorageInterface storage;
         LOG_INFO(subprocess) << "starting Storage..";
-        if (!storage.Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
+        std::unique_ptr<ZmqStorageInterface> storagePtr = boost::make_unique<ZmqStorageInterface>();
+        if (!storagePtr->Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
             return false;
         }
 
 #ifdef RUN_TELEMETRY
-        LOG_INFO(subprocess) << "Initializing telemetry runner...";
-        TelemetryRunner telemetryRunner;
-        if (!telemetryRunner.Init(hdtnOneProcessZmqInprocContextPtr.get(), telemetryRunnerOptions))
-        {
+        LOG_INFO(subprocess) << "Starting telemetry runner...";
+        std::unique_ptr<TelemetryRunner> telemetryRunnerPtr = boost::make_unique<TelemetryRunner>();
+        if (!telemetryRunnerPtr->Init(hdtnOneProcessZmqInprocContextPtr.get(), telemetryRunnerOptions)) {
             return false;
         }
 #endif
@@ -180,7 +180,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         }
 
 #ifdef RUN_TELEMETRY
-        while (running && m_runningFromSigHandler && !telemetryRunner.ShouldExit()) {
+        while (running && m_runningFromSigHandler && !telemetryRunnerPtr->ShouldExit()) {
 #else
         while (running && m_runningFromSigHandler) {
 #endif // RUN_TELEMETRY
@@ -192,35 +192,58 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
 
         LOG_INFO(subprocess) << "Elapsed, Bundle Count (M), Rate (Mbps), Bundles/sec, Bundle Data (MB) ";
         //Possibly out of Date
-        double rate = 8 * ((ingress.m_bundleData / (double)(1024 * 1024)) / ingress.m_elapsed);
-        LOG_INFO(subprocess) << ingress.m_elapsed << "," << ingress.m_bundleCount / 1000000.0f << "," << rate << ","
-            << ingress.m_bundleCount / ingress.m_elapsed << ", " << ingress.m_bundleData / (double)(1024 * 1024);
+        double rate = 8 * ((ingressPtr->m_bundleData / (double)(1024 * 1024)) / ingressPtr->m_elapsed);
+        LOG_INFO(subprocess) << ingressPtr->m_elapsed << "," << ingressPtr->m_bundleCount / 1000000.0f << "," << rate << ","
+            << ingressPtr->m_bundleCount / ingressPtr->m_elapsed << ", " << ingressPtr->m_bundleData / (double)(1024 * 1024);
 
 #ifdef RUN_TELEMETRY
-        LOG_INFO(subprocess) << "TelemetryRunner: exiting cleanly...";
-        telemetryRunner.Stop();
+        LOG_INFO(subprocess) << "Telemetry: stopping..";
+        telemetryRunnerPtr->Stop();
+        LOG_INFO(subprocess) << "Telemetry: deleting..";
+        telemetryRunnerPtr.reset();
 #endif
 
+        LOG_INFO(subprocess) << "Scheduler: stopping..";
+        schedulerPtr->Stop();
+        LOG_INFO(subprocess) << "Scheduler: deleting..";
+        schedulerPtr.reset();
+
+        LOG_INFO(subprocess) << "Router: stopping..";
+        routerPtr->Stop();
+        LOG_INFO(subprocess) << "Router: deleting..";
+        routerPtr.reset();
+
         boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-        LOG_INFO(subprocess) << "IngressAsyncRunner currentTime  " << timeLocal;
+        LOG_INFO(subprocess) << "Ingress currentTime  " << timeLocal;
 
-        LOG_INFO(subprocess) << "IngressAsyncRunner: exiting cleanly..";
-        ingress.Stop();
-        m_ingressBundleCountStorage = ingress.m_bundleCountStorage;
-        m_ingressBundleCountEgress = ingress.m_bundleCountEgress;
-        m_ingressBundleCount = ingress.m_bundleCount;
-        m_ingressBundleData = ingress.m_bundleData;
+        LOG_INFO(subprocess) << "Ingress: stopping..";
+        ingressPtr->Stop();
+        m_ingressBundleCountStorage = ingressPtr->m_bundleCountStorage;
+        m_ingressBundleCountEgress = ingressPtr->m_bundleCountEgress;
+        m_ingressBundleCount = ingressPtr->m_bundleCount;
+        m_ingressBundleData = ingressPtr->m_bundleData;
+        LOG_INFO(subprocess) << "Ingress: deleting..";
+        ingressPtr.reset();
 
-        LOG_INFO(subprocess) << "StorageRunner: exiting cleanly..";
-        storage.Stop();
-        m_totalBundlesErasedFromStorage = storage.GetCurrentNumberOfBundlesDeletedFromStorage();
-        m_totalBundlesSentToEgressFromStorage = storage.m_totalBundlesSentToEgressFromStorageReadFromDisk;
+        LOG_INFO(subprocess) << "Storage: stopping..";
+        storagePtr->Stop();
+        m_totalBundlesErasedFromStorage = storagePtr->GetCurrentNumberOfBundlesDeletedFromStorage();
+        m_totalBundlesSentToEgressFromStorage = storagePtr->m_totalBundlesSentToEgressFromStorageReadFromDisk;
+        LOG_INFO(subprocess) << "Storage: deleting..";
+        storagePtr.reset();
 
-        LOG_INFO(subprocess) << "EgressAsyncRunner: exiting cleanly..";
-        egress.Stop();
-        m_egressBundleCount = egress.m_telemetry.egressBundleCount;
-        m_egressBundleData = static_cast<uint64_t>(egress.m_telemetry.totalDataBytes);
-        m_egressMessageCount = egress.m_telemetry.egressMessageCount;
+        LOG_INFO(subprocess) << "Egress: stopping..";
+        egressPtr->Stop();
+        m_egressBundleCount = egressPtr->m_telemetry.egressBundleCount;
+        m_egressBundleData = static_cast<uint64_t>(egressPtr->m_telemetry.totalDataBytes);
+        m_egressMessageCount = egressPtr->m_telemetry.egressMessageCount;
+        LOG_INFO(subprocess) << "Egress: deleting..";
+        egressPtr.reset();
+
+        LOG_INFO(subprocess) << "Inproc zmq context: deleting..";
+        hdtnOneProcessZmqInprocContextPtr.reset();
+
+        LOG_INFO(subprocess) << "All modules deleted successfully from HdtnOneProcess.";
     }
     LOG_INFO(subprocess) << "HDTN one process: exited cleanly";
     return true;

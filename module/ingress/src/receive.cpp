@@ -788,20 +788,30 @@ void Ingress::Impl::SchedulerEventHandler() {
     }
     else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKUP) {
         ingress_shared_lock_t lockShared(m_sharedMutexFinalDestsToOutductArrayIndexMaps);
-        BundlePipelineAckingSet& bundlePipelineAckingSetObj = *(m_vectorBundlePipelineAckingSet[releaseChangeHdr.outductArrayIndex]);
-        if (!bundlePipelineAckingSetObj.m_linkIsUp) {
-            bundlePipelineAckingSetObj.m_linkIsUp = true; //no mutex needed as this flag is only set from ReadZmqAcksThreadFunc
-            LOG_INFO(subprocess) << "Ingress sending bundles to egress for nextHopNodeId: " << releaseChangeHdr.nextHopNodeId
-                << " outductArrayIndex=" << releaseChangeHdr.outductArrayIndex;
+        if (releaseChangeHdr.outductArrayIndex < m_vectorBundlePipelineAckingSet.size()) {
+            BundlePipelineAckingSet& bundlePipelineAckingSetObj = *(m_vectorBundlePipelineAckingSet[releaseChangeHdr.outductArrayIndex]);
+            if (!bundlePipelineAckingSetObj.m_linkIsUp) {
+                bundlePipelineAckingSetObj.m_linkIsUp = true; //no mutex needed as this flag is only set from ReadZmqAcksThreadFunc
+                LOG_INFO(subprocess) << "Ingress sending bundles to egress for nextHopNodeId: " << releaseChangeHdr.nextHopNodeId
+                    << " outductArrayIndex=" << releaseChangeHdr.outductArrayIndex;
+            }
+        }
+        else {
+            LOG_ERROR(subprocess) << "link up message received with out of bounds outductArrayIndex " << releaseChangeHdr.outductArrayIndex;
         }
     }
     else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKDOWN) {
         ingress_shared_lock_t lockShared(m_sharedMutexFinalDestsToOutductArrayIndexMaps);
-        BundlePipelineAckingSet& bundlePipelineAckingSetObj = *(m_vectorBundlePipelineAckingSet[releaseChangeHdr.outductArrayIndex]);
-        if (bundlePipelineAckingSetObj.m_linkIsUp) {
-            bundlePipelineAckingSetObj.m_linkIsUp = false; //no mutex needed as this flag is only set from ReadZmqAcksThreadFunc
-            LOG_INFO(subprocess) << "Sending bundles to storage for nextHopNodeId: " << releaseChangeHdr.nextHopNodeId
-                << " since outductArrayIndex=" << releaseChangeHdr.outductArrayIndex << " is down";
+        if (releaseChangeHdr.outductArrayIndex < m_vectorBundlePipelineAckingSet.size()) {
+            BundlePipelineAckingSet& bundlePipelineAckingSetObj = *(m_vectorBundlePipelineAckingSet[releaseChangeHdr.outductArrayIndex]);
+            if (bundlePipelineAckingSetObj.m_linkIsUp) {
+                bundlePipelineAckingSetObj.m_linkIsUp = false; //no mutex needed as this flag is only set from ReadZmqAcksThreadFunc
+                LOG_INFO(subprocess) << "Sending bundles to storage for nextHopNodeId: " << releaseChangeHdr.nextHopNodeId
+                    << " since outductArrayIndex=" << releaseChangeHdr.outductArrayIndex << " is down";
+            }
+        }
+        else {
+            LOG_ERROR(subprocess) << "link down message received with out of bounds outductArrayIndex " << releaseChangeHdr.outductArrayIndex;
         }
     }
     else {

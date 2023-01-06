@@ -412,7 +412,7 @@ void Scheduler::Impl::EgressEventsHandler() {
 
         LOG_INFO(subprocess) << "EgressEventsHandler nextHopNodeId " << destNode << " and srcNode " << srcNode;
         
-	contact_t contact;
+        contact_t contact;
         contact.source = srcNode;
         contact.dest = destNode;
 
@@ -647,13 +647,31 @@ bool Scheduler::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
         contact.dest = contactPlan.first.dest;
 
 
-	m_contactUpSetMutex.lock();
-	m_mapContactUp[contact] = isLinkUp;
+        uint64_t outductArrayIndex;
+        bool didFindOutductArrayIndex;
+        {
+            boost::mutex::scoped_lock lock(m_mutexFinalDestsToOutductArrayIndexMaps);
+            std::map<uint64_t, uint64_t>::const_iterator itNextHopNodeIdToOutductArrayIndex = m_mapNextHopNodeIdToOutductArrayIndex.find(contact.dest);
+            if (itNextHopNodeIdToOutductArrayIndex == m_mapNextHopNodeIdToOutductArrayIndex.cend()) {
+                didFindOutductArrayIndex = false;
+            }
+            else {
+                didFindOutductArrayIndex = true;
+                outductArrayIndex = itNextHopNodeIdToOutductArrayIndex->second;
+            }
+        }
+        if (!didFindOutductArrayIndex) {
+            LOG_ERROR(subprocess) << "Scheduler::Impl::ProcessContacts: cannot find outductArrayIndex for nextHopNodeId " << contact.dest;
+            continue;
+        }
+
+        m_contactUpSetMutex.lock();
+        m_mapContactUp[contact] = isLinkUp;
         m_contactUpSetMutex.unlock();
        	
-	if (!isLinkUp) {
+        if (!isLinkUp) {
             LOG_INFO(subprocess) << "m_mapContactUp " << false << " for source " << contact.source << " destination " << contact.dest;
-            SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest, 
+            SendLinkDown(contactPlan.first.source, contactPlan.first.dest, outductArrayIndex,
                 contactPlan.first.end + 1, contactPlan.first.contact);
         }
     }

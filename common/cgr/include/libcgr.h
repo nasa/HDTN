@@ -66,6 +66,7 @@ private:
 public:
     CGR_LIB_EXPORT Contact get_last_contact();
     CGR_LIB_EXPORT bool visited(nodeId_t node);
+    CGR_LIB_EXPORT bool valid() const noexcept;
     CGR_LIB_EXPORT void append(const Contact &contact);
     CGR_LIB_EXPORT void refresh_metrics();
     CGR_LIB_EXPORT bool eligible(const Contact &contact);

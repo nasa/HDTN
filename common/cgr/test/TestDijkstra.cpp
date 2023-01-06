@@ -32,8 +32,7 @@ BOOST_AUTO_TEST_CASE(DijkstraRoutingTestCase)
 	cout << "Time taken by function: "
 		<< duration.count() << " microseconds" << endl;
 
-	// Todo: need to finalize what a failed dijkstra search should return
-        BOOST_REQUIRE(&bestRoute);
+    BOOST_REQUIRE(bestRoute.valid()); // not a failed dijkstra search
 
 	cgr::nodeId_t nextHop = bestRoute.next_node;
 	BOOST_CHECK(nextHop == 2);
@@ -72,8 +71,7 @@ BOOST_AUTO_TEST_CASE(Dijkstra10NodesTestCase)
         cout << "Time taken by function: "
                 << duration.count() << " microseconds" << endl;
 
-        // Todo: need to finalize what a failed dijkstra search should return
-        BOOST_REQUIRE(&bestRoute);
+        BOOST_REQUIRE(bestRoute.valid()); // not a failed dijkstra search
 
         cgr::nodeId_t nextHop = bestRoute.next_node;
         BOOST_CHECK(nextHop == 3686);
@@ -105,8 +103,7 @@ BOOST_AUTO_TEST_CASE(CMR10NodesTestCase)
         cout << "Time taken by function: "
                 << duration.count() << " microseconds" << endl;
 
-        // Todo: need to finalize what a failed dijkstra search should return
-        BOOST_REQUIRE(&bestRoute);
+        BOOST_REQUIRE(bestRoute.valid()); // not a failed dijkstra search
 
         cgr::nodeId_t nextHop = bestRoute.next_node;
         BOOST_CHECK(nextHop == 3686);
@@ -139,8 +136,7 @@ BOOST_AUTO_TEST_CASE(Dijkstra50NodesTestCase)
         cout << "Time taken by function: "
                 << duration.count() << " microseconds" << endl;
 
-        // Todo: need to finalize what a failed dijkstra search should return
-        BOOST_REQUIRE(&bestRoute);
+        BOOST_REQUIRE(bestRoute.valid()); // not a failed dijkstra search
 
         cgr::nodeId_t nextHop = bestRoute.next_node;
         BOOST_CHECK(nextHop == 3545);
@@ -173,8 +169,7 @@ BOOST_AUTO_TEST_CASE(CMR50NodesTestCase)
         cout << "Time taken by function: "
                 << duration.count() << " microseconds" << endl;
 
-        // Todo: need to finalize what a failed dijkstra search should return
-        BOOST_REQUIRE(&bestRoute);
+        BOOST_REQUIRE(bestRoute.valid()); // not a failed dijkstra search
 
         cgr::nodeId_t nextHop = bestRoute.next_node;
         BOOST_CHECK(nextHop == 3513);
@@ -206,8 +201,7 @@ BOOST_AUTO_TEST_CASE(CMR100NodesTestCase)
         cout << "Time taken by function: "
                 << duration.count() << " microseconds" << endl;
 
-        // Todo: need to finalize what a failed dijkstra search should return
-        BOOST_REQUIRE(&bestRoute);
+        BOOST_REQUIRE(bestRoute.valid()); // not a failed dijkstra search
 
         cgr::nodeId_t nextHop = bestRoute.next_node;
         BOOST_CHECK(nextHop == 1215);
@@ -239,8 +233,7 @@ BOOST_AUTO_TEST_CASE(CMR200NodesTestCase)
         cout << "Time taken by function: "
                 << duration.count() << " microseconds" << endl;
 
-        // Todo: need to finalize what a failed dijkstra search should return
-        BOOST_REQUIRE(&bestRoute);
+        BOOST_REQUIRE(bestRoute.valid()); // not a failed dijkstra search
 
         cgr::nodeId_t nextHop = bestRoute.next_node;
         BOOST_CHECK(nextHop == 1270);
@@ -272,8 +265,7 @@ BOOST_AUTO_TEST_CASE(Dijkstra100NodesTestCase)
         cout << "Time taken by function: "
                 << duration.count() << " microseconds" << endl;
 
-        // Todo: need to finalize what a failed dijkstra search should return
-        BOOST_REQUIRE(&bestRoute);
+        BOOST_REQUIRE(bestRoute.valid()); // not a failed dijkstra search
 
         cgr::nodeId_t nextHop = bestRoute.next_node;
         BOOST_CHECK(nextHop == 2374);
@@ -305,8 +297,7 @@ BOOST_AUTO_TEST_CASE(Dijkstra200NodesTestCase)
         cout << "Time taken by function: "
                 << duration.count() << " microseconds" << endl;
 
-        // Todo: need to finalize what a failed dijkstra search should return
-        BOOST_REQUIRE(&bestRoute);
+        BOOST_REQUIRE(bestRoute.valid()); // not a failed dijkstra search
 
         cgr::nodeId_t nextHop = bestRoute.next_node;
         BOOST_CHECK(nextHop == 1546);
@@ -331,6 +322,8 @@ BOOST_AUTO_TEST_CASE(DijkstraRoutingNoPathTestCase)
 
 	std::cout << "Finding best path using dijkstra's..." << std::endl;
 	cgr::Route bestRoute = cgr::dijkstra(&rootContact, 1, contactPlan);
+
+    BOOST_REQUIRE(!bestRoute.valid()); // failed dijkstra search
 
 	BOOST_CHECK(bestRoute.get_hops().size() == 0);
 
@@ -363,6 +356,8 @@ BOOST_AUTO_TEST_CASE(DijkstraPyCGRTutorialTestCase)
 	const std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 	cout << "Time taken by function: "
 		<< duration.count() << " microseconds" << endl;
+
+    BOOST_REQUIRE(bestRoute.valid()); // not a failed dijkstra search
 
 	//BOOST_REQUIRE(&bestRoute);
 	cgr::nodeId_t nextHop = bestRoute.next_node;
@@ -404,6 +399,8 @@ BOOST_AUTO_TEST_CASE(CMR_DijkstraRoutingTestCase)
 	cout << "Time taken by function: "
 		<< duration.count() << " microseconds" << endl;
 
+    BOOST_REQUIRE(bestRoute.valid()); // not a failed dijkstra search
+
 	cgr::nodeId_t nextHop = bestRoute.next_node;
 	BOOST_CHECK(nextHop == 2);
 
@@ -442,6 +439,8 @@ BOOST_AUTO_TEST_CASE(CMR_DijkstraPyCGRTutorialTestCase)
 	const std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 	cout << "Time taken by function: "
 		<< duration.count() << " microseconds" << endl;
+
+    BOOST_REQUIRE(bestRoute.valid()); // not a failed dijkstra search
 
 	cgr::nodeId_t nextHop = bestRoute.next_node;
 	BOOST_CHECK(nextHop == 3);
