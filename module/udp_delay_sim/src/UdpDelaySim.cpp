@@ -161,7 +161,7 @@ void UdpDelaySim::HandleUdpReceive(const boost::system::error_code & error, std:
     }
 }
 
-//udpPacketToSwapIn.size() is not the size of the udp packet but rather bytesTransferred is
+//udpPacketToSwapIn.size() is not the size of the udp packet but rather bytesTransferred is (see docs)
 void UdpDelaySim::QueuePacketForDelayedSend_NotThreadSafe(std::vector<uint8_t>& udpPacketToSwapIn, std::size_t bytesTransferred) {
     const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
     if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) {
@@ -200,8 +200,6 @@ void UdpDelaySim::DoUdpShutdown() {
 
 }
 
-
-//restarts the send delay timer if it is not running and there are packets available
 void UdpDelaySim::TryRestartSendDelayTimer() {
     if (!m_sendDelayTimerIsRunning) {
         const unsigned int consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
