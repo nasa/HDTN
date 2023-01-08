@@ -59,21 +59,21 @@ public:
      * Checks if the next element after end (wrap on overflow) is equal to begin.
      * @return True if the external buffer is full, or False otherwise.
      */
-    bool IsFull();
+    bool IsFull() const;
     
     /** Query whether external buffer is empty.
      *
      * Checks if begin is equal to end.
      * @return True if the external buffer is empty, or False otherwise.
      */
-    bool IsEmpty();
+    bool IsEmpty() const;
     
     /** Get write index.
      *
      * Indicates the start of a write operation.
      * @return CIRCULAR_INDEX_BUFFER_FULL if buffer is full, else the write index.
      */
-    unsigned int GetIndexForWrite();
+    unsigned int GetIndexForWrite() const;
     
     /** Advance write index.
      *
@@ -86,7 +86,7 @@ public:
      * Indicates the start of a read operation.
      * @return CIRCULAR_INDEX_BUFFER_EMPTY if buffer is empty, else the read index.
      */
-    unsigned int GetIndexForRead();
+    unsigned int GetIndexForRead() const;
     
     /** Advance read index.
      *
@@ -99,7 +99,7 @@ public:
      * Calculates how many elements exist between begin and end.
      * @return The number of elements in the external buffer that are currently being indexed.
      */
-    unsigned int NumInBuffer();
+    unsigned int NumInBuffer() const;
 
 private:
     /// Begin
