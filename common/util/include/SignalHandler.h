@@ -22,6 +22,7 @@
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
 #include <boost/function.hpp>
+#include <memory>
 #include "hdtn_util_export.h"
 
 class SignalHandler {
@@ -64,7 +65,7 @@ private:
     /// Signal event listener
     boost::asio::signal_set m_signals;
     /// Thread that invokes m_ioService.run() (if using dedicated I/O thread)
-    boost::thread *m_ioServiceThread;
+    std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     /// Callback to invoke after a signal is received
     boost::function<void() > m_handleSignalFunction;
 };
