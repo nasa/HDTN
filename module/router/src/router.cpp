@@ -235,8 +235,9 @@ void Router::Impl::SchedulerEventsHandler() {
         return;
     }
 
+    m_latestTime = releaseChangeHdr.time;
+
     if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKDOWN) {
-        m_latestTime = releaseChangeHdr.time;
         LOG_INFO(subprocess) << "Received Link Down for contact: src = " 
             << releaseChangeHdr.prevHopNodeId
             << "  dest = " << releaseChangeHdr.nextHopNodeId
@@ -246,14 +247,11 @@ void Router::Impl::SchedulerEventsHandler() {
             LOG_ERROR(subprocess) << "out of order command, received link down before receiving outduct capabilities";
             return;
         }
-        
-        
 
         ComputeOptimalRoutesForOutductIndex(releaseChangeHdr.prevHopNodeId, releaseChangeHdr.outductArrayIndex);
         LOG_INFO(subprocess) << "Updated time to " << m_latestTime;
     }
     else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKUP) {
-        m_latestTime = releaseChangeHdr.time;
         LOG_INFO(subprocess) << "Contact up ";
         LOG_INFO(subprocess) << "Updated time to " << m_latestTime;
     }
@@ -274,6 +272,8 @@ void Router::Impl::SchedulerEventsHandler() {
             LOG_INFO(subprocess) << "Received and successfully decoded " << ((m_computedInitialOptimalRoutes) ? "UPDATED" : "NEW") 
                 << " AllOutductCapabilitiesTelemetry_t message from Scheduler containing "
                 << aoct.outductCapabilityTelemetryList.size() << " outducts.";
+	    LOG_INFO(subprocess) << "Telemetry message content: " << aoct ;
+
             m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList.clear();
 
             for (std::list<OutductCapabilityTelemetry_t>::const_iterator itAoct = aoct.outductCapabilityTelemetryList.cbegin();
@@ -395,7 +395,7 @@ bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNex
     rootContact.arrival_time = m_latestTime;
     if (!m_usingMGR) {
         LOG_INFO(subprocess) << "Computing Optimal Route using CGR dijkstra for final Destination "
-            << finalDestNodeId;
+            << finalDestNodeId << " at latest time " << rootContact.arrival_time;
         bestRoute = cgr::dijkstra(&rootContact,
             finalDestNodeId, contactPlan);
     }
@@ -403,20 +403,18 @@ bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNex
         bestRoute = cgr::cmr_dijkstra(&rootContact,
             finalDestNodeId, contactPlan);
         LOG_INFO(subprocess) << "Computing Optimal Route using CMR algorithm for final Destination "
-            << finalDestNodeId;
+            << finalDestNodeId << " at latest time " << rootContact.arrival_time;
     }
 
     if (bestRoute.valid()) { // successfully computed a route
 
         const uint64_t nextHopNodeId = bestRoute.next_node;
-        if (originalNextHopNodeId != nextHopNodeId) {
-
+        
+	if (originalNextHopNodeId != nextHopNodeId) {
             LOG_INFO(subprocess) << "Successfully Computed next hop: "
                 << nextHopNodeId << " for final Destination " << finalDestNodeId
-                << " ..best route is " << bestRoute;
+                << "Best route is " << bestRoute;
 
-
-            
             boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
             // Timer was not cancelled, take necessary action.
             LOG_INFO(subprocess) << timeLocal << ": [Router] Sending RouteUpdate event to Egress ";
@@ -442,7 +440,7 @@ bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNex
                 << nextHopNodeId << " for final Destination " << finalDestNodeId
                 << " because the next hops didn't change.";
         }
-    }
+   }
     else {
         // what should we do if no route is found?
         LOG_ERROR(subprocess) << "No route is found!!";

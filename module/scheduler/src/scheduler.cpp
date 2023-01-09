@@ -391,7 +391,8 @@ void Scheduler::Impl::EgressEventsHandler() {
     if (linkStatusHdr.base.type == HDTN_MSGTYPE_LINKSTATUS) {
         const uint64_t event = linkStatusHdr.event;
         const uint64_t outductArrayIndex = linkStatusHdr.uuid;
-        const uint64_t timeSecondsSinceSchedulerEpoch = linkStatusHdr.unixTimeSecondsSince1970 - m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds;
+        const uint64_t timeSecondsSinceSchedulerEpoch = (linkStatusHdr.unixTimeSecondsSince1970 > m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds) ?
+            (linkStatusHdr.unixTimeSecondsSince1970 - m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds) : 0; 
 
         LOG_INFO(subprocess) << "Received link status event " << event << " from Egress for outductArrayIndex " << outductArrayIndex;
 
@@ -427,12 +428,13 @@ void Scheduler::Impl::EgressEventsHandler() {
                 contactIsUp = it->second;
             }
             if (contactIsUp) {
-	        LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Up event ";
+	        LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Up event at time  " << timeSecondsSinceSchedulerEpoch;
                 SendLinkUp(srcNode, destNode, outductArrayIndex, timeSecondsSinceSchedulerEpoch);
             }
         }
         else {
-            LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Down event ";
+            LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Down event at time  " << timeSecondsSinceSchedulerEpoch;
+
             SendLinkDown(srcNode, destNode, outductArrayIndex, timeSecondsSinceSchedulerEpoch);
         }
     }
@@ -449,7 +451,9 @@ void Scheduler::Impl::EgressEventsHandler() {
         }
         else {
             LOG_INFO(subprocess) << "Scheduler received initial " << aoct.outductCapabilityTelemetryList.size() << " outduct telemetries from egress";
-            boost::mutex::scoped_lock lock(m_mutexFinalDestsToOutductArrayIndexMaps);
+            LOG_INFO(subprocess) << "Telemetry message content: " << aoct ;
+
+    	    boost::mutex::scoped_lock lock(m_mutexFinalDestsToOutductArrayIndexMaps);
             m_mapOutductArrayIndexToNextHopNodeId.clear();
             m_mapNextHopNodeIdToOutductArrayIndex.clear();
             m_mapFinalDestNodeIdToOutductArrayIndex.clear();
@@ -638,10 +642,11 @@ bool Scheduler::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
 
     m_contactPlanTimer.cancel(); //cancel any running contacts in the timer
 
+    m_mapContactUp.clear();
     //cancel any existing contacts (make them all link down) (ignore link up) in preparation for new contact plan
-    for (ptime_to_contactplan_bimap_t::left_iterator it = m_ptimeToContactPlanBimap.left.begin(); it != m_ptimeToContactPlanBimap.left.end(); ++it) {
+    for (ptime_to_contactplan_bimap_t::left_iterator it = m_ptimeToContactPlanBimap.left.begin(); 
+		    it != m_ptimeToContactPlanBimap.left.end(); ++it) {
         const contactplan_islinkup_pair_t& contactPlan = it->second;
-        const bool isLinkUp = contactPlan.second;
         contact_t contact;
         contact.source = contactPlan.first.source;
         contact.dest = contactPlan.first.dest;
@@ -669,28 +674,27 @@ bool Scheduler::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
         }
 
         m_contactUpSetMutex.lock();
-        m_mapContactUp[contact] = isLinkUp;
-        m_contactUpSetMutex.unlock();
-       	
-        if (!isLinkUp) {
-            LOG_INFO(subprocess) << "m_mapContactUp " << false << " for source " << contact.source << " destination " << contact.dest;
+        if (m_mapContactUp.emplace(contact, false).second) { //inserted new contact
+            LOG_INFO(subprocess) << "m_mapContactUp initialized to " << false << " for source " << contact.source << " destination " << contact.dest;
             SendLinkDown(contactPlan.first.source, contactPlan.first.dest, outductArrayIndex,
                 contactPlan.first.end + 1);
         }
+        m_contactUpSetMutex.unlock();
     }
 
     m_ptimeToContactPlanBimap.clear(); //clear the map
 
     if (m_usingUnixTimestamp) {
-        LOG_INFO(subprocess) << "***Using unix timestamp!";
+        LOG_INFO(subprocess) << "***Using unix timestamp! ";
         m_epoch = TimestampUtil::GetUnixEpoch();
         m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds = 0;
     }
     else {
-        LOG_INFO(subprocess) << "using now as epoch";
+        LOG_INFO(subprocess) << "using now as epoch! ";
         m_epoch = boost::posix_time::microsec_clock::universal_time();
+
         const boost::posix_time::time_duration diff = (m_epoch - TimestampUtil::GetUnixEpoch());
-        m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds = static_cast<uint64_t>(diff.total_seconds());
+	m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds = static_cast<uint64_t>(diff.total_seconds());
     }
 
     //for non-throw versions of get_child which return a reference to the second parameter
