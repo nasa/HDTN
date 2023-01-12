@@ -40,13 +40,13 @@ struct contactPlan_t {
     uint64_t contact;
     uint64_t source;
     uint64_t dest;
-    uint64_t finalDest;
+    uint64_t finalDest;//deprecated and not in operator <
     uint64_t start;
     uint64_t end;
     uint64_t rate;
 
     uint64_t outductArrayIndex; //not in operator <
-    bool isLinkUp; //not in operator <
+    bool isLinkUp; 
 
     bool operator<(const contactPlan_t& o) const; //operator < so it can be used as a map key
 };
@@ -144,10 +144,10 @@ bool contactPlan_t::operator<(const contactPlan_t& o) const {
     if (contact == o.contact) {
         if (source == o.source) {
             if (dest == o.dest) {
-                if (finalDest == o.finalDest) {
+                if (isLinkUp == o.isLinkUp) {
                     return (start < o.start);
                 }
-                return (finalDest < o.finalDest);
+                return (isLinkUp < o.isLinkUp);
             }
             return (dest < o.dest);
         }
