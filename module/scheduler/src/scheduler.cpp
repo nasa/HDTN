@@ -616,6 +616,11 @@ bool Scheduler::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
         linkEvent.start = eventPt.second.get<int>("startTime", 0);
         linkEvent.end = eventPt.second.get<int>("endTime", 0);
         linkEvent.rate = eventPt.second.get<int>("rate", 0);
+        if (linkEvent.dest == m_hdtnConfig.m_myNodeId) {
+            LOG_WARNING(subprocess) << "Found a contact with destination (next hop node id) of " << m_hdtnConfig.m_myNodeId
+                << " which is this HDTN's node id.. ignoring this unused contact from the contact plan.";
+            continue;
+        }
         std::map<uint64_t, uint64_t>::const_iterator it = m_mapNextHopNodeIdToOutductArrayIndex.find(linkEvent.dest);
         if (it != m_mapNextHopNodeIdToOutductArrayIndex.cend()) {
             linkEvent.outductArrayIndex = it->second;
@@ -624,7 +629,8 @@ bool Scheduler::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
             }
         }
         else {
-            LOG_ERROR(subprocess) << "ProcessContacts could not find outduct array index for next hop " << linkEvent.dest;
+            LOG_WARNING(subprocess) << "Found a contact with destination (next hop node id) of " << linkEvent.dest
+                << " which isn't in the HDTN outductVector.. ignoring this unused contact from the contact plan.";
         }
     }
 
