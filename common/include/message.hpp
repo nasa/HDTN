@@ -164,7 +164,6 @@ struct IreleaseChangeHdr {
     uint64_t prevHopNodeId;
     uint64_t nextHopNodeId;
     uint64_t time;
-    uint64_t contact; //stop events only
 
     //Subscription message is a byte 1 (for subscriptions) or byte 0 (for unsubscriptions) followed by the subscription body.
     //All release messages shall be prefixed by "aaaaaaaa" before the common header

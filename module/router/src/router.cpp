@@ -46,7 +46,8 @@ public:
         zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
 
 private:
-    bool ComputeOptimalRoute(uint64_t sourceNode, uint64_t finalDestNodeId);
+    bool ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNextHopNodeId, uint64_t finalDestNodeId);
+    bool ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint64_t outductIndex);
     void ReadZmqThreadFunc();
     void SchedulerEventsHandler();
 
@@ -54,6 +55,7 @@ private:
     volatile bool m_running;
     bool m_usingUnixTimestamp;
     bool m_usingMGR;
+    bool m_computedInitialOptimalRoutes;
     uint64_t m_latestTime;
     boost::filesystem::path m_contactPlanFilePath;
 
@@ -61,10 +63,11 @@ private:
     std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundSchedulerToConnectingRouterPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingRouterToBoundEgressPtr;
 
-    std::map<uint64_t, uint64_t> m_routeTable;
+    typedef std::pair<uint64_t, std::list<uint64_t> > nexthop_finaldestlist_pair_t;
+    std::map<uint64_t, nexthop_finaldestlist_pair_t> m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList;
     std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
 
-
+    
     //for blocking until worker-thread startup
     volatile bool m_workerThreadStartupInProgress;
     boost::mutex m_workerThreadStartupMutex;
@@ -75,7 +78,7 @@ boost::filesystem::path Router::GetFullyQualifiedFilename(const boost::filesyste
     return (Environment::GetPathHdtnSourceRoot() / "module/scheduler/src/") / filename;
 }
 
-Router::Impl::Impl() : m_running(false), m_latestTime(0) {}
+Router::Impl::Impl() : m_running(false), m_computedInitialOptimalRoutes(false), m_latestTime(0) {}
 
 Router::Impl::~Impl() {
     Stop();
@@ -125,6 +128,7 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
     m_contactPlanFilePath = contactPlanFilePath;
     m_usingUnixTimestamp = usingUnixTimestamp;
     m_usingMGR = useMgr;
+    
 
     // socket for receiving events from scheduler
     m_zmqContextPtr = boost::make_unique<zmq::context_t>();
@@ -231,25 +235,23 @@ void Router::Impl::SchedulerEventsHandler() {
         return;
     }
 
+    m_latestTime = releaseChangeHdr.time;
+
     if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKDOWN) {
-        m_latestTime = releaseChangeHdr.time;
-        LOG_INFO(subprocess) << "Received Link Down for contact: " << releaseChangeHdr.contact;
+        LOG_INFO(subprocess) << "Received Link Down for contact: src = " 
+            << releaseChangeHdr.prevHopNodeId
+            << "  dest = " << releaseChangeHdr.nextHopNodeId
+            << "  outductIndex = " << releaseChangeHdr.outductArrayIndex;
         
-        //no mutex necessary (everything within the ReadZmqThreadFunc)
-        std::map<uint64_t, uint64_t>::const_iterator it = m_routeTable.find(releaseChangeHdr.contact);
-        if (it == m_routeTable.cend()) {
-            LOG_ERROR(subprocess) << " Got link down event for unknown contact index "
-                << releaseChangeHdr.contact << " which does not correspont to a final destination";
+        if (!m_computedInitialOptimalRoutes) {
+            LOG_ERROR(subprocess) << "out of order command, received link down before receiving outduct capabilities";
             return;
         }
-        const uint64_t finalDestNodeId = it->second;
-        
-        LOG_INFO(subprocess) << "FinalDest nodeId found is:  " << finalDestNodeId;
-        ComputeOptimalRoute(srcNode, finalDestNodeId);
+
+        ComputeOptimalRoutesForOutductIndex(releaseChangeHdr.prevHopNodeId, releaseChangeHdr.outductArrayIndex);
         LOG_INFO(subprocess) << "Updated time to " << m_latestTime;
     }
     else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKUP) {
-        m_latestTime = releaseChangeHdr.time;
         LOG_INFO(subprocess) << "Contact up ";
         LOG_INFO(subprocess) << "Updated time to " << m_latestTime;
     }
@@ -267,20 +269,43 @@ void Router::Impl::SchedulerEventsHandler() {
             LOG_ERROR(subprocess) << "error deserializing AllOutductCapabilitiesTelemetry of size " << zmqMessageOutductTelem.size();
         }
         else {
-            LOG_INFO(subprocess) << "Received and successfully decoded AllOutductCapabilitiesTelemetry_t message from Scheduler containing "
+            LOG_INFO(subprocess) << "Received and successfully decoded " << ((m_computedInitialOptimalRoutes) ? "UPDATED" : "NEW") 
+                << " AllOutductCapabilitiesTelemetry_t message from Scheduler containing "
                 << aoct.outductCapabilityTelemetryList.size() << " outducts.";
+	    LOG_INFO(subprocess) << "Telemetry message content: " << aoct ;
+
+            m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList.clear();
+
             for (std::list<OutductCapabilityTelemetry_t>::const_iterator itAoct = aoct.outductCapabilityTelemetryList.cbegin();
                 itAoct != aoct.outductCapabilityTelemetryList.cend(); ++itAoct)
             {
                 const OutductCapabilityTelemetry_t& oct = *itAoct;
+                nexthop_finaldestlist_pair_t& nhFdPair = m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList[oct.outductArrayIndex];
+                nhFdPair.first = oct.nextHopNodeId;
+                std::list<uint64_t>& finalDestNodeIdList = nhFdPair.second;
                 for (std::list<uint64_t>::const_iterator it = oct.finalDestinationNodeIdList.cbegin();
                     it != oct.finalDestinationNodeIdList.cend(); ++it)
                 {
                     const uint64_t nodeId = *it;
+                    finalDestNodeIdList.emplace_back(nodeId);
                     LOG_INFO(subprocess) << "Compute Optimal Route for finalDestination node " << nodeId;
-                    ComputeOptimalRoute(srcNode, nodeId);
+                }
+                std::set<uint64_t> usedNodeIds;
+                for (std::list<cbhe_eid_t>::const_iterator it = oct.finalDestinationEidList.cbegin();
+                    it != oct.finalDestinationEidList.cend(); ++it)
+                {
+                    const uint64_t nodeId = it->nodeId;
+                    if (usedNodeIds.emplace(nodeId).second) { //was inserted
+                        finalDestNodeIdList.emplace_back(nodeId);
+                        LOG_INFO(subprocess) << "Compute Optimal Route for finalDestination node " << nodeId;
+                    }
+                }
+                if (!m_computedInitialOptimalRoutes) {
+                    ComputeOptimalRoutesForOutductIndex(srcNode, oct.outductArrayIndex);
                 }
             }
+            m_computedInitialOptimalRoutes = true;
+            
         }
     }
     else {
@@ -295,6 +320,8 @@ void Router::Impl::ReadZmqThreadFunc() {
         {m_zmqSubSock_boundSchedulerToConnectingRouterPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
+
+    m_computedInitialOptimalRoutes = false;
 
     //notify Init function that worker thread startup is complete
     m_workerThreadStartupMutex.lock();
@@ -333,7 +360,30 @@ void Router::Impl::ReadZmqThreadFunc() {
     }
 }
 
-bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t finalDestNodeId) {
+bool Router::Impl::ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint64_t outductIndex) {
+    std::map<uint64_t, nexthop_finaldestlist_pair_t>::const_iterator mapIt = m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList.find(outductIndex);
+    if (mapIt == m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList.cend()) {
+        LOG_ERROR(subprocess) << "ComputeOptimalRoutesForOutductIndex cannot find outductIndex " << outductIndex;
+        return false;
+    }
+
+    const nexthop_finaldestlist_pair_t& nhFdPair = mapIt->second;
+    const uint64_t originalNextHopNodeId = nhFdPair.first;
+    const std::list<uint64_t>& finalDestNodeIdList = nhFdPair.second;
+    bool noErrors = true;
+    for (std::list<uint64_t>::const_iterator it = finalDestNodeIdList.cbegin();
+        it != finalDestNodeIdList.cend(); ++it)
+    {
+        const uint64_t finalDestNodeId = *it;
+        LOG_INFO(subprocess) << "FinalDest nodeId found is:  " << finalDestNodeId;
+        if (!ComputeOptimalRoute(sourceNode, originalNextHopNodeId, finalDestNodeId)) {
+            noErrors = false;
+        }
+    }
+    return noErrors;
+}
+
+bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNextHopNodeId, uint64_t finalDestNodeId) {
 
     cgr::Route bestRoute;
 
@@ -345,7 +395,7 @@ bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t finalDestNo
     rootContact.arrival_time = m_latestTime;
     if (!m_usingMGR) {
         LOG_INFO(subprocess) << "Computing Optimal Route using CGR dijkstra for final Destination "
-            << finalDestNodeId;
+            << finalDestNodeId << " at latest time " << rootContact.arrival_time;
         bestRoute = cgr::dijkstra(&rootContact,
             finalDestNodeId, contactPlan);
     }
@@ -353,27 +403,18 @@ bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t finalDestNo
         bestRoute = cgr::cmr_dijkstra(&rootContact,
             finalDestNodeId, contactPlan);
         LOG_INFO(subprocess) << "Computing Optimal Route using CMR algorithm for final Destination "
-            << finalDestNodeId;
+            << finalDestNodeId << " at latest time " << rootContact.arrival_time;
     }
 
     if (bestRoute.valid()) { // successfully computed a route
 
         const uint64_t nextHopNodeId = bestRoute.next_node;
+        
+	if (originalNextHopNodeId != nextHopNodeId) {
+            LOG_INFO(subprocess) << "Successfully Computed next hop: "
+                << nextHopNodeId << " for final Destination " << finalDestNodeId
+                << "Best route is " << bestRoute;
 
-        //no mutex necessary (everything within the ReadZmqThreadFunc)
-        m_routeTable[bestRoute.get_hops()[0].id] = finalDestNodeId;
-
-        LOG_INFO(subprocess) << "Successfully Computed next hop: "
-            << nextHopNodeId << " for final Destination " << finalDestNodeId;
-        LOG_INFO(subprocess) << "Contact in m_routeTable for this final destination is "
-            << bestRoute.get_hops()[0].id;
-        cbhe_eid_t nextHopEid;
-        nextHopEid.nodeId = nextHopNodeId;
-        nextHopEid.serviceId = 1;
-
-
-
-        {
             boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
             // Timer was not cancelled, take necessary action.
             LOG_INFO(subprocess) << timeLocal << ": [Router] Sending RouteUpdate event to Egress ";
@@ -392,9 +433,14 @@ bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t finalDestNo
                 LOG_INFO(subprocess) << "waiting for egress to become available to send route update";
                 boost::this_thread::sleep(boost::posix_time::seconds(1));
             }
+            
         }
-
-    }
+        else {
+            LOG_DEBUG(subprocess) << "Skipping Computed next hop: "
+                << nextHopNodeId << " for final Destination " << finalDestNodeId
+                << " because the next hops didn't change.";
+        }
+   }
     else {
         // what should we do if no route is found?
         LOG_ERROR(subprocess) << "No route is found!!";
