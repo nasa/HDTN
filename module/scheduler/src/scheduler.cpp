@@ -663,11 +663,22 @@ void Scheduler::Impl::OnContactPlan_TimerExpired(const boost::system::error_code
             LOG_INFO(subprocess) << ((contactPlan.isLinkUp) ? "LINK UP" : "LINK DOWN") << " (time based) for source "
                 << contactPlan.source << " destination " << contactPlan.dest;
 
-            if (contactPlan.isLinkUp) {
-                SendLinkUp(contactPlan.source, contactPlan.dest, contactPlan.outductArrayIndex, contactPlan.start);
+            std::map<uint64_t, OutductInfo_t>::iterator outductInfoIt = m_mapOutductArrayIndexToOutductInfo.find(contactPlan.outductArrayIndex);
+            if (outductInfoIt == m_mapOutductArrayIndexToOutductInfo.cend()) {
+                LOG_ERROR(subprocess) << "OnContactPlan_TimerExpired got event for unknown outductArrayIndex "
+                    << contactPlan.outductArrayIndex;
             }
             else {
-                SendLinkDown(contactPlan.source, contactPlan.dest, contactPlan.outductArrayIndex, contactPlan.end + 1);
+                //update linkIsUpTimeBased in the outductInfo
+                OutductInfo_t& outductInfo = outductInfoIt->second;
+                outductInfo.linkIsUpTimeBased = contactPlan.isLinkUp;
+
+                if (outductInfo.linkIsUpTimeBased) {
+                    SendLinkUp(contactPlan.source, contactPlan.dest, contactPlan.outductArrayIndex, contactPlan.start);
+                }
+                else {
+                    SendLinkDown(contactPlan.source, contactPlan.dest, contactPlan.outductArrayIndex, contactPlan.end + 1);
+                }
             }
 
             m_ptimeToContactPlanBimap.left.erase(it);
@@ -727,7 +738,7 @@ void Scheduler::Impl::HandlePhysicalLinkStatusChange(const hdtn::LinkStatusHdr& 
 
     std::map<uint64_t, OutductInfo_t>::const_iterator it = m_mapOutductArrayIndexToOutductInfo.find(outductArrayIndex);
     if (it == m_mapOutductArrayIndexToOutductInfo.cend()) {
-        LOG_ERROR(subprocess) << "EgressEventsHandler got event for unknown outductArrayIndex " << outductArrayIndex << " which does not correspont to a next hop";
+        LOG_ERROR(subprocess) << "EgressEventsHandler got event for unknown outductArrayIndex " << outductArrayIndex << " which does not correspond to a next hop";
         return;
     }
     const OutductInfo_t& outductInfo = it->second;
