@@ -33,6 +33,7 @@ LtpUdpEngine::LtpUdpEngine(boost::asio::io_service& ioServiceUdpRef,
     m_circularIndexBuffer(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_udpReceiveBuffersCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_printedCbTooSmallNotice(false),
+    m_printedUdpSendFailedNotice(false),
     m_countAsyncSendCalls(0),
     m_countAsyncSendCallbackCalls(0),
     m_countBatchSendCalls(0),
@@ -145,10 +146,20 @@ void LtpUdpEngine::HandleUdpSend(std::shared_ptr<std::vector<std::vector<uint8_t
     //Called by m_ioServiceUdpRef thread
     ++m_countAsyncSendCallbackCalls;
     if (error) {
-        LOG_ERROR(subprocess) << "LtpUdpEngine::HandleUdpSend: " << error.message();
+        if (!m_printedUdpSendFailedNotice) {
+            m_printedUdpSendFailedNotice = true;
+            LOG_ERROR(subprocess) << "LtpUdpEngine::HandleUdpSend: " << error.message() 
+                << ".. this packet (and subsequent packets) will be dropped";
+        }
         //DoUdpShutdown();
     }
     else {
+        if (m_printedUdpSendFailedNotice) {
+            m_printedUdpSendFailedNotice = false; //trigger these prints on "rising edge"
+            LOG_INFO(subprocess) << "LtpUdpEngine send packets back to normal operation";
+        }
+        
+
         //rate stuff handled in LtpEngine due to self-sending nature of LtpEngine
 
         //OLD BEHAVIOR (only notify LtpEngine when socket is out of data)
@@ -156,9 +167,11 @@ void LtpUdpEngine::HandleUdpSend(std::shared_ptr<std::vector<std::vector<uint8_t
         //    SignalReadyForSend_ThreadSafe();
         //}
 
-        //NEW BEHAVIOR (always notify LtpEngine which keeps its own internal count of pending Udp Send system calls queued)
-        OnSendPacketsSystemCallCompleted_ThreadSafe(); //per system call operation, not per udp packet(s)
+        
     }
+    //notify the ltp engine regardless whether or not there is an error
+    //NEW BEHAVIOR (always notify LtpEngine which keeps its own internal count of pending Udp Send system calls queued)
+    OnSendPacketsSystemCallCompleted_ThreadSafe(); //per system call operation, not per udp packet(s)
 }
 
 void LtpUdpEngine::OnSentPacketsCallback(bool success, std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
@@ -169,10 +182,18 @@ void LtpUdpEngine::OnSentPacketsCallback(bool success, std::vector<std::vector<b
     ++m_countBatchSendCallbackCalls;
     m_countBatchUdpPacketsSent += constBufferVecs.size();
     if (!success) {
-        LOG_ERROR(subprocess) << "LtpUdpEngine::OnSentPacketsCallback";
+        if (!m_printedUdpSendFailedNotice) {
+            m_printedUdpSendFailedNotice = true;
+            LOG_ERROR(subprocess) << "LtpUdpEngine::OnSentPacketsCallback failed.. these packet(s) (and subsequent packets) will be dropped";
+        }
         //DoUdpShutdown();
     }
     else {
+        if (m_printedUdpSendFailedNotice) {
+            m_printedUdpSendFailedNotice = false; //trigger these prints on "rising edge"
+            LOG_INFO(subprocess) << "LtpUdpEngine batch sender back to normal operation";
+        }
+
         //rate stuff handled in LtpEngine due to self-sending nature of LtpEngine
 
         //OLD BEHAVIOR (only notify LtpEngine when socket is out of data)
@@ -180,9 +201,11 @@ void LtpUdpEngine::OnSentPacketsCallback(bool success, std::vector<std::vector<b
         //    SignalReadyForSend_ThreadSafe();
         //}
 
-        //NEW BEHAVIOR (always notify LtpEngine which keeps its own internal count of pending Udp Send system calls queued)
-        OnSendPacketsSystemCallCompleted_ThreadSafe(); //per system call operation, not per udp packet(s)
+        
     }
+    //notify the ltp engine regardless whether or not there is an error
+    //NEW BEHAVIOR (always notify LtpEngine which keeps its own internal count of pending Udp Send system calls queued)
+    OnSendPacketsSystemCallCompleted_ThreadSafe(); //per system call operation, not per udp packet(s)
 }
 
 void LtpUdpEngine::SetEndpoint_ThreadSafe(const boost::asio::ip::udp::endpoint& remoteEndpoint) {
@@ -214,4 +237,8 @@ void LtpUdpEngine::SetEndpoint(const std::string& remoteHostname, const uint16_t
         }
     }
     SetEndpoint(udpDestinationEndpoint);
+}
+
+bool LtpUdpEngine::ReadyToSend() const noexcept {
+    return !m_printedUdpSendFailedNotice;
 }

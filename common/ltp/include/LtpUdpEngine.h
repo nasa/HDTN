@@ -97,6 +97,8 @@ public:
      */
     LTP_LIB_EXPORT void SetEndpoint_ThreadSafe(const std::string& remoteHostname, const uint16_t remotePort);
 
+    LTP_LIB_EXPORT bool ReadyToSend() const noexcept;
+
 private:
     /** Handle the completion of a receive buffer processing operation.
      *
@@ -192,6 +194,7 @@ private:
 
     /// Logger flag, set to False to log a notice on the SINGLE next increment of m_countCircularBufferOverruns
     bool m_printedCbTooSmallNotice;
+    volatile bool m_printedUdpSendFailedNotice;
 
     //for safe unit test resets
     /// Whether an engine reset is currently in progress
