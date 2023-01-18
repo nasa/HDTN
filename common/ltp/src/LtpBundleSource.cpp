@@ -132,6 +132,10 @@ bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_
         return false;
     }
 
+    if (!m_ltpUdpEnginePtr->ReadyToSend()) { //in case there's a send error from the udp engine's socket send operation, stop it here
+        return false;
+    }
+
     const unsigned int startingCount = m_startingCount.fetch_add(1);
     if ((m_activeSessionNumbersSet.size() + startingCount) > M_BUNDLE_PIPELINE_LIMIT) {
         --m_startingCount;
@@ -160,6 +164,10 @@ bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_
 bool LtpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData) {
 
     if (!m_ltpUdpEngineManagerPtr->ReadyToForward()) { //in case there's a general error for the manager's udp receive, stop it here
+        return false;
+    }
+
+    if (!m_ltpUdpEnginePtr->ReadyToSend()) { //in case there's a send error from the udp engine's socket send operation, stop it here
         return false;
     }
 
