@@ -114,8 +114,13 @@ bool UdpBatchSender::Init(const boost::asio::ip::udp::endpoint& udpDestinationEn
     }
 # endif
     m_transmitPacketsElementVec.reserve(100);
+#else
+    m_transmitPacketsElementVec.reserve(50);
 #endif
-
+    // github comment https://github.com/nasa/HDTN/pull/36#issuecomment-1373562636: The m_transmitPacketsElementVec vector gets more pushes for windows
+    // (one push per piece of a udp packet) than it does on linux (one push per udp packet, recommended to reserve 50 for linux and 100 for windows.
+    
+    
     m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioService);
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 
@@ -194,7 +199,7 @@ void UdpBatchSender::PerformSendPacketsOperation(
     std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec)
 {
 
-    m_transmitPacketsElementVec.resize(0); //reserved 100 elements in Init()
+    m_transmitPacketsElementVec.resize(0); //space has been reserved in UdpBatchSender::Init()
     
 
     for (std::size_t i = 0; i < constBufferVecs.size(); ++i) {

@@ -25,13 +25,29 @@
 
 class UdpDelaySimRunner {
 public:
+    /// Default constructor
     UDP_DELAY_SIM_LIB_EXPORT UdpDelaySimRunner();
+    /// Default destructor
     UDP_DELAY_SIM_LIB_EXPORT ~UdpDelaySimRunner();
+    
+    /** Run the delay simulation.
+     *
+     * @param argc The number of command-line arguments.
+     * @param argv The array of command-line arguments.
+     * @param running The simulation running flag.
+     * @param useSignalHandler Whether to activate the signal handler.
+     * @return True if the simulation exited cleanly, or False otherwise.
+     */
     UDP_DELAY_SIM_LIB_EXPORT bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
     
 private:
+    /** Set the exit flag from the signal handler.
+     *
+     * Forwards intent to exit by setting m_runningFromSigHandler to False due to exit keypress being caught by the signal handler.
+     */
     UDP_DELAY_SIM_LIB_NO_EXPORT void MonitorExitKeypressThreadFunction();
 
+    /// Signal handler flag, whether the simulation should keep running
     volatile bool m_runningFromSigHandler;
 };
 

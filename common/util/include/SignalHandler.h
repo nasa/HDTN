@@ -22,37 +22,51 @@
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
 #include <boost/function.hpp>
+#include <memory>
 #include "hdtn_util_export.h"
 
 class SignalHandler {
 private:
     SignalHandler();
 public:
+    /**
+     * Set the signal handler callback.
+     * Register keyboard interrupt signals to listen for.
+     * @param handleSignalFunction The signal handler callback.
+     */
     HDTN_UTIL_EXPORT SignalHandler(boost::function<void() > handleSignalFunction);
+    
+    /// Release all underlying I/O resources
     HDTN_UTIL_EXPORT ~SignalHandler();
-
-
+    
+    /** Start the signal event listener.
+     *
+     * @param useDedicatedThread Whether to spawn a separate thread for the I/O.
+     */
     HDTN_UTIL_EXPORT void Start(bool useDedicatedThread = true);
 
-    //use when useDedicatedThread is set to false
-    //return true if signal handler called
+    /** Poll signal event listener.
+     *
+     * Only call when NOT using a dedicated I/O thread.
+     * @return True if any signal events have occurred since last checked, or False otherwise.
+     */
     HDTN_UTIL_EXPORT bool PollOnce();
 
 private:
-
+    /** Handle signal event.
+     *
+     * Invokes the signal event handler callback.
+     */
     HDTN_UTIL_EXPORT void HandleSignal();
 
 private:
-    /// The io_service used to perform asynchronous operations.
+    /// I/O execution context
     boost::asio::io_service m_ioService;
-
-    /// The signal_set is used to register for process termination notifications.
+    /// Signal event listener
     boost::asio::signal_set m_signals;
-
-    boost::thread *m_ioServiceThread;
-
+    /// Thread that invokes m_ioService.run() (if using dedicated I/O thread)
+    std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
+    /// Callback to invoke after a signal is received
     boost::function<void() > m_handleSignalFunction;
-
-
 };
 #endif

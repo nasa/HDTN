@@ -13,11 +13,12 @@
  */
 
 #include "SignalHandler.h"
+#include <boost/make_unique.hpp>
 #include <signal.h>
 #include <iostream>
 
 SignalHandler::SignalHandler(boost::function<void () > handleSignalFunction) :
-m_ioService(), m_signals(m_ioService), m_ioServiceThread(NULL), m_handleSignalFunction(handleSignalFunction) {
+m_ioService(), m_signals(m_ioService), m_handleSignalFunction(handleSignalFunction) {
 
 	m_signals.add(SIGINT);
 	m_signals.add(SIGTERM);
@@ -30,16 +31,16 @@ m_ioService(), m_signals(m_ioService), m_ioServiceThread(NULL), m_handleSignalFu
 
 SignalHandler::~SignalHandler() {
 	m_ioService.stop();
-	if (m_ioServiceThread) {
-		m_ioServiceThread->join();
-		delete m_ioServiceThread;
+	if (m_ioServiceThreadPtr) {
+		m_ioServiceThreadPtr->join();
+		m_ioServiceThreadPtr.reset();
 	}
 }
 
 void SignalHandler::Start(bool useDedicatedThread) {
 	m_signals.async_wait(boost::bind(&SignalHandler::HandleSignal, this));
 	if (useDedicatedThread) {
-		m_ioServiceThread = new boost::thread(boost::bind(&boost::asio::io_service::run, &m_ioService));
+		m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 	}
 }
 

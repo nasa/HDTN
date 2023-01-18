@@ -27,7 +27,7 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 
 void UdpDelaySimRunner::MonitorExitKeypressThreadFunction() {
     LOG_INFO(subprocess) << "Keyboard Interrupt.. exiting";
-    m_runningFromSigHandler = false; //do this first
+    m_runningFromSigHandler = false;
 }
 
 
