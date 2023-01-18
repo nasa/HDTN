@@ -467,3 +467,48 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsOutductTestCase)
     }
 
 }
+
+BOOST_AUTO_TEST_CASE(TelemetryDefinitionsStorageExpiringBeforeThresholdTestCase)
+{
+    StorageExpiringBeforeThresholdTelemetry_t telem;
+    telem.priority = 1;
+    telem.thresholdSecondsSinceStartOfYear2000 = 100;
+    StorageExpiringBeforeThresholdTelemetry_t::bundle_count_plus_bundle_bytes_pair_t bundleCountAndBytes;
+    bundleCountAndBytes.first = 90;
+    bundleCountAndBytes.second = 2000;
+    telem.map_node_id_to_expiring_before_threshold_count[4] = bundleCountAndBytes;
+
+    {
+        std::vector<uint8_t>* actual = new std::vector<uint8_t>(1000); //will be 64-bit aligned
+        uint8_t* telemPtr = actual->data();
+        const uint8_t* const telemSerializationBase = telemPtr;
+        uint64_t telemBufferSize = actual->size();
+
+        //start zmq message with telemetry
+        const uint64_t storageTelemSize = telem.SerializeToLittleEndian(telemPtr, telemBufferSize);
+        telemBufferSize -= storageTelemSize;
+        telemPtr += storageTelemSize;
+
+        actual->resize(telemPtr - telemSerializationBase);
+        std::vector<uint8_t> expected;
+        expected.insert(expected.end(), {
+            10,  0, 0, 0, 0, 0, 0, 0,
+            1,   0, 0, 0, 0, 0, 0, 0,
+            100, 0, 0, 0, 0, 0, 0, 0,
+            1,   0, 0, 0, 0, 0, 0, 0,
+            4,   0, 0, 0, 0, 0, 0, 0,
+            90,  0, 0, 0, 0, 0, 0, 0,
+            208, 7, 0, 0, 0, 0, 0, 0
+        });
+
+        BOOST_REQUIRE_EQUAL(actual->size(), 56);
+        BOOST_REQUIRE_EQUAL_COLLECTIONS(actual->begin(), actual->end(), expected.begin(), expected.end());
+        delete actual;
+    }
+
+    {
+        BOOST_REQUIRE_EQUAL(telem.GetSerializationSize(), 56);
+        telem.map_node_id_to_expiring_before_threshold_count[9] = bundleCountAndBytes;
+        BOOST_REQUIRE_EQUAL(telem.GetSerializationSize(), 80);
+    }
+}
