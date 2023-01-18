@@ -1,4 +1,54 @@
-function ParseHdtnConfig(paramHdtnConfig, paramDeclutter, paramShrink, paramD3FaultsMap, PARAM_MAP_NAMES, PARAM_SUB_MAP_NAMES, PARAM_D3_SHAPE_ATTRIBUTES, PARAM_ABS_POSITION_MAP, PARAM_FLIP_HORIZONTAL_MAP) {
+function ParseHdtnConfig(paramWireConnectionsOldMap, paramOldHdtnConfig, paramNewHdtnConfig, paramDeclutter, paramShrink, paramD3FaultsMap, PARAM_MAP_NAMES, PARAM_SUB_MAP_NAMES, PARAM_D3_SHAPE_ATTRIBUTES, PARAM_ABS_POSITION_MAP, PARAM_FLIP_HORIZONTAL_MAP) {
+
+    function GetDrawHash(receivedConfig) {
+        let hashStr = "";
+        if(receivedConfig != null) {
+
+            let inductsConfig = receivedConfig["inductsConfig"];
+            let inductVector = inductsConfig["inductVector"];
+            inductVector.forEach(function(ind, i) {
+                //console.log(i);
+                hashStr += "induct=" + ind.convergenceLayer + "[" + i + "](" + ind["activeConnections"].toString() + ");";
+            });
+
+            let outductsConfig = receivedConfig["outductsConfig"];
+            let outductVector = outductsConfig["outductVector"];
+            outductVector.forEach(function(od, i) {
+                hashStr += "outduct=" + od.convergenceLayer + "[" + i + "]->" + od.nextHopNodeId + "(" + od["finalDestinationEidUris"].toString() + ");";
+            });
+        }
+
+        return hashStr;
+    }
+
+    wireConnections = [];
+
+    function AddWire(src, dest, groupName) {
+        //preserve pathWithoutJumps (stored within wire obj)
+        const wireId = src.id + "_" + dest.id;
+        let wireObj = {};
+        if(paramWireConnectionsOldMap.hasOwnProperty(wireId)) {
+            wireObj = paramWireConnectionsOldMap[wireId];
+        }
+        wireObj.src = src;
+        wireObj.dest = dest;
+        wireObj.groupName = groupName;
+        paramWireConnectionsOldMap[wireId] = wireObj;
+
+        wireConnections.push(wireObj);
+    }
+
+    let oldHashStr = GetDrawHash(paramOldHdtnConfig);
+    let newHashStr = GetDrawHash(paramNewHdtnConfig);
+    let needsRedraw = (oldHashStr !== newHashStr);
+    if(!needsRedraw) {
+        console.log("does not need redraw");
+        return null;//todo
+    }
+    else {
+        console.log("needs redraw");
+        paramOldHdtnConfig = paramNewHdtnConfig;
+    }
 
     var BUSBAR_WIDTH_PX = 5;
 
@@ -11,7 +61,8 @@ function ParseHdtnConfig(paramHdtnConfig, paramDeclutter, paramShrink, paramD3Fa
 
     //Initialization
 
-    wireConnections = [];
+
+
 
     var storageAbsPosition = PARAM_ABS_POSITION_MAP["storage"];
     var storageObj = {};
@@ -52,7 +103,7 @@ function ParseHdtnConfig(paramHdtnConfig, paramDeclutter, paramShrink, paramD3Fa
     var activeInductConnsD3Array = [activeInductConnsObj];
 
 
-    var inductsConfig = paramHdtnConfig["inductsConfig"];
+    var inductsConfig = paramNewHdtnConfig["inductsConfig"];
     var inductVector = inductsConfig["inductVector"];
 
     var inductRelYLeft =  PARENT_TOP_HEADER_PX;// + CHILD_HEIGHT_PX/2;
@@ -126,11 +177,7 @@ function ParseHdtnConfig(paramHdtnConfig, paramDeclutter, paramShrink, paramD3Fa
 
             activeInductConnsObj.d3ChildArray.push(connObj);
 
-            wireConnections.push({
-                "src": connObj,
-                "dest": induct,
-                "groupName": "conn_induct"
-            });
+            AddWire(connObj, induct, "conn_induct");
         });
 
 
@@ -184,7 +231,7 @@ function ParseHdtnConfig(paramHdtnConfig, paramDeclutter, paramShrink, paramD3Fa
     finalDestsObj.height = 500;
     var finalDestsD3Array = [finalDestsObj];
 
-    var outductsConfig = paramHdtnConfig["outductsConfig"];
+    var outductsConfig = paramNewHdtnConfig["outductsConfig"];
     var outductVector = outductsConfig["outductVector"];
     //console.log(outductVector);
 
@@ -303,11 +350,7 @@ function ParseHdtnConfig(paramHdtnConfig, paramDeclutter, paramShrink, paramD3Fa
 
             finalDestsObj.d3ChildArray.push(finalDest);
 
-            wireConnections.push({
-                "src": nextHop,
-                "dest": finalDest,
-                "groupName": "nextHop_finalDest"
-            });
+            AddWire(nextHop, finalDest, "nextHop_finalDest");
         });
         nextHopsObj.busBar = {
             "x1": nextHopsAbsPosition.WIDTH / 2.0,
@@ -327,11 +370,7 @@ function ParseHdtnConfig(paramHdtnConfig, paramDeclutter, paramShrink, paramD3Fa
 
 
         if(!paramDeclutter || outduct.linkIsUp) { //if cluttered or on
-            wireConnections.push({
-                "src": outduct,
-                "dest": nextHopsObj,
-                "groupName": "outduct_nextHop"
-            });
+            AddWire(outduct, nextHopsObj, "outduct_nextHop");
         }
 
 

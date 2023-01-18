@@ -219,3 +219,19 @@ var INITIAL_HDTN_CONFIG = {
         ]
     }
 };
+
+setTimeout(change1, 5000);
+
+function change1() {
+    //remove element 0 "ipn:4.1"
+    INITIAL_HDTN_CONFIG.outductsConfig.outductVector[1].finalDestinationEidUris.splice(0, 1); // 2nd parameter means remove one item only ;
+    app.UpdateWithData(INITIAL_HDTN_CONFIG);
+}
+
+setTimeout(change2, 10000);
+
+function change2() {
+    //remove element 0 "ipn:4.1"
+    INITIAL_HDTN_CONFIG.outductsConfig.outductVector[1].finalDestinationEidUris.unshift("ipn:4.1");
+    app.UpdateWithData(INITIAL_HDTN_CONFIG);
+}

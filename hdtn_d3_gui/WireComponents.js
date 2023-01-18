@@ -11,6 +11,7 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
     var d3WiresArray = [];
 
     function GetWireText(wire) {
+        return "";
         var showCurrent = document.getElementById("id_showCurrent").checked;
         var showVoltage = document.getElementById("id_showVoltage").checked;
         var amps = wire.src.hasOwnProperty("currentOut") ? wire.src.currentOut : wire.dest.currentIn;

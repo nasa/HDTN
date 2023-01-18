@@ -262,6 +262,8 @@
     function HidraGui(paramParentDiv, paramUniqueId) {
 
         var d3ContentDiv = paramParentDiv;
+        let hdtnTelem = null;
+        let wireConnectionsOldMap = {};
 
         //document.getElementById('idDeclutterSelect').addEventListener('change', DeclutterSelectChanged, false);
         document.getElementById('idViewSelect').addEventListener('change', ViewSelectChanged, false);
@@ -582,26 +584,15 @@
             }
         }
 
-        Update();
 
         var inTransition = false;
-        function Update(delayMs) {
+        function Update(redrawObj, delayMs) {
             if (typeof delayMs === 'undefined') delayMs = 2000;
 
             inTransition = true;
-            var retObj = ParseHdtnConfig(
-                INITIAL_HDTN_CONFIG,
-                false, // declutter,
-                false, // shrink,
-                null, // d3FaultsMap,
-                null,// MAP_NAMES,
-                null,// SUB_MAP_NAMES,
-                null,// D3_SHAPE_ATTRIBUTES,
-                ABS_POSITION_MAP,
-                null// FLIP_HORIZONTAL_MAP
-            );
+
             //ParsePowerSystem(powerSystem, declutter, shrink, d3FaultsMap, MAP_NAMES, SUB_MAP_NAMES, D3_SHAPE_ATTRIBUTES, ABS_POSITION_MAP, FLIP_HORIZONTAL_MAP);
-            wiresComponent.ComputeWires(retObj.wireConnections);
+            wiresComponent.ComputeWires(redrawObj.wireConnections);
 
 
 
@@ -615,12 +606,12 @@
                     inTransition = false;
                 });
 
-            myActiveInductConnsRectComponent.Update(retObj.activeInductConnsD3Array, sharedTransition);
-            myIngressRectComponent.Update(retObj.ingressD3Array, sharedTransition);
-            myEgressRectComponent.Update(retObj.egressD3Array, sharedTransition);
-            myStorageRectComponent.Update(retObj.storageD3Array, sharedTransition);
-            myNextHopsRectComponent.Update(retObj.nextHopsD3Array, sharedTransition);
-            myFinalDestsRectComponent.Update(retObj.finalDestsD3Array, sharedTransition);
+            myActiveInductConnsRectComponent.Update(redrawObj.activeInductConnsD3Array, sharedTransition);
+            myIngressRectComponent.Update(redrawObj.ingressD3Array, sharedTransition);
+            myEgressRectComponent.Update(redrawObj.egressD3Array, sharedTransition);
+            myStorageRectComponent.Update(redrawObj.storageD3Array, sharedTransition);
+            myNextHopsRectComponent.Update(redrawObj.nextHopsD3Array, sharedTransition);
+            myFinalDestsRectComponent.Update(redrawObj.finalDestsD3Array, sharedTransition);
             wiresComponent.Update(sharedTransition);
 
         }
@@ -651,6 +642,39 @@
             myWireStorageToEgress.SetSpeedBps(obj.speedBytesIn);
             myWireEgressToOutside.SetSpeedBps(obj.speedBundlesOut);
         }
+        function HandleReceivedNewHdtnConfig(newHdtnConfig) {
+            let redrawObj = ParseHdtnConfig(
+                wireConnectionsOldMap,
+                hdtnTelem,
+                newHdtnConfig,
+                false, // declutter,
+                false, // shrink,
+                null, // d3FaultsMap,
+                null,// MAP_NAMES,
+                null,// SUB_MAP_NAMES,
+                null,// D3_SHAPE_ATTRIBUTES,
+                ABS_POSITION_MAP,
+                null// FLIP_HORIZONTAL_MAP
+            );
+
+            if(inTransition) {
+                console.log("new hdtn config received while in transition.. dropping");
+                return;
+            }
+
+            console.log("new hdtn telem received");
+
+            if(redrawObj != null) {
+                console.log("redraw");
+                Update(redrawObj/*, declutter ? 1000 : 500*/);
+            }
+            else {
+                console.log("don't redraw")
+                UpdateLite();
+            }
+
+
+        }
 
         return {
             UpdateWithData: function(objJson){
@@ -662,6 +686,9 @@
                 }
                 else if("speedStorageToDisk" in objJson) {
                     ReceivedNewTelemetryDisk(objJson);
+                }
+                else {
+                    HandleReceivedNewHdtnConfig(objJson);
                 }
             }
         };
@@ -703,6 +730,7 @@
 
 
         app = HidraGui(document.getElementById("mygui"), "aaa");
+        app.UpdateWithData(INITIAL_HDTN_CONFIG);
         if (!("WebSocket" in window)) {
             alert("WebSocket is not supported by your Browser!");
         }
