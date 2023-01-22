@@ -53,17 +53,17 @@ bool FragmentSet::data_fragment_t::GetOverlap(const data_fragment_t& key1, const
     //https://scicomp.stackexchange.com/questions/26258/the-easiest-way-to-find-intersection-of-two-intervals
     //if ( bs>ae or as>be ) { return 0 }
     //if ( y1>x2 or x1>y2 ) { return 0 } //(rewritten)
-    //if ( y1<=x2 AND x1<=y2 ) { intersect=true } //rewriten
+    //if ( y1<=x2 AND x1<=y2 ) { intersect=true } //rewritten
     //if(intersect) {
     //    os=max(as,bs) 
     //    oe=min(ae,be)
     //}
-    const bool interects = ((key2.beginIndex <= key1.endIndex) && (key1.beginIndex <= key2.endIndex));
-    if (interects) {
+    const bool intersects = ((key2.beginIndex <= key1.endIndex) && (key1.beginIndex <= key2.endIndex));
+    if (intersects) {
         overlap.beginIndex = std::max(key1.beginIndex, key2.beginIndex);
         overlap.endIndex = std::min(key1.endIndex, key2.endIndex);
     }
-    return interects;
+    return intersects;
 }
 bool FragmentSet::data_fragment_t::GetOverlap(const data_fragment_t& o, data_fragment_t& overlap) const {
     return GetOverlap(*this, o, overlap);
