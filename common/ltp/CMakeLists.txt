@@ -7,6 +7,7 @@ add_library(ltp_lib
 	src/LtpSessionSender.cpp
 	src/LtpEngine.cpp
 	src/LtpTimerManager.cpp
+	src/LtpIpcEngine.cpp
 	src/LtpUdpEngine.cpp
 	src/LtpUdpEngineManager.cpp
 	src/LtpBundleSink.cpp
@@ -55,6 +56,7 @@ set(MY_PUBLIC_HEADERS
 	include/LtpEngine.h
 	include/LtpEngineConfig.h
 	include/LtpFragmentSet.h
+	include/LtpIpcEngine.h
 	include/LtpNoticesToClientService.h
 	include/LtpRandomNumberGenerator.h
 	include/LtpSessionReceiver.h
