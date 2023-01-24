@@ -143,6 +143,7 @@ OutductTelemetry_t::OutductTelemetry_t()
     totalBundlesFailedToSend(0), convergenceLayerType(0)
 {
     Telemetry_t::m_fieldsToSerialize.insert(m_fieldsToSerialize.end(), {
+        &convergenceLayerType,
         &totalBundlesAcked,
         &totalBundleBytesAcked,
         &totalBundlesSent,

@@ -205,6 +205,10 @@ body {
         text-align: center;
     }
     
+.hidden {
+    display: none;
+}
+
 /*config page*/
 
 .styled-table {
