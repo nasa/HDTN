@@ -121,9 +121,10 @@
                 </tbody>
             </table>
         </div>
-        <div class="ingressStats" id="ingress_stats">
+        <div class="ingressStats hidden" id="ltpTemplate">
             <div class="cardTitle">
                 <h2>LTP Engine Stats</h2>
+                <h4 id="cardName"></h4>
                 <!--<div class="iconBox"><img src="../resources/arrow-down-circle.svg" alt="Ingress icon" /></div>-->
 
             </div>
@@ -136,56 +137,76 @@
                 </colgroup>
                 <tbody>
                     <tr>
-                        <td>Count Async Send Calls</td>
-                        <td id="countAsyncSendCalls"></td>
-                        <td>Count Circular Buffer Overruns</td>
-                        <td id="countCircularBufferOverruns"></td>
+                        <td>Total Bundles Sent</td>
+                        <td id="totalBundlesSent"></td>
+                        <td>Total Bundles Acknowledged</td>
+                        <td id="totalBundlesAcked"></td>
                     </tr>
                     <tr>
-                        <td>Num Checkpoint Timer Expired Callbacks</td>
-                        <td id="numCheckpointTimerExpiredCallbacks"></td>
-                        <td>Num Discretionary Checkpoints Not Resent</td>
+                        <td>Total Bytes Sent</td>
+                        <td id="totalBytesSent"></td>
+                        <td>Total Bytes Acknowledged</td>
+                        <td id="totalBytesAcked"></td>
+                    </tr>
+                    <tr>
+                        <td>Total Bundles Failed to Send</td>
+                        <td id="totalBundlesFailedToSend"></td>
+                        <td>RX Buffer Overruns</td>
+                        <td id="countRxUdpBufferOverruns"></td>
+                    </tr>
+                    <tr>
+                        <td>Checkpoint Timer Expired Callbacks</td>
+                        <td id="numCheckpointsExpired"></td>
+                        <td>Discretionary Checkpoints Not Resent</td>
                         <td id="numDiscretionaryCheckpointsNotResent"></td>
                     </tr>
                     <tr>
-                        <td>Num Report Segment Timer Expired Callbacks</td>
-                        <td id="numReportSegmentTimerExpiredCallbacks"></td>
-                        <td>Num Report Segments Unable To Be Issued</td>
-                        <td id="numReportSegmentsUnableToBeIssued"></td>
-                    </tr>
-                    <tr>
-                        <td>Expected Session Originator Engine ID</td>
-                        <td id="expectedSessionOriginatorEngineId"></td>
-                        <td>Total Data Segments Sent Successfully With Ack</td>
-                        <td id="totalDataSegmentsSentSuccessfullyWithAck"></td>
-                    </tr>
-                    <tr>
-                        <td>Total Data Segments Failed To Send</td>
-                        <td id="totalDataSegmentsFailedToSend"></td>
-                        <td>Total Data Segments Sent</td>
-                        <td id="totalDataSegmentsSent"></td>
+                        <td>UDP Packets Sent</td>
+                        <td id="countUdpPacketsSent"></td>
+                        <td>UDP Packets Limited By Rate</td>
+                        <td id="countTxUdpPacketsLimitedByRate"></td>
                     </tr>
                 </tbody>
             </table>
         </div>
-        <div class="ingressStats" id="ingress_stats">
+        <div class="ingressStats hidden" id="stcpTemplate">
             <div class="cardTitle">
                 <h2>STCP Stats</h2>
+                <h4 id="cardName"></h4>
                 <!--<div class="iconBox"><img src="../resources/arrow-down-circle.svg" alt="Ingress icon" /></div>-->
 
             </div>
             <table>
+                <colgroup>
+                    <col span="1" style="width:40%;"></col>
+                    <col span="1" style="width:10%;"></col>
+                    <col span="1" style="width:40%;"></col>
+                    <col span="1" style="width:10%;"></col>
+                </colgroup>
                 <tbody>
                     <tr>
+                        <td>Total Bundles Sent</td>
+                        <td id="totalBundlesSent"></td>
+                        <td>Total Bundles Acknowledged</td>
+                        <td id="totalBundlesAcked"></td>
+                    </tr>
+                    <tr>
+                        <td>Total Bytes Sent</td>
+                        <td id="totalBytesSent"></td>
+                        <td>Total Bytes Acknowledged</td>
+                        <td id="totalBytesAcked"></td>
+                    </tr>
+                    <tr>
+                        <td>Total Bundles Failed to Send</td>
+                        <td id="totalBundlesFailedToSend"></td>
                         <td>Total STCP Bytes Sent</td>
                         <td id="totalStcpBytesSent"></td>
                     </tr>
-                    <tr></tr>
                 </tbody>
             </table>
         </div>
 
-        <div class="ingressStats" id="ingress_stats">
+        <div class="ingressStats hidden" id="ingress_stats">
             <div class="cardTitle">
                 <h2>TCP Stats</h2>
                 <!--<div class="iconBox"><img src="../resources/arrow-down-circle.svg" alt="Ingress icon" /></div>-->

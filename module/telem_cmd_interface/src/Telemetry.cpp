@@ -1,3 +1,17 @@
+/**
+ * @file Telemetry.cpp
+ *
+ * @copyright Copyright © 2023 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ */
+
 #include "Telemetry.h"
 #include "TelemetryDefinitions.h"
 #include "TelemetryRunner.h"

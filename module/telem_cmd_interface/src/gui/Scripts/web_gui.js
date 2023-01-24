@@ -58,6 +58,91 @@ var egressLayout = {
     }
 };
 
+// Supported convergence layers
+const StcpConvergenceLayer = 1;
+const LtpConvergenceLayer = 2;
+
+// Given a data view and a byte index, updates an HTML element with common outduct data
+updateElementWithCommonOutductData = (htmlElement, dv, byteIndex) => {
+    const totalBundlesAcked = dv.getUint64(byteIndex, littleEndian);
+    htmlElement.querySelector("#totalBundlesAcked").innerHTML = totalBundlesAcked.toFixed();
+    byteIndex += 8;
+    const totalBytesAcked = dv.getUint64(byteIndex, littleEndian);
+    htmlElement.querySelector("#totalBytesAcked").innerHTML = totalBytesAcked.toFixed();
+    byteIndex += 8;
+    const totalBundlesSent = dv.getUint64(byteIndex, littleEndian);
+    htmlElement.querySelector("#totalBundlesSent").innerHTML = totalBundlesSent.toFixed();
+    byteIndex += 8;
+    const totalBytesSent = dv.getUint64(byteIndex, littleEndian);
+    htmlElement.querySelector("#totalBytesSent").innerHTML = totalBytesSent.toFixed();
+    byteIndex += 8;
+    const totalBundlesFailedToSend = dv.getUint64(byteIndex, littleEndian);
+    htmlElement.querySelector("#totalBundlesFailedToSend").innerHTML = totalBundlesFailedToSend.toFixed();
+    byteIndex += 8;
+    return byteIndex;
+}
+
+// Given a data view and a byte index, updates an HTML element with STCP specific data
+updateStcpOutduct = (dv, byteIndex, outductPos) => {
+    // Attempt to find an existing STCP card by the outduct position
+    // If that fails, create a new one by cloning the template
+    const uniqueId = "stcpCard" + outductPos;
+    var card = document.getElementById(uniqueId);
+    if (!card) {
+        const template = document.getElementById("stcpTemplate");
+        card = template.cloneNode(true);
+        card.id = uniqueId;
+        card.classList.remove("hidden");
+        template.parentNode.append(card);
+    }
+    const displayName = "Outduct " + (outductPos +1).toFixed();
+    card.querySelector("#cardName").innerHTML = displayName;
+
+    byteIndex = updateElementWithCommonOutductData(card, dv, byteIndex)
+
+    const totalStcpBytesSent = dv.getUint64(byteIndex, littleEndian);
+    card.querySelector("#totalStcpBytesSent").innerHTML = totalStcpBytesSent.toFixed();
+    byteIndex += 8;
+    return byteIndex;
+}
+
+// Given a data view and a byte index, updates an HTML element with LTP specific data
+updateLtpOutduct = (dv, byteIndex, outductPos) => {
+    // Attempt to find an existing LTP card by the outduct position
+    // If that fails, create a new one by cloning the template
+    const uniqueId = "ltpCard" + outductPos;
+    var card = document.getElementById(uniqueId);
+    if (!card) {
+        const template = document.getElementById("ltpTemplate");
+        card = template.cloneNode(true);
+        card.id = uniqueId;
+        card.classList.remove("hidden");
+        template.parentNode.append(card);
+    }
+    const displayName = "Outduct " + (outductPos + 1).toFixed();
+    card.querySelector("#cardName").innerHTML = displayName;
+
+    byteIndex = updateElementWithCommonOutductData(card, dv, byteIndex)
+
+    const numCheckpointsExpired = dv.getUint64(byteIndex, littleEndian);
+    card.querySelector("#numCheckpointsExpired").innerHTML = numCheckpointsExpired.toFixed();
+    byteIndex += 8;
+    const numDiscretionaryCheckpointsNotResent = dv.getUint64(byteIndex, littleEndian);
+    card.querySelector("#numDiscretionaryCheckpointsNotResent").innerHTML = numDiscretionaryCheckpointsNotResent.toFixed();
+    byteIndex += 8;
+    const countUdpPacketsSent = dv.getUint64(byteIndex, littleEndian);
+    card.querySelector("#countUdpPacketsSent").innerHTML = countUdpPacketsSent.toFixed();
+    byteIndex += 8;
+    const countRxUdpBufferOverruns = dv.getUint64(byteIndex, littleEndian);
+    card.querySelector("#countRxUdpBufferOverruns").innerHTML = countRxUdpBufferOverruns.toFixed();
+    byteIndex += 8;
+    const countTxUdpPacketsLimitedByRate = dv.getUint64(byteIndex, littleEndian);
+    card.querySelector("#countTxUdpPacketsLimitedByRate").innerHTML = countTxUdpPacketsLimitedByRate.toFixed();
+    byteIndex += 8;
+
+    return byteIndex;
+}
+
 //Launch Data Graphs
 Plotly.newPlot("ingress_rate_graph", rate_data_ingress, ingressLayout, { displaylogo: false });
 Plotly.newPlot("egress_rate_graph", rate_data_egress, egressLayout, { displaylogo: false });
@@ -172,6 +257,7 @@ window.addEventListener("load", function(event){
                 var egressTotalDataBytes = dv.getUint64(byteIndex, littleEndian);
                 byteIndex += 8;
                 var egressMessageCount = dv.getUint64(byteIndex, littleEndian);
+                byteIndex += 8;
                 egressRateCalculator.appendVal(egressTotalDataBytes);
                 if (egressRateCalculator.count == 1) {
                     // Don't plot anything the first time through, since we don't have
@@ -187,6 +273,20 @@ window.addEventListener("load", function(event){
                 document.getElementById("egressBundleCount").innerHTML = egressBundleCount;
                 document.getElementById("egressBundleData").innerHTML = egressTotalDataBytes.toFixed(2);
                 document.getElementById("egressMessageCount").innerHTML = egressMessageCount;
+
+                // Handle any outduct data
+                var index = 0;
+                while (byteIndex < dv.byteLength) {
+                    const convergenceLayerType = dv.getUint64(byteIndex, littleEndian);
+                    byteIndex += 8;
+
+                    if (convergenceLayerType == StcpConvergenceLayer) {
+                        byteIndex = updateStcpOutduct(dv, byteIndex, index++);
+                    }
+                    if (convergenceLayerType == LtpConvergenceLayer) {
+                        byteIndex = updateLtpOutduct(dv, byteIndex, index++);
+                    }
+                }
             }
             else if(type == 3){
                 //Storage
