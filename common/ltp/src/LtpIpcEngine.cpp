@@ -22,11 +22,11 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 
 static const uint8_t ENGINE_INDEX = 1; //this is a don't care for inducts, only needed for outducts (to mimic udp behavior)
 
-LtpIpcEngine::LtpIpcEngine(const uint8_t engineIndexForEncodingIntoRandomSessionNumber,
+LtpIpcEngine::LtpIpcEngine(
     const std::string& myTxSharedMemoryName,
     const uint64_t maxUdpRxPacketSizeBytes,
     const LtpEngineConfig& ltpRxOrTxCfg) :
-    LtpEngine(ltpRxOrTxCfg, engineIndexForEncodingIntoRandomSessionNumber, true),
+    LtpEngine(ltpRxOrTxCfg, ENGINE_INDEX, true),
     M_REMOTE_ENGINE_ID(ltpRxOrTxCfg.remoteEngineId),
     m_myTxSharedMemoryName(myTxSharedMemoryName),
     M_NUM_CIRCULAR_BUFFER_VECTORS(ltpRxOrTxCfg.numUdpRxCircularBufferVectors),

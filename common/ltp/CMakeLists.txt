@@ -12,8 +12,10 @@ add_library(ltp_lib
 	src/LtpUdpEngineManager.cpp
 	src/LtpBundleSink.cpp
 	src/LtpOverUdpBundleSink.cpp
+	src/LtpOverIpcBundleSink.cpp
 	src/LtpBundleSource.cpp
 	src/LtpOverUdpBundleSource.cpp
+	src/LtpOverIpcBundleSource.cpp
 )
 
 set_property(
@@ -60,6 +62,8 @@ set(MY_PUBLIC_HEADERS
 	include/LtpFragmentSet.h
 	include/LtpIpcEngine.h
 	include/LtpNoticesToClientService.h
+	include/LtpOverIpcBundleSink.h
+	include/LtpOverIpcBundleSource.h
 	include/LtpOverUdpBundleSink.h
 	include/LtpOverUdpBundleSource.h
 	include/LtpRandomNumberGenerator.h

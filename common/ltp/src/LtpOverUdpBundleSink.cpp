@@ -1,5 +1,5 @@
 /**
- * @file LtpBundleSink.cpp
+ * @file LtpOverUdpBundleSink.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
  * @copyright Copyright © 2021 United States Government as represented by

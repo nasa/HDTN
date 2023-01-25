@@ -69,7 +69,7 @@ public:
     };
 
 
-    LTP_LIB_EXPORT LtpIpcEngine(const uint8_t engineIndexForEncodingIntoRandomSessionNumber,
+    LTP_LIB_EXPORT LtpIpcEngine(
         const std::string& myTxSharedMemoryName,
         const uint64_t maxUdpRxPacketSizeBytes,
         const LtpEngineConfig& ltpRxOrTxCfg);
