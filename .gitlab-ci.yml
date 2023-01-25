@@ -4,6 +4,7 @@ image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
 stages:
   - build
   - test
+  - static-analysis
 
 # Set global environment variables
 variables:
@@ -20,7 +21,7 @@ build:
   stage: build
   tags:
   - docker
-  - linux
+  - linux-x86
   script:
     - mkdir build
     - cmake -S . -B build
@@ -50,7 +51,7 @@ unit-test:
   stage: test
   tags:
   - docker
-  - linux
+  - linux-x86
   script:
     - ./build/tests/unit_tests/unit-tests --log_format=JUNIT --log_sink=report.xml
   artifacts:
@@ -59,3 +60,17 @@ unit-test:
       - report.xml
     reports:
       junit: report.xml
+
+# Start coverity Static Analysis Scanning 
+static-analysis:
+  stage: static-analysis
+  tags:
+  - cov-analysis
+  script:
+    - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
+    - cd build
+    - make clean
+    - cov-build --dir idir make -j8
+    - cov-analyze --dir idir --all --enable-constraint-fpp --enable-fnptr --enable-virtual --strip-path $HDTN_SOURCE_ROOT
+    - cov-commit-defects --dir idir --url  https://10.54.31.120:8443 --stream HDTN-master --auth-key-file /home/hdtn/auth.key
+      
