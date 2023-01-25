@@ -14,7 +14,7 @@
  * @section DESCRIPTION
  *
  * This LtpBundleSource class encapsulates the appropriate LTP functionality
- * to send a pipeline of bundles (or any other user defined data) over an LTP over UDP link
+ * to send a pipeline of bundles (or any other user defined data) over an LTP link (transport layer must be defined in child class)
  * and calls the user defined function OnSuccessfulAckCallback_t when the session closes, meaning
  * a bundle is fully sent (i.e. the ltp fully red session gets acknowledged by the remote receiver).
  */

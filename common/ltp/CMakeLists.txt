@@ -11,6 +11,7 @@ add_library(ltp_lib
 	src/LtpUdpEngine.cpp
 	src/LtpUdpEngineManager.cpp
 	src/LtpBundleSink.cpp
+	src/LtpOverUdpBundleSink.cpp
 	src/LtpBundleSource.cpp
 	src/LtpOverUdpBundleSource.cpp
 )
@@ -59,6 +60,7 @@ set(MY_PUBLIC_HEADERS
 	include/LtpFragmentSet.h
 	include/LtpIpcEngine.h
 	include/LtpNoticesToClientService.h
+	include/LtpOverUdpBundleSink.h
 	include/LtpOverUdpBundleSource.h
 	include/LtpRandomNumberGenerator.h
 	include/LtpSessionReceiver.h

@@ -61,7 +61,7 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT virtual void SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback);
     OUTDUCT_MANAGER_LIB_EXPORT virtual void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     OUTDUCT_MANAGER_LIB_EXPORT virtual void SetUserAssignedUuid(uint64_t userAssignedUuid);
-    virtual bool Init(); //optional
+    OUTDUCT_MANAGER_LIB_EXPORT virtual bool Init(); //optional
     virtual void Connect() = 0;
     virtual bool ReadyToForward() = 0;
     virtual void Stop() = 0;

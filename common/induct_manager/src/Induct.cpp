@@ -25,6 +25,10 @@ Induct::Induct(const InductProcessBundleCallback_t & inductProcessBundleCallback
 {}
 Induct::~Induct() {}
 
+bool Induct::Init() { //optional
+    return true;
+}
+
 Induct::OpportunisticBundleQueue::OpportunisticBundleQueue() {}
 Induct::OpportunisticBundleQueue::~OpportunisticBundleQueue() {
     LOG_INFO(hdtn::Logger::SubProcess::none) << "opportunistic link with m_remoteNodeId " << m_remoteNodeId << " terminated with " << m_dataToSendQueue.size() << " bundles queued";

@@ -51,6 +51,7 @@ private:
 public:
     INDUCT_MANAGER_LIB_EXPORT Induct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig);
     INDUCT_MANAGER_LIB_EXPORT virtual ~Induct();
+    INDUCT_MANAGER_LIB_EXPORT virtual bool Init(); //optional
 
     //tcpcl only
     INDUCT_MANAGER_LIB_EXPORT bool ForwardOnOpportunisticLink(const uint64_t remoteNodeId, std::vector<uint8_t> & dataVec, const uint32_t timeoutSeconds);
