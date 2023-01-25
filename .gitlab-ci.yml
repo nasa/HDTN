@@ -1,5 +1,3 @@
-image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
-
 # Configure the pipeline stages
 stages:
   - build
@@ -22,6 +20,7 @@ build:
   tags:
   - docker
   - linux-x86
+  image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
   script:
     - mkdir build
     - cmake -S . -B build
@@ -34,6 +33,7 @@ build-with-gui:
   tags:
   - docker
   - linux-x86
+  image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
   script:
     - mkdir external
     - cp -r /home/civetweb/include external/include
@@ -52,6 +52,7 @@ unit-test:
   tags:
   - docker
   - linux-x86
+  image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
   script:
     - ./build/tests/unit_tests/unit-tests --log_format=JUNIT --log_sink=report.xml
   artifacts:
