@@ -24,7 +24,7 @@ build:
   script:
     - mkdir build
     - cmake -S . -B build
-    - make -C build/ -j16
+    - make -C build/ -j8
 
 # Build HDTN with the GUI enabled
 # Save the output to use for testing
@@ -40,7 +40,7 @@ build-with-gui:
     - cp /home/civetweb/libcivetweb.a external/lib
     - mkdir build
     - cmake -S . -B build -D USE_WEB_INTERFACE:BOOL=ON
-    - make -C build/ -j16
+    - make -C build/ -j8
   artifacts:
     paths:
       - build
