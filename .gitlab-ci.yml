@@ -73,7 +73,6 @@ static-analysis:
     - export HDTN_SOURCE_ROOT=$PWD
     - mkdir build
     - cd build
-    - make clean
     - cov-build --dir idir make -j8
     - cov-analyze --dir idir --all --enable-constraint-fpp --enable-fnptr --enable-virtual --strip-path $HDTN_SOURCE_ROOT
     - cov-commit-defects --dir idir --url  $COV_BUILD_SERVER --stream HDTN-master --auth-key-file /home/hdtn/auth.key
