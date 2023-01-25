@@ -23,7 +23,7 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_over_udp", "udp", "stcp", "tcpcl_v3", "tcpcl_v4" };
+static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_over_udp", "ltp_over_ipc", "udp", "stcp", "tcpcl_v3", "tcpcl_v4" };
 
 induct_element_config_t::induct_element_config_t() :
     name(""),
@@ -325,7 +325,7 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                 return false;
             }
 
-            if (inductElementConfig.convergenceLayer == "ltp_over_udp") {
+            if ((inductElementConfig.convergenceLayer == "ltp_over_udp") || (inductElementConfig.convergenceLayer == "ltp_over_ipc")) {
                 inductElementConfig.thisLtpEngineId = inductElementConfigPt.second.get<uint64_t>("thisLtpEngineId");
                 inductElementConfig.remoteLtpEngineId = inductElementConfigPt.second.get<uint64_t>("remoteLtpEngineId");
                 inductElementConfig.ltpReportSegmentMtu = inductElementConfigPt.second.get<uint32_t>("ltpReportSegmentMtu");
@@ -497,7 +497,7 @@ boost::property_tree::ptree InductsConfig::GetNewPropertyTree() const {
         if ((inductElementConfig.convergenceLayer == "udp") || (inductElementConfig.convergenceLayer == "tcpcl_v3") || (inductElementConfig.convergenceLayer == "tcpcl_v4")) {
             inductElementConfigPt.put("numRxCircularBufferBytesPerElement", inductElementConfig.numRxCircularBufferBytesPerElement);
         }
-        if (inductElementConfig.convergenceLayer == "ltp_over_udp") {
+        if ((inductElementConfig.convergenceLayer == "ltp_over_udp") || (inductElementConfig.convergenceLayer == "ltp_over_ipc")) {
             inductElementConfigPt.put("thisLtpEngineId", inductElementConfig.thisLtpEngineId);
             inductElementConfigPt.put("remoteLtpEngineId", inductElementConfig.remoteLtpEngineId);
             inductElementConfigPt.put("ltpReportSegmentMtu", inductElementConfig.ltpReportSegmentMtu);

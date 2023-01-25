@@ -39,13 +39,11 @@ bool LtpOverIpcBundleSink::SetLtpEnginePtr() {
     const std::string remoteTxSharedMemoryName = "ltp_outduct_id_"
         + boost::lexical_cast<std::string>(m_ltpRxCfg.remoteEngineId)
         + "_to_induct_id_" + boost::lexical_cast<std::string>(m_ltpRxCfg.thisEngineId);
-    for (unsigned int attempt = 1; attempt <= 10; ++attempt) {
-        LOG_INFO(subprocess) << "Trying to connect (attempt " << attempt << "/10) to IPC shared memory named "
-            << remoteTxSharedMemoryName;
-        if (m_ltpIpcEnginePtr->Connect(remoteTxSharedMemoryName)) {
-            break;
-        }
+
+    if (!m_ltpIpcEnginePtr->Connect(remoteTxSharedMemoryName)) {
+        return false;
     }
+
     m_ltpEnginePtr = m_ltpIpcEnginePtr.get();
     LOG_INFO(subprocess) << "this ltp bundle sink for engine ID " << m_ltpRxCfg.thisEngineId << " will receive from remote shared memory name "
         << remoteTxSharedMemoryName << " and send report segments to my shared memory name " << myTxSharedMemoryName;

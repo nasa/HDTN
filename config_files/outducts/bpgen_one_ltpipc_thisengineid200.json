@@ -1,0 +1,37 @@
+{
+    "outductConfigName": "myconfig",
+    "outductVector": [
+        {
+            "name": "bpgen",
+            "convergenceLayer": "ltp_over_ipc",
+            "nextHopNodeId": 10,
+            "remoteHostname": "localhost",
+            "remotePort": 4556,
+            "maxNumberOfBundlesInPipeline": 5,
+            "maxSumOfBundleBytesInPipeline": 50000000,
+            "finalDestinationEidUris": [
+                "ipn:1.*",
+                "ipn:2.*",
+                "ipn:3.*"
+            ],
+            "thisLtpEngineId": 200,
+            "remoteLtpEngineId": 100,
+            "ltpDataSegmentMtu": 60000,
+            "oneWayLightTimeMs": 1000,
+            "oneWayMarginTimeMs": 200,
+            "clientServiceId": 400,
+            "numRxCircularBufferElements": 100,
+            "ltpMaxRetriesPerSerialNumber": 5,
+            "ltpCheckpointEveryNthDataSegment": 0,
+            "ltpRandomNumberSizeBits": 64,
+            "ltpSenderBoundPort": 1113,
+            "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0,
+            "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+            "ltpSenderPingSecondsOrZeroToDisable": 15,
+            "delaySendingOfDataSegmentsTimeMsOrZeroToDisable": 20,
+            "keepActiveSessionDataOnDisk": false,
+            "activeSessionDataOnDiskNewFileDurationMs": 2000,
+            "activeSessionDataOnDiskDirectory": ".\/"
+        }
+    ]
+}

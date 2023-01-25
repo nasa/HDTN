@@ -1,0 +1,29 @@
+{
+    "inductConfigName": "myconfig",
+    "inductVector": [
+        {
+            "name": "i1",
+            "convergenceLayer": "ltp_over_ipc",
+            "boundPort": 4558,
+            "numRxCircularBufferElements": 100,
+            "thisLtpEngineId": 10004558,
+            "remoteLtpEngineId": 20004558,
+            "ltpReportSegmentMtu": 1000,
+            "oneWayLightTimeMs": 1000,
+            "oneWayMarginTimeMs": 200,
+            "clientServiceId": 400,
+            "preallocatedRedDataBytes": 200000,
+            "ltpMaxRetriesPerSerialNumber": 5,
+            "ltpRandomNumberSizeBits": 64,
+            "ltpRemoteUdpHostname": "localhost",
+            "ltpRemoteUdpPort": 4556,
+            "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
+            "ltpMaxExpectedSimultaneousSessions": 500,
+            "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+            "delaySendingOfReportSegmentsTimeMsOrZeroToDisable": 20,
+            "keepActiveSessionDataOnDisk": false,
+            "activeSessionDataOnDiskNewFileDurationMs": 2000,
+            "activeSessionDataOnDiskDirectory": ".\/"
+        }
+    ]
+}

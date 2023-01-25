@@ -29,6 +29,9 @@ LtpIpcEngine::LtpIpcEngine(
     LtpEngine(ltpRxOrTxCfg, ENGINE_INDEX, true),
     M_REMOTE_ENGINE_ID(ltpRxOrTxCfg.remoteEngineId),
     m_myTxSharedMemoryName(myTxSharedMemoryName),
+    m_remoteTxIpcControlPtr(NULL),
+    m_remoteTxIpcPacketCbArray(NULL),
+    m_remoteTxIpcDataStart(NULL),
     M_NUM_CIRCULAR_BUFFER_VECTORS(ltpRxOrTxCfg.numUdpRxCircularBufferVectors),
     m_running(false),
     m_isInduct(ltpRxOrTxCfg.isInduct),
@@ -146,44 +149,6 @@ void LtpIpcEngine::Stop() {
 bool LtpIpcEngine::Connect(const std::string& remoteTxSharedMemoryName) {
 
     m_remoteTxSharedMemoryName = remoteTxSharedMemoryName;
-    try {
-        //Create a shared memory object.
-        m_remoteTxSharedMemoryObjectPtr = boost::make_unique<boost::interprocess::shared_memory_object>(
-            boost::interprocess::open_only,
-            m_remoteTxSharedMemoryName.c_str(), //name
-            boost::interprocess::read_write);  //read-write mode
-    }
-    catch (const boost::interprocess::interprocess_exception& e) {
-        LOG_INFO(subprocess) << "LtpIpcEngine::Connect: Cannot open_only yet: " << e.what();
-        m_remoteTxSharedMemoryObjectPtr.reset();
-        return false;
-    }
-
-    boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
-
-    try {
-        //Map the whole shared memory in this process
-        m_remoteTxShmMappedRegionPtr = boost::make_unique<boost::interprocess::mapped_region>(
-            *m_remoteTxSharedMemoryObjectPtr, //What to map
-            boost::interprocess::read_write); //Map it as read-write
-    }
-    catch (const boost::interprocess::interprocess_exception& e) {
-        LOG_INFO(subprocess) << "LtpIpcEngine::Connect: Cannot create mapped_region: " << e.what();
-        m_remoteTxSharedMemoryObjectPtr.reset();
-        return false;
-    }
-
-    //Get the address of the mapped region
-    uint8_t* addr = (uint8_t*)m_remoteTxShmMappedRegionPtr->get_address();
-
-    //Construct the shared structure in memory
-    m_remoteTxIpcControlPtr = (IpcControl*)addr; //read (no placement new)
-    addr += sizeof(IpcControl);
-    //const unsigned int numCbElementsPlus1 = m_remoteTxIpcControlPtr->m_circularIndexBuffer.GetCapacity() + 1; //+1 for extra swappable element
-    m_remoteTxIpcPacketCbArray = (IpcPacket*)addr;
-    addr += M_NUM_CIRCULAR_BUFFER_VECTORS * sizeof(IpcPacket);
-    m_remoteTxIpcDataStart = addr;
-    
 
     //start worker thread
     m_running = true;
@@ -218,6 +183,49 @@ void LtpIpcEngine::Reset() {
 }
 
 void LtpIpcEngine::ReadRemoteTxShmThreadFunc() {
+    while (m_running) { //try to connect
+        try {
+            //Create a shared memory object.
+            m_remoteTxSharedMemoryObjectPtr = boost::make_unique<boost::interprocess::shared_memory_object>(
+                boost::interprocess::open_only,
+                m_remoteTxSharedMemoryName.c_str(), //name
+                boost::interprocess::read_write);  //read-write mode
+        }
+        catch (const boost::interprocess::interprocess_exception& e) {
+            LOG_INFO(subprocess) << "LtpIpcEngine::Connect: Cannot open_only yet: " << e.what();
+            m_remoteTxSharedMemoryObjectPtr.reset();
+            boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
+            continue;
+        }
+
+        boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
+
+        try {
+            //Map the whole shared memory in this process
+            m_remoteTxShmMappedRegionPtr = boost::make_unique<boost::interprocess::mapped_region>(
+                *m_remoteTxSharedMemoryObjectPtr, //What to map
+                boost::interprocess::read_write); //Map it as read-write
+        }
+        catch (const boost::interprocess::interprocess_exception& e) {
+            LOG_INFO(subprocess) << "LtpIpcEngine::Connect: Cannot create mapped_region: " << e.what();
+            m_remoteTxSharedMemoryObjectPtr.reset();
+            boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
+            continue;
+        }
+
+        //Get the address of the mapped region
+        uint8_t* addr = (uint8_t*)m_remoteTxShmMappedRegionPtr->get_address();
+
+        //Construct the shared structure in memory
+        m_remoteTxIpcControlPtr = (IpcControl*)addr; //read (no placement new)
+        addr += sizeof(IpcControl);
+        //const unsigned int numCbElementsPlus1 = m_remoteTxIpcControlPtr->m_circularIndexBuffer.GetCapacity() + 1; //+1 for extra swappable element
+        m_remoteTxIpcPacketCbArray = (IpcPacket*)addr;
+        addr += M_NUM_CIRCULAR_BUFFER_VECTORS * sizeof(IpcPacket);
+        m_remoteTxIpcDataStart = addr;
+        break;
+    }
+    LOG_INFO(subprocess) << "Successfully connected to remoteTxSharedMemoryName: " << m_remoteTxSharedMemoryName;
 
     while (m_running) { //keep thread alive if running
         //If the timeout expires, the
@@ -338,11 +346,11 @@ void LtpIpcEngine::DoSendPacket(std::vector<boost::asio::const_buffer>& constBuf
             return;
         }
         uint8_t* dataWrite = &m_myTxIpcDataStart[p.dataIndex * m_myTxIpcControlPtr->m_bytesPerElement];
-        uint64_t bytesWritten = 0;
+        p.bytesTransferred = 0;
         for (std::size_t i = 0; i < constBufferVec.size(); ++i) {
             const boost::asio::const_buffer& b = constBufferVec[i];
-            bytesWritten += b.size();
-            if (bytesWritten > m_myTxIpcControlPtr->m_bytesPerElement) {
+            p.bytesTransferred += static_cast<unsigned int>(b.size());
+            if (p.bytesTransferred > m_myTxIpcControlPtr->m_bytesPerElement) {
                 LOG_FATAL(subprocess) << "LtpIpcEngine::SendPacket(): bytesWritten exceeds bytesPerElement!";
                 return;
             }
@@ -398,5 +406,5 @@ void LtpIpcEngine::SendPackets(std::vector<std::vector<boost::asio::const_buffer
 
 
 bool LtpIpcEngine::ReadyToSend() const noexcept {
-    return m_running;
+    return m_running && m_remoteTxIpcDataStart;
 }
