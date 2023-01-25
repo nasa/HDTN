@@ -49,7 +49,7 @@ Telemetry_t::~Telemetry_t() {};
 
 uint64_t Telemetry_t::SerializeToLittleEndian(uint8_t* buffer, uint64_t bufferSize)
 {
-    uint64_t numBytes = GetSerializationSize();
+    uint64_t numBytes = Telemetry_t::GetSerializationSize();
     if (numBytes > bufferSize) {
         return 0;
     }
@@ -73,7 +73,7 @@ uint64_t Telemetry_t::GetSerializationSize()
 
 uint64_t Telemetry_t::DeserializeFromLittleEndian(uint8_t* buffer, uint64_t bufferSize)
 {
-    uint64_t numBytes = GetSerializationSize();
+    uint64_t numBytes = Telemetry_t::GetSerializationSize();
     if (bufferSize < numBytes) {
         return 0;
     }
@@ -184,6 +184,72 @@ LtpOutductTelemetry_t::LtpOutductTelemetry_t() : OutductTelemetry_t(),
 LtpOutductTelemetry_t::~LtpOutductTelemetry_t() {};
 
 /////////////////////////////////////
+//StorageExpiringBeforeThresholdTelemetry_t
+/////////////////////////////////////
+StorageExpiringBeforeThresholdTelemetry_t::StorageExpiringBeforeThresholdTelemetry_t()
+    : priority(0), thresholdSecondsSinceStartOfYear2000(0)
+{
+    Telemetry_t::m_type = uint64_t(TelemetryType::storageExpiringBeforeThreshold);
+    Telemetry_t::m_fieldsToSerialize.insert(m_fieldsToSerialize.end(), {
+        &priority,
+        &thresholdSecondsSinceStartOfYear2000,
+    });
+}
+
+StorageExpiringBeforeThresholdTelemetry_t::~StorageExpiringBeforeThresholdTelemetry_t() {}
+
+static const uint64_t mapEntrySize = sizeof(uint64_t) +
+    sizeof(StorageExpiringBeforeThresholdTelemetry_t::bundle_count_plus_bundle_bytes_pair_t);
+
+uint64_t StorageExpiringBeforeThresholdTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize)
+{
+    // Let the base method handle the uint64_t fields
+    uint64_t bytesSerialized = Telemetry_t::SerializeToLittleEndian(data, bufferSize);
+    bufferSize -= bytesSerialized;
+    data += bytesSerialized;
+
+    // Now, handle the map
+    uint64_t* data64Ptr = reinterpret_cast<uint64_t*>(data);
+    if (bufferSize < (8 + mapEntrySize)) {
+        return 0; //failure
+    }
+
+    // Serialize the map size
+    *data64Ptr++ = boost::endian::native_to_little(static_cast<uint64_t>(map_node_id_to_expiring_before_threshold_count.size()));
+    bufferSize -= 8;
+    bytesSerialized += 8;
+
+    // Serialize the map values
+    for (std::map<uint64_t, bundle_count_plus_bundle_bytes_pair_t>::const_iterator it = map_node_id_to_expiring_before_threshold_count.cbegin();
+        it != map_node_id_to_expiring_before_threshold_count.cend();
+        ++it)
+    {
+        if (bufferSize < mapEntrySize) {
+            return 0; //failure
+        }
+        bufferSize -= mapEntrySize;
+        bytesSerialized += mapEntrySize;
+        *data64Ptr++ = boost::endian::native_to_little(it->first); //node id
+        *data64Ptr++ = boost::endian::native_to_little(it->second.first); //bundle count
+        *data64Ptr++ = boost::endian::native_to_little(it->second.second); //total bundle bytes
+    }
+    return bytesSerialized;
+}
+
+uint64_t StorageExpiringBeforeThresholdTelemetry_t::GetSerializationSize()
+{
+    uint64_t size = Telemetry_t::GetSerializationSize();
+    size += sizeof(uint64_t);
+    for (std::map<uint64_t, bundle_count_plus_bundle_bytes_pair_t>::const_iterator it = map_node_id_to_expiring_before_threshold_count.cbegin();
+        it != map_node_id_to_expiring_before_threshold_count.cend();
+        ++it)
+    {
+        size += mapEntrySize;
+    }
+    return size;
+}
+
+/////////////////////////////////////
 //TelemetryFactory
 /////////////////////////////////////
 std::vector<std::unique_ptr<Telemetry_t> > TelemetryFactory::DeserializeFromLittleEndian(uint8_t* buffer, uint64_t bufferSize)
@@ -230,39 +296,8 @@ std::vector<std::unique_ptr<Telemetry_t> > TelemetryFactory::DeserializeFromLitt
 }
 
 StorageTelemetryRequest_t::StorageTelemetryRequest_t() : type(10) {}
-StorageExpiringBeforeThresholdTelemetry_t::StorageExpiringBeforeThresholdTelemetry_t() : type(10) {}
-
 OutductCapabilityTelemetry_t::OutductCapabilityTelemetry_t() : type(5), outductArrayIndex(0), maxBundlesInPipeline(0), maxBundleSizeBytesInPipeline(0) {}
 AllOutductCapabilitiesTelemetry_t::AllOutductCapabilitiesTelemetry_t() : type(6) {}
-
-
-uint64_t StorageExpiringBeforeThresholdTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const {
-    const uint8_t* const dataStartPtr = data;
-    uint64_t* data64Ptr = reinterpret_cast<uint64_t*>(data);
-    if (bufferSize < 32) {
-        return 0; //failure
-    }
-    bufferSize -= 32;
-    *data64Ptr++ = boost::endian::native_to_little(type);
-    *data64Ptr++ = boost::endian::native_to_little(priority);
-    *data64Ptr++ = boost::endian::native_to_little(thresholdSecondsSinceStartOfYear2000);
-    *data64Ptr++ = boost::endian::native_to_little(static_cast<uint64_t>(map_node_id_to_expiring_before_threshold_count.size()));
-    
-    //typedef std::pair<uint64_t, uint64_t> bundle_count_plus_bundle_bytes_pair_t;
-    for (std::map<uint64_t, bundle_count_plus_bundle_bytes_pair_t>::const_iterator it = map_node_id_to_expiring_before_threshold_count.cbegin();
-        it != map_node_id_to_expiring_before_threshold_count.cend();
-        ++it)
-    {
-        if (bufferSize < 24) {
-            return 0; //failure
-        }
-        bufferSize -= 24;
-        *data64Ptr++ = boost::endian::native_to_little(it->first); //node id
-        *data64Ptr++ = boost::endian::native_to_little(it->second.first); //bundle count
-        *data64Ptr++ = boost::endian::native_to_little(it->second.second); //total bundle bytes
-    }
-    return (reinterpret_cast<uint8_t*>(data64Ptr)) - dataStartPtr;
-}
 
 uint64_t OutductTelemetry_t::GetTotalBundlesQueued() const {
     return totalBundlesSent - totalBundlesAcked;

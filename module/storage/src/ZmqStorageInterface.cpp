@@ -1275,31 +1275,34 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     LOG_ERROR(subprocess) << "telemMsgByte message mismatch: untruncated = " << res->untruncated_size
                         << " truncated = " << res->size << " expected = " << sizeof(telemReq);
                 }
-                else if (telemReq.type == 10) {
+                else if (telemReq.type == TelemetryType::storageExpiringBeforeThreshold) {
                     //send telemetry
-                    StorageExpiringBeforeThresholdTelemetry_t telem;
-                    telem.priority = telemReq.priority;
-                    telem.thresholdSecondsSinceStartOfYear2000 = TimestampUtil::GetSecondsSinceEpochRfc5050(boost::posix_time::microsec_clock::universal_time() + boost::posix_time::seconds(telemReq.thresholdSecondsFromNow));
-                    if (!m_bsmPtr->GetStorageExpiringBeforeThresholdTelemetry(telem)) {
+                    StorageTelemetry_t storageTelem;
+                    storageTelem.freeSpaceBytes = m_bsmPtr->GetFreeSpaceBytes();
+                    storageTelem.usedSpaceBytes = m_bsmPtr->GetUsedSpaceBytes();
+                    storageTelem.totalBundlesErasedFromStorage = GetCurrentNumberOfBundlesDeletedFromStorage();
+                    storageTelem.totalBundlesSentToEgressFromStorage = m_totalBundlesSentToEgressFromStorageReadFromDisk;
+
+                    StorageExpiringBeforeThresholdTelemetry_t expiringTelem;
+                    expiringTelem.priority = telemReq.priority;
+                    expiringTelem.thresholdSecondsSinceStartOfYear2000 = TimestampUtil::GetSecondsSinceEpochRfc5050(boost::posix_time::microsec_clock::universal_time() + boost::posix_time::seconds(telemReq.thresholdSecondsFromNow));
+                    if (!m_bsmPtr->GetStorageExpiringBeforeThresholdTelemetry(expiringTelem)) {
                         LOG_ERROR(subprocess) << "storage can't get StorageExpiringBeforeThresholdTelemetry";
                     }
                     else {
                         //send telemetry
-                        std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(1000); //will be 64-bit aligned
-                        uint8_t* telemPtr = vecUint8RawPointer->data();
-                        const uint8_t* const telemSerializationBase = telemPtr;
-                        uint64_t telemBufferSize = vecUint8RawPointer->size();
+                        const uint64_t totalBytes = storageTelem.GetSerializationSize() + expiringTelem.GetSerializationSize();
+                        std::vector<uint8_t> buffer = std::vector<uint8_t>(totalBytes);
+                        uint8_t *bufferPtr = buffer.data();
+                        uint64_t bufferSize = buffer.size();
+                        uint64_t bytesWritten = expiringTelem.SerializeToLittleEndian(bufferPtr, bufferSize);
+                        bufferPtr += bytesWritten;
+                        bufferSize -= bytesWritten;
+                        storageTelem.SerializeToLittleEndian(bufferPtr, bufferSize);
 
-                        //start zmq message with telemetry
-                        const uint64_t storageTelemSize = telem.SerializeToLittleEndian(telemPtr, telemBufferSize);
-                        telemBufferSize -= storageTelemSize;
-                        telemPtr += storageTelemSize;
-
-                        vecUint8RawPointer->resize(telemPtr - telemSerializationBase);
-
-                        zmq::message_t zmqTelemMessageWithDataStolen(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
-                        LOG_INFO(subprocess) << "send storage telem to uis with size " << zmqTelemMessageWithDataStolen.size();
-                        if (!m_zmqRepSock_connectingUisToFromBoundStoragePtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::dontwait)) {
+                        zmq::message_t zmqTelemMessage(buffer.data(), buffer.size());
+                        LOG_INFO(subprocess) << "send storage telem to uis with size " << zmqTelemMessage.size();
+                        if (!m_zmqRepSock_connectingUisToFromBoundStoragePtr->send(std::move(zmqTelemMessage), zmq::send_flags::dontwait)) {
                             LOG_ERROR(subprocess) << "storage can't send telemetry to uis";
                         }
                     }

@@ -36,6 +36,7 @@ enum TelemetryType {
     storage,
     ltpoutduct,
     stcpoutduct,
+    storageExpiringBeforeThreshold = 10
 };
 
 class Telemetry_t {
@@ -51,7 +52,7 @@ class Telemetry_t {
         /**
          *  Gets the size, in bytes, to allocate for the serialized telemetry
          */
-        TELEMETRY_DEFINITIONS_EXPORT uint64_t GetSerializationSize();
+        TELEMETRY_DEFINITIONS_EXPORT virtual uint64_t GetSerializationSize();
 
         /**
          * Serializes a telemetry object into little-endian format
@@ -141,6 +142,19 @@ struct LtpOutductTelemetry_t : public OutductTelemetry_t {
     uint64_t countTxUdpPacketsLimitedByRate;
 };
 
+struct StorageExpiringBeforeThresholdTelemetry_t : public Telemetry_t {
+    TELEMETRY_DEFINITIONS_EXPORT StorageExpiringBeforeThresholdTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~StorageExpiringBeforeThresholdTelemetry_t() override;
+
+    uint64_t priority;
+    uint64_t thresholdSecondsSinceStartOfYear2000;
+    typedef std::pair<uint64_t, uint64_t> bundle_count_plus_bundle_bytes_pair_t;
+    std::map<uint64_t, bundle_count_plus_bundle_bytes_pair_t> map_node_id_to_expiring_before_threshold_count;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual uint64_t GetSerializationSize() override;
+};
+
 class TelemetryFactory {
     public:
         class TelemetryDeserializeUnknownTypeException : public std::exception {
@@ -178,18 +192,6 @@ struct StorageTelemetryRequest_t {
     uint64_t priority; //0, 1, or 2
     uint64_t thresholdSecondsFromNow;
 
-
-    TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
-};
-
-struct StorageExpiringBeforeThresholdTelemetry_t {
-    TELEMETRY_DEFINITIONS_EXPORT StorageExpiringBeforeThresholdTelemetry_t();
-
-    uint64_t type;
-    uint64_t priority;
-    uint64_t thresholdSecondsSinceStartOfYear2000;
-    typedef std::pair<uint64_t, uint64_t> bundle_count_plus_bundle_bytes_pair_t;
-    std::map<uint64_t, bundle_count_plus_bundle_bytes_pair_t> map_node_id_to_expiring_before_threshold_count;
 
     TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
 };
