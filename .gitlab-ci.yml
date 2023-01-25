@@ -61,7 +61,7 @@ unit-test:
     reports:
       junit: report.xml
 
-# Start coverity Static Analysis Scanning 
+# Start Static Analysis Scanning 
 static-analysis:
   stage: static-analysis
   tags:
