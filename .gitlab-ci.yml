@@ -67,11 +67,14 @@ static-analysis:
   stage: static-analysis
   tags:
   - cov-analysis
+  dependencies: []
   script:
     - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
+    - export HDTN_SOURCE_ROOT=$PWD
+    - mkdir build
     - cd build
     - make clean
     - cov-build --dir idir make -j8
     - cov-analyze --dir idir --all --enable-constraint-fpp --enable-fnptr --enable-virtual --strip-path $HDTN_SOURCE_ROOT
-    - cov-commit-defects --dir idir --url  https://10.54.31.120:8443 --stream HDTN-master --auth-key-file /home/hdtn/auth.key
+    - cov-commit-defects --dir idir --url  $COV_BUILD_SERVER --stream HDTN-master --auth-key-file /home/hdtn/auth.key
       
