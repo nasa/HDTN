@@ -33,7 +33,7 @@ build-with-gui:
   stage: build
   tags:
   - docker
-  - linux
+  - linux-x86
   script:
     - mkdir external
     - cp -r /home/civetweb/include external/include
