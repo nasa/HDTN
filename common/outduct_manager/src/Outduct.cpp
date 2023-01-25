@@ -24,6 +24,10 @@ Outduct::Outduct(const outduct_element_config_t & outductConfig, const uint64_t 
 {}
 Outduct::~Outduct() {}
 
+bool Outduct::Init() { //optional
+    return true;
+}
+
 uint64_t Outduct::GetOutductUuid() const {
     return m_outductUuid;
 }

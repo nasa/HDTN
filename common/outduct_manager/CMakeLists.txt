@@ -4,6 +4,7 @@ add_library(outduct_manager_lib
 	src/TcpclV4Outduct.cpp
 	src/StcpOutduct.cpp
     src/UdpOutduct.cpp
+	src/LtpOutduct.cpp
 	src/LtpOverUdpOutduct.cpp
 	src/OutductManager.cpp
 )
@@ -15,6 +16,7 @@ if (target_type STREQUAL SHARED_LIBRARY)
 endif()
 set(MY_PUBLIC_HEADERS
     include/LtpOverUdpOutduct.h
+	include/LtpOutduct.h
 	include/Outduct.h
 	include/OutductManager.h
 	include/StcpOutduct.h

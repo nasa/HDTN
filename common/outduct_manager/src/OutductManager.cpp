@@ -96,6 +96,10 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
         }
 
         if (outductSharedPtr) {
+            if (!outductSharedPtr->Init()) {
+                LOG_ERROR(subprocess) << "OutductManager::LoadOutductsFromConfig: convergence layer " << thisOutductConfig.convergenceLayer << " failed to initialize.";
+                return false;
+            }
             ++nextOutductUuidIndex;
             for (std::set<std::string>::const_iterator itDestUri = thisOutductConfig.finalDestinationEidUris.cbegin(); itDestUri != thisOutductConfig.finalDestinationEidUris.cend(); ++itDestUri) {
                 const std::string & finalDestinationEidUri = *itDestUri;
