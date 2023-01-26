@@ -581,13 +581,6 @@ private:
      */
     LTP_LIB_NO_EXPORT void SignalReadyForSend_ThreadSafe();
     
-    /** Handle SendPackets operation completion.
-     *
-     * Calls LtpEngine::TrySaturateSendPacketPipeline() to resume processing.
-     * @post Decrements the number of pending SendPackets operations.
-     */
-    LTP_LIB_NO_EXPORT void OnSendPacketsSystemCallCompleted_NotThreadSafe();
-    
     /** Try saturate the SendPacket pipeline.
      *
      * Loops while ltpEngine::TrySendPacketIfAvailable().
@@ -912,7 +905,7 @@ private:
     /// Our engine ID
     const uint64_t M_THIS_ENGINE_ID;
     /// Number of pending SendPackets operations
-    unsigned int m_numSendPacketsPendingSystemCalls;
+    std::atomic<unsigned int> m_numSendPacketsPendingSystemCallsAtomic;
 protected:
     /// Maximum number of UDP packets to send per system call, if (M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL > 1) enables batch sending
     const uint64_t M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL;

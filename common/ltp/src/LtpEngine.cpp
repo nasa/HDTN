@@ -28,6 +28,7 @@ static const boost::posix_time::time_duration static_tokenRefreshTimeDurationWin
 /// Maximum number of pending SendPackets operations.
 /// assumes (time to complete 5 batch udp send operations or 5 single packet udp send operations) < (margin time).
 static constexpr unsigned int MAX_SEND_PACKETS_PENDING_SYSTEM_CALLS = 5;
+static constexpr unsigned int MIN_SEND_PACKETS_PENDING_SYSTEM_CALLS = 1;
 
 /// Disk pipeline limit.
 /// should be even number to split between ingress and storage cut-through pipeline.
@@ -39,7 +40,7 @@ LtpEngine::cancel_segment_timer_info_t::cancel_segment_timer_info_t(const uint8_
 
 LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIndexForEncodingIntoRandomSessionNumber, bool startIoServiceThread) :
     M_THIS_ENGINE_ID(ltpRxOrTxCfg.thisEngineId),
-    m_numSendPacketsPendingSystemCalls(0),
+    m_numSendPacketsPendingSystemCallsAtomic(0),
     M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL(ltpRxOrTxCfg.maxUdpPacketsToSendPerSystemCall),
     m_transmissionToAckReceivedTime((ltpRxOrTxCfg.oneWayLightTime * 2) + (ltpRxOrTxCfg.oneWayMarginTime * 2)),
     m_delaySendingOfReportSegmentsTime((ltpRxOrTxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable) ?
@@ -359,11 +360,11 @@ void LtpEngine::PacketIn_ThreadSafe(const std::vector<boost::asio::const_buffer>
 void LtpEngine::OnSendPacketsSystemCallCompleted_ThreadSafe() {
     //This function is short. The LtpUdpEngine thread simply notifies the LtpEngine thread to do the work of finding data to send.
     //Meanwhile, the LtpUdpEngine thread can return quickly and go back to doing UDP operations.
-    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::OnSendPacketsSystemCallCompleted_NotThreadSafe, this));
-}
-void LtpEngine::OnSendPacketsSystemCallCompleted_NotThreadSafe() {
-    --m_numSendPacketsPendingSystemCalls;
-    TrySaturateSendPacketPipeline();
+    //Try to reduce the number of calls to post() as this is an expensive operation
+    // (it should not need to be called for every udp send operation, hence the atomic variable)
+    if(--m_numSendPacketsPendingSystemCallsAtomic <= MIN_SEND_PACKETS_PENDING_SYSTEM_CALLS) {
+        boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::TrySaturateSendPacketPipeline, this));
+    }
 }
 
 //called by callbacks of session senders and session receivers to prevent them from deleting themselves during their own code execution
@@ -386,7 +387,7 @@ static std::size_t GetBytesToSend(const std::vector<boost::asio::const_buffer>& 
 
 bool LtpEngine::TrySendPacketIfAvailable() {
     bool sendOperationQueuedSuccessfully = false;
-    if (m_ioServiceLtpEngineThreadPtr && (m_numSendPacketsPendingSystemCalls < MAX_SEND_PACKETS_PENDING_SYSTEM_CALLS)) { //m_ioServiceLtpEngineThreadPtr => if not running inside a unit test
+    if (m_ioServiceLtpEngineThreadPtr && (m_numSendPacketsPendingSystemCallsAtomic < MAX_SEND_PACKETS_PENDING_SYSTEM_CALLS)) { //m_ioServiceLtpEngineThreadPtr => if not running inside a unit test
         //RATE STUFF (the TrySendPacketIfAvailable and OnTokenRefresh_TimerExpired run in the same thread)
         //if rate limiting enabled AND no tokens available for next send, TrySendPacketIfAvailable() will be called at the next m_tokenRefreshTimer expiration
         if (m_maxSendRateBitsPerSecOrZeroToDisable && (!m_tokenRateLimiter.CanTakeTokens())) { 
@@ -504,7 +505,10 @@ bool LtpEngine::TrySendPacketIfAvailable() {
         }
         
     }
-    m_numSendPacketsPendingSystemCalls += sendOperationQueuedSuccessfully;
+    //m_numSendPacketsPendingSystemCallsAtomic += sendOperationQueuedSuccessfully;
+    if (sendOperationQueuedSuccessfully) {
+        ++m_numSendPacketsPendingSystemCallsAtomic; //atomic
+    }
     return sendOperationQueuedSuccessfully;
 }
 
