@@ -43,7 +43,12 @@ LtpIpcEngine::LtpIpcEngine(
     m_countCircularBufferOverruns(0),
     m_countUdpPacketsReceived(0)
 {
-    boost::interprocess::shared_memory_object::remove(m_myTxSharedMemoryName.c_str());
+    LOG_INFO(subprocess) << "LtpIpcEngine using " << M_NUM_CIRCULAR_BUFFER_VECTORS << " circular buffer elements";
+
+    //owner/creator shall try to remove on constructor and destructor
+    if (boost::interprocess::shared_memory_object::remove(m_myTxSharedMemoryName.c_str())) {
+        LOG_INFO(subprocess) << "removed my shared memory " << m_myTxSharedMemoryName;
+    }
 
     try {
         //Create a shared memory object.
@@ -129,7 +134,21 @@ LtpIpcEngine::LtpIpcEngine(
 
 LtpIpcEngine::~LtpIpcEngine() {
     Stop();
-    boost::interprocess::shared_memory_object::remove(m_myTxSharedMemoryName.c_str());
+
+    m_myTxShmMappedRegionPtr.reset();
+    m_myTxSharedMemoryObjectPtr.reset();
+    //owner/creator shall try to remove on constructor and destructor
+    if (boost::interprocess::shared_memory_object::remove(m_myTxSharedMemoryName.c_str())) {
+        LOG_INFO(subprocess) << "removed my shared memory " << m_myTxSharedMemoryName;
+    }
+
+    m_remoteTxShmMappedRegionPtr.reset();
+    m_remoteTxSharedMemoryObjectPtr.reset();
+    //user shall try to remove on destructor only
+    if ((!m_remoteTxSharedMemoryName.empty()) && boost::interprocess::shared_memory_object::remove(m_remoteTxSharedMemoryName.c_str())) {
+        LOG_INFO(subprocess) << "removed remote shared memory " << m_remoteTxSharedMemoryName;
+    }
+    
 
     LOG_INFO(subprocess) << "~LtpUdpEngine: m_countAsyncSendCalls " << m_countAsyncSendCalls 
         << " m_countBatchSendCalls " << m_countBatchSendCalls
@@ -140,6 +159,10 @@ LtpIpcEngine::~LtpIpcEngine() {
 
 void LtpIpcEngine::Stop() {
     m_running = false;
+    for (unsigned int i = 0; i < 10; ++i) {
+        m_remoteTxIpcControlPtr->m_waitUntilNotEmpty_postHasData_semaphore.post(); //stop thread if in wait() state
+        m_myTxIpcControlPtr->m_waitUntilNotFull_postHasFreeSpace_semaphore.post(); //stop LtpIpcEngine::DoSendPacket if in wait() state
+    }
     if (m_readRemoteTxShmThreadPtr) {
         m_readRemoteTxShmThreadPtr->join();
         m_readRemoteTxShmThreadPtr.reset(); //delete it
@@ -228,12 +251,9 @@ void LtpIpcEngine::ReadRemoteTxShmThreadFunc() {
     LOG_INFO(subprocess) << "Successfully connected to remoteTxSharedMemoryName: " << m_remoteTxSharedMemoryName;
 
     while (m_running) { //keep thread alive if running
-        //If the timeout expires, the
-        //function returns false. If the interprocess_semaphore is posted the function
-        //returns true. If there is an error throws sem_exception
-        if (m_remoteTxIpcControlPtr->m_waitUntilNotEmpty_postHasData_semaphore.timed_wait(
-            boost::posix_time::microsec_clock::universal_time() + boost::posix_time::milliseconds(250)))
-        { //success not empty, read from remote tx
+        m_remoteTxIpcControlPtr->m_waitUntilNotEmpty_postHasData_semaphore.wait();
+        //check that the destructor did not post by checking the m_running flag
+        if (m_running) { //success not empty, read from remote tx
             const unsigned int readIndex = m_remoteTxIpcControlPtr->m_circularIndexBuffer.GetIndexForRead(); //store the volatile
             if (readIndex == CIRCULAR_INDEX_BUFFER_EMPTY) {
                 LOG_FATAL(subprocess) << "LtpIpcEngine::ReadRemoteTxShmThreadFunc(): CIRCULAR BUFFER SHOULD NEVER HAVE AN EMPTY CONDITION!";
@@ -328,12 +348,9 @@ bool LtpIpcEngine::VerifyIpcPacketReceive(uint8_t* data, std::size_t bytesTransf
 
 
 void LtpIpcEngine::DoSendPacket(std::vector<boost::asio::const_buffer>& constBufferVec) {
-    //If the timeout expires, the
-    //function returns false. If the interprocess_semaphore is posted the function
-    //returns true. If there is an error throws sem_exception
-    if (m_myTxIpcControlPtr->m_waitUntilNotFull_postHasFreeSpace_semaphore.timed_wait(
-        boost::posix_time::microsec_clock::universal_time() + boost::posix_time::milliseconds(250)))
-    { //success not full, write to my tx
+    m_myTxIpcControlPtr->m_waitUntilNotFull_postHasFreeSpace_semaphore.wait();
+    //check that the destructor did not post by checking the m_running flag
+    if (m_running) { //success not full, write to my tx
         const unsigned int writeIndex = m_myTxIpcControlPtr->m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
         if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) {
             LOG_FATAL(subprocess) << "LtpIpcEngine::SendPacket(): CIRCULAR BUFFER SHOULD NEVER HAVE A FULL CONDITION!";
