@@ -116,7 +116,7 @@ private:
      * @param underlyingCsDataToDeleteOnSentCallback The underlying client service data to send shared pointer.
      * @post The arguments to underlyingDataToDeleteOnSentCallback and underlyingCsDataToDeleteOnSentCallback are left in a moved-from state.
      */
-    LTP_LIB_NO_EXPORT virtual void SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec,
+    LTP_LIB_NO_EXPORT virtual void SendPacket(const std::vector<boost::asio::const_buffer> & constBufferVec,
         std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback,
         std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback) override;
     

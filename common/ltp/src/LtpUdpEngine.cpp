@@ -109,7 +109,7 @@ void LtpUdpEngine::PostPacketFromManager_ThreadSafe(std::vector<uint8_t> & packe
 }
 
 void LtpUdpEngine::SendPacket(
-    std::vector<boost::asio::const_buffer> & constBufferVec,
+    const std::vector<boost::asio::const_buffer> & constBufferVec,
     std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback,
     std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback)
 {

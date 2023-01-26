@@ -160,6 +160,19 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
         boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
         boost::placeholders::_4, boost::placeholders::_5, boost::placeholders::_6));
 
+    //reserve data so that operator new doesn't need called for resize of std::vector<boost::asio::const_buffer>
+    m_reservedUdpSendPacketInfo.resize(MAX_SEND_PACKETS_PENDING_SYSTEM_CALLS * 2);
+    m_reservedUdpSendPacketInfoIterator = m_reservedUdpSendPacketInfo.begin();
+    for (std::size_t i = 0; i < m_reservedUdpSendPacketInfo.size(); ++i) {
+        UdpSendPacketInfo& info = m_reservedUdpSendPacketInfo[i];
+        info.constBufferVec.reserve(4);
+        info.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(4); //2 is generally worse case
+        for (std::size_t j = 0; j < info.underlyingDataToDeleteOnSentCallback->size(); ++j) {
+            std::vector<uint8_t>& subVec = info.underlyingDataToDeleteOnSentCallback->at(j);
+            subVec.reserve(100); //generally just LTP headers, 100 more than generous, can grow with resizes
+        }
+    }
+
     m_rng.SetEngineIndex(engineIndexForEncodingIntoRandomSessionNumber);
     SetMtuReportSegment(ltpRxOrTxCfg.mtuReportSegment);
 
@@ -380,9 +393,13 @@ bool LtpEngine::TrySendPacketIfAvailable() {
             TryRestartTokenRefreshTimer(); //make sure this is running so that tokens can be replenished, and don't send anything for now
         }
         else if (M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL <= 1) { //single udp send packet function call
-            UdpSendPacketInfo udpSendPacketInfo;
+            UdpSendPacketInfo& udpSendPacketInfo = *m_reservedUdpSendPacketInfoIterator;
             if (GetNextPacketToSend(udpSendPacketInfo)) {
                 sendOperationQueuedSuccessfully = true;
+                ++m_reservedUdpSendPacketInfoIterator;
+                if (m_reservedUdpSendPacketInfoIterator == m_reservedUdpSendPacketInfo.end()) {
+                    m_reservedUdpSendPacketInfoIterator = m_reservedUdpSendPacketInfo.begin();
+                }
                 if (m_maxSendRateBitsPerSecOrZeroToDisable) { //if rate limiting enabled
                     const std::size_t bytesToSend = GetBytesToSend(udpSendPacketInfo.constBufferVec);
                     m_tokenRateLimiter.TakeTokens(bytesToSend);
@@ -394,8 +411,9 @@ bool LtpEngine::TrySendPacketIfAvailable() {
                     }
                     else if (!m_memoryInFilesPtr->ReadMemoryAsync(udpSendPacketInfo.deferredRead,
                         boost::bind(&LtpEngine::OnDeferredReadCompleted,
-                            this, boost::placeholders::_1, std::move(udpSendPacketInfo.constBufferVec),
-                            std::move(udpSendPacketInfo.underlyingDataToDeleteOnSentCallback))))
+                            this, boost::placeholders::_1,
+                            boost::cref(udpSendPacketInfo.constBufferVec), //don't move to preserve preallocation
+                            udpSendPacketInfo.underlyingDataToDeleteOnSentCallback))) //copy the shared_ptr (want to preserve preallocation)
                     {
                         LOG_ERROR(subprocess) << "cannot start async read from disk for memoryBlockId="
                             << udpSendPacketInfo.deferredRead.memoryBlockId
@@ -405,7 +423,13 @@ bool LtpEngine::TrySendPacketIfAvailable() {
                     }
                 }
                 else {
-                    SendPacket(udpSendPacketInfo.constBufferVec, udpSendPacketInfo.underlyingDataToDeleteOnSentCallback, udpSendPacketInfo.underlyingCsDataToDeleteOnSentCallback); // , sessionOriginatorEngineId); //virtual call to child implementation
+                    //copy the shared_ptr since it will get moved from SendPacket(), but want to preserve preallocation
+                    std::shared_ptr<std::vector<std::vector<uint8_t> > > underlyingDataToDeleteOnSentCallbackCopy(udpSendPacketInfo.underlyingDataToDeleteOnSentCallback);
+
+                    SendPacket(udpSendPacketInfo.constBufferVec, //const ref, preallocation preserved
+                        underlyingDataToDeleteOnSentCallbackCopy, //copy gets moved, preallocation preserved
+                        udpSendPacketInfo.underlyingCsDataToDeleteOnSentCallback //gets moved, SessionSender may have attached a shared_ptr copy of its data
+                    ); // , sessionOriginatorEngineId); //virtual call to child implementation
                 }
             }
         }
@@ -486,7 +510,7 @@ bool LtpEngine::TrySendPacketIfAvailable() {
 
 void LtpEngine::PacketInFullyProcessedCallback(bool success) {}
 
-void LtpEngine::OnDeferredReadCompleted(bool success, std::vector<boost::asio::const_buffer>& constBufferVec,
+void LtpEngine::OnDeferredReadCompleted(bool success, const std::vector<boost::asio::const_buffer>& constBufferVec,
     std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback)
 {
     if (success) {
@@ -509,7 +533,7 @@ void LtpEngine::OnDeferredMultiReadCompleted(bool success, std::vector<std::vect
     }
 }
 
-void LtpEngine::SendPacket(std::vector<boost::asio::const_buffer>& constBufferVec,
+void LtpEngine::SendPacket(const std::vector<boost::asio::const_buffer>& constBufferVec,
     std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
     std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback) {}
 

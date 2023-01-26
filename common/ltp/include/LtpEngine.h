@@ -554,7 +554,7 @@ protected:
      * @param underlyingDataToDeleteOnSentCallback The underlying data buffers shared pointer.
      * @param underlyingCsDataToDeleteOnSentCallback The underlying client service data to send shared pointer, should be nullptr.
      */
-    LTP_LIB_EXPORT virtual void SendPacket(std::vector<boost::asio::const_buffer>& constBufferVec,
+    LTP_LIB_EXPORT virtual void SendPacket(const std::vector<boost::asio::const_buffer>& constBufferVec,
         std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
         std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback);
     
@@ -630,7 +630,7 @@ private:
      * @param constBufferVec The data buffers to send.
      * @param underlyingDataToDeleteOnSentCallback The underlying data buffers shared pointer.
      */
-    LTP_LIB_NO_EXPORT void OnDeferredReadCompleted(bool success, std::vector<boost::asio::const_buffer>& constBufferVec,
+    LTP_LIB_NO_EXPORT void OnDeferredReadCompleted(bool success, const std::vector<boost::asio::const_buffer>& constBufferVec,
         std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback);
     
     /** Handle deferred disk multi-read operation.
@@ -991,6 +991,10 @@ private:
      * @param rxSessionIt The reception session iterator.
      */
     LTP_LIB_NO_EXPORT void EraseRxSession(map_session_id_to_session_receiver_t::iterator& rxSessionIt);
+
+    //reserve data so that operator new doesn't need called for resize of std::vector<boost::asio::const_buffer>
+    std::vector<UdpSendPacketInfo> m_reservedUdpSendPacketInfo;
+    std::vector<UdpSendPacketInfo>::iterator m_reservedUdpSendPacketInfoIterator;
     
     /// Sessions with wrong client service ID, all sessions cancelled with a cancel code of UNREACHABLE, on CAx should remove the associated session
     std::set<Ltp::session_id_t> m_ltpSessionsWithWrongClientServiceId;

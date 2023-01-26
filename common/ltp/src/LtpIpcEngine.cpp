@@ -362,7 +362,7 @@ bool LtpIpcEngine::VerifyIpcPacketReceive(uint8_t* data, std::size_t bytesTransf
 
 
 
-void LtpIpcEngine::DoSendPacket(std::vector<boost::asio::const_buffer>& constBufferVec) {
+void LtpIpcEngine::DoSendPacket(const std::vector<boost::asio::const_buffer>& constBufferVec) {
 #if 0
     const bool waitSuccess = m_myTxIpcControlPtr->m_waitUntilNotFull_postHasFreeSpace_semaphore.try_wait();
     if (waitSuccess) {
@@ -407,7 +407,7 @@ void LtpIpcEngine::DoSendPacket(std::vector<boost::asio::const_buffer>& constBuf
 }
 
 void LtpIpcEngine::SendPacket(
-    std::vector<boost::asio::const_buffer> & constBufferVec,
+    const std::vector<boost::asio::const_buffer> & constBufferVec,
     std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback,
     std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback)
 {
@@ -415,6 +415,10 @@ void LtpIpcEngine::SendPacket(
     ++m_countAsyncSendCalls;
     
     DoSendPacket(constBufferVec);
+
+    //mimic std::move of shared_ptr's from LtpUdpEngine
+    underlyingDataToDeleteOnSentCallback.reset();
+    underlyingCsDataToDeleteOnSentCallback.reset();
 
     //HandleUdpSend(std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
     ++m_countAsyncSendCallbackCalls;

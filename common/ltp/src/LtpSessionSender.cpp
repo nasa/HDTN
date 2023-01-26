@@ -182,7 +182,12 @@ void LtpSessionSender::LtpDelaySendDataSegmentsTimerExpiredCallback(const uint64
 bool LtpSessionSender::NextTimeCriticalDataToSend(UdpSendPacketInfo& udpSendPacketInfo) {
     if (!m_nonDataToSendFlistQueue.empty()) { //includes report ack segments
         //highest priority
-        udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1);
+        if (udpSendPacketInfo.underlyingDataToDeleteOnSentCallback && (udpSendPacketInfo.underlyingDataToDeleteOnSentCallback->size() >= 1)) {
+            //no need to invoke operator new since it was preallocated
+        }
+        else {
+            udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1);
+        }
         (*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0] = std::move(m_nonDataToSendFlistQueue.front());
         m_nonDataToSendFlistQueue.pop();
         udpSendPacketInfo.constBufferVec.resize(1);
@@ -247,7 +252,13 @@ bool LtpSessionSender::NextTimeCriticalDataToSend(UdpSendPacketInfo& udpSendPack
             meta.reportSerialNumber = NULL;
         }
         const bool needsToReadClientServiceDataFromDisk = (m_dataToSendSharedPtr->data() == NULL);
-        udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1 + needsToReadClientServiceDataFromDisk); //2 would be needed in case of trailer extensions (but not used here)
+        const std::size_t neededUnderlyingSize = 1 + needsToReadClientServiceDataFromDisk; //2 would be needed in case of trailer extensions (but not used here)
+        if (udpSendPacketInfo.underlyingDataToDeleteOnSentCallback && (udpSendPacketInfo.underlyingDataToDeleteOnSentCallback->size() >= neededUnderlyingSize)) {
+            //no need to invoke operator new since it was preallocated
+        }
+        else {
+            udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(neededUnderlyingSize);
+        }
         Ltp::GenerateLtpHeaderPlusDataSegmentMetadata((*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0], resendFragment.flags,
             M_SESSION_ID, meta, NULL, 0);
         udpSendPacketInfo.constBufferVec.resize(2); //3 would be needed in case of trailer extensions (but not used here)
@@ -339,7 +350,13 @@ bool LtpSessionSender::NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketI
             meta.length = bytesToSendRed;
             meta.checkpointSerialNumber = checkpointSerialNumber;
             meta.reportSerialNumber = reportSerialNumber;
-            udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1 + needsToReadClientServiceDataFromDisk); //2 would be needed in case of trailer extensions (but not used here)
+            const std::size_t neededUnderlyingSize = 1 + needsToReadClientServiceDataFromDisk; //2 would be needed in case of trailer extensions (but not used here)
+            if (udpSendPacketInfo.underlyingDataToDeleteOnSentCallback && (udpSendPacketInfo.underlyingDataToDeleteOnSentCallback->size() >= neededUnderlyingSize)) {
+                //no need to invoke operator new since it was preallocated
+            }
+            else {
+                udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(neededUnderlyingSize);
+            }
             Ltp::GenerateLtpHeaderPlusDataSegmentMetadata((*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0], flags,
                 M_SESSION_ID, meta, NULL, 0);
             udpSendPacketInfo.constBufferVec.resize(2); //3 would be needed in case of trailer extensions (but not used here)
@@ -371,7 +388,13 @@ bool LtpSessionSender::NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketI
             meta.length = bytesToSendGreen;
             meta.checkpointSerialNumber = NULL;
             meta.reportSerialNumber = NULL;
-            udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1 + needsToReadClientServiceDataFromDisk); //2 would be needed in case of trailer extensions (but not used here)
+            const std::size_t neededUnderlyingSize = 1 + needsToReadClientServiceDataFromDisk; //2 would be needed in case of trailer extensions (but not used here)
+            if (udpSendPacketInfo.underlyingDataToDeleteOnSentCallback && (udpSendPacketInfo.underlyingDataToDeleteOnSentCallback->size() >= neededUnderlyingSize)) {
+                //no need to invoke operator new since it was preallocated
+            }
+            else {
+                udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(neededUnderlyingSize);
+            }
             Ltp::GenerateLtpHeaderPlusDataSegmentMetadata((*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0], flags,
                 M_SESSION_ID, meta, NULL, 0);
             udpSendPacketInfo.constBufferVec.resize(2); //3 would be needed in case of trailer extensions (but not used here)

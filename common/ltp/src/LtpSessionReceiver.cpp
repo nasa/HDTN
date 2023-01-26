@@ -220,7 +220,13 @@ bool LtpSessionReceiver::NextDataToSend(UdpSendPacketInfo& udpSendPacketInfo) {
         const uint32_t retryCount = p.second;
         //std::map<uint64_t, Ltp::report_segment_t>::iterator reportSegmentIt = m_mapAllReportSegmentsSent.find(rsn);
         //if (reportSegmentIt != m_mapAllReportSegmentsSent.end()) { //found
-        udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1); //2 would be needed in case of trailer extensions (but not used here)
+        if (udpSendPacketInfo.underlyingDataToDeleteOnSentCallback && (udpSendPacketInfo.underlyingDataToDeleteOnSentCallback->size() >= 1)) {
+            //no need to invoke operator new since it was preallocated
+        }
+        else {
+            //2 would be needed in case of trailer extensions (but not used here)
+            udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1);
+        }
         Ltp::GenerateReportSegmentLtpPacket((*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0],
             M_SESSION_ID, reportSegmentIt->second, NULL, NULL);
         udpSendPacketInfo.constBufferVec.resize(1);
