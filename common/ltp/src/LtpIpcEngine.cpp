@@ -88,7 +88,7 @@ LtpIpcEngine::LtpIpcEngine(
     for (unsigned int i = 0; i < M_NUM_CIRCULAR_BUFFER_VECTORS; ++i) {
         IpcPacket& p = m_myTxIpcPacketCbArray[i];
         p.bytesTransferred = 0;
-        p.dataIndex = i;
+        //p.dataIndex = i;
     }
 
     //logic from LtpUdpEngineManager::AddLtpUdpEngine
@@ -276,11 +276,12 @@ void LtpIpcEngine::ReadRemoteTxShmThreadFunc() {
             m_remoteTxIpcControlPtr->m_circularIndexBuffer.CommitRead(); //protected by m_waitUntilNotFull_postHasFreeSpace_semaphore (.post() not called until data processed)
             ++m_countUdpPacketsReceived;
             IpcPacket& p = m_remoteTxIpcPacketCbArray[readIndex];
-            if (readIndex != p.dataIndex) {
-                LOG_FATAL(subprocess) << "LtpIpcEngine::ReadRemoteTxShmThreadFunc(): readIndex != p.dataIndex!";
-                continue;
-            }
-            uint8_t* dataRead = &m_remoteTxIpcDataStart[p.dataIndex * m_remoteTxIpcControlPtr->m_bytesPerElement];
+            //if (readIndex != p.dataIndex) {
+            //    LOG_FATAL(subprocess) << "LtpIpcEngine::ReadRemoteTxShmThreadFunc(): readIndex != p.dataIndex!";
+            //    continue;
+            //}
+            //uint8_t* dataRead = &m_remoteTxIpcDataStart[p.dataIndex * m_remoteTxIpcControlPtr->m_bytesPerElement];
+            uint8_t* dataRead = &m_remoteTxIpcDataStart[readIndex * m_remoteTxIpcControlPtr->m_bytesPerElement];
             if (!VerifyIpcPacketReceive(dataRead, p.bytesTransferred)) {
                 LOG_ERROR(subprocess) << "LtpIpcEngine::ReadRemoteTxShmThreadFunc(): VerifyIpcPacketReceive failed.. dropping packet!";
                 m_remoteTxIpcControlPtr->m_waitUntilNotFull_postHasFreeSpace_semaphore.post();
@@ -383,11 +384,12 @@ void LtpIpcEngine::DoSendPacket(std::vector<boost::asio::const_buffer>& constBuf
         }
 
         IpcPacket& p = m_myTxIpcPacketCbArray[writeIndex];
-        if (writeIndex != p.dataIndex) {
-            LOG_FATAL(subprocess) << "LtpIpcEngine::SendPacket(): writeIndex != p.dataIndex!";
-            return;
-        }
-        uint8_t* dataWrite = &m_myTxIpcDataStart[p.dataIndex * m_myTxIpcControlPtr->m_bytesPerElement];
+        //if (writeIndex != p.dataIndex) {
+        //    LOG_FATAL(subprocess) << "LtpIpcEngine::SendPacket(): writeIndex != p.dataIndex!";
+        //    return;
+        //}
+        //uint8_t* dataWrite = &m_myTxIpcDataStart[p.dataIndex * m_myTxIpcControlPtr->m_bytesPerElement];
+        uint8_t* dataWrite = &m_myTxIpcDataStart[writeIndex * m_myTxIpcControlPtr->m_bytesPerElement];
         p.bytesTransferred = 0;
         for (std::size_t i = 0; i < constBufferVec.size(); ++i) {
             const boost::asio::const_buffer& b = constBufferVec[i];

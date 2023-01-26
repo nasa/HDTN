@@ -44,7 +44,7 @@ private:
     LtpIpcEngine() = delete;
 public:
     struct IpcPacket {
-        unsigned int dataIndex; //don't use a data pointer since logical address may be different across processes
+        //unsigned int dataIndex; //don't use a data pointer since logical address may be different across processes
         unsigned int bytesTransferred;
     };
 
