@@ -24,7 +24,7 @@
 
 #ifndef _LTP_IPC_ENGINE_H
 #define _LTP_IPC_ENGINE_H 1
-
+#define BOOST_INTERPROCESS_FORCE_NATIVE_EMULATION
 #include <boost/interprocess/sync/interprocess_semaphore.hpp>
 #include <boost/interprocess/shared_memory_object.hpp>
 #include <boost/interprocess/mapped_region.hpp>
