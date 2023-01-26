@@ -50,6 +50,7 @@ build-static-analysis:
   tags:
     - cov-analysis
   script:
+    - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
     - export HDTN_SOURCE_ROOT=$PWD
     - mkdir build
     - cd build
