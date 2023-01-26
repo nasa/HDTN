@@ -16,7 +16,7 @@
             ],
             "thisLtpEngineId": 200,
             "remoteLtpEngineId": 100,
-            "ltpDataSegmentMtu": 60000,
+            "ltpDataSegmentMtu": 1360,
             "oneWayLightTimeMs": 1000,
             "oneWayMarginTimeMs": 200,
             "clientServiceId": 400,

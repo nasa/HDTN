@@ -160,9 +160,12 @@ LtpIpcEngine::~LtpIpcEngine() {
 void LtpIpcEngine::Stop() {
     m_running = false;
     for (unsigned int i = 0; i < 10; ++i) {
-        m_remoteTxIpcControlPtr->m_waitUntilNotEmpty_postHasData_semaphore.post(); //stop thread if in wait() state
+        if (m_remoteTxIpcControlPtr) {
+            m_remoteTxIpcControlPtr->m_waitUntilNotEmpty_postHasData_semaphore.post(); //stop thread if in wait() state
+        }
         m_myTxIpcControlPtr->m_waitUntilNotFull_postHasFreeSpace_semaphore.post(); //stop LtpIpcEngine::DoSendPacket if in wait() state
     }
+    
     if (m_readRemoteTxShmThreadPtr) {
         m_readRemoteTxShmThreadPtr->join();
         m_readRemoteTxShmThreadPtr.reset(); //delete it
@@ -251,7 +254,18 @@ void LtpIpcEngine::ReadRemoteTxShmThreadFunc() {
     LOG_INFO(subprocess) << "Successfully connected to remoteTxSharedMemoryName: " << m_remoteTxSharedMemoryName;
 
     while (m_running) { //keep thread alive if running
+#if 0
+        const bool waitSuccess = m_remoteTxIpcControlPtr->m_waitUntilNotEmpty_postHasData_semaphore.try_wait();
+        if (waitSuccess) {
+            LOG_DEBUG(subprocess) << "T success";
+        }
+        else {
+            m_remoteTxIpcControlPtr->m_waitUntilNotEmpty_postHasData_semaphore.wait();
+            LOG_DEBUG(subprocess) << "T wasblocked";
+        }
+#else
         m_remoteTxIpcControlPtr->m_waitUntilNotEmpty_postHasData_semaphore.wait();
+#endif
         //check that the destructor did not post by checking the m_running flag
         if (m_running) { //success not empty, read from remote tx
             const unsigned int readIndex = m_remoteTxIpcControlPtr->m_circularIndexBuffer.GetIndexForRead(); //store the volatile
@@ -348,7 +362,18 @@ bool LtpIpcEngine::VerifyIpcPacketReceive(uint8_t* data, std::size_t bytesTransf
 
 
 void LtpIpcEngine::DoSendPacket(std::vector<boost::asio::const_buffer>& constBufferVec) {
+#if 0
+    const bool waitSuccess = m_myTxIpcControlPtr->m_waitUntilNotFull_postHasFreeSpace_semaphore.try_wait();
+    if (waitSuccess) {
+        LOG_DEBUG(subprocess) << "DSP success";
+    }
+    else {
+        m_myTxIpcControlPtr->m_waitUntilNotFull_postHasFreeSpace_semaphore.wait();
+        LOG_DEBUG(subprocess) << "DSP wasblocked";
+    }
+#else
     m_myTxIpcControlPtr->m_waitUntilNotFull_postHasFreeSpace_semaphore.wait();
+#endif
     //check that the destructor did not post by checking the m_running flag
     if (m_running) { //success not full, write to my tx
         const unsigned int writeIndex = m_myTxIpcControlPtr->m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
