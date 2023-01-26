@@ -1,0 +1,94 @@
+# Configure the pipeline stages
+stages:
+  - build
+  - test
+
+# Set global environment variables
+variables:
+  HDTN_SOURCE_ROOT: "$PWD"
+
+# Set the pipleline to run for merge request events only
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+
+# Build HDTN with the default configuration
+# Don't save any artifacts, just confirm the build
+build:
+  stage: build
+  tags:
+  - docker
+  - linux-x86
+  image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
+  script:
+    - mkdir build
+    - cmake -S . -B build
+    - make -C build/ -j8
+
+# Build HDTN with the GUI enabled
+# Save the output to use for testing
+build-with-gui:
+  stage: build
+  tags:
+  - docker
+  - linux-x86
+  image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
+  script:
+    - mkdir external
+    - cp -r /home/civetweb/include external/include
+    - mkdir external/lib
+    - cp /home/civetweb/libcivetweb.a external/lib
+    - mkdir build
+    - cmake -S . -B build -D USE_WEB_INTERFACE:BOOL=ON
+    - make -C build/ -j8
+  artifacts:
+    paths:
+      - build
+
+build-static-analysis:
+  stage: build
+  tags:
+    - cov-analysis
+  script:
+    - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
+    - export HDTN_SOURCE_ROOT=$PWD
+    - mkdir build
+    - cd build
+    - cmake ..
+    - cov-build --dir idir make -j8
+  artifacts:
+    paths:
+      - build
+
+# Run unit tests and generate a test report
+unit-test:
+  stage: test
+  tags:
+  - docker
+  - linux-x86
+  image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
+  needs:
+    - build-with-gui
+  dependencies:
+    - build-with-gui
+  script:
+    - ./build/tests/unit_tests/unit-tests --log_format=JUNIT --log_sink=report.xml
+  artifacts:
+    when: always
+    paths:
+      - report.xml
+    reports:
+      junit: report.xml
+
+# Start Static Analysis Scanning 
+static-analysis:
+  stage: test
+  tags:
+  - cov-analysis
+  dependencies:
+    - build-static-analysis
+  needs:
+    - build-static-analysis
+  script:
+    - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
+    - cov-run-desktop --dir build/idir --url $COV_BUILD_SERVER --auth-key-file /home/hdtn/ci-auth.key --stream HDTN-master --exit1-if-defects true --ignore-uncapturable-inputs true --present-in-reference false --analyze-captured-source 
