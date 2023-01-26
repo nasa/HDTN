@@ -14,8 +14,8 @@
                 "ipn:2.*",
                 "ipn:3.*"
             ],
-            "thisLtpEngineId": 200,
-            "remoteLtpEngineId": 100,
+            "thisLtpEngineId": 20004558,
+            "remoteLtpEngineId": 10004558,
             "ltpDataSegmentMtu": 1360,
             "oneWayLightTimeMs": 1000,
             "oneWayMarginTimeMs": 200,
