@@ -75,6 +75,5 @@ static-analysis:
     - cd build
     - cmake ..
     - cov-build --dir idir make -j8
-    - cov-analyze --dir idir --all --enable-constraint-fpp --enable-fnptr --enable-virtual --strip-path $HDTN_SOURCE_ROOT
-    - cov-commit-defects --dir idir --url  $COV_BUILD_SERVER --stream HDTN-master --auth-key-file /home/hdtn/auth.key
-      
+    - cd ..
+    - cov-run-desktop --dir build/idir --url $COV_BUILD_SERVER --auth-key-file /home/hdtn/auth.key --stream HDTN-master --exit1-if-defects true --ignore-uncapturable-inputs true --present-in-reference false $(git diff --name-only $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME $CI_MERGE_REQUEST_TARGET_BRANCH_NAME)  
