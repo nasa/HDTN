@@ -244,7 +244,7 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsLtpOutductTestCase)
 {
     // Test default constructor
     LtpOutductTelemetry_t def;
-    BOOST_REQUIRE_EQUAL(def.GetSerializationSize(), 88);
+    BOOST_REQUIRE_EQUAL(def.GetSerializationSize(), 96);
     BOOST_REQUIRE_EQUAL(def.totalBundleBytesAcked, 0);
     BOOST_REQUIRE_EQUAL(def.totalBundleBytesSent, 0);
     BOOST_REQUIRE_EQUAL(def.totalBundlesAcked, 0);
@@ -323,7 +323,7 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsStcpOutductTestCase)
 {
     // Test default constructor
     StcpOutductTelemetry_t def;
-    BOOST_REQUIRE_EQUAL(def.GetSerializationSize(), 56);
+    BOOST_REQUIRE_EQUAL(def.GetSerializationSize(), 64);
     BOOST_REQUIRE_EQUAL(def.totalBundleBytesAcked, 0);
     BOOST_REQUIRE_EQUAL(def.totalBundleBytesSent, 0);
     BOOST_REQUIRE_EQUAL(def.totalBundlesAcked, 0);
