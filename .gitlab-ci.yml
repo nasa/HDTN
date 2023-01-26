@@ -76,4 +76,4 @@ static-analysis:
     - cmake ..
     - cov-build --dir idir make -j8
     - cd ..
-    - cov-run-desktop --dir build/idir --url $COV_BUILD_SERVER --auth-key-file /home/hdtn/auth.key --stream HDTN-master --exit1-if-defects true --ignore-uncapturable-inputs true --present-in-reference false $(git diff --name-only $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME $CI_MERGE_REQUEST_TARGET_BRANCH_NAME)  
+    - cov-run-desktop --dir build/idir --url https://10.54.31.120:8443 --auth-key-file /home/hdtn/ethan-auth.key --stream HDTN-master --exit1-if-defects true --ignore-uncapturable-inputs true --present-in-reference false --analyze-captured-source 
