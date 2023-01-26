@@ -67,7 +67,10 @@ unit-test:
   - docker
   - linux-x86
   image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
-  dependencies: [build-with-gui]
+  needs:
+    - build-with-gui
+  dependencies:
+    - build-with-gui
   script:
     - ./build/tests/unit_tests/unit-tests --log_format=JUNIT --log_sink=report.xml
   artifacts:
@@ -82,7 +85,10 @@ static-analysis:
   stage: test
   tags:
   - cov-analysis
-  dependencies: [build-static-analysis]
+  dependencies:
+    - build-static-analysis
+  needs:
+    - build-static-analysis
   script:
     - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
-    - cov-run-desktop --dir build/idir --url $COV_BUILD_SERVER --auth-key-file /home/hdtn/auth.key --stream HDTN-master --exit1-if-defects true --ignore-uncapturable-inputs true --present-in-reference false --analyze-captured-source 
+    - cov-run-desktop --dir build/idir --url $COV_BUILD_SERVER --auth-key-file /home/hdtn/ci-auth.key --stream HDTN-master --exit1-if-defects true --ignore-uncapturable-inputs true --present-in-reference false --analyze-captured-source 
