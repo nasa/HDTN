@@ -1,6 +1,5 @@
 # Configure the pipeline stages
 stages:
-  - static-analysis
   - build
   - test
 
@@ -46,6 +45,20 @@ build-with-gui:
     paths:
       - build
 
+build-static-analysis:
+  stage: build
+  tags:
+    - cov-analysis
+  script:
+    - export HDTN_SOURCE_ROOT=$PWD
+    - mkdir build
+    - cd build
+    - cmake ..
+    - cov-build --dir idir make -j8
+  artifacts:
+    paths:
+      - build
+  
 # Run unit tests and generate a test report
 unit-test:
   stage: test
@@ -64,16 +77,10 @@ unit-test:
 
 # Start Static Analysis Scanning 
 static-analysis:
-  stage: static-analysis
+  stage: test
   tags:
   - cov-analysis
-  dependencies: []
+  dependencies: [build-static-analysis]
   script:
     - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
-    - export HDTN_SOURCE_ROOT=$PWD
-    - mkdir build
-    - cd build
-    - cmake ..
-    - cov-build --dir idir make -j8
-    - cd ..
     - cov-run-desktop --dir build/idir --url https://10.54.31.120:8443 --auth-key-file /home/hdtn/ethan-auth.key --stream HDTN-master --exit1-if-defects true --ignore-uncapturable-inputs true --present-in-reference false --analyze-captured-source 
