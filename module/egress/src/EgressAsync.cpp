@@ -113,8 +113,12 @@ void Egress::Stop() {
 void Egress::Impl::Stop() {
     m_running = false;
     if(m_threadZmqReaderPtr) {
-        m_threadZmqReaderPtr->join();
-        m_threadZmqReaderPtr.reset(); //delete it
+        try {
+            m_threadZmqReaderPtr->join();
+            m_threadZmqReaderPtr.reset(); //delete it
+        } catch (boost::thread_resource_error &e) {
+            // Exit gracefully if there's an exception
+        }
     }
 }
 
