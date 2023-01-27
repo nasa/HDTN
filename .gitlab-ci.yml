@@ -24,6 +24,10 @@ build:
     - mkdir build
     - cmake -S . -B build
     - make -C build/ -j8
+  cache:
+    key: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
+    paths:
+      - build
 
 # Build HDTN with the GUI enabled
 # Save the output to use for testing
@@ -41,6 +45,10 @@ build-with-gui:
     - mkdir build
     - cmake -S . -B build -D USE_WEB_INTERFACE:BOOL=ON
     - make -C build/ -j8
+  cache:
+    key: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
+    paths:
+      - build
   artifacts:
     paths:
       - build
@@ -56,6 +64,10 @@ build-static-analysis:
     - cd build
     - cmake -DCMAKE_BUILD_TYPE=Release ..
     - cov-build --dir idir make -j8
+  cache:
+    key: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
+    paths:
+      - build
   artifacts:
     paths:
       - build
