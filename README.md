@@ -201,12 +201,7 @@ First make sure docker is installed.
 ```
 apt-get install docker
 ```
-Check the service is running 
-```
-systemctl start docker
-```
-There are currently two Dockerfiles for building HDTN, one for building an Oracle Linux container and the other for building an Ubuntu. This command will build the Ubuntu one:
-Check the service is running 
+Check the service is running
 ```
 systemctl start docker
 ```
@@ -236,6 +231,7 @@ Stop the container with
 docker stop container_id
 ```
 The same container can either be restarted or removed. To see all the containers Use: 
+To see all the containers Use:
 ```
 docker ps -a
 ```
