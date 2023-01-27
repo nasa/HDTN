@@ -48,7 +48,6 @@ sudo yum install cmake boost-devel zeromq zeromq-devel
 
 ## Optional CivetWeb Dependencies ## 
 HDTN build environment optionally requires the CivetWeb Embedded C/C++ Web Server Library for displaying real time HDTN data if and only if running in non-distributed mode (using hdtn-one-process executable only).
->>>>>>> 2ceeb992 (Add Docker, Docker-compose, Kubernetes)
 * See Web Interface section below for instructions how to install and build.
 
 ## Notes on C++ Standard Version ##
@@ -202,19 +201,11 @@ First make sure docker is installed.
 ```
 apt-get install docker
 ```
-<<<<<<< HEAD
 Check the service is running
 ```
 systemctl start docker
 ```
-There are currently two Dockerfiles for building HDTN, one for building an Oracle Linux container and the other for building an Ub>
-=======
-Check the service is running 
-```
-systemctl start docker
-```
 There are currently two Dockerfiles for building HDTN, one for building an Oracle Linux container and the other for building an Ubuntu. This command will build the Ubuntu one:
->>>>>>> 2ceeb992 (Add Docker, Docker-compose, Kubernetes)
 ```
 docker build  -t hdtn_ubuntu containers/docker/ubuntu/.
 ```
@@ -240,6 +231,7 @@ Stop the container with
 docker stop container_id
 ```
 The same container can either be restarted or removed. To see all the containers Use: 
+To see all the containers Use:
 ```
 docker ps -a
 ```
