@@ -21,9 +21,13 @@ build:
   - linux-x86
   image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
   script:
-    - mkdir build
+    - mkdir -p build
     - cmake -S . -B build
     - make -C build/ -j8
+  cache:
+    key: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
+    paths:
+      - build
 
 # Build HDTN with the GUI enabled
 # Save the output to use for testing
@@ -34,13 +38,17 @@ build-with-gui:
   - linux-x86
   image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
   script:
-    - mkdir external
+    - mkdir -p external
     - cp -r /home/civetweb/include external/include
-    - mkdir external/lib
+    - mkdir -p external/lib
     - cp /home/civetweb/libcivetweb.a external/lib
-    - mkdir build
+    - mkdir -p build
     - cmake -S . -B build -D USE_WEB_INTERFACE:BOOL=ON
     - make -C build/ -j8
+  cache:
+    key: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
+    paths:
+      - build
   artifacts:
     paths:
       - build
@@ -52,10 +60,14 @@ build-static-analysis:
   script:
     - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
     - export HDTN_SOURCE_ROOT=$PWD
-    - mkdir build
+    - mkdir -p build
     - cd build
     - cmake -DCMAKE_BUILD_TYPE=Release ..
     - cov-build --dir idir make -j8
+  cache:
+    key: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
+    paths:
+      - build
   artifacts:
     paths:
       - build
@@ -92,4 +104,5 @@ static-analysis:
   script:
     - git fetch
     - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
-    - cov-run-desktop --dir build/idir --url $COV_BUILD_SERVER --auth-key-file /home/hdtn/ci-auth.key --stream HDTN-master --exit1-if-defects true --ignore-uncapturable-inputs true --present-in-reference false --all --enable-constraint-fpp --enable-fnptr --enable-virtual $(git diff --name-only origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME | grep '\.cpp')
+    - export files_to_scan=$(git diff --name-only origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME | grep '\.cpp')
+    - if [ "$files_to_scan" != "" ]; then cov-run-desktop --dir build/idir --url $COV_BUILD_SERVER --auth-key-file /home/hdtn/ci-auth.key --stream HDTN-master --exit1-if-defects true --ignore-uncapturable-inputs true --present-in-reference true --all --enable-constraint-fpp --enable-fnptr --enable-virtual $files_to_scan; else echo "No files to scan"; fi
