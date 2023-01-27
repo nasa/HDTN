@@ -244,7 +244,7 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsLtpOutductTestCase)
 {
     // Test default constructor
     LtpOutductTelemetry_t def;
-    BOOST_REQUIRE_EQUAL(def.GetSerializationSize(), 88);
+    BOOST_REQUIRE_EQUAL(def.GetSerializationSize(), 96);
     BOOST_REQUIRE_EQUAL(def.totalBundleBytesAcked, 0);
     BOOST_REQUIRE_EQUAL(def.totalBundleBytesSent, 0);
     BOOST_REQUIRE_EQUAL(def.totalBundlesAcked, 0);
@@ -274,6 +274,7 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsLtpOutductTestCase)
     std::vector<uint8_t> expected;
     expected.insert(expected.end(), {
         4,  0, 0, 0, 0, 0, 0, 0,
+        2,  0, 0, 0, 0, 0, 0, 0,
         1,  0, 0, 0, 0, 0, 0, 0,
         2,  0, 0, 0, 0, 0, 0, 0,
         3,  0, 0, 0, 0, 0, 0, 0,
@@ -286,13 +287,14 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsLtpOutductTestCase)
         10, 0, 0, 0, 0, 0, 0, 0
     });
 
-    BOOST_REQUIRE_EQUAL(actual.size(), 88);
+    BOOST_REQUIRE_EQUAL(actual.size(), 96);
     BOOST_REQUIRE_EQUAL_COLLECTIONS(actual.begin(), actual.end(), expected.begin(), expected.end());
 
     // Test deserialize
     std::vector<uint8_t> serialized;
     serialized.insert(serialized.end(), {
         4,  0, 0, 0, 0, 0, 0, 0,
+        2,  0, 0, 0, 0, 0, 0, 0,
         1,  0, 0, 0, 0, 0, 0, 0,
         2,  0, 0, 0, 0, 0, 0, 0,
         3,  0, 0, 0, 0, 0, 0, 0,
@@ -323,7 +325,7 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsStcpOutductTestCase)
 {
     // Test default constructor
     StcpOutductTelemetry_t def;
-    BOOST_REQUIRE_EQUAL(def.GetSerializationSize(), 56);
+    BOOST_REQUIRE_EQUAL(def.GetSerializationSize(), 64);
     BOOST_REQUIRE_EQUAL(def.totalBundleBytesAcked, 0);
     BOOST_REQUIRE_EQUAL(def.totalBundleBytesSent, 0);
     BOOST_REQUIRE_EQUAL(def.totalBundlesAcked, 0);
@@ -344,6 +346,7 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsStcpOutductTestCase)
     std::vector<uint8_t> expected;
     expected.insert(expected.end(), {
         5, 0, 0, 0, 0, 0, 0, 0,
+        1,  0, 0, 0, 0, 0, 0, 0,
         1, 0, 0, 0, 0, 0, 0, 0,
         2, 0, 0, 0, 0, 0, 0, 0,
         3, 0, 0, 0, 0, 0, 0, 0,
@@ -352,13 +355,14 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsStcpOutductTestCase)
         6, 0, 0, 0, 0, 0, 0, 0
     });
 
-    BOOST_REQUIRE_EQUAL(actual.size(), 56);
+    BOOST_REQUIRE_EQUAL(actual.size(), 64);
     BOOST_REQUIRE_EQUAL_COLLECTIONS(actual.begin(), actual.end(), expected.begin(), expected.end());
 
     // Test deserialize
     std::vector<uint8_t> serialized;
     serialized.insert(serialized.end(), {
         5, 0, 0, 0, 0, 0, 0, 0,
+        1,  0, 0, 0, 0, 0, 0, 0,
         1, 0, 0, 0, 0, 0, 0, 0,
         2, 0, 0, 0, 0, 0, 0, 0,
         3, 0, 0, 0, 0, 0, 0, 0,
