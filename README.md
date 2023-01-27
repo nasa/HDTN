@@ -164,7 +164,7 @@ To generate the Diffie-Hellman parameters PEM file (which is installed on an ind
 
 Web User Interface
 =========
-his repository comes equiped with code to launch a web-based user interface to display statistics for the HDTN engine. However it>
+168 This repository comes equiped with code to launch a web-based user interface to display statistics for the HDTN engine. However it relies on a dependency called CivetWeb which must be installed. 
 CivetWeb can be found here: https://sourceforge.net/projects/civetweb/
 Download and extract the Civetweb repository. Then use the following instructions to create a moveable library on Linux:
 * cd civetweb
