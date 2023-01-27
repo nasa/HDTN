@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hdtn-deployment
+  labels:
+    app: hdtn
+spec:
+  replicas: 10
+  selector:
+    matchLabels:
+      app: hdtn
+  template:
+    metadata:
+      labels:
+        app: hdtn
+    spec:
+      containers:
+      - name: hdtn
+        image: myhdtn:local
+        command: [ "/bin/bash", "-c", "--" ]
+        args: [ "while true; do sleep 30; done;"] 
+        resources:
+          requests:
+            memory: "100Mi"
+          limits:
+            memory: "200Mi"
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 80
+

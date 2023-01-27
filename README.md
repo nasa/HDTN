@@ -3,14 +3,27 @@ High-rate Delay Tolerant Network
 
 Overview
 =========
- Delay Tolerant Networking (or DTN) has been identified as a key technology to facilitate the development and growth of future space networks. Existing DTN implementations have emphasized operation in constrained environments with relatively limited resources and low data speeds. As various technologies have advanced, however, both the rate and efficiency with which data can be effectively transferred have grown incredibly quickly. This has left existing craft unable to utilize more than a small fraction of available capacity. Further, to date, most known implementations of DTN have been designed to operate on the spacecraft themselves. HDTN takes advantage of modern hardware platforms to offer substantial improvement on latency and throughput with respect to DTN implementations that exist today. Specifically, our implementation maintains compatibility with existing implementations of DTN that conform to IETF RFC 5050, while simultaneously defining a new data format that is better suited to higher-rate operation in many cases. It defines and adopts a massively parallel, pipelined, and message oriented architecture, which allows the system to scale gracefully as the resources available to the system increase. HDTN's architecture additionally supports hooks for replacing various elements of the processing pipeline with specialized hardware accelerators, which can be used to offer improved Size, Weight, and Power (SWaP) characteristics at the cost of increased development complexity and cost.
+Delay Tolerant Networking (DTN) has been identified as a key technology to facilitate the development and growth of future space networks. DTN is an overlay network that uses the bundle protocol to connect once disparate one-to-one links. Bundles are the primary unit of data in a DTN, and can be of essentially any size. Existing DTN implementations have operated in constrained environments with limited resources resulting in low data speeds, and cannot utilize more than a fraction of available system capacity. However, as various technologies have advanced, data transfer rates and efficiency have also advanced. To date, most known implementations of DTN have been designed to operate on spacecraft.
 
-Build Environment 
+High-rate Delay Tolerant Networking (HDTN) takes advantage of modern hardware platforms to substantially reduce latency and improve throughput compared to today’s DTN operations. HDTN maintains compatibility with existing deployments of DTN that conform to IETF RFC 5050. At the same time, HDTN defines a new data format better suited to higher-rate operation. It defines and adopts a massively parallel pipelined and message-oriented architecture, allowing the system to scale gracefully as its resources increase. HDTN’s architecture also supports hooks to replace various processing pipeline elements with specialized hardware accelerators. This offers improved Size, Weight, and Power (SWaP) characteristics while reducing development complexity and cost.
+
+Build Environment
 ==================
+## Tested Platforms ##
+* Linux
+    * Ubuntu 20.04.2 LTS
+    * Debian 10
+    * RHEL (Red Hat Enterprise Linux) 8
+* Windows
+    * Windows 10 (64-bit)
+    * Windows Server 2022 (64-bit)
+    * Windows Server 2019 (64-bit)
+* MacOS
+* Raspbian
 
 ## Dependencies ## 
 HDTN build environment requires:
-* CMake version 3.12 minimum
+* CMake version 3.16.3 minimum
 * Boost library version 1.66.0 minimum, version 1.69.0 for TCPCLv4 TLS version 1.3 support
 * ZeroMQ (tested with version 4.3.4)
 * OpenSSL (recommended version 1.1.1).  If OpenSSL is not available, disable OpenSSL support via the CMake cache variable `ENABLE_OPENSSL_SUPPORT:BOOL`
@@ -19,12 +32,24 @@ HDTN build environment requires:
 * Target: x86_64-linux-gnu 
 * Tested platforms: Ubuntu 20.04.2 LTS, Debian 10, Windows 10 (Visual Studio), Windows Server 2019 (Visual Studio), Windows Server 2022 (Visual Studio), and Mac
 
+These can be installed on Linux with:
+* On Ubuntu
+```
+sudo apt-get install cmake build-essential libzmq3-dev libboost-dev libboost-all-dev openssl libssl-dev
+```
+* On RHel
+```
+sudo dnf install epel-release
+sudo yum install cmake boost-devel zeromq zeromq-devel
+```
+## Known issue ##
+* Ubuntu distributions may install an older CMake version that is not compatible
+* Some processors may not support hardware acceleration or the RDSEED instruction, both ON by default in the cmake file
+
+
 ## Optional CivetWeb Dependencies ## 
 HDTN build environment optionally requires the CivetWeb Embedded C/C++ Web Server Library for displaying real time HDTN data if and only if running in non-distributed mode (using hdtn-one-process executable only).
-* Can be obtained from https://github.com/civetweb/civetweb
-* User must build its C and C++ libraries using cmake with websocket support enabled.
-* Set the Cmake cache variable `USE_WEB_INTERFACE` to `On` (default is `Off`)
-* Set the Cmake variables to point to your civetweb installation: `civetweb_INCLUDE`, `civetweb_LIB`, `civetwebcpp_LIB`
+* See Web Interface section below for instructions how to install and build.
 
 ## Notes on C++ Standard Version ##
 HDTN build environment sets by default the CMake cache variable `HDTN_TRY_USE_CPP17` to `On`.
@@ -74,20 +99,6 @@ Logging is controlled by CMake cache variables:
 * `LOG_TO_PROCESS_FILE` controls whether each process writes to their own log file. The default value is `OFF`.
 * `LOG_TO_SUBPROCESS_FILE` controls whether each subprocess writes to their own log file. The default value is `OFF`.
 
-## Packages installation ## 
-* Ubuntu
-```
-$ sudo apt-get install cmake
-$ sudo apt-get install build-essential
-$ sudo apt-get install libzmq3-dev
-$ sudo apt-get install libboost-dev libboost-all-dev
-$ sudo apt-get install openssl libssl-dev
-```
-
-## Known issue ##
-* Ubuntu distributions may install an older CMake version that is not compatible
-* Some processors may not support hardware acceleration or the RDSEED instruction, both ON by default in the cmake file
-
 Getting Started
 ===============
 
@@ -95,7 +106,7 @@ Build HDTN
 ===========
 If building on Windows, see the [Windows Build Instructions](building_on_windows/readme_building_on_windows.md).
 To build HDTN in Release mode (which is now the default if -DCMAKE_BUILD_TYPE is not specified), follow these steps:
-* export HDTN_SOURCE_ROOT=/home/username/hdtn
+* export HDTN_SOURCE_ROOT=/home/username/HDTN
 * cd $HDTN_SOURCE_ROOT
 * mkdir build
 * cd build
@@ -154,23 +165,141 @@ To generate the Diffie-Hellman parameters PEM file (which is installed on an ind
 
 Web User Interface
 =========
-This repository comes equiped with code to launch a web-based user interface to display statistics for the HDTN engine. However it relies on a dependency called CivetWeb which must be installed.
+168 This repository comes equiped with code to launch a web-based user interface to display statistics for the HDTN engine. However it relies on a dependency called CivetWeb which must be installed. 
 CivetWeb can be found here: https://sourceforge.net/projects/civetweb/
 Download and extract the Civetweb repository. Then use the following instructions to create a moveable library on Linux:
 * cd civetweb
 * make build
 * make clean lib WITH_WEBSOCKET=1 WITH_CPP=1
 
-Then open the CMakeLists.txt file in the hdtn directory and make the following edits under the "USE_WEB_INTERFACE" section:
-* Set "USE_WEB_INTERFACE" to ON
-* Move the CivetServer.h and civetweb.h (located at civetweb/include/) files from the Civetweb directory to the civetweb_INCLUDE location for Linux (hdtn/external/include/).
-* Move the libcivetweb.a file to the corresponding civetweb_LIB location (hdtn/external/lib).
+Under the HDTN home directory, follow these commands to create locations for the new dependencies:
+* mkdir external
+* mkdir external/include
+* mkdir external/lib
 
-Now anytime that HDTNOneProcess is ran, the web page will be accessible at http://localhost:8086
+Now move the following files from civetweb to HDTN:
+* Move the CivetServer.h and civetweb.h (located at civetweb/include/) files from the Civetweb directory to HDTN/external/include/
+* Move the libcivetweb.a file to HDTN/external/lib/
+
+From the HDTN directory, compile HDTN, open the CMakeCache file in the build directory and turn on the web interface:
+* mkdir build
+* cd build
+* cmake ..
+* nano CMakeCache.txt
+* Set 'USE_WEB_INTERFACE:BOOL' to ON
+* make -j8
+
+Now anytime that HDTNOneProcess runs, the web page will be accessible at http://localhost:8086
 
 Simulations
 =========
 HDTN can be simulated using DtnSim, a simulator for delay tolerant networks built on the OMNeT++ simulation framework. Use the "support-hdtn" branch of DtnSim which can be found in the [official DtnSim repository](https://bitbucket.org/lcd-unc-ar/dtnsim/src/support-hdtn/). Currently HDTN simulation with DtnSim has only been tested on Linux (Debian and Ubuntu). Follow the readme instructions for HDTN and DtnSim to install the software. Alternatively, a pre-configured Ubuntu VM is available for download [here](about:blankHDTN%20can%20be%20simulated%20using%20DtnSim,%20a%20simulator%20for%20delay%20tolerant%20networks%20built%20on%20the%20OMNeT++%20simulation%20framework.%20Use%20the%20%22support-hdtn%22%20branch%20of%20DtnSim%20which%20can%20be%20found%20in%20the%20official%20DtnSim%20repository:%20https://bitbucket.org/lcd-unc-ar/dtnsim/src/support-hdtn/.%20Currently%20HDTN%20simulation%20with%20DtnSim%20has%20only%20been%20tested%20on%20Linux%20(Debian%20and%20Ubuntu).%20Follow%20the%20readme%20instructions%20for%20HDTN%20and%20DtnSim%20to%20install%20the%20software.%20Alternatively,%20a%20pre-configured%20Ubuntu%20VM%20is%20available%20here:%20https://drive.google.com/file/d/1dSjxKIZ03U-gsAnMMzcizHAw_gFkDZDe/view?usp=sharing) (the username is hdtnsim-user and password is grc).
 More Details about the installation steps can be found [here](https://docs.google.com/document/d/1KrKyO_pr-v9CeS5n_ectpfWtwkYL40PdLICGh-24zZY/edit#)
 
+Docker Instructions
+===================
+First make sure docker is installed.
+```
+apt-get install docker
+```
+Check the service is running
+```
+systemctl start docker
+```
+There are currently two Dockerfiles for building HDTN, one for building an Oracle Linux container and the other for building an Ubuntu. This command will build the Ubuntu one:
+```
+docker build  -t hdtn_ubuntu containers/docker/ubuntu/.
+```
+The -t sets the name of the image, in this case hdtn_ubuntu.
+Check the image was built with the command:
+```
+docker images
+```
+Now to run the container use the command:
+```
+docker run -d -t hdtn_ubuntu
+```
+Check that it is running with:
+```
+docker ps
+```
+To access it, you'll need the CONTAINER_ID listed with the ps command
+```
+docker exec -it container_id bash
+```
+Stop the container with
+```
+docker stop container_id
+```
+The same container can either be restarted or removed. To see all the containers Use: 
+To see all the containers Use:
+```
+docker ps -a
+```
+These can still be restarted with the run command above. To remove one that will no longer be used:
+```
+docker rm container_id
+```
 
+Docker Compose Instructions
+===========================
+Docker compose can be used to spin-up and configure multiple nodes at the same time.
+This is done using the docker compose file found under HDTN/containers/docker/docker_compose
+```
+cd containers/docker/docker_compose
+```
+This file contains instructions to spin up two containers using Oracle Linux. One is called hdtn_sender and the other hdtn_receiver. Start them with the following command:
+```
+docker compose up
+```
+On another bash terminal these can be accessed using the command:
+```
+docker exec -it hdtn_sender bash
+docker exec -it hdtn_receiver bash
+```
+This setup is perfect for running a test between two hdtn nodes. An example script for each node can be found under HDTN/tests/test_scripts_linux/LTP_2Nodes_Test/. Be sure to run the receiver script first, otherwise the sender will have nowhere to send to at launch.
+
+Kubernetes Instructions
+=======================
+Download the dependencies
+```
+sudo apt-install docker microk8s
+```
+
+The first step is to create a docker images to be pushed locally for kubernetes to pull:
+```
+docker build docker/ubuntu/. -t myhdtn:local
+```
+Check that it was built:
+```
+docker images
+```
+Next we build the image locally and inject it into the microk8s image cache
+```
+docker save myhdtn > myhdtn.tar
+microk8s ctr image import myhdtn.tar
+```
+Confirm this with:
+```
+microk8s ctr images ls
+```
+Now we deploy the cluster, the yaml must reference the injected image name
+```
+microk8s kubectl apply -f containers/kubernetes/hdtn_10_node_cluster.yaml 
+```
+There should now be ten kubernetes pods running with HDTN. See them with:
+```
+microk8s kubectl get pods
+```
+To access a container in a pod, enter the following command:
+```
+microk8s kubectl exec -it container_name -- bash
+```
+When. your finished working with this deployment, delete it using:
+```
+microk8s kubectl delete deployment hdtn-deployment
+```
+Use the get pods command to confirm they've been deleted
+```
+microk8s kubectl get pods
+```
