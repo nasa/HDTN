@@ -453,7 +453,7 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
                     }
 
                     //todo figure out what to do with failed custody from next hop
-                    for (std::set<FragmentSet::data_fragment_t>::const_iterator it = acs.m_custodyIdFills.cbegin(); it != acs.m_custodyIdFills.cend(); ++it) {
+                    for (FragmentSet::data_fragment_set_t::const_iterator it = acs.m_custodyIdFills.cbegin(); it != acs.m_custodyIdFills.cend(); ++it) {
                         forStats->m_numAcsCustodyTransfers += (it->endIndex + 1) - it->beginIndex;
                         m_custodyIdAllocatorPtr->FreeCustodyIdRange(it->beginIndex, it->endIndex);
                         for (uint64_t currentCustodyId = it->beginIndex; currentCustodyId <= it->endIndex; ++currentCustodyId) {

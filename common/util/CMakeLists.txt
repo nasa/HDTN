@@ -61,6 +61,7 @@ set(MY_PUBLIC_HEADERS
     include/Environment.h
 	include/ForwardListQueue.h
 	include/FragmentSet.h
+	include/FreeListAllocator.h
 	include/JsonSerializable.h
 	include/LtpClientServiceDataToSend.h
 	include/MemoryInFiles.h

@@ -58,7 +58,7 @@ BpReceiveFile::BpReceiveFile(const boost::filesystem::path& saveDirectory) :
 
 BpReceiveFile::~BpReceiveFile() {}
 
-static bool IsFileFullyReceived(std::set<FragmentSet::data_fragment_t> & fragmentSet, const uint64_t totalFileSize) {
+static bool IsFileFullyReceived(FragmentSet::data_fragment_set_t & fragmentSet, const uint64_t totalFileSize) {
     if (fragmentSet.size() != 1) {
         return false;
     }
@@ -93,7 +93,7 @@ bool BpReceiveFile::ProcessPayload(const uint8_t * data, const uint64_t size) {
     const boost::filesystem::path fileName(std::string(data, data + sendFileMetadata.pathLen));
     data += sendFileMetadata.pathLen;
     fragments_ofstream_pair_t & fragmentsOfstreamPair = m_filenameToWriteInfoMap[fileName];
-    std::set<FragmentSet::data_fragment_t> & fragmentSet = fragmentsOfstreamPair.first;
+    FragmentSet::data_fragment_set_t & fragmentSet = fragmentsOfstreamPair.first;
     std::unique_ptr<boost::filesystem::ofstream> & ofstreamPtr = fragmentsOfstreamPair.second;
     bool doWriteFragment = false;
     if (sendFileMetadata.totalFileSize == 0) { //0 length file, create an empty file

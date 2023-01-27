@@ -858,7 +858,7 @@ uint64_t Bpv6AdministrativeRecordContentAggregateCustodySignal::SerializeFills(u
     uint8_t * const serializationBase = serialization;
     uint64_t rightEdgePrevious = 0; // ion code before loop: lastFill = 0;
     uint64_t thisSerializationSize;
-    for (std::set<FragmentSet::data_fragment_t>::const_iterator it = m_custodyIdFills.cbegin(); it != m_custodyIdFills.cend(); ++it) {
+    for (FragmentSet::data_fragment_set_t::const_iterator it = m_custodyIdFills.cbegin(); it != m_custodyIdFills.cend(); ++it) {
         thisSerializationSize = SdnvEncodeU64(serialization, it->beginIndex - rightEdgePrevious, bufferSize); //ion code in loop: encode startDelta = fill.start - lastFill
         serialization += thisSerializationSize;
         bufferSize -= thisSerializationSize;
@@ -874,7 +874,7 @@ uint64_t Bpv6AdministrativeRecordContentAggregateCustodySignal::SerializeFills(u
 uint64_t Bpv6AdministrativeRecordContentAggregateCustodySignal::GetFillSerializedSize() const {
     uint64_t rightEdgePrevious = 0; // ion code before loop: lastFill = 0;
     uint64_t size = 0;
-    for (std::set<FragmentSet::data_fragment_t>::const_iterator it = m_custodyIdFills.cbegin(); it != m_custodyIdFills.cend(); ++it) {
+    for (FragmentSet::data_fragment_set_t::const_iterator it = m_custodyIdFills.cbegin(); it != m_custodyIdFills.cend(); ++it) {
         size += SdnvGetNumBytesRequiredToEncode(it->beginIndex - rightEdgePrevious); //ion code in loop: encode startDelta = fill.start - lastFill
         size += SdnvGetNumBytesRequiredToEncode((it->endIndex + 1) - it->beginIndex); //ion code in loop: encode fill.length
         rightEdgePrevious = it->endIndex; //ion code in loop: lastFill = fill.start + fill.length - 1;

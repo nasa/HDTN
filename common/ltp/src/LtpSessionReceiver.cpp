@@ -592,7 +592,7 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
             }
         }
         if ((!m_didRedPartReceptionCallback) && (m_lengthOfRedPart != UINT64_MAX) && (m_receivedDataFragmentsSet.size() == 1)) {
-            std::set<LtpFragmentSet::data_fragment_t>::const_iterator it = m_receivedDataFragmentsSet.cbegin();
+            LtpFragmentSet::data_fragment_set_t::const_iterator it = m_receivedDataFragmentsSet.cbegin();
             if ((it->beginIndex == 0) && (it->endIndex == (m_lengthOfRedPart - 1))) { //all data fully received by this segment
 
                 if (!isRedCheckpoint) { //Only when the red part data was completed by a non-checkpoint segment is the async. reception report needed.

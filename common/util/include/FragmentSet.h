@@ -24,9 +24,19 @@
 #ifndef FRAGMENT_SET_H
 #define FRAGMENT_SET_H 1
 
+#define FRAGMENT_SET_USE_FREE_LIST_ALLOCATOR 1
+
+
 #include <cstdint>
 #include <vector>
+#ifdef FRAGMENT_SET_USE_FREE_LIST_ALLOCATOR
+ //#include <boost/container/set.hpp>
+ //#include <boost/container/map.hpp>
+ //#include <boost/container/adaptive_pool.hpp>
+ #include "FreeListAllocator.h"
+#endif
 #include <set>
+#include <map>
 #include "hdtn_util_export.h"
 
 class HDTN_UTIL_EXPORT FragmentSet {
@@ -125,6 +135,32 @@ public:
         bool operator<(const data_fragment_unique_overlapping_t& o) const;
     };
 
+#ifdef FRAGMENT_SET_USE_FREE_LIST_ALLOCATOR
+    //the following will crash
+    //typedef boost::container::set<data_fragment_t,
+    //    std::less<data_fragment_t>,
+    //    boost::container::adaptive_pool<data_fragment_t> > data_fragment_set_t;
+    //typedef boost::container::set<data_fragment_no_overlap_allow_abut_t,
+    //    std::less<data_fragment_no_overlap_allow_abut_t>,
+    //    boost::container::adaptive_pool<data_fragment_no_overlap_allow_abut_t> > data_fragment_no_overlap_allow_abut_set_t;
+    //typedef boost::container::map<data_fragment_unique_overlapping_t, uint64_t,
+    //    std::less<data_fragment_unique_overlapping_t>,
+    //    boost::container::adaptive_pool<std::pair<const data_fragment_unique_overlapping_t, uint64_t> > > ds_pending_map_t;
+    typedef std::set < data_fragment_t,
+        std::less<data_fragment_t>,
+        FreeListAllocator<data_fragment_t> > data_fragment_set_t;
+    typedef std::set<data_fragment_no_overlap_allow_abut_t,
+        std::less<data_fragment_no_overlap_allow_abut_t>,
+        FreeListAllocator<data_fragment_no_overlap_allow_abut_t> > data_fragment_no_overlap_allow_abut_set_t;
+    typedef std::map<data_fragment_unique_overlapping_t, uint64_t,
+        std::less<data_fragment_unique_overlapping_t>,
+        FreeListAllocator<std::pair<const data_fragment_unique_overlapping_t, uint64_t> > > ds_pending_map_t;
+#else
+    typedef std::set<data_fragment_t> data_fragment_set_t;
+    typedef std::set<data_fragment_no_overlap_allow_abut_t> data_fragment_no_overlap_allow_abut_set_t;
+    typedef std::map<data_fragment_unique_overlapping_t, uint64_t> ds_pending_map_t;
+#endif
+
 public:
     /** Insert fragment in fragment set.
      *
@@ -138,7 +174,7 @@ public:
      * @return True if the fragment was inserted successfully (and thus the fragment set was modified), or False otherwise.
      * @post If returns True, the argument to fragmentSet is modified accordingly (see above for details).
      */
-    static bool InsertFragment(std::set<data_fragment_t> & fragmentSet, data_fragment_t key);
+    static bool InsertFragment(data_fragment_set_t & fragmentSet, data_fragment_t key);
     
     /** Get all fragments NOT present within the given bounds.
      *
@@ -148,7 +184,7 @@ public:
      * @param boundsMinusFragmentsSet The difference fragment set to modify.
      * @post The argument to boundsMinusFragmentsSet is overwritten to hold the resulting difference fragment set.
      */
-    static void GetBoundsMinusFragments(const data_fragment_t bounds, const std::set<data_fragment_t>& fragmentSet, std::set<data_fragment_t>& boundsMinusFragmentsSet);
+    static void GetBoundsMinusFragments(const data_fragment_t bounds, const data_fragment_set_t& fragmentSet, data_fragment_set_t& boundsMinusFragmentsSet);
 
     /** Query whether fragment fits entirely within an existing fragment in the fragment set.
      *
@@ -156,7 +192,7 @@ public:
      * @param key The fragment to query.
      * @return True if the fragment fits entirely within an existing fragment in the fragment set, or False otherwise.
      */
-    static bool ContainsFragmentEntirely(const std::set<data_fragment_t> & fragmentSet, const data_fragment_t & key);
+    static bool ContainsFragmentEntirely(const data_fragment_set_t& fragmentSet, const data_fragment_t& key);
     
     /** Query whether fragment overlaps with an existing fragment in the fragment set.
      *
@@ -166,7 +202,7 @@ public:
      * @param key The fragment to query.
      * @return True if the fragment overlaps with an existing fragment in the fragment set, or False otherwise.
      */
-    static bool DoesNotContainFragmentEntirely(const std::set<data_fragment_t> & fragmentSet, const data_fragment_t & key);
+    static bool DoesNotContainFragmentEntirely(const data_fragment_set_t& fragmentSet, const data_fragment_t& key);
 
     /** Remove fragment from fragment set.
      *
@@ -181,14 +217,14 @@ public:
      * @return True if the fragment was removed (and thus the fragment set was modified), or False otherwise.
      * @post If returns True, the argument to fragmentSet is modified accordingly (see above for details).
      */
-    static bool RemoveFragment(std::set<data_fragment_t> & fragmentSet, const data_fragment_t & key);
+    static bool RemoveFragment(data_fragment_set_t& fragmentSet, const data_fragment_t& key);
 
     /** Print fragment set.
      *
      * Convenience function to log a fragment set.
      * @param fragmentSet The fragment set.
      */
-    static void PrintFragmentSet(const std::set<data_fragment_t> & fragmentSet);
+    static void PrintFragmentSet(const data_fragment_set_t& fragmentSet);
 };
 
 #endif // FRAGMENT_SET_H

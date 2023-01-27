@@ -105,7 +105,7 @@ private:
     std::string m_myCustodianEidUriString;
     boost::mutex m_mutexCtebSet;
     boost::mutex m_mutexBundleUuidSet;
-    std::set<FragmentSet::data_fragment_t> m_outstandingCtebCustodyIdsFragmentSet;
+    FragmentSet::data_fragment_set_t m_outstandingCtebCustodyIdsFragmentSet;
     std::set<cbhe_bundle_uuid_nofragment_t> m_cbheBundleUuidSet;
     bool m_detectedNextCustodianSupportsCteb;
     bool m_requireRxBundleBeforeNextTx;

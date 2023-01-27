@@ -50,8 +50,8 @@ private:
 
     uint64_t m_myNextCustodyIdAllocationBeginForNextHopCtebToSend;
     std::map<cbhe_eid_t, uint64_t> m_mapBundleSrcEidToNextCtebCustodyId;
-    std::set<FragmentSet::data_fragment_t> m_usedCustodyIds;
-    std::set<FragmentSet::data_fragment_t> m_usedCustodyIdMultipliers;
+    FragmentSet::data_fragment_set_t m_usedCustodyIds;
+    FragmentSet::data_fragment_set_t m_usedCustodyIdMultipliers;
 };
 
 #endif // CUSTODY_ID_ALLOCATOR_H

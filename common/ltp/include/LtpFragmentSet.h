@@ -43,7 +43,7 @@ public:
      * @return True if the report segment could be populated successfully (and thus the report segment was modified), or False otherwise.
      * @post If returns True, the argument to reportSegment is modified accordingly (see above for details).
      */
-    static bool PopulateReportSegment(const std::set<data_fragment_t> & fragmentSet, Ltp::report_segment_t & reportSegment, uint64_t lowerBound = UINT64_MAX, uint64_t upperBound = UINT64_MAX);
+    static bool PopulateReportSegment(const data_fragment_set_t & fragmentSet, Ltp::report_segment_t & reportSegment, uint64_t lowerBound = UINT64_MAX, uint64_t upperBound = UINT64_MAX);
     
     /** Split report segment by reception claims.
      *
@@ -58,7 +58,7 @@ public:
      * @return True if the report segment could be split successfully (and thus the report segment vector was modified), or False otherwise.
      * @post If returns True, the argument to reportSegmentsVec is modified accordingly (see above for details).
      */
-    static bool SplitReportSegment(const Ltp::report_segment_t & originalTooLargeReportSegment, std::vector<Ltp::report_segment_t> & reportSegmentsVec, const uint64_t maxReceptionClaimsPerReportSegment);
+    static bool SplitReportSegment(const Ltp::report_segment_t& originalTooLargeReportSegment, std::vector<Ltp::report_segment_t>& reportSegmentsVec, const uint64_t maxReceptionClaimsPerReportSegment);
     
     /** Insert already-received fragments to fragment set.
      *
@@ -70,7 +70,7 @@ public:
      * @post Calling both LtpFragmentSet::AddReportSegmentToFragmentSet() and LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent() in any order
      * on the same report segment and fragment set, will result in the fragment set containing a single fragment spanning the entire scope of the report segment.
      */
-    static bool AddReportSegmentToFragmentSet(std::set<data_fragment_t> & fragmentSet, const Ltp::report_segment_t & reportSegment);
+    static bool AddReportSegmentToFragmentSet(data_fragment_set_t& fragmentSet, const Ltp::report_segment_t& reportSegment);
 
     /** Insert needing-retransmitted fragments to fragment set.
      *
@@ -82,7 +82,7 @@ public:
      * @post Calling both LtpFragmentSet::AddReportSegmentToFragmentSet() and LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent() in any order
      * on the same report segment and fragment set, will result in the fragment set containing a single fragment spanning the entire scope of the report segment.
      */
-    static bool AddReportSegmentToFragmentSetNeedingResent(std::set<data_fragment_t> & fragmentSetNeedingResent, const Ltp::report_segment_t & reportSegment);
+    static bool AddReportSegmentToFragmentSetNeedingResent(data_fragment_set_t& fragmentSetNeedingResent, const Ltp::report_segment_t& reportSegment);
 
     /** Recalculate the currently reported state from any given number of report segments.
      *
@@ -93,9 +93,9 @@ public:
      * @param listFragmentSetNeedingResentForEachReport The list of needing-retransmitted fragment set per report segment, to modify.
      * @post The argument to listFragmentSetNeedingResentForEachReport is modified accordingly (see above for details).
      */
-    static void ReduceReportSegments(const std::map<data_fragment_unique_overlapping_t, uint64_t>& rsBoundsToRsnMap,
-        const std::set<data_fragment_t>& allReceivedFragmentsSet,
-        std::list<std::pair<uint64_t, std::set<data_fragment_t> > >& listFragmentSetNeedingResentForEachReport);
+    static void ReduceReportSegments(const ds_pending_map_t& rsBoundsToRsnMap,
+        const data_fragment_set_t& allReceivedFragmentsSet,
+        std::list<std::pair<uint64_t, data_fragment_set_t > >& listFragmentSetNeedingResentForEachReport);
 };
 
 #endif // LTP_FRAGMENT_SET_H
