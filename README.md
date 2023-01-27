@@ -6,7 +6,6 @@ Overview
 Delay Tolerant Networking (DTN) has been identified as a key technology to facilitate the development and growth of future space networks. DTN is an overlay network that uses the bundle protocol to connect once disparate one-to-one links. Bundles are the primary unit of data in a DTN, and can be of essentially any size. Existing DTN implementations have operated in constrained environments with limited resources resulting in low data speeds, and cannot utilize more than a fraction of available system capacity. However, as various technologies have advanced, data transfer rates and efficiency have also advanced. To date, most known implementations of DTN have been designed to operate on spacecraft.
 
 High-rate Delay Tolerant Networking (HDTN) takes advantage of modern hardware platforms to substantially reduce latency and improve throughput compared to today’s DTN operations. HDTN maintains compatibility with existing deployments of DTN that conform to IETF RFC 5050. At the same time, HDTN defines a new data format better suited to higher-rate operation. It defines and adopts a massively parallel pipelined and message-oriented architecture, allowing the system to scale gracefully as its resources increase. HDTN’s architecture also supports hooks to replace various processing pipeline elements with specialized hardware accelerators. This offers improved Size, Weight, and Power (SWaP) characteristics while reducing development complexity and cost.
-
 Build Environment
 ==================
 ## Tested Platforms ##
@@ -23,7 +22,7 @@ Build Environment
 
 ## Dependencies ## 
 HDTN build environment requires:
-* CMake version 3.16.3 minimum
+* CMake version 3.12 minimum
 * Boost library version 1.66.0 minimum, version 1.69.0 for TCPCLv4 TLS version 1.3 support
 * ZeroMQ (tested with version 4.3.4)
 * OpenSSL (recommended version 1.1.1).  If OpenSSL is not available, disable OpenSSL support via the CMake cache variable `ENABLE_OPENSSL_SUPPORT:BOOL`
@@ -35,7 +34,7 @@ HDTN build environment requires:
 These can be installed on Linux with:
 * On Ubuntu
 ```
-sudo apt-get install cmake build-essential libzmq3-dev libboost-dev libboost-all-dev openssl libssl-dev
+apt-get install cmake build-essential libzmq3-dev libboost-dev libboost-all-dev openssl libssl-dev
 ```
 * On RHel
 ```
@@ -165,7 +164,7 @@ To generate the Diffie-Hellman parameters PEM file (which is installed on an ind
 
 Web User Interface
 =========
-168 This repository comes equiped with code to launch a web-based user interface to display statistics for the HDTN engine. However it relies on a dependency called CivetWeb which must be installed. 
+This repository comes equiped with code to launch a web-based user interface to display statistics for the HDTN engine. However it relies on a dependency called CivetWeb which must be installed. 
 CivetWeb can be found here: https://sourceforge.net/projects/civetweb/
 Download and extract the Civetweb repository. Then use the following instructions to create a moveable library on Linux:
 * cd civetweb
