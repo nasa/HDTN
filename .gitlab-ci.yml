@@ -21,7 +21,7 @@ build:
   - linux-x86
   image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
   script:
-    - mkdir build
+    - mkdir -p build
     - cmake -S . -B build
     - make -C build/ -j8
   cache:
@@ -38,11 +38,11 @@ build-with-gui:
   - linux-x86
   image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
   script:
-    - mkdir external
+    - mkdir -p external
     - cp -r /home/civetweb/include external/include
-    - mkdir external/lib
+    - mkdir -p external/lib
     - cp /home/civetweb/libcivetweb.a external/lib
-    - mkdir build
+    - mkdir -p build
     - cmake -S . -B build -D USE_WEB_INTERFACE:BOOL=ON
     - make -C build/ -j8
   cache:
@@ -60,7 +60,7 @@ build-static-analysis:
   script:
     - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
     - export HDTN_SOURCE_ROOT=$PWD
-    - mkdir build
+    - mkdir -p build
     - cd build
     - cmake -DCMAKE_BUILD_TYPE=Release ..
     - cov-build --dir idir make -j8
