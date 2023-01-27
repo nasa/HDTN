@@ -54,7 +54,7 @@ build-static-analysis:
     - export HDTN_SOURCE_ROOT=$PWD
     - mkdir build
     - cd build
-    - cmake ..
+    - cmake -DCMAKE_BUILD_TYPE=Release -DUSE_WEB_INTERFACE:BOOL=ON -DDO_STATS_LOGGING:BOOL=ON ..
     - cov-build --dir idir make -j8
   artifacts:
     paths:
