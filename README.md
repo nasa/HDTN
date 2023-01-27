@@ -3,8 +3,8 @@ High-rate Delay Tolerant Network
 
 Overview
 =========
-Delay Tolerant Networking (DTN) has been identified as a key technology to facilitate the development and growth of future space n>
-High-rate Delay Tolerant Networking (HDTN) takes advantage of modern hardware platforms to substantially reduce latency and improv>
+Delay Tolerant Networking (DTN) has been identified as a key technology to facilitate the development and growth of future space networks. DTN is an overlay network that uses the bundle protocol to connect once disparate one-to-one links. Bundles are the primary unit of data in a DTN, and can be of essentially any size. Existing DTN implementations have operated in constrained environments with limited resources resulting in low data speeds, and cannot utilize more than a fraction of available system capacity. However, as various technologies have advanced, data transfer rates and efficiency have also advanced. To date, most known implementations of DTN have been designed to operate on spacecraft.
+High-rate Delay Tolerant Networking (HDTN) takes advantage of modern hardware platforms to substantially reduce latency and improve throughput compared to today’s DTN operations. HDTN implementation will maintain compatibility with existing deployments of DTN that conform to IETF RFC 5050. At the same time, HDTN defines a new data format better suited to higher-rate operation. It defines and adopts a massively parallel pipelined and message-oriented architecture, allowing the system to scale gracefully as its resources increase. HDTN’s architecture also supports hooks to replace various processing pipeline elements with specialized hardware accelerators. This offers improved Size, Weight, and Power (SWaP) characteristics while reducing development complexity and cost.
 
 Build Environment
 ==================
@@ -22,7 +22,7 @@ Build Environment
 
 ## Dependencies ## 
 HDTN build environment requires:
-* CMake version 3.12 minimum
+* CMake version 3.16.3 minimum
 * Boost library version 1.66.0 minimum, version 1.69.0 for TCPCLv4 TLS version 1.3 support
 * ZeroMQ (tested with version 4.3.4)
 * OpenSSL (recommended version 1.1.1).  If OpenSSL is not available, disable OpenSSL support via the CMake cache variable `ENABLE_OPENSSL_SUPPORT:BOOL`
@@ -34,19 +34,21 @@ HDTN build environment requires:
 These can be installed on Linux with:
 * On Ubuntu
 ```
-apt-get install cmake build-essential libzmq3-dev libboost-dev libboost-all-dev openssl libssl-dev
+sudo apt-get install cmake build-essential libzmq3-dev libboost-dev libboost-all-dev openssl libssl-dev
 ```
 * On RHel
 ```
-sudo dnf install epel-release                                                                                                  
+sudo dnf install epel-release
 sudo yum install cmake boost-devel zeromq zeromq-devel
 ```
 ## Known issue ##
-* Ubuntu distributions may install an older CMake version that is not compatible                                               
+* Ubuntu distributions may install an older CMake version that is not compatible
 * Some processors may not support hardware acceleration or the RDSEED instruction, both ON by default in the cmake file
- 
+
+
 ## Optional CivetWeb Dependencies ## 
-HDTN build environment optionally requires the CivetWeb Embedded C/C++ Web Server Library for displaying real time HDTN data if an>
+HDTN build environment optionally requires the CivetWeb Embedded C/C++ Web Server Library for displaying real time HDTN data if and only if running in non-distributed mode (using hdtn-one-process executable only).
+>>>>>>> 2ceeb992 (Add Docker, Docker-compose, Kubernetes)
 * See Web Interface section below for instructions how to install and build.
 
 ## Notes on C++ Standard Version ##
@@ -97,10 +99,6 @@ Logging is controlled by CMake cache variables:
 * `LOG_TO_PROCESS_FILE` controls whether each process writes to their own log file. The default value is `OFF`.
 * `LOG_TO_SUBPROCESS_FILE` controls whether each subprocess writes to their own log file. The default value is `OFF`.
 
-## Known issue ##
-* Ubuntu distributions may install an older CMake version that is not compatible
-* Some processors may not support hardware acceleration or the RDSEED instruction, both ON by default in the cmake file
-
 Getting Started
 ===============
 
@@ -108,7 +106,7 @@ Build HDTN
 ===========
 If building on Windows, see the [Windows Build Instructions](building_on_windows/readme_building_on_windows.md).
 To build HDTN in Release mode (which is now the default if -DCMAKE_BUILD_TYPE is not specified), follow these steps:
-* export HDTN_SOURCE_ROOT=/home/username/hdtn
+* export HDTN_SOURCE_ROOT=/home/username/HDTN
 * cd $HDTN_SOURCE_ROOT
 * mkdir build
 * cd build
@@ -204,11 +202,19 @@ First make sure docker is installed.
 ```
 apt-get install docker
 ```
+<<<<<<< HEAD
 Check the service is running
 ```
 systemctl start docker
 ```
 There are currently two Dockerfiles for building HDTN, one for building an Oracle Linux container and the other for building an Ub>
+=======
+Check the service is running 
+```
+systemctl start docker
+```
+There are currently two Dockerfiles for building HDTN, one for building an Oracle Linux container and the other for building an Ubuntu. This command will build the Ubuntu one:
+>>>>>>> 2ceeb992 (Add Docker, Docker-compose, Kubernetes)
 ```
 docker build  -t hdtn_ubuntu containers/docker/ubuntu/.
 ```
@@ -233,8 +239,7 @@ Stop the container with
 ```
 docker stop container_id
 ```
-The same container can either be restarted or removed.
-to see all the containers Use:
+The same container can either be restarted or removed. To see all the containers Use: 
 ```
 docker ps -a
 ```
@@ -250,7 +255,7 @@ This is done using the docker compose file found under HDTN/containers/docker/do
 ```
 cd containers/docker/docker_compose
 ```
-This file contains instructions to spin up two containers using Oracle Linux. One is called hdtn_sender and the other hdtn_receive>
+This file contains instructions to spin up two containers using Oracle Linux. One is called hdtn_sender and the other hdtn_receiver. Start them with the following command:
 ```
 docker compose up
 ```
@@ -259,8 +264,7 @@ On another bash terminal these can be accessed using the command:
 docker exec -it hdtn_sender bash
 docker exec -it hdtn_receiver bash
 ```
-This setup is perfect for running a test between two hdtn nodes. An example script for each node can be found under HDTN/tests/tes>
-
+This setup is perfect for running a test between two hdtn nodes. An example script for each node can be found under HDTN/tests/test_scripts_linux/LTP_2Nodes_Test/. Be sure to run the receiver script first, otherwise the sender will have nowhere to send to at launch.
 
 Kubernetes Instructions
 =======================
