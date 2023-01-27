@@ -55,7 +55,7 @@ jobs:
       #    ./tests/integrated_tests/integrated-tests
 
   oracle-x64-test:
-    runs-on: [self-hosted, oracle, x64]
+    runs-on: [self-hosted, Linux, X64]
 
     steps:
       - uses: actions/checkout@v3
@@ -103,7 +103,7 @@ jobs:
       #    ./tests/integrated_tests/integrated-tests
 
   debian-x64-test:
-    runs-on: [self-hosted, debian, x64]
+    runs-on: [self-hosted, Linux, X64, debian]
 
     steps:
       - uses: actions/checkout@v3
