@@ -65,7 +65,7 @@
                 "name": "for egress",
                 "convergenceLayer": "ltp_over_udp",
                 "nextHopNodeId": 20,
-                "remoteHostname": "node2",
+                "remoteHostname": "hdtn_receiver",
                 "remotePort": 1113,
                 "maxNumberOfBundlesInPipeline": 50,
                 "maxSumOfBundleBytesInPipeline": 50000000,
