@@ -580,6 +580,7 @@ void Egress::Impl::ResendOutductCapabilities() {
     std::vector<uint8_t> & serialized = *(*serializedRawPtrToSharedPtr);
     if (!allOutductCapabilitiesTelemetry.SerializeToLittleEndian(serialized.data(), serializationSize)) {
         LOG_FATAL(subprocess) << "Cannot serialize outduct capabilities";
+        delete serializedRawPtrToSharedPtr;
         return;
     }
     zmq::message_t zmqMsgToIngress(
