@@ -92,4 +92,4 @@ static-analysis:
   script:
     - git fetch
     - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
-    - cov-run-desktop --dir build/idir --url $COV_BUILD_SERVER --auth-key-file /home/hdtn/ci-auth.key --stream HDTN-master --exit1-if-defects true --ignore-uncapturable-inputs true --present-in-reference false --all --enable-constraint-fpp --enable-fnptr --enable-virtual $(git diff --name-only origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME | grep '\.cpp')
+    - cov-run-desktop --dir build/idir --url $COV_BUILD_SERVER --auth-key-file /home/hdtn/ci-auth.key --stream HDTN-master --exit1-if-defects true --ignore-uncapturable-inputs true --present-in-reference true --all --enable-constraint-fpp --enable-fnptr --enable-virtual $(git diff --name-only origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME | grep '\.cpp')
