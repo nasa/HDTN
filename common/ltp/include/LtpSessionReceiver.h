@@ -313,7 +313,7 @@ public:
      * @post If returns False, indicates that the UDP circular index buffer can reduce its size.
      */
     LTP_LIB_EXPORT bool DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
-        std::vector<uint8_t> & clientServiceDataVec, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
+        Ltp::client_service_raw_data_t& clientServiceRawData, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
 private:
     /// Received data fragments

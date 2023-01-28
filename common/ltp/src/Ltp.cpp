@@ -685,9 +685,14 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, bool
                 }
             }
             else if (dataSegmentRxState == LTP_DATA_SEGMENT_RX_STATE::READ_CLIENT_SERVICE_DATA) {
-                m_dataSegment_clientServiceData.push_back(rxVal);
-                if (m_dataSegment_clientServiceData.size() == m_dataSegmentMetadata.length) {
+                //first check if copying to m_dataSegment_clientServiceData can be avoided and just use a pointer to the location in the packet instead
+                if (m_dataSegment_clientServiceData.empty() && (m_dataSegmentMetadata.length <= (numChars + 1))) { //numChars decremented above
+                    m_dataSegment_clientServiceRawDataWrapper.data = (rxVals - 1);
+                    m_dataSegment_clientServiceRawDataWrapper.underlyingMovableDataIfNotNull = NULL;
 
+                    const std::size_t bytesRemaining = static_cast<std::size_t>(m_dataSegmentMetadata.length - 1);
+                    rxVals += bytesRemaining;
+                    numChars -= bytesRemaining;
 
                     if (m_numTrailerExtensionTlvs) { //todo should callback be after trailer
                         m_trailerRxState = LTP_TRAILER_RX_STATE::READ_ONE_TRAILER_EXTENSION_TAG_BYTE;
@@ -696,18 +701,39 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, bool
                     else {
                         //callback data segment
                         if (m_dataSegmentContentsReadCallback) {
-                            operationIsOngoing = m_dataSegmentContentsReadCallback(m_segmentTypeFlags, m_sessionId, m_dataSegment_clientServiceData, m_dataSegmentMetadata, m_headerExtensions, m_trailerExtensions);
+                            operationIsOngoing = m_dataSegmentContentsReadCallback(m_segmentTypeFlags, m_sessionId,
+                                m_dataSegment_clientServiceRawDataWrapper, m_dataSegmentMetadata, m_headerExtensions, m_trailerExtensions);
                         }
                         SetBeginningState();
                     }
                 }
-                else {
-                    const std::size_t bytesRemainingToCopy = m_dataSegmentMetadata.length - m_dataSegment_clientServiceData.size(); //guaranteed to be at least 1 from "if" above
-                    const std::size_t bytesToCopy = std::min(numChars, bytesRemainingToCopy - 1); //leave last byte to go through the state machine
-                    if (bytesToCopy) {
-                        m_dataSegment_clientServiceData.insert(m_dataSegment_clientServiceData.end(), rxVals, rxVals + bytesToCopy); //concatenate
-                        rxVals += bytesToCopy;
-                        numChars -= bytesToCopy;
+                else { //must copy to m_dataSegment_clientServiceData since the packet doesn't fully contain the full clientServiceData
+                    m_dataSegment_clientServiceData.push_back(rxVal);
+                    if (m_dataSegment_clientServiceData.size() == m_dataSegmentMetadata.length) {
+                        m_dataSegment_clientServiceRawDataWrapper.data = m_dataSegment_clientServiceData.data();
+                        m_dataSegment_clientServiceRawDataWrapper.underlyingMovableDataIfNotNull = &m_dataSegment_clientServiceData;
+
+                        if (m_numTrailerExtensionTlvs) { //todo should callback be after trailer
+                            m_trailerRxState = LTP_TRAILER_RX_STATE::READ_ONE_TRAILER_EXTENSION_TAG_BYTE;
+                            m_mainRxState = LTP_MAIN_RX_STATE::READ_TRAILER;
+                        }
+                        else {
+                            //callback data segment
+                            if (m_dataSegmentContentsReadCallback) {
+                                operationIsOngoing = m_dataSegmentContentsReadCallback(m_segmentTypeFlags, m_sessionId,
+                                    m_dataSegment_clientServiceRawDataWrapper, m_dataSegmentMetadata, m_headerExtensions, m_trailerExtensions);
+                            }
+                            SetBeginningState();
+                        }
+                    }
+                    else {
+                        const std::size_t bytesRemainingToCopy = m_dataSegmentMetadata.length - m_dataSegment_clientServiceData.size(); //guaranteed to be at least 1 from "if" above
+                        const std::size_t bytesToCopy = std::min(numChars, bytesRemainingToCopy - 1); //leave last byte to go through the state machine
+                        if (bytesToCopy) {
+                            m_dataSegment_clientServiceData.insert(m_dataSegment_clientServiceData.end(), rxVals, rxVals + bytesToCopy); //concatenate
+                            rxVals += bytesToCopy;
+                            numChars -= bytesToCopy;
+                        }
                     }
                 }
             }
@@ -1031,7 +1057,8 @@ bool Ltp::NextStateAfterTrailerExtensions(bool& operationIsOngoing, std::string 
     else if (m_segmentTypeFlags <= 7) {
         //callback data segment
         if (m_dataSegmentContentsReadCallback) {
-            operationIsOngoing = m_dataSegmentContentsReadCallback(m_segmentTypeFlags, m_sessionId, m_dataSegment_clientServiceData, m_dataSegmentMetadata, m_headerExtensions, m_trailerExtensions);
+            operationIsOngoing = m_dataSegmentContentsReadCallback(m_segmentTypeFlags, m_sessionId,
+                m_dataSegment_clientServiceRawDataWrapper, m_dataSegmentMetadata, m_headerExtensions, m_trailerExtensions);
         }
     }
     else if (m_segmentTypeFlags == 8) {

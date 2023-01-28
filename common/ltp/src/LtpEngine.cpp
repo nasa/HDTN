@@ -1292,7 +1292,7 @@ void LtpEngine::ReportSegmentReceivedCallback(const Ltp::session_id_t & sessionI
 //new reception session, and is delivered upon arrival of the first
 //data segment carrying a new session ID.
 bool LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp::session_id_t & sessionId,
-    std::vector<uint8_t> & clientServiceDataVec, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
+    Ltp::client_service_raw_data_t& clientServiceRawData, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
 {
     bool operationIsOngoing = false;
@@ -1374,7 +1374,7 @@ bool LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
         }
     }
     operationIsOngoing = rxSessionIt->second.DataSegmentReceivedCallback(segmentTypeFlags,
-        clientServiceDataVec, dataSegmentMetadata, headerExtensions, trailerExtensions);
+        clientServiceRawData, dataSegmentMetadata, headerExtensions, trailerExtensions);
     TrySaturateSendPacketPipeline();
     return operationIsOngoing;
 }

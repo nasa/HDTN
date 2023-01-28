@@ -310,7 +310,7 @@ void LtpSessionReceiver::ReportAcknowledgementSegmentReceivedCallback(uint64_t r
 
 
 bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
-    std::vector<uint8_t> & clientServiceDataVec, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
+    Ltp::client_service_raw_data_t& clientServiceRawData, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
 {
     bool operationIsOngoing = false;
@@ -318,11 +318,7 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
 
     const uint64_t offsetPlusLength = dataSegmentMetadata.offset + dataSegmentMetadata.length;
     
-    if (dataSegmentMetadata.length != clientServiceDataVec.size()) {
-        LOG_ERROR(subprocess) << "dataSegmentMetadata.length != clientServiceDataVec.size()";
-    }
     
-
     
 
     const bool isRedData = (segmentTypeFlags <= 3);
@@ -381,7 +377,10 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                 if (neededResize && (m_memoryBlockIdReservedSize < m_currentRedLength)) {
                     m_memoryBlockIdReservedSize = m_ltpSessionReceiverCommonDataRef.m_memoryInFilesPtrRef->Resize(m_memoryBlockId, m_currentRedLength);
                 }
-                std::shared_ptr<std::vector<uint8_t> > clientServiceDataReceivedSharedPtr = std::make_shared<std::vector<uint8_t> >(std::move(clientServiceDataVec));
+                if(clientServiceRawData.underlyingMovableDataIfNotNull) {}
+                std::shared_ptr<std::vector<uint8_t> > clientServiceDataReceivedSharedPtr = (clientServiceRawData.underlyingMovableDataIfNotNull) ?
+                    std::make_shared<std::vector<uint8_t> >(std::move(*(clientServiceRawData.underlyingMovableDataIfNotNull))) :
+                    std::make_shared<std::vector<uint8_t> >(clientServiceRawData.data, clientServiceRawData.data + dataSegmentMetadata.length);
 
                 MemoryInFiles::deferred_write_t deferredWrite;
                 deferredWrite.memoryBlockId = m_memoryBlockId;
@@ -408,7 +407,7 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                 if (neededResize) {
                     m_dataReceivedRed.resize(m_currentRedLength);
                 }
-                memcpy(m_dataReceivedRed.data() + dataSegmentMetadata.offset, clientServiceDataVec.data(), dataSegmentMetadata.length);
+                memcpy(m_dataReceivedRed.data() + dataSegmentMetadata.offset, clientServiceRawData.data, dataSegmentMetadata.length);
             }
 
 
@@ -657,8 +656,16 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
         }
 
         if (m_ltpSessionReceiverCommonDataRef.m_greenPartSegmentArrivalCallbackRef) {
-            m_ltpSessionReceiverCommonDataRef.m_greenPartSegmentArrivalCallbackRef(M_SESSION_ID, clientServiceDataVec,
-                offsetPlusLength, dataSegmentMetadata.clientServiceId, isEndOfBlock);
+            if (clientServiceRawData.underlyingMovableDataIfNotNull) {
+                m_ltpSessionReceiverCommonDataRef.m_greenPartSegmentArrivalCallbackRef(M_SESSION_ID,
+                    *(clientServiceRawData.underlyingMovableDataIfNotNull),
+                    offsetPlusLength, dataSegmentMetadata.clientServiceId, isEndOfBlock);
+            }
+            else {
+                std::vector<uint8_t> vecCopy(clientServiceRawData.data, clientServiceRawData.data + dataSegmentMetadata.length);
+                m_ltpSessionReceiverCommonDataRef.m_greenPartSegmentArrivalCallbackRef(M_SESSION_ID, vecCopy,
+                    offsetPlusLength, dataSegmentMetadata.clientServiceId, isEndOfBlock);
+            }
         }
         
         if (isEndOfBlock) { //a green EOB
