@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# path variables
+config_files=$HDTN_SOURCE_ROOT/config_files
+sink_config=$config_files/inducts/bpsink_one_ltpipc.json
+gen_config=$config_files/outducts/bpgen_one_ltpipc_directtobpsink.json
+
+cd $HDTN_SOURCE_ROOT
+
+# bpsink
+./build/common/bpcodec/apps/bpsink-async --my-uri-eid=ipn:2.1 --inducts-config-file=$sink_config &
+bpsink_PID=$!
+sleep 3
+
+#bpgen
+./build/common/bpcodec/apps/bpgen-async --bundle-rate=0 --bundle-size=100000 --my-uri-eid=ipn:1.1 --dest-uri-eid=ipn:2.1 --duration=40 --outducts-config-file=$gen_config
+
+sleep 5
+echo "\nkilling bpsink..." && kill -2 $bpsink_PID
