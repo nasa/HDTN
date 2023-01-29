@@ -377,7 +377,6 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                 if (neededResize && (m_memoryBlockIdReservedSize < m_currentRedLength)) {
                     m_memoryBlockIdReservedSize = m_ltpSessionReceiverCommonDataRef.m_memoryInFilesPtrRef->Resize(m_memoryBlockId, m_currentRedLength);
                 }
-                if(clientServiceRawData.underlyingMovableDataIfNotNull) {}
                 std::shared_ptr<std::vector<uint8_t> > clientServiceDataReceivedSharedPtr = (clientServiceRawData.underlyingMovableDataIfNotNull) ?
                     std::make_shared<std::vector<uint8_t> >(std::move(*(clientServiceRawData.underlyingMovableDataIfNotNull))) :
                     std::make_shared<std::vector<uint8_t> >(clientServiceRawData.data, clientServiceRawData.data + dataSegmentMetadata.length);

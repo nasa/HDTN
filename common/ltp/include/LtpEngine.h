@@ -555,8 +555,8 @@ protected:
      * @param underlyingCsDataToDeleteOnSentCallback The underlying client service data to send shared pointer, should be nullptr.
      */
     LTP_LIB_EXPORT virtual void SendPacket(const std::vector<boost::asio::const_buffer>& constBufferVec,
-        std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
-        std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback);
+        std::shared_ptr<std::vector<std::vector<uint8_t> > > && underlyingDataToDeleteOnSentCallback,
+        std::shared_ptr<LtpClientServiceDataToSend>&& underlyingCsDataToDeleteOnSentCallback);
     
     /** Perform a SendPackets operation.
      *
@@ -565,9 +565,7 @@ protected:
      * @param underlyingDataToDeleteOnSentCallback The vector of underlying data buffers shared pointers.
      * @param underlyingCsDataToDeleteOnSentCallback The vector of underlying client service data to send shared pointers.
      */
-    LTP_LIB_EXPORT virtual void SendPackets(std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-        std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback,
-        std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallback);
+    LTP_LIB_EXPORT virtual void SendPackets(std::shared_ptr<std::vector<UdpSendPacketInfo> >&& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend);
     
     /** Initiate a request to handle a SendPackets operation completion (thread-safe).
      *
@@ -634,9 +632,7 @@ private:
      * @param underlyingDataToDeleteOnSentCallbackVec The vector of underlying data buffers shared pointers.
      * @param underlyingCsDataToDeleteOnSentCallbackVec The vector of underlying client service data to send shared pointers.
      */
-    LTP_LIB_NO_EXPORT void OnDeferredMultiReadCompleted(bool success, std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-        std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
-        std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec);
+    LTP_LIB_NO_EXPORT void OnDeferredMultiReadCompleted(bool success, std::shared_ptr<std::vector<UdpSendPacketInfo> >& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend);
 
     /** Handle cancellation segment reception.
      *
@@ -905,7 +901,7 @@ private:
     /// Our engine ID
     const uint64_t M_THIS_ENGINE_ID;
     /// Number of pending SendPackets operations
-    std::atomic<unsigned int> m_numSendPacketsPendingSystemCallsAtomic;
+    std::atomic<unsigned int> m_numQueuedSendSystemCallsAtomic;
 protected:
     /// Maximum number of UDP packets to send per system call, if (M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL > 1) enables batch sending
     const uint64_t M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL;
@@ -986,8 +982,13 @@ private:
     LTP_LIB_NO_EXPORT void EraseRxSession(map_session_id_to_session_receiver_t::iterator& rxSessionIt);
 
     //reserve data so that operator new doesn't need called for resize of std::vector<boost::asio::const_buffer>
+    // non-batch sender reserved
     std::vector<UdpSendPacketInfo> m_reservedUdpSendPacketInfo;
     std::vector<UdpSendPacketInfo>::iterator m_reservedUdpSendPacketInfoIterator;
+    // batch sender reserved
+    std::vector<std::shared_ptr<std::vector<UdpSendPacketInfo> > > m_reservedUdpSendPacketInfoVecsForBatchSender;
+    std::vector<std::shared_ptr<std::vector<UdpSendPacketInfo> > >::iterator m_reservedUdpSendPacketInfoVecsForBatchSenderIterator;
+    std::vector<MemoryInFiles::deferred_read_t> m_reservedDeferredReadsVec; //only used immediately and passed as const ref
     
     /// Sessions with wrong client service ID, all sessions cancelled with a cancel code of UNREACHABLE, on CAx should remove the associated session
     std::set<Ltp::session_id_t> m_ltpSessionsWithWrongClientServiceId;

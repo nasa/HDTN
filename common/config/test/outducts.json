@@ -19,7 +19,7 @@
             "ltpDataSegmentMtu": 1003,
             "oneWayLightTimeMs": 1004,
             "oneWayMarginTimeMs": 205,
-            "clientServiceId": 2,
+            "clientServiceId": 1,
             "numRxCircularBufferElements": 101,
             "ltpMaxRetriesPerSerialNumber": 5,
             "ltpCheckpointEveryNthDataSegment": 0,

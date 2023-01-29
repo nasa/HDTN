@@ -27,8 +27,8 @@ static const boost::posix_time::time_duration static_tokenRefreshTimeDurationWin
 
 /// Maximum number of pending SendPackets operations.
 /// assumes (time to complete 5 batch udp send operations or 5 single packet udp send operations) < (margin time).
-static constexpr unsigned int MAX_SEND_PACKETS_PENDING_SYSTEM_CALLS = 5;
-static constexpr unsigned int MIN_SEND_PACKETS_PENDING_SYSTEM_CALLS = 1;
+static constexpr unsigned int MAX_QUEUED_SEND_SYSTEM_CALLS = 5;
+static constexpr unsigned int MIN_QUEUED_SEND_SYSTEM_CALLS = 1;
 
 /// Disk pipeline limit.
 /// should be even number to split between ingress and storage cut-through pipeline.
@@ -40,7 +40,7 @@ LtpEngine::cancel_segment_timer_info_t::cancel_segment_timer_info_t(const uint8_
 
 LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIndexForEncodingIntoRandomSessionNumber, bool startIoServiceThread) :
     M_THIS_ENGINE_ID(ltpRxOrTxCfg.thisEngineId),
-    m_numSendPacketsPendingSystemCallsAtomic(0),
+    m_numQueuedSendSystemCallsAtomic(0),
     M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL(ltpRxOrTxCfg.maxUdpPacketsToSendPerSystemCall),
     m_transmissionToAckReceivedTime((ltpRxOrTxCfg.oneWayLightTime * 2) + (ltpRxOrTxCfg.oneWayMarginTime * 2)),
     m_delaySendingOfReportSegmentsTime((ltpRxOrTxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable) ?
@@ -162,15 +162,36 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
         boost::placeholders::_4, boost::placeholders::_5, boost::placeholders::_6));
 
     //reserve data so that operator new doesn't need called for resize of std::vector<boost::asio::const_buffer>
-    m_reservedUdpSendPacketInfo.resize(MAX_SEND_PACKETS_PENDING_SYSTEM_CALLS * 2);
-    m_reservedUdpSendPacketInfoIterator = m_reservedUdpSendPacketInfo.begin();
-    for (std::size_t i = 0; i < m_reservedUdpSendPacketInfo.size(); ++i) {
-        UdpSendPacketInfo& info = m_reservedUdpSendPacketInfo[i];
-        info.constBufferVec.reserve(4);
-        info.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(4); //2 is generally worse case
-        for (std::size_t j = 0; j < info.underlyingDataToDeleteOnSentCallback->size(); ++j) {
-            std::vector<uint8_t>& subVec = info.underlyingDataToDeleteOnSentCallback->at(j);
-            subVec.reserve(100); //generally just LTP headers, 100 more than generous, can grow with resizes
+    if (M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL <= 1) { //single udp send packet function call
+        m_reservedUdpSendPacketInfo.resize(MAX_QUEUED_SEND_SYSTEM_CALLS * 2);
+        m_reservedUdpSendPacketInfoIterator = m_reservedUdpSendPacketInfo.begin();
+        for (std::size_t i = 0; i < m_reservedUdpSendPacketInfo.size(); ++i) {
+            UdpSendPacketInfo& info = m_reservedUdpSendPacketInfo[i];
+            info.constBufferVec.reserve(4);
+            info.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(4); //2 is generally worse case
+            for (std::size_t j = 0; j < info.underlyingDataToDeleteOnSentCallback->size(); ++j) {
+                std::vector<uint8_t>& subVec = info.underlyingDataToDeleteOnSentCallback->at(j);
+                subVec.reserve(100); //generally just LTP headers, 100 more than generous, can grow with resizes
+            }
+        }
+    }
+    else { //reserve for batch send
+        m_reservedDeferredReadsVec.reserve(M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL);
+        m_reservedUdpSendPacketInfoVecsForBatchSender.resize(MAX_QUEUED_SEND_SYSTEM_CALLS * 2);
+        m_reservedUdpSendPacketInfoVecsForBatchSenderIterator = m_reservedUdpSendPacketInfoVecsForBatchSender.begin();
+        for (std::size_t batchI = 0; batchI < m_reservedUdpSendPacketInfoVecsForBatchSender.size(); ++batchI) {
+            std::shared_ptr<std::vector<UdpSendPacketInfo> >& thisReservedUdpSendPacketInfoVecPtr = m_reservedUdpSendPacketInfoVecsForBatchSender[batchI];
+            thisReservedUdpSendPacketInfoVecPtr = std::make_shared<std::vector<UdpSendPacketInfo> >(M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL * 2);
+            std::vector<UdpSendPacketInfo>& thisReservedUdpSendPacketInfoVec = *thisReservedUdpSendPacketInfoVecPtr;
+            for (std::size_t i = 0; i < thisReservedUdpSendPacketInfoVec.size(); ++i) {
+                UdpSendPacketInfo& info = thisReservedUdpSendPacketInfoVec[i];
+                info.constBufferVec.reserve(4);
+                info.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(4); //2 is generally worse case
+                for (std::size_t j = 0; j < info.underlyingDataToDeleteOnSentCallback->size(); ++j) {
+                    std::vector<uint8_t>& subVec = info.underlyingDataToDeleteOnSentCallback->at(j);
+                    subVec.reserve(100); //generally just LTP headers, 100 more than generous, can grow with resizes
+                }
+            }
         }
     }
 
@@ -362,7 +383,7 @@ void LtpEngine::OnSendPacketsSystemCallCompleted_ThreadSafe() {
     //Meanwhile, the LtpUdpEngine thread can return quickly and go back to doing UDP operations.
     //Try to reduce the number of calls to post() as this is an expensive operation
     // (it should not need to be called for every udp send operation, hence the atomic variable)
-    if(--m_numSendPacketsPendingSystemCallsAtomic <= MIN_SEND_PACKETS_PENDING_SYSTEM_CALLS) {
+    if(--m_numQueuedSendSystemCallsAtomic <= MIN_QUEUED_SEND_SYSTEM_CALLS) {
         boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::TrySaturateSendPacketPipeline, this));
     }
 }
@@ -387,7 +408,7 @@ static std::size_t GetBytesToSend(const std::vector<boost::asio::const_buffer>& 
 
 bool LtpEngine::TrySendPacketIfAvailable() {
     bool sendOperationQueuedSuccessfully = false;
-    if (m_ioServiceLtpEngineThreadPtr && (m_numSendPacketsPendingSystemCallsAtomic < MAX_SEND_PACKETS_PENDING_SYSTEM_CALLS)) { //m_ioServiceLtpEngineThreadPtr => if not running inside a unit test
+    if (m_ioServiceLtpEngineThreadPtr && (m_numQueuedSendSystemCallsAtomic < MAX_QUEUED_SEND_SYSTEM_CALLS)) { //m_ioServiceLtpEngineThreadPtr => if not running inside a unit test
         //RATE STUFF (the TrySendPacketIfAvailable and OnTokenRefresh_TimerExpired run in the same thread)
         //if rate limiting enabled AND no tokens available for next send, TrySendPacketIfAvailable() will be called at the next m_tokenRefreshTimer expiration
         if (m_maxSendRateBitsPerSecOrZeroToDisable && (!m_tokenRateLimiter.CanTakeTokens())) { 
@@ -428,65 +449,61 @@ bool LtpEngine::TrySendPacketIfAvailable() {
                     std::shared_ptr<std::vector<std::vector<uint8_t> > > underlyingDataToDeleteOnSentCallbackCopy(udpSendPacketInfo.underlyingDataToDeleteOnSentCallback);
 
                     SendPacket(udpSendPacketInfo.constBufferVec, //const ref, preallocation preserved
-                        underlyingDataToDeleteOnSentCallbackCopy, //copy gets moved, preallocation preserved
-                        udpSendPacketInfo.underlyingCsDataToDeleteOnSentCallback //gets moved, SessionSender may have attached a shared_ptr copy of its data
+                        std::move(underlyingDataToDeleteOnSentCallbackCopy), //copy gets moved, preallocation preserved
+                        std::move(udpSendPacketInfo.underlyingCsDataToDeleteOnSentCallback) //gets moved, SessionSender may have attached a shared_ptr copy of its data
                     ); // , sessionOriginatorEngineId); //virtual call to child implementation
                 }
             }
         }
         else { //batch udp send packets using a single function call
-            //these vars are stack only, no reserving until at least one available packet
-            std::vector<std::vector<boost::asio::const_buffer> > constBufferVecs;
-            std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > > underlyingDataToDeleteOnSentCallbackVec;
-            std::vector<std::shared_ptr<LtpClientServiceDataToSend> > underlyingCsDataToDeleteOnSentCallbackVec;
-            std::vector<MemoryInFiles::deferred_read_t> deferredReadsVec;
+            std::shared_ptr<std::vector<UdpSendPacketInfo> >& udpSendPacketInfoVecPtr = *m_reservedUdpSendPacketInfoVecsForBatchSenderIterator;
+            std::vector<UdpSendPacketInfo>& udpSendPacketInfoVec = *udpSendPacketInfoVecPtr;
 
+            std::size_t numPacketsToSend = 0;
             std::size_t bytesToSend = 0;
             for (std::size_t packetI = 0; (packetI < M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL); ++packetI) {
-                UdpSendPacketInfo udpSendPacketInfo;
+                UdpSendPacketInfo& udpSendPacketInfo = udpSendPacketInfoVec[packetI];
                 if (!GetNextPacketToSend(udpSendPacketInfo)) {
                     break;
                 }
                 if (packetI == 0) { //a system call is guaranteed
                     sendOperationQueuedSuccessfully = true;
-                    const uint64_t M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL_TIMES_TWO = M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL << 1;
-                    constBufferVecs.reserve(M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL_TIMES_TWO);
-                    underlyingDataToDeleteOnSentCallbackVec.reserve(M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL_TIMES_TWO);
-                    if (m_memoryInFilesPtr) {
-                        deferredReadsVec.reserve(M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL);
+                    ++m_reservedUdpSendPacketInfoVecsForBatchSenderIterator;
+                    if (m_reservedUdpSendPacketInfoVecsForBatchSenderIterator == m_reservedUdpSendPacketInfoVecsForBatchSender.end()) {
+                        m_reservedUdpSendPacketInfoVecsForBatchSenderIterator = m_reservedUdpSendPacketInfoVecsForBatchSender.begin();
                     }
-                    //don't reserve underlyingCsDataToDeleteOnSentCallbackVec as more than 1 push_back should be uncommon
+                    if (m_memoryInFilesPtr) {
+                        m_reservedDeferredReadsVec.resize(0);
+                    }
                 }
                 if (m_maxSendRateBitsPerSecOrZeroToDisable) { //if rate limiting enabled
                     bytesToSend += GetBytesToSend(udpSendPacketInfo.constBufferVec);
                 }
-                constBufferVecs.emplace_back(std::move(udpSendPacketInfo.constBufferVec));
-                underlyingDataToDeleteOnSentCallbackVec.emplace_back(std::move(udpSendPacketInfo.underlyingDataToDeleteOnSentCallback));
-                if (udpSendPacketInfo.underlyingCsDataToDeleteOnSentCallback) {
-                    underlyingCsDataToDeleteOnSentCallbackVec.emplace_back(std::move(udpSendPacketInfo.underlyingCsDataToDeleteOnSentCallback));
-                }
+                ++numPacketsToSend;
                 if (udpSendPacketInfo.deferredRead.memoryBlockId) {
-                    deferredReadsVec.emplace_back(udpSendPacketInfo.deferredRead);
+                    m_reservedDeferredReadsVec.emplace_back(udpSendPacketInfo.deferredRead);
                 }
                 //udpSendPacketInfo.Reset(); //call before subsequent GetNextPacketToSend() (not needed because destructed and recreated on each loop iteration)
             }
-            if (constBufferVecs.size()) {
+            if (numPacketsToSend) {
                 if (m_maxSendRateBitsPerSecOrZeroToDisable) { //if rate limiting enabled
                     m_tokenRateLimiter.TakeTokens(bytesToSend);
                     TryRestartTokenRefreshTimer(); //tokens were taken, so make sure this is running so that tokens can be replenished
                 }
 
-                if (deferredReadsVec.size()) { //if non-zero, will always have non-zero constBufferVecs.size()
-                    if (!m_memoryInFilesPtr->ReadMemoryAsync(deferredReadsVec,
+                //copy the shared_ptr since it will get moved from SendPackets(), but want to preserve preallocation
+                std::shared_ptr<std::vector<UdpSendPacketInfo> > udpSendPacketInfoVecPtrCopy(udpSendPacketInfoVecPtr);
+
+                if (m_reservedDeferredReadsVec.size()) { //if non-zero, will always have non-zero constBufferVecs.size()
+                    if (!m_memoryInFilesPtr->ReadMemoryAsync(m_reservedDeferredReadsVec,
                         boost::bind(&LtpEngine::OnDeferredMultiReadCompleted,
-                            this, boost::placeholders::_1, std::move(constBufferVecs),
-                            std::move(underlyingDataToDeleteOnSentCallbackVec), std::move(underlyingCsDataToDeleteOnSentCallbackVec))))
+                            this, boost::placeholders::_1, std::move(udpSendPacketInfoVecPtrCopy), numPacketsToSend)))
                     {
-                        LOG_ERROR(subprocess) << "cannot start multi async read from disk of size " << deferredReadsVec.size();
+                        LOG_ERROR(subprocess) << "cannot start multi async read from disk of size " << m_reservedDeferredReadsVec.size();
                     }
                 }
                 else { //if (constBufferVecs.size()) { //data to batch send
-                    SendPackets(constBufferVecs, underlyingDataToDeleteOnSentCallbackVec, underlyingCsDataToDeleteOnSentCallbackVec); //virtual call to child implementation
+                    SendPackets(std::move(udpSendPacketInfoVecPtrCopy), numPacketsToSend); //virtual call to child implementation
                 }
             }
         }
@@ -505,9 +522,9 @@ bool LtpEngine::TrySendPacketIfAvailable() {
         }
         
     }
-    //m_numSendPacketsPendingSystemCallsAtomic += sendOperationQueuedSuccessfully;
+    //m_numQueuedSendSystemCallsAtomic += sendOperationQueuedSuccessfully;
     if (sendOperationQueuedSuccessfully) {
-        ++m_numSendPacketsPendingSystemCallsAtomic; //atomic
+        ++m_numQueuedSendSystemCallsAtomic; //atomic
     }
     return sendOperationQueuedSuccessfully;
 }
@@ -519,18 +536,16 @@ void LtpEngine::OnDeferredReadCompleted(bool success, const std::vector<boost::a
 {
     if (success) {
         std::shared_ptr<LtpClientServiceDataToSend> nullClientServiceData;
-        SendPacket(constBufferVec, underlyingDataToDeleteOnSentCallback, nullClientServiceData); //virtual call to child implementation
+        SendPacket(constBufferVec, std::move(underlyingDataToDeleteOnSentCallback), std::move(nullClientServiceData)); //virtual call to child implementation
     }
     else {
         LOG_ERROR(subprocess) << "Failure in LtpEngine::OnDeferredReadCompleted";
     }
 }
-void LtpEngine::OnDeferredMultiReadCompleted(bool success, std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-    std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
-    std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec)
+void LtpEngine::OnDeferredMultiReadCompleted(bool success, std::shared_ptr<std::vector<UdpSendPacketInfo> >& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend)
 {
     if (success) {
-        SendPackets(constBufferVecs, underlyingDataToDeleteOnSentCallbackVec, underlyingCsDataToDeleteOnSentCallbackVec); //virtual call to child implementation
+        SendPackets(std::move(udpSendPacketInfoVecSharedPtr), numPacketsToSend); //virtual call to child implementation
     }
     else {
         LOG_ERROR(subprocess) << "Failure in LtpEngine::OnDeferredReadCompleted";
@@ -538,12 +553,10 @@ void LtpEngine::OnDeferredMultiReadCompleted(bool success, std::vector<std::vect
 }
 
 void LtpEngine::SendPacket(const std::vector<boost::asio::const_buffer>& constBufferVec,
-    std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
-    std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback) {}
+    std::shared_ptr<std::vector<std::vector<uint8_t> > >&& underlyingDataToDeleteOnSentCallback,
+    std::shared_ptr<LtpClientServiceDataToSend>&& underlyingCsDataToDeleteOnSentCallback) {}
 
-void LtpEngine::SendPackets(std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-    std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback,
-    std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallback) {}
+void LtpEngine::SendPackets(std::shared_ptr<std::vector<UdpSendPacketInfo> >&& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend) {}
 
 bool LtpEngine::GetNextPacketToSend(UdpSendPacketInfo& udpSendPacketInfo) {
     while (!m_queueSendersNeedingDeleted.empty()) {

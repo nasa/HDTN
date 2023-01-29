@@ -408,8 +408,8 @@ void LtpIpcEngine::DoSendPacket(const std::vector<boost::asio::const_buffer>& co
 
 void LtpIpcEngine::SendPacket(
     const std::vector<boost::asio::const_buffer> & constBufferVec,
-    std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback,
-    std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback)
+    std::shared_ptr<std::vector<std::vector<uint8_t> > >&& underlyingDataToDeleteOnSentCallback,
+    std::shared_ptr<LtpClientServiceDataToSend>&& underlyingCsDataToDeleteOnSentCallback)
 {
     //called by LtpEngine Thread
     ++m_countAsyncSendCalls;
@@ -428,20 +428,24 @@ void LtpIpcEngine::SendPacket(
     OnSendPacketsSystemCallCompleted_ThreadSafe(); //per system call operation, not per udp packet(s)
 }
 
-void LtpIpcEngine::SendPackets(std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-    std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
-    std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec)
+void LtpIpcEngine::SendPackets(std::shared_ptr<std::vector<UdpSendPacketInfo> >&& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend)
 {
     //called by LtpEngine Thread
     ++m_countBatchSendCalls;
 
-    for (std::size_t i = 0; i < constBufferVecs.size(); ++i) {
-        DoSendPacket(constBufferVecs[i]);
+    std::vector<UdpSendPacketInfo>& udpSendPacketInfoVec = *udpSendPacketInfoVecSharedPtr;
+    //for loop should not compare to udpSendPacketInfoVec.size() because that vector may be resized for preallocation,
+    // and don't want to everudpSendPacketInfoVec.resize() down because that would call destructor on preallocated UdpSendPacketInfo
+    for (std::size_t i = 0; i < numPacketsToSend; ++i) {
+        DoSendPacket(udpSendPacketInfoVec[i].constBufferVec);
     }
 
     //OnSentPacketsCallback
     ++m_countBatchSendCallbackCalls;
-    m_countBatchUdpPacketsSent += constBufferVecs.size();
+    m_countBatchUdpPacketsSent += numPacketsToSend;
+
+    //mimic std::move of shared_ptr from LtpUdpEngine
+    udpSendPacketInfoVecSharedPtr.reset();
     
     //notify the ltp engine regardless whether or not there is an error
     //NEW BEHAVIOR (always notify LtpEngine which keeps its own internal count of pending Udp Send system calls queued)

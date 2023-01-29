@@ -11,7 +11,7 @@
             "ltpReportSegmentMtu": 1000,
             "oneWayLightTimeMs": 1000,
             "oneWayMarginTimeMs": 200,
-            "clientServiceId": 400,
+            "clientServiceId": 1,
             "preallocatedRedDataBytes": 200000,
             "ltpMaxRetriesPerSerialNumber": 5,
             "ltpRandomNumberSizeBits": 64,

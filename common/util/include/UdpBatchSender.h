@@ -35,9 +35,9 @@ public:
     /**
      * @typedef OnSentPacketsCallback_t Type of callback to be invoked after a packet batch send operation
      */
-    typedef boost::function<void(bool success, std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-        std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
-        std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec)> OnSentPacketsCallback_t;
+    typedef boost::function<void(bool success,
+        std::shared_ptr<std::vector<UdpSendPacketInfo> >& udpSendPacketInfoVecSharedPtr,
+        const std::size_t numPacketsSent)> OnSentPacketsCallback_t;
     
     /// Bind socket to io_service, does not open the socket
     HDTN_UTIL_EXPORT UdpBatchSender();
@@ -81,9 +81,7 @@ public:
      * @param underlyingDataToDeleteOnSentCallbackVec (internal) Vector of LtpClientServiceDataToSend::underlyingDataToDeleteOnSentCallback.
      * @param underlyingCsDataToDeleteOnSentCallbackVec (internal) Vector of LtpClientServiceDataToSend::underlyingCsDataToDeleteOnSentCallback.
      */
-    HDTN_UTIL_EXPORT void QueueSendPacketsOperation_ThreadSafe(std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-        std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
-        std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec);
+    HDTN_UTIL_EXPORT void QueueSendPacketsOperation_ThreadSafe(std::shared_ptr<std::vector<UdpSendPacketInfo> >&& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend);
     
     /** Set the onSentPackets callback.
      *
@@ -131,10 +129,11 @@ private:
      * @param underlyingCsDataToDeleteOnSentCallbackVec The vector of underlying client service data to send shared pointers.
      * @post The arguments to constBufferVecs, underlyingDataToDeleteOnSentCallbackVec and underlyingCsDataToDeleteOnSentCallbackVec are left in a moved-from state.
      */
-    HDTN_UTIL_NO_EXPORT void PerformSendPacketsOperation(
-        std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-        std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
-        std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec);
+    HDTN_UTIL_NO_EXPORT void PerformSendPacketsOperation(std::shared_ptr<std::vector<UdpSendPacketInfo> >& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend);
+
+    HDTN_UTIL_NO_EXPORT void AppendConstBufferVecToTransmissionElements(std::vector<boost::asio::const_buffer>& currentPacketConstBuffers);
+
+    HDTN_UTIL_NO_EXPORT bool SendTransmissionElements();
     
     /** Initiate request for socket shutdown.
      *

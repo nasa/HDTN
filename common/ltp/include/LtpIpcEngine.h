@@ -116,8 +116,8 @@ private:
      * @post The arguments to underlyingDataToDeleteOnSentCallback and underlyingCsDataToDeleteOnSentCallback are left in a moved-from state.
      */
     LTP_LIB_NO_EXPORT virtual void SendPacket(const std::vector<boost::asio::const_buffer> & constBufferVec,
-        std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback,
-        std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback) override;
+        std::shared_ptr<std::vector<std::vector<uint8_t> > >&& underlyingDataToDeleteOnSentCallback,
+        std::shared_ptr<LtpClientServiceDataToSend>&& underlyingCsDataToDeleteOnSentCallback) override;
     
     
     
@@ -128,9 +128,7 @@ private:
      * @param underlyingDataToDeleteOnSentCallback
      * @param underlyingCsDataToDeleteOnSentCallback
      */
-    LTP_LIB_NO_EXPORT virtual void SendPackets(std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-        std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback,
-        std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallback) override;
+    LTP_LIB_NO_EXPORT virtual void SendPackets(std::shared_ptr<std::vector<UdpSendPacketInfo> >&& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend) override;
 
     LTP_LIB_NO_EXPORT void DoSendPacket(const std::vector<boost::asio::const_buffer>& constBufferVec);
 
