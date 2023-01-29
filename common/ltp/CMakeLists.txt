@@ -82,6 +82,7 @@ target_link_libraries(ltp_lib
 		telemetry_definitions
 		Boost::random
 		log_lib
+		$<$<BOOL:${UNIX}>:rt> #for shared memory in LtpOverIpc
 )
 target_include_directories(ltp_lib
 	PUBLIC
