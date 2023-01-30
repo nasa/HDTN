@@ -166,7 +166,7 @@ void Route::refresh_metrics() {
         time_t effective_start_time = contact.first_byte_tx_time;
         time_t min_succ_stop_time = MAX_TIME_T;
         std::vector<Contact>::iterator it = std::find(allHops.begin(), allHops.end(), contact);
-        for (; it < allHops.end(); ++it) {
+        for (; it != allHops.end(); ++it) {
             Contact successor = *it;
             if (successor.end < min_succ_stop_time) {
                 min_succ_stop_time = successor.end;
