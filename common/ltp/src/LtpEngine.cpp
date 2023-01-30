@@ -223,7 +223,8 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     if (startIoServiceThread) {
         m_ioServiceLtpEngineThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioServiceLtpEngine));
         const std::string threadName = "ioServiceLtpEngine engId=" + boost::lexical_cast<std::string>(M_THIS_ENGINE_ID);
-        ThreadNamer::SetThreadName(*m_ioServiceLtpEngineThreadPtr, threadName);
+        //ThreadNamer::SetThreadName(*m_ioServiceLtpEngineThreadPtr, threadName); //won't work on linux
+        ThreadNamer::SetIoServiceThreadName(m_ioServiceLtpEngine, threadName);
     }
 }
 

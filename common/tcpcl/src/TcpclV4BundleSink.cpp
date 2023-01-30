@@ -96,8 +96,6 @@ TcpclV4BundleSink::TcpclV4BundleSink(
     m_running = true;
     m_threadCbReaderPtr = boost::make_unique<boost::thread>(
         boost::bind(&TcpclV4BundleSink::PopCbThreadFunc, this)); //create and start the worker thread
-    const std::string threadName = "TcpclV4BundleSinkCbReader";
-    ThreadNamer::SetThreadName(*m_threadCbReaderPtr, threadName);
 
     TryStartTcpReceiveUnsecure();
 }
@@ -239,6 +237,7 @@ void TcpclV4BundleSink::HandleTcpReceiveSomeUnsecure(const boost::system::error_
 }
 
 void TcpclV4BundleSink::PopCbThreadFunc() {
+    ThreadNamer::SetThisThreadName("TcpclV4BundleSinkCbReader");
 
     boost::function<void()> tryStartTcpReceiveFunction = boost::bind(&TcpclV4BundleSink::TryStartTcpReceiveUnsecure, this);
 

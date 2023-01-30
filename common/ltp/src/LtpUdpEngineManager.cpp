@@ -105,7 +105,7 @@ bool LtpUdpEngineManager::StartIfNotAlreadyRunning() {
 
         m_ioServiceUdpThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioServiceUdp));
         const std::string threadName = "ioServiceLtpUdpSocket port=" + boost::lexical_cast<std::string>(M_MY_BOUND_UDP_PORT);
-        ThreadNamer::SetThreadName(*m_ioServiceUdpThreadPtr, threadName);
+        ThreadNamer::SetIoServiceThreadName(m_ioServiceUdp, threadName);
         m_readyToForward = true;
     }
     return true;

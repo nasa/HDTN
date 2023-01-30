@@ -196,8 +196,6 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
 
         m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
             boost::bind(&Router::Impl::ReadZmqThreadFunc, this)); //create and start the worker thread
-        const std::string threadName = "routerZmqReader";
-        ThreadNamer::SetThreadName(*m_threadZmqAckReaderPtr, threadName);
 
         while (m_workerThreadStartupInProgress) { //lock mutex (above) before checking condition
             //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
@@ -317,6 +315,8 @@ void Router::Impl::SchedulerEventsHandler() {
 }
 
 void Router::Impl::ReadZmqThreadFunc() {
+
+    ThreadNamer::SetThisThreadName("routerZmqReader");
 
     static constexpr unsigned int NUM_SOCKETS = 1;
     zmq::pollitem_t items[NUM_SOCKETS] = {

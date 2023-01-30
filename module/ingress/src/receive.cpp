@@ -451,8 +451,6 @@ bool Ingress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOne
 
         m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
             boost::bind(&Ingress::Impl::ReadZmqAcksThreadFunc, this)); //create and start the worker thread
-        const std::string threadName = "ingressZmqAckReader";
-        ThreadNamer::SetThreadName(*m_threadZmqAckReaderPtr, threadName);
 
         while (m_workerThreadStartupInProgress) { //lock mutex (above) before checking condition
             //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
@@ -496,6 +494,8 @@ static void CustomCleanupToStorageHdr(void *data, void *hint) {
 }
 
 void Ingress::Impl::ReadZmqAcksThreadFunc() {
+
+    ThreadNamer::SetThisThreadName("ingressZmqAckReader");
 
     static constexpr unsigned int NUM_SOCKETS = 4;
 
@@ -631,8 +631,6 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
 
                                     m_threadTcpclOpportunisticBundlesFromEgressReaderPtr = boost::make_unique<boost::thread>(
                                         boost::bind(&Ingress::Impl::ReadTcpclOpportunisticBundlesFromEgressThreadFunc, this)); //create and start the worker thread
-                                    const std::string threadName = "ingressTcpclOpportunisticReader";
-                                    ThreadNamer::SetThreadName(*m_threadTcpclOpportunisticBundlesFromEgressReaderPtr, threadName);
 
                                     m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::Impl::WholeBundleReadyCallback, this, boost::placeholders::_1), m_hdtnConfig.m_inductsConfig,
                                         m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes, m_hdtnConfig.m_maxBundleSizeBytes,
@@ -727,6 +725,7 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
 }
 
 void Ingress::Impl::ReadTcpclOpportunisticBundlesFromEgressThreadFunc() {
+    ThreadNamer::SetThisThreadName("ingressTcpclOpportunisticReader");
     static constexpr unsigned int NUM_SOCKETS = 1;
     zmq::pollitem_t items[NUM_SOCKETS] = {
         {m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0}

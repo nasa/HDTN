@@ -118,13 +118,12 @@ bool TelemetryRunner::Impl::Init(zmq::context_t *inprocContextPtr, TelemetryRunn
     m_running = true;
     m_threadPtr = boost::make_unique<boost::thread>(
         boost::bind(&TelemetryRunner::Impl::ThreadFunc, this, inprocContextPtr)); // create and start the worker thread
-    const std::string threadName = "TelemetryRunner";
-    ThreadNamer::SetThreadName(*m_threadPtr, threadName);
     return true;
 }
 
 void TelemetryRunner::Impl::ThreadFunc(zmq::context_t *inprocContextPtr)
 {
+    ThreadNamer::SetThisThreadName("TelemetryRunner");
     // Create and initialize connections
     std::unique_ptr<TelemetryConnection> ingressConnection;
     std::unique_ptr<TelemetryConnection> egressConnection;

@@ -47,8 +47,6 @@ StcpBundleSink::StcpBundleSink(std::shared_ptr<boost::asio::ip::tcp::socket> tcp
     m_running = true;
     m_threadCbReaderPtr = boost::make_unique<boost::thread>(
         boost::bind(&StcpBundleSink::PopCbThreadFunc, this)); //create and start the worker thread
-    const std::string threadName = "StcpBundleSinkCbReader";
-    ThreadNamer::SetThreadName(*m_threadCbReaderPtr, threadName);
    
     TryStartTcpReceive();
 }
@@ -166,7 +164,7 @@ void StcpBundleSink::HandleTcpReceiveBundleData(const boost::system::error_code 
 
 
 void StcpBundleSink::PopCbThreadFunc() {
-
+    ThreadNamer::SetThisThreadName("StcpBundleSinkCbReader");
 
     while (true) { //keep thread alive if running or cb not empty, i.e. "while (m_running || (m_circularIndexBuffer.GetIndexForRead() != CIRCULAR_INDEX_BUFFER_EMPTY))"
         unsigned int consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile

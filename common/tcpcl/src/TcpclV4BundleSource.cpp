@@ -62,8 +62,7 @@ TcpclV4BundleSource::TcpclV4BundleSource(
     m_tcpReadSomeBufferVec(10000) //todo 10KB rx buffer
 {
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_base_ioServiceRef));
-    const std::string threadName = "ioServiceTcpclV4BundleSource";
-    ThreadNamer::SetThreadName(*m_ioServiceThreadPtr, threadName);
+    ThreadNamer::SetIoServiceThreadName(m_base_ioServiceRef, "ioServiceTcpclV4BundleSource");
 }
 
 TcpclV4BundleSource::~TcpclV4BundleSource() {

@@ -148,14 +148,11 @@ bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_pt
     m_timerTransferRateStats.expires_from_now(boost::posix_time::seconds(5));
     m_timerTransferRateStats.async_wait(boost::bind(&BpSinkPattern::TransferRate_TimerExpired, this, boost::asio::placeholders::error));
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
-    const std::string threadNameBpsinkPattern = "ioServiceBpSinkPattern";
-    ThreadNamer::SetThreadName(*m_ioServiceThreadPtr, threadNameBpsinkPattern);
+    ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceBpSinkPattern");
 
     m_runningSenderThread = true;
     m_threadSenderReaderPtr = boost::make_unique<boost::thread>(
         boost::bind(&BpSinkPattern::SenderReaderThreadFunc, this)); //create and start the worker thread
-    const std::string threadNameSenderReader = "BpSinkPatternSenderReader";
-    ThreadNamer::SetThreadName(*m_threadSenderReaderPtr, threadNameSenderReader);
     
     return true;
 }
@@ -500,6 +497,8 @@ bool BpSinkPattern::Forward_ThreadSafe(const cbhe_eid_t & destEid, std::vector<u
 }
 
 void BpSinkPattern::SenderReaderThreadFunc() {
+
+    ThreadNamer::SetThisThreadName("BpSinkPatternSenderReader");
 
     uint64_t m_nextBundleId = 0;
     cbhe_eid_t destEid;

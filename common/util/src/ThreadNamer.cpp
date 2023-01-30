@@ -100,6 +100,9 @@ static void ImplSetThreadName(std::thread& thread, const std::string& threadName
 }
 #endif
 
+void ThreadNamer::SetIoServiceThreadName(boost::asio::io_service& ioService, const std::string& threadName) {
+    boost::asio::post(ioService, boost::bind(&ThreadNamer::SetThisThreadName, threadName));
+}
 void ThreadNamer::SetThreadName(boost::thread& thread, const std::string& threadName) {
     ImplSetThreadName(thread, threadName);
 }

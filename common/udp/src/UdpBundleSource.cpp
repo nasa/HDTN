@@ -59,8 +59,7 @@ m_totalPacketsLimitedByRate(0)
     //}
 
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
-    const std::string threadName = "ioServiceUdpBundleSource";
-    ThreadNamer::SetThreadName(*m_ioServiceThreadPtr, threadName);
+    ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceUdpBundleSource");
 }
 
 UdpBundleSource::~UdpBundleSource() {

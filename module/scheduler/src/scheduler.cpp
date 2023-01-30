@@ -227,8 +227,7 @@ bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
     m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioService);
     m_contactPlanTimerIsRunning = false;
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
-    const std::string threadNameIoService = "ioServiceScheduler";
-    ThreadNamer::SetThreadName(*m_ioServiceThreadPtr, threadNameIoService);
+    ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceScheduler");
  
     //socket for receiving events from Egress
     m_zmqCtxPtr = boost::make_unique<zmq::context_t>();
@@ -302,8 +301,6 @@ bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
 
         m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
             boost::bind(&Scheduler::Impl::ReadZmqAcksThreadFunc, this)); //create and start the worker thread
-        const std::string threadNameZmqReader = "schedulerZmqReader";
-        ThreadNamer::SetThreadName(*m_threadZmqAckReaderPtr, threadNameZmqReader);
 
         while (m_workerThreadStartupInProgress) { //lock mutex (above) before checking condition
             //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
@@ -447,6 +444,7 @@ void Scheduler::Impl::UisEventsHandler() {
 }
 
 void Scheduler::Impl::ReadZmqAcksThreadFunc() {
+    ThreadNamer::SetThisThreadName("schedulerZmqReader");
 
     static constexpr unsigned int NUM_SOCKETS = 3;
 

@@ -69,14 +69,13 @@ void BundleStorageManagerMT::Start() {
         for (unsigned int diskId = 0; diskId < M_NUM_STORAGE_DISKS; ++diskId) {
             m_threadPtrsVec[diskId] = boost::make_unique<boost::thread>(
                 boost::bind(&BundleStorageManagerMT::ThreadFunc, this, diskId)); //create and start the worker thread
-            const std::string threadName = "StorageMT diskId=" + boost::lexical_cast<std::string>(diskId);
-            ThreadNamer::SetThreadName(*(m_threadPtrsVec[diskId]), threadName);
         }
     }
 }
 
 void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
-
+    const std::string threadName = "StorageMTdisk" + boost::lexical_cast<std::string>(threadIndex);
+    ThreadNamer::SetThisThreadName(threadName);
     
     //boost::mutex::scoped_lock lock(localMutex);
     std::pair<boost::condition_variable, boost::mutex>& cvMutexPairRef = m_conditionVariablesPlusMutexesVec[threadIndex];

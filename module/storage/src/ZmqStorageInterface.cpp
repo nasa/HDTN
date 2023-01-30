@@ -354,8 +354,6 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context
         
         m_threadPtr = boost::make_unique<boost::thread>(
             boost::bind(&ZmqStorageInterface::Impl::ThreadFunc, this)); //create and start the worker thread
-        const std::string threadName = "ZmqStorageInterface";
-        ThreadNamer::SetThreadName(*m_threadPtr, threadName);
 
         while (m_workerThreadStartupInProgress) { //lock mutex (above) before checking condition
             //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
@@ -779,7 +777,7 @@ void ZmqStorageInterface::Impl::SetLinkDown(OutductInfo_t & info) {
 }
 
 void ZmqStorageInterface::Impl::ThreadFunc() {
-    
+    ThreadNamer::SetThisThreadName("ZmqStorageInterface");
     
     m_custodySignalRfc5050RenderedBundleView.m_frontBuffer.reserve(2000);
     m_custodySignalRfc5050RenderedBundleView.m_backBuffer.reserve(2000);

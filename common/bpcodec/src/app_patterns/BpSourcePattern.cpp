@@ -164,14 +164,15 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
     
     m_bpSourcePatternThreadPtr = boost::make_unique<boost::thread>(
         boost::bind(&BpSourcePattern::BpSourcePatternThreadFunc, this, bundleRate)); //create and start the worker thread
-    const std::string threadName = "BpSourcePattern";
-    ThreadNamer::SetThreadName(*m_bpSourcePatternThreadPtr, threadName);
+    
 
 
 }
 
 
 void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
+
+    ThreadNamer::SetThisThreadName("BpSourcePattern");
 
     while (m_running) {
         if (m_useInductForSendingBundles) {

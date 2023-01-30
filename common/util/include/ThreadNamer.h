@@ -22,6 +22,7 @@
 #define _THREAD_NAMER_H 1
 
 #include <boost/thread.hpp>
+#include <boost/asio.hpp>
 #include <thread>
 #include <string>
 #include "hdtn_util_export.h"
@@ -31,7 +32,7 @@ public:
     
     ThreadNamer() = delete;
     
-    /** Set the thread name for boost::thread.
+    /** Set the thread name for boost::thread (PROPERLY WORKS ON WINDOWS ONLY).
      *
      * @param thread The already created boost::thread to set the name of.
      * @param threadName The name to assign to the thread.
@@ -40,7 +41,7 @@ public:
      */
     HDTN_UTIL_EXPORT static void SetThreadName(boost::thread& thread, const std::string& threadName);
 
-    /** Set the thread name for std::thread.
+    /** Set the thread name for std::thread (PROPERLY WORKS ON WINDOWS ONLY).
      *
      * @param thread The already created std::thread to set the name of.
      * @param threadName The name to assign to the thread.
@@ -56,7 +57,15 @@ public:
      * @post The name of the current/calling thread is set to threadName.
      */
     HDTN_UTIL_EXPORT static void SetThisThreadName(const std::string& threadName);
-    
+
+    /** Set the thread name for the running io_service thread.
+     *
+     * @param ioService The io_service which post a SetThisThreadName function to.
+     * @param threadName The name to assign to the thread that is running the io_service.
+     *
+     * @post The name of the thread that is running the io_service is set.
+     */
+    HDTN_UTIL_EXPORT static void SetIoServiceThreadName(boost::asio::io_service& ioService, const std::string& threadName);
     
     
 };

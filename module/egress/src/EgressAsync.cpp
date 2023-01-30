@@ -278,8 +278,6 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneP
 
         m_threadZmqReaderPtr = boost::make_unique<boost::thread>(
             boost::bind(&Egress::Impl::ReadZmqThreadFunc, this)); //create and start the worker thread
-        const std::string threadName = "egressZmqReader";
-        ThreadNamer::SetThreadName(*m_threadZmqReaderPtr, threadName);
 
         while (m_workerThreadStartupInProgress) { //lock mutex (above) before checking condition
             //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
@@ -343,6 +341,7 @@ void Egress::Impl::RouterEventHandler() {
 }
 
 void Egress::Impl::ReadZmqThreadFunc() {
+    ThreadNamer::SetThisThreadName("egressZmqReader");
 
 #if 0 //not needed because scheduler will alert when link available
     while (m_running) {

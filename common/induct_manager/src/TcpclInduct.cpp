@@ -35,8 +35,7 @@ TcpclInduct::TcpclInduct(const InductProcessBundleCallback_t & inductProcessBund
     m_onDeletedOpportunisticLinkCallback = onDeletedOpportunisticLinkCallback;
     StartTcpAccept();
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
-    const std::string threadName = "ioServiceTcpclInduct";
-    ThreadNamer::SetThreadName(*m_ioServiceThreadPtr, threadName);
+    ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceTcpclInduct");
 }
 TcpclInduct::~TcpclInduct() {
     if (m_tcpAcceptor.is_open()) {

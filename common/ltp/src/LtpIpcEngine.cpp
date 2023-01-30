@@ -181,8 +181,6 @@ bool LtpIpcEngine::Connect(const std::string& remoteTxSharedMemoryName) {
     m_running = true;
     m_readRemoteTxShmThreadPtr = boost::make_unique<boost::thread>(
         boost::bind(&LtpIpcEngine::ReadRemoteTxShmThreadFunc, this)); //create and start the worker thread
-    const std::string threadName = "LtpIpcEngReadShm";
-    ThreadNamer::SetThreadName(*m_readRemoteTxShmThreadPtr, threadName);
     return true;
 }
 
@@ -211,6 +209,7 @@ void LtpIpcEngine::Reset() {
 }
 
 void LtpIpcEngine::ReadRemoteTxShmThreadFunc() {
+    ThreadNamer::SetThisThreadName("LtpIpcEngReadShm");
     while (m_running) { //try to connect
         try {
             //Create a shared memory object.

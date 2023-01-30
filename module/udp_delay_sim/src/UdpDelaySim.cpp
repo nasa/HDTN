@@ -97,8 +97,7 @@ bool UdpDelaySim::StartIfNotAlreadyRunning() {
                 this, boost::asio::placeholders::error,
                 boost::asio::placeholders::results));
             m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService)); //resolve serves as initial work
-            const std::string threadName = "ioServiceUdpDelaySim";
-            ThreadNamer::SetThreadName(*m_ioServiceThreadPtr, threadName);
+            ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceUdpDelaySim");
         }
     }
     return true;

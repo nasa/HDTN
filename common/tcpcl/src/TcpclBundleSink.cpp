@@ -80,8 +80,6 @@ TcpclBundleSink::TcpclBundleSink(
     m_running = true;
     m_threadCbReaderPtr = boost::make_unique<boost::thread>(
         boost::bind(&TcpclBundleSink::PopCbThreadFunc, this)); //create and start the worker thread
-    const std::string threadName = "TcpclBundleSinkCbReader";
-    ThreadNamer::SetThreadName(*m_threadCbReaderPtr, threadName);
 
     TryStartTcpReceive();
 }
@@ -160,6 +158,7 @@ void TcpclBundleSink::HandleTcpReceiveSome(const boost::system::error_code & err
 }
 
 void TcpclBundleSink::PopCbThreadFunc() {
+    ThreadNamer::SetThisThreadName("TcpclBundleSinkCbReader");
     while (true) { //keep thread alive if running or cb not empty, i.e. "while (m_running || (m_circularIndexBuffer.GetIndexForRead() != CIRCULAR_INDEX_BUFFER_EMPTY))"
         unsigned int consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
         boost::asio::post(m_tcpSocketIoServiceRef, boost::bind(&TcpclBundleSink::TryStartTcpReceive, this)); //keep this a thread safe operation by letting ioService thread run it

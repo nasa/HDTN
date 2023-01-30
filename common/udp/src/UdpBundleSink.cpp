@@ -51,8 +51,6 @@ UdpBundleSink::UdpBundleSink(boost::asio::io_service & ioService,
     m_running = true;
     m_threadCbReaderPtr = boost::make_unique<boost::thread>(
         boost::bind(&UdpBundleSink::PopCbThreadFunc, this)); //create and start the worker thread
-    const std::string threadName = "udpBundleSinkCbReader";
-    ThreadNamer::SetThreadName(*m_threadCbReaderPtr, threadName);
 
     //Receiver UDP
     try {
@@ -136,6 +134,7 @@ void UdpBundleSink::HandleUdpReceive(const boost::system::error_code & error, st
 
 
 void UdpBundleSink::PopCbThreadFunc() {
+    ThreadNamer::SetThisThreadName("udpBundleSinkCbReader");
 
     while (true) { //keep thread alive if running or cb not empty, i.e. "while (m_running || (m_circularIndexBuffer.GetIndexForRead() != CIRCULAR_INDEX_BUFFER_EMPTY))"
         unsigned int consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile

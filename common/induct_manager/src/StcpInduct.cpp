@@ -28,8 +28,7 @@ StcpInduct::StcpInduct(const InductProcessBundleCallback_t & inductProcessBundle
 {
     StartTcpAccept();
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
-    const std::string threadName = "ioServiceStcpInduct";
-    ThreadNamer::SetThreadName(*m_ioServiceThreadPtr, threadName);
+    ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceStcpInduct");
 }
 StcpInduct::~StcpInduct() {
     if (m_tcpAcceptor.is_open()) {

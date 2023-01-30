@@ -48,8 +48,7 @@ m_outductOpportunisticProcessReceivedBundleCallback(outductOpportunisticProcessR
 m_tcpReadSomeBufferVec(10000) //todo 10KB rx buffer
 {
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_base_ioServiceRef));
-    const std::string threadName = "ioServiceTcpclBundleSource";
-    ThreadNamer::SetThreadName(*m_ioServiceThreadPtr, threadName);
+    ThreadNamer::SetIoServiceThreadName(m_base_ioServiceRef, "ioServiceTcpclBundleSource");
 }
 
 TcpclBundleSource::~TcpclBundleSource() {

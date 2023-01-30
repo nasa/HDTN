@@ -29,8 +29,7 @@ UdpInduct::UdpInduct(const InductProcessBundleCallback_t & inductProcessBundleCa
     
 
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
-    const std::string threadName = "ioServiceUdpInduct";
-    ThreadNamer::SetThreadName(*m_ioServiceThreadPtr, threadName);
+    ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceUdpInduct");
 }
 UdpInduct::~UdpInduct() {
     
