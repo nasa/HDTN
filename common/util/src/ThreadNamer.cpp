@@ -68,11 +68,13 @@ static void ImplSetThreadNameBySetDescription(HANDLE nativeThreadHandle, const s
         // Call failed.
     }
 }
+
 static void ImplSetCurrentThreadName(const std::string& threadName) {
     ImplSetThreadNameByRaiseException(GetCurrentThreadId(), threadName);
     ImplSetThreadNameBySetDescription(GetCurrentThread(), threadName);
 }
 
+# ifdef THREAD_NAMER_ENABLE_DEPRECATED_FUNCTIONS
 static void ImplSetThreadName(boost::thread& thread, const std::string& threadName) {
     DWORD threadId = ::GetThreadId(thread.native_handle());
     ImplSetThreadNameByRaiseException(threadId, threadName.c_str());
@@ -84,13 +86,14 @@ static void ImplSetThreadName(std::thread& thread, const std::string& threadName
     ImplSetThreadNameByRaiseException(threadId, threadName.c_str());
     ImplSetThreadNameBySetDescription(thread.native_handle(), threadName);
 }
+# endif //THREAD_NAMER_ENABLE_DEPRECATED_FUNCTIONS
 
 #else
 #include <sys/prctl.h>
 static void ImplSetCurrentThreadName(const std::string& threadName) {
     prctl(PR_SET_NAME, threadName.c_str(), 0, 0, 0);
 }
-
+# ifdef THREAD_NAMER_ENABLE_DEPRECATED_FUNCTIONS
 static void ImplSetThreadName(boost::thread& thread, const std::string& threadName) {
     pthread_setname_np(thread.native_handle(), threadName.c_str());
 }
@@ -98,17 +101,21 @@ static void ImplSetThreadName(boost::thread& thread, const std::string& threadNa
 static void ImplSetThreadName(std::thread& thread, const std::string& threadName) {
     pthread_setname_np(thread.native_handle(), threadName.c_str());
 }
+# endif //THREAD_NAMER_ENABLE_DEPRECATED_FUNCTIONS
 #endif
 
 void ThreadNamer::SetIoServiceThreadName(boost::asio::io_service& ioService, const std::string& threadName) {
     boost::asio::post(ioService, boost::bind(&ThreadNamer::SetThisThreadName, threadName));
 }
+void ThreadNamer::SetThisThreadName(const std::string& threadName) {
+    ImplSetCurrentThreadName(threadName);
+}
+
+#ifdef THREAD_NAMER_ENABLE_DEPRECATED_FUNCTIONS
 void ThreadNamer::SetThreadName(boost::thread& thread, const std::string& threadName) {
     ImplSetThreadName(thread, threadName);
 }
 void ThreadNamer::SetThreadName(std::thread& thread, const std::string& threadName) {
     ImplSetThreadName(thread, threadName);
 }
-void ThreadNamer::SetThisThreadName(const std::string& threadName) {
-    ImplSetCurrentThreadName(threadName);
-}
+#endif

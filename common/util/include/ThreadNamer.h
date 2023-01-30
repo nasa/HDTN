@@ -27,11 +27,14 @@
 #include <string>
 #include "hdtn_util_export.h"
 
+//#define THREAD_NAMER_ENABLE_DEPRECATED_FUNCTIONS 1
+
 class ThreadNamer {
 public:
     
     ThreadNamer() = delete;
     
+#ifdef THREAD_NAMER_ENABLE_DEPRECATED_FUNCTIONS
     /** Set the thread name for boost::thread (PROPERLY WORKS ON WINDOWS ONLY).
      *
      * @param thread The already created boost::thread to set the name of.
@@ -49,6 +52,7 @@ public:
      * @post The name of parameter thread is set.
      */
     HDTN_UTIL_EXPORT static void SetThreadName(std::thread& thread, const std::string& threadName);
+#endif
 
     /** Set the thread name for the current/calling thread.
      *
