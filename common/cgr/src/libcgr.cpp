@@ -19,7 +19,7 @@ void Contact::clear_dijkstra_working_area() {
     visited_nodes.clear();
 }
 
-bool Contact::operator==(const Contact contact) const {
+bool Contact::operator==(const Contact& contact) const {
     // alternatively, just check that id == contact.id ?
     return (frm == contact.frm &&
         to == contact.to &&
@@ -30,7 +30,7 @@ bool Contact::operator==(const Contact contact) const {
         confidence == contact.confidence);
 }
 
-bool Contact::operator!=(const Contact contact) const {
+bool Contact::operator!=(const Contact& contact) const {
     return !(*this == contact);
 }
 
@@ -39,9 +39,9 @@ Contact::Contact(nodeId_t frm, nodeId_t to, time_t start, time_t end, uint64_t r
 {
     // fixed parameters
     volume = rate * (end - start);
+    id = UINT64_MAX;
 
     // variable parameters
-//    mav = std::vector<uint64_t>({volume, volume, volume});
     mav = std::vector<uint64_t>({ volume, volume, volume });
 
     // route search working area
@@ -55,10 +55,10 @@ Contact::Contact(nodeId_t frm, nodeId_t to, time_t start, time_t end, uint64_t r
     suppressed_next_hop = std::vector<Contact>();
 
     // forwarding working area
-    // first_byte_tx_time = NULL;
-    // last_byte_tx_time = NULL;
-    // last_byte_arr_time = NULL;
-    // effective_volume_limit = NULL;
+    first_byte_tx_time = 0;
+    last_byte_tx_time = 0;
+    last_byte_arr_time = 0;
+    effective_volume_limit = 0;
 }
 
 Contact::~Contact() {}
@@ -462,7 +462,7 @@ Route dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Contact>
  * Helper functions
  */
 template <typename T>
-bool vector_contains(std::vector<T> vec, T ele) {
+bool vector_contains(std::vector<T> vec, T& ele) {
     typename std::vector<T>::iterator it = std::find(vec.begin(), vec.end(), ele);
     return it != std::end(vec);
 }
