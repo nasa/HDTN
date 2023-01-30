@@ -67,7 +67,16 @@ Contact::Contact()
 
 Contact::~Contact() {}
 
-Route::Route() : parent(NULL)
+Route::Route() :
+    parent(NULL),
+    to_node(NULL),
+    next_node(NULL),
+    from_time(0),
+    to_time(MAX_TIME_T),
+    best_delivery_time(0),
+    volume(std::numeric_limits<uint64_t>::max()),
+    confidence(1),
+    __visited(std::map<nodeId_t, bool>())
 {
 }
 
