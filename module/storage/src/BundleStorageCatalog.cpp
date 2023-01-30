@@ -269,29 +269,29 @@ std::pair<bool, uint16_t> BundleStorageCatalog::Remove(const uint64_t custodyId,
         }
     }
     if (entry.HasCustodyAndFragmentation()) {
-        uint64_t cidInMap;
+        uint64_t cidInMap = UINT64_MAX;
         const cbhe_bundle_uuid_t* uuidPtr = (const cbhe_bundle_uuid_t*)entry.ptrUuidKeyInMap;
         if ((uuidPtr == NULL) || (!m_uuidToCustodyIdHashMap.GetValueAndRemove(*uuidPtr, cidInMap))) {
             error = true;
         }
         else {
             ++numRemovals;
-            if (cidInMap != custodyId) {
-                error = true;
-            }
+        }
+        if (cidInMap != custodyId) {
+            error = true;
         }
     }
     if (entry.HasCustodyAndNonFragmentation()) {
-        uint64_t cidInMap;
+        uint64_t cidInMap = UINT64_MAX;
         const cbhe_bundle_uuid_nofragment_t* uuidPtr = (const cbhe_bundle_uuid_nofragment_t*)entry.ptrUuidKeyInMap;
         if ((uuidPtr == NULL) || (!m_uuidNoFragToCustodyIdHashMap.GetValueAndRemove(*uuidPtr, cidInMap))) {
             error = true;
         }
         else {
             ++numRemovals;
-            if (cidInMap != custodyId) {
-                error = true;
-            }
+        }
+        if (cidInMap != custodyId) {
+            error = true;
         }
     }
     
