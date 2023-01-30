@@ -276,9 +276,9 @@ std::pair<bool, uint16_t> BundleStorageCatalog::Remove(const uint64_t custodyId,
         }
         else {
             ++numRemovals;
-        }
-        if (cidInMap != custodyId) {
-            error = true;
+            if (cidInMap != custodyId) {
+                error = true;
+            }
         }
     }
     if (entry.HasCustodyAndNonFragmentation()) {
@@ -289,9 +289,9 @@ std::pair<bool, uint16_t> BundleStorageCatalog::Remove(const uint64_t custodyId,
         }
         else {
             ++numRemovals;
-        }
-        if (cidInMap != custodyId) {
-            error = true;
+            if (cidInMap != custodyId) {
+                error = true;
+            }
         }
     }
     
