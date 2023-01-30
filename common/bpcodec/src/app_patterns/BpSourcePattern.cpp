@@ -27,6 +27,7 @@
 #include "TcpclInduct.h"
 #include "TcpclV4Induct.h"
 #include "codec/BundleViewV7.h"
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -163,7 +164,8 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
     
     m_bpSourcePatternThreadPtr = boost::make_unique<boost::thread>(
         boost::bind(&BpSourcePattern::BpSourcePatternThreadFunc, this, bundleRate)); //create and start the worker thread
-
+    const std::string threadName = "BpSourcePattern";
+    ThreadNamer::SetThreadName(*m_bpSourcePatternThreadPtr, threadName);
 
 
 }

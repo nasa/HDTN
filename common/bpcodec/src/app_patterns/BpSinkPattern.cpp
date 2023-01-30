@@ -24,7 +24,7 @@
 #include "codec/BundleViewV7.h"
 #include "Logger.h"
 #include "StatsLogger.h"
-
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -148,10 +148,14 @@ bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_pt
     m_timerTransferRateStats.expires_from_now(boost::posix_time::seconds(5));
     m_timerTransferRateStats.async_wait(boost::bind(&BpSinkPattern::TransferRate_TimerExpired, this, boost::asio::placeholders::error));
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    const std::string threadNameBpsinkPattern = "ioServiceBpSinkPattern";
+    ThreadNamer::SetThreadName(*m_ioServiceThreadPtr, threadNameBpsinkPattern);
 
     m_runningSenderThread = true;
     m_threadSenderReaderPtr = boost::make_unique<boost::thread>(
         boost::bind(&BpSinkPattern::SenderReaderThreadFunc, this)); //create and start the worker thread
+    const std::string threadNameSenderReader = "BpSinkPatternSenderReader";
+    ThreadNamer::SetThreadName(*m_threadSenderReaderPtr, threadNameSenderReader);
     
     return true;
 }

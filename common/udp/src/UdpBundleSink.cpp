@@ -18,6 +18,7 @@
 #include "Logger.h"
 #include <boost/endian/conversion.hpp>
 #include <boost/make_unique.hpp>
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -50,6 +51,8 @@ UdpBundleSink::UdpBundleSink(boost::asio::io_service & ioService,
     m_running = true;
     m_threadCbReaderPtr = boost::make_unique<boost::thread>(
         boost::bind(&UdpBundleSink::PopCbThreadFunc, this)); //create and start the worker thread
+    const std::string threadName = "udpBundleSinkCbReader";
+    ThreadNamer::SetThreadName(*m_threadCbReaderPtr, threadName);
 
     //Receiver UDP
     try {

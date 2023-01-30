@@ -21,9 +21,11 @@
 
 #include "SchedulerRunner.h"
 #include "Logger.h"
+#include "ThreadNamer.h"
 
 int main(int argc, char *argv[]) {
     hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::scheduler);
+    ThreadNamer::SetThisThreadName("SchedulerMain");
     SchedulerRunner runner;
     volatile bool running;
     runner.Run(argc, argv, running, true);

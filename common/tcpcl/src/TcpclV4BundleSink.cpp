@@ -18,6 +18,7 @@
 #include "Logger.h"
 #include <boost/make_unique.hpp>
 #include "Uri.h"
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -95,6 +96,8 @@ TcpclV4BundleSink::TcpclV4BundleSink(
     m_running = true;
     m_threadCbReaderPtr = boost::make_unique<boost::thread>(
         boost::bind(&TcpclV4BundleSink::PopCbThreadFunc, this)); //create and start the worker thread
+    const std::string threadName = "TcpclV4BundleSinkCbReader";
+    ThreadNamer::SetThreadName(*m_threadCbReaderPtr, threadName);
 
     TryStartTcpReceiveUnsecure();
 }

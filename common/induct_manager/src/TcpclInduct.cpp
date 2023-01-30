@@ -16,6 +16,7 @@
 #include "Logger.h"
 #include <boost/make_unique.hpp>
 #include <boost/lexical_cast.hpp>
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -34,6 +35,8 @@ TcpclInduct::TcpclInduct(const InductProcessBundleCallback_t & inductProcessBund
     m_onDeletedOpportunisticLinkCallback = onDeletedOpportunisticLinkCallback;
     StartTcpAccept();
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    const std::string threadName = "ioServiceTcpclInduct";
+    ThreadNamer::SetThreadName(*m_ioServiceThreadPtr, threadName);
 }
 TcpclInduct::~TcpclInduct() {
     if (m_tcpAcceptor.is_open()) {

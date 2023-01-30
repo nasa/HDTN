@@ -18,6 +18,7 @@ add_library(hdtn_util
 	src/DirectoryScanner.cpp
 	src/MemoryInFiles.cpp
 	src/DeadlineTimer.cpp
+	src/ThreadNamer.cpp
 )
 target_compile_options(hdtn_util PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 GENERATE_EXPORT_HEADER(hdtn_util)
@@ -72,6 +73,7 @@ set(MY_PUBLIC_HEADERS
 	include/TokenRateLimiter.h
 	include/TcpAsyncSender.h
 	include/TimestampUtil.h
+	include/ThreadNamer.h
 	include/UdpBatchSender.h
 	include/Uri.h
 	include/zmq.hpp

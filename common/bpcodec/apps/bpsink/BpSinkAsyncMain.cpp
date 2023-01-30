@@ -15,12 +15,13 @@
 #include <iostream>
 #include "BpSinkAsyncRunner.h"
 #include "Logger.h"
-
+#include "ThreadNamer.h"
 
 int main(int argc, const char* argv[]) {
 
 
     hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::bpsink);
+    ThreadNamer::SetThisThreadName("BpSinkMain");
     BpSinkAsyncRunner runner;
     volatile bool running;
     runner.Run(argc, argv, running, true);

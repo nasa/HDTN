@@ -19,6 +19,7 @@
 #include <boost/make_unique.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/endian/conversion.hpp>
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -43,6 +44,8 @@ BpSendFile::BpSendFile(const boost::filesystem::path & fileOrFolderPath, uint64_
 
     if (uploadNewFiles) {
         m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+        const std::string threadName = "ioServiceBpSendFile";
+        ThreadNamer::SetThreadName(*m_ioServiceThreadPtr, threadName);
     }
     
     if ((m_directoryScannerPtr->GetNumberOfFilesToSend() == 0) && (!uploadNewFiles)) {

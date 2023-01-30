@@ -17,6 +17,7 @@
 #include <inttypes.h>
 #include <boost/bind/bind.hpp>
 #include <boost/make_unique.hpp>
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -221,6 +222,8 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     //sizeof(LtpSessionReceiver); //248 => 216 using one ForwardListQueue instead of one std::queue and removing m_dataReceivedRedSize
     if (startIoServiceThread) {
         m_ioServiceLtpEngineThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioServiceLtpEngine));
+        const std::string threadName = "ioServiceLtpEngine engId=" + boost::lexical_cast<std::string>(M_THIS_ENGINE_ID);
+        ThreadNamer::SetThreadName(*m_ioServiceLtpEngineThreadPtr, threadName);
     }
 }
 

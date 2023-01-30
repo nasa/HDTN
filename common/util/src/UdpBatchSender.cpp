@@ -19,6 +19,7 @@
 #include <memory>
 #include <boost/make_unique.hpp>
 #include <boost/endian/conversion.hpp>
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -123,6 +124,8 @@ bool UdpBatchSender::Init(const boost::asio::ip::udp::endpoint& udpDestinationEn
     
     m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioService);
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    const std::string threadName = "ioServiceUdpBatchSender";
+    ThreadNamer::SetThreadName(*m_ioServiceThreadPtr, threadName);
 
     return true;
 }

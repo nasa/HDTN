@@ -35,6 +35,7 @@
 #include "Uri.h"
 #include "CustodyTimers.h"
 #include "codec/BundleViewV7.h"
+#include "ThreadNamer.h"
 
 typedef std::pair<cbhe_eid_t, bool> eid_plus_isanyserviceid_pair_t;
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
@@ -353,6 +354,8 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context
         
         m_threadPtr = boost::make_unique<boost::thread>(
             boost::bind(&ZmqStorageInterface::Impl::ThreadFunc, this)); //create and start the worker thread
+        const std::string threadName = "ZmqStorageInterface";
+        ThreadNamer::SetThreadName(*m_threadPtr, threadName);
 
         while (m_workerThreadStartupInProgress) { //lock mutex (above) before checking condition
             //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.

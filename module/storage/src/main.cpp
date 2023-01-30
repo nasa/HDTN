@@ -21,12 +21,13 @@
 
 #include "StorageRunner.h"
 #include "Logger.h"
-
+#include "ThreadNamer.h"
 
 int main(int argc, const char* argv[]) {
 
 
     hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::storage);
+    ThreadNamer::SetThisThreadName("StorageMain");
     StorageRunner runner;
     volatile bool running;
     runner.Run(argc, argv, running, true);

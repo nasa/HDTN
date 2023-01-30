@@ -17,6 +17,7 @@
 #include <boost/filesystem.hpp>
 #include <memory>
 #include <boost/make_unique.hpp>
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
 
@@ -68,6 +69,8 @@ void BundleStorageManagerMT::Start() {
         for (unsigned int diskId = 0; diskId < M_NUM_STORAGE_DISKS; ++diskId) {
             m_threadPtrsVec[diskId] = boost::make_unique<boost::thread>(
                 boost::bind(&BundleStorageManagerMT::ThreadFunc, this, diskId)); //create and start the worker thread
+            const std::string threadName = "StorageMT diskId=" + boost::lexical_cast<std::string>(diskId);
+            ThreadNamer::SetThreadName(*(m_threadPtrsVec[diskId]), threadName);
         }
     }
 }

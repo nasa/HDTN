@@ -28,6 +28,7 @@
 #include "Logger.h"
 #include "Uri.h"
 #include "TimestampUtil.h"
+#include "ThreadNamer.h"
 
 namespace hdtn {
 
@@ -277,6 +278,8 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneP
 
         m_threadZmqReaderPtr = boost::make_unique<boost::thread>(
             boost::bind(&Egress::Impl::ReadZmqThreadFunc, this)); //create and start the worker thread
+        const std::string threadName = "egressZmqReader";
+        ThreadNamer::SetThreadName(*m_threadZmqReaderPtr, threadName);
 
         while (m_workerThreadStartupInProgress) { //lock mutex (above) before checking condition
             //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.

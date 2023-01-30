@@ -18,6 +18,7 @@
 #include "StcpBundleSink.h"
 #include <boost/endian/conversion.hpp>
 #include <boost/make_unique.hpp>
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -46,6 +47,8 @@ StcpBundleSink::StcpBundleSink(std::shared_ptr<boost::asio::ip::tcp::socket> tcp
     m_running = true;
     m_threadCbReaderPtr = boost::make_unique<boost::thread>(
         boost::bind(&StcpBundleSink::PopCbThreadFunc, this)); //create and start the worker thread
+    const std::string threadName = "StcpBundleSinkCbReader";
+    ThreadNamer::SetThreadName(*m_threadCbReaderPtr, threadName);
    
     TryStartTcpReceive();
 }

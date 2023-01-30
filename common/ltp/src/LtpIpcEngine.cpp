@@ -17,6 +17,7 @@
 #include <boost/make_unique.hpp>
 #include <boost/lexical_cast.hpp>
 #include "Sdnv.h"
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -180,7 +181,8 @@ bool LtpIpcEngine::Connect(const std::string& remoteTxSharedMemoryName) {
     m_running = true;
     m_readRemoteTxShmThreadPtr = boost::make_unique<boost::thread>(
         boost::bind(&LtpIpcEngine::ReadRemoteTxShmThreadFunc, this)); //create and start the worker thread
-
+    const std::string threadName = "LtpIpcEngReadShm";
+    ThreadNamer::SetThreadName(*m_readRemoteTxShmThreadPtr, threadName);
     return true;
 }
 

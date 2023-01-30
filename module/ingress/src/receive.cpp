@@ -35,6 +35,7 @@
 #include "TcpclInduct.h"
 #include "TcpclV4Induct.h"
 #include "TelemetryDefinitions.h"
+#include "ThreadNamer.h"
 #include <unordered_map>
 #if (__cplusplus >= 201703L)
 #include <shared_mutex>
@@ -450,6 +451,8 @@ bool Ingress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOne
 
         m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
             boost::bind(&Ingress::Impl::ReadZmqAcksThreadFunc, this)); //create and start the worker thread
+        const std::string threadName = "ingressZmqAckReader";
+        ThreadNamer::SetThreadName(*m_threadZmqAckReaderPtr, threadName);
 
         while (m_workerThreadStartupInProgress) { //lock mutex (above) before checking condition
             //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
@@ -628,6 +631,8 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
 
                                     m_threadTcpclOpportunisticBundlesFromEgressReaderPtr = boost::make_unique<boost::thread>(
                                         boost::bind(&Ingress::Impl::ReadTcpclOpportunisticBundlesFromEgressThreadFunc, this)); //create and start the worker thread
+                                    const std::string threadName = "ingressTcpclOpportunisticReader";
+                                    ThreadNamer::SetThreadName(*m_threadTcpclOpportunisticBundlesFromEgressReaderPtr, threadName);
 
                                     m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::Impl::WholeBundleReadyCallback, this, boost::placeholders::_1), m_hdtnConfig.m_inductsConfig,
                                         m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes, m_hdtnConfig.m_maxBundleSizeBytes,

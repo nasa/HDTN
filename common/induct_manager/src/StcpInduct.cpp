@@ -15,6 +15,7 @@
 #include "StcpInduct.h"
 #include "Logger.h"
 #include <boost/make_unique.hpp>
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -27,6 +28,8 @@ StcpInduct::StcpInduct(const InductProcessBundleCallback_t & inductProcessBundle
 {
     StartTcpAccept();
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    const std::string threadName = "ioServiceStcpInduct";
+    ThreadNamer::SetThreadName(*m_ioServiceThreadPtr, threadName);
 }
 StcpInduct::~StcpInduct() {
     if (m_tcpAcceptor.is_open()) {

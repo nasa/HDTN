@@ -17,6 +17,7 @@
 #include "Logger.h"
 #include <boost/make_unique.hpp>
 #include <boost/format.hpp>
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -96,6 +97,8 @@ bool UdpDelaySim::StartIfNotAlreadyRunning() {
                 this, boost::asio::placeholders::error,
                 boost::asio::placeholders::results));
             m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService)); //resolve serves as initial work
+            const std::string threadName = "ioServiceUdpDelaySim";
+            ThreadNamer::SetThreadName(*m_ioServiceThreadPtr, threadName);
         }
     }
     return true;

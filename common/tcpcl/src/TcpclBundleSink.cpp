@@ -18,6 +18,7 @@
 #include "Logger.h"
 #include <boost/make_unique.hpp>
 #include "Uri.h"
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -79,6 +80,8 @@ TcpclBundleSink::TcpclBundleSink(
     m_running = true;
     m_threadCbReaderPtr = boost::make_unique<boost::thread>(
         boost::bind(&TcpclBundleSink::PopCbThreadFunc, this)); //create and start the worker thread
+    const std::string threadName = "TcpclBundleSinkCbReader";
+    ThreadNamer::SetThreadName(*m_threadCbReaderPtr, threadName);
 
     TryStartTcpReceive();
 }

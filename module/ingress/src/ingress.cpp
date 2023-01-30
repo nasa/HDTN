@@ -22,6 +22,7 @@
 #include <iostream>
 #include "IngressAsyncRunner.h"
 #include "Logger.h"
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::ingress;
 
@@ -29,6 +30,7 @@ int main(int argc, const char* argv[]) {
 
 
     hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::ingress);
+    ThreadNamer::SetThisThreadName("IngressMain");
     IngressAsyncRunner runner;
     volatile bool running;
     runner.Run(argc, argv, running, true);
