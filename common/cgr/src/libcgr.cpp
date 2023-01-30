@@ -19,7 +19,7 @@ void Contact::clear_dijkstra_working_area() {
     visited_nodes.clear();
 }
 
-bool Contact::operator==(const Contact contact) const {
+bool Contact::operator==(const Contact& contact) const {
     // alternatively, just check that id == contact.id ?
     return (frm == contact.frm &&
         to == contact.to &&
@@ -30,7 +30,7 @@ bool Contact::operator==(const Contact contact) const {
         confidence == contact.confidence);
 }
 
-bool Contact::operator!=(const Contact contact) const {
+bool Contact::operator!=(const Contact& contact) const {
     return !(*this == contact);
 }
 
@@ -39,9 +39,9 @@ Contact::Contact(nodeId_t frm, nodeId_t to, time_t start, time_t end, uint64_t r
 {
     // fixed parameters
     volume = rate * (end - start);
+    id = UINT64_MAX;
 
     // variable parameters
-//    mav = std::vector<uint64_t>({volume, volume, volume});
     mav = std::vector<uint64_t>({ volume, volume, volume });
 
     // route search working area
@@ -55,19 +55,24 @@ Contact::Contact(nodeId_t frm, nodeId_t to, time_t start, time_t end, uint64_t r
     suppressed_next_hop = std::vector<Contact>();
 
     // forwarding working area
-    // first_byte_tx_time = NULL;
-    // last_byte_tx_time = NULL;
-    // last_byte_arr_time = NULL;
-    // effective_volume_limit = NULL;
-}
-
-Contact::Contact()
-{
+    first_byte_tx_time = 0;
+    last_byte_tx_time = 0;
+    last_byte_arr_time = 0;
+    effective_volume_limit = 0;
 }
 
 Contact::~Contact() {}
 
-Route::Route() : parent(NULL)
+Route::Route() :
+    parent(NULL),
+    to_node(std::numeric_limits<nodeId_t>::max()),
+    next_node(std::numeric_limits<nodeId_t>::max()),
+    from_time(0),
+    to_time(MAX_TIME_T),
+    best_delivery_time(0),
+    volume(std::numeric_limits<uint64_t>::max()),
+    confidence(1),
+    __visited(std::map<nodeId_t, bool>())
 {
 }
 
@@ -78,8 +83,8 @@ Route::Route(const Contact & contact, Route* parent)
 {
     hops = std::vector<Contact>();
     if (NULL == parent) {
-        // to_node = NULL;
-        // next_node = NULL;
+        to_node = std::numeric_limits<nodeId_t>::max();
+        next_node = std::numeric_limits<nodeId_t>::max();
         from_time = 0;
         to_time = MAX_TIME_T;
         best_delivery_time = 0;
@@ -161,7 +166,7 @@ void Route::refresh_metrics() {
         time_t effective_start_time = contact.first_byte_tx_time;
         time_t min_succ_stop_time = MAX_TIME_T;
         std::vector<Contact>::iterator it = std::find(allHops.begin(), allHops.end(), contact);
-        for (it; it < allHops.end(); ++it) {
+        for (; it != allHops.end(); ++it) {
             Contact successor = *it;
             if (successor.end < min_succ_stop_time) {
                 min_succ_stop_time = successor.end;
@@ -437,8 +442,8 @@ Route dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Contact>
 
     if (final_contact != NULL) {
         std::vector<Contact> hops;
-        Contact contact;
-        for (contact = *final_contact; contact != *root_contact; contact = *contact.predecessor) {
+        Contact contact = *final_contact;
+        for (; contact != *root_contact; contact = *contact.predecessor) {
             hops.push_back(contact);
         }
         
@@ -457,7 +462,7 @@ Route dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Contact>
  * Helper functions
  */
 template <typename T>
-bool vector_contains(std::vector<T> vec, T ele) {
+bool vector_contains(std::vector<T> vec, T& ele) {
     typename std::vector<T>::iterator it = std::find(vec.begin(), vec.end(), ele);
     return it != std::end(vec);
 }

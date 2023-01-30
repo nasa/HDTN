@@ -62,7 +62,16 @@ struct ZmqStorageInterface::Impl : private boost::noncopyable {
     typedef std::unordered_map<uint64_t, uint64_t> custodyid_to_size_map_t;
     typedef std::unordered_map<uint64_t, CutThroughMapAckData> map_id_to_ackdata_t;
     struct OutductInfo_t : private boost::noncopyable {
-        OutductInfo_t() : linkIsUp(false), stateTryCutThrough(false), bytesInPipeline(0) {}
+        OutductInfo_t() :
+            halfOfMaxBundlesInPipeline_StorageToEgressPath(0),
+            halfOfMaxBundleSizeBytesInPipeline_StorageToEgressPath(0),
+            outductIndex(0),
+            nextHopNodeId(0),
+            linkIsUp(false),
+            stateTryCutThrough(false),
+            bytesInPipeline(0)
+        {}
+
         uint64_t halfOfMaxBundlesInPipeline_StorageToEgressPath;
         uint64_t halfOfMaxBundleSizeBytesInPipeline_StorageToEgressPath;
         uint64_t outductIndex;
@@ -148,7 +157,18 @@ private:
     boost::condition_variable m_workerThreadStartupConditionVariable;
 };
 
-ZmqStorageInterface::Impl::Impl() : m_running(false) {}
+ZmqStorageInterface::Impl::Impl() :
+    m_running(false),
+    m_totalBundlesErasedFromStorageNoCustodyTransfer(0),
+    m_totalBundlesRewrittenToStorageFromFailedEgressSend(0),
+    m_totalBundlesErasedFromStorageWithCustodyTransfer(0),
+    m_totalBundlesSentToEgressFromStorageReadFromDisk(0),
+    m_totalBundlesSentToEgressFromStorageForwardCutThrough(0),
+    m_numRfc5050CustodyTransfers(0),
+    m_numAcsCustodyTransfers(0),
+    m_numAcsPacketsReceived(0),
+    m_workerThreadStartupInProgress(0),
+    m_hdtnOneProcessZmqInprocContextPtr(nullptr) {}
 
 ZmqStorageInterface::Impl::~Impl() {
     Stop();
@@ -176,8 +196,12 @@ void ZmqStorageInterface::Stop() {
 void ZmqStorageInterface::Impl::Stop() {
     m_running = false; //thread stopping criteria
     if (m_threadPtr) {
-        m_threadPtr->join();
-        m_threadPtr.reset();
+        try {
+            m_threadPtr->join();
+            m_threadPtr.reset();
+        } catch (boost::thread_resource_error &e) {
+            LOG_ERROR(subprocess) << "error stopping Storage thread";
+        }
     }
 }
 

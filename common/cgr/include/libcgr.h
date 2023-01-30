@@ -42,10 +42,10 @@ public:
     uint64_t effective_volume_limit;
     CGR_LIB_EXPORT void clear_dijkstra_working_area();
     CGR_LIB_EXPORT Contact(nodeId_t frm, nodeId_t to, time_t start, time_t end, uint64_t rate, float confidence=1, time_t owlt=1);
-    CGR_LIB_EXPORT Contact();
+    CGR_LIB_EXPORT Contact() = delete;
     CGR_LIB_EXPORT ~Contact();
-    CGR_LIB_EXPORT bool operator==(const Contact) const;
-    CGR_LIB_EXPORT bool operator!=(const Contact) const;
+    CGR_LIB_EXPORT bool operator==(const Contact&) const;
+    CGR_LIB_EXPORT bool operator!=(const Contact&) const;
     CGR_LIB_EXPORT friend std::ostream& operator<<(std::ostream&, const Contact&);
 };
 
@@ -147,7 +147,7 @@ CGR_LIB_EXPORT Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, c
 
 CGR_LIB_EXPORT std::vector<Route> yen(nodeId_t source, nodeId_t destination, int currTime, std::vector<Contact> contactPlan, int numRoutes);
     
-template <typename T>   bool vector_contains(std::vector<T> vec, T ele);
+template <typename T>   bool vector_contains(std::vector<T> vec, T& ele);
 
 class EmptyContainerError : public std::exception {
     CGR_LIB_EXPORT virtual const char* what() const throw();

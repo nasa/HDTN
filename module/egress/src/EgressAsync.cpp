@@ -86,10 +86,12 @@ private:
     boost::condition_variable m_workerThreadStartupConditionVariable;
 };
 
-Egress::Impl::Impl() : m_running(false) {
-    //m_flags = 0;
-    //_next = NULL;
-}
+Egress::Impl::Impl() :
+    m_running(false),
+    m_totalCustodyTransfersSentToIngress(0),
+    m_totalCustodyTransfersSentToStorage(0),
+    m_workerThreadStartupInProgress(false) {}
+
 Egress::Egress() :
     m_pimpl(boost::make_unique<Egress::Impl>()),
     //references
@@ -111,8 +113,12 @@ void Egress::Stop() {
 void Egress::Impl::Stop() {
     m_running = false;
     if(m_threadZmqReaderPtr) {
-        m_threadZmqReaderPtr->join();
-        m_threadZmqReaderPtr.reset(); //delete it
+        try {
+            m_threadZmqReaderPtr->join();
+            m_threadZmqReaderPtr.reset(); //delete it
+        } catch (boost::thread_resource_error &e) {
+            LOG_ERROR(subprocess) << "error stopping Egress thread";
+        }
     }
 }
 
@@ -130,13 +136,10 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneP
 
     
 
-    
+
     m_telemetry.egressBundleCount = 0;
     m_telemetry.totalDataBytes = 0;
     m_telemetry.egressMessageCount = 0;
-
-    m_totalCustodyTransfersSentToStorage = 0;
-    m_totalCustodyTransfersSentToIngress = 0;
 
     m_zmqCtxPtr = boost::make_unique<zmq::context_t>(); //needed at least by router (and if one-process is not used)
     try {
@@ -580,6 +583,7 @@ void Egress::Impl::ResendOutductCapabilities() {
     std::vector<uint8_t> & serialized = *(*serializedRawPtrToSharedPtr);
     if (!allOutductCapabilitiesTelemetry.SerializeToLittleEndian(serialized.data(), serializationSize)) {
         LOG_FATAL(subprocess) << "Cannot serialize outduct capabilities";
+        delete serializedRawPtrToSharedPtr;
         return;
     }
     zmq::message_t zmqMsgToIngress(
