@@ -61,16 +61,12 @@ Contact::Contact(nodeId_t frm, nodeId_t to, time_t start, time_t end, uint64_t r
     // effective_volume_limit = NULL;
 }
 
-Contact::Contact()
-{
-}
-
 Contact::~Contact() {}
 
 Route::Route() :
     parent(NULL),
-    to_node(NULL),
-    next_node(NULL),
+    to_node(std::numeric_limits<nodeId_t>::max()),
+    next_node(std::numeric_limits<nodeId_t>::max()),
     from_time(0),
     to_time(MAX_TIME_T),
     best_delivery_time(0),
@@ -87,8 +83,8 @@ Route::Route(const Contact & contact, Route* parent)
 {
     hops = std::vector<Contact>();
     if (NULL == parent) {
-        // to_node = NULL;
-        // next_node = NULL;
+        to_node = std::numeric_limits<nodeId_t>::max();
+        next_node = std::numeric_limits<nodeId_t>::max();
         from_time = 0;
         to_time = MAX_TIME_T;
         best_delivery_time = 0;
@@ -446,8 +442,8 @@ Route dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Contact>
 
     if (final_contact != NULL) {
         std::vector<Contact> hops;
-        Contact contact;
-        for (contact = *final_contact; contact != *root_contact; contact = *contact.predecessor) {
+        Contact contact = *final_contact;
+        for (; contact != *root_contact; contact = *contact.predecessor) {
             hops.push_back(contact);
         }
         

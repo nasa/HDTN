@@ -42,7 +42,7 @@ public:
     uint64_t effective_volume_limit;
     CGR_LIB_EXPORT void clear_dijkstra_working_area();
     CGR_LIB_EXPORT Contact(nodeId_t frm, nodeId_t to, time_t start, time_t end, uint64_t rate, float confidence=1, time_t owlt=1);
-    CGR_LIB_EXPORT Contact();
+    CGR_LIB_EXPORT Contact() = delete;
     CGR_LIB_EXPORT ~Contact();
     CGR_LIB_EXPORT bool operator==(const Contact) const;
     CGR_LIB_EXPORT bool operator!=(const Contact) const;
