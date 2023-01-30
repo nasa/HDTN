@@ -148,7 +148,16 @@ private:
     boost::condition_variable m_workerThreadStartupConditionVariable;
 };
 
-ZmqStorageInterface::Impl::Impl() : m_running(false) {}
+ZmqStorageInterface::Impl::Impl() :
+    m_running(false),
+    m_totalBundlesErasedFromStorageNoCustodyTransfer(0),
+    m_totalBundlesRewrittenToStorageFromFailedEgressSend(0),
+    m_totalBundlesErasedFromStorageWithCustodyTransfer(0),
+    m_totalBundlesSentToEgressFromStorageReadFromDisk(0),
+    m_totalBundlesSentToEgressFromStorageForwardCutThrough(0),
+    m_numRfc5050CustodyTransfers(0),
+    m_numAcsCustodyTransfers(0),
+    m_numAcsPacketsReceived(0) {}
 
 ZmqStorageInterface::Impl::~Impl() {
     Stop();
