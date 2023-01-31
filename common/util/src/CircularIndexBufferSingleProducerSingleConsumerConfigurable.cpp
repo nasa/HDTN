@@ -16,40 +16,40 @@
 #include <stdint.h>
 
 
-CircularIndexBufferSingleProducerSingleConsumerConfigurable::CircularIndexBufferSingleProducerSingleConsumerConfigurable(unsigned int size) :
+CircularIndexBufferSingleProducerSingleConsumerConfigurable::CircularIndexBufferSingleProducerSingleConsumerConfigurable(unsigned int size) noexcept :
     m_cbStartIndex(0), m_cbEndIndex(0), M_CIRCULAR_INDEX_BUFFER_SIZE(size)
 {
 	
 }
 
-CircularIndexBufferSingleProducerSingleConsumerConfigurable::~CircularIndexBufferSingleProducerSingleConsumerConfigurable() {
+CircularIndexBufferSingleProducerSingleConsumerConfigurable::~CircularIndexBufferSingleProducerSingleConsumerConfigurable() noexcept {
 	
 }
 
-void CircularIndexBufferSingleProducerSingleConsumerConfigurable::Init() {
+void CircularIndexBufferSingleProducerSingleConsumerConfigurable::Init() noexcept {
     m_cbStartIndex = 0;
     m_cbEndIndex = 0;
 }
 
 
-bool CircularIndexBufferSingleProducerSingleConsumerConfigurable::IsFull() const {
+bool CircularIndexBufferSingleProducerSingleConsumerConfigurable::IsFull() const noexcept {
     //return ((m_end + 1) % m_bufferSize) == m_start;
     unsigned int endPlus1 = m_cbEndIndex + 1;
         if (endPlus1 >= M_CIRCULAR_INDEX_BUFFER_SIZE) endPlus1 = 0;
     return (m_cbStartIndex == endPlus1);
 }
 
-bool CircularIndexBufferSingleProducerSingleConsumerConfigurable::IsEmpty() const {
+bool CircularIndexBufferSingleProducerSingleConsumerConfigurable::IsEmpty() const noexcept {
 	return (m_cbEndIndex == m_cbStartIndex);
 }
 
-unsigned int CircularIndexBufferSingleProducerSingleConsumerConfigurable::GetIndexForWrite() const {
+unsigned int CircularIndexBufferSingleProducerSingleConsumerConfigurable::GetIndexForWrite() const noexcept {
 	if (IsFull())
 		return CIRCULAR_INDEX_BUFFER_FULL;
 	return m_cbEndIndex;
 }
 
-void CircularIndexBufferSingleProducerSingleConsumerConfigurable::CommitWrite() {
+void CircularIndexBufferSingleProducerSingleConsumerConfigurable::CommitWrite() noexcept {
 	////if(CircularBufferIsFull())
 	////	return;
 	//m_end = (m_end + 1) % m_bufferSize;
@@ -58,13 +58,13 @@ void CircularIndexBufferSingleProducerSingleConsumerConfigurable::CommitWrite() 
 	m_cbEndIndex = endPlus1;
 }
 
-unsigned int CircularIndexBufferSingleProducerSingleConsumerConfigurable::GetIndexForRead() const {
+unsigned int CircularIndexBufferSingleProducerSingleConsumerConfigurable::GetIndexForRead() const noexcept {
 	if (IsEmpty())
 		return CIRCULAR_INDEX_BUFFER_EMPTY;
 	return m_cbStartIndex;
 }
 
-void CircularIndexBufferSingleProducerSingleConsumerConfigurable::CommitRead() {
+void CircularIndexBufferSingleProducerSingleConsumerConfigurable::CommitRead() noexcept {
 	////if(CircularBufferIsEmpty())
 	////	return;
 	//m_start = (m_start + 1) % m_bufferSize;
@@ -74,7 +74,7 @@ void CircularIndexBufferSingleProducerSingleConsumerConfigurable::CommitRead() {
 	
 }
 
-unsigned int CircularIndexBufferSingleProducerSingleConsumerConfigurable::NumInBuffer() const {
+unsigned int CircularIndexBufferSingleProducerSingleConsumerConfigurable::NumInBuffer() const noexcept {
     unsigned int endIndex = m_cbEndIndex;
     const unsigned int startIndex = m_cbStartIndex;
     if (endIndex < startIndex) {

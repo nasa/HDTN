@@ -59,7 +59,7 @@ public:
      * Checks if the next element after end (wrap on overflow) is equal to begin.
      * @return True if the external buffer is full, or False otherwise.
      */
-    bool IsFull() const;
+    bool IsFull() const noexcept;
     
     /** Query whether external buffer is empty.
      *
