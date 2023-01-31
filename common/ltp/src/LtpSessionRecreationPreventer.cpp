@@ -17,7 +17,7 @@
 
 LtpSessionRecreationPreventer::LtpSessionRecreationPreventer(const uint64_t numReceivedSessionsToRemember) :
     M_NUM_RECEIVED_SESSION_NUMBERS_TO_REMEMBER(numReceivedSessionsToRemember),
-    m_previouslyReceivedSessionNumbersUnorderedSet(numReceivedSessionsToRemember + 10), //intial num buckets to prevent rehash
+    m_previouslyReceivedSessionNumbersUnorderedSet(numReceivedSessionsToRemember + 10), //initial num buckets to prevent rehash
     m_previouslyReceivedSessionNumbersQueueVector(numReceivedSessionsToRemember),
     m_queueIsFull(false),
     m_nextQueueIndex(0)

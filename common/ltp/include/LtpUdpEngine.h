@@ -108,24 +108,24 @@ private:
      */
     LTP_LIB_NO_EXPORT virtual void PacketInFullyProcessedCallback(bool success) override;
     
-    /** Initiate a UDP send operation for a single packet. //TODO: Docs, complete
+    /** Initiate a UDP send operation for a single packet.
      *
      * Initiates an asynchronous send operation with LtpUdpEngine::HandleUdpSend() as a completion handler.
-     * @param constBufferVec
-     * @param underlyingDataToDeleteOnSentCallback
-     * @param underlyingCsDataToDeleteOnSentCallback
+     * @param constBufferVec The data buffers to send.
+     * @param underlyingDataToDeleteOnSentCallback The underlying data buffers shared pointer.
+     * @param underlyingCsDataToDeleteOnSentCallback The underlying client service data to send shared pointer.
      * @post The arguments to underlyingDataToDeleteOnSentCallback and underlyingCsDataToDeleteOnSentCallback are left in a moved-from state.
      */
     LTP_LIB_NO_EXPORT virtual void SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec,
         std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback,
         std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback) override;
     
-    /** Handle a UDP send operation. //TODO: Docs, complete
+    /** Handle a UDP send operation.
      *
      * Invoked for single-packet-per-system-call send operations.
      * If successful, signals the underlying LtpEngine that a system call has completed with OnSendPacketsSystemCallCompleted_ThreadSafe().
-     * @param underlyingDataToDeleteOnSentCallback
-     * @param underlyingCsDataToDeleteOnSentCallback
+     * @param underlyingDataToDeleteOnSentCallback The underlying data buffers shared pointer.
+     * @param underlyingCsDataToDeleteOnSentCallback The underlying client service data to send shared pointer.
      * @param error The error code.
      * @param bytes_transferred The number of bytes sent.
      */
@@ -133,26 +133,26 @@ private:
         std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback,
         const boost::system::error_code& error, std::size_t bytes_transferred);
     
-    /** Initiate a batch UDP send operation. //TODO: Docs, complete
+    /** Initiate a batch UDP send operation.
      *
      * Queues the packets for a batch send operation with UdpBatchSender::QueueSendPacketsOperation_ThreadSafe().
      * The batch sender instance is configured to use LtpUdpEngine::OnSentPacketsCallback() as a completion handler which will be called once the operation has completed.
-     * @param constBufferVecs
-     * @param underlyingDataToDeleteOnSentCallback
-     * @param underlyingCsDataToDeleteOnSentCallback
+     * @param constBufferVecs The vector of data buffers to send.
+     * @param underlyingDataToDeleteOnSentCallback The vector of underlying data buffers shared pointers.
+     * @param underlyingCsDataToDeleteOnSentCallback The vector of underlying client service data to send shared pointers.
      */
     LTP_LIB_NO_EXPORT virtual void SendPackets(std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
         std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback,
         std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallback) override;
     
-    /** Handle a batch UDP send operation. //TODO: Docs, complete
+    /** Handle a batch UDP send operation.
      *
      * Invoked for batch send operations.
      * If successful, signals the underlying LtpEngine that a system call has completed with OnSendPacketsSystemCallCompleted_ThreadSafe().
      * @param success Whether the operation was successful.
-     * @param constBufferVecs
-     * @param underlyingDataToDeleteOnSentCallback
-     * @param underlyingCsDataToDeleteOnSentCallback
+     * @param constBufferVecs The vector of data buffers to send.
+     * @param underlyingDataToDeleteOnSentCallback The vector of underlying data buffers shared pointers.
+     * @param underlyingCsDataToDeleteOnSentCallback The vector of underlying client service data to send shared pointers.
      */
     LTP_LIB_NO_EXPORT void OnSentPacketsCallback(bool success, std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
         std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback,

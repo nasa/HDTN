@@ -66,7 +66,7 @@ uint64_t LtpRandomNumberGenerator::GetRandomSession64(boost::random_device & ran
 }
 //return a ping number with:
 //    - bit 63..56 (8 bits of engineIndex)
-//    - bit 55..0 set to 0xffffff for reserved number deonoting ping
+//    - bit 55..0 set to 0xffffff for reserved number denoting ping
 uint64_t LtpRandomNumberGenerator::GetPingSession64() const {
     static constexpr uint64_t pingReserved = 0xffffffffffffffu;
     const uint64_t randomNumber = pingReserved | ((static_cast<uint64_t>(m_engineIndex)) << 56);
@@ -133,7 +133,7 @@ uint32_t LtpRandomNumberGenerator::GetRandomSession32(boost::random_device & ran
 }
 //return a ping number with:
 //    - bit 31..24 (8 bits of engineIndex)
-//    - bit 23..0 set to 0xffffff for reserved number deonoting ping
+//    - bit 23..0 set to 0xffffff for reserved number denoting ping
 uint32_t LtpRandomNumberGenerator::GetPingSession32() const {
     static constexpr uint64_t pingReserved = 0x00ffffffu;
     const uint64_t randomNumber = pingReserved | ((static_cast<uint64_t>(m_engineIndex)) << 24);

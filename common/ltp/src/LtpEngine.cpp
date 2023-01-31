@@ -20,13 +20,17 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
+/// Token limit of rateBytesPerSecond / (1000ms/100ms) = rateBytesPerSecond / 10
 static const boost::posix_time::time_duration static_tokenMaxLimitDurationWindow(boost::posix_time::milliseconds(100));
+/// Token refresh timer duration
 static const boost::posix_time::time_duration static_tokenRefreshTimeDurationWindow(boost::posix_time::milliseconds(20));
 
-//assumes (time to complete 5 batch udp send operations or 5 single packet udp send operations) < (margin time)
+/// Maximum number of pending SendPackets operations.
+/// assumes (time to complete 5 batch udp send operations or 5 single packet udp send operations) < (margin time).
 static constexpr unsigned int MAX_SEND_PACKETS_PENDING_SYSTEM_CALLS = 5;
 
-//should be even number to split between ingress and storage cut-through pipeline
+/// Disk pipeline limit.
+/// should be even number to split between ingress and storage cut-through pipeline.
 static constexpr uint64_t diskPipelineLimit = 6;
 
 LtpEngine::cancel_segment_timer_info_t::cancel_segment_timer_info_t(const uint8_t* data) {
@@ -1142,12 +1146,12 @@ void LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback(const Ltp::sessio
         }
     }
     m_queueSendersNeedingDeleted.emplace(sessionId.sessionNumber);
-    SignalReadyForSend_ThreadSafe(); //posts the TrySaturateSendPacketPipeline(); so this won't be deleteted during execution
+    SignalReadyForSend_ThreadSafe(); //posts the TrySaturateSendPacketPipeline(); so this won't be deleted during execution
 }
 
 void LtpEngine::NotifyEngineThatThisSenderHasProducibleData(const uint64_t sessionNumber) {
     m_queueSendersNeedingTimeCriticalDataSent.emplace(sessionNumber);
-    SignalReadyForSend_ThreadSafe(); //posts the TrySaturateSendPacketPipeline(); so this won't be deleteted during execution
+    SignalReadyForSend_ThreadSafe(); //posts the TrySaturateSendPacketPipeline(); so this won't be deleted during execution
 }
 
 void LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode) {
@@ -1183,12 +1187,12 @@ void LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback(const Ltp::sess
     else {
         m_queueReceiversNeedingDeletedButUnsafeToDelete.emplace(sessionId);
     }
-    SignalReadyForSend_ThreadSafe(); //posts the TrySaturateSendPacketPipeline(); so this won't be deleteted during execution
+    SignalReadyForSend_ThreadSafe(); //posts the TrySaturateSendPacketPipeline(); so this won't be deleted during execution
 }
 
 void LtpEngine::NotifyEngineThatThisReceiversTimersHasProducibleData(const Ltp::session_id_t & sessionId) {
     m_queueReceiversNeedingDataSent.emplace(sessionId);
-    SignalReadyForSend_ThreadSafe(); //posts the TrySaturateSendPacketPipeline(); so this won't be deleteted during execution
+    SignalReadyForSend_ThreadSafe(); //posts the TrySaturateSendPacketPipeline(); so this won't be deleted during execution
 }
 void LtpEngine::NotifyEngineThatThisReceiverCompletedDeferredOperation() {
     //In the event that the receiver has slow disk write operations, the io_service queue won't exhaust system memory
@@ -1308,7 +1312,7 @@ bool LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
 
     map_session_id_to_session_receiver_t::iterator rxSessionIt = m_mapSessionIdToSessionReceiver.find(sessionId);
     if (rxSessionIt == m_mapSessionIdToSessionReceiver.end()) { //not found.. new session started
-        //first check if the session has been closed prevously before recreating
+        //first check if the session has been closed previously before recreating
         if (M_MAX_RX_DATA_SEGMENT_HISTORY_OR_ZERO_DISABLE) {
             std::map<uint64_t, LtpSessionRecreationPreventer>::iterator it = m_mapSessionOriginatorEngineIdToLtpSessionRecreationPreventer.find(sessionId.sessionOriginatorEngineId);
             if (it == m_mapSessionOriginatorEngineIdToLtpSessionRecreationPreventer.end()) {
@@ -1479,7 +1483,7 @@ void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) 
         // state indefinitely and also never give an indication to the application that this has occurred.
         //
         // It would be very helpful to the application to have some kind of "no further data received for the session"
-        // cancelation from the receiver, with its associated API callbacks for RX session cancellation.
+        // cancellation from the receiver, with its associated API callbacks for RX session cancellation.
         // The LTP specs don't reserve a cancel reason for this, but the existing code 0 "Client service canceled session" could be used.
         // I could implement this as a client-service-level timeout for green segments not for red segments,
         // as the API doesn't indicate individual red segments to the client.

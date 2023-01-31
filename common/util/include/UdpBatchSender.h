@@ -122,13 +122,13 @@ private:
      */
     HDTN_UTIL_NO_EXPORT bool SetEndpointAndReconnect(const std::string& remoteHostname, const uint16_t remotePort);
     
-    /** Perform a packet batch send operation. //TODO: Docs, complete
+    /** Perform a packet batch send operation.
      *
      * Performs a single synchronous batch send operation.
      * After it finishes (successfully or otherwise), the callback stored in m_onSentPacketsCallback (if any) is invoked.
-     * @param constBufferVecs
-     * @param underlyingDataToDeleteOnSentCallbackVec
-     * @param underlyingCsDataToDeleteOnSentCallbackVec
+     * @param constBufferVecs The vector of data buffers to send.
+     * @param underlyingDataToDeleteOnSentCallbackVec The vector of underlying data buffers shared pointer.
+     * @param underlyingCsDataToDeleteOnSentCallbackVec The vector of underlying client service data to send shared pointers.
      * @post The arguments to constBufferVecs, underlyingDataToDeleteOnSentCallbackVec and underlyingCsDataToDeleteOnSentCallbackVec are left in a moved-from state.
      */
     HDTN_UTIL_NO_EXPORT void PerformSendPacketsOperation(

@@ -53,7 +53,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
                 m_serialNumbersInCallback.push_back(serialNumber);
                 ++m_numCallbacks;
             }
-            else if (m_testNumber = 2) {
+            else if (m_testNumber == 2) {
                 BOOST_REQUIRE(userData == std::vector<uint8_t>({ 1,2,3 }));
                 m_serialNumbersInCallback.push_back(serialNumber);
                 //std::cout << "sn " << serialNumber << std::endl;
@@ -81,7 +81,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             BOOST_REQUIRE(m_desired_serialNumbers == m_serialNumbersInCallback);
         }
 
-        void DoTest2() { //readd serial numbers once
+        void DoTest2() { //read serial numbers once
             m_testNumber = 2;
             m_timerManager.Reset();
             m_ioService.stop();
@@ -99,7 +99,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
         }
 
         void Test3TimerExpired(/*const boost::system::error_code& e*/) {
-            BOOST_REQUIRE(m_timerManager.DeleteTimer(5)); //keep this call within the ioservice thread
+            BOOST_REQUIRE(m_timerManager.DeleteTimer(5)); //keep this call within the io_service thread
         }
         void DoTest3() { //delete an active timer
             m_testNumber = 1;// 1 is valid
@@ -122,7 +122,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             BOOST_REQUIRE(m_serialNumbersInCallback == std::vector<uint64_t>({ 10,15 }));
         }
         void Test4TimerExpired(/*const boost::system::error_code& e*/) {
-            BOOST_REQUIRE(m_timerManager.DeleteTimer(10)); //keep this call within the ioservice thread
+            BOOST_REQUIRE(m_timerManager.DeleteTimer(10)); //keep this call within the io_service thread
         }
         void DoTest4() { //delete a non-active timer
             m_testNumber = 1;// 1 is valid
@@ -213,7 +213,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             BOOST_REQUIRE(m_desired_serialNumbers == m_serialNumbersInCallback);
         }
 
-        void DoTest2() { //readd serial numbers once
+        void DoTest2() { //read serial numbers once
             m_testNumber = 2;
             m_timerManager.Reset();
             m_ioService.stop();
@@ -233,7 +233,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
         }
 
         void Test3TimerExpired(/*const boost::system::error_code& e*/) {
-            BOOST_REQUIRE(m_timerManager.DeleteTimer(Ltp::session_id_t(5, 6))); //keep this call within the ioservice thread
+            BOOST_REQUIRE(m_timerManager.DeleteTimer(Ltp::session_id_t(5, 6))); //keep this call within the io_service thread
         }
         void DoTest3() { //delete an active timer
             m_testNumber = 1;// 1 is valid
@@ -256,7 +256,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             BOOST_REQUIRE(m_serialNumbersInCallback == std::vector<Ltp::session_id_t>({ Ltp::session_id_t(10,11),Ltp::session_id_t(15,16) }));
         }
         void Test4TimerExpired(/*const boost::system::error_code& e*/) {
-            BOOST_REQUIRE(m_timerManager.DeleteTimer(Ltp::session_id_t(10,11))); //keep this call within the ioservice thread
+            BOOST_REQUIRE(m_timerManager.DeleteTimer(Ltp::session_id_t(10,11))); //keep this call within the io_service thread
         }
         void DoTest4() { //delete a non-active timer
             m_testNumber = 1;// 1 is valid
@@ -291,7 +291,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_timerManager.AdjustRunningTimers(diffNewMinusOld);
         }
         void Test5ChangeTimeDown(/*const boost::system::error_code& e*/) {
-            //change RTT from 400ms to 1000ms
+            //change RTT from 1000ms to 400ms
             const boost::posix_time::time_duration oldTransmissionToAckReceivedTime = m_transmissionToAckReceivedTime;
             m_transmissionToAckReceivedTime = boost::posix_time::milliseconds(400); //this variable is referenced by all timers, so new timers will use this new value
             const boost::posix_time::time_duration diffNewMinusOld = m_transmissionToAckReceivedTime - oldTransmissionToAckReceivedTime;

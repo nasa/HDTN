@@ -44,7 +44,7 @@ LtpTimerManager<idType, hashType>::~LtpTimerManager() {
 
 template <typename idType, typename hashType>
 void LtpTimerManager<idType, hashType>::Reset() {
-    m_listTimerData.clear(); //clear first so cancel doesnt restart the next one
+    m_listTimerData.clear(); //clear first so cancel doesn't restart the next one
     m_mapIdToTimerData.clear();
     m_deadlineTimerRef.cancel();
     m_activeSerialNumberBeingTimed = 0;
@@ -115,7 +115,7 @@ bool LtpTimerManager<idType, hashType>::DeleteTimer(const idType serialNumber, s
 template <typename idType, typename hashType>
 void LtpTimerManager<idType, hashType>::OnTimerExpired(const boost::system::error_code& e, bool * isTimerDeleted) {
 
-    //for that timer that got cancelled by the destructor, it's still going to enter this function.. prevent it from using the deleted member variables
+    //for that timer that got cancelled by the destructor, it's still going to enter this function. prevent it from using the deleted member variables
     if (*isTimerDeleted) {
         delete isTimerDeleted;
         return;
@@ -129,10 +129,10 @@ void LtpTimerManager<idType, hashType>::OnTimerExpired(const boost::system::erro
             const LtpTimerExpiredCallback_t * callbackPtr; //grab before DeleteTimer deletes it
             void* classPtr;
             m_activeSerialNumberBeingTimed = 0; //so DeleteTimer does not try to cancel timer that already expired
-            DeleteTimer(serialNumberThatExpired, userData, callbackPtr, classPtr); //callback function can choose to readd it later
+            DeleteTimer(serialNumberThatExpired, userData, callbackPtr, classPtr); //callback function can choose to read it later
 
             const LtpTimerExpiredCallback_t& callbackRef = *callbackPtr;
-            callbackRef(classPtr, serialNumberThatExpired, userData); //called after DeleteTimer in case callback readds it
+            callbackRef(classPtr, serialNumberThatExpired, userData); //called after DeleteTimer in case callback reads it
         }
     }
 
@@ -158,7 +158,7 @@ void LtpTimerManager<idType, hashType>::AdjustRunningTimers(const boost::posix_t
         for (typename timer_data_list_t::iterator it = m_listTimerData.begin(); it != m_listTimerData.end(); ++it) {
             it->m_expiry += diffNewMinusOld;
         }
-        m_deadlineTimerRef.cancel(); //skips over any DeleteTimer calls within OnTimerExpired and readds the timer from m_listTimerData.begin()
+        m_deadlineTimerRef.cancel(); //skips over any DeleteTimer calls within OnTimerExpired and reads the timer from m_listTimerData.begin()
     }
 }
 
