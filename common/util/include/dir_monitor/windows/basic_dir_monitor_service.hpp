@@ -17,6 +17,7 @@
 #include <string>
 #include <stdexcept>
 #include <windows.h>
+#include "Utf8Paths.h"
 
 namespace boost {
 namespace asio {
@@ -38,7 +39,7 @@ namespace helper {
                 boost::throw_exception(e);
             }
         }
-
+        /* //USE Utf8Paths::Utf8StringToPath FROM UTIL INSTEAD
         inline std::wstring to_utf16(const std::string& filename)
         {
             static std::wstring empty;
@@ -52,6 +53,7 @@ namespace helper {
 
             return std::wstring(buffer.begin(), buffer.end());
         }
+        */
 }
 
 template <typename DirMonitorImplementation = dir_monitor_impl>
@@ -107,7 +109,10 @@ public:
 
     void add_directory(implementation_type &impl, const std::string &dirname)
     {
-        std::wstring wdirname = helper::to_utf16(dirname);
+        //std::wstring wdirname = helper::to_utf16(dirname);
+        boost::filesystem::path p(Utf8Paths::Utf8StringToPath(dirname)); 
+        std::wstring wdirname = p.native();
+
         if (!boost::filesystem::is_directory(wdirname))
             throw std::invalid_argument("boost::asio::basic_dir_monitor_service::add_directory: " + dirname + " is not a valid directory entry");
 

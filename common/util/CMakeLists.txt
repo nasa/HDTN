@@ -19,6 +19,7 @@ add_library(hdtn_util
 	src/MemoryInFiles.cpp
 	src/DeadlineTimer.cpp
 	src/ThreadNamer.cpp
+	src/Utf8Paths.cpp
 )
 target_compile_options(hdtn_util PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 GENERATE_EXPORT_HEADER(hdtn_util)
@@ -76,6 +77,7 @@ set(MY_PUBLIC_HEADERS
 	include/ThreadNamer.h
 	include/UdpBatchSender.h
 	include/Uri.h
+	include/Utf8Paths.h
 	include/zmq.hpp
 	${CMAKE_CURRENT_BINARY_DIR}/hdtn_util_export.h
 )

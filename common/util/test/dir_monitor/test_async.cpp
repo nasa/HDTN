@@ -214,6 +214,35 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_unregister_directory)
     io_service.reset();
 }
 
+//Added to support UTF-8 Paths
+BOOST_AUTO_TEST_CASE(dir_monitor_async_unregister_directory_as_path)
+{
+    directory dir(TEST_DIR1);
+    boost::filesystem::path testDirAsPath1(TEST_DIR1);
+    boost::thread t;
+
+    {
+        boost::asio::dir_monitor dm(io_service);
+        dm.add_directory_as_path(testDirAsPath1);
+        dm.remove_directory_as_path(testDirAsPath1);
+
+        dir.create_file(TEST_FILE1);
+
+        dm.async_monitor(unregister_directory_handler);
+
+        // run() is invoked on another thread to make this test case return. Without using
+        // another thread run() would block as the file was created after remove_directory()
+        // had been called.
+        t = boost::thread(boost::bind(&boost::asio::io_service::run, boost::ref(io_service)));
+        boost::system_time time = boost::get_system_time();
+        time += boost::posix_time::time_duration(0, 0, 1);
+        boost::thread::sleep(time);
+    }
+
+    t.join();
+    io_service.reset();
+}
+
 static void two_dir_monitors_handler(const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
 {
     BOOST_CHECK_EQUAL(ec, boost::asio::error::operation_aborted);

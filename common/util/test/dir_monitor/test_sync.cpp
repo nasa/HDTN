@@ -117,7 +117,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_sync_destruction)
 
     dir.create_file(TEST_FILE1);
 }
-#if 0 //removed this test to remove dependency on boost::locale
+#if 1 //removed this test to remove dependency on boost::locale (but now have util/Utf8Paths helper instead)
 BOOST_AUTO_TEST_CASE(dir_monitor_sync_non_ascii_paths)
 {
     char utf8DirName[]  = "\xe6\x97\xa5\xe6\x9c\xac\xe5\x9b\xbd"; // 日本国
