@@ -37,7 +37,8 @@ struct splited_path
     std::vector<std::string> split_path(const boost::filesystem::path& p)
     {
         std::vector<std::string> result;
-        boost::split(result, Utf8Paths::PathToUtf8String(p)/*p.generic_string()*/, boost::is_any_of("/\\")/*boost::is_any_of("/")*/, boost::algorithm::token_compress_on);
+        const std::string utf8PathString(Utf8Paths::PathToUtf8String(p));
+        boost::split(result, utf8PathString/*p.generic_string()*/, boost::is_any_of("/\\")/*boost::is_any_of("/")*/, boost::algorithm::token_compress_on);
         boost::trim_if(result, [](const std::string& str) { return str.empty(); });
         return result;
     }
