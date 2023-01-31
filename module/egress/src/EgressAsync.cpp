@@ -116,7 +116,7 @@ void Egress::Impl::Stop() {
         try {
             m_threadZmqReaderPtr->join();
             m_threadZmqReaderPtr.reset(); //delete it
-        } catch (boost::thread_resource_error &e) {
+        } catch (boost::thread_resource_error &) {
             LOG_ERROR(subprocess) << "error stopping Egress thread";
         }
     }
