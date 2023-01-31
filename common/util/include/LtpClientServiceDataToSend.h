@@ -163,16 +163,33 @@ private:
     std::size_t m_size;
 };
 
-struct UdpSendPacketInfo : private boost::noncopyable { //TODO: Docs, complete
+/// UDP send operation context data
+struct UdpSendPacketInfo : private boost::noncopyable {
+    /// Data buffers to send, references data from underlyingDataToDeleteOnSentCallback
     std::vector<boost::asio::const_buffer> constBufferVec;
+    /// Underlying data buffers shared pointer, feeds constBufferVec
     std::shared_ptr<std::vector<std::vector<uint8_t> > > underlyingDataToDeleteOnSentCallback;
+    /// Underlying client service data to send shared pointer, holds a copy of the in-memory client service data to send shared pointer
+    /// when reading data from memory, if reading data from disk should be nullptr
     std::shared_ptr<LtpClientServiceDataToSend> underlyingCsDataToDeleteOnSentCallback;
+    /// Deferred disk read, for when reading data to send from disk, in which case memoryBlockId MUST be non-zero
     MemoryInFiles::deferred_read_t deferredRead;
+    /// Session originator engine ID
     uint64_t sessionOriginatorEngineId;
 
+    /// Default constructor
     HDTN_UTIL_EXPORT UdpSendPacketInfo() = default;
+    
+    /// Move constructor
     HDTN_UTIL_EXPORT UdpSendPacketInfo(UdpSendPacketInfo&& o) noexcept; //a move constructor: X(X&&)
+    
+    /// Move assignment operator
     HDTN_UTIL_EXPORT UdpSendPacketInfo& operator=(UdpSendPacketInfo&& o) noexcept; //a move assignment: operator=(X&&)
+    
+    /** Perform reset.
+     *
+     * Clears buffers, resets shared pointers, resets deferred read object.
+     */
     HDTN_UTIL_EXPORT void Reset();
 };
 
