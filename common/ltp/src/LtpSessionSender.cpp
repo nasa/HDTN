@@ -166,9 +166,9 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t
 void LtpSessionSender::LtpDelaySendDataSegmentsTimerExpiredCallback(const uint64_t& sessionNumber, std::vector<uint8_t>& userData) {
     // Github issue 24: Defer data retransmission with out-of-order report segments (see detailed description below)
     //...When the retransmission timer expires (i.e. there are still gaps to send) then send data segments to cover the remaining gaps for the session.
-    std::list<std::pair<uint64_t, std::set<LtpFragmentSet::data_fragment_t> > > listFragmentSetNeedingResentForEachReport;
+    std::list<std::pair<uint64_t, LtpFragmentSet::data_fragment_set_t> > listFragmentSetNeedingResentForEachReport;
     LtpFragmentSet::ReduceReportSegments(m_mapRsBoundsToRsnPendingGeneration, m_dataFragmentsAckedByReceiver, listFragmentSetNeedingResentForEachReport);
-    for (std::list<std::pair<uint64_t, std::set<LtpFragmentSet::data_fragment_t> > >::const_iterator it = listFragmentSetNeedingResentForEachReport.cbegin();
+    for (std::list<std::pair<uint64_t, LtpFragmentSet::data_fragment_set_t> >::const_iterator it = listFragmentSetNeedingResentForEachReport.cbegin();
         it != listFragmentSetNeedingResentForEachReport.cend(); ++it)
     {
         ResendDataFromReport(it->second, it->first);
@@ -182,7 +182,12 @@ void LtpSessionSender::LtpDelaySendDataSegmentsTimerExpiredCallback(const uint64
 bool LtpSessionSender::NextTimeCriticalDataToSend(UdpSendPacketInfo& udpSendPacketInfo) {
     if (!m_nonDataToSendFlistQueue.empty()) { //includes report ack segments
         //highest priority
-        udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1);
+        if (udpSendPacketInfo.underlyingDataToDeleteOnSentCallback && (udpSendPacketInfo.underlyingDataToDeleteOnSentCallback->size() >= 1)) {
+            //no need to invoke operator new since it was preallocated
+        }
+        else {
+            udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1);
+        }
         (*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0] = std::move(m_nonDataToSendFlistQueue.front());
         m_nonDataToSendFlistQueue.pop();
         udpSendPacketInfo.constBufferVec.resize(1);
@@ -247,7 +252,13 @@ bool LtpSessionSender::NextTimeCriticalDataToSend(UdpSendPacketInfo& udpSendPack
             meta.reportSerialNumber = NULL;
         }
         const bool needsToReadClientServiceDataFromDisk = (m_dataToSendSharedPtr->data() == NULL);
-        udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1 + needsToReadClientServiceDataFromDisk); //2 would be needed in case of trailer extensions (but not used here)
+        const std::size_t neededUnderlyingSize = 1 + needsToReadClientServiceDataFromDisk; //2 would be needed in case of trailer extensions (but not used here)
+        if (udpSendPacketInfo.underlyingDataToDeleteOnSentCallback && (udpSendPacketInfo.underlyingDataToDeleteOnSentCallback->size() >= neededUnderlyingSize)) {
+            //no need to invoke operator new since it was preallocated
+        }
+        else {
+            udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(neededUnderlyingSize);
+        }
         Ltp::GenerateLtpHeaderPlusDataSegmentMetadata((*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0], resendFragment.flags,
             M_SESSION_ID, meta, NULL, 0);
         udpSendPacketInfo.constBufferVec.resize(2); //3 would be needed in case of trailer extensions (but not used here)
@@ -339,7 +350,13 @@ bool LtpSessionSender::NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketI
             meta.length = bytesToSendRed;
             meta.checkpointSerialNumber = checkpointSerialNumber;
             meta.reportSerialNumber = reportSerialNumber;
-            udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1 + needsToReadClientServiceDataFromDisk); //2 would be needed in case of trailer extensions (but not used here)
+            const std::size_t neededUnderlyingSize = 1 + needsToReadClientServiceDataFromDisk; //2 would be needed in case of trailer extensions (but not used here)
+            if (udpSendPacketInfo.underlyingDataToDeleteOnSentCallback && (udpSendPacketInfo.underlyingDataToDeleteOnSentCallback->size() >= neededUnderlyingSize)) {
+                //no need to invoke operator new since it was preallocated
+            }
+            else {
+                udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(neededUnderlyingSize);
+            }
             Ltp::GenerateLtpHeaderPlusDataSegmentMetadata((*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0], flags,
                 M_SESSION_ID, meta, NULL, 0);
             udpSendPacketInfo.constBufferVec.resize(2); //3 would be needed in case of trailer extensions (but not used here)
@@ -371,7 +388,13 @@ bool LtpSessionSender::NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketI
             meta.length = bytesToSendGreen;
             meta.checkpointSerialNumber = NULL;
             meta.reportSerialNumber = NULL;
-            udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1 + needsToReadClientServiceDataFromDisk); //2 would be needed in case of trailer extensions (but not used here)
+            const std::size_t neededUnderlyingSize = 1 + needsToReadClientServiceDataFromDisk; //2 would be needed in case of trailer extensions (but not used here)
+            if (udpSendPacketInfo.underlyingDataToDeleteOnSentCallback && (udpSendPacketInfo.underlyingDataToDeleteOnSentCallback->size() >= neededUnderlyingSize)) {
+                //no need to invoke operator new since it was preallocated
+            }
+            else {
+                udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(neededUnderlyingSize);
+            }
             Ltp::GenerateLtpHeaderPlusDataSegmentMetadata((*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0], flags,
                 M_SESSION_ID, meta, NULL, 0);
             udpSendPacketInfo.constBufferVec.resize(2); //3 would be needed in case of trailer extensions (but not used here)
@@ -407,7 +430,7 @@ bool LtpSessionSender::NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketI
                 }
             }
             else if (m_dataFragmentsAckedByReceiver.size() == 1) { //in case red data already acked before green data send completes
-                std::set<LtpFragmentSet::data_fragment_t>::const_iterator it = m_dataFragmentsAckedByReceiver.cbegin();
+                LtpFragmentSet::data_fragment_set_t::const_iterator it = m_dataFragmentsAckedByReceiver.cbegin();
                 if ((it->beginIndex == 0) && (it->endIndex >= (M_LENGTH_OF_RED_PART - 1))) { //>= in case some green data was acked
                     if (!m_didNotifyForDeletion) {
                         m_didNotifyForDeletion = true;
@@ -491,7 +514,7 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
             //invoked.
             if (m_allRedDataReceivedByRemote == false) { //the m_allRedDataReceivedByRemote flag is used to prevent resending of non-checkpoint data (Continuation of Github issue 23)
                 if (m_dataFragmentsAckedByReceiver.size() == 1) {
-                    std::set<LtpFragmentSet::data_fragment_t>::const_iterator it = m_dataFragmentsAckedByReceiver.cbegin();
+                    LtpFragmentSet::data_fragment_set_t::const_iterator it = m_dataFragmentsAckedByReceiver.cbegin();
                     if ((it->beginIndex == 0) && (it->endIndex >= (M_LENGTH_OF_RED_PART - 1))) { //>= in case some green data was acked
                         m_allRedDataReceivedByRemote = true;
                     }
@@ -515,7 +538,7 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
             //segment carrying a new CP serial number(obtained by
             //incrementing the last CP serial number used) and the report
             //serial number of the received RS segment.
-            std::set<LtpFragmentSet::data_fragment_t> fragmentsNeedingResent;
+            LtpFragmentSet::data_fragment_set_t fragmentsNeedingResent;
 #if 0
             LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment);
 #else
@@ -603,8 +626,8 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
     }
 }
 
-void LtpSessionSender::ResendDataFromReport(const std::set<LtpFragmentSet::data_fragment_t>& fragmentsNeedingResent, const uint64_t reportSerialNumber) {
-    for (std::set<LtpFragmentSet::data_fragment_t>::const_iterator it = fragmentsNeedingResent.cbegin(); it != fragmentsNeedingResent.cend(); ++it) {
+void LtpSessionSender::ResendDataFromReport(const LtpFragmentSet::data_fragment_set_t& fragmentsNeedingResent, const uint64_t reportSerialNumber) {
+    for (LtpFragmentSet::data_fragment_set_t::const_iterator it = fragmentsNeedingResent.cbegin(); it != fragmentsNeedingResent.cend(); ++it) {
         const bool isLastFragmentNeedingResent = (boost::next(it) == fragmentsNeedingResent.cend());
         for (uint64_t dataIndex = it->beginIndex; dataIndex <= it->endIndex; ) {
             uint64_t bytesToSendRed = std::min((it->endIndex - dataIndex) + 1, m_ltpSessionSenderCommonDataRef.m_mtuClientServiceData);

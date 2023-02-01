@@ -64,6 +64,8 @@ private:
     std::unique_ptr<boost::filesystem::ifstream> m_currentIfstreamPtr;
     boost::filesystem::path m_currentFilePathAbsolute;
     boost::filesystem::path m_currentFilePathRelative;
+    std::string m_currentFilePathRelativeAsUtf8String;
+    std::string m_currentFilePathRelativeAsPrintableString;
     SendFileMetadata m_currentSendFileMetadata;
     boost::asio::io_service m_ioService; //for DirectoryScanner
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;

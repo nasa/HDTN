@@ -237,7 +237,7 @@ private:
      * @param fragmentsNeedingResent The data fragments needing-retransmitted.
      * @param reportSerialNumber The report serial number.
      */
-    LTP_LIB_NO_EXPORT void ResendDataFromReport(const std::set<LtpFragmentSet::data_fragment_t>& fragmentsNeedingResent, const uint64_t reportSerialNumber);
+    LTP_LIB_NO_EXPORT void ResendDataFromReport(const LtpFragmentSet::data_fragment_set_t& fragmentsNeedingResent, const uint64_t reportSerialNumber);
     
     /// Checkpoint fragment retransmission context data
     struct resend_fragment_t {
@@ -269,7 +269,7 @@ private:
     };
 
     /// Data fragments reported received
-    std::set<LtpFragmentSet::data_fragment_t> m_dataFragmentsAckedByReceiver;
+    LtpFragmentSet::data_fragment_set_t m_dataFragmentsAckedByReceiver;
     /// Internal operations queue, includes report acknowledgment segments
     ForwardListQueue<std::vector<uint8_t> > m_nonDataToSendFlistQueue;
     /// Data fragments needing-retransmitted queue
@@ -282,12 +282,10 @@ private:
     std::list<uint64_t> m_checkpointSerialNumberActiveTimersList;
 
     
-    /// Type of map holding report serial numbers, mapped by report scope bounds (rsLowerBound, rsUpperBound)
-    typedef std::map<FragmentSet::data_fragment_unique_overlapping_t, uint64_t> ds_pending_map_t;
-
+    /// Map holding report serial numbers, mapped by report scope bounds (rsLowerBound, rsUpperBound)
     /// Pending report serial numbers, mapped by report scope bounds, when (m_mapRsBoundsToRsnPendingGeneration.empty()) indicates no active data segment retransmission timers
     /// Used to recalculate gaps in reception claims for data segment retransmission.
-    ds_pending_map_t m_mapRsBoundsToRsnPendingGeneration;
+    LtpFragmentSet::ds_pending_map_t m_mapRsBoundsToRsnPendingGeneration;
     /// Upper bound of received report with the largest scope span, used to recalculate gaps in reception claims for data segment retransmission
     uint64_t m_largestEndIndexPendingGeneration;
 

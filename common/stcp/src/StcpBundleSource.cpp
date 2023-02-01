@@ -19,6 +19,7 @@
 #include <memory>
 #include <boost/endian/conversion.hpp>
 #include <boost/make_unique.hpp>
+#include "ThreadNamer.h"
 
 #define RECONNECTION_DELAY_AFTER_SHUTDOWN_SECONDS 3
 
@@ -48,7 +49,7 @@ m_stcpOutductTelemetry()
     m_handleTcpSendKeepAliveCallback = boost::bind(&StcpBundleSource::HandleTcpSendKeepAlive, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, boost::placeholders::_3);
 
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
-
+    ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceStcpBundleSource");
 }
 
 StcpBundleSource::~StcpBundleSource() {

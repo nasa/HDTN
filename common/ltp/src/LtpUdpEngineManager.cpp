@@ -17,6 +17,7 @@
 #include <boost/make_unique.hpp>
 #include <boost/lexical_cast.hpp>
 #include "Sdnv.h"
+#include "ThreadNamer.h"
 
 //c++ shared singleton using weak pointer
 //https://codereview.stackexchange.com/questions/14343/c-shared-singleton
@@ -103,6 +104,8 @@ bool LtpUdpEngineManager::StartIfNotAlreadyRunning() {
         StartUdpReceive(); //call before creating io_service thread so that it has "work"
 
         m_ioServiceUdpThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioServiceUdp));
+        const std::string threadName = "ioServiceLtpUdpSocket port=" + boost::lexical_cast<std::string>(M_MY_BOUND_UDP_PORT);
+        ThreadNamer::SetIoServiceThreadName(m_ioServiceUdp, threadName);
         m_readyToForward = true;
     }
     return true;

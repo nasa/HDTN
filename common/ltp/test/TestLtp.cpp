@@ -225,6 +225,8 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
         uint64_t m_numReportAcknowledgementSegmentCallbackCount;
         uint64_t m_numCancelAcknowledgementSegmentCallbackCount;
         uint64_t m_numCancelSegmentCallbackCount;
+
+        bool expectedThatDataSegmentIsMovable;
         TestLtp()
         {
 
@@ -1103,30 +1105,77 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
         }
 
         void ReceiveDataSegment() {
-            m_numDataSegmentCallbackCount = 0;
             std::vector<uint8_t> ltpHeaderPlusDataSegmentMetadata;
             Ltp::GenerateLtpHeaderPlusDataSegmentMetadata(ltpHeaderPlusDataSegmentMetadata, m_desired_dataSegmentTypeFlags,
                 m_desired_sessionId, m_desired_dataSegmentMetadata,
                 (m_desired_headerExtensions.extensionsVec.empty()) ? NULL : &m_desired_headerExtensions,
                 static_cast<uint8_t>(m_desired_trailerExtensions.extensionsVec.size()));
 
+            std::vector<uint8_t> trailerSerialization;
+            if (!m_desired_trailerExtensions.extensionsVec.empty()) {
+                trailerSerialization.resize(m_desired_trailerExtensions.GetMaximumDataRequiredForSerialization());
+                const uint64_t bytesSerialized = m_desired_trailerExtensions.Serialize(trailerSerialization.data());
+                BOOST_REQUIRE_LE(bytesSerialized, trailerSerialization.size());
+                trailerSerialization.resize(bytesSerialized);
+            }
 
+            expectedThatDataSegmentIsMovable = false;
+            m_numDataSegmentCallbackCount = 0;
             for (unsigned int i = 1; i <= 5; ++i) {
                 std::string errorMessage;
                 bool operationIsOngoing;
                 BOOST_REQUIRE(m_ltp.HandleReceivedChars(ltpHeaderPlusDataSegmentMetadata.data(), ltpHeaderPlusDataSegmentMetadata.size(), operationIsOngoing, errorMessage));
                 BOOST_REQUIRE(!operationIsOngoing);
+                BOOST_REQUIRE(!m_ltp.IsAtBeginningState());
                 BOOST_REQUIRE(m_ltp.HandleReceivedChars(m_desired_clientServiceDataVec.data(), m_desired_clientServiceDataVec.size(), operationIsOngoing, errorMessage));
                 BOOST_REQUIRE(!operationIsOngoing);
-                if (!m_desired_trailerExtensions.extensionsVec.empty()) {
-                    std::vector<uint8_t> trailerSerialization(m_desired_trailerExtensions.GetMaximumDataRequiredForSerialization());
-                    const uint64_t bytesSerialized = m_desired_trailerExtensions.Serialize(trailerSerialization.data());
-                    BOOST_REQUIRE(m_ltp.HandleReceivedChars(trailerSerialization.data(), bytesSerialized, operationIsOngoing, errorMessage));
+                if (!trailerSerialization.empty()) {
+                    BOOST_REQUIRE(!m_ltp.IsAtBeginningState());
+                    BOOST_REQUIRE(m_ltp.HandleReceivedChars(trailerSerialization.data(), trailerSerialization.size(), operationIsOngoing, errorMessage));
                     BOOST_REQUIRE(!operationIsOngoing);
                 }
                 BOOST_REQUIRE_EQUAL(m_numDataSegmentCallbackCount, i);
                 BOOST_REQUIRE_EQUAL(errorMessage.size(), 0);
                 BOOST_REQUIRE(!operationIsOngoing);
+                BOOST_REQUIRE(m_ltp.IsAtBeginningState());
+            }
+
+            //generate as if full udp packet
+            std::vector<uint8_t> fullPacket(ltpHeaderPlusDataSegmentMetadata);
+            fullPacket.insert(fullPacket.end(), m_desired_clientServiceDataVec.data(),
+                m_desired_clientServiceDataVec.data() + m_desired_clientServiceDataVec.size()); //concatenate
+            fullPacket.insert(fullPacket.end(), trailerSerialization.data(),
+                trailerSerialization.data() + trailerSerialization.size()); //concatenate
+
+            expectedThatDataSegmentIsMovable = false;
+            m_numDataSegmentCallbackCount = 0;
+            for (unsigned int i = 1; i <= 5; ++i) {
+                std::string errorMessage;
+                bool operationIsOngoing;
+                BOOST_REQUIRE(m_ltp.HandleReceivedChars(fullPacket.data(), fullPacket.size(), operationIsOngoing, errorMessage));
+                BOOST_REQUIRE_EQUAL(m_numDataSegmentCallbackCount, i);
+                BOOST_REQUIRE_EQUAL(errorMessage.size(), 0);
+                BOOST_REQUIRE(!operationIsOngoing);
+                BOOST_REQUIRE(m_ltp.IsAtBeginningState());
+            }
+
+            //run character by character
+            expectedThatDataSegmentIsMovable = true;
+            m_numDataSegmentCallbackCount = 0;
+            for (unsigned int i = 1; i <= 5; ++i) {
+                std::string errorMessage;
+                bool operationIsOngoing;
+                for (std::size_t ci = 0; ci < (fullPacket.size() - 1); ++ci) {
+                    BOOST_REQUIRE(m_ltp.HandleReceivedChar(fullPacket[ci], operationIsOngoing, errorMessage));
+                    BOOST_REQUIRE_EQUAL(errorMessage.size(), 0);
+                    BOOST_REQUIRE(!operationIsOngoing);
+                    BOOST_REQUIRE(!m_ltp.IsAtBeginningState());
+                }
+                BOOST_REQUIRE(m_ltp.HandleReceivedChar(fullPacket[fullPacket.size() - 1], operationIsOngoing, errorMessage));
+                BOOST_REQUIRE_EQUAL(errorMessage.size(), 0);
+                BOOST_REQUIRE(!operationIsOngoing);
+
+                BOOST_REQUIRE_EQUAL(m_numDataSegmentCallbackCount, i);
                 BOOST_REQUIRE(m_ltp.IsAtBeginningState());
             }
         }
@@ -1325,7 +1374,7 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
 
 
         bool DataSegmentCallback(uint8_t segmentTypeFlags, const Ltp::session_id_t & sessionId,
-            std::vector<uint8_t> & clientServiceDataVec, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
+            Ltp::client_service_raw_data_t& clientServiceRawData, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
             Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
         {
             ++m_numDataSegmentCallbackCount;
@@ -1334,9 +1383,16 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
             BOOST_REQUIRE(dataSegmentMetadata == m_desired_dataSegmentMetadata);
             BOOST_REQUIRE(headerExtensions == m_desired_headerExtensions);
             BOOST_REQUIRE(trailerExtensions == m_desired_trailerExtensions);
-            BOOST_REQUIRE_EQUAL(m_desired_dataSegmentMetadata.length, clientServiceDataVec.size());
-
-            BOOST_REQUIRE(clientServiceDataVec == m_desired_clientServiceDataVec);
+            BOOST_REQUIRE_EQUAL((clientServiceRawData.underlyingMovableDataIfNotNull != NULL), expectedThatDataSegmentIsMovable);
+            
+            if (clientServiceRawData.underlyingMovableDataIfNotNull) {
+                BOOST_REQUIRE_EQUAL(m_desired_dataSegmentMetadata.length, clientServiceRawData.underlyingMovableDataIfNotNull->size());
+                BOOST_REQUIRE((*(clientServiceRawData.underlyingMovableDataIfNotNull)) == m_desired_clientServiceDataVec);
+            }
+            else {
+                std::vector<uint8_t> vecCopy(clientServiceRawData.data, clientServiceRawData.data + dataSegmentMetadata.length);
+                BOOST_REQUIRE(vecCopy == m_desired_clientServiceDataVec);
+            }
             return false; //false => operation is not ongoing (completely finished with "packet")
         }
 

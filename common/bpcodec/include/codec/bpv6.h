@@ -555,7 +555,7 @@ private:
     //for administrative records in RFC 5050, using the same reason codes
     uint8_t m_statusFlagsPlus7bitReasonCode;
 public:
-    std::set<FragmentSet::data_fragment_t> m_custodyIdFills;
+    FragmentSet::data_fragment_set_t m_custodyIdFills;
 
 public:
     BPCODEC_EXPORT Bpv6AdministrativeRecordContentAggregateCustodySignal(); //a default constructor: X()

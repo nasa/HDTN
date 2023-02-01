@@ -313,11 +313,11 @@ public:
      * @post If returns False, indicates that the UDP circular index buffer can reduce its size.
      */
     LTP_LIB_EXPORT bool DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
-        std::vector<uint8_t> & clientServiceDataVec, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
+        Ltp::client_service_raw_data_t& clientServiceRawData, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
 private:
     /// Received data fragments
-    std::set<LtpFragmentSet::data_fragment_t> m_receivedDataFragmentsSet;
+    LtpFragmentSet::data_fragment_set_t m_receivedDataFragmentsSet;
     /// Type of map holding report segments, mapped by report serial number
     typedef std::map<uint64_t, Ltp::report_segment_t> report_segments_sent_map_t;
     /// Report segments sent, mapped by report serial number
@@ -325,7 +325,7 @@ private:
     /// Last primary report segment sent iterator
     report_segments_sent_map_t::const_iterator m_itLastPrimaryReportSegmentSent; //std::map<uint64_t, Ltp::report_segment_t> m_mapPrimaryReportSegmentsSent;
     
-    //std::set<LtpFragmentSet::data_fragment_t> m_receivedDataFragmentsThatSenderKnowsAboutSet;
+    //LtpFragmentSet::data_fragment_set_t m_receivedDataFragmentsThatSenderKnowsAboutSet;
     /// Received checkpoint serial numbers
     std::set<uint64_t> m_checkpointSerialNumbersReceivedSet;
     /// Type of pair holding retries per report segment sent, (Report segment sent iterator TO number of retries)

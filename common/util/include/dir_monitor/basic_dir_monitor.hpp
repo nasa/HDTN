@@ -9,6 +9,7 @@
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
 #include <string>
+#include "Utf8Paths.h"
 
 namespace boost {
 namespace asio {
@@ -76,6 +77,17 @@ public:
     void remove_directory(const std::string &dirname)
     {
         this->get_service().remove_directory(this->get_implementation(), dirname);
+    }
+
+    //Added to support UTF-8 Paths
+    void add_directory_as_path(const boost::filesystem::path& dirPath)
+    {
+        this->get_service().add_directory(this->get_implementation(), Utf8Paths::PathToUtf8String(dirPath));
+    }
+
+    void remove_directory_as_path(const boost::filesystem::path& dirPath)
+    {
+        this->get_service().remove_directory(this->get_implementation(), Utf8Paths::PathToUtf8String(dirPath));
     }
 
     dir_monitor_event monitor()

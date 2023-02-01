@@ -23,6 +23,7 @@
 #include <boost/filesystem.hpp>
 #include <memory>
 #include <boost/make_unique.hpp>
+#include "ThreadNamer.h"
 #ifdef _WIN32
 #include <windows.h> //must be included after boost
 #endif
@@ -110,6 +111,7 @@ void BundleStorageManagerAsio::Start() {
             m_diskOperationInProgressVec[diskId] = false;
         }
         m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+        ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceStorageAsio");
     }
 }
 

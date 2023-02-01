@@ -82,3 +82,7 @@ unsigned int CircularIndexBufferSingleProducerSingleConsumerConfigurable::NumInB
     }
     return endIndex - startIndex;
 }
+
+unsigned int CircularIndexBufferSingleProducerSingleConsumerConfigurable::GetCapacity() const noexcept {
+	return M_CIRCULAR_INDEX_BUFFER_SIZE;
+}

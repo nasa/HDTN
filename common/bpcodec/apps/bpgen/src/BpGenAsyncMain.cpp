@@ -14,7 +14,7 @@
 
 #include "BpGenAsyncRunner.h"
 #include "Logger.h"
-
+#include "ThreadNamer.h"
 
 int main(int argc, const char* argv[]) {
 
@@ -25,6 +25,7 @@ int main(int argc, const char* argv[]) {
 #endif
     
     hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::bpgen);
+    ThreadNamer::SetThisThreadName("BpGenMain");
     BpGenAsyncRunner runner;
     volatile bool running;
     runner.Run(argc, argv, running, true);

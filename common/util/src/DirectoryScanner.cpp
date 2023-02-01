@@ -24,7 +24,9 @@ DirectoryScanner::DirectoryScanner(const boost::filesystem::path& rootFileOrFold
     bool includeExistingFiles, bool includeNewFiles, unsigned int recurseDirectoriesDepth,
     boost::asio::io_service& ioServiceRef, const uint64_t recheckFileSizeDurationMilliseconds) :
     m_currentFilePathIterator(m_pathsOfFilesList.end()),
-    m_rootFileOrFolderPath(rootFileOrFolderPath),
+    m_rootFileOrFolderPath((rootFileOrFolderPath.has_parent_path()) ?
+        rootFileOrFolderPath :
+        (boost::filesystem::path(".") / rootFileOrFolderPath)),
     m_includeExistingFiles(includeExistingFiles),
     m_includeNewFiles(includeNewFiles),
     m_recurseDirectoriesDepth(recurseDirectoriesDepth),
@@ -56,7 +58,7 @@ DirectoryScanner::path_list_t DirectoryScanner::GetListOfFilesRelativeCopy() con
     for (path_list_t::const_iterator it = m_pathsOfFilesList.cbegin();
         it != m_pathsOfFilesList.cend(); ++it)
     {
-        pl.emplace_back(boost::filesystem::relative((*it), m_rootFileOrFolderPath));
+        pl.emplace_back(boost::filesystem::relative((*it), m_relativeToPath));
     }
     return pl;
 }
@@ -70,7 +72,7 @@ DirectoryScanner::path_set_t DirectoryScanner::GetSetOfMonitoredDirectoriesRelat
     for (path_set_t::const_iterator it = m_currentlyMonitoredDirectoryPaths.cbegin();
         it != m_currentlyMonitoredDirectoryPaths.cend(); ++it)
     {
-        ps.emplace(boost::filesystem::relative((*it), m_rootFileOrFolderPath));
+        ps.emplace(boost::filesystem::relative((*it), m_relativeToPath));
     }
     return ps;
 }
@@ -93,7 +95,7 @@ bool DirectoryScanner::GetNextFilePath_NotThreadSafe(boost::filesystem::path& ne
         return false; //stopping criteria
     }
     nextFilePathAbsolute = std::move(*m_currentFilePathIterator);
-    nextFilePathRelative = boost::filesystem::relative(nextFilePathAbsolute, m_rootFileOrFolderPath);
+    nextFilePathRelative = boost::filesystem::relative(nextFilePathAbsolute, m_relativeToPath);
     path_list_t::iterator toEraseIt = m_currentFilePathIterator;
     ++m_currentFilePathIterator;
     m_pathsOfFilesList.erase(toEraseIt);
@@ -118,7 +120,7 @@ bool DirectoryScanner::GetNextFilePathTimeout(boost::filesystem::path& nextFileP
 void DirectoryScanner::Clear() {
     //clear directories monitored by dir_monitor
     for (path_set_t::const_iterator it = m_currentlyMonitoredDirectoryPaths.cbegin(); it != m_currentlyMonitoredDirectoryPaths.cend(); ++it) {
-        m_dirMonitor.remove_directory(it->string()); //does not appear to throw
+        m_dirMonitor.remove_directory_as_path(*it); //does not appear to throw
     }
     m_currentlyMonitoredDirectoryPaths.clear();
     m_timerNewFileComplete.cancel();
@@ -132,9 +134,10 @@ void DirectoryScanner::Reload() {
     Clear();
     
     if (boost::filesystem::is_directory(m_rootFileOrFolderPath)) {
+        m_relativeToPath = m_rootFileOrFolderPath;
         if (m_includeNewFiles) {
             try {
-                m_dirMonitor.add_directory(m_rootFileOrFolderPath.string());
+                m_dirMonitor.add_directory_as_path(m_rootFileOrFolderPath);
                 m_currentlyMonitoredDirectoryPaths.emplace(m_rootFileOrFolderPath);
             }
             catch (std::exception& e) {
@@ -144,15 +147,20 @@ void DirectoryScanner::Reload() {
         IterateDirectories(m_rootFileOrFolderPath, 0, m_includeExistingFiles);
         m_pathsOfFilesList.sort();
     }
-    else if (boost::filesystem::is_regular_file(m_rootFileOrFolderPath) && (m_rootFileOrFolderPath.extension().string().size() > 1)) { //just one file
+    else if (boost::filesystem::is_regular_file(m_rootFileOrFolderPath) && (m_rootFileOrFolderPath.extension().size() > 1)) { //just one file
         if (m_rootFileOrFolderPath.size() <= 255) {
             if (m_includeExistingFiles) {
                 m_pathsOfFilesList.emplace_back(m_rootFileOrFolderPath);
+                m_relativeToPath = m_rootFileOrFolderPath.parent_path(); //guaranteed to have a parent path per DirectoryScanner constructor
             }
         }
         else {
             LOG_ERROR(subprocess) << m_rootFileOrFolderPath << " is too long";
         }
+    }
+    else {
+        LOG_FATAL(subprocess) << m_rootFileOrFolderPath << " is not a directory nor a file with an extension";
+        return;
     }
 
     m_currentFilePathIterator = m_pathsOfFilesList.begin();
@@ -176,7 +184,7 @@ void DirectoryScanner::IterateDirectories(const boost::filesystem::path& rootDir
                 if (m_includeNewFiles) {
                     if (m_currentlyMonitoredDirectoryPaths.emplace(p).second) {
                         try {
-                            m_dirMonitor.add_directory(p.string());
+                            m_dirMonitor.add_directory_as_path(p);
                         }
                         catch (std::exception& e) {
                             LOG_INFO(subprocess) << e.what();
@@ -186,7 +194,7 @@ void DirectoryScanner::IterateDirectories(const boost::filesystem::path& rootDir
                 }
             }
         }
-        else if (isFile && (p.extension().string().size() > 1)) {
+        else if (isFile && (p.extension().size() > 1)) {
             if (p.size() <= 255) {
                 if (startingRecursiveDepthIndex == 0) { //existing files
                     if (m_newFilePathsAddedSet.emplace(p).second) { //keep permanent record of found files
@@ -208,7 +216,7 @@ void DirectoryScanner::IterateDirectories(const boost::filesystem::path& rootDir
 
 void DirectoryScanner::OnDirectoryChangeEvent(const boost::system::error_code& ec, const boost::asio::dir_monitor_event& ev) {
     if (!ec) {
-        const boost::filesystem::path relPath = boost::filesystem::relative(ev.path, m_rootFileOrFolderPath);
+        const boost::filesystem::path relPath = boost::filesystem::relative(ev.path, m_relativeToPath);
         const unsigned int recursionDepthRelative = static_cast<unsigned int>(std::distance(relPath.begin(), relPath.end()) - 1);
         if ((ev.type == boost::asio::dir_monitor_event::added) || (ev.type == boost::asio::dir_monitor_event::modified)) {
             if (boost::filesystem::is_directory(ev.path)) {
@@ -216,7 +224,7 @@ void DirectoryScanner::OnDirectoryChangeEvent(const boost::system::error_code& e
                     if (recursionDepthRelative >= m_recurseDirectoriesDepth) {} //don't iterate files within that will have depth 1 greater than this directory that contains them
                     else {
                         try {
-                            m_dirMonitor.add_directory(ev.path.string());
+                            m_dirMonitor.add_directory_as_path(ev.path);
                             m_currentlyMonitoredDirectoryPaths.emplace(ev.path);
                         }
                         catch (std::exception& e) {
@@ -240,7 +248,7 @@ void DirectoryScanner::OnDirectoryChangeEvent(const boost::system::error_code& e
         }
         else if ((ev.type == boost::asio::dir_monitor_event::removed) || (ev.type == boost::asio::dir_monitor_event::renamed_old_name)) {
             if (m_currentlyMonitoredDirectoryPaths.count(ev.path)) { //also tests if (boost::filesystem::is_directory(ev.path)) { but no longer exists
-                m_dirMonitor.remove_directory(ev.path.string());
+                m_dirMonitor.remove_directory_as_path(ev.path);
                 m_currentlyMonitoredDirectoryPaths.erase(ev.path);
             }
         }
@@ -250,7 +258,7 @@ void DirectoryScanner::OnDirectoryChangeEvent(const boost::system::error_code& e
                     if (recursionDepthRelative >= m_recurseDirectoriesDepth) {} //don't iterate files within that will have depth 1 greater than this directory that contains them
                     else {
                         try {
-                            m_dirMonitor.add_directory(ev.path.string());
+                            m_dirMonitor.add_directory_as_path(ev.path);
                             m_currentlyMonitoredDirectoryPaths.emplace(ev.path);
                         }
                         catch (std::exception& e) {

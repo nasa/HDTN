@@ -44,7 +44,7 @@ public:
         uint8_t unused2;
         uint8_t unused3;
     };
-    typedef std::pair<std::set<FragmentSet::data_fragment_t>, std::unique_ptr<boost::filesystem::ofstream> > fragments_ofstream_pair_t;
+    typedef std::pair<FragmentSet::data_fragment_set_t, std::unique_ptr<boost::filesystem::ofstream> > fragments_ofstream_pair_t;
     typedef std::map<boost::filesystem::path, fragments_ofstream_pair_t> filename_to_writeinfo_map_t;
 
     BpReceiveFile(const boost::filesystem::path & saveDirectory);

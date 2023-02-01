@@ -35,6 +35,7 @@
 #include "Uri.h"
 #include "CustodyTimers.h"
 #include "codec/BundleViewV7.h"
+#include "ThreadNamer.h"
 
 typedef std::pair<cbhe_eid_t, bool> eid_plus_isanyserviceid_pair_t;
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
@@ -453,7 +454,7 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
                     }
 
                     //todo figure out what to do with failed custody from next hop
-                    for (std::set<FragmentSet::data_fragment_t>::const_iterator it = acs.m_custodyIdFills.cbegin(); it != acs.m_custodyIdFills.cend(); ++it) {
+                    for (FragmentSet::data_fragment_set_t::const_iterator it = acs.m_custodyIdFills.cbegin(); it != acs.m_custodyIdFills.cend(); ++it) {
                         forStats->m_numAcsCustodyTransfers += (it->endIndex + 1) - it->beginIndex;
                         m_custodyIdAllocatorPtr->FreeCustodyIdRange(it->beginIndex, it->endIndex);
                         for (uint64_t currentCustodyId = it->beginIndex; currentCustodyId <= it->endIndex; ++currentCustodyId) {
@@ -776,7 +777,7 @@ void ZmqStorageInterface::Impl::SetLinkDown(OutductInfo_t & info) {
 }
 
 void ZmqStorageInterface::Impl::ThreadFunc() {
-    
+    ThreadNamer::SetThisThreadName("ZmqStorageInterface");
     
     m_custodySignalRfc5050RenderedBundleView.m_frontBuffer.reserve(2000);
     m_custodySignalRfc5050RenderedBundleView.m_backBuffer.reserve(2000);

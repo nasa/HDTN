@@ -15,7 +15,7 @@
 #include <iostream>
 #include "BpSendFileRunner.h"
 #include "Logger.h"
-
+#include "ThreadNamer.h"
 
 int main(int argc, const char* argv[]) {
 
@@ -26,6 +26,7 @@ int main(int argc, const char* argv[]) {
 #endif
 
     hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::bpsendfile);
+    ThreadNamer::SetThisThreadName("BpSendFileMain");
     BpSendFileRunner runner;
     volatile bool running;
     runner.Run(argc, argv, running, true);

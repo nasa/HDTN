@@ -16,13 +16,13 @@
 #include <iostream>
 #include "Sdnv.h"
 
-bool LtpFragmentSet::PopulateReportSegment(const std::set<data_fragment_t> & fragmentSet, Ltp::report_segment_t & reportSegment, uint64_t lowerBound, uint64_t upperBound) {
+bool LtpFragmentSet::PopulateReportSegment(const data_fragment_set_t & fragmentSet, Ltp::report_segment_t & reportSegment, uint64_t lowerBound, uint64_t upperBound) {
     if (fragmentSet.empty()) {
         return false;
     }
 
     //Lower bound : The lower bound of a report segment is the size of the(interior) block prefix to which the segment's reception claims do NOT pertain.
-    std::set<data_fragment_t>::const_iterator firstElement;
+    data_fragment_set_t::const_iterator firstElement;
     if (lowerBound == UINT64_MAX) { //AUTO DETECT
         firstElement = fragmentSet.cbegin();
         lowerBound = firstElement->beginIndex;
@@ -36,7 +36,7 @@ bool LtpFragmentSet::PopulateReportSegment(const std::set<data_fragment_t> & fra
 
     //Upper bound : The upper bound of a report segment is the size of the block prefix to which the segment's reception claims pertain.
     if (upperBound == UINT64_MAX) { //AUTO DETECT
-        std::set<data_fragment_t>::const_reverse_iterator lastElement = fragmentSet.crbegin();
+        data_fragment_set_t::const_reverse_iterator lastElement = fragmentSet.crbegin();
         upperBound = lastElement->endIndex + 1;
     }
     reportSegment.upperBound = upperBound;
@@ -48,7 +48,7 @@ bool LtpFragmentSet::PopulateReportSegment(const std::set<data_fragment_t> & fra
     //Reception claims
     reportSegment.receptionClaims.clear();
     reportSegment.receptionClaims.reserve(fragmentSet.size());
-    for (std::set<data_fragment_t>::const_iterator it = firstElement; it != fragmentSet.cend(); ++it) {
+    for (data_fragment_set_t::const_iterator it = firstElement; it != fragmentSet.cend(); ++it) {
         //Offset : The offset indicates the successful reception of data beginning at the indicated offset from the lower bound of the RS.The
         //offset within the entire block can be calculated by summing this offset with the lower bound of the RS.
         const uint64_t beginIndex = std::max(it->beginIndex, lowerBound);
@@ -118,7 +118,7 @@ bool LtpFragmentSet::SplitReportSegment(const Ltp::report_segment_t & originalTo
     return true;
 }
 
-bool LtpFragmentSet::AddReportSegmentToFragmentSet(std::set<data_fragment_t> & fragmentSet, const Ltp::report_segment_t & reportSegment) {
+bool LtpFragmentSet::AddReportSegmentToFragmentSet(data_fragment_set_t & fragmentSet, const Ltp::report_segment_t & reportSegment) {
     const uint64_t lowerBound = reportSegment.lowerBound;
     unsigned int numModified = 0;
     for (std::vector<Ltp::reception_claim_t>::const_iterator it = reportSegment.receptionClaims.cbegin(); it != reportSegment.receptionClaims.cend(); ++it) {
@@ -128,7 +128,7 @@ bool LtpFragmentSet::AddReportSegmentToFragmentSet(std::set<data_fragment_t> & f
     return (numModified != 0);
 }
 
-bool LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(std::set<data_fragment_t> & fragmentSetNeedingResent, const Ltp::report_segment_t & reportSegment) {
+bool LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(data_fragment_set_t & fragmentSetNeedingResent, const Ltp::report_segment_t & reportSegment) {
     const std::vector<Ltp::reception_claim_t> & receptionClaims = reportSegment.receptionClaims;
     unsigned int numModified = 0;
     if (receptionClaims.empty()) {
@@ -157,18 +157,18 @@ bool LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(std::set<data_fr
     return (numModified != 0);
 }
 
-void LtpFragmentSet::ReduceReportSegments(const std::map<data_fragment_unique_overlapping_t, uint64_t>& rsBoundsToRsnMap,
-    const std::set<data_fragment_t>& allReceivedFragmentsSet,
-    std::list<std::pair<uint64_t, std::set<data_fragment_t> > >& listFragmentSetNeedingResentForEachReport)
+void LtpFragmentSet::ReduceReportSegments(const ds_pending_map_t& rsBoundsToRsnMap,
+    const data_fragment_set_t& allReceivedFragmentsSet,
+    std::list<std::pair<uint64_t, data_fragment_set_t > >& listFragmentSetNeedingResentForEachReport)
 {
     listFragmentSetNeedingResentForEachReport.clear();
-    std::set<data_fragment_t> allReceivedPlusJustNowSentFragmentsSet = allReceivedFragmentsSet;
+    data_fragment_set_t allReceivedPlusJustNowSentFragmentsSet = allReceivedFragmentsSet;
     
-    for (std::map<data_fragment_unique_overlapping_t, uint64_t>::const_iterator it = rsBoundsToRsnMap.cbegin(); it != rsBoundsToRsnMap.cend(); ++it) {
+    for (ds_pending_map_t::const_iterator it = rsBoundsToRsnMap.cbegin(); it != rsBoundsToRsnMap.cend(); ++it) {
         const data_fragment_unique_overlapping_t& dfUnique = it->first;
         const data_fragment_t& bounds = *(reinterpret_cast<const data_fragment_t*>(&dfUnique));
         const uint64_t & rsn = it->second;
-        std::set<data_fragment_t> boundsMinusFragmentsSet;
+        data_fragment_set_t boundsMinusFragmentsSet;
         FragmentSet::GetBoundsMinusFragments(bounds, allReceivedPlusJustNowSentFragmentsSet, boundsMinusFragmentsSet);
         FragmentSet::InsertFragment(allReceivedPlusJustNowSentFragmentsSet, bounds);
         if (boundsMinusFragmentsSet.size()) {

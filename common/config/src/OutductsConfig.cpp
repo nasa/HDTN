@@ -24,7 +24,7 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_over_udp", "udp", "stcp", "tcpcl_v3", "tcpcl_v4" };
+static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_over_udp", "ltp_over_ipc", "udp", "stcp", "tcpcl_v3", "tcpcl_v4" };
 
 outduct_element_config_t::outduct_element_config_t() :
     name(""),
@@ -391,7 +391,7 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 }
             }
 
-            if (outductElementConfig.convergenceLayer == "ltp_over_udp") {
+            if ((outductElementConfig.convergenceLayer == "ltp_over_udp") || (outductElementConfig.convergenceLayer == "ltp_over_ipc")) {
                 outductElementConfig.thisLtpEngineId = outductElementConfigPt.second.get<uint64_t>("thisLtpEngineId");
                 outductElementConfig.remoteLtpEngineId = outductElementConfigPt.second.get<uint64_t>("remoteLtpEngineId");
                 outductElementConfig.ltpDataSegmentMtu = outductElementConfigPt.second.get<uint32_t>("ltpDataSegmentMtu");
@@ -577,7 +577,7 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
             finalDestinationEidUrisPt.push_back(std::make_pair("", boost::property_tree::ptree(*finalDestinationEidUriIt))); //using "" as key creates json array
         }
         
-        if (outductElementConfig.convergenceLayer == "ltp_over_udp") {
+        if ((outductElementConfig.convergenceLayer == "ltp_over_udp") || (outductElementConfig.convergenceLayer == "ltp_over_ipc")) {
             outductElementConfigPt.put("thisLtpEngineId", outductElementConfig.thisLtpEngineId);
             outductElementConfigPt.put("remoteLtpEngineId", outductElementConfig.remoteLtpEngineId);
             outductElementConfigPt.put("ltpDataSegmentMtu", outductElementConfig.ltpDataSegmentMtu);

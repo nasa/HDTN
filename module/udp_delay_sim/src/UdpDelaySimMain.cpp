@@ -15,11 +15,13 @@
 #include <iostream>
 #include "UdpDelaySimRunner.h"
 #include "Logger.h"
+#include "ThreadNamer.h"
 
 int main(int argc, const char* argv[]) {
 
 
     hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::udpdelaysim);
+    ThreadNamer::SetThisThreadName("UdpDelaySimMain");
     UdpDelaySimRunner runner;
     volatile bool running;
     runner.Run(argc, argv, running, true);

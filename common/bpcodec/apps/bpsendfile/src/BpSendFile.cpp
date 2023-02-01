@@ -19,6 +19,8 @@
 #include <boost/make_unique.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/endian/conversion.hpp>
+#include "ThreadNamer.h"
+#include "Utf8Paths.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -43,6 +45,7 @@ BpSendFile::BpSendFile(const boost::filesystem::path & fileOrFolderPath, uint64_
 
     if (uploadNewFiles) {
         m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+        ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceBpSendFile");
     }
     
     if ((m_directoryScannerPtr->GetNumberOfFilesToSend() == 0) && (!uploadNewFiles)) {
@@ -84,16 +87,25 @@ uint64_t BpSendFile::GetNextPayloadLength_Step1() {
     if (!m_currentIfstreamPtr) {
         m_currentIfstreamPtr = boost::make_unique<boost::filesystem::ifstream>(m_currentFilePathAbsolute, std::ifstream::in | std::ifstream::binary);
         if (m_currentIfstreamPtr->good()) {
+            //path name shall be utf-8 encoded
+            m_currentFilePathRelativeAsUtf8String = Utf8Paths::PathToUtf8String(m_currentFilePathRelative);
+            m_currentFilePathRelativeAsPrintableString = (Utf8Paths::IsAscii(m_currentFilePathRelativeAsUtf8String)) ?
+                m_currentFilePathRelativeAsUtf8String : std::string("UTF-8-non-printable-file-name");
+            if (m_currentFilePathRelativeAsUtf8String.size() > std::numeric_limits<uint8_t>::max()) {
+                LOG_ERROR(subprocess) << "Path " << m_currentFilePathRelativeAsPrintableString
+                    << " exceeds max length of " << (int)std::numeric_limits<uint8_t>::max();
+                return 0;
+            }
             // get length of file:
             m_currentIfstreamPtr->seekg(0, m_currentIfstreamPtr->end);
             m_currentSendFileMetadata.totalFileSize = m_currentIfstreamPtr->tellg();
             m_currentIfstreamPtr->seekg(0, m_currentIfstreamPtr->beg);
             m_currentSendFileMetadata.fragmentOffset = 0;
-            m_currentSendFileMetadata.pathLen = static_cast<uint8_t>(m_currentFilePathRelative.size());
-            LOG_INFO(subprocess) << "send " << m_currentFilePathRelative;
+            m_currentSendFileMetadata.pathLen = static_cast<uint8_t>(m_currentFilePathRelativeAsUtf8String.size());
+            LOG_INFO(subprocess) << "Sending: " << m_currentFilePathRelativeAsPrintableString;
         }
         else { //file error occurred.. stop
-            LOG_ERROR(subprocess) << "Failed to read " << m_currentFilePathAbsolute << " : error was : " << std::strerror(errno);
+            LOG_ERROR(subprocess) << "Failed to read " << m_currentFilePathRelativeAsPrintableString << " : error was : " << std::strerror(errno);
             return 0;
         }
     }
@@ -105,8 +117,7 @@ bool BpSendFile::CopyPayload_Step2(uint8_t * destinationBuffer) {
     memcpy(destinationBuffer, &m_currentSendFileMetadata, sizeof(m_currentSendFileMetadata));
     m_currentSendFileMetadata.ToNativeEndianInplace();
     destinationBuffer += sizeof(m_currentSendFileMetadata);
-    const std::string pRelativeStr = m_currentFilePathRelative.string(); //TODO ALLOW NON US CHARACTERS IN FILENAME
-    memcpy(destinationBuffer, pRelativeStr.data(), pRelativeStr.size());
+    memcpy(destinationBuffer, m_currentFilePathRelativeAsUtf8String.data(), m_currentFilePathRelativeAsUtf8String.size());
     destinationBuffer += m_currentSendFileMetadata.pathLen;
     // read data as a block:
     m_currentIfstreamPtr->read((char*)destinationBuffer, m_currentSendFileMetadata.fragmentLength);

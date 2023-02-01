@@ -21,6 +21,7 @@
 #include "StcpOutduct.h"
 #include "UdpOutduct.h"
 #include "LtpOverUdpOutduct.h"
+#include "LtpOverIpcOutduct.h"
 #include "Uri.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
@@ -94,8 +95,15 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
         else if (thisOutductConfig.convergenceLayer == "ltp_over_udp") {
             outductSharedPtr = std::make_shared<LtpOverUdpOutduct>(thisOutductConfig, uuidIndex);
         }
+        else if (thisOutductConfig.convergenceLayer == "ltp_over_ipc") {
+            outductSharedPtr = std::make_shared<LtpOverIpcOutduct>(thisOutductConfig, uuidIndex);
+        }
 
         if (outductSharedPtr) {
+            if (!outductSharedPtr->Init()) {
+                LOG_ERROR(subprocess) << "OutductManager::LoadOutductsFromConfig: convergence layer " << thisOutductConfig.convergenceLayer << " failed to initialize.";
+                return false;
+            }
             ++nextOutductUuidIndex;
             for (std::set<std::string>::const_iterator itDestUri = thisOutductConfig.finalDestinationEidUris.cbegin(); itDestUri != thisOutductConfig.finalDestinationEidUris.cend(); ++itDestUri) {
                 const std::string & finalDestinationEidUri = *itDestUri;

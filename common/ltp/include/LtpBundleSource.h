@@ -14,7 +14,7 @@
  * @section DESCRIPTION
  *
  * This LtpBundleSource class encapsulates the appropriate LTP functionality
- * to send a pipeline of bundles (or any other user defined data) over an LTP over UDP link
+ * to send a pipeline of bundles (or any other user defined data) over an LTP link (transport layer must be defined in child class)
  * and calls the user defined function OnSuccessfulAckCallback_t when the session closes, meaning
  * a bundle is fully sent (i.e. the ltp fully red session gets acknowledged by the remote receiver).
  */
@@ -29,7 +29,7 @@
 #include <unordered_set>
 #include <vector>
 #include "TelemetryDefinitions.h"
-#include "LtpUdpEngineManager.h"
+#include "LtpEngine.h"
 #include "LtpEngineConfig.h"
 #include "BundleCallbackFunctionDefines.h"
 #include <zmq.hpp>
@@ -42,7 +42,8 @@ private:
 public:
     LTP_LIB_EXPORT LtpBundleSource(const LtpEngineConfig& ltpTxCfg);
 
-    LTP_LIB_EXPORT ~LtpBundleSource();
+    LTP_LIB_EXPORT virtual ~LtpBundleSource();
+    LTP_LIB_EXPORT bool Init();
     LTP_LIB_EXPORT void Stop();
     LTP_LIB_EXPORT bool Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData);
     LTP_LIB_EXPORT bool Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData);
@@ -60,8 +61,13 @@ public:
     LTP_LIB_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
     LTP_LIB_EXPORT void SyncTelemetry();
     LTP_LIB_EXPORT uint64_t GetOutductMaxNumberOfBundlesInPipeline() const;
+    
+protected:
+    LTP_LIB_EXPORT virtual bool ReadyToForward() = 0;
+    LTP_LIB_EXPORT virtual bool SetLtpEnginePtr() = 0;
+    LTP_LIB_EXPORT virtual void SyncTransportLayerSpecificTelem() = 0;
 private:
-    LTP_LIB_NO_EXPORT void RemoveCallback();
+    
 
     //ltp callback functions for a sender
     LTP_LIB_NO_EXPORT void SessionStartCallback(const Ltp::session_id_t & sessionId);
@@ -73,18 +79,18 @@ private:
     boost::condition_variable m_localConditionVariableAckReceived;
 
     //ltp vars
-    std::shared_ptr<LtpUdpEngineManager> m_ltpUdpEngineManagerPtr;
-    LtpUdpEngine * m_ltpUdpEnginePtr;
+protected:
+    const LtpEngineConfig m_ltpTxCfg;
+    LtpEngine * m_ltpEnginePtr;
     const uint64_t M_CLIENT_SERVICE_ID;
     const uint64_t M_THIS_ENGINE_ID;
     const uint64_t M_REMOTE_LTP_ENGINE_ID;
     const uint64_t M_BUNDLE_PIPELINE_LIMIT;
+private:
     std::unordered_set<uint64_t> m_activeSessionNumbersSet;
     std::atomic<unsigned int> m_startingCount;
 
-    boost::mutex m_removeEngineMutex;
-    boost::condition_variable m_removeEngineCv;
-    volatile bool m_removeEngineInProgress;
+    
 public:
     //ltp stats
     LtpOutductTelemetry_t m_ltpOutductTelemetry;

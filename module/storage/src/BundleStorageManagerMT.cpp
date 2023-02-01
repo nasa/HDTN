@@ -17,6 +17,7 @@
 #include <boost/filesystem.hpp>
 #include <memory>
 #include <boost/make_unique.hpp>
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
 
@@ -73,7 +74,8 @@ void BundleStorageManagerMT::Start() {
 }
 
 void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
-
+    const std::string threadName = "StorageMTdisk" + boost::lexical_cast<std::string>(threadIndex);
+    ThreadNamer::SetThisThreadName(threadName);
     
     //boost::mutex::scoped_lock lock(localMutex);
     std::pair<boost::condition_variable, boost::mutex>& cvMutexPairRef = m_conditionVariablesPlusMutexesVec[threadIndex];

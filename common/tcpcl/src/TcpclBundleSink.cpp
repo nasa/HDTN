@@ -18,6 +18,7 @@
 #include "Logger.h"
 #include <boost/make_unique.hpp>
 #include "Uri.h"
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -157,6 +158,7 @@ void TcpclBundleSink::HandleTcpReceiveSome(const boost::system::error_code & err
 }
 
 void TcpclBundleSink::PopCbThreadFunc() {
+    ThreadNamer::SetThisThreadName("TcpclBundleSinkCbReader");
     while (true) { //keep thread alive if running or cb not empty, i.e. "while (m_running || (m_circularIndexBuffer.GetIndexForRead() != CIRCULAR_INDEX_BUFFER_EMPTY))"
         unsigned int consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
         boost::asio::post(m_tcpSocketIoServiceRef, boost::bind(&TcpclBundleSink::TryStartTcpReceive, this)); //keep this a thread safe operation by letting ioService thread run it

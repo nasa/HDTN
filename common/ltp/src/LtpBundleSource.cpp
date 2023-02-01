@@ -24,7 +24,9 @@ LtpBundleSource::LtpBundleSource(const LtpEngineConfig& ltpTxCfg) :
 
 m_useLocalConditionVariableAckReceived(false), //for destructor only
 
-m_ltpUdpEngineManagerPtr(LtpUdpEngineManager::GetOrCreateInstance(ltpTxCfg.myBoundUdpPort, true)),
+m_ltpTxCfg(ltpTxCfg),
+m_ltpEnginePtr(NULL),
+
 M_CLIENT_SERVICE_ID(ltpTxCfg.clientServiceId),
 M_THIS_ENGINE_ID(ltpTxCfg.thisEngineId),
 M_REMOTE_LTP_ENGINE_ID(ltpTxCfg.remoteEngineId),
@@ -33,32 +35,29 @@ m_startingCount(0),
 
 m_ltpOutductTelemetry()
 {
-    m_activeSessionNumbersSet.reserve(M_BUNDLE_PIPELINE_LIMIT);
-    m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(ltpTxCfg.remoteEngineId, false);
-    if (m_ltpUdpEnginePtr == NULL) {
-        m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(ltpTxCfg);
-        m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(ltpTxCfg.remoteEngineId, false);
-    }
-
-    m_ltpUdpEnginePtr->SetSessionStartCallback(boost::bind(&LtpBundleSource::SessionStartCallback, this, boost::placeholders::_1));
-    m_ltpUdpEnginePtr->SetTransmissionSessionCompletedCallback(boost::bind(&LtpBundleSource::TransmissionSessionCompletedCallback, this, boost::placeholders::_1));
-    m_ltpUdpEnginePtr->SetInitialTransmissionCompletedCallback(boost::bind(&LtpBundleSource::InitialTransmissionCompletedCallback, this, boost::placeholders::_1));
-    m_ltpUdpEnginePtr->SetTransmissionSessionCancelledCallback(boost::bind(&LtpBundleSource::TransmissionSessionCancelledCallback, this, boost::placeholders::_1, boost::placeholders::_2));
 }
 
 LtpBundleSource::~LtpBundleSource() {
-    Stop();
+    Stop(); //child destructor should call stop and set m_ltpEnginePtr to null, if so this Stop() will do nothing since m_ltpEnginePtr will be null
 }
 
-void LtpBundleSource::RemoveCallback() {
-    m_removeEngineMutex.lock();
-    m_removeEngineInProgress = false;
-    m_removeEngineMutex.unlock();
-    m_removeEngineCv.notify_one();
+bool LtpBundleSource::Init() {
+    m_activeSessionNumbersSet.reserve(M_BUNDLE_PIPELINE_LIMIT);
+    if (!SetLtpEnginePtr()) { //virtual function call
+        return false;
+    }
+
+    m_ltpEnginePtr->SetSessionStartCallback(boost::bind(&LtpBundleSource::SessionStartCallback, this, boost::placeholders::_1));
+    m_ltpEnginePtr->SetTransmissionSessionCompletedCallback(boost::bind(&LtpBundleSource::TransmissionSessionCompletedCallback, this, boost::placeholders::_1));
+    m_ltpEnginePtr->SetInitialTransmissionCompletedCallback(boost::bind(&LtpBundleSource::InitialTransmissionCompletedCallback, this, boost::placeholders::_1));
+    m_ltpEnginePtr->SetTransmissionSessionCancelledCallback(boost::bind(&LtpBundleSource::TransmissionSessionCancelledCallback, this, boost::placeholders::_1, boost::placeholders::_2));
+    return true;
 }
+
+
 
 void LtpBundleSource::Stop() {
-    if (m_ltpUdpEnginePtr) {
+    if (m_ltpEnginePtr) {
         //prevent TcpclBundleSource from exiting before all bundles sent and acked
         boost::mutex localMutex;
         boost::mutex::scoped_lock lock(localMutex);
@@ -79,19 +78,7 @@ void LtpBundleSource::Stop() {
             }
             break;
         }
-
-        LOG_INFO(subprocess) << "waiting to remove ltp bundle source for engine ID " << M_THIS_ENGINE_ID;
-        boost::mutex::scoped_lock cvLock(m_removeEngineMutex);
-        m_removeEngineInProgress = true;
-        m_ltpUdpEngineManagerPtr->RemoveLtpUdpEngineByRemoteEngineId_ThreadSafe(M_REMOTE_LTP_ENGINE_ID, false, boost::bind(&LtpBundleSource::RemoveCallback, this));
-        while (m_removeEngineInProgress) { //lock mutex (above) before checking condition
-            //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
-            if (!m_removeEngineCv.timed_wait(cvLock, boost::posix_time::seconds(3))) {
-                LOG_ERROR(subprocess) << "timed out waiting (for 3 seconds) to remove ltp bundle source for engine ID " << M_THIS_ENGINE_ID;
-                break;
-            }
-        }
-        m_ltpUdpEnginePtr = NULL;
+        
 
         //print stats
         LOG_INFO(subprocess) << "m_ltpOutductTelemetry.totalBundlesSent " << m_ltpOutductTelemetry.totalBundlesSent;
@@ -128,11 +115,7 @@ std::size_t LtpBundleSource::GetTotalBundleBytesSent() {
 
 bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData) {
 
-    if (!m_ltpUdpEngineManagerPtr->ReadyToForward()) { //in case there's a general error for the manager's udp receive, stop it here
-        return false;
-    }
-
-    if (!m_ltpUdpEnginePtr->ReadyToSend()) { //in case there's a send error from the udp engine's socket send operation, stop it here
+    if (!ReadyToForward()) { //virtual function call
         return false;
     }
 
@@ -153,7 +136,7 @@ bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_
     tReq->clientServiceDataToSend.m_userData = std::move(userData);
     tReq->lengthOfRedPart = bundleBytesToSend;
 
-    m_ltpUdpEnginePtr->TransmissionRequest_ThreadSafe(std::move(tReq));
+    m_ltpEnginePtr->TransmissionRequest_ThreadSafe(std::move(tReq));
 
     ++m_ltpOutductTelemetry.totalBundlesSent;
     m_ltpOutductTelemetry.totalBundleBytesSent += bundleBytesToSend;
@@ -163,11 +146,7 @@ bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_
 
 bool LtpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData) {
 
-    if (!m_ltpUdpEngineManagerPtr->ReadyToForward()) { //in case there's a general error for the manager's udp receive, stop it here
-        return false;
-    }
-
-    if (!m_ltpUdpEnginePtr->ReadyToSend()) { //in case there's a send error from the udp engine's socket send operation, stop it here
+    if (!ReadyToForward()) { //virtual function call
         return false;
     }
 
@@ -186,7 +165,7 @@ bool LtpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& u
     tReq->clientServiceDataToSend.m_userData = std::move(userData);
     tReq->lengthOfRedPart = bundleBytesToSend;
 
-    m_ltpUdpEnginePtr->TransmissionRequest_ThreadSafe(std::move(tReq));
+    m_ltpEnginePtr->TransmissionRequest_ThreadSafe(std::move(tReq));
 
     ++m_ltpOutductTelemetry.totalBundlesSent;
     m_ltpOutductTelemetry.totalBundleBytesSent += bundleBytesToSend;
@@ -200,7 +179,7 @@ bool LtpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size,
 }
 
 uint64_t LtpBundleSource::GetOutductMaxNumberOfBundlesInPipeline() const {
-    return m_ltpUdpEnginePtr->GetMaxNumberOfSessionsInPipeline();
+    return m_ltpEnginePtr->GetMaxNumberOfSessionsInPipeline();
 }
 
 
@@ -250,37 +229,36 @@ void LtpBundleSource::TransmissionSessionCancelledCallback(const Ltp::session_id
 }
 
 void LtpBundleSource::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
-    if (m_ltpUdpEnginePtr) {
-        m_ltpUdpEnginePtr->SetOnFailedBundleVecSendCallback(callback);
+    if (m_ltpEnginePtr) {
+        m_ltpEnginePtr->SetOnFailedBundleVecSendCallback(callback);
     }
 }
 void LtpBundleSource::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
-    if (m_ltpUdpEnginePtr) {
-        m_ltpUdpEnginePtr->SetOnFailedBundleZmqSendCallback(callback);
+    if (m_ltpEnginePtr) {
+        m_ltpEnginePtr->SetOnFailedBundleZmqSendCallback(callback);
     }
 }
 void LtpBundleSource::SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback) {
-    if (m_ltpUdpEnginePtr) {
-        m_ltpUdpEnginePtr->SetOnSuccessfulBundleSendCallback(callback);
+    if (m_ltpEnginePtr) {
+        m_ltpEnginePtr->SetOnSuccessfulBundleSendCallback(callback);
     }
 }
 void LtpBundleSource::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {
-    if (m_ltpUdpEnginePtr) {
-        m_ltpUdpEnginePtr->SetOnOutductLinkStatusChangedCallback(callback);
+    if (m_ltpEnginePtr) {
+        m_ltpEnginePtr->SetOnOutductLinkStatusChangedCallback(callback);
     }
 }
 void LtpBundleSource::SetUserAssignedUuid(uint64_t userAssignedUuid) {
-    if (m_ltpUdpEnginePtr) {
-        m_ltpUdpEnginePtr->SetUserAssignedUuid(userAssignedUuid);
+    if (m_ltpEnginePtr) {
+        m_ltpEnginePtr->SetUserAssignedUuid(userAssignedUuid);
     }
 }
 
 void LtpBundleSource::SyncTelemetry() {
-    if (m_ltpUdpEnginePtr) {
-        m_ltpOutductTelemetry.numCheckpointsExpired = m_ltpUdpEnginePtr->m_numCheckpointTimerExpiredCallbacksRef;
-        m_ltpOutductTelemetry.numDiscretionaryCheckpointsNotResent = m_ltpUdpEnginePtr->m_numDiscretionaryCheckpointsNotResentRef;
-        m_ltpOutductTelemetry.countUdpPacketsSent = m_ltpUdpEnginePtr->m_countAsyncSendCallbackCalls + m_ltpUdpEnginePtr->m_countBatchUdpPacketsSent;
-        m_ltpOutductTelemetry.countRxUdpCircularBufferOverruns = m_ltpUdpEnginePtr->m_countCircularBufferOverruns;
-        m_ltpOutductTelemetry.countTxUdpPacketsLimitedByRate = m_ltpUdpEnginePtr->m_countAsyncSendsLimitedByRate;
+    if (m_ltpEnginePtr) {
+        m_ltpOutductTelemetry.numCheckpointsExpired = m_ltpEnginePtr->m_numCheckpointTimerExpiredCallbacksRef;
+        m_ltpOutductTelemetry.numDiscretionaryCheckpointsNotResent = m_ltpEnginePtr->m_numDiscretionaryCheckpointsNotResentRef;
+        m_ltpOutductTelemetry.countTxUdpPacketsLimitedByRate = m_ltpEnginePtr->m_countAsyncSendsLimitedByRate;
+        SyncTransportLayerSpecificTelem(); //virtual function call
     }
 }

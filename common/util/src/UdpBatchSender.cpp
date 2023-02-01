@@ -19,6 +19,7 @@
 #include <memory>
 #include <boost/make_unique.hpp>
 #include <boost/endian/conversion.hpp>
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -123,6 +124,7 @@ bool UdpBatchSender::Init(const boost::asio::ip::udp::endpoint& udpDestinationEn
     
     m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioService);
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceUdpBatchSender");
 
     return true;
 }
@@ -183,88 +185,75 @@ void UdpBatchSender::SetOnSentPacketsCallback(const OnSentPacketsCallback_t& cal
     m_onSentPacketsCallback = callback;
 }
 
-void UdpBatchSender::QueueSendPacketsOperation_ThreadSafe(
-    std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-    std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
-    std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec)
-{
+void UdpBatchSender::QueueSendPacketsOperation_ThreadSafe(std::shared_ptr<std::vector<UdpSendPacketInfo> >&& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend) {
     boost::asio::post(m_ioService,
         boost::bind(&UdpBatchSender::PerformSendPacketsOperation, this,
-            std::move(constBufferVecs), std::move(underlyingDataToDeleteOnSentCallbackVec), std::move(underlyingCsDataToDeleteOnSentCallbackVec)));
+            std::move(udpSendPacketInfoVecSharedPtr), numPacketsToSend));
 }
 
-void UdpBatchSender::PerformSendPacketsOperation(
-    std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-    std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
-    std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec)
-{
-
-    m_transmitPacketsElementVec.resize(0); //space has been reserved in UdpBatchSender::Init()
-    
-
-    for (std::size_t i = 0; i < constBufferVecs.size(); ++i) {
-        std::vector<boost::asio::const_buffer>& currentPacketConstBuffers = constBufferVecs[i];
-        const std::size_t currentPacketConstBuffersSize = currentPacketConstBuffers.size();
-        if (currentPacketConstBuffersSize) {
+void UdpBatchSender::AppendConstBufferVecToTransmissionElements(std::vector<boost::asio::const_buffer>& currentPacketConstBuffers) {
+    const std::size_t currentPacketConstBuffersSize = currentPacketConstBuffers.size();
+    if (currentPacketConstBuffersSize) {
 #ifdef _WIN32
-            std::size_t j = 0;
-            while(true) {
-                m_transmitPacketsElementVec.emplace_back();
-                TRANSMIT_PACKETS_ELEMENT& tpe = m_transmitPacketsElementVec.back();
-                boost::asio::const_buffer& constBuf = currentPacketConstBuffers[j];
-                tpe.dwElFlags = TP_ELEMENT_MEMORY;
-                tpe.pBuffer = (PVOID)constBuf.data();
-                tpe.cLength = (ULONG)constBuf.size();
-                ++j;
-                if (j == currentPacketConstBuffersSize) {
-                    break;
-                }
-            }
-            m_transmitPacketsElementVec.back().dwElFlags |= TP_ELEMENT_EOP;
-#else //not _WIN32
-            /*
-            the following two data structures are equivalent so a cast will work
-            struct iovec {
-                ptr_t iov_base; // Starting address
-                size_t iov_len; // Length in bytes
-            };
-            class const_buffer
-            {
-            private:
-                const void* data_;
-                std::size_t size_;
-            };
-            */
+        std::size_t j = 0;
+        while (true) {
             m_transmitPacketsElementVec.emplace_back();
-            struct mmsghdr & mmsgHeader = m_transmitPacketsElementVec.back();
-            /*
-            struct msghdr {
-                void    *   msg_name;   // Socket name
-                int     msg_namelen;    // Length of name
-                struct iovec* msg_iov;    // Data blocks
-                __kernel_size_t msg_iovlen; // Number of blocks
-                void* msg_control;    // Per protocol magic (eg BSD file descriptor passing)
-                __kernel_size_t msg_controllen; // Length of cmsg list
-                unsigned int    msg_flags;
-            };
-        
-            // For recvmmsg/sendmmsg
-            struct mmsghdr {
-                struct msghdr msg_hdr;
-                unsigned int  msg_len; //The msg_len field is used to return the number of
-                                       //bytes sent from the message in msg_hdr (i.e., the same as the
-                                       //return value from a single sendmsg(2) call).
-            };
-            */
-            memset(&mmsgHeader, 0, sizeof(struct mmsghdr));
-            mmsgHeader.msg_hdr.msg_iov = reinterpret_cast<struct iovec*>(currentPacketConstBuffers.data());
-            mmsgHeader.msg_hdr.msg_iovlen = currentPacketConstBuffersSize;
-                
-#endif //#ifdef _WIN32
+            TRANSMIT_PACKETS_ELEMENT& tpe = m_transmitPacketsElementVec.back();
+            boost::asio::const_buffer& constBuf = currentPacketConstBuffers[j];
+            tpe.dwElFlags = TP_ELEMENT_MEMORY;
+            tpe.pBuffer = (PVOID)constBuf.data();
+            tpe.cLength = (ULONG)constBuf.size();
+            ++j;
+            if (j == currentPacketConstBuffersSize) {
+                break;
+            }
         }
-        else {}
-    }
+        m_transmitPacketsElementVec.back().dwElFlags |= TP_ELEMENT_EOP;
+#else //not _WIN32
+        /*
+        the following two data structures are equivalent so a cast will work
+        struct iovec {
+            ptr_t iov_base; // Starting address
+            size_t iov_len; // Length in bytes
+        };
+        class const_buffer
+        {
+        private:
+            const void* data_;
+            std::size_t size_;
+        };
+        */
+        m_transmitPacketsElementVec.emplace_back();
+        struct mmsghdr& mmsgHeader = m_transmitPacketsElementVec.back();
+        /*
+        struct msghdr {
+            void    *   msg_name;   // Socket name
+            int     msg_namelen;    // Length of name
+            struct iovec* msg_iov;    // Data blocks
+            __kernel_size_t msg_iovlen; // Number of blocks
+            void* msg_control;    // Per protocol magic (eg BSD file descriptor passing)
+            __kernel_size_t msg_controllen; // Length of cmsg list
+            unsigned int    msg_flags;
+        };
 
+        // For recvmmsg/sendmmsg
+        struct mmsghdr {
+            struct msghdr msg_hdr;
+            unsigned int  msg_len; //The msg_len field is used to return the number of
+                                   //bytes sent from the message in msg_hdr (i.e., the same as the
+                                   //return value from a single sendmsg(2) call).
+        };
+        */
+        memset(&mmsgHeader, 0, sizeof(struct mmsghdr));
+        mmsgHeader.msg_hdr.msg_iov = reinterpret_cast<struct iovec*>(currentPacketConstBuffers.data());
+        mmsgHeader.msg_hdr.msg_iovlen = currentPacketConstBuffersSize;
+
+#endif //#ifdef _WIN32
+    }
+    else {}
+}
+
+bool UdpBatchSender::SendTransmissionElements() {
     bool successfulSend = true;
 
     if (m_transmitPacketsElementVec.size()) { //there is data to send.. however if there is nothing to send then succeed with callback function and don't call OS routine
@@ -276,16 +265,16 @@ void UdpBatchSender::PerformSendPacketsOperation(
             lpPacketArray,
             (DWORD)m_transmitPacketsElementVec.size(),
             0xFFFFFFFF, //TODO DETERMINE NUMBER OF F'S (7 OR 8).. Setting nSendSize to 0xFFFFFFF enables the caller to control the size and content of each send request,
-                        // achieved by using the TP_ELEMENT_EOP flag in the TRANSMIT_PACKETS_ELEMENT array pointed to in the lpPacketArray parameter.
+            // achieved by using the TP_ELEMENT_EOP flag in the TRANSMIT_PACKETS_ELEMENT array pointed to in the lpPacketArray parameter.
 # ifdef UDP_BATCH_SENDER_USE_OVERLAPPED
             & m_sendOverlappedAutoReset,
 # else
             NULL,
 # endif
             TF_USE_DEFAULT_WORKER); //TF_USE_KERNEL_APC Directs Winsock to use kernel Asynchronous Procedure Calls (APCs) instead of worker threads to process
-                                    // long TransmitPackets requests.
-                                    // Long TransmitPackets requests are defined as requests that require more than a single read from the file or a cache;
-                                    // the long request definition therefore depends on the size of the file and the specified length of the send packet.
+        // long TransmitPackets requests.
+        // Long TransmitPackets requests are defined as requests that require more than a single read from the file or a cache;
+        // the long request definition therefore depends on the size of the file and the specified length of the send packet.
 
         if (!result) {
             DWORD lastError = WSAGetLastError();
@@ -312,7 +301,7 @@ void UdpBatchSender::PerformSendPacketsOperation(
         const int sockfd = m_udpSocketConnectedSenderOnly.native_handle();
         const unsigned int vlen = static_cast<unsigned int>(m_transmitPacketsElementVec.size());
 
-        
+
         //A blocking sendmmsg() call (WHICH THIS IS) blocks until vlen messages have been
         //sent.  A nonblocking call sends as many messages as possible (up
         //to the limit specified by vlen) and returns immediately.
@@ -340,9 +329,24 @@ void UdpBatchSender::PerformSendPacketsOperation(
 
 #endif //#ifdef _WIN32
     }
+    return successfulSend;
+}
+
+void UdpBatchSender::PerformSendPacketsOperation(std::shared_ptr<std::vector<UdpSendPacketInfo> >& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend) {
+
+    m_transmitPacketsElementVec.resize(0); //space has been reserved in UdpBatchSender::Init()
+
+    std::vector<UdpSendPacketInfo>& udpSendPacketInfoVec = *udpSendPacketInfoVecSharedPtr;
+    //for loop should not compare to udpSendPacketInfoVec.size() because that vector may be resized for preallocation,
+    // and don't want to everudpSendPacketInfoVec.resize() down because that would call destructor on preallocated UdpSendPacketInfo
+    for (std::size_t i = 0; i < numPacketsToSend; ++i) { 
+        AppendConstBufferVecToTransmissionElements(udpSendPacketInfoVec[i].constBufferVec);
+    }
+
+    bool successfulSend = SendTransmissionElements();
 
     if (m_onSentPacketsCallback) {
-        m_onSentPacketsCallback(successfulSend, constBufferVecs, underlyingDataToDeleteOnSentCallbackVec, underlyingCsDataToDeleteOnSentCallbackVec);
+        m_onSentPacketsCallback(successfulSend, udpSendPacketInfoVecSharedPtr, numPacketsToSend);
     }
 }
 

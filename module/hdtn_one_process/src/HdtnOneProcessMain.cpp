@@ -23,6 +23,7 @@
 #include <iostream>
 #include "HdtnOneProcessRunner.h"
 #include "Logger.h"
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -30,6 +31,7 @@ int main(int argc, const char* argv[]) {
 
 
     hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::hdtnoneprocess);
+    ThreadNamer::SetThisThreadName("HdtnOneProcessMain");
     HdtnOneProcessRunner runner;
     volatile bool running;
     runner.Run(argc, argv, running, true);

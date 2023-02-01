@@ -14,7 +14,7 @@
  * @section DESCRIPTION
  *
  * This LtpBundleSink class encapsulates the appropriate LTP functionality
- * to receive bundles (or any other user defined data) over an LTP over UDP link
+ * to receive bundles (or any other user defined data) over an LTP link (transport layer must be defined in child class)
  * and calls the user defined function LtpWholeBundleReadyCallback_t when a new bundle
  * is received.
  */
@@ -26,7 +26,7 @@
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
 #include <boost/function.hpp>
-#include "LtpUdpEngineManager.h"
+#include "LtpEngine.h"
 #include "LtpEngineConfig.h"
 #include "PaddedVectorUint8.h"
 #include <boost/core/noncopyable.hpp>
@@ -38,10 +38,12 @@ public:
     typedef boost::function<void(padded_vector_uint8_t & wholeBundleVec)> LtpWholeBundleReadyCallback_t;
 
     LTP_LIB_EXPORT LtpBundleSink(const LtpWholeBundleReadyCallback_t & ltpWholeBundleReadyCallback, const LtpEngineConfig & ltpRxCfg);
-    LTP_LIB_EXPORT ~LtpBundleSink();
-    LTP_LIB_EXPORT bool ReadyToBeDeleted();
+    LTP_LIB_EXPORT virtual ~LtpBundleSink();
+    LTP_LIB_EXPORT bool Init();
+    LTP_LIB_EXPORT virtual bool ReadyToBeDeleted() = 0;
+protected:
+    LTP_LIB_EXPORT virtual bool SetLtpEnginePtr() = 0;
 private:
-    LTP_LIB_NO_EXPORT void RemoveCallback();
 
     //tcpcl received data callback functions
     LTP_LIB_NO_EXPORT void RedPartReceptionCallback(const Ltp::session_id_t & sessionId, padded_vector_uint8_t & movableClientServiceDataVec,
@@ -49,15 +51,11 @@ private:
     LTP_LIB_NO_EXPORT void ReceptionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode);
 
     const LtpWholeBundleReadyCallback_t m_ltpWholeBundleReadyCallback;
-
+protected:
     //ltp vars
+    const LtpEngineConfig m_ltpRxCfg;
     const uint64_t M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
-    std::shared_ptr<LtpUdpEngineManager> m_ltpUdpEngineManagerPtr;
-    LtpUdpEngine * m_ltpUdpEnginePtr;
-
-    boost::mutex m_removeEngineMutex;
-    boost::condition_variable m_removeEngineCv;
-    volatile bool m_removeEngineInProgress;
+    LtpEngine * m_ltpEnginePtr;
 };
 
 

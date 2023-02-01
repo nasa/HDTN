@@ -28,6 +28,7 @@
 #include "Logger.h"
 #include "Uri.h"
 #include "TimestampUtil.h"
+#include "ThreadNamer.h"
 
 namespace hdtn {
 
@@ -340,6 +341,7 @@ void Egress::Impl::RouterEventHandler() {
 }
 
 void Egress::Impl::ReadZmqThreadFunc() {
+    ThreadNamer::SetThisThreadName("egressZmqReader");
 
 #if 0 //not needed because scheduler will alert when link available
     while (m_running) {

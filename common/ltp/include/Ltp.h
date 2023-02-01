@@ -243,11 +243,16 @@ public:
         uint64_t * checkpointSerialNumber;
         uint64_t * reportSerialNumber;
     };
+    struct client_service_raw_data_t {
+        const uint8_t* data;
+        //uint64_t size; //size not needed, get from dataSegmentMetadata.length;
+        std::vector<uint8_t>* underlyingMovableDataIfNotNull;
+    };
     
     //return true if operation is ongoing (possibly due to disk writes),
     // false if operation is done (and udp packet circular buffer can reduce its size)
 	typedef boost::function<bool(uint8_t segmentTypeFlags, const session_id_t & sessionId,
-        std::vector<uint8_t> & clientServiceDataVec, const data_segment_metadata_t & dataSegmentMetadata,
+        client_service_raw_data_t& clientServiceRawData, const data_segment_metadata_t & dataSegmentMetadata,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)> DataSegmentContentsReadCallback_t;
 
     typedef boost::function<void(const session_id_t & sessionId, const report_segment_t & reportSegment,
@@ -319,6 +324,7 @@ public:
 
     data_segment_metadata_t m_dataSegmentMetadata;
     std::vector<uint8_t> m_dataSegment_clientServiceData;
+    client_service_raw_data_t m_dataSegment_clientServiceRawDataWrapper;
     
     report_segment_t m_reportSegment;
 

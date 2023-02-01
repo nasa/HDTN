@@ -31,6 +31,7 @@
 #include "Environment.h"
 #include "JsonSerializable.h"
 #include "HdtnConfig.h"
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::router;
 
@@ -314,6 +315,8 @@ void Router::Impl::SchedulerEventsHandler() {
 }
 
 void Router::Impl::ReadZmqThreadFunc() {
+
+    ThreadNamer::SetThisThreadName("routerZmqReader");
 
     static constexpr unsigned int NUM_SOCKETS = 1;
     zmq::pollitem_t items[NUM_SOCKETS] = {

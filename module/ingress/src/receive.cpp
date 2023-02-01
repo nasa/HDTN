@@ -35,6 +35,7 @@
 #include "TcpclInduct.h"
 #include "TcpclV4Induct.h"
 #include "TelemetryDefinitions.h"
+#include "ThreadNamer.h"
 #include <unordered_map>
 #if (__cplusplus >= 201703L)
 #include <shared_mutex>
@@ -494,6 +495,8 @@ static void CustomCleanupToStorageHdr(void *data, void *hint) {
 
 void Ingress::Impl::ReadZmqAcksThreadFunc() {
 
+    ThreadNamer::SetThisThreadName("ingressZmqAckReader");
+
     static constexpr unsigned int NUM_SOCKETS = 4;
 
     zmq::pollitem_t items[NUM_SOCKETS] = {
@@ -722,6 +725,7 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
 }
 
 void Ingress::Impl::ReadTcpclOpportunisticBundlesFromEgressThreadFunc() {
+    ThreadNamer::SetThisThreadName("ingressTcpclOpportunisticReader");
     static constexpr unsigned int NUM_SOCKETS = 1;
     zmq::pollitem_t items[NUM_SOCKETS] = {
         {m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0}

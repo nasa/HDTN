@@ -21,9 +21,11 @@
 
 #include "EgressAsyncRunner.h"
 #include "Logger.h"
+#include "ThreadNamer.h"
 
 int main(int argc, const char* argv[]) {
     hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::egress);
+    ThreadNamer::SetThisThreadName("EgressMain");
     EgressAsyncRunner runner;
     volatile bool running;
     runner.Run(argc, argv, running, true);

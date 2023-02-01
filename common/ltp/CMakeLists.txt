@@ -7,10 +7,15 @@ add_library(ltp_lib
 	src/LtpSessionSender.cpp
 	src/LtpEngine.cpp
 	src/LtpTimerManager.cpp
+	src/LtpIpcEngine.cpp
 	src/LtpUdpEngine.cpp
 	src/LtpUdpEngineManager.cpp
 	src/LtpBundleSink.cpp
+	src/LtpOverUdpBundleSink.cpp
+	src/LtpOverIpcBundleSink.cpp
 	src/LtpBundleSource.cpp
+	src/LtpOverUdpBundleSource.cpp
+	src/LtpOverIpcBundleSource.cpp
 )
 
 set_property(
@@ -55,7 +60,12 @@ set(MY_PUBLIC_HEADERS
 	include/LtpEngine.h
 	include/LtpEngineConfig.h
 	include/LtpFragmentSet.h
+	include/LtpIpcEngine.h
 	include/LtpNoticesToClientService.h
+	include/LtpOverIpcBundleSink.h
+	include/LtpOverIpcBundleSource.h
+	include/LtpOverUdpBundleSink.h
+	include/LtpOverUdpBundleSource.h
 	include/LtpRandomNumberGenerator.h
 	include/LtpSessionReceiver.h
 	include/LtpSessionRecreationPreventer.h
@@ -72,6 +82,7 @@ target_link_libraries(ltp_lib
 		telemetry_definitions
 		Boost::random
 		log_lib
+		$<$<BOOL:${UNIX}>:rt> #for shared memory in LtpOverIpc
 )
 target_include_directories(ltp_lib
 	PUBLIC

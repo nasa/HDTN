@@ -30,7 +30,7 @@
 #include "Environment.h"
 #include "DeadlineTimer.h"
 #include "WebsocketServer.h"
-
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::telem;
 
@@ -123,6 +123,7 @@ bool TelemetryRunner::Impl::Init(zmq::context_t *inprocContextPtr, TelemetryRunn
 
 void TelemetryRunner::Impl::ThreadFunc(zmq::context_t *inprocContextPtr)
 {
+    ThreadNamer::SetThisThreadName("TelemetryRunner");
     // Create and initialize connections
     std::unique_ptr<TelemetryConnection> ingressConnection;
     std::unique_ptr<TelemetryConnection> egressConnection;

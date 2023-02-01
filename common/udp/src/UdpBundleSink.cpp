@@ -18,6 +18,7 @@
 #include "Logger.h"
 #include <boost/endian/conversion.hpp>
 #include <boost/make_unique.hpp>
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -133,6 +134,7 @@ void UdpBundleSink::HandleUdpReceive(const boost::system::error_code & error, st
 
 
 void UdpBundleSink::PopCbThreadFunc() {
+    ThreadNamer::SetThisThreadName("udpBundleSinkCbReader");
 
     while (true) { //keep thread alive if running or cb not empty, i.e. "while (m_running || (m_circularIndexBuffer.GetIndexForRead() != CIRCULAR_INDEX_BUFFER_EMPTY))"
         unsigned int consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile

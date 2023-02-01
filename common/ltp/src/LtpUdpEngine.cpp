@@ -47,7 +47,9 @@ LtpUdpEngine::LtpUdpEngine(boost::asio::io_service& ioServiceUdpRef,
     }
 
     if (M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL > 1) { //need a dedicated connected sender socket
-        m_udpBatchSenderConnected.SetOnSentPacketsCallback(boost::bind(&LtpUdpEngine::OnSentPacketsCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4));
+        m_udpBatchSenderConnected.SetOnSentPacketsCallback(
+            boost::bind(&LtpUdpEngine::OnSentPacketsCallback, this,
+                boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
         if (!m_udpBatchSenderConnected.Init(m_remoteEndpoint)) {
             LOG_ERROR(subprocess) << "LtpUdpEngine::LtpUdpEngine: could not init dedicated udp batch sender socket";
         }
@@ -109,9 +111,9 @@ void LtpUdpEngine::PostPacketFromManager_ThreadSafe(std::vector<uint8_t> & packe
 }
 
 void LtpUdpEngine::SendPacket(
-    std::vector<boost::asio::const_buffer> & constBufferVec,
-    std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback,
-    std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback)
+    const std::vector<boost::asio::const_buffer>& constBufferVec,
+    std::shared_ptr<std::vector<std::vector<uint8_t> > >&& underlyingDataToDeleteOnSentCallback,
+    std::shared_ptr<LtpClientServiceDataToSend>&& underlyingCsDataToDeleteOnSentCallback)
 {
     //called by LtpEngine Thread
     ++m_countAsyncSendCalls;
@@ -121,13 +123,11 @@ void LtpUdpEngine::SendPacket(
             boost::asio::placeholders::bytes_transferred));
 }
 
-void LtpUdpEngine::SendPackets(std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-    std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
-    std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec)
+void LtpUdpEngine::SendPackets(std::shared_ptr<std::vector<UdpSendPacketInfo> >&& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend)
 {
     //called by LtpEngine Thread
     ++m_countBatchSendCalls;
-    m_udpBatchSenderConnected.QueueSendPacketsOperation_ThreadSafe(constBufferVecs, underlyingDataToDeleteOnSentCallbackVec, underlyingCsDataToDeleteOnSentCallbackVec); //data gets stolen
+    m_udpBatchSenderConnected.QueueSendPacketsOperation_ThreadSafe(std::move(udpSendPacketInfoVecSharedPtr), numPacketsToSend); //data gets stolen
     //LtpUdpEngine::OnSentPacketsCallback will be called next
 }
 
@@ -174,13 +174,10 @@ void LtpUdpEngine::HandleUdpSend(std::shared_ptr<std::vector<std::vector<uint8_t
     OnSendPacketsSystemCallCompleted_ThreadSafe(); //per system call operation, not per udp packet(s)
 }
 
-void LtpUdpEngine::OnSentPacketsCallback(bool success, std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-    std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback,
-    std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallback)
-{
+void LtpUdpEngine::OnSentPacketsCallback(bool success, std::shared_ptr<std::vector<UdpSendPacketInfo> >& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsSent) {
     //Called by UdpBatchSender thread
     ++m_countBatchSendCallbackCalls;
-    m_countBatchUdpPacketsSent += constBufferVecs.size();
+    m_countBatchUdpPacketsSent += numPacketsSent;
     if (!success) {
         if (!m_printedUdpSendFailedNotice) {
             m_printedUdpSendFailedNotice = true;

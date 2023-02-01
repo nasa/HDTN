@@ -19,6 +19,7 @@
 #include <memory>
 #include <boost/make_unique.hpp>
 #include "Uri.h"
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -47,6 +48,7 @@ m_outductOpportunisticProcessReceivedBundleCallback(outductOpportunisticProcessR
 m_tcpReadSomeBufferVec(10000) //todo 10KB rx buffer
 {
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_base_ioServiceRef));
+    ThreadNamer::SetIoServiceThreadName(m_base_ioServiceRef, "ioServiceTcpclBundleSource");
 }
 
 TcpclBundleSource::~TcpclBundleSource() {

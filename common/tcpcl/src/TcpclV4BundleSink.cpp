@@ -18,6 +18,7 @@
 #include "Logger.h"
 #include <boost/make_unique.hpp>
 #include "Uri.h"
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -236,6 +237,7 @@ void TcpclV4BundleSink::HandleTcpReceiveSomeUnsecure(const boost::system::error_
 }
 
 void TcpclV4BundleSink::PopCbThreadFunc() {
+    ThreadNamer::SetThisThreadName("TcpclV4BundleSinkCbReader");
 
     boost::function<void()> tryStartTcpReceiveFunction = boost::bind(&TcpclV4BundleSink::TryStartTcpReceiveUnsecure, this);
 

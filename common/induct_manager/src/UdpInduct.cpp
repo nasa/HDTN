@@ -16,7 +16,7 @@
 #include <iostream>
 #include <boost/make_unique.hpp>
 #include <memory>
-
+#include "ThreadNamer.h"
 
 UdpInduct::UdpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig) :
     Induct(inductProcessBundleCallback, inductConfig)
@@ -29,6 +29,7 @@ UdpInduct::UdpInduct(const InductProcessBundleCallback_t & inductProcessBundleCa
     
 
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceUdpInduct");
 }
 UdpInduct::~UdpInduct() {
     

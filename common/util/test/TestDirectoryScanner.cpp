@@ -30,14 +30,37 @@ BOOST_AUTO_TEST_CASE(DirectoryScannerTestCase)
             fs::remove_all(rootPath);
         }
         std::cout << "running DirectoryScannerTestCase with rootpath=" << rootPath << "\n";
+#if 0 //classic ascii
+        const boost::filesystem::path d4Dir = "e";
+        const boost::filesystem::path d4Dir2 = "f";
+        const boost::filesystem::path d4File = "d4_file1.txt";
+        const boost::filesystem::path d4FileNew = "d4e_filenew.txt";
+#else //UTF-8 (Hebrew characters)
+        std::string shalomTxtUtf8Str({ '\xd7', '\xa9', '\xd7', '\x9c', '\xd7', '\x95', '\xd7', '\x9d', '.', 't', 'x', 't' });
+        std::string shalomDatUtf8Str({ '\xd7', '\xa9', '\xd7', '\x9c', '\xd7', '\x95', '\xd7', '\x9d', '.', 'd', 'a', 't' });
+        std::string shinUtf8DirStr({ '\xd7', '\xa9' });
+        std::string lamedUtf8DirStr({ '\xd7', '\x9c' });
+        boost::filesystem::path shalomTxtPath(Utf8Paths::Utf8StringToPath(shalomTxtUtf8Str));
+        boost::filesystem::path shalomDatPath(Utf8Paths::Utf8StringToPath(shalomDatUtf8Str));
+        boost::filesystem::path shinDirPath(Utf8Paths::Utf8StringToPath(shinUtf8DirStr));
+        boost::filesystem::path lamedDirPath(Utf8Paths::Utf8StringToPath(lamedUtf8DirStr));
+
+        const boost::filesystem::path& d4Dir = shinDirPath;
+        const boost::filesystem::path& d4Dir2 = lamedDirPath;
+        const boost::filesystem::path& d4File = shalomTxtPath;
+        const boost::filesystem::path& d4FileNew = shalomDatPath;
+#endif
         fs::create_directories(rootPath / "a/b/c");
-        fs::create_directories(rootPath / "a/b/d/e");
-        std::ofstream((rootPath / "d0_file1.txt").string());
-        std::ofstream((rootPath / "a/d1_file1.txt").string());
-        std::ofstream((rootPath / "a/b/d2_file1.txt").string());
-        std::ofstream((rootPath / "a/b/c/d3_file1.txt").string());
-        std::ofstream((rootPath / "a/b/d/d3_file1.txt").string());
-        std::ofstream((rootPath / "a/b/d/e/d4_file1.txt").string());
+        fs::create_directories(rootPath / "a/b/d" / d4Dir);
+        
+
+        boost::filesystem::ofstream(rootPath / "d0_file1.txt");
+        boost::filesystem::ofstream(rootPath / "a/d1_file1.txt");
+        boost::filesystem::ofstream(rootPath / "a/b/d2_file1.txt");
+        boost::filesystem::ofstream(rootPath / "a/b/c/d3_file1.txt");
+        boost::filesystem::ofstream(rootPath / "a/b/d/d3_file1.txt");
+        
+        boost::filesystem::ofstream(rootPath / "a/b/d" / d4Dir / d4File);
         const DirectoryScanner::path_list_t depthIndexToExpectedAbsoluteList[5] = {
             { rp / "d0_file1.txt" }, //depth 0
 
@@ -48,7 +71,7 @@ BOOST_AUTO_TEST_CASE(DirectoryScannerTestCase)
             { rp / "a/b/c/d3_file1.txt", rp / "a/b/d/d3_file1.txt", rp / "a/b/d2_file1.txt",
               rp / "a/d1_file1.txt", rp / "d0_file1.txt" },//depth 3
             
-            { rp / "a/b/c/d3_file1.txt", rp / "a/b/d/d3_file1.txt", rp / "a/b/d/e/d4_file1.txt",
+            { rp / "a/b/c/d3_file1.txt", rp / "a/b/d/d3_file1.txt", rp / "a/b/d" / d4Dir / d4File,
               rp / "a/b/d2_file1.txt", rp / "a/d1_file1.txt", rp / "d0_file1.txt" }, //depth 4
         };
         const DirectoryScanner::path_list_t depthIndexToExpectedRelativeList[5] = {
@@ -61,7 +84,7 @@ BOOST_AUTO_TEST_CASE(DirectoryScannerTestCase)
             { fs::path("a/b/c/d3_file1.txt"), fs::path("a/b/d/d3_file1.txt"), fs::path("a/b/d2_file1.txt"),
               fs::path("a/d1_file1.txt"), fs::path("d0_file1.txt") },//depth 3
 
-            { fs::path("a/b/c/d3_file1.txt"), fs::path("a/b/d/d3_file1.txt"), fs::path("a/b/d/e/d4_file1.txt"),
+            { fs::path("a/b/c/d3_file1.txt"), fs::path("a/b/d/d3_file1.txt"), fs::path("a/b/d" / d4Dir / d4File),
               fs::path("a/b/d2_file1.txt"), fs::path("a/d1_file1.txt"), fs::path("d0_file1.txt") }, //depth 4
         };
 
@@ -70,7 +93,7 @@ BOOST_AUTO_TEST_CASE(DirectoryScannerTestCase)
             { rp, rp / "a" }, //depth 1
             { rp, rp / "a", rp / "a/b" }, //depth 2
             { rp, rp / "a", rp / "a/b", rp / "a/b/c", rp / "a/b/d" }, //depth 3
-            { rp, rp / "a", rp / "a/b", rp / "a/b/c", rp / "a/b/d", rp / "a/b/d/e" }, //depth 4
+            { rp, rp / "a", rp / "a/b", rp / "a/b/c", rp / "a/b/d", rp / "a/b/d" / d4Dir }, //depth 4
         };
         const fs::path aRp("a");
         const DirectoryScanner::path_set_t depthIndexToExpectedRelativeDirectoriesMonitoredSet[5] = {
@@ -78,7 +101,7 @@ BOOST_AUTO_TEST_CASE(DirectoryScannerTestCase)
             { fs::path("."), aRp }, //depth 1
             { fs::path("."), aRp, aRp / fs::path("b") }, //depth 2
             { fs::path("."), aRp, aRp / fs::path("b"), aRp / fs::path("b/c"), aRp / fs::path("b/d") }, //depth 3
-            { fs::path("."), aRp, aRp / fs::path("b"), aRp / fs::path("b/c"), aRp / fs::path("b/d"), aRp / fs::path("b/d/e") }, //depth 4
+            { fs::path("."), aRp, aRp / fs::path("b"), aRp / fs::path("b/c"), aRp / fs::path("b/d"), aRp / fs::path("b/d" / d4Dir) }, //depth 4
         };
         //std::cout << "here " << (fs::path("a") / fs::path("b")) << "\n";
         
@@ -143,10 +166,10 @@ BOOST_AUTO_TEST_CASE(DirectoryScannerTestCase)
                 unsigned int recurseDirectoriesDepth = 4;
                 DirectoryScanner ds(rootPath, includeExistingFiles, includeNewFiles, recurseDirectoriesDepth, ioService, recheckFileSizeDurationMilliseconds);
                 {
-                    std::ofstream os((rootPath / "a/b/d/e/d4e_filenew.txt").string());
+                    boost::filesystem::ofstream os(rootPath / "a/b/d" / d4Dir / d4FileNew);
                     os << "my new file";
                 }
-                fs::create_directories(rootPath / "a/b/d/f/g");//f should add, but g exceeds depth (and won't be detected anyway since listener on f not exist)
+                fs::create_directories(rootPath / "a/b/d" / d4Dir2 / "g");//d4Dir2(f) should add, but g exceeds depth (and won't be detected anyway since listener on f not exist)
                                                                // (but will be detected by manual iteration after event added)
                 fs::create_directories(rootPath / "a/b/w/x/y");//w,x should add, but y exceeds depth
                 // (but will be detected by manual iteration after event added)
@@ -158,10 +181,10 @@ BOOST_AUTO_TEST_CASE(DirectoryScannerTestCase)
                     std::ofstream os((rootPath / "a/b/w/x/y/d5y_filenew.txt").string()); //too deep
                     os << "my new file";
                 }
-                fs::create_directories(rootPath / "a/b/d/e/h");//h exceeds depth
+                fs::create_directories(rootPath / "a/b/d" / d4Dir / "h");//h exceeds depth
                 ioService.run_for(std::chrono::seconds(2));
-                const DirectoryScanner::path_list_t expectedAbsoluteList({ rp / "a/b/d/e/d4e_filenew.txt", rp / "a/b/w/x/d4x_filenew.txt" });
-                const DirectoryScanner::path_list_t expectedRelativeList({ fs::path("a/b/d/e/d4e_filenew.txt"), fs::path("a/b/w/x/d4x_filenew.txt") });
+                const DirectoryScanner::path_list_t expectedAbsoluteList({ rp / "a/b/d" / d4Dir / d4FileNew, rp / "a/b/w/x/d4x_filenew.txt" });
+                const DirectoryScanner::path_list_t expectedRelativeList({ fs::path("a/b/d" / d4Dir / d4FileNew), fs::path("a/b/w/x/d4x_filenew.txt") });
                 DirectoryScanner::path_list_t gotAbsoluteList = ds.GetListOfFilesAbsolute();
                 gotAbsoluteList.sort();
                 DirectoryScanner::path_list_t gotRelativeList = ds.GetListOfFilesRelativeCopy();
@@ -170,11 +193,11 @@ BOOST_AUTO_TEST_CASE(DirectoryScannerTestCase)
                 BOOST_REQUIRE(expectedRelativeList == gotRelativeList);
                 DirectoryScanner::path_set_t expectedAbsoluteDirectorySet = depthIndexToExpectedAbsoluteDirectoriesMonitoredSet[recurseDirectoriesDepth];
                 DirectoryScanner::path_set_t expectedRelativeDirectorySet = depthIndexToExpectedRelativeDirectoriesMonitoredSet[recurseDirectoriesDepth];
-                BOOST_REQUIRE(expectedAbsoluteDirectorySet.emplace(rp / "a/b/d/f").second);
+                BOOST_REQUIRE(expectedAbsoluteDirectorySet.emplace(rp / "a/b/d" / d4Dir2).second);
                 BOOST_REQUIRE(expectedAbsoluteDirectorySet.emplace(rp / "a/b/w").second);
                 BOOST_REQUIRE(expectedAbsoluteDirectorySet.emplace(rp / "a/b/w/x").second);
 
-                BOOST_REQUIRE(expectedRelativeDirectorySet.emplace(aRp / fs::path("b/d/f")).second);
+                BOOST_REQUIRE(expectedRelativeDirectorySet.emplace(aRp / fs::path("b/d" / d4Dir2)).second);
                 BOOST_REQUIRE(expectedRelativeDirectorySet.emplace(aRp / fs::path("b/w")).second);
                 BOOST_REQUIRE(expectedRelativeDirectorySet.emplace(aRp / fs::path("b/w/x")).second);
 

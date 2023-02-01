@@ -21,9 +21,11 @@
 
 #include "RouterRunner.h"
 #include "Logger.h"
+#include "ThreadNamer.h"
 
 int main(int argc, char* argv[]) {
     hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::router);
+    ThreadNamer::SetThisThreadName("RouterMain");
     RouterRunner runner;
     volatile bool running;
     runner.Run(argc, argv, running, true);

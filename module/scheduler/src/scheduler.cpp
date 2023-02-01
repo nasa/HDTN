@@ -32,7 +32,7 @@
 #include <cstdlib>
 #include "Environment.h"
 #include "JsonSerializable.h"
-
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::scheduler;
 
@@ -227,7 +227,7 @@ bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
     m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioService);
     m_contactPlanTimerIsRunning = false;
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
-
+    ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceScheduler");
  
     //socket for receiving events from Egress
     m_zmqCtxPtr = boost::make_unique<zmq::context_t>();
@@ -444,6 +444,7 @@ void Scheduler::Impl::UisEventsHandler() {
 }
 
 void Scheduler::Impl::ReadZmqAcksThreadFunc() {
+    ThreadNamer::SetThisThreadName("schedulerZmqReader");
 
     static constexpr unsigned int NUM_SOCKETS = 3;
 

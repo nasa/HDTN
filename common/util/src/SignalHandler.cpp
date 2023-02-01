@@ -16,6 +16,7 @@
 #include <boost/make_unique.hpp>
 #include <signal.h>
 #include <iostream>
+#include "ThreadNamer.h"
 
 SignalHandler::SignalHandler(boost::function<void () > handleSignalFunction) :
 m_ioService(), m_signals(m_ioService), m_handleSignalFunction(handleSignalFunction) {
@@ -41,6 +42,7 @@ void SignalHandler::Start(bool useDedicatedThread) {
 	m_signals.async_wait(boost::bind(&SignalHandler::HandleSignal, this));
 	if (useDedicatedThread) {
 		m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+		ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceSignalHandler");
 	}
 }
 

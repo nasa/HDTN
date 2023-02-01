@@ -101,6 +101,12 @@ public:
      */
     unsigned int NumInBuffer() const noexcept;
 
+    /** Get the capacity of the circular index buffer.
+     *
+     * @return The capacity of the circular index buffer.
+     */
+    unsigned int GetCapacity() const noexcept;
+
 private:
     /// Begin
     volatile unsigned int m_cbStartIndex;

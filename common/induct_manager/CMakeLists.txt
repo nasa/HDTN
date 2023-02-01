@@ -4,6 +4,8 @@ add_library(induct_manager_lib
 	src/TcpclV4Induct.cpp
 	src/StcpInduct.cpp
     src/UdpInduct.cpp
+	src/LtpInduct.cpp
+	src/LtpOverIpcInduct.cpp
 	src/LtpOverUdpInduct.cpp
 	src/InductManager.cpp
 )
@@ -16,6 +18,8 @@ endif()
 set(MY_PUBLIC_HEADERS
     include/Induct.h
 	include/InductManager.h
+	include/LtpInduct.h
+	include/LtpOverIpcInduct.h
 	include/LtpOverUdpInduct.h
 	include/StcpInduct.h
 	include/TcpclInduct.h

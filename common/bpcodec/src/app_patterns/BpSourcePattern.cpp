@@ -27,6 +27,7 @@
 #include "TcpclInduct.h"
 #include "TcpclV4Induct.h"
 #include "codec/BundleViewV7.h"
+#include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -163,13 +164,15 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
     
     m_bpSourcePatternThreadPtr = boost::make_unique<boost::thread>(
         boost::bind(&BpSourcePattern::BpSourcePatternThreadFunc, this, bundleRate)); //create and start the worker thread
-
+    
 
 
 }
 
 
 void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
+
+    ThreadNamer::SetThisThreadName("BpSourcePattern");
 
     while (m_running) {
         if (m_useInductForSendingBundles) {
@@ -745,7 +748,7 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
                 }
 
                 m_mutexCtebSet.lock();
-                for (std::set<FragmentSet::data_fragment_t>::const_iterator it = acs.m_custodyIdFills.cbegin(); it != acs.m_custodyIdFills.cend(); ++it) {
+                for (FragmentSet::data_fragment_set_t::const_iterator it = acs.m_custodyIdFills.cbegin(); it != acs.m_custodyIdFills.cend(); ++it) {
                     m_numAcsCustodyTransfers += (it->endIndex + 1) - it->beginIndex;
                     FragmentSet::RemoveFragment(m_outstandingCtebCustodyIdsFragmentSet, *it);
                 }

@@ -72,6 +72,7 @@ private:
     path_list_t m_pathsOfFilesList;
     path_list_t::iterator m_currentFilePathIterator;
     const boost::filesystem::path m_rootFileOrFolderPath;
+    boost::filesystem::path m_relativeToPath;
     const bool m_includeExistingFiles;
     const bool m_includeNewFiles;
     const unsigned int m_recurseDirectoriesDepth;
