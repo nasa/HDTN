@@ -49,6 +49,7 @@ private:
     void OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData, uint64_t outductUuid);
     void OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid);
     void ResendOutductCapabilities();
+    void SchedulerEventHandler(hdtn::IreleaseChangeHdr& releaseChangeHdr);
 
 public:
     //telemetry
@@ -66,6 +67,7 @@ private:
     boost::mutex m_mutex_zmqPushSock_boundEgressToConnectingStorage;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundEgressToConnectingSchedulerPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingRouterToBoundEgressPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundSchedulerToConnectingEgressPtr;
 
     std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingTelemToFromBoundEgressPtr;
 
@@ -226,7 +228,33 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneP
             m_zmqPullSock_connectingRouterToBoundEgressPtr->bind(bind_connectingRouterToBoundEgressPath);
         }
 
-        
+        // socket for receiving events from scheduler
+        m_zmqSubSock_boundSchedulerToConnectingEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::sub);
+        const std::string connect_boundSchedulerPubSubPath(
+        std::string("tcp://") +
+        m_hdtnConfig.m_zmqSchedulerAddress +
+        std::string(":") +
+        boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
+
+        try {
+            m_zmqSubSock_boundSchedulerToConnectingEgressPtr->connect(connect_boundSchedulerPubSubPath);
+            m_zmqSubSock_boundSchedulerToConnectingEgressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
+            LOG_INFO(subprocess) << "Connected to scheduler at " << connect_boundSchedulerPubSubPath << " , subscribing...";
+        } catch (const zmq::error_t & ex) {
+            LOG_ERROR(subprocess) << "Cannot connect to scheduler socket at " << connect_boundSchedulerPubSubPath << " : " << ex.what();
+            return false;
+        }
+        try {
+            //Sends one-byte 0x1 message to scheduler XPub socket plus strlen of subscription
+            //All release messages shall be prefixed by "aaaaaaaa" before the common header
+            //Egress unique subscription shall be "aaaa" (gets all messages that start with "aaaa")
+            m_zmqSubSock_boundSchedulerToConnectingEgressPtr->set(zmq::sockopt::subscribe, "aaaa");
+            LOG_INFO(subprocess) << "Subscribed to all events from scheduler";
+        }
+        catch (const zmq::error_t& ex) {
+            LOG_ERROR(subprocess) << "Cannot subscribe to all events from scheduler: " << ex.what();
+            return false;
+        }
 
         //an inproc to make sure link status sent from within the zmq polling loop
         static const std::string zmqLinkStatusAddress = "inproc://egress_ls";
@@ -364,7 +392,7 @@ void Egress::Impl::ReadZmqThreadFunc() {
 
     // Use a form of receive that times out so we can terminate cleanly.
     static const int timeout = 250;  // milliseconds
-    static constexpr unsigned int NUM_SOCKETS = 5;
+    static constexpr unsigned int NUM_SOCKETS = 6;
 
     //THIS PROBABLY DOESNT WORK SINCE IT HAPPENED AFTER BIND/CONNECT BUT NOT USED ANYWAY BECAUSE OF POLLITEMS
     //m_zmqPullSock_boundIngressToConnectingEgressPtr->set(zmq::sockopt::rcvtimeo, timeout);
@@ -375,7 +403,8 @@ void Egress::Impl::ReadZmqThreadFunc() {
         {m_zmqPullSock_connectingStorageToBoundEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqPullSock_connectingRouterToBoundEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqRepSock_connectingTelemToFromBoundEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_zmqPairSock_LinkStatusWaitPtr->handle(), 0, ZMQ_POLLIN, 0}
+        {m_zmqPairSock_LinkStatusWaitPtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_zmqSubSock_boundSchedulerToConnectingEgressPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
     zmq::socket_t * const firstTwoSockets[2] = {
         m_zmqPullSock_boundIngressToConnectingEgressPtr.get(),
@@ -565,6 +594,20 @@ void Egress::Impl::ReadZmqThreadFunc() {
                 while (m_running && !m_zmqPushSock_boundEgressToConnectingSchedulerPtr->send(linkStatusMessage, zmq::send_flags::dontwait)) {
                     LOG_INFO(subprocess) << "waiting for scheduler to become available to send a link status change from an outduct";
                     boost::this_thread::sleep(boost::posix_time::seconds(1));
+                }
+            }
+
+            if (items[5].revents & ZMQ_POLLIN) { //events from scheduler
+                hdtn::IreleaseChangeHdr releaseChangeHdr;
+                const zmq::recv_buffer_result_t res = m_zmqSubSock_boundSchedulerToConnectingEgressPtr->recv(zmq::mutable_buffer(&releaseChangeHdr, sizeof(releaseChangeHdr)), zmq::recv_flags::none);
+                if (!res) {
+                    LOG_ERROR(subprocess) << "unable to receive IreleaseChangeHdr message";
+                }
+                else if ((res->truncated()) || (res->size != sizeof(releaseChangeHdr))) {
+                    LOG_ERROR(subprocess) << "message mismatch with IreleaseChangeHdr: untruncated = " << res->untruncated_size
+                        << " truncated = " << res->size << " expected = " << sizeof(releaseChangeHdr);
+                } else {
+                    SchedulerEventHandler(releaseChangeHdr);
                 }
             }
         }
@@ -820,6 +863,33 @@ void Egress::Impl::OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint
         }
     }
     
+}
+
+void Egress::Impl::SchedulerEventHandler(hdtn::IreleaseChangeHdr& releaseChangeHdr)
+{
+    if (releaseChangeHdr.base.type != HDTN_MSGTYPE_ILINKUP) {
+        return;
+    }
+
+    Outduct* outduct = m_outductManager.GetOutductByOutductUuid(releaseChangeHdr.outductArrayIndex);
+    if (!outduct) {
+        LOG_ERROR(subprocess) << "could not find outduct from scheduler event; not adjusting rate";
+    }
+
+    uint64_t startingRateBitsPerSec = outduct->GetStartingMaxSendRateBitsPerSec();
+    if (startingRateBitsPerSec == 0) {
+        // If the starting rate is 0 ("unlimited"), never override it
+        return;
+    }
+
+    if (releaseChangeHdr.rateMbps >= 0) {
+        LOG_INFO(subprocess) << "setting rate to " << releaseChangeHdr.rateMbps << " mbps for new contact";
+        outduct->SetRate(releaseChangeHdr.rateMbps * 1000);
+    } else {
+        // If the contact rate is negative, use the starting (default) rate
+        LOG_INFO(subprocess) << "using default rate of " << startingRateBitsPerSec << " bps for new contact";
+        outduct->SetRate(startingRateBitsPerSec);
+    }
 }
 
 }  // namespace hdtn

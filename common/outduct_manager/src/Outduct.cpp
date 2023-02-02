@@ -2,7 +2,7 @@
  * @file Outduct.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -46,9 +46,13 @@ std::string Outduct::GetConvergenceLayerName() const {
 uint64_t Outduct::GetOutductTelemetry(uint8_t* data, uint64_t bufferSize) {
     return 0;
 }
+uint64_t Outduct::GetStartingMaxSendRateBitsPerSec() const {
+    return m_outductConfig.ltpMaxSendRateBitsPerSecOrZeroToDisable;
+}
 
 void Outduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {}
 void Outduct::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {}
 void Outduct::SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback) {}
 void Outduct::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {}
 void Outduct::SetUserAssignedUuid(uint64_t userAssignedUuid) {}
+void Outduct::SetRate(uint64_t maxSendRateBitsPerSecOrZeroToDisable) {}

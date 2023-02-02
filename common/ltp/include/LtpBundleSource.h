@@ -59,6 +59,7 @@ public:
     LTP_LIB_EXPORT void SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback);
     LTP_LIB_EXPORT void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     LTP_LIB_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
+    LTP_LIB_EXPORT void SetRate(uint64_t maxSendRateBitsPerSecOrZeroToDisable);
     LTP_LIB_EXPORT void SyncTelemetry();
     LTP_LIB_EXPORT uint64_t GetOutductMaxNumberOfBundlesInPipeline() const;
     

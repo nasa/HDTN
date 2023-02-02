@@ -8,6 +8,7 @@
 namespace cgr {
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
+static constexpr uint64_t DEFAULT_RATE_MBPS = 1000;
 
 /*
  * Class method implementations.
@@ -314,12 +315,18 @@ std::vector<Contact> cp_load(const boost::filesystem::path& filePath, std::size_
         const boost::property_tree::ptree& contactsPt = pt.get_child("contacts", EMPTY_PTREE);
         contactsVector.reserve(contactsPt.size());
         for (const boost::property_tree::ptree::value_type& eventPt : contactsPt) {
+            // if the rate is 0 ("unlimited") then use a default value
+            // in the calculations
+            uint64_t rate = eventPt.second.get<uint64_t>("rate", 0);
+            if (rate <= 0) {
+                rate = DEFAULT_RATE_MBPS;
+            }
             contactsVector.emplace_back( //nodeId_t frm, nodeId_t to, time_t start, time_t end, uint64_t rate, float confidence=1, time_t owlt=1
                 eventPt.second.get<nodeId_t>("source", 0), //nodeId_t frm
                 eventPt.second.get<nodeId_t>("dest", 0), //nodeId_t to
                 eventPt.second.get<time_t>("startTime", 0), //time_t start
                 eventPt.second.get<time_t>("endTime", 0), //time_t end
-                eventPt.second.get<uint64_t>("rate", 0), //uint64_t rate
+                rate, //uint64_t rate
                 1.f, //float confidence=1
                 eventPt.second.get<time_t>("owlt", 0)); //time_t owlt=1
             contactsVector.back().id = eventPt.second.get<uint64_t>("contact", 0);
