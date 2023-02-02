@@ -278,7 +278,7 @@ bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
 
     LOG_INFO(subprocess) << "Scheduler up and running";
 
-    // Socket for sending events to Ingress, Storage and Router
+    // Socket for sending events to Ingress, Storage, Router, and Egress
     m_zmqXPubSock_boundSchedulerToConnectingSubsPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::xpub);
     const std::string bind_boundSchedulerPubSubPath(
     std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
@@ -469,6 +469,7 @@ void Scheduler::Impl::ReadZmqAcksThreadFunc() {
     };
     std::size_t totalAcksFromEgress = 0;
     bool schedulerFullyInitialized = false;
+    bool egressSubscribed = false;
     bool ingressSubscribed = false;
     bool storageSubscribed = false;
     bool routerSubscribed = false;
@@ -509,7 +510,11 @@ void Scheduler::Impl::ReadZmqAcksThreadFunc() {
                 }
                 else {
                     const uint8_t* const dataSubscriber = (const uint8_t*)zmqSubscriberDataReceived.data();
-                    if ((zmqSubscriberDataReceived.size() == 2) && (dataSubscriber[1] == 'a')) {
+                    if ((zmqSubscriberDataReceived.size() == 2) && (dataSubscriber[1] == 'b')) {
+                        egressSubscribed = (dataSubscriber[0] == 0x1);
+                        LOG_INFO(subprocess) << "Egress " << ((egressSubscribed) ? "subscribed" : "desubscribed");
+                    }
+                    else if ((zmqSubscriberDataReceived.size() == 2) && (dataSubscriber[1] == 'a')) {
                         routerSubscribed = (dataSubscriber[0] == 0x1);
                         LOG_INFO(subprocess) << "Router " << ((routerSubscribed) ? "subscribed" : "desubscribed");
                     }
@@ -527,7 +532,7 @@ void Scheduler::Impl::ReadZmqAcksThreadFunc() {
                 }
             }
 
-            if ((ingressSubscribed) && (storageSubscribed) && (routerSubscribed) && (m_zmqMessageOutductCapabilitiesTelemPtr)) {
+            if ((egressSubscribed) && (ingressSubscribed) && (storageSubscribed) && (routerSubscribed) && (m_zmqMessageOutductCapabilitiesTelemPtr)) {
 
                 LOG_INFO(subprocess) << "Forwarding outduct capabilities telemetry to Router";
                 hdtn::IreleaseChangeHdr releaseMsgHdr;
