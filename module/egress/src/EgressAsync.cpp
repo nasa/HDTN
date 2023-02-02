@@ -247,8 +247,8 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneP
         try {
             //Sends one-byte 0x1 message to scheduler XPub socket plus strlen of subscription
             //All release messages shall be prefixed by "aaaaaaaa" before the common header
-            //Egress unique subscription shall be "aaaa" (gets all messages that start with "aaaa")
-            m_zmqSubSock_boundSchedulerToConnectingEgressPtr->set(zmq::sockopt::subscribe, "aaaa");
+            //Egress unique subscription shall be "b" (gets all messages that start with "b")
+            m_zmqSubSock_boundSchedulerToConnectingEgressPtr->set(zmq::sockopt::subscribe, "b");
             LOG_INFO(subprocess) << "Subscribed to all events from scheduler";
         }
         catch (const zmq::error_t& ex) {
