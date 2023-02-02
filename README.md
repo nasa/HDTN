@@ -22,7 +22,7 @@ Build Environment
 
 ## Dependencies ## 
 HDTN build environment requires:
-* CMake version 3.16.3 minimum
+* CMake version 3.12 minimum
 * Boost library version 1.66.0 minimum, version 1.69.0 for TCPCLv4 TLS version 1.3 support
 * ZeroMQ (tested with version 4.3.4)
 * OpenSSL (recommended version 1.1.1).  If OpenSSL is not available, disable OpenSSL support via the CMake cache variable `ENABLE_OPENSSL_SUPPORT:BOOL`
