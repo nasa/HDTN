@@ -128,6 +128,13 @@ LtpSessionReceiver::~LtpSessionReceiver() {
             LOG_ERROR(subprocess) << "LtpSessionReceiver::~LtpSessionReceiver: did not delete timer in m_timeManagerOfSendingDelayedReceptionReportsRef";
         }
     }
+
+    //free memory block id if it wasn't already freed
+    if (m_ltpSessionReceiverCommonDataRef.m_memoryInFilesPtrRef && m_memoryBlockId) {
+        LOG_DEBUG(subprocess) << "note: m_memoryBlockId " << m_memoryBlockId << " is being freed by ~LtpSessionReceiver()";
+        m_ltpSessionReceiverCommonDataRef.m_memoryInFilesPtrRef->AsyncDeleteMemoryBlock(m_memoryBlockId);
+        //m_memoryBlockId = 0;
+    }
 }
 
 std::size_t LtpSessionReceiver::GetNumActiveTimers() const {
@@ -784,6 +791,7 @@ void LtpSessionReceiver::OnDataSegmentWrittenToDisk(std::shared_ptr<std::vector<
 void LtpSessionReceiver::OnRedDataRecoveredFromDisk(bool success, bool isEndOfBlock) {
     --m_numActiveAsyncDiskOperations;
     m_ltpSessionReceiverCommonDataRef.m_memoryInFilesPtrRef->AsyncDeleteMemoryBlock(m_memoryBlockId);
+    m_memoryBlockId = 0; //tell the destructor that the memory block was already freed
     //session data read from disk into memory (call the red part reception callback now)
     if (m_ltpSessionReceiverCommonDataRef.m_redPartReceptionCallbackRef) {
         m_ltpSessionReceiverCommonDataRef.m_redPartReceptionCallbackRef(M_SESSION_ID,
