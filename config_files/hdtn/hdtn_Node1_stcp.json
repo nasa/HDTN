@@ -1,0 +1,78 @@
+{
+    "hdtnConfigName": "my hdtn config",
+    "userInterfaceOn": true,
+    "mySchemeName": "unused_scheme_name",
+    "myNodeId": 10,
+    "myBpEchoServiceId": 2047,
+    "myCustodialSsp": "unused_custodial_ssp",
+    "myCustodialServiceId": 0,
+    "isAcsAware": true,
+    "acsMaxFillsPerAcsPacket": 100,
+    "acsSendPeriodMilliseconds": 1000,
+    "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
+    "maxBundleSizeBytes": 10000000,
+    "maxIngressBundleWaitOnEgressMilliseconds": 2000,
+    "bufferRxToStorageOnLinkUpSaturation": false,
+    "maxLtpReceiveUdpPacketSizeBytes": 65536,
+    "zmqIngressAddress": "localhost",
+    "zmqEgressAddress": "localhost",
+    "zmqStorageAddress": "localhost",
+    "zmqSchedulerAddress": "localhost",
+    "zmqRouterAddress": "localhost",
+    "zmqBoundIngressToConnectingEgressPortPath": 10100,
+    "zmqConnectingEgressToBoundIngressPortPath": 10160,
+    "zmqConnectingEgressBundlesOnlyToBoundIngressPortPath": 10161,
+    "zmqConnectingEgressToBoundSchedulerPortPath": 10162,
+    "zmqBoundIngressToConnectingStoragePortPath": 10110,
+    "zmqConnectingStorageToBoundIngressPortPath": 10150,
+    "zmqConnectingStorageToBoundEgressPortPath": 10120,
+    "zmqBoundEgressToConnectingStoragePortPath": 10130,
+    "zmqBoundSchedulerPubSubPortPath": 10200,
+    "zmqBoundRouterPubSubPortPath": 10210,
+    "inductsConfig": {
+        "inductConfigName": "myconfig",
+        "inductVector": [
+            {
+                "name": "stcp_ingress",
+                "convergenceLayer": "stcp",
+                "boundPort": 4556,
+                "numRxCircularBufferElements": 100,
+                "keepAliveIntervalSeconds": 15
+            }
+        ]
+    },
+    "outductsConfig": {
+        "outductConfigName": "myconfig",
+        "outductVector": [
+            {
+                "name": "stcp_egress",
+                "convergenceLayer": "stcp",
+                "nextHopNodeId": 20,
+                "remoteHostname": "hdtn_receiver",
+                "remotePort": 1113,
+                "maxNumberOfBundlesInPipeline": 50,
+                "maxSumOfBundleBytesInPipeline": 50000000,
+                "finalDestinationEidUris": [
+                    "ipn:2.*"
+                ],
+                "keepAliveIntervalSeconds": 17
+            }
+        ]
+    },
+    "storageConfig": {
+        "storageImplementation": "asio_single_threaded",
+        "tryToRestoreFromDisk": false,
+        "autoDeleteFilesOnExit": true,
+        "totalStorageCapacityBytes": 8192000000,
+        "storageDiskConfigVector": [
+            {
+                "name": "d1",
+                "storeFilePath": ".\/store1.bin"
+            },
+            {
+                "name": "d2",
+                "storeFilePath": ".\/store2.bin"
+            }
+        ]
+    }
+}
