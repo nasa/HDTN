@@ -4,6 +4,7 @@ High-rate Delay Tolerant Network
 Overview
 =========
 Delay Tolerant Networking (DTN) has been identified as a key technology to facilitate the development and growth of future space networks. DTN is an overlay network that uses the bundle protocol to connect once disparate one-to-one links. Bundles are the primary unit of data in a DTN, and can be of essentially any size. Existing DTN implementations have operated in constrained environments with limited resources resulting in low data speeds, and cannot utilize more than a fraction of available system capacity. However, as various technologies have advanced, data transfer rates and efficiency have also advanced. To date, most known implementations of DTN have been designed to operate on spacecraft.
+
 High-rate Delay Tolerant Networking (HDTN) takes advantage of modern hardware platforms to substantially reduce latency and improve throughput compared to today’s DTN operations. HDTN maintains compatibility with existing deployments of DTN that conform to IETF RFC 5050. At the same time, HDTN defines a new data format better suited to higher-rate operation. It defines and adopts a massively parallel pipelined and message-oriented architecture, allowing the system to scale gracefully as its resources increase. HDTN’s architecture also supports hooks to replace various processing pipeline elements with specialized hardware accelerators. This offers improved Size, Weight, and Power (SWaP) characteristics while reducing development complexity and cost.
 
 Build Environment
