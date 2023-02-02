@@ -29,7 +29,11 @@ void StorageRunner::MonitorExitKeypressThreadFunction() {
 }
 
 
-StorageRunner::StorageRunner() {}
+StorageRunner::StorageRunner() :
+    m_totalBundlesErasedFromStorage(0),
+    m_totalBundlesSentToEgressFromStorage(0),
+    m_runningFromSigHandler(false)
+{}
 StorageRunner::~StorageRunner() {}
 
 
