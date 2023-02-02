@@ -354,6 +354,7 @@ void Scheduler::Impl::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductAr
     memset(&rateUpdateMsg, 0, sizeof(rateUpdateMsg));
     rateUpdateMsg.SetSubscribeEgressOnly();
     rateUpdateMsg.rateMbps = rateMbps;
+    rateUpdateMsg.base.type = HDTN_MSGTYPE_ILINKUP;
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
         if (!m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(
