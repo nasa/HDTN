@@ -420,7 +420,7 @@ bool LtpEngine::TrySendPacketIfAvailable() {
         }
         else if (M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL <= 1) { //single udp send packet function call
             UdpSendPacketInfo& udpSendPacketInfo = *m_reservedUdpSendPacketInfoIterator;
-            if (GetNextPacketToSend(udpSendPacketInfo)) {
+            if (GetNextPacketToSend(udpSendPacketInfo)) { //sets memoryBlockId = 0; //MUST BE RESET TO 0 since this is a recycled struct
                 sendOperationQueuedSuccessfully = true;
                 ++m_reservedUdpSendPacketInfoIterator;
                 if (m_reservedUdpSendPacketInfoIterator == m_reservedUdpSendPacketInfo.end()) {
@@ -467,7 +467,7 @@ bool LtpEngine::TrySendPacketIfAvailable() {
             std::size_t bytesToSend = 0;
             for (std::size_t packetI = 0; (packetI < M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL); ++packetI) {
                 UdpSendPacketInfo& udpSendPacketInfo = udpSendPacketInfoVec[packetI];
-                if (!GetNextPacketToSend(udpSendPacketInfo)) {
+                if (!GetNextPacketToSend(udpSendPacketInfo)) { //sets memoryBlockId = 0; //MUST BE RESET TO 0 since this is a recycled struct
                     break;
                 }
                 if (packetI == 0) { //a system call is guaranteed
@@ -521,6 +521,9 @@ bool LtpEngine::TrySendPacketIfAvailable() {
                 if (!m_memoryInFilesPtr->DeleteMemoryBlock(memoryBlockId)) {
                     LOG_INFO(subprocess) << "LTP write to disk support enabled for session sender but cannot erase memoryBlockId=" << memoryBlockId;
                 }
+                else {
+                    //LOG_DEBUG(subprocess) << "erased memoryBlockId=" << memoryBlockId;
+                }
                 m_memoryBlockIdsPendingDeletionQueue.pop();
             }
         }
@@ -563,6 +566,7 @@ void LtpEngine::SendPacket(const std::vector<boost::asio::const_buffer>& constBu
 void LtpEngine::SendPackets(std::shared_ptr<std::vector<UdpSendPacketInfo> >&& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend) {}
 
 bool LtpEngine::GetNextPacketToSend(UdpSendPacketInfo& udpSendPacketInfo) {
+    udpSendPacketInfo.deferredRead.memoryBlockId = 0; //MUST BE RESET TO 0 since this is a recycled struct
     while (!m_queueSendersNeedingDeleted.empty()) {
         map_session_number_to_session_sender_t::iterator txSessionIt = m_mapSessionNumberToSessionSender.find(m_queueSendersNeedingDeleted.front());
         if (txSessionIt != m_mapSessionNumberToSessionSender.end()) { //found
