@@ -796,7 +796,7 @@ void Scheduler::Impl::HandlePhysicalLinkStatusChange(const hdtn::LinkStatusHdr& 
     if (eventLinkIsUpPhysically) {
         if (outductInfo.linkIsUpTimeBased) {
             LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Up event at time  " << timeSecondsSinceSchedulerEpoch;
-            SendLinkUp(m_hdtnConfig.m_myNodeId, outductInfo.nextHopNodeId, outductArrayIndex, timeSecondsSinceSchedulerEpoch, false);
+            SendLinkUp(m_hdtnConfig.m_myNodeId, outductInfo.nextHopNodeId, outductArrayIndex, timeSecondsSinceSchedulerEpoch, 0, false);
         }
     }
     else {
