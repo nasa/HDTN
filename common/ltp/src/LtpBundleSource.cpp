@@ -253,6 +253,11 @@ void LtpBundleSource::SetUserAssignedUuid(uint64_t userAssignedUuid) {
         m_ltpEnginePtr->SetUserAssignedUuid(userAssignedUuid);
     }
 }
+void LtpBundleSource::SetRate(uint64_t maxSendRateBitsPerSecOrZeroToDisable) {
+    if (m_ltpEnginePtr) {
+        m_ltpEnginePtr->UpdateRate_ThreadSafe(maxSendRateBitsPerSecOrZeroToDisable);
+    }
+}
 
 void LtpBundleSource::SyncTelemetry() {
     if (m_ltpEnginePtr) {

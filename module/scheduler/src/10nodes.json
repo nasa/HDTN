@@ -5,7 +5,7 @@
 "finalDestination":3517,
 "startTime": 25508,
 "endTime": 72319,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 1,
@@ -14,7 +14,7 @@
 "finalDestination":3639,
 "startTime": 25508,
 "endTime": 72319,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 2,
@@ -23,7 +23,7 @@
 "finalDestination":3686,
 "startTime": 21419,
 "endTime": 22017,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 3,
@@ -32,7 +32,7 @@
 "finalDestination":3639,
 "startTime": 21419,
 "endTime": 22017,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 4,
@@ -41,7 +41,7 @@
 "finalDestination":3686,
 "startTime": 32372,
 "endTime": 33159,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 5,
@@ -50,7 +50,7 @@
 "finalDestination":3639,
 "startTime": 32372,
 "endTime": 33159,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 6,
@@ -59,7 +59,7 @@
 "finalDestination":3668,
 "startTime": 40157,
 "endTime": 49895,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 7,
@@ -68,7 +68,7 @@
 "finalDestination":3639,
 "startTime": 40157,
 "endTime": 49895,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 8,
@@ -77,7 +77,7 @@
 "finalDestination":1104,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 9,
@@ -86,7 +86,7 @@
 "finalDestination":3639,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 10,
@@ -95,7 +95,7 @@
 "finalDestination":20,
 "startTime": 46793,
 "endTime": 47350,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 11,
@@ -104,7 +104,7 @@
 "finalDestination":3639,
 "startTime": 46793,
 "endTime": 47350,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 12,
@@ -113,7 +113,7 @@
 "finalDestination":30,
 "startTime": 28247,
 "endTime": 28979,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 13,
@@ -122,7 +122,7 @@
 "finalDestination":3639,
 "startTime": 28247,
 "endTime": 28979,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 14,
@@ -131,7 +131,7 @@
 "finalDestination":30,
 "startTime": 46385,
 "endTime": 47100,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 15,
@@ -140,7 +140,7 @@
 "finalDestination":3639,
 "startTime": 46385,
 "endTime": 47100,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 16,
@@ -149,7 +149,7 @@
 "finalDestination":40,
 "startTime": 38968,
 "endTime": 39690,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 17,
@@ -158,7 +158,7 @@
 "finalDestination":3639,
 "startTime": 38968,
 "endTime": 39690,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 18,
@@ -167,7 +167,7 @@
 "finalDestination":1907,
 "startTime": 6836,
 "endTime": 7637,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 19,
@@ -176,7 +176,7 @@
 "finalDestination":1203,
 "startTime": 6836,
 "endTime": 7637,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 20,
@@ -185,7 +185,7 @@
 "finalDestination":1907,
 "startTime": 21102,
 "endTime": 21969,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 21,
@@ -194,7 +194,7 @@
 "finalDestination":1203,
 "startTime": 21102,
 "endTime": 21969,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 22,
@@ -203,7 +203,7 @@
 "finalDestination":1907,
 "startTime": 35357,
 "endTime": 36310,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 23,
@@ -212,7 +212,7 @@
 "finalDestination":1203,
 "startTime": 35357,
 "endTime": 36310,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 24,
@@ -221,7 +221,7 @@
 "finalDestination":1907,
 "startTime": 46771,
 "endTime": 50632,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 25,
@@ -230,7 +230,7 @@
 "finalDestination":1203,
 "startTime": 46771,
 "endTime": 50632,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 26,
@@ -239,7 +239,7 @@
 "finalDestination":1907,
 "startTime": 61050,
 "endTime": 64963,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 27,
@@ -248,7 +248,7 @@
 "finalDestination":1203,
 "startTime": 61050,
 "endTime": 64963,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 28,
@@ -257,7 +257,7 @@
 "finalDestination":1907,
 "startTime": 75318,
 "endTime": 79278,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 29,
@@ -266,7 +266,7 @@
 "finalDestination":1203,
 "startTime": 75318,
 "endTime": 79278,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 30,
@@ -275,7 +275,7 @@
 "finalDestination":2285,
 "startTime": 4195,
 "endTime": 11371,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 31,
@@ -284,7 +284,7 @@
 "finalDestination":1203,
 "startTime": 4195,
 "endTime": 11371,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 32,
@@ -293,7 +293,7 @@
 "finalDestination":2285,
 "startTime": 18498,
 "endTime": 25660,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 33,
@@ -302,7 +302,7 @@
 "finalDestination":1203,
 "startTime": 18498,
 "endTime": 25660,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 34,
@@ -311,7 +311,7 @@
 "finalDestination":2285,
 "startTime": 32824,
 "endTime": 39930,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 35,
@@ -320,7 +320,7 @@
 "finalDestination":1203,
 "startTime": 32824,
 "endTime": 39930,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 36,
@@ -329,7 +329,7 @@
 "finalDestination":2285,
 "startTime": 50013,
 "endTime": 57055,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 37,
@@ -338,7 +338,7 @@
 "finalDestination":1203,
 "startTime": 50013,
 "endTime": 57055,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 38,
@@ -347,7 +347,7 @@
 "finalDestination":2285,
 "startTime": 64333,
 "endTime": 71327,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 39,
@@ -356,7 +356,7 @@
 "finalDestination":1203,
 "startTime": 64333,
 "endTime": 71327,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 40,
@@ -365,7 +365,7 @@
 "finalDestination":2285,
 "startTime": 78678,
 "endTime": 79875,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 41,
@@ -374,7 +374,7 @@
 "finalDestination":1203,
 "startTime": 78678,
 "endTime": 79875,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 42,
@@ -383,7 +383,7 @@
 "finalDestination":3686,
 "startTime": 53849,
 "endTime": 60409,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 43,
@@ -392,7 +392,7 @@
 "finalDestination":1203,
 "startTime": 53849,
 "endTime": 60409,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 44,
@@ -401,7 +401,7 @@
 "finalDestination":3668,
 "startTime": 56360,
 "endTime": 71779,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 45,
@@ -410,7 +410,7 @@
 "finalDestination":1203,
 "startTime": 56360,
 "endTime": 71779,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 46,
@@ -419,7 +419,7 @@
 "finalDestination":10,
 "startTime": 21417,
 "endTime": 22076,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 47,
@@ -428,7 +428,7 @@
 "finalDestination":1203,
 "startTime": 21417,
 "endTime": 22076,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 48,
@@ -437,7 +437,7 @@
 "finalDestination":10,
 "startTime": 39311,
 "endTime": 39991,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 49,
@@ -446,7 +446,7 @@
 "finalDestination":1203,
 "startTime": 39311,
 "endTime": 39991,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 50,
@@ -455,7 +455,7 @@
 "finalDestination":10,
 "startTime": 57295,
 "endTime": 57638,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 51,
@@ -464,7 +464,7 @@
 "finalDestination":1203,
 "startTime": 57295,
 "endTime": 57638,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 52,
@@ -473,7 +473,7 @@
 "finalDestination":20,
 "startTime": 21384,
 "endTime": 21956,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 53,
@@ -482,7 +482,7 @@
 "finalDestination":1203,
 "startTime": 21384,
 "endTime": 21956,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 54,
@@ -491,7 +491,7 @@
 "finalDestination":20,
 "startTime": 39225,
 "endTime": 39877,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 55,
@@ -500,7 +500,7 @@
 "finalDestination":1203,
 "startTime": 39225,
 "endTime": 39877,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 56,
@@ -509,7 +509,7 @@
 "finalDestination":20,
 "startTime": 57143,
 "endTime": 57719,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 57,
@@ -518,7 +518,7 @@
 "finalDestination":1203,
 "startTime": 57143,
 "endTime": 57719,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 58,
@@ -527,7 +527,7 @@
 "finalDestination":40,
 "startTime": 85890,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 59,
@@ -536,7 +536,7 @@
 "finalDestination":1203,
 "startTime": 85890,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 60,
@@ -545,7 +545,7 @@
 "finalDestination":3686,
 "startTime": 39452,
 "endTime": 40046,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 61,
@@ -554,7 +554,7 @@
 "finalDestination":1907,
 "startTime": 39452,
 "endTime": 40046,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 62,
@@ -563,7 +563,7 @@
 "finalDestination":3668,
 "startTime": 3461,
 "endTime": 4227,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 63,
@@ -572,7 +572,7 @@
 "finalDestination":1907,
 "startTime": 3461,
 "endTime": 4227,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 64,
@@ -581,7 +581,7 @@
 "finalDestination":3668,
 "startTime": 64038,
 "endTime": 64834,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 65,
@@ -590,7 +590,7 @@
 "finalDestination":1907,
 "startTime": 64038,
 "endTime": 64834,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 66,
@@ -599,7 +599,7 @@
 "finalDestination":3668,
 "startTime": 75083,
 "endTime": 75784,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 67,
@@ -608,7 +608,7 @@
 "finalDestination":1907,
 "startTime": 75083,
 "endTime": 75784,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 68,
@@ -617,7 +617,7 @@
 "finalDestination":10,
 "startTime": 82670,
 "endTime": 83371,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 69,
@@ -626,7 +626,7 @@
 "finalDestination":1907,
 "startTime": 82670,
 "endTime": 83371,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 70,
@@ -635,7 +635,7 @@
 "finalDestination":20,
 "startTime": 82626,
 "endTime": 83258,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 71,
@@ -644,7 +644,7 @@
 "finalDestination":1907,
 "startTime": 82626,
 "endTime": 83258,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 72,
@@ -653,7 +653,7 @@
 "finalDestination":30,
 "startTime": 13999,
 "endTime": 14745,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 73,
@@ -662,7 +662,7 @@
 "finalDestination":1907,
 "startTime": 13999,
 "endTime": 14745,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 74,
@@ -671,7 +671,7 @@
 "finalDestination":30,
 "startTime": 32161,
 "endTime": 32869,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 75,
@@ -680,7 +680,7 @@
 "finalDestination":1907,
 "startTime": 32161,
 "endTime": 32869,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 76,
@@ -689,7 +689,7 @@
 "finalDestination":40,
 "startTime": 24751,
 "endTime": 25453,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 77,
@@ -698,7 +698,7 @@
 "finalDestination":1907,
 "startTime": 24751,
 "endTime": 25453,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 78,
@@ -707,7 +707,7 @@
 "finalDestination":2285,
 "startTime": 69123,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 79,
@@ -716,7 +716,7 @@
 "finalDestination":3517,
 "startTime": 69123,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 80,
@@ -725,7 +725,7 @@
 "finalDestination":3686,
 "startTime": 0,
 "endTime": 423,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 81,
@@ -734,7 +734,7 @@
 "finalDestination":3517,
 "startTime": 0,
 "endTime": 423,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 82,
@@ -743,7 +743,7 @@
 "finalDestination":3686,
 "startTime": 10683,
 "endTime": 11360,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 83,
@@ -752,7 +752,7 @@
 "finalDestination":3517,
 "startTime": 10683,
 "endTime": 11360,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 84,
@@ -761,7 +761,7 @@
 "finalDestination":3668,
 "startTime": 40369,
 "endTime": 46834,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 85,
@@ -770,7 +770,7 @@
 "finalDestination":3517,
 "startTime": 40369,
 "endTime": 46834,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 86,
@@ -779,7 +779,7 @@
 "finalDestination":1247,
 "startTime": 0,
 "endTime": 3041,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 87,
@@ -788,7 +788,7 @@
 "finalDestination":3517,
 "startTime": 0,
 "endTime": 3041,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 88,
@@ -797,7 +797,7 @@
 "finalDestination":1247,
 "startTime": 3669,
 "endTime": 10892,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 89,
@@ -806,7 +806,7 @@
 "finalDestination":3517,
 "startTime": 3669,
 "endTime": 10892,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 90,
@@ -815,7 +815,7 @@
 "finalDestination":1104,
 "startTime": 36503,
 "endTime": 83245,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 91,
@@ -824,7 +824,7 @@
 "finalDestination":3517,
 "startTime": 36503,
 "endTime": 83245,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 92,
@@ -833,7 +833,7 @@
 "finalDestination":2022,
 "startTime": 6839,
 "endTime": 7870,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 93,
@@ -842,7 +842,7 @@
 "finalDestination":3517,
 "startTime": 6839,
 "endTime": 7870,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 94,
@@ -851,7 +851,7 @@
 "finalDestination":2022,
 "startTime": 20833,
 "endTime": 22106,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 95,
@@ -860,7 +860,7 @@
 "finalDestination":3517,
 "startTime": 20833,
 "endTime": 22106,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 96,
@@ -869,7 +869,7 @@
 "finalDestination":2022,
 "startTime": 32175,
 "endTime": 36140,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 97,
@@ -878,7 +878,7 @@
 "finalDestination":3517,
 "startTime": 32175,
 "endTime": 36140,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 98,
@@ -887,7 +887,7 @@
 "finalDestination":2022,
 "startTime": 46556,
 "endTime": 47222,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 99,
@@ -896,7 +896,7 @@
 "finalDestination":3517,
 "startTime": 46556,
 "endTime": 47222,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 100,
@@ -905,7 +905,7 @@
 "finalDestination":10,
 "startTime": 17834,
 "endTime": 18405,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 101,
@@ -914,7 +914,7 @@
 "finalDestination":3517,
 "startTime": 17834,
 "endTime": 18405,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 102,
@@ -923,7 +923,7 @@
 "finalDestination":20,
 "startTime": 17734,
 "endTime": 18301,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 103,
@@ -932,7 +932,7 @@
 "finalDestination":3517,
 "startTime": 17734,
 "endTime": 18301,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 104,
@@ -941,7 +941,7 @@
 "finalDestination":30,
 "startTime": 46467,
 "endTime": 47094,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 105,
@@ -950,7 +950,7 @@
 "finalDestination":3517,
 "startTime": 46467,
 "endTime": 47094,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 106,
@@ -959,7 +959,7 @@
 "finalDestination":40,
 "startTime": 39352,
 "endTime": 39782,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 107,
@@ -968,7 +968,7 @@
 "finalDestination":3517,
 "startTime": 39352,
 "endTime": 39782,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 108,
@@ -977,7 +977,7 @@
 "finalDestination":3686,
 "startTime": 42677,
 "endTime": 43404,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 109,
@@ -986,7 +986,7 @@
 "finalDestination":2285,
 "startTime": 42677,
 "endTime": 43404,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 110,
@@ -995,7 +995,7 @@
 "finalDestination":3686,
 "startTime": 53981,
 "endTime": 54227,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 111,
@@ -1004,7 +1004,7 @@
 "finalDestination":2285,
 "startTime": 53981,
 "endTime": 54227,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 112,
@@ -1013,7 +1013,7 @@
 "finalDestination":3668,
 "startTime": 53520,
 "endTime": 54391,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 113,
@@ -1022,7 +1022,7 @@
 "finalDestination":2285,
 "startTime": 53520,
 "endTime": 54391,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 114,
@@ -1031,7 +1031,7 @@
 "finalDestination":3668,
 "startTime": 64523,
 "endTime": 65339,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 115,
@@ -1040,7 +1040,7 @@
 "finalDestination":2285,
 "startTime": 64523,
 "endTime": 65339,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 116,
@@ -1049,7 +1049,7 @@
 "finalDestination":10,
 "startTime": 3545,
 "endTime": 4277,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 117,
@@ -1058,7 +1058,7 @@
 "finalDestination":2285,
 "startTime": 3545,
 "endTime": 4277,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 118,
@@ -1067,7 +1067,7 @@
 "finalDestination":10,
 "startTime": 21579,
 "endTime": 22291,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 119,
@@ -1076,7 +1076,7 @@
 "finalDestination":2285,
 "startTime": 21579,
 "endTime": 22291,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 120,
@@ -1085,7 +1085,7 @@
 "finalDestination":20,
 "startTime": 3486,
 "endTime": 4174,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 121,
@@ -1094,7 +1094,7 @@
 "finalDestination":2285,
 "startTime": 3486,
 "endTime": 4174,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 122,
@@ -1103,7 +1103,7 @@
 "finalDestination":20,
 "startTime": 21500,
 "endTime": 22176,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 123,
@@ -1112,7 +1112,7 @@
 "finalDestination":2285,
 "startTime": 21500,
 "endTime": 22176,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 124,
@@ -1121,7 +1121,7 @@
 "finalDestination":20,
 "startTime": 39555,
 "endTime": 39949,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 125,
@@ -1130,7 +1130,7 @@
 "finalDestination":2285,
 "startTime": 39555,
 "endTime": 39949,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 126,
@@ -1139,7 +1139,7 @@
 "finalDestination":30,
 "startTime": 20951,
 "endTime": 21662,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 127,
@@ -1148,7 +1148,7 @@
 "finalDestination":2285,
 "startTime": 20951,
 "endTime": 21662,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 128,
@@ -1157,7 +1157,7 @@
 "finalDestination":30,
 "startTime": 39078,
 "endTime": 39823,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 129,
@@ -1166,7 +1166,7 @@
 "finalDestination":2285,
 "startTime": 39078,
 "endTime": 39823,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 130,
@@ -1175,7 +1175,7 @@
 "finalDestination":40,
 "startTime": 68327,
 "endTime": 69072,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 131,
@@ -1184,7 +1184,7 @@
 "finalDestination":2285,
 "startTime": 68327,
 "endTime": 69072,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 132,
@@ -1193,7 +1193,7 @@
 "finalDestination":3668,
 "startTime": 86347,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 133,
@@ -1202,7 +1202,7 @@
 "finalDestination":3686,
 "startTime": 86347,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 134,
@@ -1211,7 +1211,7 @@
 "finalDestination":1247,
 "startTime": 2898,
 "endTime": 3646,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 135,
@@ -1220,7 +1220,7 @@
 "finalDestination":3686,
 "startTime": 2898,
 "endTime": 3646,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 136,
@@ -1229,7 +1229,7 @@
 "finalDestination":1247,
 "startTime": 13938,
 "endTime": 14689,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 137,
@@ -1238,7 +1238,7 @@
 "finalDestination":3686,
 "startTime": 13938,
 "endTime": 14689,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 138,
@@ -1247,7 +1247,7 @@
 "finalDestination":1247,
 "startTime": 85847,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 139,
@@ -1256,7 +1256,7 @@
 "finalDestination":3686,
 "startTime": 85847,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 140,
@@ -1265,7 +1265,7 @@
 "finalDestination":1104,
 "startTime": 21438,
 "endTime": 21666,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 141,
@@ -1274,7 +1274,7 @@
 "finalDestination":3686,
 "startTime": 21438,
 "endTime": 21666,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 142,
@@ -1283,7 +1283,7 @@
 "finalDestination":1104,
 "startTime": 32210,
 "endTime": 33007,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 143,
@@ -1292,7 +1292,7 @@
 "finalDestination":3686,
 "startTime": 32210,
 "endTime": 33007,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 144,
@@ -1301,7 +1301,7 @@
 "finalDestination":2022,
 "startTime": 24503,
 "endTime": 25813,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 145,
@@ -1310,7 +1310,7 @@
 "finalDestination":3686,
 "startTime": 24503,
 "endTime": 25813,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 146,
@@ -1319,7 +1319,7 @@
 "finalDestination":10,
 "startTime": 57335,
 "endTime": 57695,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 147,
@@ -1328,7 +1328,7 @@
 "finalDestination":3686,
 "startTime": 57335,
 "endTime": 57695,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 148,
@@ -1337,7 +1337,7 @@
 "finalDestination":1247,
 "startTime": 16607,
 "endTime": 30851,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 149,
@@ -1346,7 +1346,7 @@
 "finalDestination":3668,
 "startTime": 16607,
 "endTime": 30851,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 150,
@@ -1355,7 +1355,7 @@
 "finalDestination":1104,
 "startTime": 42883,
 "endTime": 50035,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 151,
@@ -1364,7 +1364,7 @@
 "finalDestination":3668,
 "startTime": 42883,
 "endTime": 50035,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 152,
@@ -1373,7 +1373,7 @@
 "finalDestination":1104,
 "startTime": 50902,
 "endTime": 54981,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 153,
@@ -1382,7 +1382,7 @@
 "finalDestination":3668,
 "startTime": 50902,
 "endTime": 54981,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 154,
@@ -1391,7 +1391,7 @@
 "finalDestination":2022,
 "startTime": 27211,
 "endTime": 41582,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 155,
@@ -1400,7 +1400,7 @@
 "finalDestination":3668,
 "startTime": 27211,
 "endTime": 41582,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 156,
@@ -1409,7 +1409,7 @@
 "finalDestination":10,
 "startTime": 35746,
 "endTime": 36047,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 157,
@@ -1418,7 +1418,7 @@
 "finalDestination":3668,
 "startTime": 35746,
 "endTime": 36047,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 158,
@@ -1427,7 +1427,7 @@
 "finalDestination":10,
 "startTime": 46786,
 "endTime": 47203,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 159,
@@ -1436,7 +1436,7 @@
 "finalDestination":3668,
 "startTime": 46786,
 "endTime": 47203,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 160,
@@ -1445,7 +1445,7 @@
 "finalDestination":20,
 "startTime": 46737,
 "endTime": 47105,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 161,
@@ -1454,7 +1454,7 @@
 "finalDestination":3668,
 "startTime": 46737,
 "endTime": 47105,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 162,
@@ -1463,7 +1463,7 @@
 "finalDestination":30,
 "startTime": 57433,
 "endTime": 57766,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 163,
@@ -1472,7 +1472,7 @@
 "finalDestination":3668,
 "startTime": 57433,
 "endTime": 57766,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 164,
@@ -1481,7 +1481,7 @@
 "finalDestination":10,
 "startTime": 24611,
 "endTime": 25342,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 165,
@@ -1490,7 +1490,7 @@
 "finalDestination":1247,
 "startTime": 24611,
 "endTime": 25342,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 166,
@@ -1499,7 +1499,7 @@
 "finalDestination":10,
 "startTime": 42645,
 "endTime": 43403,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 167,
@@ -1508,7 +1508,7 @@
 "finalDestination":1247,
 "startTime": 42645,
 "endTime": 43403,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 168,
@@ -1517,7 +1517,7 @@
 "finalDestination":20,
 "startTime": 24505,
 "endTime": 25247,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 169,
@@ -1526,7 +1526,7 @@
 "finalDestination":1247,
 "startTime": 24505,
 "endTime": 25247,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 170,
@@ -1535,7 +1535,7 @@
 "finalDestination":20,
 "startTime": 42578,
 "endTime": 43339,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 171,
@@ -1544,7 +1544,7 @@
 "finalDestination":1247,
 "startTime": 42578,
 "endTime": 43339,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 172,
@@ -1553,7 +1553,7 @@
 "finalDestination":40,
 "startTime": 3486,
 "endTime": 3932,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 173,
@@ -1562,7 +1562,7 @@
 "finalDestination":1247,
 "startTime": 3486,
 "endTime": 3932,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 174,
@@ -1571,7 +1571,7 @@
 "finalDestination":40,
 "startTime": 46729,
 "endTime": 47469,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 175,
@@ -1580,7 +1580,7 @@
 "finalDestination":1247,
 "startTime": 46729,
 "endTime": 47469,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 176,
@@ -1589,7 +1589,7 @@
 "finalDestination":10,
 "startTime": 10554,
 "endTime": 11255,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 177,
@@ -1598,7 +1598,7 @@
 "finalDestination":1104,
 "startTime": 10554,
 "endTime": 11255,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 178,
@@ -1607,7 +1607,7 @@
 "finalDestination":10,
 "startTime": 28560,
 "endTime": 29262,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 179,
@@ -1616,7 +1616,7 @@
 "finalDestination":1104,
 "startTime": 28560,
 "endTime": 29262,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 180,
@@ -1625,7 +1625,7 @@
 "finalDestination":10,
 "startTime": 46692,
 "endTime": 46895,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 181,
@@ -1634,7 +1634,7 @@
 "finalDestination":1104,
 "startTime": 46692,
 "endTime": 46895,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 182,
@@ -1643,7 +1643,7 @@
 "finalDestination":20,
 "startTime": 10510,
 "endTime": 11142,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 183,
@@ -1652,7 +1652,7 @@
 "finalDestination":1104,
 "startTime": 10510,
 "endTime": 11142,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 184,
@@ -1661,7 +1661,7 @@
 "finalDestination":20,
 "startTime": 28476,
 "endTime": 29147,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 185,
@@ -1670,7 +1670,7 @@
 "finalDestination":1104,
 "startTime": 28476,
 "endTime": 29147,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 186,
@@ -1679,7 +1679,7 @@
 "finalDestination":20,
 "startTime": 46493,
 "endTime": 47030,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 187,
@@ -1688,7 +1688,7 @@
 "finalDestination":1104,
 "startTime": 46493,
 "endTime": 47030,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 188,
@@ -1697,7 +1697,7 @@
 "finalDestination":40,
 "startTime": 75343,
 "endTime": 76053,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 189,
@@ -1706,7 +1706,7 @@
 "finalDestination":1104,
 "startTime": 75343,
 "endTime": 76053,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 190,
@@ -1715,7 +1715,7 @@
 "finalDestination":10,
 "startTime": 35641,
 "endTime": 36367,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 191,
@@ -1724,7 +1724,7 @@
 "finalDestination":2022,
 "startTime": 35641,
 "endTime": 36367,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 192,
@@ -1733,7 +1733,7 @@
 "finalDestination":10,
 "startTime": 53668,
 "endTime": 54423,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 193,
@@ -1742,7 +1742,7 @@
 "finalDestination":2022,
 "startTime": 53668,
 "endTime": 54423,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 194,
@@ -1751,7 +1751,7 @@
 "finalDestination":20,
 "startTime": 35534,
 "endTime": 36271,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 195,
@@ -1760,7 +1760,7 @@
 "finalDestination":2022,
 "startTime": 35534,
 "endTime": 36271,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 196,
@@ -1769,7 +1769,7 @@
 "finalDestination":20,
 "startTime": 53600,
 "endTime": 54362,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 197,
@@ -1778,7 +1778,7 @@
 "finalDestination":2022,
 "startTime": 53600,
 "endTime": 54362,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 198,
@@ -1787,7 +1787,7 @@
 "finalDestination":1203,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 199,
@@ -1796,7 +1796,7 @@
 "finalDestination":3639,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 200,
@@ -1805,7 +1805,7 @@
 "finalDestination":1907,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 201,
@@ -1814,7 +1814,7 @@
 "finalDestination":3639,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 202,
@@ -1823,7 +1823,7 @@
 "finalDestination":3517,
 "startTime": 46812,
 "endTime": 39588,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 203,
@@ -1832,7 +1832,7 @@
 "finalDestination":3639,
 "startTime": 46812,
 "endTime": 39588,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 204,
@@ -1841,7 +1841,7 @@
 "finalDestination":2285,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 205,
@@ -1850,7 +1850,7 @@
 "finalDestination":3639,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 206,
@@ -1859,7 +1859,7 @@
 "finalDestination":3686,
 "startTime": 1387,
 "endTime": 85013,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 207,
@@ -1868,7 +1868,7 @@
 "finalDestination":3639,
 "startTime": 1387,
 "endTime": 85013,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 208,
@@ -1877,7 +1877,7 @@
 "finalDestination":3668,
 "startTime": 9739,
 "endTime": 76661,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 209,
@@ -1886,7 +1886,7 @@
 "finalDestination":3639,
 "startTime": 9739,
 "endTime": 76661,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 210,
@@ -1895,7 +1895,7 @@
 "finalDestination":1247,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 211,
@@ -1904,7 +1904,7 @@
 "finalDestination":3639,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 212,
@@ -1913,7 +1913,7 @@
 "finalDestination":1104,
 "startTime": 86400,
 "endTime": 0,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 213,
@@ -1922,7 +1922,7 @@
 "finalDestination":3639,
 "startTime": 86400,
 "endTime": 0,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 214,
@@ -1931,7 +1931,7 @@
 "finalDestination":2022,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 215,
@@ -1940,7 +1940,7 @@
 "finalDestination":3639,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 216,
@@ -1949,7 +1949,7 @@
 "finalDestination":10,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 217,
@@ -1958,7 +1958,7 @@
 "finalDestination":3639,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 218,
@@ -1967,7 +1967,7 @@
 "finalDestination":20,
 "startTime": 558,
 "endTime": 85842,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 219,
@@ -1976,7 +1976,7 @@
 "finalDestination":3639,
 "startTime": 558,
 "endTime": 85842,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 220,
@@ -1985,7 +1985,7 @@
 "finalDestination":30,
 "startTime": 1449,
 "endTime": 84951,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 221,
@@ -1994,7 +1994,7 @@
 "finalDestination":3639,
 "startTime": 1449,
 "endTime": 84951,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 222,
@@ -2003,7 +2003,7 @@
 "finalDestination":40,
 "startTime": 724,
 "endTime": 85676,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 223,
@@ -2012,7 +2012,7 @@
 "finalDestination":3639,
 "startTime": 724,
 "endTime": 85676,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 224,
@@ -2021,7 +2021,7 @@
 "finalDestination":1907,
 "startTime": 14360,
 "endTime": 72040,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 225,
@@ -2030,7 +2030,7 @@
 "finalDestination":1203,
 "startTime": 14360,
 "endTime": 72040,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 226,
@@ -2039,7 +2039,7 @@
 "finalDestination":3517,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 227,
@@ -2048,7 +2048,7 @@
 "finalDestination":1203,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 228,
@@ -2057,7 +2057,7 @@
 "finalDestination":2285,
 "startTime": 36683,
 "endTime": 49717,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 229,
@@ -2066,7 +2066,7 @@
 "finalDestination":1203,
 "startTime": 36683,
 "endTime": 49717,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 230,
@@ -2075,7 +2075,7 @@
 "finalDestination":3686,
 "startTime": 6562,
 "endTime": 79838,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 231,
@@ -2084,7 +2084,7 @@
 "finalDestination":1203,
 "startTime": 6562,
 "endTime": 79838,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 232,
@@ -2093,7 +2093,7 @@
 "finalDestination":3668,
 "startTime": 15421,
 "endTime": 70979,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 233,
@@ -2102,7 +2102,7 @@
 "finalDestination":1203,
 "startTime": 15421,
 "endTime": 70979,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 234,
@@ -2111,7 +2111,7 @@
 "finalDestination":1247,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 235,
@@ -2120,7 +2120,7 @@
 "finalDestination":1203,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 236,
@@ -2129,7 +2129,7 @@
 "finalDestination":1104,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 237,
@@ -2138,7 +2138,7 @@
 "finalDestination":1203,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 238,
@@ -2147,7 +2147,7 @@
 "finalDestination":2022,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 239,
@@ -2156,7 +2156,7 @@
 "finalDestination":1203,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 240,
@@ -2165,7 +2165,7 @@
 "finalDestination":10,
 "startTime": 1685,
 "endTime": 84715,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 241,
@@ -2174,7 +2174,7 @@
 "finalDestination":1203,
 "startTime": 1685,
 "endTime": 84715,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 242,
@@ -2183,7 +2183,7 @@
 "finalDestination":20,
 "startTime": 1803,
 "endTime": 84597,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 243,
@@ -2192,7 +2192,7 @@
 "finalDestination":1203,
 "startTime": 1803,
 "endTime": 84597,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 244,
@@ -2201,7 +2201,7 @@
 "finalDestination":30,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 245,
@@ -2210,7 +2210,7 @@
 "finalDestination":1203,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 246,
@@ -2219,7 +2219,7 @@
 "finalDestination":40,
 "startTime": 511,
 "endTime": 85889,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 247,
@@ -2228,7 +2228,7 @@
 "finalDestination":1203,
 "startTime": 511,
 "endTime": 85889,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 248,
@@ -2237,7 +2237,7 @@
 "finalDestination":3517,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 249,
@@ -2246,7 +2246,7 @@
 "finalDestination":1907,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 250,
@@ -2255,7 +2255,7 @@
 "finalDestination":2285,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 251,
@@ -2264,7 +2264,7 @@
 "finalDestination":1907,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 252,
@@ -2273,7 +2273,7 @@
 "finalDestination":3686,
 "startTime": 596,
 "endTime": 85804,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 253,
@@ -2282,7 +2282,7 @@
 "finalDestination":1907,
 "startTime": 596,
 "endTime": 85804,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 254,
@@ -2291,7 +2291,7 @@
 "finalDestination":3668,
 "startTime": 2266,
 "endTime": 84134,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 255,
@@ -2300,7 +2300,7 @@
 "finalDestination":1907,
 "startTime": 2266,
 "endTime": 84134,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 256,
@@ -2309,7 +2309,7 @@
 "finalDestination":1247,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 257,
@@ -2318,7 +2318,7 @@
 "finalDestination":1907,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 258,
@@ -2327,7 +2327,7 @@
 "finalDestination":1104,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 259,
@@ -2336,7 +2336,7 @@
 "finalDestination":1907,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 260,
@@ -2345,7 +2345,7 @@
 "finalDestination":2022,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 261,
@@ -2354,7 +2354,7 @@
 "finalDestination":1907,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 262,
@@ -2363,7 +2363,7 @@
 "finalDestination":10,
 "startTime": 702,
 "endTime": 85698,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 263,
@@ -2372,7 +2372,7 @@
 "finalDestination":1907,
 "startTime": 702,
 "endTime": 85698,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 264,
@@ -2381,7 +2381,7 @@
 "finalDestination":20,
 "startTime": 634,
 "endTime": 85766,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 265,
@@ -2390,7 +2390,7 @@
 "finalDestination":1907,
 "startTime": 634,
 "endTime": 85766,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 266,
@@ -2399,7 +2399,7 @@
 "finalDestination":30,
 "startTime": 1456,
 "endTime": 84944,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 267,
@@ -2408,7 +2408,7 @@
 "finalDestination":1907,
 "startTime": 1456,
 "endTime": 84944,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 268,
@@ -2417,7 +2417,7 @@
 "finalDestination":40,
 "startTime": 703,
 "endTime": 85697,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 269,
@@ -2426,7 +2426,7 @@
 "finalDestination":1907,
 "startTime": 703,
 "endTime": 85697,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 270,
@@ -2435,7 +2435,7 @@
 "finalDestination":2285,
 "startTime": 17278,
 "endTime": 69122,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 271,
@@ -2444,7 +2444,7 @@
 "finalDestination":3517,
 "startTime": 17278,
 "endTime": 69122,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 272,
@@ -2453,7 +2453,7 @@
 "finalDestination":3686,
 "startTime": 1102,
 "endTime": 85298,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 273,
@@ -2462,7 +2462,7 @@
 "finalDestination":3517,
 "startTime": 1102,
 "endTime": 85298,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 274,
@@ -2471,7 +2471,7 @@
 "finalDestination":3668,
 "startTime": 6466,
 "endTime": 79934,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 275,
@@ -2480,7 +2480,7 @@
 "finalDestination":3517,
 "startTime": 6466,
 "endTime": 79934,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 276,
@@ -2489,7 +2489,7 @@
 "finalDestination":1247,
 "startTime": 10267,
 "endTime": 76133,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 277,
@@ -2498,7 +2498,7 @@
 "finalDestination":3517,
 "startTime": 10267,
 "endTime": 76133,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 278,
@@ -2507,7 +2507,7 @@
 "finalDestination":1104,
 "startTime": 46743,
 "endTime": 39657,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 279,
@@ -2516,7 +2516,7 @@
 "finalDestination":3517,
 "startTime": 46743,
 "endTime": 39657,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 280,
@@ -2525,7 +2525,7 @@
 "finalDestination":2022,
 "startTime": 6940,
 "endTime": 79460,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 281,
@@ -2534,7 +2534,7 @@
 "finalDestination":3517,
 "startTime": 6940,
 "endTime": 79460,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 282,
@@ -2543,7 +2543,7 @@
 "finalDestination":10,
 "startTime": 572,
 "endTime": 85828,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 283,
@@ -2552,7 +2552,7 @@
 "finalDestination":3517,
 "startTime": 572,
 "endTime": 85828,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 284,
@@ -2561,7 +2561,7 @@
 "finalDestination":20,
 "startTime": 569,
 "endTime": 85831,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 285,
@@ -2570,7 +2570,7 @@
 "finalDestination":3517,
 "startTime": 569,
 "endTime": 85831,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 286,
@@ -2579,7 +2579,7 @@
 "finalDestination":30,
 "startTime": 629,
 "endTime": 85771,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 287,
@@ -2588,7 +2588,7 @@
 "finalDestination":3517,
 "startTime": 629,
 "endTime": 85771,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 288,
@@ -2597,7 +2597,7 @@
 "finalDestination":40,
 "startTime": 432,
 "endTime": 85968,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 289,
@@ -2606,7 +2606,7 @@
 "finalDestination":3517,
 "startTime": 432,
 "endTime": 85968,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 290,
@@ -2615,7 +2615,7 @@
 "finalDestination":3686,
 "startTime": 976,
 "endTime": 85424,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 291,
@@ -2624,7 +2624,7 @@
 "finalDestination":2285,
 "startTime": 976,
 "endTime": 85424,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 292,
@@ -2633,7 +2633,7 @@
 "finalDestination":3668,
 "startTime": 1689,
 "endTime": 84711,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 293,
@@ -2642,7 +2642,7 @@
 "finalDestination":2285,
 "startTime": 1689,
 "endTime": 84711,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 294,
@@ -2651,7 +2651,7 @@
 "finalDestination":1247,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 295,
@@ -2660,7 +2660,7 @@
 "finalDestination":2285,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 296,
@@ -2669,7 +2669,7 @@
 "finalDestination":1104,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 297,
@@ -2678,7 +2678,7 @@
 "finalDestination":2285,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 298,
@@ -2687,7 +2687,7 @@
 "finalDestination":2022,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 299,
@@ -2696,7 +2696,7 @@
 "finalDestination":2285,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 300,
@@ -2705,7 +2705,7 @@
 "finalDestination":10,
 "startTime": 1447,
 "endTime": 84953,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 301,
@@ -2714,7 +2714,7 @@
 "finalDestination":2285,
 "startTime": 1447,
 "endTime": 84953,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 302,
@@ -2723,7 +2723,7 @@
 "finalDestination":20,
 "startTime": 1762,
 "endTime": 84638,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 303,
@@ -2732,7 +2732,7 @@
 "finalDestination":2285,
 "startTime": 1762,
 "endTime": 84638,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 304,
@@ -2741,7 +2741,7 @@
 "finalDestination":30,
 "startTime": 1458,
 "endTime": 84942,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 305,
@@ -2750,7 +2750,7 @@
 "finalDestination":2285,
 "startTime": 1458,
 "endTime": 84942,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 306,
@@ -2759,7 +2759,7 @@
 "finalDestination":40,
 "startTime": 747,
 "endTime": 85653,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 307,
@@ -2768,7 +2768,7 @@
 "finalDestination":2285,
 "startTime": 747,
 "endTime": 85653,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 308,
@@ -2777,7 +2777,7 @@
 "finalDestination":3668,
 "startTime": 54,
 "endTime": 86346,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 309,
@@ -2786,7 +2786,7 @@
 "finalDestination":3686,
 "startTime": 54,
 "endTime": 86346,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 310,
@@ -2795,7 +2795,7 @@
 "finalDestination":1247,
 "startTime": 2055,
 "endTime": 84345,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 311,
@@ -2804,7 +2804,7 @@
 "finalDestination":3686,
 "startTime": 2055,
 "endTime": 84345,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 312,
@@ -2813,7 +2813,7 @@
 "finalDestination":1104,
 "startTime": 1028,
 "endTime": 85372,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 313,
@@ -2822,7 +2822,7 @@
 "finalDestination":3686,
 "startTime": 1028,
 "endTime": 85372,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 314,
@@ -2831,7 +2831,7 @@
 "finalDestination":2022,
 "startTime": 1312,
 "endTime": 85088,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 315,
@@ -2840,7 +2840,7 @@
 "finalDestination":3686,
 "startTime": 1312,
 "endTime": 85088,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 316,
@@ -2849,7 +2849,7 @@
 "finalDestination":10,
 "startTime": 362,
 "endTime": 86038,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 317,
@@ -2858,7 +2858,7 @@
 "finalDestination":3686,
 "startTime": 362,
 "endTime": 86038,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 318,
@@ -2867,7 +2867,7 @@
 "finalDestination":20,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 319,
@@ -2876,7 +2876,7 @@
 "finalDestination":3686,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 320,
@@ -2885,7 +2885,7 @@
 "finalDestination":30,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 321,
@@ -2894,7 +2894,7 @@
 "finalDestination":3686,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 322,
@@ -2903,7 +2903,7 @@
 "finalDestination":40,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 323,
@@ -2912,7 +2912,7 @@
 "finalDestination":3686,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 324,
@@ -2921,7 +2921,7 @@
 "finalDestination":1247,
 "startTime": 14245,
 "endTime": 72155,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 325,
@@ -2930,7 +2930,7 @@
 "finalDestination":3668,
 "startTime": 14245,
 "endTime": 72155,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 326,
@@ -2939,7 +2939,7 @@
 "finalDestination":1104,
 "startTime": 11233,
 "endTime": 75167,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 327,
@@ -2948,7 +2948,7 @@
 "finalDestination":3668,
 "startTime": 11233,
 "endTime": 75167,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 328,
@@ -2957,7 +2957,7 @@
 "finalDestination":2022,
 "startTime": 14373,
 "endTime": 72027,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 329,
@@ -2966,7 +2966,7 @@
 "finalDestination":3668,
 "startTime": 14373,
 "endTime": 72027,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 330,
@@ -2975,7 +2975,7 @@
 "finalDestination":10,
 "startTime": 722,
 "endTime": 85678,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 331,
@@ -2984,7 +2984,7 @@
 "finalDestination":3668,
 "startTime": 722,
 "endTime": 85678,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 332,
@@ -2993,7 +2993,7 @@
 "finalDestination":20,
 "startTime": 369,
 "endTime": 86031,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 333,
@@ -3002,7 +3002,7 @@
 "finalDestination":3668,
 "startTime": 369,
 "endTime": 86031,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 334,
@@ -3011,7 +3011,7 @@
 "finalDestination":30,
 "startTime": 335,
 "endTime": 86065,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 335,
@@ -3020,7 +3020,7 @@
 "finalDestination":3668,
 "startTime": 335,
 "endTime": 86065,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 336,
@@ -3029,7 +3029,7 @@
 "finalDestination":40,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 337,
@@ -3038,7 +3038,7 @@
 "finalDestination":3668,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 338,
@@ -3047,7 +3047,7 @@
 "finalDestination":1104,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 339,
@@ -3056,7 +3056,7 @@
 "finalDestination":1247,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 340,
@@ -3065,7 +3065,7 @@
 "finalDestination":2022,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 341,
@@ -3074,7 +3074,7 @@
 "finalDestination":1247,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 342,
@@ -3083,7 +3083,7 @@
 "finalDestination":10,
 "startTime": 1492,
 "endTime": 84908,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 343,
@@ -3092,7 +3092,7 @@
 "finalDestination":1247,
 "startTime": 1492,
 "endTime": 84908,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 344,
@@ -3101,7 +3101,7 @@
 "finalDestination":20,
 "startTime": 1505,
 "endTime": 84895,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 345,
@@ -3110,7 +3110,7 @@
 "finalDestination":1247,
 "startTime": 1505,
 "endTime": 84895,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 346,
@@ -3119,7 +3119,7 @@
 "finalDestination":30,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 347,
@@ -3128,7 +3128,7 @@
 "finalDestination":1247,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 348,
@@ -3137,7 +3137,7 @@
 "finalDestination":40,
 "startTime": 1188,
 "endTime": 85212,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 349,
@@ -3146,7 +3146,7 @@
 "finalDestination":1247,
 "startTime": 1188,
 "endTime": 85212,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 350,
@@ -3155,7 +3155,7 @@
 "finalDestination":2022,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 351,
@@ -3164,7 +3164,7 @@
 "finalDestination":1104,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 352,
@@ -3173,7 +3173,7 @@
 "finalDestination":10,
 "startTime": 1609,
 "endTime": 84791,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 353,
@@ -3182,7 +3182,7 @@
 "finalDestination":1104,
 "startTime": 1609,
 "endTime": 84791,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 354,
@@ -3191,7 +3191,7 @@
 "finalDestination":20,
 "startTime": 1844,
 "endTime": 84556,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 355,
@@ -3200,7 +3200,7 @@
 "finalDestination":1104,
 "startTime": 1844,
 "endTime": 84556,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 356,
@@ -3209,7 +3209,7 @@
 "finalDestination":30,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 357,
@@ -3218,7 +3218,7 @@
 "finalDestination":1104,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 358,
@@ -3227,7 +3227,7 @@
 "finalDestination":40,
 "startTime": 711,
 "endTime": 85689,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 359,
@@ -3236,7 +3236,7 @@
 "finalDestination":1104,
 "startTime": 711,
 "endTime": 85689,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 360,
@@ -3245,7 +3245,7 @@
 "finalDestination":10,
 "startTime": 1484,
 "endTime": 84916,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 361,
@@ -3254,7 +3254,7 @@
 "finalDestination":2022,
 "startTime": 1484,
 "endTime": 84916,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 362,
@@ -3263,7 +3263,7 @@
 "finalDestination":20,
 "startTime": 1501,
 "endTime": 84899,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 363,
@@ -3272,7 +3272,7 @@
 "finalDestination":2022,
 "startTime": 1501,
 "endTime": 84899,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 364,
@@ -3281,7 +3281,7 @@
 "finalDestination":30,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 365,
@@ -3290,7 +3290,7 @@
 "finalDestination":2022,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
  {"contact": 366,
@@ -3299,7 +3299,7 @@
 "finalDestination":40,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 },
 {"contact": 367,
@@ -3308,6 +3308,6 @@
 "finalDestination":2022,
 "startTime": 0,
 "endTime": 86400,
-"rate": 1000 ,
+"rateBitsPerSec": 1000000000 ,
 "owlt": 1 
 }]}

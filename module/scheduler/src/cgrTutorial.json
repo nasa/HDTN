@@ -6,7 +6,7 @@
       "dest": 2,
       "startTime": 0,
       "endTime": 60,
-      "rate": 1,
+      "rateBitsPerSec": 1000000,
       "owlt": 1
     },
     {
@@ -15,7 +15,7 @@
       "dest": 1,
       "startTime": 0,
       "endTime": 60,
-      "rate": 1,
+      "rateBitsPerSec": 1000000,
       "owlt": 1
     },
     {
@@ -24,7 +24,7 @@
       "dest": 3,
       "startTime": 0,
       "endTime": 60,
-      "rate": 1,
+      "rateBitsPerSec": 1000000,
       "owlt": 1
     },
     {
@@ -33,7 +33,7 @@
       "dest": 2,
       "startTime": 0,
       "endTime": 60,
-      "rate": 1,
+      "rateBitsPerSec": 1000000,
       "owlt": 1
     },
     {
@@ -42,7 +42,7 @@
       "dest": 3,
       "startTime": 0,
       "endTime": 60,
-      "rate": 1,
+      "rateBitsPerSec": 1000000,
       "owlt": 1
     },
     {
@@ -51,7 +51,7 @@
       "dest": 1,
       "startTime": 0,
       "endTime": 60,
-      "rate": 1,
+      "rateBitsPerSec": 1000000,
       "owlt": 1
     },
     {
@@ -60,7 +60,7 @@
       "dest": 4,
       "startTime": 0,
       "endTime": 30,
-      "rate": 1,
+      "rateBitsPerSec": 1000000,
       "owlt": 1
     },
     {
@@ -69,7 +69,7 @@
       "dest": 3,
       "startTime": 0,
       "endTime": 30,
-      "rate": 1,
+      "rateBitsPerSec": 1000000,
       "owlt": 1
     },
     {
@@ -78,7 +78,7 @@
       "dest": 5,
       "startTime": 10,
       "endTime": 20,
-      "rate": 1,
+      "rateBitsPerSec": 1000000,
       "owlt": 1
     },
     {
@@ -87,7 +87,7 @@
       "dest": 1,
       "startTime": 10,
       "endTime": 20,
-      "rate": 1,
+      "rateBitsPerSec": 1000000,
       "owlt": 1
     },
     {
@@ -96,7 +96,7 @@
       "dest": 5,
       "startTime": 0,
       "endTime": 10,
-      "rate": 1,
+      "rateBitsPerSec": 1000000,
       "owlt": 1
     },
     {
@@ -105,7 +105,7 @@
       "dest": 4,
       "startTime": 0,
       "endTime": 10,
-      "rate": 1,
+      "rateBitsPerSec": 1000000,
       "owlt": 1
     },
     {
@@ -114,7 +114,7 @@
       "dest": 5,
       "startTime": 30,
       "endTime": 40,
-      "rate": 1,
+      "rateBitsPerSec": 1000000,
       "owlt": 1
     },
     {
@@ -123,7 +123,7 @@
       "dest": 4,
       "startTime": 30,
       "endTime": 40,
-      "rate": 1,
+      "rateBitsPerSec": 1000000,
       "owlt": 1
     },
     {
@@ -132,7 +132,7 @@
       "dest": 5,
       "startTime": 50,
       "endTime": 60,
-      "rate": 1,
+      "rateBitsPerSec": 1000000,
       "owlt": 1
     },
     {
@@ -141,7 +141,7 @@
       "dest": 4,
       "startTime": 50,
       "endTime": 60,
-      "rate": 1,
+      "rateBitsPerSec": 1000000,
       "owlt": 1
     }
   ]

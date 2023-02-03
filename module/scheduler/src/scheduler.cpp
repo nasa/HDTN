@@ -43,7 +43,7 @@ struct contactPlan_t {
     uint64_t finalDest;//deprecated and not in operator <
     uint64_t start;
     uint64_t end;
-    uint64_t rate;
+    uint64_t rateBps;
 
     uint64_t outductArrayIndex; //not in operator <
     bool isLinkUp; 
@@ -82,7 +82,7 @@ private:
     void HandlePhysicalLinkStatusChange(const hdtn::LinkStatusHdr& linkStatusHdr);
 
     void SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
-            uint64_t time);
+            uint64_t time, uint64_t rateBps, bool doInformEgress);
     void SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
             uint64_t time);
 
@@ -278,7 +278,7 @@ bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
 
     LOG_INFO(subprocess) << "Scheduler up and running";
 
-    // Socket for sending events to Ingress, Storage and Router
+    // Socket for sending events to Ingress, Storage, Router, and Egress
     m_zmqXPubSock_boundSchedulerToConnectingSubsPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::xpub);
     const std::string bind_boundSchedulerPubSubPath(
     std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
@@ -347,10 +347,27 @@ void Scheduler::Impl::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outduct
         << "  src(" << src << ") == = > dest(" << dest << ") at time " << timeLocal;
 }
 
-void Scheduler::Impl::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex, uint64_t time) {
-    
+void Scheduler::Impl::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex, uint64_t time, uint64_t rateBps, bool doInformEgress = true) {
+    // First, send rate update message to egress, so it has time to
+    // update the rate before receiving date
+    if (doInformEgress) {
+        hdtn::IreleaseChangeHdr rateUpdateMsg;
+        memset(&rateUpdateMsg, 0, sizeof(rateUpdateMsg));
+        rateUpdateMsg.SetSubscribeEgressOnly();
+        rateUpdateMsg.rateBps = rateBps;
+        rateUpdateMsg.base.type = HDTN_MSGTYPE_ILINKUP;
+        {
+            boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
+            if (!m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(
+                zmq::const_buffer(&rateUpdateMsg, sizeof(rateUpdateMsg)), zmq::send_flags::dontwait))
+            {
+                LOG_FATAL(subprocess) << "Cannot send rate update message to egress";
+            }
+        }
+    }
+
+    // Next, send event to the rest of the modules
     hdtn::IreleaseChangeHdr releaseMsg;
-    
     memset(&releaseMsg, 0, sizeof(releaseMsg));
     releaseMsg.SetSubscribeAll();
     releaseMsg.base.type = HDTN_MSGTYPE_ILINKUP;
@@ -455,6 +472,7 @@ void Scheduler::Impl::ReadZmqAcksThreadFunc() {
     };
     std::size_t totalAcksFromEgress = 0;
     bool schedulerFullyInitialized = false;
+    bool egressSubscribed = false;
     bool ingressSubscribed = false;
     bool storageSubscribed = false;
     bool routerSubscribed = false;
@@ -495,7 +513,11 @@ void Scheduler::Impl::ReadZmqAcksThreadFunc() {
                 }
                 else {
                     const uint8_t* const dataSubscriber = (const uint8_t*)zmqSubscriberDataReceived.data();
-                    if ((zmqSubscriberDataReceived.size() == 2) && (dataSubscriber[1] == 'a')) {
+                    if ((zmqSubscriberDataReceived.size() == 2) && (dataSubscriber[1] == 'b')) {
+                        egressSubscribed = (dataSubscriber[0] == 0x1);
+                        LOG_INFO(subprocess) << "Egress " << ((egressSubscribed) ? "subscribed" : "desubscribed");
+                    }
+                    else if ((zmqSubscriberDataReceived.size() == 2) && (dataSubscriber[1] == 'a')) {
                         routerSubscribed = (dataSubscriber[0] == 0x1);
                         LOG_INFO(subprocess) << "Router " << ((routerSubscribed) ? "subscribed" : "desubscribed");
                     }
@@ -513,7 +535,7 @@ void Scheduler::Impl::ReadZmqAcksThreadFunc() {
                 }
             }
 
-            if ((ingressSubscribed) && (storageSubscribed) && (routerSubscribed) && (m_zmqMessageOutductCapabilitiesTelemPtr)) {
+            if ((egressSubscribed) && (ingressSubscribed) && (storageSubscribed) && (routerSubscribed) && (m_zmqMessageOutductCapabilitiesTelemPtr)) {
 
                 LOG_INFO(subprocess) << "Forwarding outduct capabilities telemetry to Router";
                 hdtn::IreleaseChangeHdr releaseMsgHdr;
@@ -571,6 +593,26 @@ bool Scheduler::Impl::ProcessContactsFile(const boost::filesystem::path& jsonEve
     return ProcessContacts(pt);
 }
 
+uint64_t Scheduler::GetRateBpsFromPtree(const boost::property_tree::ptree::value_type& eventPtr)
+{
+    // First, attempt to get "rateBitsPerSec"
+    try {
+        return eventPtr.second.get<uint64_t>("rateBitsPerSec");
+    } catch (const boost::property_tree::ptree_error&) {
+        LOG_WARNING(subprocess) << "rateBps not defined in contact plan";
+    }
+
+    // If that fails, attempt to get deprecated "rate", which is in mbps
+    try {
+        const uint64_t rateMbps = eventPtr.second.get<uint64_t>("rate");
+        LOG_WARNING(subprocess) << "[DEPRECATED] rate field in contact plan. Use 'rateBitsPerSec'";
+        return rateMbps * 1000000;
+    } catch(const boost::property_tree::ptree_error&) {
+        LOG_WARNING(subprocess) << "failed to find rateBps or rate in contact plan. Using default.";
+    }
+    return 0;
+}
+
 //must only be run from ioService thread because maps unprotected (no mutex)
 bool Scheduler::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
     
@@ -616,7 +658,7 @@ bool Scheduler::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
         linkEvent.finalDest = eventPt.second.get<int>("finalDestination", 0);
         linkEvent.start = eventPt.second.get<int>("startTime", 0);
         linkEvent.end = eventPt.second.get<int>("endTime", 0);
-        linkEvent.rate = eventPt.second.get<int>("rate", 0);
+        linkEvent.rateBps = Scheduler::GetRateBpsFromPtree(eventPt);
         if (linkEvent.dest == m_hdtnConfig.m_myNodeId) {
             LOG_WARNING(subprocess) << "Found a contact with destination (next hop node id) of " << m_hdtnConfig.m_myNodeId
                 << " which is this HDTN's node id.. ignoring this unused contact from the contact plan.";
@@ -681,7 +723,7 @@ void Scheduler::Impl::OnContactPlan_TimerExpired(const boost::system::error_code
                 outductInfo.linkIsUpTimeBased = contactPlan.isLinkUp;
 
                 if (outductInfo.linkIsUpTimeBased) {
-                    SendLinkUp(contactPlan.source, contactPlan.dest, contactPlan.outductArrayIndex, contactPlan.start);
+                    SendLinkUp(contactPlan.source, contactPlan.dest, contactPlan.outductArrayIndex, contactPlan.start, contactPlan.rateBps);
                 }
                 else {
                     SendLinkDown(contactPlan.source, contactPlan.dest, contactPlan.outductArrayIndex, contactPlan.end + 1);
@@ -754,7 +796,7 @@ void Scheduler::Impl::HandlePhysicalLinkStatusChange(const hdtn::LinkStatusHdr& 
     if (eventLinkIsUpPhysically) {
         if (outductInfo.linkIsUpTimeBased) {
             LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Up event at time  " << timeSecondsSinceSchedulerEpoch;
-            SendLinkUp(m_hdtnConfig.m_myNodeId, outductInfo.nextHopNodeId, outductArrayIndex, timeSecondsSinceSchedulerEpoch);
+            SendLinkUp(m_hdtnConfig.m_myNodeId, outductInfo.nextHopNodeId, outductArrayIndex, timeSecondsSinceSchedulerEpoch, 0, false);
         }
     }
     else {

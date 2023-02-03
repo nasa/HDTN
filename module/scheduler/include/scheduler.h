@@ -31,6 +31,7 @@
 #include "HdtnConfig.h"
 #include <boost/core/noncopyable.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/property_tree/ptree.hpp>
 #include "scheduler_lib_export.h"
 
 
@@ -45,7 +46,7 @@ public:
         zmq::context_t* hdtnOneProcessZmqInprocContextPtr = NULL);
 
     SCHEDULER_LIB_EXPORT static boost::filesystem::path GetFullyQualifiedFilename(const boost::filesystem::path& filename);
-
+    SCHEDULER_LIB_EXPORT static uint64_t GetRateBpsFromPtree(const boost::property_tree::ptree::value_type& eventPtr);
 
     // Internal implementation class
     class Impl; //public for ostream operators

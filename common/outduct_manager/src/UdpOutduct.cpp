@@ -2,7 +2,7 @@
  * @file UdpOutduct.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -52,6 +52,9 @@ void UdpOutduct::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatus
 void UdpOutduct::SetUserAssignedUuid(uint64_t userAssignedUuid) {
     m_udpBundleSource.SetUserAssignedUuid(userAssignedUuid);
 }
+void UdpOutduct::SetRate(uint64_t maxSendRateBitsPerSecOrZeroToDisable) {
+    m_udpBundleSource.UpdateRate(maxSendRateBitsPerSecOrZeroToDisable);
+}
 
 void UdpOutduct::Connect() {
     m_udpBundleSource.Connect(m_outductConfig.remoteHostname, boost::lexical_cast<std::string>(m_outductConfig.remotePort));
@@ -66,4 +69,7 @@ void UdpOutduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
     finalStats.m_convergenceLayer = m_outductConfig.convergenceLayer;
     finalStats.m_totalDataSegmentsOrPacketsAcked = m_udpBundleSource.GetTotalUdpPacketsAcked();
     finalStats.m_totalDataSegmentsOrPacketsSent = m_udpBundleSource.GetTotalUdpPacketsSent();
+}
+uint64_t UdpOutduct::GetStartingMaxSendRateBitsPerSec() const noexcept {
+    return m_outductConfig.udpRateBps;
 }

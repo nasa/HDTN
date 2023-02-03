@@ -2,7 +2,7 @@
  * @file Outduct.h
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -61,6 +61,7 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT virtual void SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback);
     OUTDUCT_MANAGER_LIB_EXPORT virtual void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     OUTDUCT_MANAGER_LIB_EXPORT virtual void SetUserAssignedUuid(uint64_t userAssignedUuid);
+    OUTDUCT_MANAGER_LIB_EXPORT virtual void SetRate(uint64_t maxSendRateBitsPerSecOrZeroToDisable);
     OUTDUCT_MANAGER_LIB_EXPORT virtual bool Init(); //optional
     virtual void Connect() = 0;
     virtual bool ReadyToForward() = 0;
@@ -72,6 +73,7 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT virtual uint64_t GetOutductMaxNumberOfBundlesInPipeline() const;
     OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetOutductMaxSumOfBundleBytesInPipeline() const;
     OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetOutductNextHopNodeId() const;
+    OUTDUCT_MANAGER_LIB_EXPORT virtual uint64_t GetStartingMaxSendRateBitsPerSec() const noexcept;
     OUTDUCT_MANAGER_LIB_EXPORT std::string GetConvergenceLayerName() const;
 
 protected:

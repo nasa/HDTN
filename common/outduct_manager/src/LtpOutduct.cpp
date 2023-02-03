@@ -2,7 +2,7 @@
  * @file LtpOutduct.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -88,8 +88,14 @@ void LtpOutduct::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatus
 void LtpOutduct::SetUserAssignedUuid(uint64_t userAssignedUuid) {
     m_ltpBundleSourcePtr->SetUserAssignedUuid(userAssignedUuid);
 }
+void LtpOutduct::SetRate(uint64_t maxSendRateBitsPerSecOrZeroToDisable) {
+    m_ltpBundleSourcePtr->SetRate(maxSendRateBitsPerSecOrZeroToDisable);
+}
 uint64_t LtpOutduct::GetOutductMaxNumberOfBundlesInPipeline() const {
     return m_ltpBundleSourcePtr->GetOutductMaxNumberOfBundlesInPipeline();
+}
+uint64_t LtpOutduct::GetStartingMaxSendRateBitsPerSec() const noexcept {
+    return m_outductConfig.ltpMaxSendRateBitsPerSecOrZeroToDisable;
 }
 
 void LtpOutduct::Connect() {
