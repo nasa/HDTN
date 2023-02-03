@@ -69,14 +69,14 @@ jobs:
           echo "Triggered by: ${GITHUB_EVENT_NAME}"
           echo "Initiated by: ${GITHUB_ACTOR}"
           echo "============================================================="
-
+      
       - name: Build HDTN
         run: |
           export HDTN_SOURCE_ROOT=/home/hdtn/HDTN_LATEST/HDTN
           cd $HDTN_SOURCE_ROOT
           git pull
           cd $HDTN_SOURCE_ROOT/build
-          cmake .. 
+          cmake ..
           make -j8
 
       - name: Unit Tests
