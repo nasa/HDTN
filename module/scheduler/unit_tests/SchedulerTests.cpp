@@ -33,7 +33,7 @@ BOOST_AUTO_TEST_CASE(SchedulerGetRateBpsTestCase)
     }
 
     // It's compatible with the new rateBps field
-    message = "[{\"rateBps\": 20000000}]";
+    message = "[{\"rateBitsPerSec\": 20000000}]";
     success = JsonSerializable::GetPropertyTreeFromJsonCharArray(message.data(), message.size(), pt);
     BOOST_REQUIRE_EQUAL(success, true);
 
@@ -43,7 +43,7 @@ BOOST_AUTO_TEST_CASE(SchedulerGetRateBpsTestCase)
     }
 
     // It prefers the new rateBps field
-    message = "[{\"rateBps\": 20000000, \"rate\": 40}]";
+    message = "[{\"rateBitsPerSec\": 20000000, \"rate\": 40}]";
     success = JsonSerializable::GetPropertyTreeFromJsonCharArray(message.data(), message.size(), pt);
     BOOST_REQUIRE_EQUAL(success, true);
 
