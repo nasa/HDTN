@@ -605,7 +605,7 @@ uint64_t Scheduler::GetRateBpsFromPtree(const boost::property_tree::ptree::value
     // If that fails, attempt to get deprecated "rate", which is in mbps
     try {
         const uint64_t rateMbps = eventPtr.second.get<uint64_t>("rate");
-        LOG_WARNING(subprocess) << "[DEPRECATED] rate field in contact plan. Use 'rateBps'";
+        LOG_WARNING(subprocess) << "[DEPRECATED] rate field in contact plan. Use 'rateBitsPerSec'";
         return rateMbps * 1000000;
     } catch(const boost::property_tree::ptree_error &e) {
         LOG_WARNING(subprocess) << "failed to find rateBps or rate in contact plan. Using default.";
