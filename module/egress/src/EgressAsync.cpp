@@ -884,7 +884,7 @@ void Egress::Impl::SchedulerEventHandler(hdtn::IreleaseChangeHdr& releaseChangeH
 
     if (releaseChangeHdr.rateMbps >= 0) {
         LOG_INFO(subprocess) << "setting rate to " << releaseChangeHdr.rateMbps << " mbps for new contact";
-        outduct->SetRate(releaseChangeHdr.rateMbps * 1000);
+        outduct->SetRate(releaseChangeHdr.rateMbps * 1000000);
     } else {
         // If the contact rate is negative, use the starting (default) rate
         LOG_INFO(subprocess) << "using default rate of " << startingRateBitsPerSec << " bps for new contact";
