@@ -7,7 +7,7 @@
             "finalDestination": 2,
             "startTime": 0,
             "endTime": 2000,
-            "rate": 1000,
+            "rateBps": 1000000000,
             "owlt":  1
         },
         {
@@ -17,7 +17,7 @@
             "finalDestination": 2,
             "startTime": 0,
             "endTime": 2000,
-            "rate": 1000,
+            "rateBps": 1000000000,
             "owlt":  1
         }, 
 	{
@@ -27,7 +27,7 @@
             "finalDestination": 1,
             "startTime": 0,
             "endTime": 2000,
-            "rate": 1000,
+            "rateBps": 1000000000,
             "owlt":  1
         }, 
 	{
@@ -37,7 +37,7 @@
             "finalDestination": 1,
             "startTime": 0,
             "endTime": 2000,
-            "rate": 1000,
+            "rateBps": 1000000000,
             "owlt":  1
         }
     ]

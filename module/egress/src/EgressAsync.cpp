@@ -3,7 +3,7 @@
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  * @author  Gilbert Clark
  *
- * @copyright Copyright � 2021 United States Government as represented by
+ * @copyright Copyright © 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -144,7 +144,7 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneP
     m_telemetry.totalDataBytes = 0;
     m_telemetry.egressMessageCount = 0;
 
-    m_zmqCtxPtr = boost::make_unique<zmq::context_t>(); //needed at least by router (and if one-process is not used)
+    m_zmqCtxPtr = boost::make_unique<zmq::context_t>(); //needed at least by scheduler pubsub (and if one-process is not used)
     try {
         if (hdtnOneProcessZmqInprocContextPtr) {
             // socket for cut-through mode straight to egress
@@ -606,7 +606,8 @@ void Egress::Impl::ReadZmqThreadFunc() {
                 else if ((res->truncated()) || (res->size != sizeof(releaseChangeHdr))) {
                     LOG_ERROR(subprocess) << "message mismatch with IreleaseChangeHdr: untruncated = " << res->untruncated_size
                         << " truncated = " << res->size << " expected = " << sizeof(releaseChangeHdr);
-                } else {
+                }
+                else {
                     SchedulerEventHandler(releaseChangeHdr);
                 }
             }
@@ -876,16 +877,19 @@ void Egress::Impl::SchedulerEventHandler(hdtn::IreleaseChangeHdr& releaseChangeH
         LOG_ERROR(subprocess) << "could not find outduct from scheduler event; not adjusting rate";
     }
 
-    uint64_t startingRateBitsPerSec = outduct->GetStartingMaxSendRateBitsPerSec();
+    const uint64_t startingRateBitsPerSec = outduct->GetStartingMaxSendRateBitsPerSec();
     if (startingRateBitsPerSec == 0) {
         // If the starting rate is 0 ("unlimited"), never override it
+        LOG_INFO(subprocess) << "not updating max rate for contact. max rate was initiliazed to 0 (unlimited) "
+            << "or isn't supported by convergence layer";
         return;
     }
 
-    if (releaseChangeHdr.rateMbps >= 0) {
-        LOG_INFO(subprocess) << "setting rate to " << releaseChangeHdr.rateMbps << " mbps for new contact";
-        outduct->SetRate(releaseChangeHdr.rateMbps * 1000000);
-    } else {
+    if (releaseChangeHdr.rateBps >= 0) {
+        LOG_INFO(subprocess) << "setting rate to " << releaseChangeHdr.rateBps << " bps for new contact";
+        outduct->SetRate(releaseChangeHdr.rateBps);
+    }
+    else {
         // If the contact rate is negative, use the starting (default) rate
         LOG_INFO(subprocess) << "using default rate of " << startingRateBitsPerSec << " bps for new contact";
         outduct->SetRate(startingRateBitsPerSec);
