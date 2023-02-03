@@ -598,7 +598,7 @@ uint64_t Scheduler::GetRateBpsFromPtree(const boost::property_tree::ptree::value
     // First, attempt to get "rateBitsPerSec"
     try {
         return eventPtr.second.get<uint64_t>("rateBitsPerSec");
-    } catch (const boost::property_tree::ptree_error &e) {
+    } catch (const boost::property_tree::ptree_error&) {
         LOG_WARNING(subprocess) << "rateBps not defined in contact plan";
     }
 
@@ -607,7 +607,7 @@ uint64_t Scheduler::GetRateBpsFromPtree(const boost::property_tree::ptree::value
         const uint64_t rateMbps = eventPtr.second.get<uint64_t>("rate");
         LOG_WARNING(subprocess) << "[DEPRECATED] rate field in contact plan. Use 'rateBitsPerSec'";
         return rateMbps * 1000000;
-    } catch(const boost::property_tree::ptree_error &e) {
+    } catch(const boost::property_tree::ptree_error&) {
         LOG_WARNING(subprocess) << "failed to find rateBps or rate in contact plan. Using default.";
     }
     return 0;

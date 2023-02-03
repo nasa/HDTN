@@ -7,7 +7,7 @@
             "finalDestination": 1,
             "startTime": 10,
             "endTime": 20,
-            "rate": 1000
+            "rateBitsPerSec": 1000000000
         },
         {
             "contact": 1,
@@ -16,7 +16,7 @@
             "finalDestination": 2,
             "startTime": 25,
             "endTime": 38,
-            "rate": 1000
+            "rateBitsPerSec": 1000000000
         }
     ]
 }
