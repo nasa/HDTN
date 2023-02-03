@@ -303,11 +303,11 @@ ContactMultigraph::CmrMapData::CmrMapData() { LOG_WARNING(subprocess) << "defaul
 /*
  * Library function implementations, e.g. loading, routing algorithms, etc.
  */
-uint64_t get_rate_bps_from_ptree(const boost::property_tree::ptree::value_type& eventPt)
+static uint64_t GetRateBpsFromPtree(const boost::property_tree::ptree::value_type& eventPt)
 {
-    // First, attempt to get "rateBps"
+    // First, attempt to get "rateBitsPerSec"
     try {
-        return eventPt.second.get<uint64_t>("rateBps");
+        return eventPt.second.get<uint64_t>("rateBitsPerSec");
     } catch (const boost::property_tree::ptree_error &e) {
         LOG_WARNING(subprocess) << "rateBps not defined in contact plan";
     }
@@ -317,7 +317,8 @@ uint64_t get_rate_bps_from_ptree(const boost::property_tree::ptree::value_type& 
         const uint64_t rateMbps = eventPt.second.get<uint64_t>("rate");
         LOG_WARNING(subprocess) << "[DEPRECATED] rate field in contact plan. Use 'rateBps'";
         return rateMbps * 1000000;
-    } catch(const boost::property_tree::ptree_error &e) {
+    } catch(const boost::property_tree::ptree_error)
+    {
         LOG_WARNING(subprocess) << "failed to find rateBbps or rate in contact plan. Using default.";
     }
     return 0;
@@ -337,16 +338,16 @@ std::vector<Contact> cp_load(const boost::filesystem::path& filePath, std::size_
         for (const boost::property_tree::ptree::value_type& eventPt : contactsPt) {
             // if the rate is 0 ("unlimited") then use a default value
             // in the calculations
-            uint64_t rate = get_rate_bps_from_ptree(eventPt);
-            if (rate <= 0) {
-                rate = DEFAULT_RATE_BPS;
+            uint64_t rateBps = GetRateBpsFromPtree(eventPt);
+            if (rateBps <= 0) {
+                rateBps = DEFAULT_RATE_BPS;
             }
             contactsVector.emplace_back( //nodeId_t frm, nodeId_t to, time_t start, time_t end, uint64_t rate, float confidence=1, time_t owlt=1
                 eventPt.second.get<nodeId_t>("source", 0), //nodeId_t frm
                 eventPt.second.get<nodeId_t>("dest", 0), //nodeId_t to
                 eventPt.second.get<time_t>("startTime", 0), //time_t start
                 eventPt.second.get<time_t>("endTime", 0), //time_t end
-                rate, //uint64_t rate
+                rateBps, //uint64_t rate
                 1.f, //float confidence=1
                 eventPt.second.get<time_t>("owlt", 0)); //time_t owlt=1
             contactsVector.back().id = eventPt.second.get<uint64_t>("contact", 0);

@@ -595,9 +595,9 @@ bool Scheduler::Impl::ProcessContactsFile(const boost::filesystem::path& jsonEve
 
 uint64_t Scheduler::GetRateBpsFromPtree(const boost::property_tree::ptree::value_type& eventPtr)
 {
-    // First, attempt to get "rateBps"
+    // First, attempt to get "rateBitsPerSec"
     try {
-        return eventPtr.second.get<uint64_t>("rateBps");
+        return eventPtr.second.get<uint64_t>("rateBitsPerSec");
     } catch (const boost::property_tree::ptree_error &e) {
         LOG_WARNING(subprocess) << "rateBps not defined in contact plan";
     }

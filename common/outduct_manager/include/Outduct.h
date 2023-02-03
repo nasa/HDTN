@@ -73,7 +73,7 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT virtual uint64_t GetOutductMaxNumberOfBundlesInPipeline() const;
     OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetOutductMaxSumOfBundleBytesInPipeline() const;
     OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetOutductNextHopNodeId() const;
-    OUTDUCT_MANAGER_LIB_EXPORT virtual uint64_t GetStartingMaxSendRateBitsPerSec() const;
+    OUTDUCT_MANAGER_LIB_EXPORT virtual uint64_t GetStartingMaxSendRateBitsPerSec() const noexcept;
     OUTDUCT_MANAGER_LIB_EXPORT std::string GetConvergenceLayerName() const;
 
 protected:

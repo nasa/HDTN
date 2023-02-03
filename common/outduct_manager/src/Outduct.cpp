@@ -46,7 +46,7 @@ std::string Outduct::GetConvergenceLayerName() const {
 uint64_t Outduct::GetOutductTelemetry(uint8_t* data, uint64_t bufferSize) {
     return 0;
 }
-uint64_t Outduct::GetStartingMaxSendRateBitsPerSec() const {
+uint64_t Outduct::GetStartingMaxSendRateBitsPerSec() const noexcept {
     return 0;
 }
 
