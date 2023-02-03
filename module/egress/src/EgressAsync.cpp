@@ -885,15 +885,8 @@ void Egress::Impl::SchedulerEventHandler(hdtn::IreleaseChangeHdr& releaseChangeH
         return;
     }
 
-    if (releaseChangeHdr.rateBps >= 0) {
-        LOG_INFO(subprocess) << "setting rate to " << releaseChangeHdr.rateBps << " bps for new contact";
-        outduct->SetRate(releaseChangeHdr.rateBps);
-    }
-    else {
-        // If the contact rate is negative, use the starting (default) rate
-        LOG_INFO(subprocess) << "using default rate of " << startingRateBitsPerSec << " bps for new contact";
-        outduct->SetRate(startingRateBitsPerSec);
-    }
+    LOG_INFO(subprocess) << "setting rate to " << releaseChangeHdr.rateBps << " bps for new contact";
+    outduct->SetRate(releaseChangeHdr.rateBps);
 }
 
 }  // namespace hdtn
