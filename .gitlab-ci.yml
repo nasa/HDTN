@@ -92,8 +92,8 @@ unit-test:
     reports:
       junit: report.xml
 
-# Start Static Analysis Scanning 
-static-analysis:
+# Static Analysis Legacy defects  
+static-analysis-legacy:
   stage: test
   tags:
   - cov-analysis
@@ -106,3 +106,18 @@ static-analysis:
     - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
     - export files_to_scan=$(git diff --name-only origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME | grep '\.cpp')
     - if [ "$files_to_scan" != "" ]; then cov-run-desktop --dir build/idir --url $COV_BUILD_SERVER --auth-key-file /home/hdtn/ci-auth.key --stream HDTN-master --exit1-if-defects true --ignore-uncapturable-inputs true --present-in-reference true --all --enable-constraint-fpp --enable-fnptr --enable-virtual $files_to_scan; else echo "No files to scan"; fi
+
+# Static Analysis New defects  
+static-analysis-new:
+  stage: test
+  tags:
+  - cov-analysis
+  dependencies:
+    - build-static-analysis
+  needs:
+    - build-static-analysis
+  script:
+    - git fetch
+    - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
+    - export files_to_scan=$(git diff --name-only origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME | grep '\.cpp')
+    - if [ "$files_to_scan" != "" ]; then cov-run-desktop --dir build/idir --url $COV_BUILD_SERVER --auth-key-file /home/hdtn/ci-auth.key --stream HDTN-master --exit1-if-defects true --ignore-uncapturable-inputs true --present-in-reference false --all --enable-constraint-fpp --enable-fnptr --enable-virtual $files_to_scan; else echo "No files to scan"; fi
