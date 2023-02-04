@@ -109,4 +109,4 @@ jobs:
           make clean
           cov-build --dir idir make -j8
           cov-analyze --dir idir --all --enable-constraint-fpp --enable-fnptr --enable-virtual --strip-path $HDTN_SOURCE_ROOT
-          cov-commit-defects --dir idir --url  ${{COVERITY_BUILD}} --stream HDTN-master --auth-key-file /home/hdtn/auth.key
+          cov-commit-defects --dir idir --url  ${{secrets.COVERITY_BUILD}} --stream HDTN-master --auth-key-file /home/hdtn/auth.key
