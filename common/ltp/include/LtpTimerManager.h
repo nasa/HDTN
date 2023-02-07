@@ -30,6 +30,7 @@
 #include <list>
 #include <boost/asio.hpp>
 #include <boost/function.hpp>
+#include "FreeListAllocator.h"
 #include "ltp_lib_export.h"
 #include <boost/core/noncopyable.hpp>
 
@@ -182,9 +183,12 @@ private:
             m_userData(std::move(userData)) {}
     };
     /// Type of list holding timer context data
-    typedef std::list<timer_data_t> timer_data_list_t;
+    typedef std::list<timer_data_t, FreeListAllocatorDynamic<timer_data_t> > timer_data_list_t;
     /// Type of map holding timer context data iterators, mapped by idType, hashed by hashType
-    typedef std::unordered_map<idType, typename timer_data_list_t::iterator, hashType> id_to_data_map_t;
+    typedef std::unordered_map<idType, typename timer_data_list_t::iterator,
+        hashType,
+        std::equal_to<idType>,
+        FreeListAllocatorDynamic<std::pair<const idType, typename timer_data_list_t::iterator> > > id_to_data_map_t;
     /// Timer context data queue
     timer_data_list_t m_listTimerData;
     /// Timer context data iterators referencing m_listTimerData, mapped by idType

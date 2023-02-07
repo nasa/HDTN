@@ -18,6 +18,7 @@ add_executable(unit-tests
 	../../common/util/test/TestUtf8Paths.cpp
 	../../common/util/test/TestEnumAsFlagsMacro.cpp
 	../../common/util/test/TestPaddedVectorUint8.cpp
+	../../common/util/test/TestFreeListAllocator.cpp
 	../../common/util/test/TestCpuFlagDetection.cpp
 	../../common/util/test/TestTokenRateLimiter.cpp
 	../../common/util/test/TestUdpBatchSender.cpp

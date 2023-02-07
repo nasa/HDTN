@@ -26,6 +26,14 @@ LtpTimerManager<idType, hashType>::LtpTimerManager(boost::asio::deadline_timer& 
     m_timerIsDeletedPtr(new bool(false))
 {
     m_mapIdToTimerData.reserve(hashMapNumBuckets);
+
+    //set max number of recyclable allocated max elements for the map and list
+    // - once hashMapNumBuckets has been reached, operater new ops will cease
+    // - if hashMapNumBuckets is never exceeded, operator delete will never occur
+    // + 2 => to add slight buffer
+    m_listTimerData.get_allocator().SetMaxListSizeFromGetAllocatorCopy(hashMapNumBuckets + 2);
+    m_mapIdToTimerData.get_allocator().SetMaxListSizeFromGetAllocatorCopy(hashMapNumBuckets + 2);
+
     Reset();
 }
 

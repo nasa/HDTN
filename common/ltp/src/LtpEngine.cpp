@@ -264,6 +264,13 @@ void LtpEngine::Reset() {
     m_mapSessionNumberToSessionSender.reserve(M_MAX_SIMULTANEOUS_SESSIONS << 1);
     m_mapSessionIdToSessionReceiver.reserve(M_MAX_SIMULTANEOUS_SESSIONS << 1);
 
+    //set max number of recyclable allocated max elements for the map
+    // - once M_MAX_SIMULTANEOUS_SESSIONS has been reached, operater new ops will cease
+    // - if M_MAX_SIMULTANEOUS_SESSIONS is never exceeded, operator delete will never occur
+    // + 2 => to add slight buffer
+    m_mapSessionNumberToSessionSender.get_allocator().SetMaxListSizeFromGetAllocatorCopy(M_MAX_SIMULTANEOUS_SESSIONS + 2);
+    m_mapSessionIdToSessionReceiver.get_allocator().SetMaxListSizeFromGetAllocatorCopy(M_MAX_SIMULTANEOUS_SESSIONS + 2);
+
     m_ltpRxStateMachine.InitRx();
     m_queueClosedSessionDataToSend = std::queue<std::pair<uint64_t, std::vector<uint8_t> > >();
 

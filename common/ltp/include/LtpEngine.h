@@ -33,6 +33,7 @@
 #include "TokenRateLimiter.h"
 #include "BundleCallbackFunctionDefines.h"
 #include "MemoryInFiles.h"
+#include "FreeListAllocator.h"
 #include <unordered_map>
 #include <queue>
 #include <memory>
@@ -960,9 +961,15 @@ private:
     InitialTransmissionCompletedCallback_t m_initialTransmissionCompletedCallbackCalledBySender;
 
     /// Type of map holding transmission sessions, mapped by session number
-    typedef std::unordered_map<uint64_t, LtpSessionSender> map_session_number_to_session_sender_t;
+    typedef std::unordered_map<uint64_t, LtpSessionSender,
+        std::hash<uint64_t>,
+        std::equal_to<uint64_t>,
+        FreeListAllocatorDynamic<std::pair<const uint64_t, LtpSessionSender> > > map_session_number_to_session_sender_t;
     /// Type of map holding reception sessions, mapped by session ID, hashed by session ID
-    typedef std::unordered_map<Ltp::session_id_t, LtpSessionReceiver, Ltp::hash_session_id_t > map_session_id_to_session_receiver_t;
+    typedef std::unordered_map<Ltp::session_id_t, LtpSessionReceiver,
+        Ltp::hash_session_id_t,
+        std::equal_to<Ltp::session_id_t>,
+        FreeListAllocatorDynamic<std::pair<const Ltp::session_id_t, LtpSessionReceiver> > > map_session_id_to_session_receiver_t;
     /// Active transmission sessions, mapped by session number
     map_session_number_to_session_sender_t m_mapSessionNumberToSessionSender;
     /// Active reception sessions, mapped by session ID, hashed by session ID
