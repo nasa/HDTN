@@ -693,7 +693,10 @@ bool LtpEngine::GetNextPacketToSend(UdpSendPacketInfo& udpSendPacketInfo) {
         udpSendPacketInfo.sessionOriginatorEngineId = info.sessionId.sessionOriginatorEngineId;
 
         const uint8_t * const infoPtr = (uint8_t*)&info;
-        m_timeManagerOfCancelSegments.StartTimer(NULL, info.sessionId, &m_cancelSegmentTimerExpiredCallback, std::vector<uint8_t>(infoPtr, infoPtr + sizeof(info)));
+        std::vector<uint8_t> userData;
+        m_timeManagerOfCancelSegments.m_userDataRecycler.GetRecycledOrCreateNewUserData(userData);
+        userData.assign(infoPtr, infoPtr + sizeof(info));
+        m_timeManagerOfCancelSegments.StartTimer(NULL, info.sessionId, &m_cancelSegmentTimerExpiredCallback, std::move(userData));
         m_queueCancelSegmentTimerInfo.pop();
         return true;
     }
@@ -1136,6 +1139,8 @@ void LtpEngine::CancelAcknowledgementSegmentReceivedCallback(const Ltp::session_
                     LOG_INFO(subprocess) << "Received CAx for unreachable (due to wrong client service id)";
                 }
             }
+            //this overload of DeleteTimer does not auto-recycle user data and must be manually invoked
+            m_timeManagerOfCancelSegments.m_userDataRecycler.ReturnUserData(std::move(userDataReturned));
         }
     }
 }
@@ -1167,6 +1172,7 @@ void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmen
             LOG_INFO(subprocess) << "Cancel segment unable to send!";
         }
     }
+    //userData shall be recycled automatically after this callback completes
 }
 
 void LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr) {

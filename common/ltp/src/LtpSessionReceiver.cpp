@@ -111,6 +111,7 @@ LtpSessionReceiver::~LtpSessionReceiver() {
         //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
         const Ltp::session_id_t reportSerialNumberPlusSessionNumber(rsn, M_SESSION_ID.sessionNumber);
 
+        //This overload of DeleteTimer auto-recycles userData
         if (!m_ltpSessionReceiverCommonDataRef.m_timeManagerOfReportSerialNumbersRef.DeleteTimer(reportSerialNumberPlusSessionNumber)) {
             LOG_ERROR(subprocess) << "LtpSessionReceiver::~LtpSessionReceiver: did not delete timer";
         }
@@ -124,6 +125,7 @@ LtpSessionReceiver::~LtpSessionReceiver() {
         //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
         const Ltp::session_id_t checkpointSerialNumberPlusSessionNumber(csn, M_SESSION_ID.sessionNumber);
 
+        //This overload of DeleteTimer auto-recycles userData
         if (!m_ltpSessionReceiverCommonDataRef.m_timeManagerOfSendingDelayedReceptionReportsRef.DeleteTimer(checkpointSerialNumberPlusSessionNumber)) {
             LOG_ERROR(subprocess) << "LtpSessionReceiver::~LtpSessionReceiver: did not delete timer in m_timeManagerOfSendingDelayedReceptionReportsRef";
         }
@@ -161,6 +163,7 @@ void LtpSessionReceiver::LtpDelaySendReportSegmentTimerExpiredCallback(const Ltp
     m_ltpSessionReceiverCommonDataRef.m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent += thisCheckpointIsResponseToReportSegment;
     HandleGenerateAndSendReportSegment(thisRsCheckpointSerialNumber, thisRsLowerBound, thisRsUpperBound, thisCheckpointIsResponseToReportSegment);
     m_mapReportSegmentsPendingGeneration.erase(it);
+    //userData shall be recycled automatically after this callback completes
 }
 
 void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(const Ltp::session_id_t & reportSerialNumberPlusSessionNumber, std::vector<uint8_t> & userData) {
@@ -216,6 +219,7 @@ void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(const Ltp::session
             m_ltpSessionReceiverCommonDataRef.m_notifyEngineThatThisReceiverNeedsDeletedCallbackRef(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::RLEXC);
         }
     }
+    //userData shall be recycled automatically after this callback completes
 }
 
 bool LtpSessionReceiver::NextDataToSend(UdpSendPacketInfo& udpSendPacketInfo) {
@@ -248,7 +252,9 @@ bool LtpSessionReceiver::NextDataToSend(UdpSendPacketInfo& udpSendPacketInfo) {
         //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
         const Ltp::session_id_t reportSerialNumberPlusSessionNumber(rsn, M_SESSION_ID.sessionNumber);
 
-        std::vector<uint8_t> userData(sizeof(rsntimer_userdata_t));
+        std::vector<uint8_t> userData;
+        m_ltpSessionReceiverCommonDataRef.m_timeManagerOfReportSerialNumbersRef.m_userDataRecycler.GetRecycledOrCreateNewUserData(userData);
+        userData.resize(sizeof(rsntimer_userdata_t));
         rsntimer_userdata_t* userDataPtr = reinterpret_cast<rsntimer_userdata_t*>(userData.data());
         userDataPtr->itMapAllReportSegmentsSent = reportSegmentIt;
         m_reportSerialNumberActiveTimersList.emplace_front(rsn); //keep track of this receiving session's active timers within the shared LtpTimerManager
@@ -301,6 +307,8 @@ void LtpSessionReceiver::ReportAcknowledgementSegmentReceivedCallback(uint64_t r
             const rsntimer_userdata_t* userDataPtr = reinterpret_cast<rsntimer_userdata_t*>(userDataReturned.data());
             //keep track of this receiving session's active timers within the shared LtpTimerManager
             m_reportSerialNumberActiveTimersList.erase(userDataPtr->itReportSerialNumberActiveTimersList);
+            //this overload of DeleteTimer does not auto-recycle user data and must be manually invoked
+            m_ltpSessionReceiverCommonDataRef.m_timeManagerOfReportSerialNumbersRef.m_userDataRecycler.ReturnUserData(std::move(userDataReturned));
         }
     }
     if (m_reportsToSendFlistQueue.empty() && m_reportSerialNumberActiveTimersList.empty()) { // cannot do within a shared timer: m_timeManagerOfReportSerialNumbers.Empty()) {
@@ -445,6 +453,7 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                         //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
                         const Ltp::session_id_t checkpointSerialNumberPlusSessionNumber(thisRsCheckpointSerialNumber, M_SESSION_ID.sessionNumber);
 
+                        //This overload of DeleteTimer auto-recycles userData
                         if (!m_ltpSessionReceiverCommonDataRef.m_timeManagerOfSendingDelayedReceptionReportsRef.DeleteTimer(checkpointSerialNumberPlusSessionNumber)) {
                             LOG_ERROR(subprocess) << "LtpSessionReceiver::DataSegmentReceivedCallback: did not delete timer in m_timeManagerOfSendingDelayedReceptionReportsRef";
                         }
@@ -583,7 +592,9 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                         //  sessionNumber = the session number
                         //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
                         const Ltp::session_id_t checkpointSerialNumberPlusSessionNumber(*dataSegmentMetadata.checkpointSerialNumber, M_SESSION_ID.sessionNumber);
-                        std::vector<uint8_t> userData(sizeof(itRsPending));
+                        std::vector<uint8_t> userData;
+                        m_ltpSessionReceiverCommonDataRef.m_timeManagerOfSendingDelayedReceptionReportsRef.m_userDataRecycler.GetRecycledOrCreateNewUserData(userData);
+                        userData.resize(sizeof(itRsPending));
                         rs_pending_map_t::iterator* itRsPendingPtr = (rs_pending_map_t::iterator*) userData.data();
                         *itRsPendingPtr = itRsPending;
                         if (!m_ltpSessionReceiverCommonDataRef.m_timeManagerOfSendingDelayedReceptionReportsRef.StartTimer(this,

@@ -21,6 +21,7 @@ template <typename idType, typename hashType>
 LtpTimerManager<idType, hashType>::LtpTimerManager(boost::asio::deadline_timer& deadlineTimerRef,
     boost::posix_time::time_duration& transmissionToAckReceivedTimeRef,
     const uint64_t hashMapNumBuckets) :
+    m_userDataRecycler(hashMapNumBuckets),
     m_deadlineTimerRef(deadlineTimerRef),
     m_transmissionToAckReceivedTimeRef(transmissionToAckReceivedTimeRef),
     m_timerIsDeletedPtr(new bool(false))
@@ -61,7 +62,7 @@ void LtpTimerManager<idType, hashType>::Reset() {
 
 
 template <typename idType, typename hashType>
-bool LtpTimerManager<idType, hashType>::StartTimer(void* classPtr, const idType serialNumber, const LtpTimerExpiredCallback_t* callbackPtr, std::vector<uint8_t> userData) {
+bool LtpTimerManager<idType, hashType>::StartTimer(void* classPtr, const idType serialNumber, const LtpTimerExpiredCallback_t* callbackPtr, std::vector<uint8_t>&& userData) {
     //expiry will always be appended to list (always greater than previous) (duplicate expiries ok)
     const boost::posix_time::ptime expiry = boost::posix_time::microsec_clock::universal_time() + m_transmissionToAckReceivedTimeRef;
     
@@ -83,10 +84,12 @@ bool LtpTimerManager<idType, hashType>::StartTimer(void* classPtr, const idType 
 
 template <typename idType, typename hashType>
 bool LtpTimerManager<idType, hashType>::DeleteTimer(const idType serialNumber) {
-    std::vector<uint8_t> userDataToDiscard;
+    std::vector<uint8_t> userDataToAutomaticallyRecycle;
     const LtpTimerExpiredCallback_t* callbackPtrToDiscard;
     void* classPtrToDiscard;
-    return DeleteTimer(serialNumber, userDataToDiscard, callbackPtrToDiscard, classPtrToDiscard);
+    const bool retVal = DeleteTimer(serialNumber, userDataToAutomaticallyRecycle, callbackPtrToDiscard, classPtrToDiscard);
+    m_userDataRecycler.ReturnUserData(std::move(userDataToAutomaticallyRecycle));
+    return retVal;
 }
 
 template <typename idType, typename hashType>
@@ -141,6 +144,7 @@ void LtpTimerManager<idType, hashType>::OnTimerExpired(const boost::system::erro
 
             const LtpTimerExpiredCallback_t& callbackRef = *callbackPtr;
             callbackRef(classPtr, serialNumberThatExpired, userData); //called after DeleteTimer in case callback reads it
+            m_userDataRecycler.ReturnUserData(std::move(userData)); //auto-recycle user data if it has any allocation
         }
     }
 
@@ -189,3 +193,40 @@ template class LtpTimerManager<uint64_t, std::hash<uint64_t> >;
 //    }
 //};
 template class LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>;
+
+
+
+
+UserDataRecycler::UserDataRecycler(const uint64_t maxSize) : m_currentSize(0), m_maxSize(maxSize) {
+    //set max number of recyclable allocated max elements for the list
+    // - once maxSize has been reached, operater new ops will cease
+    // - if maxSize is never exceeded, operator delete will never occur
+    m_list.get_allocator().SetMaxListSizeFromGetAllocatorCopy(maxSize);
+}
+
+bool UserDataRecycler::ReturnUserData(std::vector<uint8_t>&& userData) {
+    if (m_currentSize < m_maxSize) {
+        if (userData.size() || userData.capacity()) {
+            m_list.emplace_front(std::move(userData));
+            ++m_currentSize;
+            return true;
+        }
+    }
+    return false;
+}
+
+void UserDataRecycler::GetRecycledOrCreateNewUserData(std::vector<uint8_t>& userData) {
+    if (m_currentSize) {
+        userData = std::move(m_list.front());
+        m_list.pop_front();
+        --m_currentSize;
+    }
+}
+
+uint64_t UserDataRecycler::GetListSize() const noexcept {
+    return m_currentSize;
+}
+
+uint64_t UserDataRecycler::GetListCapacity() const noexcept {
+    return m_maxSize;
+}

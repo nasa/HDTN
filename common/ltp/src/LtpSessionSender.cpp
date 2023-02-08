@@ -88,12 +88,14 @@ LtpSessionSender::~LtpSessionSender() {
         //  since this is a sender, the real sessionOriginatorEngineId is constant among all sending sessions and is not needed
         const Ltp::session_id_t checkpointSerialNumberPlusSessionNumber(csn, M_SESSION_ID.sessionNumber);
 
+        //This overload of DeleteTimer auto-recycles userData
         if (!m_ltpSessionSenderCommonDataRef.m_timeManagerOfCheckpointSerialNumbersRef.DeleteTimer(checkpointSerialNumberPlusSessionNumber)) {
             LOG_ERROR(subprocess) << "LtpSessionSender::~LtpSessionSender: did not delete timer";
         }
     }
     //clean up this sending session's single active timer within the shared LtpTimerManager
     if (m_mapRsBoundsToRsnPendingGeneration.size()) {
+        //This overload of DeleteTimer auto-recycles userData (however userData not used in this timer so doesn't matter)
         if (!m_ltpSessionSenderCommonDataRef.m_timeManagerOfSendingDelayedDataSegmentsRef.DeleteTimer(M_SESSION_ID.sessionNumber)) {
             LOG_ERROR(subprocess) << "LtpSessionSender::~LtpSessionSender: did not delete timer in m_timeManagerOfSendingDelayedDataSegmentsRef";
         }
@@ -161,6 +163,7 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t
             m_ltpSessionSenderCommonDataRef.m_notifyEngineThatThisSenderNeedsDeletedCallbackRef(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::RLEXC, m_userDataPtr);
         }
     }
+    //userData shall be recycled automatically after this callback completes
 }
 
 void LtpSessionSender::LtpDelaySendDataSegmentsTimerExpiredCallback(const uint64_t& sessionNumber, std::vector<uint8_t>& userData) {
@@ -177,6 +180,7 @@ void LtpSessionSender::LtpDelaySendDataSegmentsTimerExpiredCallback(const uint64
     if (!m_didNotifyForDeletion) {
         m_ltpSessionSenderCommonDataRef.m_notifyEngineThatThisSenderHasProducibleDataFunctionRef(M_SESSION_ID.sessionNumber);
     }
+    //userData shall be recycled automatically after this callback completes (however it is unused and empty, so nothing to recycle)
 }
 
 bool LtpSessionSender::NextTimeCriticalDataToSend(UdpSendPacketInfo& udpSendPacketInfo) {
@@ -234,8 +238,9 @@ bool LtpSessionSender::NextTimeCriticalDataToSend(UdpSendPacketInfo& udpSendPack
             //  sessionNumber = the session number
             //  since this is a sender, the real sessionOriginatorEngineId is constant among all sending sessions and is not needed
             const Ltp::session_id_t checkpointSerialNumberPlusSessionNumber(resendFragment.checkpointSerialNumber, M_SESSION_ID.sessionNumber);
-
-            std::vector<uint8_t> userData(sizeof(csntimer_userdata_t));
+            std::vector<uint8_t> userData;
+            m_ltpSessionSenderCommonDataRef.m_timeManagerOfCheckpointSerialNumbersRef.m_userDataRecycler.GetRecycledOrCreateNewUserData(userData);
+            userData.resize(sizeof(csntimer_userdata_t));
             csntimer_userdata_t* userDataPtr = reinterpret_cast<csntimer_userdata_t*>(userData.data());
             userDataPtr->resendFragment = resendFragment;
             m_checkpointSerialNumberActiveTimersList.emplace_front(resendFragment.checkpointSerialNumber); //keep track of this sending session's active timers within the shared LtpTimerManager
@@ -320,7 +325,9 @@ bool LtpSessionSender::NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketI
                         flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK;
                     }
                 }
-                std::vector<uint8_t> userData(sizeof(csntimer_userdata_t));
+                std::vector<uint8_t> userData;
+                m_ltpSessionSenderCommonDataRef.m_timeManagerOfCheckpointSerialNumbersRef.m_userDataRecycler.GetRecycledOrCreateNewUserData(userData);
+                userData.resize(sizeof(csntimer_userdata_t));
                 csntimer_userdata_t* userDataPtr = reinterpret_cast<csntimer_userdata_t*>(userData.data());
                 LtpSessionSender::resend_fragment_t & resendFragment = userDataPtr->resendFragment;
                 new (&resendFragment) LtpSessionSender::resend_fragment_t(m_dataIndexFirstPass, bytesToSendRed, cp, rsn, flags); //placement new
@@ -486,6 +493,8 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
                     const csntimer_userdata_t* userDataPtr = reinterpret_cast<csntimer_userdata_t*>(userDataReturned.data());
                     //keep track of this sending session's active timers within the shared LtpTimerManager
                     m_checkpointSerialNumberActiveTimersList.erase(userDataPtr->itCheckpointSerialNumberActiveTimersList);
+                    //this overload of DeleteTimer does not auto-recycle user data and must be manually invoked
+                    m_ltpSessionSenderCommonDataRef.m_timeManagerOfCheckpointSerialNumbersRef.m_userDataRecycler.ReturnUserData(std::move(userDataReturned));
                 }
             }
         }
@@ -609,6 +618,7 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
                     if (pendingReportsHaveNoGapsInClaims) {
                         m_ltpSessionSenderCommonDataRef.m_numDeletedFullyClaimedPendingReports += m_mapRsBoundsToRsnPendingGeneration.size();
                         //since there is a retransmission timer running stop it (there is no need to retransmit in this case)
+                        //This overload of DeleteTimer auto-recycles userData (however userData not used in this timer so doesn't matter)
                         if (!m_ltpSessionSenderCommonDataRef.m_timeManagerOfSendingDelayedDataSegmentsRef.DeleteTimer(M_SESSION_ID.sessionNumber)) {
                             LOG_ERROR(subprocess) << "LtpSessionSender::ReportSegmentReceivedCallback: did not delete timer in m_timeManagerOfSendingDelayedDataSegmentsRef";
                         }

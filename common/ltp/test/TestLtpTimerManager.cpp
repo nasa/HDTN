@@ -48,23 +48,29 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
 
         void LtpTimerExpiredCallback(void* classPtr, const uint64_t & serialNumber, std::vector<uint8_t> & userData) {
             BOOST_REQUIRE(classPtr == NULL);
+            ++m_numCallbacks;
+            m_serialNumbersInCallback.push_back(serialNumber);
+
             if (m_testNumber == 1) {
                 BOOST_REQUIRE_EQUAL(userData.size(), 0);
-                m_serialNumbersInCallback.push_back(serialNumber);
-                ++m_numCallbacks;
             }
             else if (m_testNumber == 2) {
                 BOOST_REQUIRE(userData == std::vector<uint8_t>({ 1,2,3 }));
-                m_serialNumbersInCallback.push_back(serialNumber);
                 //std::cout << "sn " << serialNumber << std::endl;
-                ++m_numCallbacks;
                 if (m_numCallbacks <= 3) {
                     BOOST_REQUIRE(m_timerManager.StartTimer(NULL, serialNumber, &m_timerExpiredCallback, std::vector<uint8_t>({ 1,2,3 }))); //restart
                 }
             }
+            else if (m_testNumber == 3) {
+                BOOST_REQUIRE(userData == std::vector<uint8_t>({ 1,2,3 }));
+            }
+            else if (m_testNumber == 4) {
+                BOOST_REQUIRE(userData == std::vector<uint8_t>({ 1,2,3 }));
+            }
         }
 
         void DoTest() {
+            BOOST_REQUIRE_EQUAL(m_timerManager.m_userDataRecycler.GetListCapacity(), 100); //initialized from constructor above
             m_testNumber = 1;
             m_timerManager.Reset();
             m_ioService.stop();
@@ -74,9 +80,11 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_desired_serialNumbers = std::vector<uint64_t>({ 5,10,15 });
             for (std::size_t i = 0; i < m_desired_serialNumbers.size(); ++i) {
                 BOOST_REQUIRE(m_timerManager.StartTimer(NULL, m_desired_serialNumbers[i], &m_timerExpiredCallback));
+                BOOST_REQUIRE_EQUAL(m_timerManager.m_userDataRecycler.GetListSize(), 0); //no user data
             }
             m_ioService.run();
             
+            BOOST_REQUIRE_EQUAL(m_timerManager.m_userDataRecycler.GetListSize(), 0); //size 0 user data not recycled
             BOOST_REQUIRE_EQUAL(m_numCallbacks, m_desired_serialNumbers.size());
             BOOST_REQUIRE(m_desired_serialNumbers == m_serialNumbersInCallback);
         }
@@ -91,10 +99,12 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_desired_serialNumbers = std::vector<uint64_t>({ 5,10,15 });
             for (std::size_t i = 0; i < m_desired_serialNumbers.size(); ++i) {
                 BOOST_REQUIRE(m_timerManager.StartTimer(NULL, m_desired_serialNumbers[i], &m_timerExpiredCallback, std::vector<uint8_t>({ 1,2,3 })));
+                BOOST_REQUIRE_EQUAL(m_timerManager.m_userDataRecycler.GetListSize(), 0); //still no recycled user data
             }
             m_ioService.run();
 
             BOOST_REQUIRE_EQUAL(m_numCallbacks, 6);
+            BOOST_REQUIRE_EQUAL(m_timerManager.m_userDataRecycler.GetListSize(), m_numCallbacks); //recycled user data
             BOOST_REQUIRE(m_serialNumbersInCallback == std::vector<uint64_t>({ 5,10,15,5,10,15 }));
         }
 
@@ -102,22 +112,29 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             BOOST_REQUIRE(m_timerManager.DeleteTimer(5)); //keep this call within the io_service thread
         }
         void DoTest3() { //delete an active timer
-            m_testNumber = 1;// 1 is valid
+            m_testNumber = 3;
             m_timerManager.Reset();
             m_ioService.stop();
             m_ioService.reset();
             m_numCallbacks = 0;
             m_serialNumbersInCallback.clear();
-            m_desired_serialNumbers = std::vector<uint64_t>({ 5,10,15 });
+            m_desired_serialNumbers = std::vector<uint64_t>({ 5,10,15 }); //keep same as test 2
             for (std::size_t i = 0; i < m_desired_serialNumbers.size(); ++i) {
-                BOOST_REQUIRE(m_timerManager.StartTimer(NULL, m_desired_serialNumbers[i], &m_timerExpiredCallback));
+                BOOST_REQUIRE_EQUAL(m_timerManager.m_userDataRecycler.GetListSize(), 6 - i); //6 is m_numCallbacks from test 2
+                std::vector<uint8_t> userData;
+                m_timerManager.m_userDataRecycler.GetRecycledOrCreateNewUserData(userData);
+                BOOST_REQUIRE(userData == std::vector<uint8_t>({ 1,2,3 })); //recycled from test 2
+                BOOST_REQUIRE(m_timerManager.StartTimer(NULL, m_desired_serialNumbers[i], &m_timerExpiredCallback, std::move(userData)));
+                BOOST_REQUIRE(userData.empty()); //verify moved
             }
+            BOOST_REQUIRE_EQUAL(m_timerManager.m_userDataRecycler.GetListSize(), 6 - m_desired_serialNumbers.size());
             //boost::asio::deadline_timer dt(m_ioService);
             //dt.expires_from_now(boost::posix_time::milliseconds(0));
             //dt.async_wait(boost::bind(&Test::Test3TimerExpired, this, boost::asio::placeholders::error));
             boost::asio::post(m_ioService, boost::bind(&Test::Test3TimerExpired, this));
             m_ioService.run();
 
+            BOOST_REQUIRE_EQUAL(m_timerManager.m_userDataRecycler.GetListSize(), 6); //auto-recycled //6 is m_numCallbacks from test 2
             BOOST_REQUIRE_EQUAL(m_numCallbacks, 2);
             BOOST_REQUIRE(m_serialNumbersInCallback == std::vector<uint64_t>({ 10,15 }));
         }
@@ -125,22 +142,28 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             BOOST_REQUIRE(m_timerManager.DeleteTimer(10)); //keep this call within the io_service thread
         }
         void DoTest4() { //delete a non-active timer
-            m_testNumber = 1;// 1 is valid
+            m_testNumber = 4;
             m_timerManager.Reset();
             m_ioService.stop();
             m_ioService.reset();
             m_numCallbacks = 0;
             m_serialNumbersInCallback.clear();
-            m_desired_serialNumbers = std::vector<uint64_t>({ 5,10,15 });
+            m_desired_serialNumbers = std::vector<uint64_t>({ 5,10,15 }); //keep same as test 3
             for (std::size_t i = 0; i < m_desired_serialNumbers.size(); ++i) {
-                BOOST_REQUIRE(m_timerManager.StartTimer(NULL, m_desired_serialNumbers[i], &m_timerExpiredCallback));
+                BOOST_REQUIRE_EQUAL(m_timerManager.m_userDataRecycler.GetListSize(), 6 - i); //6 is m_numCallbacks from test 2
+                std::vector<uint8_t> userData;
+                m_timerManager.m_userDataRecycler.GetRecycledOrCreateNewUserData(userData);
+                BOOST_REQUIRE(userData == std::vector<uint8_t>({ 1,2,3 })); //recycled from test 3
+                BOOST_REQUIRE(m_timerManager.StartTimer(NULL, m_desired_serialNumbers[i], &m_timerExpiredCallback, std::move(userData)));
             }
+            BOOST_REQUIRE_EQUAL(m_timerManager.m_userDataRecycler.GetListSize(), 6 - m_desired_serialNumbers.size());
             //boost::asio::deadline_timer dt(m_ioService);
             //dt.expires_from_now(boost::posix_time::milliseconds(0));
             //dt.async_wait(boost::bind(&Test::Test4TimerExpired, this, boost::asio::placeholders::error));
             boost::asio::post(m_ioService, boost::bind(&Test::Test4TimerExpired, this));
             m_ioService.run();
 
+            BOOST_REQUIRE_EQUAL(m_timerManager.m_userDataRecycler.GetListSize(), 6); //auto-recycled //6 is m_numCallbacks from test 2
             BOOST_REQUIRE_EQUAL(m_numCallbacks, 2);
             BOOST_REQUIRE(m_serialNumbersInCallback == std::vector<uint64_t>({ 5,15 }));
         }
@@ -346,3 +369,114 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
     t2.DoTest5();
     std::cout << "-----END LtpTimerManagerTestCase-----\n";
 }
+
+
+BOOST_AUTO_TEST_CASE(UserDataRecyclerTestCase)
+{
+    UserDataRecycler udr(5);
+    BOOST_REQUIRE_EQUAL(udr.GetListSize(), 0);
+    BOOST_REQUIRE_EQUAL(udr.GetListCapacity(), 5);
+    { //try get data from empty recycler fail
+        std::vector<uint8_t> udReturned;
+       
+        udr.GetRecycledOrCreateNewUserData(udReturned);
+        BOOST_REQUIRE_EQUAL(udReturned.size(), 0);
+        BOOST_REQUIRE_EQUAL(udReturned.capacity(), 0);
+        //still unchanged
+        BOOST_REQUIRE_EQUAL(udr.GetListSize(), 0);
+        BOOST_REQUIRE_EQUAL(udr.GetListCapacity(), 5);
+    }
+    { //try add empty data and fail
+        std::vector<uint8_t> ud, udReturned;
+        BOOST_REQUIRE_EQUAL(ud.size(), 0);
+        BOOST_REQUIRE_EQUAL(ud.capacity(), 0);
+        BOOST_REQUIRE(!udr.ReturnUserData(std::move(ud))); //fail
+        //no change
+        BOOST_REQUIRE_EQUAL(udr.GetListSize(), 0);
+        BOOST_REQUIRE_EQUAL(udr.GetListCapacity(), 5);
+
+        udr.GetRecycledOrCreateNewUserData(udReturned);
+        BOOST_REQUIRE_EQUAL(udReturned.size(), 0);
+        BOOST_REQUIRE_EQUAL(udReturned.capacity(), 0);
+        //still unchanged
+        BOOST_REQUIRE_EQUAL(udr.GetListSize(), 0);
+        BOOST_REQUIRE_EQUAL(udr.GetListCapacity(), 5);
+    }
+    { //add empty data but has reserved space and succeed
+        std::vector<uint8_t> ud, udReturned;
+        ud.reserve(100);
+        BOOST_REQUIRE_EQUAL(ud.size(), 0);
+        BOOST_REQUIRE_NE(ud.capacity(), 0);
+        BOOST_REQUIRE_GE(ud.capacity(), 100);
+        BOOST_REQUIRE(udr.ReturnUserData(std::move(ud))); //success
+        //changed
+        BOOST_REQUIRE_EQUAL(udr.GetListSize(), 1);
+        BOOST_REQUIRE_EQUAL(udr.GetListCapacity(), 5);
+
+        udr.GetRecycledOrCreateNewUserData(udReturned);
+        BOOST_REQUIRE_EQUAL(udReturned.size(), 0);
+        BOOST_REQUIRE_NE(udReturned.capacity(), 0);
+        BOOST_REQUIRE_GE(udReturned.capacity(), 100);
+        //decrease
+        BOOST_REQUIRE_EQUAL(udr.GetListSize(), 0);
+        BOOST_REQUIRE_EQUAL(udr.GetListCapacity(), 5);
+    }
+    { //add data with size() and succeed
+        std::vector<uint8_t> ud, udReturned;
+        ud.resize(100);
+        BOOST_REQUIRE_EQUAL(ud.size(), 100);
+        BOOST_REQUIRE_NE(ud.capacity(), 0);
+        BOOST_REQUIRE_GE(ud.capacity(), 100);
+        BOOST_REQUIRE(udr.ReturnUserData(std::move(ud))); //success
+        //changed
+        BOOST_REQUIRE_EQUAL(udr.GetListSize(), 1);
+        BOOST_REQUIRE_EQUAL(udr.GetListCapacity(), 5);
+
+        udr.GetRecycledOrCreateNewUserData(udReturned);
+        BOOST_REQUIRE_EQUAL(udReturned.size(), 100);
+        BOOST_REQUIRE_NE(udReturned.capacity(), 0);
+        BOOST_REQUIRE_GE(udReturned.capacity(), 100);
+        //decrease
+        BOOST_REQUIRE_EQUAL(udr.GetListSize(), 0);
+        BOOST_REQUIRE_EQUAL(udr.GetListCapacity(), 5);
+    }
+    for (unsigned int i = 0; i < 5; ++i) {
+        //add data with size() and succeed
+        std::vector<uint8_t> ud;
+        ud.resize(100 + i);
+        BOOST_REQUIRE_EQUAL(ud.size(), 100 + i);
+        BOOST_REQUIRE_NE(ud.capacity(), 0);
+        BOOST_REQUIRE_GE(ud.capacity(), 100 + i);
+        BOOST_REQUIRE(udr.ReturnUserData(std::move(ud))); //success
+        //changed
+        BOOST_REQUIRE_EQUAL(udr.GetListSize(), i + 1);
+        BOOST_REQUIRE_EQUAL(udr.GetListCapacity(), 5);
+    }
+    for (unsigned int i = 5; i < 10; ++i) {
+        //add data with size() and fail because list full
+        std::vector<uint8_t> ud;
+        ud.resize(100 + i);
+        BOOST_REQUIRE_EQUAL(ud.size(), 100 + i);
+        BOOST_REQUIRE_NE(ud.capacity(), 0);
+        BOOST_REQUIRE_GE(ud.capacity(), 100 + i);
+        BOOST_REQUIRE(!udr.ReturnUserData(std::move(ud))); //fail
+        //unchanged
+        BOOST_REQUIRE_EQUAL(udr.GetListSize(), 5);
+        BOOST_REQUIRE_EQUAL(udr.GetListCapacity(), 5);
+    }
+    for (int i = 4; i >= 0; --i) { //underlying forward_list is FILO
+        //get data with size() and succeed
+        std::vector<uint8_t> udReturned;
+        udr.GetRecycledOrCreateNewUserData(udReturned);
+        BOOST_REQUIRE_EQUAL(udReturned.size(), 100 + i);
+        BOOST_REQUIRE_NE(udReturned.capacity(), 0);
+        BOOST_REQUIRE_GE(udReturned.capacity(), 100 + i);
+        //decrease
+        BOOST_REQUIRE_EQUAL(udr.GetListSize(), i);
+        BOOST_REQUIRE_EQUAL(udr.GetListCapacity(), 5);
+    }
+    //verify empty
+    BOOST_REQUIRE_EQUAL(udr.GetListSize(), 0);
+    BOOST_REQUIRE_EQUAL(udr.GetListCapacity(), 5);
+}
+

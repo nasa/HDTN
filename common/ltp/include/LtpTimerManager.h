@@ -28,11 +28,60 @@
 
 #include <unordered_map>
 #include <list>
+#include <forward_list>
 #include <boost/asio.hpp>
 #include <boost/function.hpp>
 #include "FreeListAllocator.h"
 #include "ltp_lib_export.h"
 #include <boost/core/noncopyable.hpp>
+
+class UserDataRecycler {
+private:
+    UserDataRecycler() = delete;
+public:
+    /**
+     * Set max size of user data recycle bin.
+     * @param maxSize The max size of user data recycle bin.
+     */
+    LTP_LIB_EXPORT UserDataRecycler(const uint64_t maxSize);
+
+    /**
+     * Give user data back to recycler.
+     * @param userData The user data to try to recylce (i.e. move).
+     * @return True if the user data was moved (i.e. returned),
+     * or False if the recycle bin was full or False if the data had zero size() and zero capacity().
+     */
+    LTP_LIB_EXPORT bool ReturnUserData(std::vector<uint8_t>&& userData);
+
+    /**
+     * Get user data from the recycler.
+     * @param userData The user data to try to reuse.
+     * The user data was from the recycle bin if and only if !userData.empty()
+     * @return True if the user data was moved (i.e. returned), or False if the recycle bin was full.
+     */
+    LTP_LIB_EXPORT void GetRecycledOrCreateNewUserData(std::vector<uint8_t>& userData);
+
+    /**
+     * Get list size.
+     * @return list size
+     */
+    LTP_LIB_EXPORT uint64_t GetListSize() const noexcept;
+
+    /**
+     * Get list capacity.
+     * @return list capacity
+     */
+    LTP_LIB_EXPORT uint64_t GetListCapacity() const noexcept;
+private:
+    typedef std::forward_list<std::vector<uint8_t>,
+        FreeListAllocatorDynamic<std::vector<uint8_t> > > flist_t;
+    /// Recycle bin singly linked list
+    flist_t m_list;
+    /// Current size of the list to keep track of list size
+    uint64_t m_currentSize;
+    /// Max capacity of list
+    const uint64_t m_maxSize;
+};
 
 template <typename idType, typename hashType>
 class LtpTimerManager : private boost::noncopyable {
@@ -82,12 +131,13 @@ public:
      * @param userData The attached user data.
      * @return True if a NEW timer was queued successfully, or False otherwise.
      */
-    LTP_LIB_EXPORT bool StartTimer(void* classPtr, const idType serialNumber, const LtpTimerExpiredCallback_t* callbackPtr, std::vector<uint8_t> userData = std::vector<uint8_t>());
+    LTP_LIB_EXPORT bool StartTimer(void* classPtr, const idType serialNumber, const LtpTimerExpiredCallback_t* callbackPtr, std::vector<uint8_t>&& userData = std::vector<uint8_t>());
     
     /** Delete a queued timer.
      *
      * Calls DeleteTimer(serialNumber, userDataReturned, callbackPtrReturned, classPtrReturned) to delete the queued timer.
      * On successful deletion, discards all of the timer context data.
+     * This is the only overload of DeleteTimer that auto recycles user data.  Other overloads require manual recycle.
      * @param serialNumber The serial number associated with the timer to delete.
      * @return True if the timer exists and could be deleted successfully, or False otherwise.
      */
@@ -144,6 +194,8 @@ private:
      * If the timer manager is due deletion, deletes isTimerDeleted and returns immediately.
      * If the expiry did NOT occur due to the timer being manually cancelled, caches the timer context data, calls LtpTimerManager::DeleteTimer() to delete
      * the expired timer and retain any data the caller might want back, then invokes the timer callback.
+     * 
+     * Tries to auto-recycle user data after callback completes.
      *
      * Regardless of the reason the expiration occurred:
      * If there are any more timers left in the queue, starts the managed timer, for the next timer in the queue, asynchronously with itself
@@ -153,6 +205,9 @@ private:
      * @param isTimerDeleted Pointer indicating whether the time manager has been deleted (see m_timerIsDeletedPtr docs for how to handle).
      */
     LTP_LIB_NO_EXPORT void OnTimerExpired(const boost::system::error_code& e, bool * isTimerDeleted);
+
+public:
+    UserDataRecycler m_userDataRecycler;
 private:
     /// Our managed timer
     boost::asio::deadline_timer & m_deadlineTimerRef;
