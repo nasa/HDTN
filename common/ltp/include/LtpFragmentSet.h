@@ -84,6 +84,9 @@ public:
      */
     static bool AddReportSegmentToFragmentSetNeedingResent(data_fragment_set_t& fragmentSetNeedingResent, const Ltp::report_segment_t& reportSegment);
 
+    typedef std::pair<uint64_t, data_fragment_set_t> rsn_plus_bounds_minus_fragments_set_pair_t;
+    typedef std::list<rsn_plus_bounds_minus_fragments_set_pair_t,
+        FreeListAllocator<rsn_plus_bounds_minus_fragments_set_pair_t> > list_fragment_set_needing_resent_for_each_report_t;
     /** Recalculate the currently reported state from any given number of report segments.
      *
      * Given a map of report segment bounds and the already-received fragments, recalculates the effective scope of each report segment still needing further
@@ -95,7 +98,7 @@ public:
      */
     static void ReduceReportSegments(const ds_pending_map_t& rsBoundsToRsnMap,
         const data_fragment_set_t& allReceivedFragmentsSet,
-        std::list<std::pair<uint64_t, data_fragment_set_t > >& listFragmentSetNeedingResentForEachReport);
+        list_fragment_set_needing_resent_for_each_report_t& listFragmentSetNeedingResentForEachReport);
 };
 
 #endif // LTP_FRAGMENT_SET_H

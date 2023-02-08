@@ -47,6 +47,66 @@ class LtpSessionSender : private boost::noncopyable {
 private:
     LtpSessionSender() = delete;
 public:
+    /// Checkpoint fragment retransmission context data
+    struct resend_fragment_t {
+        /// Default constructor
+        resend_fragment_t() {}
+        /// Start number of retries from 1
+        resend_fragment_t(uint64_t paramOffset, uint64_t paramLength, uint64_t paramCheckpointSerialNumber, uint64_t paramReportSerialNumber, LTP_DATA_SEGMENT_TYPE_FLAGS paramFlags) :
+            offset(paramOffset), length(paramLength), checkpointSerialNumber(paramCheckpointSerialNumber), reportSerialNumber(paramReportSerialNumber), flags(paramFlags), retryCount(1) {}
+        /// Fragment offset
+        uint64_t offset;
+        /// Fragment length
+        uint64_t length;
+        /// Checkpoint serial number
+        uint64_t checkpointSerialNumber;
+        /// Associated report serial number
+        uint64_t reportSerialNumber;
+        /// Data segment type
+        LTP_DATA_SEGMENT_TYPE_FLAGS flags;
+        /// Number of retries
+        uint32_t retryCount;
+    };
+
+    typedef std::set<uint64_t,
+        std::less<uint64_t>,
+        FreeListAllocator<uint64_t> > report_segment_serial_numbers_received_set_t;
+
+    typedef std::list<uint64_t, FreeListAllocator<uint64_t> > checkpoint_serial_number_active_timers_list_t;
+
+    /// Recycle this data because it contains containers with their own allocators that have recycled elements.
+    struct LtpSessionSenderRecycledData : private boost::noncopyable {
+
+        LTP_LIB_EXPORT void ClearAll();
+
+        /// Data fragments reported received
+        LtpFragmentSet::data_fragment_set_t m_dataFragmentsAckedByReceiver;
+
+        /// Internal operations queue, includes report acknowledgment segments
+        ForwardListQueue<std::vector<uint8_t>, FreeListAllocator<std::vector<uint8_t> > > m_nonDataToSendFlistQueue;
+
+        /// Data fragments needing-retransmitted queue
+        ForwardListQueue<resend_fragment_t, FreeListAllocator<resend_fragment_t> > m_resendFragmentsFlistQueue;
+
+        /// Received report serial numbers
+        report_segment_serial_numbers_received_set_t m_reportSegmentSerialNumbersReceivedSet;
+
+        /// Checkpoint serial numbers with active retransmission timers, a timer stops being active either on reported receive or on RLEXC triggered by checkpoint retransmission limit
+        checkpoint_serial_number_active_timers_list_t m_checkpointSerialNumberActiveTimersList;
+
+        /// Map holding report serial numbers, mapped by report scope bounds (rsLowerBound, rsUpperBound)
+        /// Pending report serial numbers, mapped by report scope bounds, when (m_mapRsBoundsToRsnPendingGeneration.empty()) indicates no active data segment retransmission timers
+        /// Used to recalculate gaps in reception claims for data segment retransmission.
+        LtpFragmentSet::ds_pending_map_t m_mapRsBoundsToRsnPendingGeneration;
+
+        /// Temporary for LtpDelaySendDataSegmentsTimerExpiredCallback
+        LtpFragmentSet::list_fragment_set_needing_resent_for_each_report_t m_tempListFragmentSetNeedingResentForEachReport;
+
+        /// Temporary for ReportSegmentReceivedCallback
+        LtpFragmentSet::data_fragment_set_t m_tempFragmentsNeedingResent;
+    };
+    typedef std::unique_ptr<LtpSessionSenderRecycledData> LtpSessionSenderRecycledDataUniquePtr;
+    typedef UserDataRecycler<LtpSessionSenderRecycledDataUniquePtr> LtpSessionSenderRecycler;
 
     /// Sender common data, referenced across all senders associated with the same LtpEngine
     struct LtpSessionSenderCommonData : private boost::noncopyable {
@@ -62,7 +122,8 @@ public:
             const LtpTimerManager<uint64_t, std::hash<uint64_t> >::LtpTimerExpiredCallback_t& delayedDataSegmentsTimerExpiredCallbackRef,
             const NotifyEngineThatThisSenderNeedsDeletedCallback_t& notifyEngineThatThisSenderNeedsDeletedCallbackRef,
             const NotifyEngineThatThisSenderHasProducibleDataFunction_t& notifyEngineThatThisSenderHasProducibleDataFunctionRef,
-            const InitialTransmissionCompletedCallback_t& initialTransmissionCompletedCallbackRef);
+            const InitialTransmissionCompletedCallback_t& initialTransmissionCompletedCallbackRef,
+            LtpSessionSenderRecycler& ltpSessionSenderRecyclerRef);
 
         /// The max size of the data portion (excluding LTP headers and UDP headers and IP headers) of a red data segment
         uint64_t m_mtuClientServiceData;
@@ -85,6 +146,8 @@ public:
         const NotifyEngineThatThisSenderHasProducibleDataFunction_t& m_notifyEngineThatThisSenderHasProducibleDataFunctionRef;
         /// LtpEngine this sender has completed initial data transmission (first pass) notice function
         const InitialTransmissionCompletedCallback_t& m_initialTransmissionCompletedCallbackRef;
+        /// Recycled data structure manager
+        LtpSessionSenderRecycler& m_ltpSessionSenderRecyclerRef;
 
         //session sender stats
         /// Total number of checkpoint retransmission timer expiry callback invocations
@@ -239,26 +302,7 @@ private:
      */
     LTP_LIB_NO_EXPORT void ResendDataFromReport(const LtpFragmentSet::data_fragment_set_t& fragmentsNeedingResent, const uint64_t reportSerialNumber);
     
-    /// Checkpoint fragment retransmission context data
-    struct resend_fragment_t {
-        /// Default constructor
-        resend_fragment_t() {}
-        /// Start number of retries from 1
-        resend_fragment_t(uint64_t paramOffset, uint64_t paramLength, uint64_t paramCheckpointSerialNumber, uint64_t paramReportSerialNumber, LTP_DATA_SEGMENT_TYPE_FLAGS paramFlags) :
-            offset(paramOffset), length(paramLength), checkpointSerialNumber(paramCheckpointSerialNumber), reportSerialNumber(paramReportSerialNumber), flags(paramFlags), retryCount(1) {}
-        /// Fragment offset
-        uint64_t offset;
-        /// Fragment length
-        uint64_t length;
-        /// Checkpoint serial number
-        uint64_t checkpointSerialNumber;
-        /// Associated report serial number
-        uint64_t reportSerialNumber;
-        /// Data segment type
-        LTP_DATA_SEGMENT_TYPE_FLAGS flags;
-        /// Number of retries
-        uint32_t retryCount;
-    };
+    
     
     /// Checkpoint retransmission timer context data
     struct csntimer_userdata_t {
@@ -268,24 +312,7 @@ private:
         resend_fragment_t resendFragment;
     };
 
-    /// Data fragments reported received
-    LtpFragmentSet::data_fragment_set_t m_dataFragmentsAckedByReceiver;
-    /// Internal operations queue, includes report acknowledgment segments
-    ForwardListQueue<std::vector<uint8_t> > m_nonDataToSendFlistQueue;
-    /// Data fragments needing-retransmitted queue
-    ForwardListQueue<resend_fragment_t> m_resendFragmentsFlistQueue;
-    /// Received report serial numbers
-    std::set<uint64_t> m_reportSegmentSerialNumbersReceivedSet;
-
     
-    /// Checkpoint serial numbers with active retransmission timers, a timer stops being active either on reported receive or on RLEXC triggered by checkpoint retransmission limit
-    std::list<uint64_t> m_checkpointSerialNumberActiveTimersList;
-
-    
-    /// Map holding report serial numbers, mapped by report scope bounds (rsLowerBound, rsUpperBound)
-    /// Pending report serial numbers, mapped by report scope bounds, when (m_mapRsBoundsToRsnPendingGeneration.empty()) indicates no active data segment retransmission timers
-    /// Used to recalculate gaps in reception claims for data segment retransmission.
-    LtpFragmentSet::ds_pending_map_t m_mapRsBoundsToRsnPendingGeneration;
     /// Upper bound of received report with the largest scope span, used to recalculate gaps in reception claims for data segment retransmission
     uint64_t m_largestEndIndexPendingGeneration;
 
@@ -313,6 +340,8 @@ public:
     /// Our memory block ID, if using the disk for intermediate storage the ID MUST be non-zero, the lifetime of the memory block is managed by the associated LtpEngine
     const uint64_t MEMORY_BLOCK_ID;
 private:
+    /// Recycled data structures for this session
+    LtpSessionSenderRecycledDataUniquePtr m_ltpSessionSenderRecycledDataUniquePtr;
     /// Sender common data reference, the data shared by all senders of the associated LtpEngine
     LtpSessionSenderCommonData& m_ltpSessionSenderCommonDataRef;
     /// Whether deferred deletion of this sender has been requested (typically on session completed), used to notify the associated LtpEngine

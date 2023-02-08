@@ -159,7 +159,7 @@ bool LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(data_fragment_se
 
 void LtpFragmentSet::ReduceReportSegments(const ds_pending_map_t& rsBoundsToRsnMap,
     const data_fragment_set_t& allReceivedFragmentsSet,
-    std::list<std::pair<uint64_t, data_fragment_set_t > >& listFragmentSetNeedingResentForEachReport)
+    list_fragment_set_needing_resent_for_each_report_t& listFragmentSetNeedingResentForEachReport)
 {
     listFragmentSetNeedingResentForEachReport.clear();
     data_fragment_set_t allReceivedPlusJustNowSentFragmentsSet = allReceivedFragmentsSet;

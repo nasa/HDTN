@@ -226,7 +226,7 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
         typedef LtpFragmentSet::data_fragment_unique_overlapping_t dfBounds;
         typedef LtpFragmentSet::ds_pending_map_t dfBoundsMap; //std::map<dfBounds, uint64_t>
         dfBoundsMap rsBoundsToRsnMap;
-        typedef std::list<std::pair<uint64_t, df_set > > reportlist;
+        typedef LtpFragmentSet::list_fragment_set_needing_resent_for_each_report_t reportlist;
         reportlist listFragmentSetNeedingResentForEachReport;
         df_set allReceivedFragmentsSet;
 

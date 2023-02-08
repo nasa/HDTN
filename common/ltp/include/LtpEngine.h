@@ -1142,6 +1142,7 @@ private:
 
     //reference structs common to all sessions
     /// Session sender common data
+    LtpSessionSender::LtpSessionSenderRecycler m_ltpSessionSenderRecycler;
     LtpSessionSender::LtpSessionSenderCommonData m_ltpSessionSenderCommonData;
     /// Session receiver common data
     LtpSessionReceiver::LtpSessionReceiverRecycler m_ltpSessionReceiverRecycler;

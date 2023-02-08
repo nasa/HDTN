@@ -79,6 +79,7 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     m_maxSendRateBitsPerSecOrZeroToDisable(ltpRxOrTxCfg.maxSendRateBitsPerSecOrZeroToDisable),
     m_tokenRefreshTimerIsRunning(false),
     m_lastTimeTokensWereRefreshed(boost::posix_time::special_values::neg_infin),
+    m_ltpSessionSenderRecycler(M_MAX_SIMULTANEOUS_SESSIONS + 1),
     m_ltpSessionSenderCommonData(
         ltpRxOrTxCfg.mtuClientServiceData,
         ltpRxOrTxCfg.checkpointEveryNthDataPacketSender,
@@ -89,7 +90,8 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
         m_delayedDataSegmentsTimerExpiredCallback,
         m_notifyEngineThatThisSenderNeedsDeletedCallback,
         m_notifyEngineThatThisSenderHasProducibleDataFunction,
-        m_initialTransmissionCompletedCallbackCalledBySender),
+        m_initialTransmissionCompletedCallbackCalledBySender,
+        m_ltpSessionSenderRecycler), //reference
     m_ltpSessionReceiverRecycler(M_MAX_SIMULTANEOUS_SESSIONS + 1),
     m_ltpSessionReceiverCommonData(
         ltpRxOrTxCfg.clientServiceId,
