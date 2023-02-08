@@ -1144,6 +1144,7 @@ private:
     /// Session sender common data
     LtpSessionSender::LtpSessionSenderCommonData m_ltpSessionSenderCommonData;
     /// Session receiver common data
+    LtpSessionReceiver::LtpSessionReceiverRecycler m_ltpSessionReceiverRecycler;
     LtpSessionReceiver::LtpSessionReceiverCommonData m_ltpSessionReceiverCommonData;
 
 public:

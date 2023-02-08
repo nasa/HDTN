@@ -115,6 +115,62 @@ public:
      */
     LTP_LIB_EXPORT void LtpReportSegmentTimerExpiredCallback(const Ltp::session_id_t& reportSerialNumberPlusSessionNumber, std::vector<uint8_t>& userData);
 
+    /// Type of map holding report segments, mapped by report serial number
+    typedef std::map<uint64_t, Ltp::report_segment_t,
+        std::less<uint64_t>,
+        FreeListAllocator<std::pair<const uint64_t, Ltp::report_segment_t> > > report_segments_sent_map_t;
+
+    typedef std::set<uint64_t,
+        std::less<uint64_t>,
+        FreeListAllocator<uint64_t> > checkpoint_serial_numbers_received_set_t;
+
+    /// Type of pair holding retries per report segment sent, (Report segment sent iterator TO number of retries)
+    typedef std::pair<report_segments_sent_map_t::const_iterator, uint32_t> it_retrycount_pair_t; //pair<iterator from m_mapAllReportSegmentsSent, retryCount>
+
+    typedef std::list<uint64_t, FreeListAllocator<uint64_t> > report_serial_number_active_timers_list_t;
+
+    /// Type of pair holding checkpoint type metadata, (checkpoint serial number TO whether this is a secondary checkpoint).
+    /// (checkpointSerialNumberToWhichRsPertains, checkpointIsResponseToReportSegment).
+    typedef std::pair<uint64_t, bool> csn_issecondary_pair_t;
+    /// Type of map holding checkpoint type metadata, mapped by data segment bounds (rsLowerBound, rsUpperBound)
+    typedef std::map<FragmentSet::data_fragment_no_overlap_allow_abut_t, csn_issecondary_pair_t,
+        std::less<FragmentSet::data_fragment_no_overlap_allow_abut_t>,
+        FreeListAllocator<std::pair<const FragmentSet::data_fragment_no_overlap_allow_abut_t, csn_issecondary_pair_t> > > rs_pending_map_t;
+    
+
+    /// Recycle this data because it contains containers with their own allocators that have recycled elements.
+    struct LtpSessionReceiverRecycledData : private boost::noncopyable {
+
+        LTP_LIB_EXPORT void ClearAll();
+        
+        /// Received data fragments
+        LtpFragmentSet::data_fragment_set_t m_receivedDataFragmentsSet;
+        
+        /// Report segments sent, mapped by report serial number
+        report_segments_sent_map_t m_mapAllReportSegmentsSent;
+
+        /// Received checkpoint serial numbers
+        checkpoint_serial_numbers_received_set_t m_checkpointSerialNumbersReceivedSet;
+        
+        /// Reports needing-transmitted queue
+        ForwardListQueue<it_retrycount_pair_t, FreeListAllocator<it_retrycount_pair_t> > m_reportsToSendFlistQueue;
+
+        /// Report serial numbers with active retransmission timers
+        report_serial_number_active_timers_list_t m_reportSerialNumberActiveTimersList;
+
+        /// Pending checkpoint fragments, mapped by data segment bounds.
+        /// When (m_mapReportSegmentsPendingGeneration.empty()) indicates no active pending checkpoint delayed report transmission timers.
+        /// Used to recalculate gaps from received data fragments for pending checkpoint delayed report generation.
+        rs_pending_map_t m_mapReportSegmentsPendingGeneration;
+
+        //temporary vector data for HandleGenerateAndSendReportSegment
+        std::vector<Ltp::report_segment_t> m_tempReportSegmentsVec;
+        std::vector<Ltp::report_segment_t> m_tempReportSegmentsSplitVec;
+        
+    };
+    typedef std::unique_ptr<LtpSessionReceiverRecycledData> LtpSessionReceiverRecycledDataUniquePtr;
+    typedef UserDataRecycler<LtpSessionReceiverRecycledDataUniquePtr> LtpSessionReceiverRecycler;
+
     /// Receiver common data, referenced across all receivers associated with the same LtpEngine
     struct LtpSessionReceiverCommonData : private boost::noncopyable {
         LtpSessionReceiverCommonData() = delete;
@@ -134,7 +190,8 @@ public:
             const NotifyEngineThatThisReceiverCompletedDeferredOperationFunction_t& notifyEngineThatThisReceiverCompletedDeferredOperationFunctionRef,
             const RedPartReceptionCallback_t& redPartReceptionCallbackRef,
             const GreenPartSegmentArrivalCallback_t& greenPartSegmentArrivalCallbackRef,
-            std::unique_ptr<MemoryInFiles>& memoryInFilesPtrRef);
+            std::unique_ptr<MemoryInFiles>& memoryInFilesPtrRef,
+            LtpSessionReceiverRecycler& ltpSessionReceiverRecyclerRef);
 
         /// Local client service ID
         const uint64_t m_clientServiceId;
@@ -169,6 +226,8 @@ public:
         const GreenPartSegmentArrivalCallback_t& m_greenPartSegmentArrivalCallbackRef;
         /// Disk memory manager
         std::unique_ptr<MemoryInFiles>& m_memoryInFilesPtrRef;
+        /// Recycled data structure manager
+        LtpSessionReceiverRecycler& m_ltpSessionReceiverRecyclerRef;
 
         //session receiver stats
         /// Total number of report segment timer expiry callback invocations
@@ -316,25 +375,15 @@ public:
         Ltp::client_service_raw_data_t& clientServiceRawData, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
 private:
-    /// Received data fragments
-    LtpFragmentSet::data_fragment_set_t m_receivedDataFragmentsSet;
-    /// Type of map holding report segments, mapped by report serial number
-    typedef std::map<uint64_t, Ltp::report_segment_t> report_segments_sent_map_t;
-    /// Report segments sent, mapped by report serial number
-    report_segments_sent_map_t m_mapAllReportSegmentsSent;
+    
     /// Last primary report segment sent iterator
     report_segments_sent_map_t::const_iterator m_itLastPrimaryReportSegmentSent; //std::map<uint64_t, Ltp::report_segment_t> m_mapPrimaryReportSegmentsSent;
     
     //LtpFragmentSet::data_fragment_set_t m_receivedDataFragmentsThatSenderKnowsAboutSet;
-    /// Received checkpoint serial numbers
-    std::set<uint64_t> m_checkpointSerialNumbersReceivedSet;
-    /// Type of pair holding retries per report segment sent, (Report segment sent iterator TO number of retries)
-    typedef std::pair<report_segments_sent_map_t::const_iterator, uint32_t> it_retrycount_pair_t; //pair<iterator from m_mapAllReportSegmentsSent, retryCount>
-    /// Reports needing-transmitted queue
-    ForwardListQueue<it_retrycount_pair_t> m_reportsToSendFlistQueue;
     
-    /// Report serial numbers with active retransmission timers
-    std::list<uint64_t> m_reportSerialNumberActiveTimersList;
+    
+    
+    
     
     /// Report retransmission timer context data
     struct rsntimer_userdata_t {
@@ -346,15 +395,7 @@ private:
         uint32_t retryCount;
     };
 
-    /// Type of pair holding checkpoint type metadata, (checkpoint serial number TO whether this is a secondary checkpoint).
-    /// (checkpointSerialNumberToWhichRsPertains, checkpointIsResponseToReportSegment).
-    typedef std::pair<uint64_t, bool> csn_issecondary_pair_t;
-    /// Type of map holding checkpoint type metadata, mapped by data segment bounds (rsLowerBound, rsUpperBound)
-    typedef std::map<FragmentSet::data_fragment_no_overlap_allow_abut_t, csn_issecondary_pair_t> rs_pending_map_t;
-    /// Pending checkpoint fragments, mapped by data segment bounds.
-    /// When (m_mapReportSegmentsPendingGeneration.empty()) indicates no active pending checkpoint delayed report transmission timers.
-    /// Used to recalculate gaps from received data fragments for pending checkpoint delayed report generation.
-    rs_pending_map_t m_mapReportSegmentsPendingGeneration;
+    
     
     /// Next report segment serial number
     uint64_t m_nextReportSegmentReportSerialNumber;
@@ -374,6 +415,8 @@ private:
     LtpSessionReceiverCommonData& m_ltpSessionReceiverCommonDataRef;
     /// Our memory block ID, if using the disk for intermediate storage the ID MUST be non-zero, data are loaded in-memory before invocation of completion callbacks
     uint64_t m_memoryBlockId;
+    /// Recycled data structures for this session
+    LtpSessionReceiverRecycledDataUniquePtr m_ltpSessionReceiverRecycledDataUniquePtr;
 public:
     /// Last segment (either data or report acknowledgment) received timestamp, used by LtpEngine housekeeping timer to detect idle open sessions
     boost::posix_time::ptime m_lastSegmentReceivedTimestamp;

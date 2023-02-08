@@ -90,6 +90,7 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
         m_notifyEngineThatThisSenderNeedsDeletedCallback,
         m_notifyEngineThatThisSenderHasProducibleDataFunction,
         m_initialTransmissionCompletedCallbackCalledBySender),
+    m_ltpSessionReceiverRecycler(M_MAX_SIMULTANEOUS_SESSIONS + 1),
     m_ltpSessionReceiverCommonData(
         ltpRxOrTxCfg.clientServiceId,
         0, //maxReceptionClaims will be immediately set by SetMtuReportSegment below
@@ -105,7 +106,8 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
         m_notifyEngineThatThisReceiverCompletedDeferredOperationFunction,
         m_redPartReceptionCallback,
         m_greenPartSegmentArrivalCallback,
-        m_memoryInFilesPtr), //reference
+        m_memoryInFilesPtr, //reference
+        m_ltpSessionReceiverRecycler), //reference
     m_numCheckpointTimerExpiredCallbacksRef(m_ltpSessionSenderCommonData.m_numCheckpointTimerExpiredCallbacks),
     m_numDiscretionaryCheckpointsNotResentRef(m_ltpSessionSenderCommonData.m_numDiscretionaryCheckpointsNotResent),
     m_numDeletedFullyClaimedPendingReportsRef(m_ltpSessionSenderCommonData.m_numDeletedFullyClaimedPendingReports),

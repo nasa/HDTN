@@ -29,6 +29,11 @@
 #include <vector>
 #include "FreeListAllocator.h"
 
+//named tag dispatching : https://stackoverflow.com/questions/21512678/check-at-compile-time-is-a-template-type-a-vector
+template<typename T> struct is_vector : public std::false_type {};
+template<typename T, typename A>
+struct is_vector<std::vector<T, A> > : public std::true_type {};
+
 template <typename userDataType>
 class UserDataRecycler {
 private:
@@ -53,13 +58,21 @@ public:
      */
     bool ReturnUserData(userDataType&& userData) {
         if (m_currentSize < m_maxSize) {
-            if (userData.size() || userData.capacity()) {
+            if (IsReturnable(userData, is_vector<userDataType>{})) {
                 m_list.emplace_front(std::move(userData));
                 ++m_currentSize;
                 return true;
             }
         }
         return false;
+    }
+    
+    bool IsReturnable(const userDataType& u, std::true_type) { //vector types
+        return (u.size() || u.capacity());
+    }
+
+    bool IsReturnable(const userDataType& u, std::false_type) { //types that overload operator bool
+        return (u) ? true : false;
     }
 
     /**
