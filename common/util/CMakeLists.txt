@@ -77,6 +77,7 @@ set(MY_PUBLIC_HEADERS
 	include/ThreadNamer.h
 	include/UdpBatchSender.h
 	include/Uri.h
+	include/UserDataRecycler.h
 	include/Utf8Paths.h
 	include/zmq.hpp
 	${CMAKE_CURRENT_BINARY_DIR}/hdtn_util_export.h

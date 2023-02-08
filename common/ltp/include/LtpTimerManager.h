@@ -28,60 +28,13 @@
 
 #include <unordered_map>
 #include <list>
-#include <forward_list>
 #include <boost/asio.hpp>
 #include <boost/function.hpp>
 #include "FreeListAllocator.h"
+#include "UserDataRecycler.h"
 #include "ltp_lib_export.h"
 #include <boost/core/noncopyable.hpp>
 
-class UserDataRecycler {
-private:
-    UserDataRecycler() = delete;
-public:
-    /**
-     * Set max size of user data recycle bin.
-     * @param maxSize The max size of user data recycle bin.
-     */
-    LTP_LIB_EXPORT UserDataRecycler(const uint64_t maxSize);
-
-    /**
-     * Give user data back to recycler.
-     * @param userData The user data to try to recylce (i.e. move).
-     * @return True if the user data was moved (i.e. returned),
-     * or False if the recycle bin was full or False if the data had zero size() and zero capacity().
-     */
-    LTP_LIB_EXPORT bool ReturnUserData(std::vector<uint8_t>&& userData);
-
-    /**
-     * Get user data from the recycler.
-     * @param userData The user data to try to reuse.
-     * The user data was from the recycle bin if and only if !userData.empty()
-     * @return True if the user data was moved (i.e. returned), or False if the recycle bin was full.
-     */
-    LTP_LIB_EXPORT void GetRecycledOrCreateNewUserData(std::vector<uint8_t>& userData);
-
-    /**
-     * Get list size.
-     * @return list size
-     */
-    LTP_LIB_EXPORT uint64_t GetListSize() const noexcept;
-
-    /**
-     * Get list capacity.
-     * @return list capacity
-     */
-    LTP_LIB_EXPORT uint64_t GetListCapacity() const noexcept;
-private:
-    typedef std::forward_list<std::vector<uint8_t>,
-        FreeListAllocatorDynamic<std::vector<uint8_t> > > flist_t;
-    /// Recycle bin singly linked list
-    flist_t m_list;
-    /// Current size of the list to keep track of list size
-    uint64_t m_currentSize;
-    /// Max capacity of list
-    const uint64_t m_maxSize;
-};
 
 template <typename idType, typename hashType>
 class LtpTimerManager : private boost::noncopyable {
@@ -207,7 +160,7 @@ private:
     LTP_LIB_NO_EXPORT void OnTimerExpired(const boost::system::error_code& e, bool * isTimerDeleted);
 
 public:
-    UserDataRecycler m_userDataRecycler;
+    UserDataRecyclerVecUint8 m_userDataRecycler;
 private:
     /// Our managed timer
     boost::asio::deadline_timer & m_deadlineTimerRef;
