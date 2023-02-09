@@ -191,7 +191,8 @@ public:
             const RedPartReceptionCallback_t& redPartReceptionCallbackRef,
             const GreenPartSegmentArrivalCallback_t& greenPartSegmentArrivalCallbackRef,
             std::unique_ptr<MemoryInFiles>& memoryInFilesPtrRef,
-            LtpSessionReceiverRecycler& ltpSessionReceiverRecyclerRef);
+            LtpSessionReceiverRecycler& ltpSessionReceiverRecyclerRef,
+            const boost::posix_time::ptime& nowTimeRef);
 
         /// Local client service ID
         const uint64_t m_clientServiceId;
@@ -228,6 +229,8 @@ public:
         std::unique_ptr<MemoryInFiles>& m_memoryInFilesPtrRef;
         /// Recycled data structure manager
         LtpSessionReceiverRecycler& m_ltpSessionReceiverRecyclerRef;
+        /// Now time (updated periodically from housekeeping) so timestamp need not make system calls to get the time
+        const boost::posix_time::ptime& m_nowTimeRef;
 
         //session receiver stats
         /// Total number of report segment timer expiry callback invocations

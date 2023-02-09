@@ -919,6 +919,8 @@ private:
     boost::posix_time::time_duration m_delaySendingOfDataSegmentsTime;
     /// Housekeeping timer interval
     const boost::posix_time::time_duration M_HOUSEKEEPING_INTERVAL;
+    /// Now time (updated periodically from housekeeping) so timestamp need not make system calls to get the time
+    boost::posix_time::ptime m_nowTimeRef;
     /// Stagnated reception session duration, when (last received segment timestamp <= (now() - m_stagnantRxSessionTime) AND no active pending timers)
     /// indicates the reception session has stagnated and should be queued for deletion.
     boost::posix_time::time_duration m_stagnantRxSessionTime;

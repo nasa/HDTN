@@ -46,7 +46,8 @@ LtpSessionReceiver::LtpSessionReceiverCommonData::LtpSessionReceiverCommonData(
     const RedPartReceptionCallback_t& redPartReceptionCallbackRef,
     const GreenPartSegmentArrivalCallback_t& greenPartSegmentArrivalCallbackRef,
     std::unique_ptr<MemoryInFiles>& memoryInFilesPtrRef,
-    LtpSessionReceiverRecycler& ltpSessionReceiverRecyclerRef) :
+    LtpSessionReceiverRecycler& ltpSessionReceiverRecyclerRef,
+    const boost::posix_time::ptime& nowTimeRef) :
     //
     m_clientServiceId(clientServiceId),
     m_maxReceptionClaims(maxReceptionClaims),
@@ -64,6 +65,7 @@ LtpSessionReceiver::LtpSessionReceiverCommonData::LtpSessionReceiverCommonData(
     m_greenPartSegmentArrivalCallbackRef(greenPartSegmentArrivalCallbackRef),
     m_memoryInFilesPtrRef(memoryInFilesPtrRef),
     m_ltpSessionReceiverRecyclerRef(ltpSessionReceiverRecyclerRef),
+    m_nowTimeRef(nowTimeRef),
     m_numReportSegmentTimerExpiredCallbacks(0),
     m_numReportSegmentsUnableToBeIssued(0),
     m_numReportSegmentsTooLargeAndNeedingSplit(0),
@@ -307,7 +309,7 @@ bool LtpSessionReceiver::NextDataToSend(UdpSendPacketInfo& udpSendPacketInfo) {
 void LtpSessionReceiver::ReportAcknowledgementSegmentReceivedCallback(uint64_t reportSerialNumberBeingAcknowledged,
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
 {
-    m_lastSegmentReceivedTimestamp = boost::posix_time::microsec_clock::universal_time();
+    m_lastSegmentReceivedTimestamp = m_ltpSessionReceiverCommonDataRef.m_nowTimeRef;
 
     //6.14.  Stop RS Timer
     //
@@ -359,7 +361,7 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
 {
     bool operationIsOngoing = false;
-    m_lastSegmentReceivedTimestamp = boost::posix_time::microsec_clock::universal_time();
+    m_lastSegmentReceivedTimestamp = m_ltpSessionReceiverCommonDataRef.m_nowTimeRef;
 
     const uint64_t offsetPlusLength = dataSegmentMetadata.offset + dataSegmentMetadata.length;
     

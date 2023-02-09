@@ -51,6 +51,7 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
         boost::posix_time::milliseconds(ltpRxOrTxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable) :
         boost::posix_time::time_duration(boost::posix_time::special_values::not_a_date_time)),
     M_HOUSEKEEPING_INTERVAL(boost::posix_time::milliseconds(1000)),
+    m_nowTimeRef(boost::posix_time::microsec_clock::universal_time()),
     m_stagnantRxSessionTime((m_transmissionToAckReceivedTime* static_cast<int>(ltpRxOrTxCfg.maxRetriesPerSerialNumber + 1)) + (M_HOUSEKEEPING_INTERVAL * 2)),
     M_FORCE_32_BIT_RANDOM_NUMBERS(ltpRxOrTxCfg.force32BitRandomNumbers),
     M_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE(ltpRxOrTxCfg.senderPingSecondsOrZeroToDisable),
@@ -109,7 +110,8 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
         m_redPartReceptionCallback,
         m_greenPartSegmentArrivalCallback,
         m_memoryInFilesPtr, //reference
-        m_ltpSessionReceiverRecycler), //reference
+        m_ltpSessionReceiverRecycler, //reference
+        m_nowTimeRef), //reference
     m_numCheckpointTimerExpiredCallbacksRef(m_ltpSessionSenderCommonData.m_numCheckpointTimerExpiredCallbacks),
     m_numDiscretionaryCheckpointsNotResentRef(m_ltpSessionSenderCommonData.m_numDiscretionaryCheckpointsNotResent),
     m_numDeletedFullyClaimedPendingReportsRef(m_ltpSessionSenderCommonData.m_numDeletedFullyClaimedPendingReports),
@@ -1526,8 +1528,8 @@ void LtpEngine::OnTokenRefresh_TimerExpired(const boost::system::error_code& e) 
 }
 
 void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) {
-    const boost::posix_time::ptime nowPtime = boost::posix_time::microsec_clock::universal_time();
-    const boost::posix_time::ptime stagnantRxSessionTimeThreshold = nowPtime - m_stagnantRxSessionTime;
+    m_nowTimeRef = boost::posix_time::microsec_clock::universal_time(); //will be used by LtpSessionReceiver to update m_lastSegmentReceivedTimestamp
+    const boost::posix_time::ptime stagnantRxSessionTimeThreshold = m_nowTimeRef - m_stagnantRxSessionTime;
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
 
@@ -1601,9 +1603,9 @@ void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) 
         // in which the receiver shall respond with a cancel ack in order to determine if the link is active.
         // A link down callback will be called if a cancel ack is not received after (RTT * maxRetriesPerSerialNumber).
         // This parameter should be set to zero for a receiver as there is currently no use case for a receiver to detect link-up.
-        if (M_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE && (nowPtime >= M_NEXT_PING_START_EXPIRY)) {
+        if (M_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE && (m_nowTimeRef >= M_NEXT_PING_START_EXPIRY)) {
             if (m_transmissionRequestServedAsPing) { //skip this ping
-                M_NEXT_PING_START_EXPIRY = nowPtime + M_SENDER_PING_TIME;
+                M_NEXT_PING_START_EXPIRY = m_nowTimeRef + M_SENDER_PING_TIME;
                 m_transmissionRequestServedAsPing = false;
             }
             else {
@@ -1622,7 +1624,7 @@ void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) 
         }
         
         //restart housekeeping timer
-        m_housekeepingTimer.expires_at(nowPtime + M_HOUSEKEEPING_INTERVAL);
+        m_housekeepingTimer.expires_at(m_nowTimeRef + M_HOUSEKEEPING_INTERVAL);
         m_housekeepingTimer.async_wait(boost::bind(&LtpEngine::OnHousekeeping_TimerExpired, this, boost::asio::placeholders::error));
     }
 }
