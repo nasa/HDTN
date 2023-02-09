@@ -254,7 +254,7 @@ public:
         *maxListSizePtr = newMaxListSize;
     }
 
-    FreeListAllocatorDynamic& operator = (const FreeListAllocatorDynamic&) noexcept {
+    FreeListAllocatorDynamic& operator = (const FreeListAllocatorDynamic& other) noexcept {
         // noop
         listSizeCopy = other.listSize; //do not copy the list to avoid double delete
         return *this;
