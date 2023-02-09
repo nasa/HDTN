@@ -25,12 +25,12 @@ build:
     - cmake -S . -B build
     - make -C build/ -j8
   cache:
-    key: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
+    key: build-$CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
     paths:
       - build
 
 # Build HDTN with C++11 only
-build-c++11:
+build-cpp11:
   stage: build
   tags:
     - docker
@@ -41,7 +41,7 @@ build-c++11:
     - cmake -S . -B build -DHDTN_TRY_USE_CPP17:BOOL=OFF
     - make -C build/ -j8
   cache:
-    key: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
+    key: build-cpp11-$CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
     paths:
       - build
 
@@ -62,7 +62,7 @@ build-with-gui:
     - cmake -S . -B build -D USE_WEB_INTERFACE:BOOL=ON
     - make -C build/ -j8
   cache:
-    key: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
+    key: build-with-gui-$CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
     paths:
       - build
   artifacts:
@@ -81,7 +81,7 @@ build-static-analysis:
     - cmake -DCMAKE_BUILD_TYPE=Release ..
     - cov-build --dir idir make -j8
   cache:
-    key: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
+    key: build-static-analysis-$CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
     paths:
       - build
   artifacts:
