@@ -30,8 +30,11 @@
 #include <list>
 #include <boost/asio.hpp>
 #include <boost/function.hpp>
+#include "FreeListAllocator.h"
+#include "UserDataRecycler.h"
 #include "ltp_lib_export.h"
 #include <boost/core/noncopyable.hpp>
+
 
 template <typename idType, typename hashType>
 class LtpTimerManager : private boost::noncopyable {
@@ -81,12 +84,13 @@ public:
      * @param userData The attached user data.
      * @return True if a NEW timer was queued successfully, or False otherwise.
      */
-    LTP_LIB_EXPORT bool StartTimer(void* classPtr, const idType serialNumber, const LtpTimerExpiredCallback_t* callbackPtr, std::vector<uint8_t> userData = std::vector<uint8_t>());
+    LTP_LIB_EXPORT bool StartTimer(void* classPtr, const idType serialNumber, const LtpTimerExpiredCallback_t* callbackPtr, std::vector<uint8_t>&& userData = std::vector<uint8_t>());
     
     /** Delete a queued timer.
      *
      * Calls DeleteTimer(serialNumber, userDataReturned, callbackPtrReturned, classPtrReturned) to delete the queued timer.
      * On successful deletion, discards all of the timer context data.
+     * This is the only overload of DeleteTimer that auto recycles user data.  Other overloads require manual recycle.
      * @param serialNumber The serial number associated with the timer to delete.
      * @return True if the timer exists and could be deleted successfully, or False otherwise.
      */
@@ -143,6 +147,8 @@ private:
      * If the timer manager is due deletion, deletes isTimerDeleted and returns immediately.
      * If the expiry did NOT occur due to the timer being manually cancelled, caches the timer context data, calls LtpTimerManager::DeleteTimer() to delete
      * the expired timer and retain any data the caller might want back, then invokes the timer callback.
+     * 
+     * Tries to auto-recycle user data after callback completes.
      *
      * Regardless of the reason the expiration occurred:
      * If there are any more timers left in the queue, starts the managed timer, for the next timer in the queue, asynchronously with itself
@@ -152,6 +158,9 @@ private:
      * @param isTimerDeleted Pointer indicating whether the time manager has been deleted (see m_timerIsDeletedPtr docs for how to handle).
      */
     LTP_LIB_NO_EXPORT void OnTimerExpired(const boost::system::error_code& e, bool * isTimerDeleted);
+
+public:
+    UserDataRecyclerVecUint8 m_userDataRecycler;
 private:
     /// Our managed timer
     boost::asio::deadline_timer & m_deadlineTimerRef;
@@ -182,9 +191,12 @@ private:
             m_userData(std::move(userData)) {}
     };
     /// Type of list holding timer context data
-    typedef std::list<timer_data_t> timer_data_list_t;
+    typedef std::list<timer_data_t, FreeListAllocatorDynamic<timer_data_t> > timer_data_list_t;
     /// Type of map holding timer context data iterators, mapped by idType, hashed by hashType
-    typedef std::unordered_map<idType, typename timer_data_list_t::iterator, hashType> id_to_data_map_t;
+    typedef std::unordered_map<idType, typename timer_data_list_t::iterator,
+        hashType,
+        std::equal_to<idType>,
+        FreeListAllocatorDynamic<std::pair<const idType, typename timer_data_list_t::iterator> > > id_to_data_map_t;
     /// Timer context data queue
     timer_data_list_t m_listTimerData;
     /// Timer context data iterators referencing m_listTimerData, mapped by idType

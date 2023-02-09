@@ -194,7 +194,7 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesTestCase)
                 MemoryInFiles::deferred_read_t deferredRead;
                 deferredRead.memoryBlockId = memoryBlockId;
                 deferredRead.offset = 3;
-                deferredRead.readToThisLocationPtr = dataReadBackSharedPtr->data();
+                deferredRead.readToThisLocationPtr = &((*dataReadBackSharedPtr)[0]); //dataReadBackSharedPtr->data() is const in C++11
                 deferredRead.length = dataReadBackSharedPtr->size();
                 BOOST_REQUIRE(mf.ReadMemoryAsync(deferredRead, boost::bind(&Test::ReadHandler,
                     this, boost::placeholders::_1, std::move(dataReadBackSharedPtr))));
@@ -213,7 +213,7 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesTestCase)
                 MemoryInFiles::deferred_read_t deferredRead;
                 deferredRead.memoryBlockId = memoryBlockId;
                 deferredRead.offset = 4094;
-                deferredRead.readToThisLocationPtr = dataReadBackSharedPtr->data();
+                deferredRead.readToThisLocationPtr = &((*dataReadBackSharedPtr)[0]); //dataReadBackSharedPtr->data() is const in C++11
                 deferredRead.length = dataReadBackSharedPtr->size();
                 BOOST_REQUIRE(mf.ReadMemoryAsync(deferredRead, boost::bind(&Test::ReadHandler,
                     this, boost::placeholders::_1, std::move(dataReadBackSharedPtr))));
@@ -242,7 +242,7 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesTestCase)
                     MemoryInFiles::deferred_read_t & deferredRead = deferredReadsVec[0];
                     deferredRead.memoryBlockId = memoryBlockId;
                     deferredRead.offset = 5;
-                    deferredRead.readToThisLocationPtr = s.data();
+                    deferredRead.readToThisLocationPtr = &(s[0]); //s.data() is const in C++11
                     deferredRead.length = s.size();
                 }
                 { //read "89"
@@ -251,7 +251,7 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesTestCase)
                     MemoryInFiles::deferred_read_t& deferredRead = deferredReadsVec[1];
                     deferredRead.memoryBlockId = memoryBlockId;
                     deferredRead.offset = 8;
-                    deferredRead.readToThisLocationPtr = s.data();
+                    deferredRead.readToThisLocationPtr = &(s[0]); //s.data() is const in C++11
                     deferredRead.length = s.size();
                 }
 
@@ -273,7 +273,7 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesTestCase)
                 const uint64_t memoryBlockId = 1;
                 lastDataReadBackCallbackSharedPtr.reset();
                 std::shared_ptr<std::string> dataReadBackSharedPtr = std::make_shared<std::string>("aaa");
-                char* data = dataReadBackSharedPtr->data();
+                char* data = &((*dataReadBackSharedPtr)[0]); //dataReadBackSharedPtr->data() is const in C++11
                 const uint64_t sizeData = dataReadBackSharedPtr->size();
                 MemoryInFiles::deferred_read_t deferredRead;
                 deferredRead.memoryBlockId = memoryBlockId;
@@ -323,7 +323,7 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesTestCase)
                 MemoryInFiles::deferred_read_t deferredRead;
                 deferredRead.memoryBlockId = memoryBlockId;
                 deferredRead.offset = 0;
-                deferredRead.readToThisLocationPtr = dataReadBackSharedPtr->data();
+                deferredRead.readToThisLocationPtr = &((*dataReadBackSharedPtr)[0]); //dataReadBackSharedPtr->data() is const in C++11
                 deferredRead.length = dataReadBackSharedPtr->size();
                 BOOST_REQUIRE(mf.ReadMemoryAsync(deferredRead, boost::bind(&Test::ReadHandler,
                     this, boost::placeholders::_1, std::move(dataReadBackSharedPtr))));
@@ -345,7 +345,7 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesTestCase)
                     MemoryInFiles::deferred_read_t& deferredRead = deferredReadsVec[0];
                     deferredRead.memoryBlockId = 3;
                     deferredRead.offset = 2;
-                    deferredRead.readToThisLocationPtr = s.data();
+                    deferredRead.readToThisLocationPtr = &(s[0]); //s.data() is const in C++11
                     deferredRead.length = s.size();
                 }
                 { //read "78" from memoryBlockId=1
@@ -354,7 +354,7 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesTestCase)
                     MemoryInFiles::deferred_read_t& deferredRead = deferredReadsVec[1];
                     deferredRead.memoryBlockId = 1;
                     deferredRead.offset = 7;
-                    deferredRead.readToThisLocationPtr = s.data();
+                    deferredRead.readToThisLocationPtr = &(s[0]); //s.data() is const in C++11
                     deferredRead.length = s.size();
                 }
                 { //read "01" from memoryBlockId=1
@@ -363,7 +363,7 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesTestCase)
                     MemoryInFiles::deferred_read_t& deferredRead = deferredReadsVec[2];
                     deferredRead.memoryBlockId = 1;
                     deferredRead.offset = 0;
-                    deferredRead.readToThisLocationPtr = s.data();
+                    deferredRead.readToThisLocationPtr = &(s[0]); //s.data() is const in C++11
                     deferredRead.length = s.size();
                 }
 
@@ -420,7 +420,7 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesTestCase)
                 MemoryInFiles::deferred_read_t deferredRead;
                 deferredRead.memoryBlockId = memoryBlockId;
                 deferredRead.offset = 8188;
-                deferredRead.readToThisLocationPtr = dataReadBackSharedPtr->data();
+                deferredRead.readToThisLocationPtr = &((*dataReadBackSharedPtr)[0]); //dataReadBackSharedPtr->data() is const in C++11
                 deferredRead.length = dataReadBackSharedPtr->size();
                 BOOST_REQUIRE(mf.ReadMemoryAsync(deferredRead, boost::bind(&Test::ReadHandler,
                     this, boost::placeholders::_1, std::move(dataReadBackSharedPtr))));
@@ -451,7 +451,7 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesTestCase)
                     MemoryInFiles::deferred_read_t& deferredRead = deferredReadsVec[0];
                     deferredRead.memoryBlockId = 3;
                     deferredRead.offset = 2;
-                    deferredRead.readToThisLocationPtr = s.data();
+                    deferredRead.readToThisLocationPtr = &(s[0]); //s.data() is const in C++11
                     deferredRead.length = s.size();
                 }
                 { //read "QWERTYUIOP" from memoryBlockId=1
@@ -460,7 +460,7 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesTestCase)
                     MemoryInFiles::deferred_read_t& deferredRead = deferredReadsVec[1];
                     deferredRead.memoryBlockId = 1;
                     deferredRead.offset = 8188;
-                    deferredRead.readToThisLocationPtr = s.data();
+                    deferredRead.readToThisLocationPtr = &(s[0]); //s.data() is const in C++11
                     deferredRead.length = s.size();
                 }
                 { //read "qwerty" from memoryBlockId=1
@@ -469,7 +469,7 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesTestCase)
                     MemoryInFiles::deferred_read_t& deferredRead = deferredReadsVec[2];
                     deferredRead.memoryBlockId = 1;
                     deferredRead.offset = 4094;
-                    deferredRead.readToThisLocationPtr = s.data();
+                    deferredRead.readToThisLocationPtr = &(s[0]); //s.data() is const in C++11
                     deferredRead.length = s.size();
                 }
 

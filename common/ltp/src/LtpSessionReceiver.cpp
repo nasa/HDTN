@@ -15,9 +15,20 @@
 #include "LtpSessionReceiver.h"
 #include "Logger.h"
 #include <inttypes.h>
+#include <boost/make_unique.hpp>
 #include <boost/bind/bind.hpp>
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
+
+void LtpSessionReceiver::LtpSessionReceiverRecycledData::ClearAll() {
+    m_receivedDataFragmentsSet.clear();
+    m_mapAllReportSegmentsSent.clear();
+    m_checkpointSerialNumbersReceivedSet.clear();
+    m_reportsToSendFlistQueue.clear();
+    m_reportSerialNumberActiveTimersList.clear();
+    m_mapReportSegmentsPendingGeneration.clear();
+    //note: the two temporary vectors for HandleGenerateAndSendReportSegment do not need cleared
+}
 
 LtpSessionReceiver::LtpSessionReceiverCommonData::LtpSessionReceiverCommonData(
     const uint64_t clientServiceId,
@@ -34,7 +45,9 @@ LtpSessionReceiver::LtpSessionReceiverCommonData::LtpSessionReceiverCommonData(
     const NotifyEngineThatThisReceiverCompletedDeferredOperationFunction_t& notifyEngineThatThisReceiverCompletedDeferredOperationFunctionRef,
     const RedPartReceptionCallback_t& redPartReceptionCallbackRef,
     const GreenPartSegmentArrivalCallback_t& greenPartSegmentArrivalCallbackRef,
-    std::unique_ptr<MemoryInFiles>& memoryInFilesPtrRef) :
+    std::unique_ptr<MemoryInFiles>& memoryInFilesPtrRef,
+    LtpSessionReceiverRecycler& ltpSessionReceiverRecyclerRef,
+    const boost::posix_time::ptime& nowTimeRef) :
     //
     m_clientServiceId(clientServiceId),
     m_maxReceptionClaims(maxReceptionClaims),
@@ -51,6 +64,8 @@ LtpSessionReceiver::LtpSessionReceiverCommonData::LtpSessionReceiverCommonData(
     m_redPartReceptionCallbackRef(redPartReceptionCallbackRef),
     m_greenPartSegmentArrivalCallbackRef(greenPartSegmentArrivalCallbackRef),
     m_memoryInFilesPtrRef(memoryInFilesPtrRef),
+    m_ltpSessionReceiverRecyclerRef(ltpSessionReceiverRecyclerRef),
+    m_nowTimeRef(nowTimeRef),
     m_numReportSegmentTimerExpiredCallbacks(0),
     m_numReportSegmentsUnableToBeIssued(0),
     m_numReportSegmentsTooLargeAndNeedingSplit(0),
@@ -65,7 +80,7 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
     const Ltp::session_id_t& sessionId,
     LtpSessionReceiverCommonData& ltpSessionReceiverCommonDataRef) :
     //
-    m_itLastPrimaryReportSegmentSent(m_mapAllReportSegmentsSent.end()),
+    
     m_nextReportSegmentReportSerialNumber(randomNextReportSegmentReportSerialNumber),
     m_memoryBlockIdReservedSize(0),
     M_SESSION_ID(sessionId),
@@ -81,6 +96,16 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
     m_receivedEobFromGreenOrRed(false),
     m_calledCancelledCallback(false)
 {
+    m_ltpSessionReceiverCommonDataRef.m_ltpSessionReceiverRecyclerRef.GetRecycledOrCreateNewUserData(m_ltpSessionReceiverRecycledDataUniquePtr);
+    if (m_ltpSessionReceiverRecycledDataUniquePtr) {
+        //successfully using recycled data
+        m_ltpSessionReceiverRecycledDataUniquePtr->ClearAll();
+    }
+    else {
+        m_ltpSessionReceiverRecycledDataUniquePtr = boost::make_unique<LtpSessionReceiverRecycledData>();
+    }
+    m_itLastPrimaryReportSegmentSent = m_ltpSessionReceiverRecycledDataUniquePtr->m_mapAllReportSegmentsSent.end();
+
     if (m_ltpSessionReceiverCommonDataRef.m_memoryInFilesPtrRef) {
         m_memoryBlockId = m_ltpSessionReceiverCommonDataRef.m_memoryInFilesPtrRef->AllocateNewWriteMemoryBlock(
             m_ltpSessionReceiverCommonDataRef.m_estimatedBytesToReceive + (static_cast<bool>(m_ltpSessionReceiverCommonDataRef.m_estimatedBytesToReceive == 0)));
@@ -99,7 +124,9 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
 
 LtpSessionReceiver::~LtpSessionReceiver() {
     //clean up this receiving session's active timers within the shared LtpTimerManager
-    for (std::list<uint64_t>::const_iterator it = m_reportSerialNumberActiveTimersList.cbegin(); it != m_reportSerialNumberActiveTimersList.cend(); ++it) {
+    for (report_serial_number_active_timers_list_t::const_iterator it = m_ltpSessionReceiverRecycledDataUniquePtr->m_reportSerialNumberActiveTimersList.cbegin();
+        it != m_ltpSessionReceiverRecycledDataUniquePtr->m_reportSerialNumberActiveTimersList.cend(); ++it)
+    {
         const uint64_t rsn = *it;
 
         // within a session would normally be LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timeManagerOfReportSerialNumbers;
@@ -111,11 +138,14 @@ LtpSessionReceiver::~LtpSessionReceiver() {
         //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
         const Ltp::session_id_t reportSerialNumberPlusSessionNumber(rsn, M_SESSION_ID.sessionNumber);
 
+        //This overload of DeleteTimer auto-recycles userData
         if (!m_ltpSessionReceiverCommonDataRef.m_timeManagerOfReportSerialNumbersRef.DeleteTimer(reportSerialNumberPlusSessionNumber)) {
             LOG_ERROR(subprocess) << "LtpSessionReceiver::~LtpSessionReceiver: did not delete timer";
         }
     }
-    for (rs_pending_map_t::const_iterator it = m_mapReportSegmentsPendingGeneration.cbegin(); it != m_mapReportSegmentsPendingGeneration.cend(); ++it) {
+    for (rs_pending_map_t::const_iterator it = m_ltpSessionReceiverRecycledDataUniquePtr->m_mapReportSegmentsPendingGeneration.cbegin();
+        it != m_ltpSessionReceiverRecycledDataUniquePtr->m_mapReportSegmentsPendingGeneration.cend(); ++it)
+    {
         const csn_issecondary_pair_t& p = it->second;
         const uint64_t csn = p.first;
 
@@ -124,6 +154,7 @@ LtpSessionReceiver::~LtpSessionReceiver() {
         //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
         const Ltp::session_id_t checkpointSerialNumberPlusSessionNumber(csn, M_SESSION_ID.sessionNumber);
 
+        //This overload of DeleteTimer auto-recycles userData
         if (!m_ltpSessionReceiverCommonDataRef.m_timeManagerOfSendingDelayedReceptionReportsRef.DeleteTimer(checkpointSerialNumberPlusSessionNumber)) {
             LOG_ERROR(subprocess) << "LtpSessionReceiver::~LtpSessionReceiver: did not delete timer in m_timeManagerOfSendingDelayedReceptionReportsRef";
         }
@@ -135,10 +166,13 @@ LtpSessionReceiver::~LtpSessionReceiver() {
         m_ltpSessionReceiverCommonDataRef.m_memoryInFilesPtrRef->AsyncDeleteMemoryBlock(m_memoryBlockId);
         //m_memoryBlockId = 0;
     }
+    //recycle the data structures with custom allocators 
+    m_ltpSessionReceiverCommonDataRef.m_ltpSessionReceiverRecyclerRef.ReturnUserData(std::move(m_ltpSessionReceiverRecycledDataUniquePtr));
 }
 
 std::size_t LtpSessionReceiver::GetNumActiveTimers() const {
-    return m_reportSerialNumberActiveTimersList.size() + m_mapReportSegmentsPendingGeneration.size();
+    return m_ltpSessionReceiverRecycledDataUniquePtr->m_reportSerialNumberActiveTimersList.size() 
+        + m_ltpSessionReceiverRecycledDataUniquePtr->m_mapReportSegmentsPendingGeneration.size();
 }
 bool LtpSessionReceiver::IsSafeToDelete() const noexcept {
     return (m_numActiveAsyncDiskOperations == 0);
@@ -160,7 +194,8 @@ void LtpSessionReceiver::LtpDelaySendReportSegmentTimerExpiredCallback(const Ltp
     m_ltpSessionReceiverCommonDataRef.m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent += (!thisCheckpointIsResponseToReportSegment);
     m_ltpSessionReceiverCommonDataRef.m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent += thisCheckpointIsResponseToReportSegment;
     HandleGenerateAndSendReportSegment(thisRsCheckpointSerialNumber, thisRsLowerBound, thisRsUpperBound, thisCheckpointIsResponseToReportSegment);
-    m_mapReportSegmentsPendingGeneration.erase(it);
+    m_ltpSessionReceiverRecycledDataUniquePtr->m_mapReportSegmentsPendingGeneration.erase(it);
+    //userData shall be recycled automatically after this callback completes
 }
 
 void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(const Ltp::session_id_t & reportSerialNumberPlusSessionNumber, std::vector<uint8_t> & userData) {
@@ -180,7 +215,7 @@ void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(const Ltp::session
     const rsntimer_userdata_t* userDataPtr = reinterpret_cast<rsntimer_userdata_t*>(userData.data());
 
     //keep track of this receiving session's active timers within the shared LtpTimerManager
-    m_reportSerialNumberActiveTimersList.erase(userDataPtr->itReportSerialNumberActiveTimersList);
+    m_ltpSessionReceiverRecycledDataUniquePtr->m_reportSerialNumberActiveTimersList.erase(userDataPtr->itReportSerialNumberActiveTimersList);
 
     
     //6.8.  Retransmit RS
@@ -207,7 +242,7 @@ void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(const Ltp::session
 
     if (userDataPtr->retryCount <= m_ltpSessionReceiverCommonDataRef.m_maxRetriesPerSerialNumberRef) {
         //resend
-        m_reportsToSendFlistQueue.emplace_back(userDataPtr->itMapAllReportSegmentsSent, userDataPtr->retryCount + 1); //initial retryCount of 1
+        m_ltpSessionReceiverRecycledDataUniquePtr->m_reportsToSendFlistQueue.emplace_back(userDataPtr->itMapAllReportSegmentsSent, userDataPtr->retryCount + 1); //initial retryCount of 1
         m_ltpSessionReceiverCommonDataRef.m_notifyEngineThatThisReceiversTimersHasProducibleDataFunctionRef(M_SESSION_ID);
     }
     else {
@@ -216,12 +251,13 @@ void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(const Ltp::session
             m_ltpSessionReceiverCommonDataRef.m_notifyEngineThatThisReceiverNeedsDeletedCallbackRef(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::RLEXC);
         }
     }
+    //userData shall be recycled automatically after this callback completes
 }
 
 bool LtpSessionReceiver::NextDataToSend(UdpSendPacketInfo& udpSendPacketInfo) {
 
-    if (!m_reportsToSendFlistQueue.empty()) {
-        const it_retrycount_pair_t & p = m_reportsToSendFlistQueue.front();
+    if (!m_ltpSessionReceiverRecycledDataUniquePtr->m_reportsToSendFlistQueue.empty()) {
+        const it_retrycount_pair_t & p = m_ltpSessionReceiverRecycledDataUniquePtr->m_reportsToSendFlistQueue.front();
         const report_segments_sent_map_t::const_iterator & reportSegmentIt = p.first;
         const uint64_t rsn = reportSegmentIt->first;
         const uint32_t retryCount = p.second;
@@ -248,19 +284,21 @@ bool LtpSessionReceiver::NextDataToSend(UdpSendPacketInfo& udpSendPacketInfo) {
         //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
         const Ltp::session_id_t reportSerialNumberPlusSessionNumber(rsn, M_SESSION_ID.sessionNumber);
 
-        std::vector<uint8_t> userData(sizeof(rsntimer_userdata_t));
+        std::vector<uint8_t> userData;
+        m_ltpSessionReceiverCommonDataRef.m_timeManagerOfReportSerialNumbersRef.m_userDataRecycler.GetRecycledOrCreateNewUserData(userData);
+        userData.resize(sizeof(rsntimer_userdata_t));
         rsntimer_userdata_t* userDataPtr = reinterpret_cast<rsntimer_userdata_t*>(userData.data());
         userDataPtr->itMapAllReportSegmentsSent = reportSegmentIt;
-        m_reportSerialNumberActiveTimersList.emplace_front(rsn); //keep track of this receiving session's active timers within the shared LtpTimerManager
-        userDataPtr->itReportSerialNumberActiveTimersList = m_reportSerialNumberActiveTimersList.begin();
+        m_ltpSessionReceiverRecycledDataUniquePtr->m_reportSerialNumberActiveTimersList.emplace_front(rsn); //keep track of this receiving session's active timers within the shared LtpTimerManager
+        userDataPtr->itReportSerialNumberActiveTimersList = m_ltpSessionReceiverRecycledDataUniquePtr->m_reportSerialNumberActiveTimersList.begin();
         userDataPtr->retryCount = retryCount;
         if (!m_ltpSessionReceiverCommonDataRef.m_timeManagerOfReportSerialNumbersRef.StartTimer(this,
             reportSerialNumberPlusSessionNumber, &m_ltpSessionReceiverCommonDataRef.m_rsnTimerExpiredCallbackRef, std::move(userData)))
         {
-            m_reportSerialNumberActiveTimersList.erase(m_reportSerialNumberActiveTimersList.begin());
+            m_ltpSessionReceiverRecycledDataUniquePtr->m_reportSerialNumberActiveTimersList.erase(m_ltpSessionReceiverRecycledDataUniquePtr->m_reportSerialNumberActiveTimersList.begin());
             LOG_ERROR(subprocess) << "LtpSessionReceiver::NextDataToSend: did not start timer";
         }
-        m_reportsToSendFlistQueue.pop(); //fixed bug by moving this after usage of reference reportSegmentIt
+        m_ltpSessionReceiverRecycledDataUniquePtr->m_reportsToSendFlistQueue.pop(); //fixed bug by moving this after usage of reference reportSegmentIt
         return true;
     }
 
@@ -271,7 +309,7 @@ bool LtpSessionReceiver::NextDataToSend(UdpSendPacketInfo& udpSendPacketInfo) {
 void LtpSessionReceiver::ReportAcknowledgementSegmentReceivedCallback(uint64_t reportSerialNumberBeingAcknowledged,
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
 {
-    m_lastSegmentReceivedTimestamp = boost::posix_time::microsec_clock::universal_time();
+    m_lastSegmentReceivedTimestamp = m_ltpSessionReceiverCommonDataRef.m_nowTimeRef;
 
     //6.14.  Stop RS Timer
     //
@@ -300,10 +338,12 @@ void LtpSessionReceiver::ReportAcknowledgementSegmentReceivedCallback(uint64_t r
         else {
             const rsntimer_userdata_t* userDataPtr = reinterpret_cast<rsntimer_userdata_t*>(userDataReturned.data());
             //keep track of this receiving session's active timers within the shared LtpTimerManager
-            m_reportSerialNumberActiveTimersList.erase(userDataPtr->itReportSerialNumberActiveTimersList);
+            m_ltpSessionReceiverRecycledDataUniquePtr->m_reportSerialNumberActiveTimersList.erase(userDataPtr->itReportSerialNumberActiveTimersList);
+            //this overload of DeleteTimer does not auto-recycle user data and must be manually invoked
+            m_ltpSessionReceiverCommonDataRef.m_timeManagerOfReportSerialNumbersRef.m_userDataRecycler.ReturnUserData(std::move(userDataReturned));
         }
     }
-    if (m_reportsToSendFlistQueue.empty() && m_reportSerialNumberActiveTimersList.empty()) { // cannot do within a shared timer: m_timeManagerOfReportSerialNumbers.Empty()) {
+    if (m_ltpSessionReceiverRecycledDataUniquePtr->m_reportsToSendFlistQueue.empty() && m_ltpSessionReceiverRecycledDataUniquePtr->m_reportSerialNumberActiveTimersList.empty()) { // cannot do within a shared timer: m_timeManagerOfReportSerialNumbers.Empty()) {
         //TODO.. NOT SURE WHAT TO DO WHEN GREEN EOB LOST
         if (m_receivedEobFromGreenOrRed && m_didRedPartReceptionCallback) {
             if (!m_didNotifyForDeletion) {
@@ -321,7 +361,7 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
 {
     bool operationIsOngoing = false;
-    m_lastSegmentReceivedTimestamp = boost::posix_time::microsec_clock::universal_time();
+    m_lastSegmentReceivedTimestamp = m_ltpSessionReceiverCommonDataRef.m_nowTimeRef;
 
     const uint64_t offsetPlusLength = dataSegmentMetadata.offset + dataSegmentMetadata.length;
     
@@ -376,7 +416,7 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
         }
 
         bool rsWasJustNowSentWithFullRedBounds = false;
-        const bool dataReceivedWasNew = LtpFragmentSet::InsertFragment(m_receivedDataFragmentsSet,
+        const bool dataReceivedWasNew = LtpFragmentSet::InsertFragment(m_ltpSessionReceiverRecycledDataUniquePtr->m_receivedDataFragmentsSet,
             LtpFragmentSet::data_fragment_t(dataSegmentMetadata.offset, offsetPlusLength - 1));
 
         if (dataReceivedWasNew) {
@@ -424,10 +464,13 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
 
                 // If the report segment bounds are fully claimed (i.e. no gaps) then the report can be sent immediately.
                 rs_pending_map_t::iterator it = //search by lower bound
-                    m_mapReportSegmentsPendingGeneration.find(LtpFragmentSet::data_fragment_no_overlap_allow_abut_t(dataSegmentMetadata.offset, dataSegmentMetadata.offset));
-                if (it != m_mapReportSegmentsPendingGeneration.end()) { //found by lower bound
+                    m_ltpSessionReceiverRecycledDataUniquePtr->m_mapReportSegmentsPendingGeneration.find(
+                        LtpFragmentSet::data_fragment_no_overlap_allow_abut_t(dataSegmentMetadata.offset, dataSegmentMetadata.offset));
+                if (it != m_ltpSessionReceiverRecycledDataUniquePtr->m_mapReportSegmentsPendingGeneration.end()) { //found by lower bound
                     ++m_ltpSessionReceiverCommonDataRef.m_numGapsFilledByOutOfOrderDataSegments;
-                    if (LtpFragmentSet::ContainsFragmentEntirely(m_receivedDataFragmentsSet, LtpFragmentSet::data_fragment_t(it->first.beginIndex, it->first.endIndex))) { //fully claimed (no gaps)
+                    if (LtpFragmentSet::ContainsFragmentEntirely(m_ltpSessionReceiverRecycledDataUniquePtr->m_receivedDataFragmentsSet,
+                        LtpFragmentSet::data_fragment_t(it->first.beginIndex, it->first.endIndex)))
+                    { //fully claimed (no gaps)
 
                         const uint64_t thisRsLowerBound = it->first.beginIndex;
                         const uint64_t thisRsUpperBound = it->first.endIndex + 1;
@@ -445,10 +488,11 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                         //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
                         const Ltp::session_id_t checkpointSerialNumberPlusSessionNumber(thisRsCheckpointSerialNumber, M_SESSION_ID.sessionNumber);
 
+                        //This overload of DeleteTimer auto-recycles userData
                         if (!m_ltpSessionReceiverCommonDataRef.m_timeManagerOfSendingDelayedReceptionReportsRef.DeleteTimer(checkpointSerialNumberPlusSessionNumber)) {
                             LOG_ERROR(subprocess) << "LtpSessionReceiver::DataSegmentReceivedCallback: did not delete timer in m_timeManagerOfSendingDelayedReceptionReportsRef";
                         }
-                        m_mapReportSegmentsPendingGeneration.erase(it);
+                        m_ltpSessionReceiverRecycledDataUniquePtr->m_mapReportSegmentsPendingGeneration.erase(it);
                     }
                 }
             }
@@ -469,7 +513,7 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
             //6.11.  Send Reception Report
             //This procedure is triggered by either (a) the original reception of a
             //CP segment(the checkpoint serial number identifying this CP is new)
-            if (m_checkpointSerialNumbersReceivedSet.insert(*dataSegmentMetadata.checkpointSerialNumber).second == false) { //serial number was not inserted (already exists)
+            if (m_ltpSessionReceiverRecycledDataUniquePtr->m_checkpointSerialNumbersReceivedSet.insert(*dataSegmentMetadata.checkpointSerialNumber).second == false) { //serial number was not inserted (already exists)
                 return operationIsOngoing; //no work to do.. ignore this redundant checkpoint
             }
 
@@ -493,8 +537,8 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                 //that case, the lower bound of the report SHOULD be the lower
                 //bound of the report segment to which the triggering checkpoint
                 //was itself a response, to minimize unnecessary retransmission.
-                std::map<uint64_t, Ltp::report_segment_t>::iterator reportSegmentIt = m_mapAllReportSegmentsSent.find(*dataSegmentMetadata.reportSerialNumber);
-                if (reportSegmentIt != m_mapAllReportSegmentsSent.end()) { //found
+                report_segments_sent_map_t::iterator reportSegmentIt = m_ltpSessionReceiverRecycledDataUniquePtr->m_mapAllReportSegmentsSent.find(*dataSegmentMetadata.reportSerialNumber);
+                if (reportSegmentIt != m_ltpSessionReceiverRecycledDataUniquePtr->m_mapAllReportSegmentsSent.end()) { //found
                     lowerBound = reportSegmentIt->second.lowerBound;
                 }
                 else {
@@ -504,7 +548,7 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
             else {
                 //- If the checkpoint was not issued in response to a report
                 //segment, this report is a "primary" reception report.
-                if (m_itLastPrimaryReportSegmentSent == m_mapAllReportSegmentsSent.end()) { //if (m_mapPrimaryReportSegmentsSent.empty()) {
+                if (m_itLastPrimaryReportSegmentSent == m_ltpSessionReceiverRecycledDataUniquePtr->m_mapAllReportSegmentsSent.end()) { //if (m_mapPrimaryReportSegmentsSent.empty()) {
                     //The lower bound of the first primary reception report issued for any session MUST be zero.
                     lowerBound = 0;
                 }
@@ -515,7 +559,9 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                     //the session, to minimize unnecessary retransmission.
                     lowerBound = m_itLastPrimaryReportSegmentSent->second.upperBound; //m_mapPrimaryReportSegmentsSent.crbegin()->second.upperBound;
                 }
-                for (rs_pending_map_t::const_reverse_iterator it = m_mapReportSegmentsPendingGeneration.crbegin(); it != m_mapReportSegmentsPendingGeneration.crend(); ++it) {
+                for (rs_pending_map_t::const_reverse_iterator it = m_ltpSessionReceiverRecycledDataUniquePtr->m_mapReportSegmentsPendingGeneration.crbegin();
+                    it != m_ltpSessionReceiverRecycledDataUniquePtr->m_mapReportSegmentsPendingGeneration.crend(); ++it)
+                {
                     const csn_issecondary_pair_t& p = it->second;
                     if (!p.second) { //is prior primary and awaiting send
                         const uint64_t thisPrimaryUpperBound = it->first.endIndex + 1;
@@ -554,7 +600,8 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                 // (Also send the report immediately if the out-of-order deferral feature is disabled (i.e. (time_duration == not_a_date_time))
                 // which is needed for TestLtpEngine.)
                 if ((m_ltpSessionReceiverCommonDataRef.m_timeManagerOfSendingDelayedReceptionReportsRef.GetTimeDurationRef() == boost::posix_time::special_values::not_a_date_time) ||
-                    LtpFragmentSet::ContainsFragmentEntirely(m_receivedDataFragmentsSet, LtpFragmentSet::data_fragment_t(lowerBound, upperBound - 1)))
+                    LtpFragmentSet::ContainsFragmentEntirely(m_ltpSessionReceiverRecycledDataUniquePtr->m_receivedDataFragmentsSet,
+                        LtpFragmentSet::data_fragment_t(lowerBound, upperBound - 1)))
                 {
                     HandleGenerateAndSendReportSegment(*dataSegmentMetadata.checkpointSerialNumber, lowerBound, upperBound, checkpointIsResponseToReportSegment);
                     // no need to set rsWasJustNowSentWithFullRedBounds because this section is for checkpoints only
@@ -568,13 +615,14 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                     // In a situation with loss this will send reports with the fewest size of claim gaps.
 
                     //this should work regardless of primary or secondary reception reports
-                    const std::size_t initialSetSize = m_mapReportSegmentsPendingGeneration.size();
+                    const std::size_t initialSetSize = m_ltpSessionReceiverRecycledDataUniquePtr->m_mapReportSegmentsPendingGeneration.size();
                     rs_pending_map_t::iterator itRsPending =
-                        m_mapReportSegmentsPendingGeneration.emplace_hint(m_mapReportSegmentsPendingGeneration.end(), //hint may be wrong for secondary reception reports
+                        m_ltpSessionReceiverRecycledDataUniquePtr->m_mapReportSegmentsPendingGeneration.emplace_hint(
+                            m_ltpSessionReceiverRecycledDataUniquePtr->m_mapReportSegmentsPendingGeneration.end(), //hint may be wrong for secondary reception reports
                         std::piecewise_construct,
                         std::forward_as_tuple(lowerBound, upperBound - 1),
                         std::forward_as_tuple(*dataSegmentMetadata.checkpointSerialNumber, checkpointIsResponseToReportSegment));
-                    if (initialSetSize == m_mapReportSegmentsPendingGeneration.size()) { //failedInsertion
+                    if (initialSetSize == m_ltpSessionReceiverRecycledDataUniquePtr->m_mapReportSegmentsPendingGeneration.size()) { //failedInsertion
                         LOG_ERROR(subprocess) << "LtpSessionReceiver::DataSegmentReceivedCallback: unable to insert " 
                             << ((checkpointIsResponseToReportSegment) ? "secondary" : "primary") << " reception into m_mapReportSegmentsPendingGeneration";
                     }
@@ -583,7 +631,9 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                         //  sessionNumber = the session number
                         //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
                         const Ltp::session_id_t checkpointSerialNumberPlusSessionNumber(*dataSegmentMetadata.checkpointSerialNumber, M_SESSION_ID.sessionNumber);
-                        std::vector<uint8_t> userData(sizeof(itRsPending));
+                        std::vector<uint8_t> userData;
+                        m_ltpSessionReceiverCommonDataRef.m_timeManagerOfSendingDelayedReceptionReportsRef.m_userDataRecycler.GetRecycledOrCreateNewUserData(userData);
+                        userData.resize(sizeof(itRsPending));
                         rs_pending_map_t::iterator* itRsPendingPtr = (rs_pending_map_t::iterator*) userData.data();
                         *itRsPendingPtr = itRsPending;
                         if (!m_ltpSessionReceiverCommonDataRef.m_timeManagerOfSendingDelayedReceptionReportsRef.StartTimer(this,
@@ -596,8 +646,8 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                 }
             }
         }
-        if ((!m_didRedPartReceptionCallback) && (m_lengthOfRedPart != UINT64_MAX) && (m_receivedDataFragmentsSet.size() == 1)) {
-            LtpFragmentSet::data_fragment_set_t::const_iterator it = m_receivedDataFragmentsSet.cbegin();
+        if ((!m_didRedPartReceptionCallback) && (m_lengthOfRedPart != UINT64_MAX) && (m_ltpSessionReceiverRecycledDataUniquePtr->m_receivedDataFragmentsSet.size() == 1)) {
+            LtpFragmentSet::data_fragment_set_t::const_iterator it = m_ltpSessionReceiverRecycledDataUniquePtr->m_receivedDataFragmentsSet.cbegin();
             if ((it->beginIndex == 0) && (it->endIndex == (m_lengthOfRedPart - 1))) { //all data fully received by this segment
 
                 if (!isRedCheckpoint) { //Only when the red part data was completed by a non-checkpoint segment is the async. reception report needed.
@@ -683,7 +733,7 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
             //transmission), the LTP receiver assumes the "RP rcvd. fully"
             //condition to be true and moves to the CLOSED state from the
             //WAIT_RP_REC state.
-            const bool noRedSegmentsReceived = ((m_lengthOfRedPart == UINT64_MAX) && m_receivedDataFragmentsSet.empty()); //green EOB and no red segments received
+            const bool noRedSegmentsReceived = ((m_lengthOfRedPart == UINT64_MAX) && m_ltpSessionReceiverRecycledDataUniquePtr->m_receivedDataFragmentsSet.empty()); //green EOB and no red segments received
 
             if (noRedSegmentsReceived || m_didRedPartReceptionCallback) { //if no red received or red fully complete, this green EOB shall close the session
                 if (!m_didNotifyForDeletion) {
@@ -700,8 +750,9 @@ void LtpSessionReceiver::HandleGenerateAndSendReportSegment(const uint64_t check
     const uint64_t lowerBound, const uint64_t upperBound, const bool checkpointIsResponseToReportSegment)
 {
 
-    std::vector<Ltp::report_segment_t> reportSegmentsVec(1);
-    if (!LtpFragmentSet::PopulateReportSegment(m_receivedDataFragmentsSet, reportSegmentsVec[0], lowerBound, upperBound)) {
+    std::vector<Ltp::report_segment_t>& reportSegmentsVec = m_ltpSessionReceiverRecycledDataUniquePtr->m_tempReportSegmentsVec;
+    reportSegmentsVec.resize(1);
+    if (!LtpFragmentSet::PopulateReportSegment(m_ltpSessionReceiverRecycledDataUniquePtr->m_receivedDataFragmentsSet, reportSegmentsVec[0], lowerBound, upperBound)) {
         LOG_ERROR(subprocess) << "LtpSessionReceiver::DataSegmentReceivedCallback: cannot populate report segment";
     }
 
@@ -721,7 +772,7 @@ void LtpSessionReceiver::HandleGenerateAndSendReportSegment(const uint64_t check
         //[300,000:950,000], and RS 21, scope[950,000:1,000,000].  In all
         //cases, a timer is started upon transmission of each report segment of
         //the reception report.
-        std::vector<Ltp::report_segment_t> reportSegmentsSplitVec;
+        std::vector<Ltp::report_segment_t>& reportSegmentsSplitVec = m_ltpSessionReceiverRecycledDataUniquePtr->m_tempReportSegmentsSplitVec;
         LtpFragmentSet::SplitReportSegment(reportSegmentsVec[0], reportSegmentsSplitVec, m_ltpSessionReceiverCommonDataRef.m_maxReceptionClaims);
         ++m_ltpSessionReceiverCommonDataRef.m_numReportSegmentsTooLargeAndNeedingSplit;
         m_ltpSessionReceiverCommonDataRef.m_numReportSegmentsCreatedViaSplit += reportSegmentsSplitVec.size();
@@ -753,12 +804,13 @@ void LtpSessionReceiver::HandleGenerateAndSendReportSegment(const uint64_t check
         //LtpFragmentSet::PrintFragmentSet(m_receivedDataFragmentsSet);
 
         //The emplace_hint function optimizes its insertion time if position points to the element that will follow the inserted element (or to the end, if it would be the last).
-        report_segments_sent_map_t::const_iterator itRsSent = m_mapAllReportSegmentsSent.emplace_hint(m_mapAllReportSegmentsSent.end(), rsn, std::move(reportSegment)); //m_mapAllReportSegmentsSent[rsn] = std::move(reportSegment);
+        report_segments_sent_map_t::const_iterator itRsSent = m_ltpSessionReceiverRecycledDataUniquePtr->m_mapAllReportSegmentsSent.emplace_hint(
+            m_ltpSessionReceiverRecycledDataUniquePtr->m_mapAllReportSegmentsSent.end(), rsn, std::move(reportSegment)); //m_mapAllReportSegmentsSent[rsn] = std::move(reportSegment);
         if (!checkpointIsResponseToReportSegment) {
             m_itLastPrimaryReportSegmentSent = itRsSent;
             //m_mapPrimaryReportSegmentsSent.emplace_hint(m_mapPrimaryReportSegmentsSent.end(), rsn, reportSegment); //m_mapPrimaryReportSegmentsSent[rsn] = reportSegment;
         }
-        m_reportsToSendFlistQueue.emplace_back(itRsSent, 1); //initial retryCount of 1
+        m_ltpSessionReceiverRecycledDataUniquePtr->m_reportsToSendFlistQueue.emplace_back(itRsSent, 1); //initial retryCount of 1
         m_ltpSessionReceiverCommonDataRef.m_notifyEngineThatThisReceiversTimersHasProducibleDataFunctionRef(M_SESSION_ID);
     }
 }

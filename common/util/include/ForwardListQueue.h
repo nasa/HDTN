@@ -25,13 +25,14 @@
 #include <boost/core/noncopyable.hpp>
 #include "hdtn_util_export.h"
 
-template<typename T>
+template<typename T, class Allocator = std::allocator<T> >
 class ForwardListQueue : private boost::noncopyable {
 public:
-    typedef typename std::forward_list<T>::iterator iterator;
-    typedef typename std::forward_list<T>::const_iterator const_iterator;
+    typedef typename std::forward_list<T, Allocator> list_type;
+    typedef typename list_type::iterator iterator;
+    typedef typename list_type::const_iterator const_iterator;
 private:
-    std::forward_list<T> m_fl;
+    list_type m_fl;
     iterator m_flLastIt;
 public:
     ForwardListQueue() = default;
@@ -189,7 +190,7 @@ public:
         return m_fl.cbefore_begin();
     }
 
-    std::forward_list<T>& get_underlying_container() noexcept {
+    list_type& get_underlying_container() noexcept {
         return m_fl;
     }
     

@@ -428,7 +428,8 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsOutductTestCase)
         BOOST_REQUIRE_EQUAL(aoct.type, 6);
         uint64_t expectedSerializationSize = 2 * sizeof(uint64_t);
         for (unsigned int i = 0; i < 10; ++i) {
-            OutductCapabilityTelemetry_t& oct = aoct.outductCapabilityTelemetryList.emplace_back();
+            aoct.outductCapabilityTelemetryList.emplace_back();
+            OutductCapabilityTelemetry_t& oct = aoct.outductCapabilityTelemetryList.back();
             oct.maxBundlesInPipeline = 50 + i;
             oct.maxBundleSizeBytesInPipeline = 5000 + i;
             oct.outductArrayIndex = i;

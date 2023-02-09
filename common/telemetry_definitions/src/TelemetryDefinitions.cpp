@@ -18,7 +18,7 @@
 #include "TelemetryDefinitions.h"
 #include "Logger.h"
 #include "Uri.h"
-
+#include <boost/make_unique.hpp>
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -264,19 +264,19 @@ std::vector<std::unique_ptr<Telemetry_t> > TelemetryFactory::DeserializeFromLitt
         std::unique_ptr<Telemetry_t> telem;
         switch (type) {
             case ingress:
-                telem = std::make_unique<IngressTelemetry_t>();
+                telem = boost::make_unique<IngressTelemetry_t>();
                 break;
             case egress:
-                telem = std::make_unique<EgressTelemetry_t>();
+                telem = boost::make_unique<EgressTelemetry_t>();
                 break;
             case storage:
-                telem = std::make_unique<StorageTelemetry_t>();
+                telem = boost::make_unique<StorageTelemetry_t>();
                 break;
             case stcpoutduct:
-                telem = std::make_unique<StcpOutductTelemetry_t>();
+                telem = boost::make_unique<StcpOutductTelemetry_t>();
                 break;
             case ltpoutduct:
-                telem = std::make_unique<LtpOutductTelemetry_t>();
+                telem = boost::make_unique<LtpOutductTelemetry_t>();
                 break;
             default:
                 throw TelemetryFactory::TelemetryDeserializeUnknownTypeException();
