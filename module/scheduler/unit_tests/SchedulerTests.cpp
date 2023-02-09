@@ -24,7 +24,7 @@ BOOST_AUTO_TEST_CASE(SchedulerGetRateBpsTestCase)
     // It's compatible with the deprecated rate field
     std::string message = "[{\"rate\": 20}]";
     boost::property_tree::ptree pt;
-    bool success = JsonSerializable::GetPropertyTreeFromJsonCharArray(message.data(), message.size(), pt);
+    bool success = JsonSerializable::GetPropertyTreeFromJsonCharArray(&(message[0]), message.size(), pt); //message.data() is const in C++11
     BOOST_REQUIRE_EQUAL(success, true);
 
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & eventPt, pt) {
@@ -34,7 +34,7 @@ BOOST_AUTO_TEST_CASE(SchedulerGetRateBpsTestCase)
 
     // It's compatible with the new rateBps field
     message = "[{\"rateBitsPerSec\": 20000000}]";
-    success = JsonSerializable::GetPropertyTreeFromJsonCharArray(message.data(), message.size(), pt);
+    success = JsonSerializable::GetPropertyTreeFromJsonCharArray(&(message[0]), message.size(), pt); //message.data() is const in C++11
     BOOST_REQUIRE_EQUAL(success, true);
 
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & eventPt, pt) {
@@ -44,7 +44,7 @@ BOOST_AUTO_TEST_CASE(SchedulerGetRateBpsTestCase)
 
     // It prefers the new rateBps field
     message = "[{\"rateBitsPerSec\": 20000000, \"rate\": 40}]";
-    success = JsonSerializable::GetPropertyTreeFromJsonCharArray(message.data(), message.size(), pt);
+    success = JsonSerializable::GetPropertyTreeFromJsonCharArray(&(message[0]), message.size(), pt); //message.data() is const in C++11
     BOOST_REQUIRE_EQUAL(success, true);
 
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & eventPt, pt) {
