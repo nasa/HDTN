@@ -18,6 +18,7 @@
 #include <string>
 #include <inttypes.h>
 #include <vector>
+#include <unordered_map>
 #include <list>
 #include <forward_list>
 #include "FreeListAllocator.h"
