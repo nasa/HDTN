@@ -14,6 +14,7 @@
  */
 
 #include <boost/endian/conversion.hpp>
+#include <boost/make_unique.hpp>
 
 #include "TelemetryDefinitions.h"
 #include "Logger.h"
