@@ -222,7 +222,7 @@ public:
 
     
     //the three constructor versions must be defined (even if they do nothing) to allow for copy-constructions from allocator objects of other types.
-    FreeListAllocatorDynamic() noexcept = default;
+    FreeListAllocatorDynamic() noexcept {} // = default; will fail compile because of shared_ptr
     FreeListAllocatorDynamic(const FreeListAllocatorDynamic& other) noexcept :
         listSizeCopy(other.listSize), //do not copy the list to avoid double delete
         maxListSizePtr(other.maxListSizePtr) {} //increase use_count of shared_ptr so SetMaxListSize will work after get_allocator() copies
