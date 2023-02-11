@@ -29,10 +29,34 @@
 #include <set>
 #include "ltp_lib_export.h"
 
-class LTP_LIB_EXPORT LtpRandomNumberGenerator {
+class LtpRandomNumberGenerator {
 public:
+    class Rng {
+    public:
+        LTP_LIB_EXPORT Rng();
+        LTP_LIB_EXPORT uint64_t operator()();
+        LTP_LIB_EXPORT void AddHardwareEntropy();
+        LTP_LIB_EXPORT void AddCustomEntropy(const uint64_t entropy);
+        LTP_LIB_EXPORT uint64_t GetReseedPrngCount() const noexcept;
+        LTP_LIB_EXPORT uint64_t GetReseedAdditionalEntropyCount() const noexcept;
+    private:
+        LTP_LIB_NO_EXPORT uint64_t GetHardwareRandomSeed();
+
+        /// OS hardware random number generator for seeding
+        boost::random_device m_randomDevice;
+        /// Pseudo random number generator that will reseed every 255 tmes
+        boost::mt19937_64 m_prng;
+        /// Value to xor prng random number before returning the random number
+        uint64_t m_additionalEntropy;
+        /// Reseed PRNG count for stats
+        uint64_t m_reseedPrngCount;
+        /// Reseed additional entropy count for stats
+        uint64_t m_reseedAdditionalEntropyCount;
+        /// Addition overflow counter to reseed m_prng when ++255 goes back to 0
+        uint8_t m_prngUseCounter;
+    };
     /// Start birthday paradox prevention value from 1.
-    LtpRandomNumberGenerator();
+    LTP_LIB_EXPORT LtpRandomNumberGenerator();
     
     /** Generate a hardware-generated random 64-bit session number.
      *
@@ -40,18 +64,9 @@ public:
      * - bit  55     (1 bit): Set to 0 to leave room for incrementing without rolling into the engine index.
      * - bits 54..16 (39 bits): Random part.
      * - bits 15..0  (16 bits): Birthday paradox prevention part, stays in range [1, std::numeric_limits<std::uint16_t>::max()].
-     * @param additionalRandomness The final random component to XOR.
      * @return The random 64-bit session number.
      */
-    uint64_t GetRandomSession64(const uint64_t additionalRandomness = 0);
-    
-    /** Generate a random 64-bit session number using given random device.
-     *
-     * Calls LtpRandomNumberGenerator::GetRandomSession64(uint64_t) with the final random component supplied by randomDevice.
-     * @param randomDevice The random device to use.
-     * @return The random 64-bit session number.
-     */
-    uint64_t GetRandomSession64(boost::random_device & randomDevice);
+    LTP_LIB_EXPORT uint64_t GetRandomSession64();
     
     /** Get 64-bit ping session number.
      *
@@ -59,25 +74,16 @@ public:
      * - bits 55..0  (56 bits): Set to 0xffffff for reserved number denoting ping.
      * @return The 64-bit ping session number.
      */
-    uint64_t GetPingSession64() const;
+    LTP_LIB_EXPORT uint64_t GetPingSession64() const;
     
     /** Generate a hardware-generated random 64-bit serial number.
      *
      * - bit 63      (1 bit): Set to 0 to leave room for incrementing without rolling back around to zero.
      * - bits 62..16 (47 bits): Random part.
      * - bits 15..0  (16 bits): Set to 1 for incrementing ltp serial numbers by 1 (never want a serial number to be 0).
-     * @param additionalRandomness The final random component to XOR.
      * @return The random 64-bit serial number.
      */
-    uint64_t GetRandomSerialNumber64(const uint64_t additionalRandomness = 0) const;
-    
-    /** Generate a random 64-bit serial number using given random device.
-     *
-     * Calls LtpRandomNumberGenerator::GetRandomSerialNumber64(uint64_t) with the final random component supplied by randomDevice.
-     * @param randomDevice The random device to use.
-     * @return The random 64-bit serial number.
-     */
-    uint64_t GetRandomSerialNumber64(boost::random_device & randomDevice) const;
+    LTP_LIB_EXPORT uint64_t GetRandomSerialNumber64();
     
     /** Generate a hardware-generated random 32-bit session number.
      *
@@ -85,18 +91,9 @@ public:
      * - bit 23      (1 bit): Set to 0 to leave room for incrementing without rolling into the engine index.
      * - bits 22..16 (7 bits): Random part.
      * - bits 15..0  (16 bits): Birthday paradox prevention part, stays in range [1, std::numeric_limits<std::uint16_t>::max()].
-     * @param additionalRandomness32Bit The final random component to XOR.
      * @return The random 32-bit session number.
      */
-    uint32_t GetRandomSession32(const uint32_t additionalRandomness32Bit = 0);
-    
-    /** Generate a random 32-bit session number using given random device.
-     *
-     * Calls LtpRandomNumberGenerator::GetRandomSession32(uint32_t) with the final random component supplied by randomDevice.
-     * @param randomDevice The random device to use.
-     * @return The random 32-bit session number.
-     */
-    uint32_t GetRandomSession32(boost::random_device & randomDevice);
+    LTP_LIB_EXPORT uint32_t GetRandomSession32();
     
     /** Get 32-bit ping session number.
      *
@@ -104,37 +101,34 @@ public:
      * - bits 23..0  (24 bits): Set to 0xffffff for reserved number denoting ping.
      * @return The 32-bit ping session number.
      */
-    uint32_t GetPingSession32() const;
+    LTP_LIB_EXPORT uint32_t GetPingSession32() const;
     
     /** Generate a hardware-generated random 32-bit serial number.
      *
      * - bit 31 (1 bit): Set to 0 to leave room for incrementing without rolling back around to zero.
      * - bits 30..16 (15 bits): Random part.
      * - bits 15..0 (16 bits): Set to 1 for incrementing ltp serial numbers by 1 (never want a serial number to be 0).
-     * @param additionalRandomness32Bit The final random component to XOR.
      * @return The random 32-bit serial number.
      */
-    uint32_t GetRandomSerialNumber32(const uint32_t additionalRandomness32Bit = 0) const;
-    
-    /** Generate a random 32-bit serial number using given random device.
-     *
-     * Calls LtpRandomNumberGenerator::GetRandomSerialNumber32(uint32_t) with the final random component supplied by randomDevice.
-     * @param randomDevice The random device to use.
-     * @return The random 32-bit serial number.
-     */
-    uint32_t GetRandomSerialNumber32(boost::random_device & randomDevice) const;
+    LTP_LIB_EXPORT uint32_t GetRandomSerialNumber32();
     
     /** Set the engine index.
      *
      * @param engineIndex The engine index to set, must be in range [1, 255].
      */
-    void SetEngineIndex(const uint8_t engineIndex);
+    LTP_LIB_EXPORT void SetEngineIndex(const uint8_t engineIndex);
     
     /** Get the engine index.
      *
      * @return The engine index.
      */
-    uint8_t GetEngineIndex() const;
+    LTP_LIB_EXPORT uint8_t GetEngineIndex() const;
+
+    /** Get the LTP (hybrid pseudo and hardware) random number generator (containing state info).
+     *
+     * @return The LTP (hybrid pseudo and hardware) random number generator (containing state info).
+     */
+    LTP_LIB_EXPORT Rng& GetInternalRngRef();
     
     /** Parse the engine index part of a random session number.
      *
@@ -142,7 +136,7 @@ public:
      * @param randomSessionNumber The random session number to parse.
      * @return The engine index.
      */
-    static uint8_t GetEngineIndexFromRandomSessionNumber(uint64_t randomSessionNumber);
+    LTP_LIB_EXPORT static uint8_t GetEngineIndexFromRandomSessionNumber(uint64_t randomSessionNumber);
     
     /** Query whether the given session number denotes a ping session.
      *
@@ -150,8 +144,10 @@ public:
      * @param is32Bit Whether the session number is 32-bit.
      * @return Whether the given session number denotes a ping session.
      */
-    static bool IsPingSession(const uint64_t sessionNumber, const bool is32Bit);
+    LTP_LIB_EXPORT static bool IsPingSession(const uint64_t sessionNumber, const bool is32Bit);
 private:
+    ///The LTP (hybrid pseudo and hardware) random number generator (containing state info).
+    Rng m_rng;
     /// Circular birthday paradox prevention value, stays in range [1, std::numeric_limits<std::uint16_t>::max()]
     uint16_t m_birthdayParadoxPreventer_incrementalPart_U16;
     /// Engine index, encoded into the upper portion of a session number

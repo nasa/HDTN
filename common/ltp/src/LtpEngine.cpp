@@ -867,12 +867,12 @@ void LtpEngine::DoTransmissionRequest(uint64_t destinationClientServiceId, uint6
     uint64_t randomSessionNumberGeneratedBySender;
     uint64_t randomInitialSenderCheckpointSerialNumber; //incremented by 1 for new
     if(M_FORCE_32_BIT_RANDOM_NUMBERS) {
-        randomSessionNumberGeneratedBySender = m_rng.GetRandomSession32(m_randomDevice);
-        randomInitialSenderCheckpointSerialNumber = m_rng.GetRandomSerialNumber32(m_randomDevice);
+        randomSessionNumberGeneratedBySender = m_rng.GetRandomSession32();
+        randomInitialSenderCheckpointSerialNumber = m_rng.GetRandomSerialNumber32();
     }
     else {
-        randomSessionNumberGeneratedBySender = m_rng.GetRandomSession64(m_randomDevice);
-        randomInitialSenderCheckpointSerialNumber = m_rng.GetRandomSerialNumber64(m_randomDevice);
+        randomSessionNumberGeneratedBySender = m_rng.GetRandomSession64();
+        randomInitialSenderCheckpointSerialNumber = m_rng.GetRandomSerialNumber64();
     }
     Ltp::session_id_t senderSessionId(M_THIS_ENGINE_ID, randomSessionNumberGeneratedBySender);
     std::pair<map_session_number_to_session_sender_t::iterator, bool> res = m_mapSessionNumberToSessionSender.emplace(
@@ -1392,7 +1392,7 @@ bool LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
                 return operationIsOngoing;
             }
         }
-        const uint64_t randomNextReportSegmentReportSerialNumber = (M_FORCE_32_BIT_RANDOM_NUMBERS) ? m_rng.GetRandomSerialNumber32(m_randomDevice) : m_rng.GetRandomSerialNumber64(m_randomDevice); //incremented by 1 for new
+        const uint64_t randomNextReportSegmentReportSerialNumber = (M_FORCE_32_BIT_RANDOM_NUMBERS) ? m_rng.GetRandomSerialNumber32() : m_rng.GetRandomSerialNumber64(); //incremented by 1 for new
         std::pair<map_session_id_to_session_receiver_t::iterator, bool> res = m_mapSessionIdToSessionReceiver.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(sessionId),
