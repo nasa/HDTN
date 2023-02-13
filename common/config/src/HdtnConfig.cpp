@@ -30,6 +30,7 @@ HdtnConfig::HdtnConfig() :
     m_myBpEchoServiceId(2047), //dtnme default
     m_myCustodialSsp("unused_custodial_ssp"),
     m_myCustodialServiceId(0),
+    m_mySchedulerServiceId(100),
     m_isAcsAware(true),
     m_acsMaxFillsPerAcsPacket(100),
     m_acsSendPeriodMilliseconds(1000),
@@ -70,6 +71,7 @@ HdtnConfig::HdtnConfig(const HdtnConfig& o) :
     m_myBpEchoServiceId(o.m_myBpEchoServiceId),
     m_myCustodialSsp(o.m_myCustodialSsp),
     m_myCustodialServiceId(o.m_myCustodialServiceId),
+    m_mySchedulerServiceId(o.m_mySchedulerServiceId),
     m_isAcsAware(o.m_isAcsAware),
     m_acsMaxFillsPerAcsPacket(o.m_acsMaxFillsPerAcsPacket),
     m_acsSendPeriodMilliseconds(o.m_acsSendPeriodMilliseconds),
@@ -107,6 +109,7 @@ HdtnConfig::HdtnConfig(HdtnConfig&& o) noexcept :
     m_myBpEchoServiceId(o.m_myBpEchoServiceId),
     m_myCustodialSsp(std::move(o.m_myCustodialSsp)),
     m_myCustodialServiceId(o.m_myCustodialServiceId),
+    m_mySchedulerServiceId(o.m_mySchedulerServiceId),
     m_isAcsAware(o.m_isAcsAware),
     m_acsMaxFillsPerAcsPacket(o.m_acsMaxFillsPerAcsPacket),
     m_acsSendPeriodMilliseconds(o.m_acsSendPeriodMilliseconds),
@@ -144,6 +147,7 @@ HdtnConfig& HdtnConfig::operator=(const HdtnConfig& o) {
     m_myBpEchoServiceId = o.m_myBpEchoServiceId;
     m_myCustodialSsp = o.m_myCustodialSsp;
     m_myCustodialServiceId = o.m_myCustodialServiceId;
+    m_mySchedulerServiceId = o.m_mySchedulerServiceId;
     m_isAcsAware = o.m_isAcsAware;
     m_acsMaxFillsPerAcsPacket = o.m_acsMaxFillsPerAcsPacket;
     m_acsSendPeriodMilliseconds = o.m_acsSendPeriodMilliseconds;
@@ -182,6 +186,7 @@ HdtnConfig& HdtnConfig::operator=(HdtnConfig&& o) noexcept {
     m_myBpEchoServiceId = o.m_myBpEchoServiceId;
     m_myCustodialSsp = std::move(o.m_myCustodialSsp);
     m_myCustodialServiceId = o.m_myCustodialServiceId;
+    m_mySchedulerServiceId = o.m_mySchedulerServiceId;
     m_isAcsAware = o.m_isAcsAware;
     m_acsMaxFillsPerAcsPacket = o.m_acsMaxFillsPerAcsPacket;
     m_acsSendPeriodMilliseconds = o.m_acsSendPeriodMilliseconds;
@@ -222,6 +227,7 @@ bool HdtnConfig::operator==(const HdtnConfig & o) const {
         (m_zmqIngressAddress == o.m_zmqIngressAddress) &&
         (m_zmqEgressAddress == o.m_zmqEgressAddress) &&
         (m_zmqStorageAddress == o.m_zmqStorageAddress) &&
+        (m_mySchedulerServiceId == o.m_mySchedulerServiceId) &&
         (m_isAcsAware == o.m_isAcsAware) &&
         (m_acsMaxFillsPerAcsPacket == o.m_acsMaxFillsPerAcsPacket) &&
         (m_acsSendPeriodMilliseconds == o.m_acsSendPeriodMilliseconds) &&
@@ -264,6 +270,7 @@ bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & p
         m_myBpEchoServiceId = pt.get<uint64_t>("myBpEchoServiceId");
         m_myCustodialSsp = pt.get<std::string>("myCustodialSsp");
         m_myCustodialServiceId = pt.get<uint64_t>("myCustodialServiceId");
+        m_mySchedulerServiceId = pt.get<uint64_t>("mySchedulerServiceId");
         m_isAcsAware = pt.get<bool>("isAcsAware");
         m_acsMaxFillsPerAcsPacket = pt.get<uint64_t>("acsMaxFillsPerAcsPacket");
         m_acsSendPeriodMilliseconds = pt.get<uint64_t>("acsSendPeriodMilliseconds");
@@ -373,6 +380,7 @@ boost::property_tree::ptree HdtnConfig::GetNewPropertyTree() const {
     pt.put("myBpEchoServiceId", m_myBpEchoServiceId);
     pt.put("myCustodialSsp", m_myCustodialSsp);
     pt.put("myCustodialServiceId", m_myCustodialServiceId);
+    pt.put("mySchedulerServiceId", m_mySchedulerServiceId);
     pt.put("isAcsAware", m_isAcsAware);
     pt.put("acsMaxFillsPerAcsPacket", m_acsMaxFillsPerAcsPacket);
     pt.put("acsSendPeriodMilliseconds", m_acsSendPeriodMilliseconds);

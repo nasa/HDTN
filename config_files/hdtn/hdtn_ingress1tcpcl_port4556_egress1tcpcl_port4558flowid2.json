@@ -6,6 +6,7 @@
     "myBpEchoServiceId": 2047,
     "myCustodialSsp": "unused_custodial_ssp",
     "myCustodialServiceId": 0,
+    "mySchedulerServiceId": 100,
     "isAcsAware": true,
     "acsMaxFillsPerAcsPacket": 100,
     "acsSendPeriodMilliseconds": 1000,

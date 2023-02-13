@@ -511,7 +511,7 @@ bool Scheduler::Impl::SendBundle(const uint8_t* payloadData, const uint64_t payl
     Bpv7CbhePrimaryBlock& primary = bv.m_primaryBlockView.header;
     //primary.SetZero();
     primary.m_bundleProcessingControlFlags = BPV7_BUNDLEFLAG::NOFRAGMENT;  //All BP endpoints identified by ipn-scheme endpoint IDs are singleton endpoints.
-    primary.m_sourceNodeId.Set(m_hdtnConfig.m_myNodeId, 100);
+    primary.m_sourceNodeId.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_mySchedulerServiceId);
     primary.m_destinationEid = finalDestEid;
     primary.m_reportToEid.Set(0, 0);
     primary.m_creationTimestamp.SetTimeFromNow();
