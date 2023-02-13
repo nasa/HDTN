@@ -274,6 +274,15 @@ void DirectoryScanner::OnDirectoryChangeEvent(const boost::system::error_code& e
                     }
                 }
             }
+            else if (boost::filesystem::is_regular_file(ev.path)) { //on linux, sometimes if you move a file into a directory it causes a rename event
+                if (recursionDepthRelative > m_recurseDirectoriesDepth) {
+                    //don't add a file that is too deep (this behavior was noticed on certain linux distros)
+                    //std::cout << "EVENT SKIPFILE depth=" << recursionDepthRelative << " p=" << relPath << "\n";
+                }
+                else {
+                    TryAddNewFile(ev.path);
+                }
+            }
         }
         m_dirMonitor.async_monitor(boost::bind(&DirectoryScanner::OnDirectoryChangeEvent, this, boost::placeholders::_1, boost::placeholders::_2));
     }
