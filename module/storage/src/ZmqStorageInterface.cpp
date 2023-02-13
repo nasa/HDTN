@@ -200,8 +200,9 @@ void ZmqStorageInterface::Impl::Stop() {
         try {
             m_threadPtr->join();
             m_threadPtr.reset();
-        } catch (boost::thread_resource_error &) {
-            LOG_ERROR(subprocess) << "error stopping Storage thread";
+        }
+        catch (boost::thread_resource_error &e) {
+            LOG_ERROR(subprocess) << "error stopping Storage thread: " << e.what();
         }
     }
 }

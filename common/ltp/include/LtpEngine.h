@@ -19,7 +19,6 @@
 #ifndef LTP_ENGINE_H
 #define LTP_ENGINE_H 1
 
-#include <boost/random/random_device.hpp>
 #include <boost/thread.hpp>
 #include "LtpFragmentSet.h"
 #include "Ltp.h"
@@ -943,8 +942,6 @@ private:
     /// Session recreation preventer maximum number of session numbers to remember, if 0 this feature is disabled
     /// (see docs for LtpEngineConfig::rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable).
     const uint64_t M_MAX_RX_DATA_SEGMENT_HISTORY_OR_ZERO_DISABLE;
-    /// Random device
-    boost::random_device m_randomDevice;
 
     //session receiver functions to be passed in AS REFERENCES (note declared before m_mapSessionIdToSessionReceiver so destroyed after map)
     /// This receiver should be queued for deletion notice function

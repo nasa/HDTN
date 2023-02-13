@@ -63,6 +63,7 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
         std::min(M_MAX_SIMULTANEOUS_SESSIONS, diskPipelineLimit) : M_MAX_SIMULTANEOUS_SESSIONS),
     M_DISK_BUNDLE_ACK_CALLBACK_LIMIT(M_MAX_SIMULTANEOUS_SESSIONS - M_MAX_SESSIONS_IN_PIPELINE),
     M_MAX_RX_DATA_SEGMENT_HISTORY_OR_ZERO_DISABLE(ltpRxOrTxCfg.rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable),
+    m_userAssignedUuid(UINT64_MAX), //manually set later
     m_maxRetriesPerSerialNumber(ltpRxOrTxCfg.maxRetriesPerSerialNumber),
     m_workLtpEnginePtr(boost::make_unique<boost::asio::io_service::work>(m_ioServiceLtpEngine)),
     m_deadlineTimerForTimeManagerOfReportSerialNumbers(m_ioServiceLtpEngine),
@@ -254,11 +255,21 @@ LtpEngine::~LtpEngine() {
         << " numEventsTxRequestDiskWritesTooSlow=" << m_numEventsTransmissionRequestDiskWritesTooSlow;
 
     if (m_ioServiceLtpEngineThreadPtr) {
-        m_housekeepingTimer.cancel(); //keep here instead of Reset() so unit test can call Reset()
+        try {
+            m_housekeepingTimer.cancel(); //keep here instead of Reset() so unit test can call Reset()
+        }
+        catch (boost::system::system_error& e) {
+            LOG_ERROR(subprocess) << "unable to cancel housekeeping timer: " << e.what();
+        }
         boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::Reset, this));
-        m_workLtpEnginePtr.reset(); //erase the work object (destructor is thread safe) so that io_service thread will exit when it runs out of work 
-        m_ioServiceLtpEngineThreadPtr->join();
-        m_ioServiceLtpEngineThreadPtr.reset(); //delete it
+        m_workLtpEnginePtr.reset(); //erase the work object (destructor is thread safe) so that io_service thread will exit when it runs out of work
+        try {
+            m_ioServiceLtpEngineThreadPtr->join();
+            m_ioServiceLtpEngineThreadPtr.reset(); //delete it
+        }
+        catch (boost::thread_resource_error& e) {
+            LOG_ERROR(subprocess) << "unable to stop ioServiceLtpEngineThread: " << e.what();
+        }
     }
 }
 
@@ -867,12 +878,12 @@ void LtpEngine::DoTransmissionRequest(uint64_t destinationClientServiceId, uint6
     uint64_t randomSessionNumberGeneratedBySender;
     uint64_t randomInitialSenderCheckpointSerialNumber; //incremented by 1 for new
     if(M_FORCE_32_BIT_RANDOM_NUMBERS) {
-        randomSessionNumberGeneratedBySender = m_rng.GetRandomSession32(m_randomDevice);
-        randomInitialSenderCheckpointSerialNumber = m_rng.GetRandomSerialNumber32(m_randomDevice);
+        randomSessionNumberGeneratedBySender = m_rng.GetRandomSession32();
+        randomInitialSenderCheckpointSerialNumber = m_rng.GetRandomSerialNumber32();
     }
     else {
-        randomSessionNumberGeneratedBySender = m_rng.GetRandomSession64(m_randomDevice);
-        randomInitialSenderCheckpointSerialNumber = m_rng.GetRandomSerialNumber64(m_randomDevice);
+        randomSessionNumberGeneratedBySender = m_rng.GetRandomSession64();
+        randomInitialSenderCheckpointSerialNumber = m_rng.GetRandomSerialNumber64();
     }
     Ltp::session_id_t senderSessionId(M_THIS_ENGINE_ID, randomSessionNumberGeneratedBySender);
     std::pair<map_session_number_to_session_sender_t::iterator, bool> res = m_mapSessionNumberToSessionSender.emplace(
@@ -1392,7 +1403,7 @@ bool LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
                 return operationIsOngoing;
             }
         }
-        const uint64_t randomNextReportSegmentReportSerialNumber = (M_FORCE_32_BIT_RANDOM_NUMBERS) ? m_rng.GetRandomSerialNumber32(m_randomDevice) : m_rng.GetRandomSerialNumber64(m_randomDevice); //incremented by 1 for new
+        const uint64_t randomNextReportSegmentReportSerialNumber = (M_FORCE_32_BIT_RANDOM_NUMBERS) ? m_rng.GetRandomSerialNumber32() : m_rng.GetRandomSerialNumber64(); //incremented by 1 for new
         std::pair<map_session_id_to_session_receiver_t::iterator, bool> res = m_mapSessionIdToSessionReceiver.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(sessionId),

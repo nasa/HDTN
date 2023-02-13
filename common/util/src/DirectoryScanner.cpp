@@ -123,7 +123,14 @@ void DirectoryScanner::Clear() {
         m_dirMonitor.remove_directory_as_path(*it); //does not appear to throw
     }
     m_currentlyMonitoredDirectoryPaths.clear();
-    m_timerNewFileComplete.cancel();
+
+    try {
+        m_timerNewFileComplete.cancel();
+    }
+    catch (boost::system::system_error& e) {
+        LOG_ERROR(subprocess) << "unable to cancel m_timerNewFileComplete: " << e.what();
+    }
+    
 
     m_pathsOfFilesList.clear();
     m_currentFilePathIterator = m_pathsOfFilesList.end();
@@ -279,12 +286,13 @@ void DirectoryScanner::OnDirectoryChangeEvent(const boost::system::error_code& e
 }
 
 void DirectoryScanner::TryAddNewFile(const boost::filesystem::path& p) {
-    if (m_newFilePathsAddedSet.count(p) == 0) { //already added
+    if (m_newFilePathsAddedSet.count(p) == 0) { //if not yet already added
         const uintmax_t fileSize = boost::filesystem::file_size(p); //mark the initial file size, check it again to make sure it's the same after timer to make sure file is not growing
         std::pair<path_to_size_map_t::iterator, bool> retVal = m_currentlyPendingFilesToAddMap.emplace(p, filesize_queuecount_pair_t(fileSize, 1));
         filesize_queuecount_pair_t& filesizeQueuecountPairRef = retVal.first->second;
         const bool alreadyInQueue = (!retVal.second); //insertion didn't happen (already pending in the size change timer)
         filesizeQueuecountPairRef.second += alreadyInQueue; //invalidate previous event for this path if already in queue (sometimes a new file will trigger multiple directory events such as "added" then "modified")
+        filesizeQueuecountPairRef.first = fileSize; //make sure using latest fileSize
         const bool timerIsStopped = m_currentlyPendingFilesToAddTimerQueue.empty();
         m_currentlyPendingFilesToAddTimerQueue.emplace(boost::posix_time::microsec_clock::universal_time() + m_timeDurationToRecheckFileSize, retVal.first);
         if (timerIsStopped) {
