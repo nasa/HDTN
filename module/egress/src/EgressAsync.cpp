@@ -461,6 +461,29 @@ void Egress::Impl::ReadZmqThreadFunc() {
                     availableDestOpportunisticNodeIdsSet.erase(toEgressHeader.finalDestEid.nodeId);
                     continue;
                 }
+                else if ((itemIndex == 0) && (toEgressHeader.base.type == HDTN_MSGTYPE_BUNDLES_TO_SCHEDULER)) {
+                    LOG_INFO(subprocess) << "forwarding bundle to scheduler";
+                    zmq::message_t zmqMessageBundleToScheduler;
+                    //message guaranteed to be there due to the zmq::send_flags::sndmore
+                    if (!firstTwoSockets[itemIndex]->recv(zmqMessageBundleToScheduler, zmq::recv_flags::none)) {
+                        LOG_ERROR(subprocess) << "error receiving zmqMessageBundleToScheduler";
+                    }
+                    else {
+                        hdtn::LinkStatusHdr linkStatusMsg;
+                        linkStatusMsg.base.type = HDTN_MSGTYPE_BUNDLES_TO_SCHEDULER;
+                        while (m_running && !m_zmqPushSock_boundEgressToConnectingSchedulerPtr->send(
+                            zmq::const_buffer(&linkStatusMsg, sizeof(linkStatusMsg)), zmq::send_flags::sndmore | zmq::send_flags::dontwait))
+                        {
+                            LOG_INFO(subprocess) << "waiting for scheduler to become available to send HDTN_MSGTYPE_BUNDLES_TO_SCHEDULER header";
+                            boost::this_thread::sleep(boost::posix_time::seconds(1));
+                        }
+                        while (m_running && !m_zmqPushSock_boundEgressToConnectingSchedulerPtr->send(zmqMessageBundleToScheduler, zmq::send_flags::dontwait)) {
+                            LOG_INFO(subprocess) << "waiting for scheduler to become available to send it a scheduler-only bundle received by ingress";
+                            boost::this_thread::sleep(boost::posix_time::seconds(1));
+                        }
+                    }
+                    continue;
+                }
                 else if (toEgressHeader.base.type != HDTN_MSGTYPE_EGRESS) {
                     LOG_ERROR(subprocess) << "toEgressHeader.base.type != HDTN_MSGTYPE_EGRESS";
                     continue;

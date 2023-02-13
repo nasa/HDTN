@@ -33,6 +33,8 @@
 #include "Environment.h"
 #include "JsonSerializable.h"
 #include "ThreadNamer.h"
+#include "codec/BundleViewV6.h"
+#include "codec/BundleViewV7.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::scheduler;
 
@@ -425,6 +427,60 @@ void Scheduler::Impl::EgressEventsHandler() {
             boost::asio::post(m_ioService, boost::bind(&Scheduler::Impl::PopulateMapsFromAllOutductCapabilitiesTelemetry, this, std::move(aoct)));
     	    
             ++m_numOutductCapabilityTelemetriesReceived;
+        }
+    }
+    else if (linkStatusHdr.base.type == HDTN_MSGTYPE_BUNDLES_TO_SCHEDULER) {
+        zmq::message_t zmqMessageBundleToScheduler;
+        //message guaranteed to be there due to the zmq::send_flags::sndmore
+        if (!m_zmqPullSock_boundEgressToConnectingSchedulerPtr->recv(zmqMessageBundleToScheduler, zmq::recv_flags::none)) {
+            LOG_ERROR(subprocess) << "error receiving zmqMessageBundleToScheduler";
+        }
+        else {
+            uint8_t* bundleDataBegin = (uint8_t*)zmqMessageBundleToScheduler.data();
+            const std::size_t bundleCurrentSize = zmqMessageBundleToScheduler.size();
+            const uint8_t firstByte = bundleDataBegin[0];
+            const bool isBpVersion6 = (firstByte == 6);
+            const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
+            if (isBpVersion6) {
+                BundleViewV6 bv;
+                if (!bv.LoadBundle(bundleDataBegin, bundleCurrentSize)) {
+                    LOG_ERROR(subprocess) << "malformed bundle";
+                    return;
+                }
+                Bpv6CbhePrimaryBlock& primary = bv.m_primaryBlockView.header;
+
+                std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+                bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+                if (blocks.size() != 1) {
+                    LOG_ERROR(subprocess) << "payload block not found";
+                    return;
+                }
+                Bpv6CanonicalBlock& payloadBlock = *(blocks[0]->headerPtr);
+
+                LOG_INFO(subprocess) << "scheduler received Bpv6 bundle with payload size " << payloadBlock.m_blockTypeSpecificDataLength;
+                //if (!ProcessPayload(payloadBlock.m_blockTypeSpecificDataPtr, payloadBlock.m_blockTypeSpecificDataLength)) {
+                
+            }
+            else if (isBpVersion7) {
+                BundleViewV7 bv;
+                if (!bv.LoadBundle(bundleDataBegin, bundleCurrentSize)) { //invalid bundle
+                    LOG_ERROR(subprocess) << "malformed bpv7 bundle";
+                    return;
+                }
+                Bpv7CbhePrimaryBlock& primary = bv.m_primaryBlockView.header;
+
+                std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+                bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+
+                if (blocks.size() != 1) {
+                    LOG_ERROR(subprocess) << "payload block not found";
+                    return;
+                }
+
+                Bpv7CanonicalBlock& payloadBlock = *(blocks[0]->headerPtr);
+                LOG_INFO(subprocess) << "scheduler received Bpv7 bundle with payload size " << payloadBlock.m_dataLength;
+                //if (!ProcessPayload(payloadBlock.m_dataPtr, payloadBlock.m_dataLength)) {
+            }
         }
     }
 }

@@ -123,6 +123,7 @@ private:
     HdtnConfig m_hdtnConfig;
     cbhe_eid_t M_HDTN_EID_CUSTODY;
     cbhe_eid_t M_HDTN_EID_ECHO;
+    cbhe_eid_t M_HDTN_EID_TO_SCHEDULER_BUNDLES;
     boost::posix_time::time_duration M_MAX_INGRESS_BUNDLE_WAIT_ON_EGRESS_TIME_DURATION;
 
     std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
@@ -334,6 +335,8 @@ bool Ingress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOne
     M_HDTN_EID_CUSTODY.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_myCustodialServiceId);
 
     M_HDTN_EID_ECHO.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_myBpEchoServiceId);
+
+    M_HDTN_EID_TO_SCHEDULER_BUNDLES.Set(m_hdtnConfig.m_myNodeId, 100);
 
     M_MAX_INGRESS_BUNDLE_WAIT_ON_EGRESS_TIME_DURATION = boost::posix_time::milliseconds(m_hdtnConfig.m_maxIngressBundleWaitOnEgressMilliseconds);
 
@@ -836,6 +839,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
     cbhe_eid_t finalDestEid;
     bool requestsCustody = false;
     bool isAdminRecordForHdtnStorage = false;
+    bool isBundleForHdtnScheduler = false;
     const uint8_t firstByte = bundleDataBegin[0];
     const bool isBpVersion6 = (firstByte == 6);
     const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
@@ -853,6 +857,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             //admin records pertaining to this hdtn node must go to storage.. they signal a deletion from disk
             static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::ADMINRECORD;
             isAdminRecordForHdtnStorage = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == M_HDTN_EID_CUSTODY));
+            isBundleForHdtnScheduler = (finalDestEid == M_HDTN_EID_TO_SCHEDULER_BUNDLES);
             static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForEcho = BPV6_BUNDLEFLAG::NO_FLAGS_SET;
             //BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::NOFRAGMENT;
             const bool isEcho = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO));
@@ -893,6 +898,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             //admin records pertaining to this hdtn node must go to storage.. they signal a deletion from disk
             static constexpr BPV7_BUNDLEFLAG requiredPrimaryFlagsForAdminRecord = BPV7_BUNDLEFLAG::ADMINRECORD;
             isAdminRecordForHdtnStorage = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == M_HDTN_EID_CUSTODY));
+            isBundleForHdtnScheduler = (finalDestEid == M_HDTN_EID_TO_SCHEDULER_BUNDLES);
             static constexpr BPV7_BUNDLEFLAG requiredPrimaryFlagsForEcho = BPV7_BUNDLEFLAG::NO_FLAGS_SET;
             const bool isEcho = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO));
             if (!isAdminRecordForHdtnStorage) {
@@ -980,6 +986,26 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
         return false;
     }
 
+
+    if (isBundleForHdtnScheduler) { //forward to egress which will forward to scheduler
+        //force natural/64-bit alignment
+        hdtn::ToEgressHdr* toEgressHdr = new hdtn::ToEgressHdr();
+        zmq::message_t zmqMessageToEgressHdrWithDataStolen(toEgressHdr, sizeof(hdtn::ToEgressHdr), CustomCleanupToEgressHdr, toEgressHdr);
+        toEgressHdr->base.type = HDTN_MSGTYPE_BUNDLES_TO_SCHEDULER;
+        {
+            boost::mutex::scoped_lock lock(m_ingressToEgressZmqSocketMutex);
+            if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(zmqMessageToEgressHdrWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+                LOG_ERROR(subprocess) << "can't send toEgressHdr to egress";
+            }
+            else {
+                if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(*zmqMessageToSendUniquePtr), zmq::send_flags::dontwait)) {
+                    LOG_ERROR(subprocess) << "can't send bundle intended for scheduler to egress";
+                }
+                //else success
+            }
+        }
+        return true;
+    }
     /*
     Config file changes:
     remove: zmqMaxMessagesPerPath, zmqMaxMessageSizeBytes, zmqRegistrationServerAddress, and zmqRegistrationServerPortPath from hdtn global configs
