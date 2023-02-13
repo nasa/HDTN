@@ -255,11 +255,21 @@ LtpEngine::~LtpEngine() {
         << " numEventsTxRequestDiskWritesTooSlow=" << m_numEventsTransmissionRequestDiskWritesTooSlow;
 
     if (m_ioServiceLtpEngineThreadPtr) {
-        m_housekeepingTimer.cancel(); //keep here instead of Reset() so unit test can call Reset()
+        try {
+            m_housekeepingTimer.cancel(); //keep here instead of Reset() so unit test can call Reset()
+        }
+        catch (boost::system::system_error& e) {
+            LOG_ERROR(subprocess) << "unable to cancel housekeeping timer: " << e.what();
+        }
         boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::Reset, this));
-        m_workLtpEnginePtr.reset(); //erase the work object (destructor is thread safe) so that io_service thread will exit when it runs out of work 
-        m_ioServiceLtpEngineThreadPtr->join();
-        m_ioServiceLtpEngineThreadPtr.reset(); //delete it
+        m_workLtpEnginePtr.reset(); //erase the work object (destructor is thread safe) so that io_service thread will exit when it runs out of work
+        try {
+            m_ioServiceLtpEngineThreadPtr->join();
+            m_ioServiceLtpEngineThreadPtr.reset(); //delete it
+        }
+        catch (boost::thread_resource_error& e) {
+            LOG_ERROR(subprocess) << "unable to stop ioServiceLtpEngineThread: " << e.what();
+        }
     }
 }
 

@@ -123,7 +123,14 @@ void DirectoryScanner::Clear() {
         m_dirMonitor.remove_directory_as_path(*it); //does not appear to throw
     }
     m_currentlyMonitoredDirectoryPaths.clear();
-    m_timerNewFileComplete.cancel();
+
+    try {
+        m_timerNewFileComplete.cancel();
+    }
+    catch (boost::system::system_error& e) {
+        LOG_ERROR(subprocess) << "unable to cancel m_timerNewFileComplete: " << e.what();
+    }
+    
 
     m_pathsOfFilesList.clear();
     m_currentFilePathIterator = m_pathsOfFilesList.end();
