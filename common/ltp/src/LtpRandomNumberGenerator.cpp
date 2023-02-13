@@ -91,7 +91,10 @@ uint64_t LtpRandomNumberGenerator::Rng::GetReseedAdditionalEntropyCount() const 
     return m_reseedAdditionalEntropyCount;
 }
 
-LtpRandomNumberGenerator::LtpRandomNumberGenerator() : m_birthdayParadoxPreventer_incrementalPart_U16(1) {
+LtpRandomNumberGenerator::LtpRandomNumberGenerator() :
+    m_birthdayParadoxPreventer_incrementalPart_U16(1),
+    m_engineIndex(UINT8_MAX) //manually set later
+{
 
 }
 
