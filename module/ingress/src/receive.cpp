@@ -822,7 +822,7 @@ void Ingress::Impl::SchedulerEventHandler() {
         }
     }
     else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_BUNDLES_FROM_SCHEDULER) {
-        std::unique_ptr<zmq::message_t> zmqMessageBundleFromSchedulerPtr = std::make_unique<zmq::message_t>();
+        std::unique_ptr<zmq::message_t> zmqMessageBundleFromSchedulerPtr = boost::make_unique<zmq::message_t>();
         //message guaranteed to be there due to the zmq::send_flags::sndmore
         if (!m_zmqSubSock_boundSchedulerToConnectingIngressPtr->recv(*zmqMessageBundleFromSchedulerPtr, zmq::recv_flags::none)) {
             LOG_ERROR(subprocess) << "error receiving zmqMessageBundleToScheduler";
