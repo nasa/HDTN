@@ -38,6 +38,7 @@
 #define HDTN_MSGTYPE_STORAGE_ADD_OPPORTUNISTIC_LINK (0x0008)
 #define HDTN_MSGTYPE_STORAGE_REMOVE_OPPORTUNISTIC_LINK (0x0009)
 #define HDTN_MSGTYPE_BUNDLES_TO_SCHEDULER (0x000A)
+#define HDTN_MSGTYPE_BUNDLES_FROM_SCHEDULER (0x000B)
 
 // Egress Messages range is 0xE000 to 0xEAFF
 #define HDTN_MSGTYPE_ENOTIMPL (0xE000)  // convergence layer type not  // implemented
@@ -177,6 +178,10 @@ struct IreleaseChangeHdr {
     void SetSubscribeRouterOnly() {
         SetSubscribeAll();
         ((char*)&subscriptionBytes)[1] = 'b'; //"abaaaaaa"
+    }
+    void SetSubscribeRouterAndIngressOnly() {
+        SetSubscribeAll();
+        ((char*)&subscriptionBytes)[2] = 'b'; //"aabaaaaa"
     }
     void SetSubscribeEgressOnly() {
         SetSubscribeAll();

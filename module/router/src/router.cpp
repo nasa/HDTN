@@ -309,6 +309,13 @@ void Router::Impl::SchedulerEventsHandler() {
             
         }
     }
+    else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_BUNDLES_FROM_SCHEDULER) {
+        //ignore but must discard multi-part message
+        zmq::message_t zmqMessageDiscard;
+        if (!m_zmqSubSock_boundSchedulerToConnectingRouterPtr->recv(zmqMessageDiscard, zmq::recv_flags::none)) {
+            LOG_ERROR(subprocess) << "error discarding Bundle From Scheduler";
+        }
+    }
     else {
         LOG_ERROR(subprocess) << "[Router] unknown message type " << releaseChangeHdr.base.type;
     }

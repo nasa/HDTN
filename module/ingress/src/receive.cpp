@@ -821,6 +821,18 @@ void Ingress::Impl::SchedulerEventHandler() {
             LOG_ERROR(subprocess) << "link down message received with out of bounds outductArrayIndex " << releaseChangeHdr.outductArrayIndex;
         }
     }
+    else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_BUNDLES_FROM_SCHEDULER) {
+        std::unique_ptr<zmq::message_t> zmqMessageBundleFromSchedulerPtr = std::make_unique<zmq::message_t>();
+        //message guaranteed to be there due to the zmq::send_flags::sndmore
+        if (!m_zmqSubSock_boundSchedulerToConnectingIngressPtr->recv(*zmqMessageBundleFromSchedulerPtr, zmq::recv_flags::none)) {
+            LOG_ERROR(subprocess) << "error receiving zmqMessageBundleToScheduler";
+        }
+        else {
+            static padded_vector_uint8_t unusedPaddedVecMessage;
+            ProcessPaddedData((uint8_t*)zmqMessageBundleFromSchedulerPtr->data(), zmqMessageBundleFromSchedulerPtr->size(),
+                zmqMessageBundleFromSchedulerPtr, unusedPaddedVecMessage, true, false); //last param => does not need processing because it came from scheduler
+        }
+    }
     else {
         LOG_ERROR(subprocess) << "unknown IreleaseChangeHdr message type " << releaseChangeHdr.base.type;
     }
