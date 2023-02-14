@@ -56,6 +56,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         SignalHandler sigHandler(boost::bind(&HdtnOneProcessRunner::MonitorExitKeypressThreadFunction, this));
 
         HdtnConfig_ptr hdtnConfig;
+        HdtnDistributedConfig unusedHdtnDistributedConfig;
         bool usingUnixTimestamp;
         bool useMgr;
         boost::filesystem::path contactPlanFilePath;
@@ -137,13 +138,13 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
 
         LOG_INFO(subprocess) << "starting Scheduler..";
         std::unique_ptr<Scheduler> schedulerPtr = boost::make_unique<Scheduler>();
-        if (!schedulerPtr->Init(*hdtnConfig, contactPlanFilePath, usingUnixTimestamp, hdtnOneProcessZmqInprocContextPtr.get())) {
+        if (!schedulerPtr->Init(*hdtnConfig, unusedHdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp, hdtnOneProcessZmqInprocContextPtr.get())) {
             return false;
         }
 
         LOG_INFO(subprocess) << "starting Router..";
         std::unique_ptr<Router> routerPtr = boost::make_unique<Router>();
-        if (!routerPtr->Init(*hdtnConfig, contactPlanFilePath, usingUnixTimestamp, useMgr, hdtnOneProcessZmqInprocContextPtr.get())) {
+        if (!routerPtr->Init(*hdtnConfig, unusedHdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp, useMgr, hdtnOneProcessZmqInprocContextPtr.get())) {
             return false;
         }
 
@@ -151,19 +152,19 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         //No need to create Egress, Ingress, and Storage on heap with unique_ptr to prevent stack overflows because they use the pimpl pattern
         //However, the unique_ptr reset() function is useful for isolating destructor hangs on exit
         std::unique_ptr<hdtn::Egress> egressPtr = boost::make_unique<hdtn::Egress>();
-        if (!egressPtr->Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
+        if (!egressPtr->Init(*hdtnConfig, unusedHdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
             return false;
         }
 
         LOG_INFO(subprocess) << "starting Ingress..";
         std::unique_ptr<hdtn::Ingress> ingressPtr = boost::make_unique<hdtn::Ingress>();
-        if (!ingressPtr->Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
+        if (!ingressPtr->Init(*hdtnConfig, unusedHdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
             return false;
         }
 
         LOG_INFO(subprocess) << "starting Storage..";
         std::unique_ptr<ZmqStorageInterface> storagePtr = boost::make_unique<ZmqStorageInterface>();
-        if (!storagePtr->Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
+        if (!storagePtr->Init(*hdtnConfig, unusedHdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
             return false;
         }
 

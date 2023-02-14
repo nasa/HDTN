@@ -23,6 +23,7 @@
 #include "zmq.hpp"
 #include <memory>
 #include "HdtnConfig.h"
+#include "HdtnDistributedConfig.h"
 #include <boost/core/noncopyable.hpp>
 #include <boost/filesystem.hpp>
 #include "router_lib_export.h"
@@ -34,6 +35,7 @@ public:
     ROUTER_LIB_EXPORT ~Router();
     ROUTER_LIB_EXPORT void Stop();
     ROUTER_LIB_EXPORT bool Init(const HdtnConfig& hdtnConfig,
+        const HdtnDistributedConfig& hdtnDistributedConfig,
         const boost::filesystem::path& contactPlanFilePath,
         bool usingUnixTimestamp,
         bool useMgr,

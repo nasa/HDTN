@@ -41,6 +41,7 @@ public:
     ~Impl();
     void Stop();
     bool Init(const HdtnConfig& hdtnConfig,
+        const HdtnDistributedConfig& hdtnDistributedConfig,
         const boost::filesystem::path& contactPlanFilePath,
         bool usingUnixTimestamp,
         bool useMgr,
@@ -98,12 +99,13 @@ Router::~Router() {
 }
 
 bool Router::Init(const HdtnConfig& hdtnConfig,
+    const HdtnDistributedConfig& hdtnDistributedConfig,
     const boost::filesystem::path& contactPlanFilePath,
     bool usingUnixTimestamp,
     bool useMgr,
     zmq::context_t* hdtnOneProcessZmqInprocContextPtr)
 {
-    return m_pimpl->Init(hdtnConfig, contactPlanFilePath, usingUnixTimestamp, useMgr, hdtnOneProcessZmqInprocContextPtr);
+    return m_pimpl->Init(hdtnConfig, hdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp, useMgr, hdtnOneProcessZmqInprocContextPtr);
 }
 
 void Router::Stop() {
@@ -123,6 +125,7 @@ void Router::Impl::Stop() {
 }
 
 bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
+    const HdtnDistributedConfig& hdtnDistributedConfig,
     const boost::filesystem::path& contactPlanFilePath,
     bool usingUnixTimestamp,
     bool useMgr,

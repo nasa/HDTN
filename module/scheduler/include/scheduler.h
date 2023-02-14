@@ -29,6 +29,7 @@
 #include "zmq.hpp"
 #include <memory>
 #include "HdtnConfig.h"
+#include "HdtnDistributedConfig.h"
 #include <boost/core/noncopyable.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -41,6 +42,7 @@ public:
     SCHEDULER_LIB_EXPORT ~Scheduler();
     SCHEDULER_LIB_EXPORT void Stop();
     SCHEDULER_LIB_EXPORT bool Init(const HdtnConfig& hdtnConfig,
+        const HdtnDistributedConfig& hdtnDistributedConfig,
         const boost::filesystem::path& contactPlanFilePath,
         bool usingUnixTimestamp,
         zmq::context_t* hdtnOneProcessZmqInprocContextPtr = NULL);

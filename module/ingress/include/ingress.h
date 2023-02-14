@@ -25,6 +25,7 @@
 #include "zmq.hpp"
 #include <memory>
 #include "HdtnConfig.h"
+#include "HdtnDistributedConfig.h"
 #include <boost/atomic.hpp>
 #include <boost/core/noncopyable.hpp>
 #include "ingress_async_lib_export.h"
@@ -38,7 +39,9 @@ public:
     INGRESS_ASYNC_LIB_EXPORT Ingress();  // initialize message buffers
     INGRESS_ASYNC_LIB_EXPORT ~Ingress();
     INGRESS_ASYNC_LIB_EXPORT void Stop();
-    INGRESS_ASYNC_LIB_EXPORT bool Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
+    INGRESS_ASYNC_LIB_EXPORT bool Init(const HdtnConfig& hdtnConfig,
+        const HdtnDistributedConfig& hdtnDistributedConfig,
+        zmq::context_t* hdtnOneProcessZmqInprocContextPtr = NULL);
 private:
 
     // Internal implementation class

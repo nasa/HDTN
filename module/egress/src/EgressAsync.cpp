@@ -39,7 +39,7 @@ struct Egress::Impl : private boost::noncopyable {
     Impl();
     ~Impl();
     void Stop();
-    bool Init(const HdtnConfig& hdtnConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
+    bool Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
 
 private:
     void RouterEventHandler();
@@ -126,10 +126,10 @@ void Egress::Impl::Stop() {
     }
 }
 
-bool Egress::Init(const HdtnConfig& hdtnConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr) {
-    return m_pimpl->Init(hdtnConfig, hdtnOneProcessZmqInprocContextPtr);
+bool Egress::Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr) {
+    return m_pimpl->Init(hdtnConfig, hdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr);
 }
-bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
+bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
     
     if (m_running) {
         LOG_ERROR(subprocess) << "Egress::Init called while Egress is already running";

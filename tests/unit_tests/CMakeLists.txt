@@ -43,6 +43,7 @@ add_executable(unit-tests
 	../../common/config/test/TestOutductsConfig.cpp
 	../../common/config/test/TestStorageConfig.cpp
 	../../common/config/test/TestHdtnConfig.cpp
+	../../common/config/test/TestHdtnDistributedConfig.cpp
 	../../common/cgr/test/TestDijkstra.cpp
 	../../common/logger/unit_tests/LoggerTests.cpp
 	../../common/stats_logger/unit_tests/StatsLoggerTests.cpp

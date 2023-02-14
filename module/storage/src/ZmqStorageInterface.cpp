@@ -96,7 +96,7 @@ struct ZmqStorageInterface::Impl : private boost::noncopyable {
     Impl();
     ~Impl();
     void Stop();
-    bool Init(const HdtnConfig& hdtnConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
+    bool Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
     std::size_t GetCurrentNumberOfBundlesDeletedFromStorage();
 
 private:
@@ -207,10 +207,10 @@ void ZmqStorageInterface::Impl::Stop() {
     }
 }
 
-bool ZmqStorageInterface::Init(const HdtnConfig& hdtnConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr) {
-    return m_pimpl->Init(hdtnConfig, hdtnOneProcessZmqInprocContextPtr);
+bool ZmqStorageInterface::Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr) {
+    return m_pimpl->Init(hdtnConfig, hdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr);
 }
-bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
+bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
 
     if (m_running) {
         LOG_ERROR(subprocess) << "ZmqStorageInterface::Init called while ZmqStorageInterface is already running";

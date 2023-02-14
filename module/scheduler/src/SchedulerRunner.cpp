@@ -40,6 +40,7 @@ bool SchedulerRunner::Run(int argc, const char* const argv[], volatile bool & ru
         m_runningFromSigHandler = true;
         SignalHandler sigHandler(boost::bind(&SchedulerRunner::MonitorExitKeypressThreadFunction, this));
         HdtnConfig_ptr hdtnConfig;
+        HdtnDistributedConfig_ptr hdtnDistributedConfig;
         bool usingUnixTimestamp;
         boost::filesystem::path contactPlanFilePath;
 
@@ -51,6 +52,7 @@ bool SchedulerRunner::Run(int argc, const char* const argv[], volatile bool & ru
                 ("help", "Produce help message.")
                 ("use-unix-timestamp", "Use unix timestamp in contact plan.")
                 ("hdtn-config-file", opt::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
+                ("hdtn-distributed-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn_distributed.json"), "HDTN Distributed Mode Configuration File.")
                 ("contact-plan-file", opt::value<boost::filesystem::path>()->default_value(DEFAULT_FILE), "Contact Plan file that scheduler relies on for link availability.");
 
             opt::variables_map vm;
@@ -67,6 +69,13 @@ bool SchedulerRunner::Run(int argc, const char* const argv[], volatile bool & ru
             hdtnConfig = HdtnConfig::CreateFromJsonFilePath(configFileName);
             if (!hdtnConfig) {
                 LOG_ERROR(subprocess) << "error loading config file: " << configFileName;
+                return false;
+            }
+
+            const boost::filesystem::path distributedConfigFileName = vm["hdtn-distributed-config-file"].as<boost::filesystem::path>();
+            hdtnDistributedConfig = HdtnDistributedConfig::CreateFromJsonFilePath(distributedConfigFileName);
+            if (!hdtnDistributedConfig) {
+                LOG_ERROR(subprocess) << "error loading HDTN distributed config file: " << distributedConfigFileName;
                 return false;
             }
 
@@ -106,7 +115,7 @@ bool SchedulerRunner::Run(int argc, const char* const argv[], volatile bool & ru
         LOG_INFO(subprocess) << "Starting scheduler..";
         
         Scheduler scheduler;
-        if (!scheduler.Init(*hdtnConfig, contactPlanFilePath, usingUnixTimestamp)) {
+        if (!scheduler.Init(*hdtnConfig, *hdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp)) {
             return false;
         }
 

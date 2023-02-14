@@ -3,6 +3,7 @@ add_library(config_lib
 	src/OutductsConfig.cpp
     src/StorageConfig.cpp
 	src/HdtnConfig.cpp
+	src/HdtnDistributedConfig.cpp
 )
 GENERATE_EXPORT_HEADER(config_lib)
 get_target_property(target_type config_lib TYPE)
@@ -12,6 +13,7 @@ if (target_type STREQUAL SHARED_LIBRARY)
 endif()
 set(MY_PUBLIC_HEADERS
     include/HdtnConfig.h
+	include/HdtnDistributedConfig.h
 	include/InductsConfig.h
 	include/OutductsConfig.h
 	include/StorageConfig.h

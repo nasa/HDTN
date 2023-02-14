@@ -51,7 +51,7 @@ struct Ingress::Impl : private boost::noncopyable {
     Impl();
     ~Impl();
     void Stop();
-    bool Init(const HdtnConfig& hdtnConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
+    bool Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
 
 private:
     void ReadZmqAcksThreadFunc();
@@ -317,10 +317,10 @@ void Ingress::Impl::Stop() {
     LOG_DEBUG(subprocess) << "m_eventsTooManyInAllCutThroughQueues: " << m_eventsTooManyInAllCutThroughQueues;
 }
 
-bool Ingress::Init(const HdtnConfig& hdtnConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr) {
-    return m_pimpl->Init(hdtnConfig, hdtnOneProcessZmqInprocContextPtr);
+bool Ingress::Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr) {
+    return m_pimpl->Init(hdtnConfig, hdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr);
 }
-bool Ingress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
+bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
 
     if (m_running) {
         LOG_ERROR(subprocess) << "Ingress::Init called while Ingress is already running";

@@ -69,6 +69,7 @@ public:
     ~Impl();
     void Stop();
     bool Init(const HdtnConfig& hdtnConfig,
+        const HdtnDistributedConfig& hdtnDistributedConfig,
         const boost::filesystem::path& contactPlanFilePath,
         bool usingUnixTimestamp,
         zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
@@ -187,11 +188,12 @@ Scheduler::~Scheduler() {
 }
 
 bool Scheduler::Init(const HdtnConfig& hdtnConfig,
+    const HdtnDistributedConfig& hdtnDistributedConfig,
     const boost::filesystem::path& contactPlanFilePath,
     bool usingUnixTimestamp,
     zmq::context_t* hdtnOneProcessZmqInprocContextPtr)
 {
-    return m_pimpl->Init(hdtnConfig, contactPlanFilePath, usingUnixTimestamp, hdtnOneProcessZmqInprocContextPtr);
+    return m_pimpl->Init(hdtnConfig, hdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp, hdtnOneProcessZmqInprocContextPtr);
 }
 
 void Scheduler::Stop() {
@@ -235,6 +237,7 @@ void Scheduler::Impl::Stop() {
 }
 
 bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
+    const HdtnDistributedConfig& hdtnDistributedConfig,
     const boost::filesystem::path& contactPlanFilePath,
     bool usingUnixTimestamp,
     zmq::context_t* hdtnOneProcessZmqInprocContextPtr)
