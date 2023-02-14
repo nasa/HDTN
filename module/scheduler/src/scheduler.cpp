@@ -204,7 +204,7 @@ void Scheduler::Impl::Stop() {
         try {
             m_threadZmqAckReaderPtr->join(); 
             m_threadZmqAckReaderPtr.reset(); //delete it
-        } catch (boost::thread_resource_error &e) {
+        } catch (const boost::thread_resource_error&) {
             LOG_ERROR(subprocess) << "error stopping Scheduler thread";
         }
     }
@@ -224,7 +224,7 @@ void Scheduler::Impl::Stop() {
 	    m_ioServiceThreadPtr->join();
             m_ioServiceThreadPtr.reset(); //delete it
     
-	} catch (boost::thread_resource_error &e) {
+	} catch (const boost::thread_resource_error&) {
             LOG_ERROR(subprocess) << "error stopping io_service";
         }
     }
