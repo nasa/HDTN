@@ -193,11 +193,14 @@ void Scheduler::Stop() {
 }
 void Scheduler::Impl::Stop() {
     m_running = false; //thread stopping criteria
-    if (m_threadZmqAckReaderPtr) {
+    
+    try {
         m_threadZmqAckReaderPtr->join();
         m_threadZmqAckReaderPtr.reset(); //delete it
+    } catch (boost::thread_resource_error &e) {
+        LOG_ERROR(subprocess) << "error stopping Scheduler thread";
     }
-
+    
     m_contactPlanTimer.cancel();
 
     m_workPtr.reset();

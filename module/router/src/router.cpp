@@ -79,7 +79,13 @@ boost::filesystem::path Router::GetFullyQualifiedFilename(const boost::filesyste
     return (Environment::GetPathHdtnSourceRoot() / "module/scheduler/src/") / filename;
 }
 
-Router::Impl::Impl() : m_running(false), m_computedInitialOptimalRoutes(false), m_latestTime(0) {}
+Router::Impl::Impl() : 
+    m_running(false), 
+    m_computedInitialOptimalRoutes(false), 
+    m_latestTime(0), 
+    m_workerThreadStartupInProgress(false), 
+    m_usingUnixTimestamp(false), 
+    m_usingMGR(false) {}
 
 Router::Impl::~Impl() {
     Stop();
