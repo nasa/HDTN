@@ -76,7 +76,7 @@ public:
     uint16_t m_zmqConnectingEgressToBoundIngressPortPath;
 
     //push sock from egress to scheduler
-    uint16_t m_zmqConnectingEgressToBoundSchedulerPortPath;
+    uint16_t m_zmqBoundEgressToConnectingSchedulerPortPath;
 
     //push sock from egress to ingress for TCPCL bundles received by egress
     uint16_t m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath;

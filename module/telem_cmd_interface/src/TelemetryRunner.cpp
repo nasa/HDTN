@@ -217,7 +217,8 @@ void TelemetryRunner::Impl::OnNewTelemetry(uint8_t* buffer, uint64_t bufferSize)
         std::vector<std::unique_ptr<Telemetry_t>> telemList;
         try {
             telemList = TelemetryFactory::DeserializeFromLittleEndian(buffer, bufferSize);
-        } catch (std::exception& e) {
+        }
+        catch (std::exception& e) {
             LOG_ERROR(subprocess) << e.what();
             return;
         }
@@ -243,7 +244,8 @@ void TelemetryRunner::Impl::Stop()
     }
     try {
         m_threadPtr->join();
-    } catch (std::exception& e) {
+    }
+    catch (std::exception& e) {
         LOG_WARNING(subprocess) << e.what();
     }
     m_threadPtr.reset(); // delete it

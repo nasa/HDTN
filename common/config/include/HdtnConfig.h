@@ -82,28 +82,8 @@ public:
     bool m_bufferRxToStorageOnLinkUpSaturation;
     uint64_t m_maxLtpReceiveUdpPacketSizeBytes;
 
-    std::string m_zmqIngressAddress;
-    std::string m_zmqEgressAddress;
-    std::string m_zmqStorageAddress;
-    std::string m_zmqSchedulerAddress;
-    std::string m_zmqRouterAddress;
-    uint16_t m_zmqBoundIngressToConnectingEgressPortPath; //#define HDTN_BOUND_INGRESS_TO_CONNECTING_EGRESS_PATH "tcp://127.0.0.1:10100"
-    uint16_t m_zmqConnectingEgressToBoundIngressPortPath; //#define HDTN_CONNECTING_EGRESS_TO_BOUND_INGRESS_PATH "tcp://127.0.0.1:10160"
-    uint16_t m_zmqConnectingEgressToBoundSchedulerPortPath; //#define HDTN_CONNECTING_EGRESS_TO_BOUND_SCHEDULER_PATH "tcp://127.0.0.1:10162"
-
-    uint16_t m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath; //"tcp://127.0.0.1:10161"
-    //push-pull from ingress to storage 
-    //#define HDTN_STORAGE_PATH "tcp://0.0.0.0:10110"
-    uint16_t m_zmqBoundIngressToConnectingStoragePortPath; //#define HDTN_BOUND_INGRESS_TO_CONNECTING_STORAGE_PATH "tcp://127.0.0.1:10110"
-    uint16_t m_zmqConnectingStorageToBoundIngressPortPath; //#define HDTN_CONNECTING_STORAGE_TO_BOUND_INGRESS_PATH "tcp://127.0.0.1:10150"
-//push-pull from storage to release 
-//#define HDTN_RELEASE_PATH "tcp://0.0.0.0:10120"
-    uint16_t m_zmqConnectingStorageToBoundEgressPortPath; //#define HDTN_CONNECTING_STORAGE_TO_BOUND_EGRESS_PATH "tcp://127.0.0.1:10120"
-    uint16_t m_zmqBoundEgressToConnectingStoragePortPath; //#define HDTN_BOUND_EGRESS_TO_CONNECTING_STORAGE_PATH "tcp://127.0.0.1:10130"
-//pub-sub from scheduler to modules
-//#define HDTN_SCHEDULER_PATH "tcp://0.0.0.0:10200"
-    uint16_t m_zmqBoundSchedulerPubSubPortPath; //#define HDTN_BOUND_SCHEDULER_PUBSUB_PATH "tcp://127.0.0.1:10200"
-    uint16_t m_zmqBoundRouterPubSubPortPath; //#define HDTN_BOUND_ROUTER_PUBSUB_PATH "tcp://127.0.0.1:10210"
+    //pub-sub from scheduler to all modules (defined in HdtnConfig as the TCP socket is used by hdtn-one-process)
+    uint16_t m_zmqBoundSchedulerPubSubPortPath;
 
     InductsConfig m_inductsConfig;
     OutductsConfig m_outductsConfig;

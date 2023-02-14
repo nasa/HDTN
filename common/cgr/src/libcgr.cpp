@@ -308,7 +308,8 @@ static uint64_t GetRateBpsFromPtree(const boost::property_tree::ptree::value_typ
     // First, attempt to get "rateBitsPerSec"
     try {
         return eventPt.second.get<uint64_t>("rateBitsPerSec");
-    } catch (const boost::property_tree::ptree_error&) {
+    }
+    catch (const boost::property_tree::ptree_error&) {
         LOG_WARNING(subprocess) << "rateBitsPerSec not defined in contact plan";
     }
 
@@ -317,8 +318,8 @@ static uint64_t GetRateBpsFromPtree(const boost::property_tree::ptree::value_typ
         const uint64_t rateMbps = eventPt.second.get<uint64_t>("rate");
         LOG_WARNING(subprocess) << "[DEPRECATED] rate field in contact plan. Use 'rateBitsPerSec'";
         return rateMbps * 1000000;
-    } catch(const boost::property_tree::ptree_error)
-    {
+    }
+    catch(const boost::property_tree::ptree_error&) {
         LOG_WARNING(subprocess) << "failed to find rateBbps or rate in contact plan. Using default.";
     }
     return 0;
