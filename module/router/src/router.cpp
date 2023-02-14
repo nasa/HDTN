@@ -87,18 +87,15 @@ Router::Impl::Impl() :
     m_usingUnixTimestamp(false), 
     m_usingMGR(false) {}
 
+Router::Router() : m_pimpl(boost::make_unique<Router::Impl>()) {}
+    
 Router::Impl::~Impl() {
     Stop();
 }
 
-Router::Router() : m_pimpl(boost::make_unique<Router::Impl>()) {}
-
 Router::~Router() {
     Stop();
 }
-
-
-
 
 bool Router::Init(const HdtnConfig& hdtnConfig,
     const boost::filesystem::path& contactPlanFilePath,
@@ -114,9 +111,14 @@ void Router::Stop() {
 }
 void Router::Impl::Stop() {
     m_running = false; //thread stopping criteria
-    if (m_threadZmqAckReaderPtr) {
-        m_threadZmqAckReaderPtr->join();
-        m_threadZmqAckReaderPtr.reset(); //delete it
+    
+    if (m_threadZmqAckReaderPtr) { 
+        try {
+            m_threadZmqAckReaderPtr->join();
+            m_threadZmqAckReaderPtr.reset(); //delete it
+        } catch (boost::thread_resource_error &e) {
+            LOG_ERROR(subprocess) << "error stopping Router thread";
+        }
     }
 }
 
@@ -136,10 +138,8 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
     m_usingUnixTimestamp = usingUnixTimestamp;
     m_usingMGR = useMgr;
     
-
     // socket for receiving events from scheduler
     m_zmqContextPtr = boost::make_unique<zmq::context_t>();
-
 
     try {
         if (hdtnOneProcessZmqInprocContextPtr) {
