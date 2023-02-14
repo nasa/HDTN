@@ -313,7 +313,7 @@ void Router::Impl::SchedulerEventsHandler() {
         //ignore but must discard multi-part message
         zmq::message_t zmqMessageDiscard;
         if (!m_zmqSubSock_boundSchedulerToConnectingRouterPtr->recv(zmqMessageDiscard, zmq::recv_flags::none)) {
-            LOG_ERROR(subprocess) << "error discarding Bundle From Scheduler";
+            LOG_ERROR(subprocess) << "Error discarding Bundle From Scheduler Message";
         }
     }
     else {
