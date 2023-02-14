@@ -41,12 +41,13 @@ BOOST_AUTO_TEST_CASE(HdtnConfigTestCase)
     BOOST_REQUIRE(s1);
     hdtnConfig.m_storageConfig = std::move(*s1);
 
-    BOOST_REQUIRE(hdtnConfig.ToJsonFile(jsonRootDir / "hdtn.json"));
+    const boost::filesystem::path jsonFileToCreate = jsonRootDir / "hdtn.json";
+    BOOST_REQUIRE(hdtnConfig.ToJsonFile(jsonFileToCreate));
     std::string hdtnJson = hdtnConfig.ToJson();
     HdtnConfig_ptr hdtnConfigFromJsonPtr = HdtnConfig::CreateFromJson(hdtnJson);
     BOOST_REQUIRE(hdtnConfigFromJsonPtr);
     BOOST_REQUIRE(hdtnConfig == *hdtnConfigFromJsonPtr);
     BOOST_REQUIRE_EQUAL(hdtnJson, hdtnConfigFromJsonPtr->ToJson());
-    
+    BOOST_REQUIRE(boost::filesystem::remove(jsonFileToCreate));
 }
 

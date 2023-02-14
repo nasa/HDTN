@@ -279,7 +279,8 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDi
 
         //from telemetry socket
         m_zmqRepSock_connectingTelemToFromBoundStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::rep);
-        const std::string bind_connectingTelemToFromBoundStoragePath("tcp://*:10303");
+        const std::string bind_connectingTelemToFromBoundStoragePath(
+            std::string("tcp://*:") + boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingTelemToFromBoundStoragePortPath));
 
         try {
             m_zmqPushSock_connectingStorageToBoundEgressPtr->connect(connect_connectingStorageToBoundEgressPath); // egress should bind

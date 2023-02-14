@@ -395,7 +395,8 @@ bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConf
 
             //from telemetry socket
             m_zmqRepSock_connectingTelemToFromBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::rep);
-            const std::string bind_connectingTelemToFromBoundIngressPath("tcp://*:10301");
+            const std::string bind_connectingTelemToFromBoundIngressPath(
+                std::string("tcp://*:") + boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingTelemToFromBoundIngressPortPath));
             m_zmqRepSock_connectingTelemToFromBoundIngressPtr->bind(bind_connectingTelemToFromBoundIngressPath);
                 
         }

@@ -60,7 +60,7 @@ class TelemetryRunner::Impl : private boost::noncopyable {
         void Stop();
 
     private:
-        void ThreadFunc(zmq::context_t * inprocContextPtr);
+        void ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDistributedConfigPtr, zmq::context_t * inprocContextPtr);
         void OnNewTelemetry(uint8_t* buffer, uint64_t bufferSize);
 
         volatile bool m_running;
@@ -106,6 +106,10 @@ TelemetryRunner::Impl::Impl()
 
 bool TelemetryRunner::Impl::Init(zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options)
 {
+    if ((inprocContextPtr == NULL) && (!options.m_hdtnDistributedConfigPtr)) {
+        LOG_ERROR(subprocess) << "Error in TelemetryRunner Init: using distributed mode but Hdtn Distributed Config is invalid";
+        return false;
+    }
 #ifdef USE_WEB_INTERFACE
     m_websocketServerPtr = boost::make_unique<WebsocketServer>();
     m_websocketServerPtr->Init(options.m_guiDocumentRoot, options.m_guiPortNumber);
@@ -117,11 +121,11 @@ bool TelemetryRunner::Impl::Init(zmq::context_t *inprocContextPtr, TelemetryRunn
 
     m_running = true;
     m_threadPtr = boost::make_unique<boost::thread>(
-        boost::bind(&TelemetryRunner::Impl::ThreadFunc, this, inprocContextPtr)); // create and start the worker thread
+        boost::bind(&TelemetryRunner::Impl::ThreadFunc, this, options.m_hdtnDistributedConfigPtr, inprocContextPtr)); // create and start the worker thread
     return true;
 }
 
-void TelemetryRunner::Impl::ThreadFunc(zmq::context_t *inprocContextPtr)
+void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDistributedConfigPtr, zmq::context_t *inprocContextPtr)
 {
     ThreadNamer::SetThisThreadName("TelemetryRunner");
     // Create and initialize connections
@@ -142,9 +146,25 @@ void TelemetryRunner::Impl::ThreadFunc(zmq::context_t *inprocContextPtr)
                 inprocContextPtr);
         }
         else {
-            ingressConnection = boost::make_unique<TelemetryConnection>("tcp://localhost:10301", nullptr);
-            egressConnection = boost::make_unique<TelemetryConnection>("tcp://localhost:10302", nullptr);
-            storageConnection = boost::make_unique<TelemetryConnection>("tcp://localhost:10303", nullptr);
+            const std::string connect_connectingTelemToFromBoundIngressPath(
+                std::string("tcp://") +
+                hdtnDistributedConfigPtr->m_zmqIngressAddress +
+                std::string(":") +
+                boost::lexical_cast<std::string>(hdtnDistributedConfigPtr->m_zmqConnectingTelemToFromBoundIngressPortPath));
+            const std::string connect_connectingTelemToFromBoundEgressPath(
+                std::string("tcp://") +
+                hdtnDistributedConfigPtr->m_zmqEgressAddress +
+                std::string(":") +
+                boost::lexical_cast<std::string>(hdtnDistributedConfigPtr->m_zmqConnectingTelemToFromBoundEgressPortPath));
+            const std::string connect_connectingTelemToFromBoundStoragePath(
+                std::string("tcp://") +
+                hdtnDistributedConfigPtr->m_zmqStorageAddress +
+                std::string(":") +
+                boost::lexical_cast<std::string>(hdtnDistributedConfigPtr->m_zmqConnectingTelemToFromBoundStoragePortPath));
+
+            ingressConnection = boost::make_unique<TelemetryConnection>(connect_connectingTelemToFromBoundIngressPath, nullptr);
+            egressConnection = boost::make_unique<TelemetryConnection>(connect_connectingTelemToFromBoundEgressPath, nullptr);
+            storageConnection = boost::make_unique<TelemetryConnection>(connect_connectingTelemToFromBoundStoragePath, nullptr);
         }
     }
     catch (std::exception& e)

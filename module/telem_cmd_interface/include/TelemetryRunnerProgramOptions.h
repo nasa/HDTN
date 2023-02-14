@@ -19,7 +19,7 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
-
+#include "HdtnDistributedConfig.h"
 #include "telem_lib_export.h"
 
 class TelemetryRunnerProgramOptions
@@ -42,10 +42,12 @@ class TelemetryRunnerProgramOptions
          */
         boost::filesystem::path m_guiDocumentRoot;
         std::string m_guiPortNumber;
+        HdtnDistributedConfig_ptr m_hdtnDistributedConfigPtr;
 
     private:
         boost::filesystem::path GetDocumentRootAndValidate(boost::program_options::variables_map& vm);
         std::string GetPortNumberAsString(boost::program_options::variables_map& vm);
+        HdtnDistributedConfig_ptr GetHdtnDistributedConfigPtr(boost::program_options::variables_map& vm);
 };
 
 #endif // TELEMETRY_RUNNER_PROGRAM_OPTIONS_H

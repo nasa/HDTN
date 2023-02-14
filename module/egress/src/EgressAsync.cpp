@@ -213,7 +213,8 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDistributedConf
 
             //from telemetry socket
             m_zmqRepSock_connectingTelemToFromBoundEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::rep);
-            const std::string bind_connectingTelemToFromBoundEgressPath("tcp://*:10302");
+            const std::string bind_connectingTelemToFromBoundEgressPath(
+                std::string("tcp://*:") + boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingTelemToFromBoundEgressPortPath));
             m_zmqRepSock_connectingTelemToFromBoundEgressPtr->bind(bind_connectingTelemToFromBoundEgressPath);
 
             //socket for sending LinkStatus events from Egress to Scheduler

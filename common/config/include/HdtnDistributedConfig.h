@@ -94,6 +94,11 @@ public:
     
     //push sock from router to egress
     uint16_t m_zmqConnectingRouterToBoundEgressPortPath;
+
+    //telemetry sockets
+    uint16_t m_zmqConnectingTelemToFromBoundIngressPortPath;
+    uint16_t m_zmqConnectingTelemToFromBoundEgressPortPath;
+    uint16_t m_zmqConnectingTelemToFromBoundStoragePortPath;
 };
 
 #endif // HDTN_DISTRIBUTED_CONFIG_H

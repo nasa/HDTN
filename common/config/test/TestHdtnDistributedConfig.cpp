@@ -24,13 +24,13 @@ BOOST_AUTO_TEST_CASE(HdtnDistributedConfigTestCase)
 
     HdtnDistributedConfig hdtnDistributedConfig;
     
-
-    BOOST_REQUIRE(hdtnDistributedConfig.ToJsonFile(jsonRootDir / "hdtn_distributed.json"));
+    const boost::filesystem::path jsonFileToCreate = jsonRootDir / "hdtn_distributed.json";
+    BOOST_REQUIRE(hdtnDistributedConfig.ToJsonFile(jsonFileToCreate));
     std::string hdtnDistributedJson = hdtnDistributedConfig.ToJson();
     HdtnDistributedConfig_ptr hdtnDistributedConfigFromJsonPtr = HdtnDistributedConfig::CreateFromJson(hdtnDistributedJson);
     BOOST_REQUIRE(hdtnDistributedConfigFromJsonPtr);
     BOOST_REQUIRE(hdtnDistributedConfig == *hdtnDistributedConfigFromJsonPtr);
     BOOST_REQUIRE_EQUAL(hdtnDistributedJson, hdtnDistributedConfigFromJsonPtr->ToJson());
-    
+    BOOST_REQUIRE(boost::filesystem::remove(jsonFileToCreate));
 }
 

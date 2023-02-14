@@ -36,7 +36,10 @@ HdtnDistributedConfig::HdtnDistributedConfig() :
     m_zmqConnectingStorageToBoundIngressPortPath(10150),
     m_zmqConnectingStorageToBoundEgressPortPath(10120),
     m_zmqBoundEgressToConnectingStoragePortPath(10130),
-    m_zmqConnectingRouterToBoundEgressPortPath(10210)
+    m_zmqConnectingRouterToBoundEgressPortPath(10210),
+    m_zmqConnectingTelemToFromBoundIngressPortPath(10301),
+    m_zmqConnectingTelemToFromBoundEgressPortPath(10302),
+    m_zmqConnectingTelemToFromBoundStoragePortPath(10303)
 {}
 
 HdtnDistributedConfig::~HdtnDistributedConfig() {
@@ -57,7 +60,10 @@ HdtnDistributedConfig::HdtnDistributedConfig(const HdtnDistributedConfig& o) :
     m_zmqConnectingStorageToBoundIngressPortPath(o.m_zmqConnectingStorageToBoundIngressPortPath),
     m_zmqConnectingStorageToBoundEgressPortPath(o.m_zmqConnectingStorageToBoundEgressPortPath),
     m_zmqBoundEgressToConnectingStoragePortPath(o.m_zmqBoundEgressToConnectingStoragePortPath),
-    m_zmqConnectingRouterToBoundEgressPortPath(o.m_zmqConnectingRouterToBoundEgressPortPath)
+    m_zmqConnectingRouterToBoundEgressPortPath(o.m_zmqConnectingRouterToBoundEgressPortPath),
+    m_zmqConnectingTelemToFromBoundIngressPortPath(o.m_zmqConnectingTelemToFromBoundIngressPortPath),
+    m_zmqConnectingTelemToFromBoundEgressPortPath(o.m_zmqConnectingTelemToFromBoundEgressPortPath),
+    m_zmqConnectingTelemToFromBoundStoragePortPath(o.m_zmqConnectingTelemToFromBoundStoragePortPath)
 { }
 
 //a move constructor: X(X&&)
@@ -75,7 +81,10 @@ HdtnDistributedConfig::HdtnDistributedConfig(HdtnDistributedConfig&& o) noexcept
     m_zmqConnectingStorageToBoundIngressPortPath(o.m_zmqConnectingStorageToBoundIngressPortPath),
     m_zmqConnectingStorageToBoundEgressPortPath(o.m_zmqConnectingStorageToBoundEgressPortPath),
     m_zmqBoundEgressToConnectingStoragePortPath(o.m_zmqBoundEgressToConnectingStoragePortPath),
-    m_zmqConnectingRouterToBoundEgressPortPath(o.m_zmqConnectingRouterToBoundEgressPortPath)
+    m_zmqConnectingRouterToBoundEgressPortPath(o.m_zmqConnectingRouterToBoundEgressPortPath),
+    m_zmqConnectingTelemToFromBoundIngressPortPath(o.m_zmqConnectingTelemToFromBoundIngressPortPath),
+    m_zmqConnectingTelemToFromBoundEgressPortPath(o.m_zmqConnectingTelemToFromBoundEgressPortPath),
+    m_zmqConnectingTelemToFromBoundStoragePortPath(o.m_zmqConnectingTelemToFromBoundStoragePortPath)
 { }
 
 //a copy assignment: operator=(const X&)
@@ -94,6 +103,9 @@ HdtnDistributedConfig& HdtnDistributedConfig::operator=(const HdtnDistributedCon
     m_zmqConnectingStorageToBoundEgressPortPath = o.m_zmqConnectingStorageToBoundEgressPortPath;
     m_zmqBoundEgressToConnectingStoragePortPath = o.m_zmqBoundEgressToConnectingStoragePortPath;
     m_zmqConnectingRouterToBoundEgressPortPath = o.m_zmqConnectingRouterToBoundEgressPortPath;
+    m_zmqConnectingTelemToFromBoundIngressPortPath = o.m_zmqConnectingTelemToFromBoundIngressPortPath;
+    m_zmqConnectingTelemToFromBoundEgressPortPath = o.m_zmqConnectingTelemToFromBoundEgressPortPath;
+    m_zmqConnectingTelemToFromBoundStoragePortPath = o.m_zmqConnectingTelemToFromBoundStoragePortPath;
     return *this;
 }
 
@@ -113,6 +125,9 @@ HdtnDistributedConfig& HdtnDistributedConfig::operator=(HdtnDistributedConfig&& 
     m_zmqConnectingStorageToBoundEgressPortPath = o.m_zmqConnectingStorageToBoundEgressPortPath;
     m_zmqBoundEgressToConnectingStoragePortPath = o.m_zmqBoundEgressToConnectingStoragePortPath;
     m_zmqConnectingRouterToBoundEgressPortPath = o.m_zmqConnectingRouterToBoundEgressPortPath;
+    m_zmqConnectingTelemToFromBoundIngressPortPath = o.m_zmqConnectingTelemToFromBoundIngressPortPath;
+    m_zmqConnectingTelemToFromBoundEgressPortPath = o.m_zmqConnectingTelemToFromBoundEgressPortPath;
+    m_zmqConnectingTelemToFromBoundStoragePortPath = o.m_zmqConnectingTelemToFromBoundStoragePortPath;
     return *this;
 }
 
@@ -131,7 +146,10 @@ bool HdtnDistributedConfig::operator==(const HdtnDistributedConfig& o) const {
         (m_zmqConnectingStorageToBoundIngressPortPath == o.m_zmqConnectingStorageToBoundIngressPortPath) &&
         (m_zmqConnectingStorageToBoundEgressPortPath == o.m_zmqConnectingStorageToBoundEgressPortPath) &&
         (m_zmqBoundEgressToConnectingStoragePortPath == o.m_zmqBoundEgressToConnectingStoragePortPath) &&
-        (m_zmqConnectingRouterToBoundEgressPortPath == o.m_zmqConnectingRouterToBoundEgressPortPath);
+        (m_zmqConnectingRouterToBoundEgressPortPath == o.m_zmqConnectingRouterToBoundEgressPortPath) &&
+        (m_zmqConnectingTelemToFromBoundIngressPortPath == o.m_zmqConnectingTelemToFromBoundIngressPortPath) &&
+        (m_zmqConnectingTelemToFromBoundEgressPortPath == o.m_zmqConnectingTelemToFromBoundEgressPortPath) &&
+        (m_zmqConnectingTelemToFromBoundStoragePortPath == o.m_zmqConnectingTelemToFromBoundStoragePortPath);
 }
 
 bool HdtnDistributedConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & pt) {
@@ -150,6 +168,9 @@ bool HdtnDistributedConfig::SetValuesFromPropertyTree(const boost::property_tree
         m_zmqConnectingStorageToBoundEgressPortPath = pt.get<uint16_t>("zmqConnectingStorageToBoundEgressPortPath");
         m_zmqBoundEgressToConnectingStoragePortPath = pt.get<uint16_t>("zmqBoundEgressToConnectingStoragePortPath");
         m_zmqConnectingRouterToBoundEgressPortPath = pt.get<uint16_t>("zmqConnectingRouterToBoundEgressPortPath");
+        m_zmqConnectingTelemToFromBoundIngressPortPath = pt.get<uint16_t>("zmqConnectingTelemToFromBoundIngressPortPath");
+        m_zmqConnectingTelemToFromBoundEgressPortPath = pt.get<uint16_t>("zmqConnectingTelemToFromBoundEgressPortPath");
+        m_zmqConnectingTelemToFromBoundStoragePortPath = pt.get<uint16_t>("zmqConnectingTelemToFromBoundStoragePortPath");
     }
     catch (const boost::property_tree::ptree_error & e) {
         LOG_ERROR(subprocess) << "parsing JSON HDTN config: " << e.what();
@@ -223,6 +244,9 @@ boost::property_tree::ptree HdtnDistributedConfig::GetNewPropertyTree() const {
     pt.put("zmqConnectingStorageToBoundEgressPortPath", m_zmqConnectingStorageToBoundEgressPortPath);
     pt.put("zmqBoundEgressToConnectingStoragePortPath", m_zmqBoundEgressToConnectingStoragePortPath);
     pt.put("zmqConnectingRouterToBoundEgressPortPath", m_zmqConnectingRouterToBoundEgressPortPath);
+    pt.put("zmqConnectingTelemToFromBoundIngressPortPath", m_zmqConnectingTelemToFromBoundIngressPortPath);
+    pt.put("zmqConnectingTelemToFromBoundEgressPortPath", m_zmqConnectingTelemToFromBoundEgressPortPath);
+    pt.put("zmqConnectingTelemToFromBoundStoragePortPath", m_zmqConnectingTelemToFromBoundStoragePortPath);
     
     return pt;
 }
