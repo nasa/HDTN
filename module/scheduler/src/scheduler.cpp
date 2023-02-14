@@ -165,7 +165,16 @@ bool contactPlan_t::operator<(const contactPlan_t& o) const {
 }
 
 
-Scheduler::Impl::Impl() : m_running(false), m_contactPlanTimer(m_ioService) {}
+Scheduler::Impl::Impl() : 
+    m_running(false), 
+    m_usingUnixTimestamp(false),
+    m_contactPlanTimerIsRunning(false),
+    m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds(0),
+    m_numOutductCapabilityTelemetriesReceived(0),
+    m_workerThreadStartupInProgress(false),
+    m_lastMillisecondsSinceStartOfYear2000(0),
+    m_bundleSequence(0),	
+    m_contactPlanTimer(m_ioService) {}
 
 Scheduler::Impl::~Impl() {
     Stop();
@@ -176,9 +185,6 @@ Scheduler::Scheduler() : m_pimpl(boost::make_unique<Scheduler::Impl>()) {}
 Scheduler::~Scheduler() {
     Stop();
 }
-
-
-
 
 bool Scheduler::Init(const HdtnConfig& hdtnConfig,
     const boost::filesystem::path& contactPlanFilePath,
@@ -193,7 +199,9 @@ void Scheduler::Stop() {
 }
 void Scheduler::Impl::Stop() {
     m_running = false; //thread stopping criteria
-    
+    m_contactPlanTimer.cancel();
+    m_workPtr.reset();
+ 
     try {
         m_threadZmqAckReaderPtr->join();
         m_threadZmqAckReaderPtr.reset(); //delete it
@@ -201,9 +209,9 @@ void Scheduler::Impl::Stop() {
         LOG_ERROR(subprocess) << "error stopping Scheduler thread";
     }
     
-    m_contactPlanTimer.cancel();
+    //m_contactPlanTimer.cancel();
 
-    m_workPtr.reset();
+    //m_workPtr.reset();
     //This function does not block, but instead simply signals the io_service to stop
     //All invocations of its run() or run_one() member functions should return as soon as possible.
     //Subsequent calls to run(), run_one(), poll() or poll_one() will return immediately until reset() is called.
@@ -211,10 +219,10 @@ void Scheduler::Impl::Stop() {
     //    m_ioService.stop(); //ioservice requires stopping before join because of the m_work object
     //}
 
-    if (m_ioServiceThreadPtr) {
-        m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr.reset(); //delete it
-    }
+    //if (m_ioServiceThreadPtr) {
+      //  m_ioServiceThreadPtr->join();
+        //m_ioServiceThreadPtr.reset(); //delete it
+    //}
 }
 
 bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
