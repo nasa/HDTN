@@ -27,12 +27,15 @@ class DeadlineTimer
     public:
         HDTN_UTIL_EXPORT DeadlineTimer(unsigned int intervalMs);
         HDTN_UTIL_EXPORT bool SleepUntilNextInterval();
+        HDTN_UTIL_EXPORT void Cancel();
+        HDTN_UTIL_EXPORT void Disable() noexcept;
 
     private:
         DeadlineTimer() = delete;
         boost::asio::io_service m_ioService;
         boost::posix_time::time_duration m_sleepValTimeDuration;
         boost::asio::deadline_timer m_deadlineTimer;
+        volatile bool m_enabled;
 };
 
 #endif // _DEADLINE_TIMER_H

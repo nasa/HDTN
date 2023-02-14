@@ -67,6 +67,7 @@ class TelemetryRunner::Impl : private boost::noncopyable {
         std::unique_ptr<boost::thread> m_threadPtr;
         std::unique_ptr<WebsocketServer> m_websocketServerPtr;
         std::unique_ptr<TelemetryLogger> m_telemetryLoggerPtr;
+        DeadlineTimer m_deadlineTimer;
 };
 
 /**
@@ -100,8 +101,9 @@ TelemetryRunner::~TelemetryRunner()
  * TelemetryRunner implementation
  */
 
-TelemetryRunner::Impl::Impl()
-    : m_running(false)
+TelemetryRunner::Impl::Impl() :
+    m_running(false),
+    m_deadlineTimer(THREAD_POLL_INTERVAL_MS)
     {}
 
 bool TelemetryRunner::Impl::Init(zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options)
@@ -180,11 +182,11 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
     poller.AddConnection(*storageConnection);
 
     // Start loop to begin polling
-    DeadlineTimer deadlineTimer(THREAD_POLL_INTERVAL_MS);
+    
     while (m_running)
     {
-        if (!deadlineTimer.SleepUntilNextInterval()) {
-            return;
+        if (!m_deadlineTimer.SleepUntilNextInterval()) {
+            break;
         }
 
         // Send signals to all hdtn modules
@@ -256,9 +258,10 @@ bool TelemetryRunner::Impl::ShouldExit()
     return false;
 }
 
-void TelemetryRunner::Impl::Stop()
-{
+void TelemetryRunner::Impl::Stop() {
     m_running = false;
+    m_deadlineTimer.Disable();
+    m_deadlineTimer.Cancel();
     if (!m_threadPtr) {
         return;
     }
@@ -269,4 +272,5 @@ void TelemetryRunner::Impl::Stop()
         LOG_WARNING(subprocess) << e.what();
     }
     m_threadPtr.reset(); // delete it
+    //m_websocketServerPtr.reset(); //this part takes at least a second
 }
