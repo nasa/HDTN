@@ -115,7 +115,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramOldHdtnConfig, paramNe
         var activeInductConnsNames = ind["activeConnections"];
         activeInductConnsNames.forEach(function(connName, j) {
 
-            var baseId = "induct_" + i + "_conn_" + connName + "_" + j;
+            var baseId = "induct_" + i + "_conn_" + connName;// + "_" + j; //don't use j, will affect redraw on deletion
             ///////////induct
             var induct = {};
             induct.linkIsUp = true;
