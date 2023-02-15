@@ -14,7 +14,7 @@
     "maxBundleSizeBytes": 10000000,
     "maxIngressBundleWaitOnEgressMilliseconds": 2000,
     "bufferRxToStorageOnLinkUpSaturation": false,
-    "maxLtpReceiveUdpPacketSizeBytes": 65536,
+    "maxLtpReceiveUdpPacketSizeBytes": 1500,
     "zmqBoundSchedulerPubSubPortPath": 10200,
     "inductsConfig": {
         "inductConfigName": "myconfig",
@@ -23,7 +23,7 @@
                 "name": "i1",
                 "convergenceLayer": "ltp_over_udp",
                 "boundPort": 1113,
-                "numRxCircularBufferElements": 100,
+                "numRxCircularBufferElements": 1000,
                 "thisLtpEngineId": 20,
                 "remoteLtpEngineId": 10,
                 "ltpReportSegmentMtu": 1000,
@@ -35,9 +35,9 @@
                 "ltpRandomNumberSizeBits": 64,
                 "ltpRemoteUdpHostname": "hdtn_sender",
                 "ltpRemoteUdpPort": 1113,
-                "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
+                "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 0,
                 "ltpMaxExpectedSimultaneousSessions": 500,
-                "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+                "ltpMaxUdpPacketsToSendPerSystemCall": 15,
                 "delaySendingOfReportSegmentsTimeMsOrZeroToDisable": 20,
                 "keepActiveSessionDataOnDisk": false,
                 "activeSessionDataOnDiskNewFileDurationMs": 2000,
@@ -49,8 +49,8 @@
         "outductConfigName": "myconfig",
         "outductVector": [
             {
-                "name": "for egress",
-                "convergenceLayer": "ltp_over_udp",
+                "name": "stp_egress",
+                "convergenceLayer": "stcp",
                 "nextHopNodeId": 2,
                 "remoteHostname": "localhost",
                 "remotePort": 4558,
@@ -59,24 +59,7 @@
                 "finalDestinationEidUris": [
                     "ipn:2.*"
                 ],
-                "thisLtpEngineId": 20,
-                "remoteLtpEngineId": 2,
-                "ltpDataSegmentMtu": 1360,
-                "oneWayLightTimeMs": 1000,
-                "oneWayMarginTimeMs": 200,
-                "clientServiceId": 1,
-                "numRxCircularBufferElements": 100,
-                "ltpMaxRetriesPerSerialNumber": 5,
-                "ltpCheckpointEveryNthDataSegment": 0,
-                "ltpRandomNumberSizeBits": 64,
-                "ltpSenderBoundPort": 4556,
-                "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0,
-                "ltpMaxUdpPacketsToSendPerSystemCall": 1,
-                "ltpSenderPingSecondsOrZeroToDisable": 15,
-                "delaySendingOfDataSegmentsTimeMsOrZeroToDisable": 20,
-                "keepActiveSessionDataOnDisk": false,
-                "activeSessionDataOnDiskNewFileDurationMs": 2000,
-                "activeSessionDataOnDiskDirectory": ".\/"
+                "keepAliveIntervalSeconds": 17
             }
         ]
     },

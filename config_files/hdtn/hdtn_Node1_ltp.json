@@ -14,34 +14,17 @@
     "maxBundleSizeBytes": 10000000,
     "maxIngressBundleWaitOnEgressMilliseconds": 2000,
     "bufferRxToStorageOnLinkUpSaturation": false,
-    "maxLtpReceiveUdpPacketSizeBytes": 65536,
+    "maxLtpReceiveUdpPacketSizeBytes": 1500,
     "zmqBoundSchedulerPubSubPortPath": 10200,
     "inductsConfig": {
         "inductConfigName": "myconfig",
         "inductVector": [
             {
-                "name": "i1",
-                "convergenceLayer": "ltp_over_udp",
+                "name": "stcp_ingress",
+                "convergenceLayer": "stcp",
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 100,
-                "thisLtpEngineId": 10,
-                "remoteLtpEngineId": 1,
-                "ltpReportSegmentMtu": 1000,
-                "oneWayLightTimeMs": 1000,
-                "oneWayMarginTimeMs": 200,
-                "clientServiceId": 1,
-                "preallocatedRedDataBytes": 200000,
-                "ltpMaxRetriesPerSerialNumber": 5,
-                "ltpRandomNumberSizeBits": 64,
-                "ltpRemoteUdpHostname": "localhost",
-                "ltpRemoteUdpPort": 4558,
-                "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
-                "ltpMaxExpectedSimultaneousSessions": 500,
-                "ltpMaxUdpPacketsToSendPerSystemCall": 1,
-                "delaySendingOfReportSegmentsTimeMsOrZeroToDisable": 20,
-                "keepActiveSessionDataOnDisk": false,
-                "activeSessionDataOnDiskNewFileDurationMs": 2000,
-                "activeSessionDataOnDiskDirectory": ".\/"
+                "keepAliveIntervalSeconds": 15
             }
         ]
     },
@@ -71,7 +54,7 @@
                 "ltpRandomNumberSizeBits": 64,
                 "ltpSenderBoundPort": 1113,
                 "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0,
-                "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+                "ltpMaxUdpPacketsToSendPerSystemCall": 15,
                 "ltpSenderPingSecondsOrZeroToDisable": 15,
                 "delaySendingOfDataSegmentsTimeMsOrZeroToDisable": 20,
                 "keepActiveSessionDataOnDisk": false,

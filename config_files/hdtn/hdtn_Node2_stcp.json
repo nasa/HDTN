@@ -14,7 +14,7 @@
     "maxBundleSizeBytes": 10000000,
     "maxIngressBundleWaitOnEgressMilliseconds": 2000,
     "bufferRxToStorageOnLinkUpSaturation": false,
-    "maxLtpReceiveUdpPacketSizeBytes": 65536,
+    "maxLtpReceiveUdpPacketSizeBytes": 1500,
     "zmqBoundSchedulerPubSubPortPath": 10200,
     "inductsConfig": {
         "inductConfigName": "myconfig",

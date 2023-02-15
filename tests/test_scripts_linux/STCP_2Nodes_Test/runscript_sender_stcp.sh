@@ -12,6 +12,6 @@ cd $HDTN_SOURCE_ROOT
 sleep 10
 
 #bpgen
-./build/common/bpcodec/apps/bpgen-async --bundle-size=100000 --bundle-rate=0 --my-uri-eid=ipn:1.1 --dest-uri-eid=ipn:2.1 --duration=40 --outducts-config-file=$gen_config &
+./build/common/bpcodec/apps/bpgen-async --bundle-size=100000 --bundle-rate=0 --my-uri-eid=ipn:1.1 --dest-uri-eid=ipn:2.1 --outducts-config-file=$gen_config &
 sleep 8
 
