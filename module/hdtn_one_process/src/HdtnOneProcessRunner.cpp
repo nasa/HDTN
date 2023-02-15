@@ -44,7 +44,24 @@ void HdtnOneProcessRunner::MonitorExitKeypressThreadFunction()
     m_runningFromSigHandler = false; //do this first
 }
 
-HdtnOneProcessRunner::HdtnOneProcessRunner() {}
+HdtnOneProcessRunner::HdtnOneProcessRunner() :
+    //ingress
+    m_ingressBundleCountStorage(0),
+    m_ingressBundleCountEgress(0),
+    m_ingressBundleCount(0),
+    m_ingressBundleData(0),
+
+    //egress
+    m_egressBundleCount(0),
+    m_egressBundleData(0),
+    m_egressMessageCount(0),
+
+    //storage
+    m_totalBundlesErasedFromStorage(0),
+    m_totalBundlesSentToEgressFromStorage(0),
+
+    m_runningFromSigHandler(false)
+{}
 HdtnOneProcessRunner::~HdtnOneProcessRunner() {}
 
 bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool &running, bool useSignalHandler)
