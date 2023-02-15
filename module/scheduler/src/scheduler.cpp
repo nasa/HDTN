@@ -211,7 +211,7 @@ void Scheduler::Impl::Stop() {
 
     try {	
         m_contactPlanTimer.cancel();
-    } catch (const boost::thread_resource_error&) {
+    } catch (const boost::system::system_error&) {
         LOG_ERROR(subprocess) << "error cancelling contact plan timer ";
     }
 	
