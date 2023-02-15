@@ -34,7 +34,12 @@ void IngressAsyncRunner::MonitorExitKeypressThreadFunction() {
 }
 
 
-IngressAsyncRunner::IngressAsyncRunner() {}
+IngressAsyncRunner::IngressAsyncRunner() : 
+    m_bundleCountStorage(0),
+    m_bundleCountEgress(0),
+    m_bundleCount(0),
+    m_bundleData(0),
+    m_runningFromSigHandler(false) {}
 IngressAsyncRunner::~IngressAsyncRunner() {}
 
 

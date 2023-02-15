@@ -29,7 +29,7 @@ void RouterRunner::MonitorExitKeypressThreadFunction() {
 }
 
 
-RouterRunner::RouterRunner() {}
+RouterRunner::RouterRunner() : m_runningFromSigHandler(false) {}
 RouterRunner::~RouterRunner() {}
 
 

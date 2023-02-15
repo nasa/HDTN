@@ -272,7 +272,8 @@ Ingress::Impl::Impl() :
     m_eventsTooManyInAllCutThroughQueues(0),
     m_running(false),
     m_egressFullyInitialized(false),
-    m_nextBundleUniqueIdAtomic(0) {}
+    m_nextBundleUniqueIdAtomic(0),
+    m_workerThreadStartupInProgress(false) {}
 
 Ingress::Ingress() :
     m_pimpl(boost::make_unique<Ingress::Impl>()),
@@ -303,12 +304,22 @@ void Ingress::Impl::Stop() {
     m_running = false; //thread stopping criteria
 
     if (m_threadZmqAckReaderPtr) {
-        m_threadZmqAckReaderPtr->join();
-        m_threadZmqAckReaderPtr.reset(); //delete it
+        try {
+            m_threadZmqAckReaderPtr->join();
+            m_threadZmqAckReaderPtr.reset(); //delete it
+        }
+        catch (boost::thread_resource_error& e) {
+            LOG_ERROR(subprocess) << "unable to stop ingress threadZmqAckReaderPtr: " << e.what();
+        }
     }
     if (m_threadTcpclOpportunisticBundlesFromEgressReaderPtr) {
-        m_threadTcpclOpportunisticBundlesFromEgressReaderPtr->join();
-        m_threadTcpclOpportunisticBundlesFromEgressReaderPtr.reset(); //delete it
+        try {
+            m_threadTcpclOpportunisticBundlesFromEgressReaderPtr->join();
+            m_threadTcpclOpportunisticBundlesFromEgressReaderPtr.reset(); //delete it
+        }
+        catch (boost::thread_resource_error& e) {
+            LOG_ERROR(subprocess) << "unable to stop ingress threadTcpclOpportunisticBundlesFromEgressReaderPtr: " << e.what();
+        }
     }
 
 

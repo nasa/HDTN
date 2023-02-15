@@ -28,7 +28,11 @@ void EgressAsyncRunner::MonitorExitKeypressThreadFunction() {
 }
 
 
-EgressAsyncRunner::EgressAsyncRunner() {}
+EgressAsyncRunner::EgressAsyncRunner() :
+    m_bundleCount(0),
+    m_bundleData(0),
+    m_messageCount(0),
+    m_runningFromSigHandler(false) {}
 EgressAsyncRunner::~EgressAsyncRunner() {}
 
 

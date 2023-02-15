@@ -29,7 +29,7 @@ void SchedulerRunner::MonitorExitKeypressThreadFunction() {
 }
 
 
-SchedulerRunner::SchedulerRunner() {}
+SchedulerRunner::SchedulerRunner() : m_runningFromSigHandler(false) {}
 SchedulerRunner::~SchedulerRunner() {}
 
 
