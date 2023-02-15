@@ -320,7 +320,7 @@ static uint64_t GetRateBpsFromPtree(const boost::property_tree::ptree::value_typ
         return rateMbps * 1000000;
     }
     catch(const boost::property_tree::ptree_error&) {
-        LOG_WARNING(subprocess) << "failed to find rateBbps or rate in contact plan. Using default.";
+        LOG_WARNING(subprocess) << "failed to find rateBitsPerSec or rate in contact plan. Using default.";
     }
     return 0;
 }

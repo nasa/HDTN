@@ -272,5 +272,9 @@ void TelemetryRunner::Impl::Stop() {
         LOG_WARNING(subprocess) << e.what();
     }
     m_threadPtr.reset(); // delete it
-    //m_websocketServerPtr.reset(); //this part takes at least a second
+    
+    //The following is implicitly done at destruction.  If print statements are
+    // added before and after this reset(), you will observe this part takes at least a second.
+    // We may want to optimize this at some point.
+    //m_websocketServerPtr.reset();
 }
