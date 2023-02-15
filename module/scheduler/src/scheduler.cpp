@@ -33,6 +33,8 @@
 #include "Environment.h"
 #include "JsonSerializable.h"
 #include "ThreadNamer.h"
+#include "codec/BundleViewV6.h"
+#include "codec/BundleViewV7.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::scheduler;
 
@@ -87,6 +89,7 @@ private:
             uint64_t time);
 
     void EgressEventsHandler();
+    bool SendBundle(const uint8_t* payloadData, const uint64_t payloadSizeBytes, const cbhe_eid_t& finalDestEid);
     void UisEventsHandler();
     void ReadZmqAcksThreadFunc();
     void TryRestartContactPlanTimer();
@@ -132,6 +135,11 @@ private:
     volatile bool m_workerThreadStartupInProgress;
     boost::mutex m_workerThreadStartupMutex;
     boost::condition_variable m_workerThreadStartupConditionVariable;
+
+    //send bundle stuff
+    boost::mutex m_bundleCreationMutex;
+    uint64_t m_lastMillisecondsSinceStartOfYear2000;
+    uint64_t m_bundleSequence;
 };
 
 
@@ -157,7 +165,16 @@ bool contactPlan_t::operator<(const contactPlan_t& o) const {
 }
 
 
-Scheduler::Impl::Impl() : m_running(false), m_contactPlanTimer(m_ioService) {}
+Scheduler::Impl::Impl() : 
+    m_running(false), 
+    m_usingUnixTimestamp(false),
+    m_contactPlanTimerIsRunning(false),
+    m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds(0),
+    m_numOutductCapabilityTelemetriesReceived(0),
+    m_workerThreadStartupInProgress(false),
+    m_lastMillisecondsSinceStartOfYear2000(0),
+    m_bundleSequence(0),	
+    m_contactPlanTimer(m_ioService) {}
 
 Scheduler::Impl::~Impl() {
     Stop();
@@ -168,9 +185,6 @@ Scheduler::Scheduler() : m_pimpl(boost::make_unique<Scheduler::Impl>()) {}
 Scheduler::~Scheduler() {
     Stop();
 }
-
-
-
 
 bool Scheduler::Init(const HdtnConfig& hdtnConfig,
     const boost::filesystem::path& contactPlanFilePath,
@@ -185,13 +199,22 @@ void Scheduler::Stop() {
 }
 void Scheduler::Impl::Stop() {
     m_running = false; //thread stopping criteria
-    if (m_threadZmqAckReaderPtr) {
-        m_threadZmqAckReaderPtr->join();
-        m_threadZmqAckReaderPtr.reset(); //delete it
+
+     if (m_threadZmqAckReaderPtr) {
+        try {
+            m_threadZmqAckReaderPtr->join(); 
+            m_threadZmqAckReaderPtr.reset(); //delete it
+        } catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping Scheduler thread";
+        }
     }
 
-    m_contactPlanTimer.cancel();
-
+    try {	
+        m_contactPlanTimer.cancel();
+    } catch (const boost::system::system_error&) {
+        LOG_ERROR(subprocess) << "error cancelling contact plan timer ";
+    }
+	
     m_workPtr.reset();
     //This function does not block, but instead simply signals the io_service to stop
     //All invocations of its run() or run_one() member functions should return as soon as possible.
@@ -201,8 +224,13 @@ void Scheduler::Impl::Stop() {
     //}
 
     if (m_ioServiceThreadPtr) {
-        m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr.reset(); //delete it
+        try {
+	    m_ioServiceThreadPtr->join();
+            m_ioServiceThreadPtr.reset(); //delete it
+    
+	} catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping io_service";
+        }
     }
 }
 
@@ -219,6 +247,9 @@ bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
     m_hdtnConfig = hdtnConfig;
     m_contactPlanFilePath = contactPlanFilePath;
     m_usingUnixTimestamp = usingUnixTimestamp;
+
+    m_lastMillisecondsSinceStartOfYear2000 = 0;
+    m_bundleSequence = 0;
     
     
     LOG_INFO(subprocess) << "initializing Scheduler..";
@@ -427,6 +458,145 @@ void Scheduler::Impl::EgressEventsHandler() {
             ++m_numOutductCapabilityTelemetriesReceived;
         }
     }
+    else if (linkStatusHdr.base.type == HDTN_MSGTYPE_BUNDLES_TO_SCHEDULER) {
+        zmq::message_t zmqMessageBundleToScheduler;
+        //message guaranteed to be there due to the zmq::send_flags::sndmore
+        if (!m_zmqPullSock_boundEgressToConnectingSchedulerPtr->recv(zmqMessageBundleToScheduler, zmq::recv_flags::none)) {
+            LOG_ERROR(subprocess) << "error receiving zmqMessageBundleToScheduler";
+        }
+        else {
+            uint8_t* bundleDataBegin = (uint8_t*)zmqMessageBundleToScheduler.data();
+            const std::size_t bundleCurrentSize = zmqMessageBundleToScheduler.size();
+            const uint8_t firstByte = bundleDataBegin[0];
+            const bool isBpVersion6 = (firstByte == 6);
+            const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
+            if (isBpVersion6) {
+                BundleViewV6 bv;
+                if (!bv.LoadBundle(bundleDataBegin, bundleCurrentSize)) {
+                    LOG_ERROR(subprocess) << "malformed bundle";
+                    return;
+                }
+                Bpv6CbhePrimaryBlock& primary = bv.m_primaryBlockView.header;
+
+                std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+                bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+                if (blocks.size() != 1) {
+                    LOG_ERROR(subprocess) << "payload block not found";
+                    return;
+                }
+                Bpv6CanonicalBlock& payloadBlock = *(blocks[0]->headerPtr);
+
+                LOG_INFO(subprocess) << "scheduler received Bpv6 bundle with payload size " << payloadBlock.m_blockTypeSpecificDataLength;
+                //if (!ProcessPayload(payloadBlock.m_blockTypeSpecificDataPtr, payloadBlock.m_blockTypeSpecificDataLength)) {
+                
+            }
+            else if (isBpVersion7) {
+                BundleViewV7 bv;
+                if (!bv.LoadBundle(bundleDataBegin, bundleCurrentSize)) { //invalid bundle
+                    LOG_ERROR(subprocess) << "malformed bpv7 bundle";
+                    return;
+                }
+                Bpv7CbhePrimaryBlock& primary = bv.m_primaryBlockView.header;
+
+                std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+                bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+
+                if (blocks.size() != 1) {
+                    LOG_ERROR(subprocess) << "payload block not found";
+                    return;
+                }
+
+                Bpv7CanonicalBlock& payloadBlock = *(blocks[0]->headerPtr);
+                LOG_INFO(subprocess) << "scheduler received Bpv7 bundle with payload size " << payloadBlock.m_dataLength;
+                //if (!ProcessPayload(payloadBlock.m_dataPtr, payloadBlock.m_dataLength)) {
+            }
+        }
+        SendBundle((const uint8_t*)"scheduler bundle test payload!!!!", 33, cbhe_eid_t(2, 1));
+    }
+}
+
+static void CustomCleanupStdVecUint8(void* data, void* hint) {
+    delete static_cast<std::vector<uint8_t>*>(hint);
+}
+
+bool Scheduler::Impl::SendBundle(const uint8_t* payloadData, const uint64_t payloadSizeBytes, const cbhe_eid_t& finalDestEid) {
+    // Next, send event to the rest of the modules
+    hdtn::IreleaseChangeHdr releaseMsg;
+    memset(&releaseMsg, 0, sizeof(releaseMsg));
+    releaseMsg.SetSubscribeRouterAndIngressOnly(); //Router will ignore
+    releaseMsg.base.type = HDTN_MSGTYPE_BUNDLES_FROM_SCHEDULER;
+
+
+    BundleViewV7 bv;
+    Bpv7CbhePrimaryBlock& primary = bv.m_primaryBlockView.header;
+    //primary.SetZero();
+    primary.m_bundleProcessingControlFlags = BPV7_BUNDLEFLAG::NOFRAGMENT;  //All BP endpoints identified by ipn-scheme endpoint IDs are singleton endpoints.
+    primary.m_sourceNodeId.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_mySchedulerServiceId);
+    primary.m_destinationEid = finalDestEid;
+    primary.m_reportToEid.Set(0, 0);
+    primary.m_creationTimestamp.SetTimeFromNow();
+    {
+        boost::mutex::scoped_lock lock(m_bundleCreationMutex);
+        if (primary.m_creationTimestamp.millisecondsSinceStartOfYear2000 == m_lastMillisecondsSinceStartOfYear2000) {
+            ++m_bundleSequence;
+        }
+        else {
+            m_bundleSequence = 0;
+        }
+        m_lastMillisecondsSinceStartOfYear2000 = primary.m_creationTimestamp.millisecondsSinceStartOfYear2000;
+        primary.m_creationTimestamp.sequenceNumber = m_bundleSequence;
+    }
+    primary.m_lifetimeMilliseconds = 1000000;
+    primary.m_crcType = BPV7_CRC_TYPE::CRC32C;
+    bv.m_primaryBlockView.SetManuallyModified();
+
+    
+
+    //append payload block (must be last block)
+    {
+        std::unique_ptr<Bpv7CanonicalBlock> payloadBlockPtr = boost::make_unique<Bpv7CanonicalBlock>();
+        Bpv7CanonicalBlock& payloadBlock = *payloadBlockPtr;
+        //payloadBlock.SetZero();
+
+        payloadBlock.m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PAYLOAD;
+        payloadBlock.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET;
+        payloadBlock.m_blockNumber = 1; //must be 1
+        payloadBlock.m_crcType = BPV7_CRC_TYPE::CRC32C;
+        payloadBlock.m_dataLength = payloadSizeBytes;
+        payloadBlock.m_dataPtr = NULL; //NULL will preallocate (won't copy or compute crc, user must do that manually below)
+        bv.AppendMoveCanonicalBlock(payloadBlockPtr);
+    }
+
+    //render bundle to the front buffer
+    if (!bv.Render(payloadSizeBytes + 1000)) {
+        LOG_ERROR(subprocess) << "error rendering bpv7 bundle";
+        return false;
+    }
+
+    BundleViewV7::Bpv7CanonicalBlockView& payloadBlockView = bv.m_listCanonicalBlockView.back(); //payload block must be the last block
+
+    //manually copy data to preallocated space and compute crc
+    memcpy(payloadBlockView.headerPtr->m_dataPtr, payloadData, payloadSizeBytes);
+    
+    payloadBlockView.headerPtr->RecomputeCrcAfterDataModification((uint8_t*)payloadBlockView.actualSerializedBlockPtr.data(), payloadBlockView.actualSerializedBlockPtr.size()); //recompute crc
+
+    //move the bundle out of bundleView
+    std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(std::move(bv.m_frontBuffer));
+    zmq::message_t zmqSchedulerGeneratedBundle(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
+    {
+        boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
+        if (!m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(
+            zmq::const_buffer(&releaseMsg, sizeof(releaseMsg)), zmq::send_flags::sndmore | zmq::send_flags::dontwait))
+        {
+            LOG_FATAL(subprocess) << "Cannot sent HDTN_MSGTYPE_BUNDLES_FROM_SCHEDULER to ingress";
+            return false;
+        }
+        if (!m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(std::move(zmqSchedulerGeneratedBundle), zmq::send_flags::dontwait)) {
+            LOG_FATAL(subprocess) << "Cannot sent zmqSchedulerGeneratedBundle to ingress";
+            return false;
+        }
+    }
+    return true;
 }
 
 void Scheduler::Impl::UisEventsHandler() {
@@ -508,6 +678,7 @@ void Scheduler::Impl::ReadZmqAcksThreadFunc() {
                 //Router unique subscription shall be "a" (gets all messages that start with "a") (e.g "aaa", "ab", etc.)
                 //Ingress unique subscription shall be "aa"
                 //Storage unique subscription shall be "aaa"
+                boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
                 if (!m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->recv(zmqSubscriberDataReceived, zmq::recv_flags::none)) {
                     LOG_ERROR(subprocess) << "subscriber message not received";
                 }

@@ -79,20 +79,23 @@ boost::filesystem::path Router::GetFullyQualifiedFilename(const boost::filesyste
     return (Environment::GetPathHdtnSourceRoot() / "module/scheduler/src/") / filename;
 }
 
-Router::Impl::Impl() : m_running(false), m_computedInitialOptimalRoutes(false), m_latestTime(0) {}
+Router::Impl::Impl() : 
+    m_running(false), 
+    m_computedInitialOptimalRoutes(false), 
+    m_latestTime(0), 
+    m_workerThreadStartupInProgress(false), 
+    m_usingUnixTimestamp(false), 
+    m_usingMGR(false) {}
 
+Router::Router() : m_pimpl(boost::make_unique<Router::Impl>()) {}
+    
 Router::Impl::~Impl() {
     Stop();
 }
 
-Router::Router() : m_pimpl(boost::make_unique<Router::Impl>()) {}
-
 Router::~Router() {
     Stop();
 }
-
-
-
 
 bool Router::Init(const HdtnConfig& hdtnConfig,
     const boost::filesystem::path& contactPlanFilePath,
@@ -108,9 +111,14 @@ void Router::Stop() {
 }
 void Router::Impl::Stop() {
     m_running = false; //thread stopping criteria
-    if (m_threadZmqAckReaderPtr) {
-        m_threadZmqAckReaderPtr->join();
-        m_threadZmqAckReaderPtr.reset(); //delete it
+    
+    if (m_threadZmqAckReaderPtr) { 
+        try {
+            m_threadZmqAckReaderPtr->join();
+            m_threadZmqAckReaderPtr.reset(); //delete it
+        } catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping Router thread";
+        }
     }
 }
 
@@ -130,10 +138,8 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
     m_usingUnixTimestamp = usingUnixTimestamp;
     m_usingMGR = useMgr;
     
-
     // socket for receiving events from scheduler
     m_zmqContextPtr = boost::make_unique<zmq::context_t>();
-
 
     try {
         if (hdtnOneProcessZmqInprocContextPtr) {
@@ -307,6 +313,13 @@ void Router::Impl::SchedulerEventsHandler() {
             }
             m_computedInitialOptimalRoutes = true;
             
+        }
+    }
+    else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_BUNDLES_FROM_SCHEDULER) {
+        //ignore but must discard multi-part message
+        zmq::message_t zmqMessageDiscard;
+        if (!m_zmqSubSock_boundSchedulerToConnectingRouterPtr->recv(zmqMessageDiscard, zmq::recv_flags::none)) {
+            LOG_ERROR(subprocess) << "Error discarding Bundle From Scheduler Message";
         }
     }
     else {

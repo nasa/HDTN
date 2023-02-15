@@ -72,6 +72,7 @@ public:
     uint64_t m_myBpEchoServiceId;
     std::string m_myCustodialSsp;
     uint64_t m_myCustodialServiceId;
+    uint64_t m_mySchedulerServiceId;
     bool m_isAcsAware;
     uint64_t m_acsMaxFillsPerAcsPacket;
     uint64_t m_acsSendPeriodMilliseconds;
