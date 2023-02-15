@@ -209,13 +209,12 @@ void Scheduler::Impl::Stop() {
         }
     }
 
-    try {        
-	     m_contactPlanTimer.cancel();    
-        } catch (const boost::system::system_error& e) {        
-            LOG_ERROR(subprocess) << "error cancelling contactPlanTimer : " << e.what();    
-	}
-
-
+    try {	
+        m_contactPlanTimer.cancel();
+    } catch (const boost::thread_resource_error&) {
+        LOG_ERROR(subprocess) << "error cancelling contact plan timer ";
+    }
+	
     m_workPtr.reset();
     //This function does not block, but instead simply signals the io_service to stop
     //All invocations of its run() or run_one() member functions should return as soon as possible.
