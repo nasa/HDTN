@@ -39,6 +39,7 @@ target_link_libraries(telem_lib
 		hdtn_util
 		log_lib
 		bpcodec
+		config_lib
 		stats_lib
 		telemetry_definitions
 		Boost::program_options

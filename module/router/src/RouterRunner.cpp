@@ -29,7 +29,7 @@ void RouterRunner::MonitorExitKeypressThreadFunction() {
 }
 
 
-RouterRunner::RouterRunner() {}
+RouterRunner::RouterRunner() : m_runningFromSigHandler(false) {}
 RouterRunner::~RouterRunner() {}
 
 
@@ -40,6 +40,7 @@ bool RouterRunner::Run(int argc, const char* const argv[], volatile bool & runni
         m_runningFromSigHandler = true;
         SignalHandler sigHandler(boost::bind(&RouterRunner::MonitorExitKeypressThreadFunction, this));
         HdtnConfig_ptr hdtnConfig;
+        HdtnDistributedConfig_ptr hdtnDistributedConfig;
         bool usingUnixTimestamp;
         bool useMgr;
         boost::filesystem::path contactPlanFilePath;
@@ -53,6 +54,7 @@ bool RouterRunner::Run(int argc, const char* const argv[], volatile bool & runni
                 ("use-unix-timestamp", "Use unix timestamp in contact plan.")
                 ("use-mgr", "Use Multigraph Routing Algorithm")
                 ("hdtn-config-file", opt::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
+                ("hdtn-distributed-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn_distributed.json"), "HDTN Distributed Mode Configuration File.")
                 ("contact-plan-file", opt::value<boost::filesystem::path>()->default_value(DEFAULT_FILE), "Contact Plan file needed by CGR to compute the optimal route.");
 
             opt::variables_map vm;
@@ -65,10 +67,16 @@ bool RouterRunner::Run(int argc, const char* const argv[], volatile bool & runni
             }
 
             const boost::filesystem::path configFileName = vm["hdtn-config-file"].as<boost::filesystem::path>();
-
             hdtnConfig = HdtnConfig::CreateFromJsonFilePath(configFileName);
             if (!hdtnConfig) {
                 LOG_ERROR(subprocess) << "error loading config file: " << configFileName;
+                return false;
+            }
+
+            const boost::filesystem::path distributedConfigFileName = vm["hdtn-distributed-config-file"].as<boost::filesystem::path>();
+            hdtnDistributedConfig = HdtnDistributedConfig::CreateFromJsonFilePath(distributedConfigFileName);
+            if (!hdtnDistributedConfig) {
+                LOG_ERROR(subprocess) << "error loading HDTN distributed config file: " << distributedConfigFileName;
                 return false;
             }
 
@@ -110,7 +118,7 @@ bool RouterRunner::Run(int argc, const char* const argv[], volatile bool & runni
         LOG_INFO(subprocess) << "Starting Router..";
         
         Router router;
-        if (!router.Init(*hdtnConfig, contactPlanFilePath, usingUnixTimestamp, useMgr)) {
+        if (!router.Init(*hdtnConfig, *hdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp, useMgr)) {
             return false;
         }
 

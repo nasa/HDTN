@@ -69,6 +69,7 @@ public:
     ~Impl();
     void Stop();
     bool Init(const HdtnConfig& hdtnConfig,
+        const HdtnDistributedConfig& hdtnDistributedConfig,
         const boost::filesystem::path& contactPlanFilePath,
         bool usingUnixTimestamp,
         zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
@@ -187,11 +188,12 @@ Scheduler::~Scheduler() {
 }
 
 bool Scheduler::Init(const HdtnConfig& hdtnConfig,
+    const HdtnDistributedConfig& hdtnDistributedConfig,
     const boost::filesystem::path& contactPlanFilePath,
     bool usingUnixTimestamp,
     zmq::context_t* hdtnOneProcessZmqInprocContextPtr)
 {
-    return m_pimpl->Init(hdtnConfig, contactPlanFilePath, usingUnixTimestamp, hdtnOneProcessZmqInprocContextPtr);
+    return m_pimpl->Init(hdtnConfig, hdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp, hdtnOneProcessZmqInprocContextPtr);
 }
 
 void Scheduler::Stop() {
@@ -235,6 +237,7 @@ void Scheduler::Impl::Stop() {
 }
 
 bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
+    const HdtnDistributedConfig& hdtnDistributedConfig,
     const boost::filesystem::path& contactPlanFilePath,
     bool usingUnixTimestamp,
     zmq::context_t* hdtnOneProcessZmqInprocContextPtr)
@@ -277,9 +280,9 @@ bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
         m_zmqPullSock_boundEgressToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
         const std::string connect_boundEgressToConnectingSchedulerPath(
             std::string("tcp://") +
-            m_hdtnConfig.m_zmqEgressAddress +
+            hdtnDistributedConfig.m_zmqEgressAddress +
             std::string(":") +
-            boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressToBoundSchedulerPortPath));
+            boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqBoundEgressToConnectingSchedulerPortPath));
         try {
             m_zmqPullSock_boundEgressToConnectingSchedulerPtr->connect(connect_boundEgressToConnectingSchedulerPath);
             LOG_INFO(subprocess) << "Scheduler connected and listening to events from Egress " << connect_boundEgressToConnectingSchedulerPath;
@@ -769,7 +772,8 @@ uint64_t Scheduler::GetRateBpsFromPtree(const boost::property_tree::ptree::value
     // First, attempt to get "rateBitsPerSec"
     try {
         return eventPtr.second.get<uint64_t>("rateBitsPerSec");
-    } catch (const boost::property_tree::ptree_error&) {
+    }
+    catch (const boost::property_tree::ptree_error&) {
         LOG_WARNING(subprocess) << "rateBps not defined in contact plan";
     }
 
@@ -778,7 +782,8 @@ uint64_t Scheduler::GetRateBpsFromPtree(const boost::property_tree::ptree::value
         const uint64_t rateMbps = eventPtr.second.get<uint64_t>("rate");
         LOG_WARNING(subprocess) << "[DEPRECATED] rate field in contact plan. Use 'rateBitsPerSec'";
         return rateMbps * 1000000;
-    } catch(const boost::property_tree::ptree_error&) {
+    }
+    catch(const boost::property_tree::ptree_error&) {
         LOG_WARNING(subprocess) << "failed to find rateBps or rate in contact plan. Using default.";
     }
     return 0;

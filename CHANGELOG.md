@@ -46,5 +46,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 * Config file removals:
+    - removed these values from hdtn config (because it was moved to hdtn_distributed_defaults.json for when NOT using hdtn-one-process): `zmqIngressAddress`, `zmqEgressAddress`, `zmqStorageAddress`, `zmqSchedulerAddress`, `zmqRouterAddress`, `zmqBoundIngressToConnectingEgressPortPath`, `zmqConnectingEgressToBoundIngressPortPath`, `zmqConnectingEgressBundlesOnlyToBoundIngressPortPath`, `zmqConnectingEgressToBoundSchedulerPortPath`, `zmqBoundIngressToConnectingStoragePortPath`, `zmqConnectingStorageToBoundIngressPortPath`, `zmqConnectingStorageToBoundEgressPortPath`, `zmqBoundEgressToConnectingStoragePortPath`, `zmqBoundRouterPubSubPortPath`
     - remove: `zmqMaxMessagesPerPath`, `zmqMaxMessageSizeBytes`, `zmqRegistrationServerAddress`, and `zmqRegistrationServerPortPath` from hdtn global configs
 * Removed `release-message-sender` and `multiple-release-message-sender` executables

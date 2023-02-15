@@ -24,6 +24,7 @@
 #include "zmq.hpp"
 #include <memory>
 #include "HdtnConfig.h"
+#include "HdtnDistributedConfig.h"
 #include <boost/core/noncopyable.hpp>
 #include "storage_lib_export.h"
 
@@ -33,7 +34,9 @@ public:
     STORAGE_LIB_EXPORT ZmqStorageInterface();
     STORAGE_LIB_EXPORT ~ZmqStorageInterface();
     STORAGE_LIB_EXPORT void Stop();
-    STORAGE_LIB_EXPORT bool Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
+    STORAGE_LIB_EXPORT bool Init(const HdtnConfig& hdtnConfig,
+        const HdtnDistributedConfig& hdtnDistributedConfig,
+        zmq::context_t* hdtnOneProcessZmqInprocContextPtr = NULL);
     STORAGE_LIB_EXPORT std::size_t GetCurrentNumberOfBundlesDeletedFromStorage();
 
 

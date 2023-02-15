@@ -41,6 +41,7 @@ public:
     ~Impl();
     void Stop();
     bool Init(const HdtnConfig& hdtnConfig,
+        const HdtnDistributedConfig& hdtnDistributedConfig,
         const boost::filesystem::path& contactPlanFilePath,
         bool usingUnixTimestamp,
         bool useMgr,
@@ -98,12 +99,13 @@ Router::~Router() {
 }
 
 bool Router::Init(const HdtnConfig& hdtnConfig,
+    const HdtnDistributedConfig& hdtnDistributedConfig,
     const boost::filesystem::path& contactPlanFilePath,
     bool usingUnixTimestamp,
     bool useMgr,
     zmq::context_t* hdtnOneProcessZmqInprocContextPtr)
 {
-    return m_pimpl->Init(hdtnConfig, contactPlanFilePath, usingUnixTimestamp, useMgr, hdtnOneProcessZmqInprocContextPtr);
+    return m_pimpl->Init(hdtnConfig, hdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp, useMgr, hdtnOneProcessZmqInprocContextPtr);
 }
 
 void Router::Stop() {
@@ -123,6 +125,7 @@ void Router::Impl::Stop() {
 }
 
 bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
+    const HdtnDistributedConfig& hdtnDistributedConfig,
     const boost::filesystem::path& contactPlanFilePath,
     bool usingUnixTimestamp,
     bool useMgr,
@@ -152,9 +155,9 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
             m_zmqPushSock_connectingRouterToBoundEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::push);
             const std::string connect_connectingRouterToBoundEgressPath(
                 std::string("tcp://") +
-                m_hdtnConfig.m_zmqEgressAddress +
+                hdtnDistributedConfig.m_zmqEgressAddress +
                 std::string(":") +
-                boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundRouterPubSubPortPath));
+                boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingRouterToBoundEgressPortPath));
             m_zmqPushSock_connectingRouterToBoundEgressPtr->connect(connect_connectingRouterToBoundEgressPath);
         }
 
@@ -171,7 +174,7 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
     m_zmqSubSock_boundSchedulerToConnectingRouterPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::sub);
     const std::string connect_boundSchedulerPubSubPath(
         std::string("tcp://") +
-        m_hdtnConfig.m_zmqSchedulerAddress +
+        ((hdtnOneProcessZmqInprocContextPtr == NULL) ? hdtnDistributedConfig.m_zmqSchedulerAddress : std::string("localhost")) +
         std::string(":") +
         boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
     try {

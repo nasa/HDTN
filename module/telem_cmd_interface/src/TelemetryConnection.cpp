@@ -32,7 +32,8 @@ TelemetryConnection::TelemetryConnection(const std::string& addr, zmq::context_t
         m_requestSocket->set(zmq::sockopt::linger, 0);
         m_requestSocket->connect(addr);
         m_addr = addr;
-    } catch (const zmq::error_t & ex) {
+    }
+    catch (const zmq::error_t & ex) {
         LOG_ERROR(subprocess) << "cannot connect zmq socket: " << ex.what();
         if (m_requestSocket) {
             m_requestSocket->close();

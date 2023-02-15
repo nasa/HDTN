@@ -34,6 +34,8 @@ bool Telemetry::Run(int argc, const char *const argv[], volatile bool &running)
     boost::program_options::options_description desc("Allowed options");
     desc.add_options()("help", "Produce help message.");
     TelemetryRunnerProgramOptions::AppendToDesc(desc);
+    desc.add_options() //TODO should this be added here
+        ("hdtn-distributed-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn_distributed.json"), "HDTN Distributed Mode Configuration File.");
     boost::program_options::variables_map vm;
     boost::program_options::store(
         boost::program_options::parse_command_line(argc, argv, desc, boost::program_options::command_line_style::unix_style | boost::program_options::command_line_style::case_insensitive),

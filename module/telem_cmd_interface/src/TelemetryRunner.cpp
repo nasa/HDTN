@@ -60,13 +60,14 @@ class TelemetryRunner::Impl : private boost::noncopyable {
         void Stop();
 
     private:
-        void ThreadFunc(zmq::context_t * inprocContextPtr);
+        void ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDistributedConfigPtr, zmq::context_t * inprocContextPtr);
         void OnNewTelemetry(uint8_t* buffer, uint64_t bufferSize);
 
         volatile bool m_running;
         std::unique_ptr<boost::thread> m_threadPtr;
         std::unique_ptr<WebsocketServer> m_websocketServerPtr;
         std::unique_ptr<TelemetryLogger> m_telemetryLoggerPtr;
+        DeadlineTimer m_deadlineTimer;
 };
 
 /**
@@ -100,12 +101,17 @@ TelemetryRunner::~TelemetryRunner()
  * TelemetryRunner implementation
  */
 
-TelemetryRunner::Impl::Impl()
-    : m_running(false)
+TelemetryRunner::Impl::Impl() :
+    m_running(false),
+    m_deadlineTimer(THREAD_POLL_INTERVAL_MS)
     {}
 
 bool TelemetryRunner::Impl::Init(zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options)
 {
+    if ((inprocContextPtr == NULL) && (!options.m_hdtnDistributedConfigPtr)) {
+        LOG_ERROR(subprocess) << "Error in TelemetryRunner Init: using distributed mode but Hdtn Distributed Config is invalid";
+        return false;
+    }
 #ifdef USE_WEB_INTERFACE
     m_websocketServerPtr = boost::make_unique<WebsocketServer>();
     m_websocketServerPtr->Init(options.m_guiDocumentRoot, options.m_guiPortNumber);
@@ -117,11 +123,11 @@ bool TelemetryRunner::Impl::Init(zmq::context_t *inprocContextPtr, TelemetryRunn
 
     m_running = true;
     m_threadPtr = boost::make_unique<boost::thread>(
-        boost::bind(&TelemetryRunner::Impl::ThreadFunc, this, inprocContextPtr)); // create and start the worker thread
+        boost::bind(&TelemetryRunner::Impl::ThreadFunc, this, options.m_hdtnDistributedConfigPtr, inprocContextPtr)); // create and start the worker thread
     return true;
 }
 
-void TelemetryRunner::Impl::ThreadFunc(zmq::context_t *inprocContextPtr)
+void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDistributedConfigPtr, zmq::context_t *inprocContextPtr)
 {
     ThreadNamer::SetThisThreadName("TelemetryRunner");
     // Create and initialize connections
@@ -142,9 +148,25 @@ void TelemetryRunner::Impl::ThreadFunc(zmq::context_t *inprocContextPtr)
                 inprocContextPtr);
         }
         else {
-            ingressConnection = boost::make_unique<TelemetryConnection>("tcp://localhost:10301", nullptr);
-            egressConnection = boost::make_unique<TelemetryConnection>("tcp://localhost:10302", nullptr);
-            storageConnection = boost::make_unique<TelemetryConnection>("tcp://localhost:10303", nullptr);
+            const std::string connect_connectingTelemToFromBoundIngressPath(
+                std::string("tcp://") +
+                hdtnDistributedConfigPtr->m_zmqIngressAddress +
+                std::string(":") +
+                boost::lexical_cast<std::string>(hdtnDistributedConfigPtr->m_zmqConnectingTelemToFromBoundIngressPortPath));
+            const std::string connect_connectingTelemToFromBoundEgressPath(
+                std::string("tcp://") +
+                hdtnDistributedConfigPtr->m_zmqEgressAddress +
+                std::string(":") +
+                boost::lexical_cast<std::string>(hdtnDistributedConfigPtr->m_zmqConnectingTelemToFromBoundEgressPortPath));
+            const std::string connect_connectingTelemToFromBoundStoragePath(
+                std::string("tcp://") +
+                hdtnDistributedConfigPtr->m_zmqStorageAddress +
+                std::string(":") +
+                boost::lexical_cast<std::string>(hdtnDistributedConfigPtr->m_zmqConnectingTelemToFromBoundStoragePortPath));
+
+            ingressConnection = boost::make_unique<TelemetryConnection>(connect_connectingTelemToFromBoundIngressPath, nullptr);
+            egressConnection = boost::make_unique<TelemetryConnection>(connect_connectingTelemToFromBoundEgressPath, nullptr);
+            storageConnection = boost::make_unique<TelemetryConnection>(connect_connectingTelemToFromBoundStoragePath, nullptr);
         }
     }
     catch (std::exception& e)
@@ -160,11 +182,11 @@ void TelemetryRunner::Impl::ThreadFunc(zmq::context_t *inprocContextPtr)
     poller.AddConnection(*storageConnection);
 
     // Start loop to begin polling
-    DeadlineTimer deadlineTimer(THREAD_POLL_INTERVAL_MS);
+    
     while (m_running)
     {
-        if (!deadlineTimer.SleepUntilNextInterval()) {
-            return;
+        if (!m_deadlineTimer.SleepUntilNextInterval()) {
+            break;
         }
 
         // Send signals to all hdtn modules
@@ -217,7 +239,8 @@ void TelemetryRunner::Impl::OnNewTelemetry(uint8_t* buffer, uint64_t bufferSize)
         std::vector<std::unique_ptr<Telemetry_t>> telemList;
         try {
             telemList = TelemetryFactory::DeserializeFromLittleEndian(buffer, bufferSize);
-        } catch (std::exception& e) {
+        }
+        catch (std::exception& e) {
             LOG_ERROR(subprocess) << e.what();
             return;
         }
@@ -235,16 +258,23 @@ bool TelemetryRunner::Impl::ShouldExit()
     return false;
 }
 
-void TelemetryRunner::Impl::Stop()
-{
+void TelemetryRunner::Impl::Stop() {
     m_running = false;
+    m_deadlineTimer.Disable();
+    m_deadlineTimer.Cancel();
     if (!m_threadPtr) {
         return;
     }
     try {
         m_threadPtr->join();
-    } catch (std::exception& e) {
+    }
+    catch (std::exception& e) {
         LOG_WARNING(subprocess) << e.what();
     }
     m_threadPtr.reset(); // delete it
+    
+    //The following is implicitly done at destruction.  If print statements are
+    // added before and after this reset(), you will observe this part takes at least a second.
+    // We may want to optimize this at some point.
+    //m_websocketServerPtr.reset();
 }

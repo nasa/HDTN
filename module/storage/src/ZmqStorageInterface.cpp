@@ -96,7 +96,7 @@ struct ZmqStorageInterface::Impl : private boost::noncopyable {
     Impl();
     ~Impl();
     void Stop();
-    bool Init(const HdtnConfig& hdtnConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
+    bool Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
     std::size_t GetCurrentNumberOfBundlesDeletedFromStorage();
 
 private:
@@ -207,10 +207,10 @@ void ZmqStorageInterface::Impl::Stop() {
     }
 }
 
-bool ZmqStorageInterface::Init(const HdtnConfig& hdtnConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr) {
-    return m_pimpl->Init(hdtnConfig, hdtnOneProcessZmqInprocContextPtr);
+bool ZmqStorageInterface::Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr) {
+    return m_pimpl->Init(hdtnConfig, hdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr);
 }
-bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
+bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
 
     if (m_running) {
         LOG_ERROR(subprocess) << "ZmqStorageInterface::Init called while ZmqStorageInterface is already running";
@@ -252,34 +252,35 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context
         m_zmqPushSock_connectingStorageToBoundEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::push);
         const std::string connect_connectingStorageToBoundEgressPath(
             std::string("tcp://") +
-            m_hdtnConfig.m_zmqEgressAddress +
+            hdtnDistributedConfig.m_zmqEgressAddress +
             std::string(":") +
-            boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingStorageToBoundEgressPortPath));
+            boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingStorageToBoundEgressPortPath));
         
         m_zmqPullSock_boundEgressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::pull);
         const std::string connect_boundEgressToConnectingStoragePath(
             std::string("tcp://") +
-            m_hdtnConfig.m_zmqEgressAddress +
+            hdtnDistributedConfig.m_zmqEgressAddress +
             std::string(":") +
-            boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundEgressToConnectingStoragePortPath));
+            boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqBoundEgressToConnectingStoragePortPath));
         
         m_zmqPushSock_connectingStorageToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::push);
         const std::string connect_connectingStorageToBoundIngressPath(
             std::string("tcp://") +
-            m_hdtnConfig.m_zmqIngressAddress +
+            hdtnDistributedConfig.m_zmqIngressAddress +
             std::string(":") +
-            boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingStorageToBoundIngressPortPath));
+            boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingStorageToBoundIngressPortPath));
 
         m_zmqPullSock_boundIngressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::pull);
         const std::string connect_boundIngressToConnectingStoragePath(
             std::string("tcp://") +
-            m_hdtnConfig.m_zmqIngressAddress +
+            hdtnDistributedConfig.m_zmqIngressAddress +
             std::string(":") +
-            boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundIngressToConnectingStoragePortPath));
+            boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqBoundIngressToConnectingStoragePortPath));
 
         //from telemetry socket
         m_zmqRepSock_connectingTelemToFromBoundStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::rep);
-        const std::string bind_connectingTelemToFromBoundStoragePath("tcp://*:10303");
+        const std::string bind_connectingTelemToFromBoundStoragePath(
+            std::string("tcp://*:") + boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingTelemToFromBoundStoragePortPath));
 
         try {
             m_zmqPushSock_connectingStorageToBoundEgressPtr->connect(connect_connectingStorageToBoundEgressPath); // egress should bind
@@ -297,7 +298,7 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context
     m_zmqSubSock_boundReleaseToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::sub);
     const std::string connect_boundSchedulerPubSubPath(
         std::string("tcp://") +
-        m_hdtnConfig.m_zmqSchedulerAddress +
+        ((hdtnOneProcessZmqInprocContextPtr == NULL) ? hdtnDistributedConfig.m_zmqSchedulerAddress : std::string("localhost")) +
         std::string(":") +
         boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
     try {

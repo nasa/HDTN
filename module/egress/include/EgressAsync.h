@@ -27,6 +27,7 @@
 #include "zmq.hpp"
 #include <memory>
 #include "HdtnConfig.h"
+#include "HdtnDistributedConfig.h"
 #include "TelemetryDefinitions.h"
 #include <boost/core/noncopyable.hpp>
 #include "egress_async_lib_export.h"
@@ -40,7 +41,9 @@ public:
     EGRESS_ASYNC_LIB_EXPORT Egress();
     EGRESS_ASYNC_LIB_EXPORT ~Egress();
     EGRESS_ASYNC_LIB_EXPORT void Stop();
-    EGRESS_ASYNC_LIB_EXPORT bool Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
+    EGRESS_ASYNC_LIB_EXPORT bool Init(const HdtnConfig& hdtnConfig,
+        const HdtnDistributedConfig& hdtnDistributedConfig,
+        zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
 
 private:
 
