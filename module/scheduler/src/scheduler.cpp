@@ -85,9 +85,9 @@ private:
     void HandlePhysicalLinkStatusChange(const hdtn::LinkStatusHdr& linkStatusHdr);
 
     void SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
-            uint64_t time, uint64_t rateBps, bool doInformEgress);
+            uint64_t time, uint64_t rateBps, uint64_t duration, bool isPhysical);
     void SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
-            uint64_t time);
+            uint64_t time, bool isPhysical);
 
     void EgressEventsHandler();
     bool SendBundle(const uint8_t* payloadData, const uint64_t payloadSizeBytes, const cbhe_eid_t& finalDestEid);
@@ -356,7 +356,7 @@ bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
 }
 
 void Scheduler::Impl::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
-		             uint64_t time) {
+		             uint64_t time, bool isPhysical) {
 
     hdtn::IreleaseChangeHdr stopMsg;
     
@@ -367,6 +367,7 @@ void Scheduler::Impl::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outduct
     stopMsg.prevHopNodeId = src;
     stopMsg.outductArrayIndex = outductArrayIndex;
     stopMsg.time = time;
+    stopMsg.isPhysical = (isPhysical ? 1 : 0);
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
         if(!m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(
@@ -381,10 +382,10 @@ void Scheduler::Impl::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outduct
         << "  src(" << src << ") == = > dest(" << dest << ") at time " << timeLocal;
 }
 
-void Scheduler::Impl::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex, uint64_t time, uint64_t rateBps, bool doInformEgress = true) {
+void Scheduler::Impl::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex, uint64_t time, uint64_t rateBps, uint64_t duration, bool isPhysical) {
     // First, send rate update message to egress, so it has time to
-    // update the rate before receiving date
-    if (doInformEgress) {
+    // update the rate before receiving bundles
+    if (!isPhysical) {
         hdtn::IreleaseChangeHdr rateUpdateMsg;
         memset(&rateUpdateMsg, 0, sizeof(rateUpdateMsg));
         rateUpdateMsg.SetSubscribeEgressOnly();
@@ -409,6 +410,8 @@ void Scheduler::Impl::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductAr
     releaseMsg.prevHopNodeId = src;
     releaseMsg.outductArrayIndex = outductArrayIndex;
     releaseMsg.time = time;
+    releaseMsg.duration = duration;
+    releaseMsg.isPhysical = (isPhysical ? 1 : 0);
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
         if (!m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(
@@ -703,6 +706,18 @@ void Scheduler::Impl::ReadZmqAcksThreadFunc() {
                         storageSubscribed = (dataSubscriber[0] == 0x1);
                         LOG_INFO(subprocess) << "Storage " << ((storageSubscribed) ? "subscribed" : "desubscribed");
                     }
+                    else if ((zmqSubscriberDataReceived.size() == 9) &&
+                        (dataSubscriber[1] == 'a') && 
+                        (dataSubscriber[2] == 'a') &&
+                        (dataSubscriber[3] == 'a') &&
+                        (dataSubscriber[4] == 'a') &&
+                        (dataSubscriber[5] == 'a') &&
+                        (dataSubscriber[6] == 'a') &&
+                        (dataSubscriber[7] == 'a') &&
+                        (dataSubscriber[8] == 'a')) {
+                        bool uisSubscribed = (dataSubscriber[0] == 0x1);
+                        LOG_INFO(subprocess) << "UIS " << ((uisSubscribed) ? "subscribed" : "desubscribed");
+                    }
                     else {
                         LOG_ERROR(subprocess) << "invalid subscriber message received: length=" << zmqSubscriberDataReceived.size();
                     }
@@ -801,7 +816,7 @@ bool Scheduler::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
         if (outductInfo.linkIsUpTimeBased) {
             LOG_INFO(subprocess) << "Reloading contact plan: changing time based link up to link down for source "
                 << m_hdtnConfig.m_myNodeId << " destination " << outductInfo.nextHopNodeId << " outductIndex " << outductInfo.outductIndex;
-            SendLinkDown(m_hdtnConfig.m_myNodeId, outductInfo.nextHopNodeId, outductInfo.outductIndex, 0);
+            SendLinkDown(m_hdtnConfig.m_myNodeId, outductInfo.nextHopNodeId, outductInfo.outductIndex, 0, false);
             outductInfo.linkIsUpTimeBased = false;
         }
     }
@@ -899,10 +914,11 @@ void Scheduler::Impl::OnContactPlan_TimerExpired(const boost::system::error_code
                 outductInfo.linkIsUpTimeBased = contactPlan.isLinkUp;
 
                 if (outductInfo.linkIsUpTimeBased) {
-                    SendLinkUp(contactPlan.source, contactPlan.dest, contactPlan.outductArrayIndex, contactPlan.start, contactPlan.rateBps);
+                    uint64_t duration = contactPlan.end - contactPlan.start;
+                    SendLinkUp(contactPlan.source, contactPlan.dest, contactPlan.outductArrayIndex, contactPlan.start, contactPlan.rateBps, duration, false);
                 }
                 else {
-                    SendLinkDown(contactPlan.source, contactPlan.dest, contactPlan.outductArrayIndex, contactPlan.end + 1);
+                    SendLinkDown(contactPlan.source, contactPlan.dest, contactPlan.outductArrayIndex, contactPlan.end + 1, false);
                 }
             }
 
@@ -972,12 +988,12 @@ void Scheduler::Impl::HandlePhysicalLinkStatusChange(const hdtn::LinkStatusHdr& 
     if (eventLinkIsUpPhysically) {
         if (outductInfo.linkIsUpTimeBased) {
             LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Up event at time  " << timeSecondsSinceSchedulerEpoch;
-            SendLinkUp(m_hdtnConfig.m_myNodeId, outductInfo.nextHopNodeId, outductArrayIndex, timeSecondsSinceSchedulerEpoch, 0, false);
+            SendLinkUp(m_hdtnConfig.m_myNodeId, outductInfo.nextHopNodeId, outductArrayIndex, timeSecondsSinceSchedulerEpoch, 0, 0, true);
         }
     }
     else {
         LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Down event at time  " << timeSecondsSinceSchedulerEpoch;
 
-        SendLinkDown(m_hdtnConfig.m_myNodeId, outductInfo.nextHopNodeId, outductArrayIndex, timeSecondsSinceSchedulerEpoch);
+        SendLinkDown(m_hdtnConfig.m_myNodeId, outductInfo.nextHopNodeId, outductArrayIndex, timeSecondsSinceSchedulerEpoch, true);
     }
 }

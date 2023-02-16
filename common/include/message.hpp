@@ -159,10 +159,10 @@ struct IreleaseChangeHdr {
     uint8_t unused1;
     uint8_t unused2;
     uint8_t unused3;
-    uint8_t unused4;
+    uint8_t isPhysical; // whether the link status change is due to physical (link disruption) or a contact change
     uint64_t outductArrayIndex; //outductUuid
     uint64_t rateBps; // (start events only)
-    uint64_t duration;  // msec (start events only)
+    uint64_t duration;  // the duration of the contact (s) (link up events only)
     uint64_t prevHopNodeId;
     uint64_t nextHopNodeId;
     uint64_t time;
@@ -172,6 +172,8 @@ struct IreleaseChangeHdr {
     //Router unique subscription shall be "a" (gets all messages that start with "a") (e.g "aaa", "ab", etc.)
     //Ingress unique subscription shall be "aa"
     //Storage unique subscription shall be "aaa"
+    //UIS unique subscription shall be "aaaaaaaa"
+    //Egress unique subscription shall be "b"
     void SetSubscribeAll() {
         subscriptionBytes = 0x6161616161616161; //"aaaaaaaa"
     }
