@@ -322,7 +322,7 @@ bool BundleStorageCatalog::GetStorageExpiringBeforeThresholdTelemetry(StorageExp
             const uint64_t thisExpiration = expirationsIt->first;
             if (thisExpiration <= expiry) {
                 custids_flist_queue_t& custodyIdFlistQueue = expirationsIt->second;
-                StorageExpiringBeforeThresholdTelemetry_t::bundle_count_plus_bundle_bytes_pair_t & bundleCountAndBytes = telem.map_node_id_to_expiring_before_threshold_count[eid.nodeId];
+                StorageExpiringBeforeThresholdTelemetry_t::bundle_count_plus_bundle_bytes_pair_t & bundleCountAndBytes = telem.mapNodeIdToExpiringBeforeThresholdCount[eid.nodeId];
                 for (custids_flist_queue_t::iterator cidFlistIt = custodyIdFlistQueue.begin(); cidFlistIt != custodyIdFlistQueue.end(); ++cidFlistIt) {
                     ++bundleCountAndBytes.first;
                     const uint64_t custodyId = *cidFlistIt;

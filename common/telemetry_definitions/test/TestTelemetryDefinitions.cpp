@@ -143,10 +143,17 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsIngressTestCase)
     });
 
     IngressTelemetry_t telem2;
-    telem2.DeserializeFromLittleEndian(serialized.data(), serialized.size());
+    uint64_t numBytesTakenToDecode;
+    BOOST_REQUIRE(telem2.DeserializeFromLittleEndian(serialized.data(), numBytesTakenToDecode, serialized.size()));
+    BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, serialized.size());
     BOOST_REQUIRE_EQUAL(telem2.totalDataBytes, 200);
     BOOST_REQUIRE_EQUAL(telem2.bundleCountEgress, 10);
     BOOST_REQUIRE_EQUAL(telem2.bundleCountStorage, 15);
+
+    IngressTelemetry_t telemFromJson;
+    BOOST_REQUIRE(telemFromJson.SetValuesFromJson(telem2.ToJson()));
+    BOOST_REQUIRE(telem2 == telemFromJson);
+    //std::cout << telem2.ToJson() << "\n\n";
 }
 
 BOOST_AUTO_TEST_CASE(TelemetryDefinitionsEgressTestCase)
@@ -186,10 +193,16 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsEgressTestCase)
     });
 
     EgressTelemetry_t telem2;
-    telem2.DeserializeFromLittleEndian(serialized.data(), serialized.size());
+    uint64_t numBytesTakenToDecode;
+    BOOST_REQUIRE(telem2.DeserializeFromLittleEndian(serialized.data(), numBytesTakenToDecode, serialized.size()));
+    BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, serialized.size());
     BOOST_REQUIRE_EQUAL(telem2.egressBundleCount, 10);
     BOOST_REQUIRE_EQUAL(telem2.totalDataBytes, 200);
     BOOST_REQUIRE_EQUAL(telem2.egressMessageCount, 15);
+
+    EgressTelemetry_t telemFromJson;
+    BOOST_REQUIRE(telemFromJson.SetValuesFromJson(telem2.ToJson()));
+    BOOST_REQUIRE(telem2 == telemFromJson);
 }
 
 BOOST_AUTO_TEST_CASE(TelemetryDefinitionsStorageTestCase)
@@ -233,11 +246,17 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsStorageTestCase)
     });
 
     StorageTelemetry_t telem2;
-    telem2.DeserializeFromLittleEndian(serialized.data(), serialized.size());
+    uint64_t numBytesTakenToDecode;
+    BOOST_REQUIRE(telem2.DeserializeFromLittleEndian(serialized.data(), numBytesTakenToDecode, serialized.size()));
+    BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, serialized.size());
     BOOST_REQUIRE_EQUAL(telem2.totalBundlesErasedFromStorage, 200);
     BOOST_REQUIRE_EQUAL(telem2.totalBundlesSentToEgressFromStorage, 10);
     BOOST_REQUIRE_EQUAL(telem2.usedSpaceBytes, 15);
     BOOST_REQUIRE_EQUAL(telem2.freeSpaceBytes, 12);
+
+    StorageTelemetry_t telemFromJson;
+    BOOST_REQUIRE(telemFromJson.SetValuesFromJson(telem2.ToJson()));
+    BOOST_REQUIRE(telem2 == telemFromJson);
 }
 
 BOOST_AUTO_TEST_CASE(TelemetryDefinitionsLtpOutductTestCase)
@@ -308,7 +327,9 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsLtpOutductTestCase)
     });
 
     LtpOutductTelemetry_t telem2;
-    telem2.DeserializeFromLittleEndian(serialized.data(), serialized.size());
+    uint64_t numBytesTakenToDecode;
+    BOOST_REQUIRE(telem2.DeserializeFromLittleEndian(serialized.data(), numBytesTakenToDecode, serialized.size()));
+    BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, serialized.size());
     BOOST_REQUIRE_EQUAL(telem2.totalBundlesAcked, 1);
     BOOST_REQUIRE_EQUAL(telem2.totalBundleBytesAcked, 2);
     BOOST_REQUIRE_EQUAL(telem2.totalBundlesSent, 3);
@@ -319,6 +340,10 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsLtpOutductTestCase)
     BOOST_REQUIRE_EQUAL(telem.countUdpPacketsSent, 8);
     BOOST_REQUIRE_EQUAL(telem.countRxUdpCircularBufferOverruns, 9);
     BOOST_REQUIRE_EQUAL(telem.countTxUdpPacketsLimitedByRate, 10);
+
+    LtpOutductTelemetry_t telemFromJson;
+    BOOST_REQUIRE(telemFromJson.SetValuesFromJson(telem2.ToJson()));
+    BOOST_REQUIRE(telem2 == telemFromJson);
 }
 
 BOOST_AUTO_TEST_CASE(TelemetryDefinitionsStcpOutductTestCase)
@@ -372,13 +397,19 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsStcpOutductTestCase)
     });
 
     StcpOutductTelemetry_t telem2;
-    telem2.DeserializeFromLittleEndian(serialized.data(), serialized.size());
+    uint64_t numBytesTakenToDecode;
+    BOOST_REQUIRE(telem2.DeserializeFromLittleEndian(serialized.data(), numBytesTakenToDecode, serialized.size()));
+    BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, serialized.size());
     BOOST_REQUIRE_EQUAL(telem2.totalBundlesAcked, 1);
     BOOST_REQUIRE_EQUAL(telem2.totalBundleBytesAcked, 2);
     BOOST_REQUIRE_EQUAL(telem2.totalBundlesSent, 3);
     BOOST_REQUIRE_EQUAL(telem2.totalBundleBytesSent, 4);
     BOOST_REQUIRE_EQUAL(telem2.totalBundlesFailedToSend, 5);
     BOOST_REQUIRE_EQUAL(telem2.totalStcpBytesSent, 6);
+
+    StcpOutductTelemetry_t telemFromJson;
+    BOOST_REQUIRE(telemFromJson.SetValuesFromJson(telem2.ToJson()));
+    BOOST_REQUIRE(telem2 == telemFromJson);
 }
 
 BOOST_AUTO_TEST_CASE(TelemetryDefinitionsOutductTestCase)
@@ -387,7 +418,7 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsOutductTestCase)
     {
         OutductCapabilityTelemetry_t oct;
         
-        BOOST_REQUIRE_EQUAL(oct.type, 5);
+        BOOST_REQUIRE_EQUAL(oct.GetType(), TelemetryType::outductCapability);
         oct.maxBundlesInPipeline = 50;
         oct.maxBundleSizeBytesInPipeline = 5000;
         oct.outductArrayIndex = 2;
@@ -407,6 +438,11 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsOutductTestCase)
         BOOST_REQUIRE(oct2.DeserializeFromLittleEndian(serialized.data(), numBytesTakenToDecode, serializationSize));
         
         BOOST_REQUIRE(oct == oct2);
+
+        OutductCapabilityTelemetry_t octFromJson;
+        BOOST_REQUIRE(octFromJson.SetValuesFromJson(oct.ToJson()));
+        BOOST_REQUIRE(oct == octFromJson);
+        //std::cout << oct.ToJson() << "\n\n";
         
         //misc
         BOOST_REQUIRE(!(oct != oct2));
@@ -420,12 +456,14 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsOutductTestCase)
         OutductCapabilityTelemetry_t oct2Moved2(std::move(oct2Moved));
         BOOST_REQUIRE(oct != oct2Moved); //oct2 moved
         BOOST_REQUIRE(oct == oct2Moved2);
+
+        
     }
 
     {
         AllOutductCapabilitiesTelemetry_t aoct;
 
-        BOOST_REQUIRE_EQUAL(aoct.type, 6);
+        BOOST_REQUIRE_EQUAL(aoct.GetType(), TelemetryType::allOutductCapability);
         uint64_t expectedSerializationSize = 2 * sizeof(uint64_t);
         for (unsigned int i = 0; i < 10; ++i) {
             aoct.outductCapabilityTelemetryList.emplace_back();
@@ -455,6 +493,11 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsOutductTestCase)
         BOOST_REQUIRE(aoct2.DeserializeFromLittleEndian(serialized.data(), numBytesTakenToDecode, serializationSize));
 
         BOOST_REQUIRE(aoct == aoct2);
+
+        AllOutductCapabilitiesTelemetry_t aoctFromJson;
+        BOOST_REQUIRE(aoctFromJson.SetValuesFromJson(aoct.ToJson()));
+        BOOST_REQUIRE(aoct == aoctFromJson);
+        //std::cout << aoct.ToJson() << "\n\n";
         //std::cout << aoct2 << std::endl;
 
         //misc
@@ -481,7 +524,12 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsStorageExpiringBeforeThresholdTestCase)
     StorageExpiringBeforeThresholdTelemetry_t::bundle_count_plus_bundle_bytes_pair_t bundleCountAndBytes;
     bundleCountAndBytes.first = 90;
     bundleCountAndBytes.second = 2000;
-    telem.map_node_id_to_expiring_before_threshold_count[4] = bundleCountAndBytes;
+    telem.mapNodeIdToExpiringBeforeThresholdCount[4] = bundleCountAndBytes;
+
+    //std::cout << telem.ToJson() << "\n";
+    StorageExpiringBeforeThresholdTelemetry_t telemFromJson;
+    BOOST_REQUIRE(telemFromJson.SetValuesFromJson(telem.ToJson()));
+    BOOST_REQUIRE(telem == telemFromJson);
 
     {
         std::vector<uint8_t>* actual = new std::vector<uint8_t>(1000); //will be 64-bit aligned
@@ -513,7 +561,7 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsStorageExpiringBeforeThresholdTestCase)
 
     {
         BOOST_REQUIRE_EQUAL(telem.GetSerializationSize(), 56);
-        telem.map_node_id_to_expiring_before_threshold_count[9] = bundleCountAndBytes;
+        telem.mapNodeIdToExpiringBeforeThresholdCount[9] = bundleCountAndBytes;
         BOOST_REQUIRE_EQUAL(telem.GetSerializationSize(), 80);
     }
 }

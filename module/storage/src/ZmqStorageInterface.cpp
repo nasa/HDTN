@@ -1302,7 +1302,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     LOG_ERROR(subprocess) << "telemMsgByte message mismatch: untruncated = " << res->untruncated_size
                         << " truncated = " << res->size << " expected = " << sizeof(telemReq);
                 }
-                else if (telemReq.type == TelemetryType::storageExpiringBeforeThreshold) {
+                else if (telemReq.type == ((uint64_t)TelemetryType::storageExpiringBeforeThreshold)) {
                     //send telemetry
                     StorageTelemetry_t storageTelem;
                     storageTelem.freeSpaceBytes = m_bsmPtr->GetFreeSpaceBytes();

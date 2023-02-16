@@ -29,20 +29,36 @@
 
 #include "telemetry_definitions_export.h"
 #include "codec/Cbhe.h"
+#include "JsonSerializable.h"
+#include "EnumAsFlagsMacro.h"
 
-enum TelemetryType {
+enum class TelemetryType : uint64_t {
+    undefined = 0,
     ingress = 1,
     egress,
     storage,
     ltpoutduct,
     stcpoutduct,
-    storageExpiringBeforeThreshold = 10
+    unused6,
+    unused7,
+    unused8,
+    unused9,
+    storageExpiringBeforeThreshold = 10,
+    outductCapability,
+    allOutductCapability,
+    none
 };
+//MAKE_ENUM_SUPPORT_FLAG_OPERATORS(TelemetryType);
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(TelemetryType);
 
-class Telemetry_t {
+class Telemetry_t : public JsonSerializable {
     public:
         TELEMETRY_DEFINITIONS_EXPORT Telemetry_t();
+        TELEMETRY_DEFINITIONS_EXPORT Telemetry_t(TelemetryType type);
         TELEMETRY_DEFINITIONS_EXPORT virtual ~Telemetry_t();
+
+        TELEMETRY_DEFINITIONS_EXPORT bool operator==(const Telemetry_t& o) const; //operator ==
+        TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const Telemetry_t& o) const;
 
         /**
          * Gets the underlying telemetry type
@@ -52,7 +68,7 @@ class Telemetry_t {
         /**
          *  Gets the size, in bytes, to allocate for the serialized telemetry
          */
-        TELEMETRY_DEFINITIONS_EXPORT virtual uint64_t GetSerializationSize();
+        TELEMETRY_DEFINITIONS_EXPORT virtual uint64_t GetSerializationSize() const;
 
         /**
          * Serializes a telemetry object into little-endian format
@@ -60,23 +76,31 @@ class Telemetry_t {
          * @param bufferSize the size of the provided buffer
          * @return the number of bytes serialized
          */
-        TELEMETRY_DEFINITIONS_EXPORT virtual uint64_t SerializeToLittleEndian(uint8_t* buffer, uint64_t bufferSize);
+        TELEMETRY_DEFINITIONS_EXPORT virtual uint64_t SerializeToLittleEndian(uint8_t* buffer, uint64_t bufferSize) const;
 
         /**
          * Deserializes a little-endian uint8_t buffer into the telemetry object. By default,
          * this function will deserialize all fields that were appended to m_fieldsToSerialize.
          * @return the number of bytes that were deserialized
          */
-        TELEMETRY_DEFINITIONS_EXPORT virtual uint64_t DeserializeFromLittleEndian(uint8_t* buffer, uint64_t bufferSize);
+        TELEMETRY_DEFINITIONS_EXPORT virtual bool DeserializeFromLittleEndian(const uint8_t* serialization, uint64_t& numBytesTakenToDecode, uint64_t bufferSize);
+
+        TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+        TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     protected:
-        uint64_t m_type;
+        TelemetryType m_type;
         std::vector<uint64_t*> m_fieldsToSerialize;
 };
 
 struct IngressTelemetry_t : public Telemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT IngressTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~IngressTelemetry_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const IngressTelemetry_t& o) const; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const IngressTelemetry_t& o) const;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     uint64_t totalDataBytes;
     uint64_t bundleCountEgress;
@@ -87,6 +111,11 @@ struct EgressTelemetry_t : public Telemetry_t
 {
     TELEMETRY_DEFINITIONS_EXPORT EgressTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~EgressTelemetry_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const EgressTelemetry_t& o) const; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const EgressTelemetry_t& o) const;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     uint64_t egressBundleCount;
     uint64_t totalDataBytes;
@@ -97,6 +126,11 @@ struct StorageTelemetry_t : public Telemetry_t
 {
     TELEMETRY_DEFINITIONS_EXPORT StorageTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~StorageTelemetry_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const StorageTelemetry_t& o) const; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const StorageTelemetry_t& o) const;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     uint64_t totalBundlesErasedFromStorage;
     uint64_t totalBundlesSentToEgressFromStorage;
@@ -106,8 +140,14 @@ struct StorageTelemetry_t : public Telemetry_t
 
 struct OutductTelemetry_t : public Telemetry_t
 {
-    TELEMETRY_DEFINITIONS_EXPORT OutductTelemetry_t();
+    OutductTelemetry_t() = delete;
+    TELEMETRY_DEFINITIONS_EXPORT OutductTelemetry_t(TelemetryType type);
     TELEMETRY_DEFINITIONS_EXPORT virtual ~OutductTelemetry_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const OutductTelemetry_t& o) const; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const OutductTelemetry_t& o) const;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     uint64_t convergenceLayerType;
     uint64_t totalBundlesAcked;
@@ -124,6 +164,11 @@ struct OutductTelemetry_t : public Telemetry_t
 struct StcpOutductTelemetry_t : public OutductTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT StcpOutductTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~StcpOutductTelemetry_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const StcpOutductTelemetry_t& o) const; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const StcpOutductTelemetry_t& o) const;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     uint64_t totalStcpBytesSent;
 };
@@ -131,6 +176,11 @@ struct StcpOutductTelemetry_t : public OutductTelemetry_t {
 struct LtpOutductTelemetry_t : public OutductTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT LtpOutductTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~LtpOutductTelemetry_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const LtpOutductTelemetry_t& o) const; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const LtpOutductTelemetry_t& o) const;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     //ltp engine session sender stats
     uint64_t numCheckpointsExpired;
@@ -145,14 +195,19 @@ struct LtpOutductTelemetry_t : public OutductTelemetry_t {
 struct StorageExpiringBeforeThresholdTelemetry_t : public Telemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT StorageExpiringBeforeThresholdTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~StorageExpiringBeforeThresholdTelemetry_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const StorageExpiringBeforeThresholdTelemetry_t& o) const; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const StorageExpiringBeforeThresholdTelemetry_t& o) const;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     uint64_t priority;
     uint64_t thresholdSecondsSinceStartOfYear2000;
     typedef std::pair<uint64_t, uint64_t> bundle_count_plus_bundle_bytes_pair_t;
-    std::map<uint64_t, bundle_count_plus_bundle_bytes_pair_t> map_node_id_to_expiring_before_threshold_count;
+    std::map<uint64_t, bundle_count_plus_bundle_bytes_pair_t> mapNodeIdToExpiringBeforeThresholdCount;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual uint64_t GetSerializationSize() override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual uint64_t GetSerializationSize() const override;
 };
 
 class TelemetryFactory {
@@ -180,7 +235,7 @@ class TelemetryFactory {
          */
         TELEMETRY_DEFINITIONS_EXPORT static std::vector<std::unique_ptr<Telemetry_t>>
             DeserializeFromLittleEndian(
-                uint8_t* buffer,
+                const uint8_t* buffer,
                 uint64_t bufferSize
             );
 };
@@ -196,11 +251,10 @@ struct StorageTelemetryRequest_t {
     TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
 };
 
-struct OutductCapabilityTelemetry_t {
+struct OutductCapabilityTelemetry_t : public Telemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t();
 
     
-    uint64_t type;
     uint64_t outductArrayIndex; //outductUuid
     uint64_t maxBundlesInPipeline;
     uint64_t maxBundleSizeBytesInPipeline;
@@ -212,33 +266,38 @@ struct OutductCapabilityTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t(OutductCapabilityTelemetry_t&& o); //a move constructor: X(X&&)
     TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t& operator=(const OutductCapabilityTelemetry_t& o); //a copy assignment: operator=(const X&)
     TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t& operator=(OutductCapabilityTelemetry_t&& o); //a move assignment: operator=(X&&)
-    TELEMETRY_DEFINITIONS_EXPORT uint64_t GetSerializationSize() const;
-    TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
-    TELEMETRY_DEFINITIONS_EXPORT bool DeserializeFromLittleEndian(const uint8_t* serialization, uint64_t& numBytesTakenToDecode, uint64_t bufferSize);
+    TELEMETRY_DEFINITIONS_EXPORT virtual uint64_t GetSerializationSize() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool DeserializeFromLittleEndian(const uint8_t* serialization, uint64_t& numBytesTakenToDecode, uint64_t bufferSize) override;
     TELEMETRY_DEFINITIONS_EXPORT bool operator==(const OutductCapabilityTelemetry_t& o) const; //operator ==
     TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const OutductCapabilityTelemetry_t& o) const; //operator !=
     TELEMETRY_DEFINITIONS_EXPORT friend std::ostream& operator<<(std::ostream& os, const OutductCapabilityTelemetry_t& o);
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 };
 
-struct AllOutductCapabilitiesTelemetry_t {
+struct AllOutductCapabilitiesTelemetry_t : public Telemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t();
 
-    uint64_t type;
     std::list<OutductCapabilityTelemetry_t> outductCapabilityTelemetryList;
 
     TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t(const AllOutductCapabilitiesTelemetry_t& o); //a copy constructor: X(const X&)
     TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t(AllOutductCapabilitiesTelemetry_t&& o); //a move constructor: X(X&&)
     TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t& operator=(const AllOutductCapabilitiesTelemetry_t& o); //a copy assignment: operator=(const X&)
     TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t& operator=(AllOutductCapabilitiesTelemetry_t&& o); //a move assignment: operator=(X&&)
-    TELEMETRY_DEFINITIONS_EXPORT uint64_t GetSerializationSize() const;
-    TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
-    TELEMETRY_DEFINITIONS_EXPORT bool DeserializeFromLittleEndian(const uint8_t* serialization, uint64_t& numBytesTakenToDecode, uint64_t bufferSize);
+    TELEMETRY_DEFINITIONS_EXPORT virtual uint64_t GetSerializationSize() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool DeserializeFromLittleEndian(const uint8_t* serialization, uint64_t& numBytesTakenToDecode, uint64_t bufferSize) override;
     TELEMETRY_DEFINITIONS_EXPORT bool operator==(const AllOutductCapabilitiesTelemetry_t& o) const; //operator ==
     TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const AllOutductCapabilitiesTelemetry_t& o) const; //operator !=
     TELEMETRY_DEFINITIONS_EXPORT friend std::ostream& operator<<(std::ostream& os, const AllOutductCapabilitiesTelemetry_t& o);
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 };
 
-TELEMETRY_DEFINITIONS_EXPORT bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size);
+//TELEMETRY_DEFINITIONS_EXPORT bool AppendSerializedTelemetryToPropertyTree(boost::property_tree::ptree& pt, const uint8_t* serialized, uint64_t bufSizeBytes);
 
 static const uint8_t TELEM_REQ_MSG = 1;
 
