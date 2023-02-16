@@ -605,6 +605,15 @@ std::vector<std::unique_ptr<Telemetry_t> > TelemetryFactory::DeserializeFromLitt
             case TelemetryType::ltpoutduct:
                 telem = boost::make_unique<LtpOutductTelemetry_t>();
                 break;
+            case TelemetryType::storageExpiringBeforeThreshold:
+                telem = boost::make_unique<StorageExpiringBeforeThresholdTelemetry_t>();
+                break;
+            case TelemetryType::outductCapability:
+                telem = boost::make_unique<OutductCapabilityTelemetry_t>();
+                break;
+            case TelemetryType::allOutductCapability:
+                telem = boost::make_unique<AllOutductCapabilitiesTelemetry_t>();
+                break;
             default:
                 throw TelemetryFactory::TelemetryDeserializeUnknownTypeException();
         };

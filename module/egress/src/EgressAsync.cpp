@@ -87,6 +87,8 @@ private:
     volatile bool m_workerThreadStartupInProgress;
     boost::mutex m_workerThreadStartupMutex;
     boost::condition_variable m_workerThreadStartupConditionVariable;
+
+    std::shared_ptr<std::vector<uint8_t> > m_lastSerializedAoctSharedPtr; //for all outduct capabilities telem to be sent to telem_cmd_interface
 };
 
 Egress::Impl::Impl() :
@@ -585,10 +587,17 @@ void Egress::Impl::ReadZmqThreadFunc() {
                 else {
                     //send telemetry
 
-                    std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(1000); //will be 64-bit aligned
+                    std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(1000 + ((m_lastSerializedAoctSharedPtr) ? m_lastSerializedAoctSharedPtr->size() : 0)); //will be 64-bit aligned;
                     uint8_t* telemPtr = vecUint8RawPointer->data();
                     const uint8_t* const telemSerializationBase = telemPtr;
                     uint64_t telemBufferSize = vecUint8RawPointer->size();
+
+                    if (m_lastSerializedAoctSharedPtr) {
+                        memcpy(telemPtr, m_lastSerializedAoctSharedPtr->data(), m_lastSerializedAoctSharedPtr->size());
+                        telemBufferSize -= m_lastSerializedAoctSharedPtr->size();
+                        telemPtr += m_lastSerializedAoctSharedPtr->size();
+                        m_lastSerializedAoctSharedPtr.reset();
+                    }
 
                     //start zmq message with egress telemetry
                     const uint64_t egressTelemSize = m_telemetry.SerializeToLittleEndian(telemPtr, telemBufferSize);
@@ -671,6 +680,7 @@ void Egress::Impl::ResendOutductCapabilities() {
         serializedRawPtrToSharedPtr2);
 
     std::shared_ptr<std::vector<uint8_t> >* serializedRawPtrToSharedPtr3 = new std::shared_ptr<std::vector<uint8_t> >(*serializedRawPtrToSharedPtr); //ref count 3
+    m_lastSerializedAoctSharedPtr = *serializedRawPtrToSharedPtr; //for sending the latest on telemetry request (ref count 4)
     zmq::message_t zmqMsgToScheduler(
         serializedRawPtrToSharedPtr3->get()->data(),
         serializedRawPtrToSharedPtr3->get()->size(),

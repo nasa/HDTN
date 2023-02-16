@@ -678,7 +678,10 @@
 
         return {
             UpdateWithData: function(objJson){
-                if("speedBundlesIn" in objJson) {
+                if("hdtnConfigName" in objJson) {
+                    HandleReceivedNewHdtnConfig(objJson);
+                }
+                else if("speedBundlesIn" in objJson) {
                     ReceivedNewTelemetryIngress(objJson);
                 }
                 else if("speedBundlesOut" in objJson) {
@@ -688,7 +691,7 @@
                     ReceivedNewTelemetryDisk(objJson);
                 }
                 else {
-                    HandleReceivedNewHdtnConfig(objJson);
+                    //HandleReceivedNewHdtnConfig(objJson);
                 }
             }
         };
@@ -728,167 +731,170 @@
     ////////////
 
 
-
         app = HidraGui(document.getElementById("mygui"), "aaa");
-        app.UpdateWithData(INITIAL_HDTN_CONFIG);
-        if (!("WebSocket" in window)) {
+        if(typeof INITIAL_HDTN_CONFIG !== 'undefined'){
+            app.UpdateWithData(INITIAL_HDTN_CONFIG); //running from filesystem (for testing animation)
+        }
+        else if (!("WebSocket" in window)) {
             alert("WebSocket is not supported by your Browser!");
         }
-
-        var wsproto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
-        connection = new WebSocket(wsproto + '//' + window.location.host + '/websocket');
-        connection.binaryType = "arraybuffer";
-
-
-        //This event occurs when socket connection is established.
-        connection.onopen = function() {
-            console.log("ws opened");
-        }
-
-        //This event occurs when connection is closed.
-        connection.onclose = function() {
-            console.log("ws closed");
-            document.getElementById('myModal').style.display = "block";
-        }
-
-        //This event occurs when client receives data from server.
-        connection.onmessage = function(e) {
-            console.log("rcvd");
-            if(e.data instanceof ArrayBuffer) { //this is binary data
-                //console.log("binary data received");
-
-                var dv = new DataView(e.data);
-                var type = dv.getUint16(0, false);
-                var flags = dv.getUint16(2, false);
-                var length = dv.getUint16(4, false);
-                var reserved = dv.getUint16(6, false);
-                if(type == 2) { //BP_TELEM_TYPE_STORAGE
-                    previousStorageObj = currentStorageObj;
-                    currentStorageObj = {
-                        timestamp : dv.getUint64(8, false), //uint64_t
-                        msg_count : dv.getUint64(16, false), //uint64_t
-                        msg_bytes : dv.getUint64(24, false), //uint64_t
-                        dropped_count : dv.getUint64(32, false), //uint64_t
-                        dropped_bytes : dv.getUint64(40, false), //uint64_t
-                        read_count : dv.getUint64(48, false), //uint64_t
-                        read_bytes : dv.getUint64(56, false), //uint64_t
-                        written_count : dv.getUint64(64, false), //uint64_t
-                        written_bytes : dv.getUint64(72, false), //uint64_t
-                        storage_available : dv.getUint64(80, false), //uint64_t
-                        storage_total : dv.getUint64(88, false), //uint64_t
-                        storage_count : dv.getUint16(90, false), //uint16_t
-                        worker_count : dv.getUint16(92, false), //uint16_t
-                        buffer_used : dv.getUint16(94, false), //uint16_t
-                        buffer_available : dv.getUint16(96, false) //uint16_t
-                    };
-                    if(previousStorageObj != null) { //had at least 2 telemetries received
-                        var c = currentStorageObj;
-                        var p = previousStorageObj;
-
-                        var timeStampDeltaSec = (c.timestamp - p.timestamp) * 0.001;
-                        var writtenBytesDelta = c.written_bytes - p.written_bytes;
-                        var readBytesDelta = c.read_bytes - p.read_bytes;
-
-                        var telemObj = {
-                            speedStorageToDisk : writtenBytesDelta / timeStampDeltaSec,
-                            speedDiskToStorage : readBytesDelta / timeStampDeltaSec,
-                            diskSizeBytes : c.storage_total,
-                            diskUsageBytes : c.storage_total - c.storage_available,
-                            diskBufferUsageNormalized : c.buffer_used / (c.buffer_used + c.buffer_available)
-                        }
-                        app.UpdateWithData(telemObj);
-                    }
-                }
-                else if(type == 3) { //BP_TELEM_TYPE_EGRESS
-                    previousEgressObj = currentEgressObj;
-                    currentEgressObj = {
-                        timestamp : dv.getUint64(8, false), //uint64_t
-                        msg_count : dv.getUint64(16, false), //uint64_t
-                        msg_bytes : dv.getUint64(24, false), //uint64_t
-                        dropped_count : dv.getUint64(32, false), //uint64_t
-                        dropped_bytes : dv.getUint64(40, false), //uint64_t
-                        bundles_out : dv.getUint64(48, false), //uint64_t
-                        bytes_out : dv.getUint64(56, false), //uint64_t
-                        receipt_tsc : dv.getUint64(64, false), //uint64_t
-                        encode_tsc : dv.getUint64(72, false) //uint64_t
-                    };
-
-                    if(previousEgressObj != null) { //had at least 2 telemetries received
-                        var c = currentEgressObj;
-                        var p = previousEgressObj;
-
-                        var timeStampDeltaSec = (c.timestamp - p.timestamp) * 0.001;
-                        var msgCountDelta = c.msg_count - p.msg_count;
-                        var msgBytesDelta = c.msg_bytes - p.msg_bytes;
-                        var bundlesOutDelta = c.bundles_out - p.bundles_out;
-                        var bytesOutDelta = c.bytes_out - p.bytes_out;
-
-                        var telemObj = {
-                            speedMessagesIn : msgCountDelta / timeStampDeltaSec,
-                            speedBytesIn : msgBytesDelta / timeStampDeltaSec,
-                            speedBundlesOut : bundlesOutDelta / timeStampDeltaSec,
-                            speedBytesOut : bytesOutDelta / timeStampDeltaSec
-                        }
-                        app.UpdateWithData(telemObj);
-                    }
-                }
-                else if(type == 4) { //BP_TELEM_TYPE_INGRESS
-                    previousIngressObj = currentIngressObj;
-                    currentIngressObj = {
-                        timestamp : dv.getUint64(8, false), //uint64_t
-                        msg_count : dv.getUint64(16, false), //uint64_t
-                        msg_bytes : dv.getUint64(24, false), //uint64_t
-                        dropped_count : dv.getUint64(32, false), //uint64_t
-                        dropped_bytes : dv.getUint64(40, false), //uint64_t
-                        bundles_in : dv.getUint64(48, false), //uint64_t
-                        bytes_in : dv.getUint64(56, false), //uint64_t
-                        receipt_tsc : dv.getUint64(64, false), //uint64_t
-                        encode_tsc : dv.getUint64(72, false) //uint64_t
-                    };
-
-                    if(previousIngressObj != null) { //had at least 2 telemetries received
-                        var c = currentIngressObj;
-                        var p = previousIngressObj;
-
-                        var timeStampDeltaSec = (c.timestamp - p.timestamp) * 0.001;
-                        var msgCountDelta = c.msg_count - p.msg_count;
-                        var msgBytesDelta = c.msg_bytes - p.msg_bytes;
-                        var bundlesInDelta = c.bundles_in - p.bundles_in;
-                        var bytesInDelta = c.bytes_in - p.bytes_in;
-
-                        var telemObj = {
-                            speedMessagesOut : msgCountDelta / timeStampDeltaSec,
-                            speedBytesOut : msgBytesDelta / timeStampDeltaSec,
-                            speedBundlesIn : bundlesInDelta / timeStampDeltaSec,
-                            speedBytesIn : bytesInDelta / timeStampDeltaSec
-                        }
-                        app.UpdateWithData(telemObj);
-                    }
-                }
-
-                UpdateActiveToolTip();
+        else {
+            var wsproto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
+            connection = new WebSocket(wsproto + '//' + window.location.host + '/websocket');
+            connection.binaryType = "arraybuffer";
 
 
+            //This event occurs when socket connection is established.
+            connection.onopen = function() {
+                console.log("ws opened");
             }
-            else { //this is text data such as json
-                if(e.data === "Hello websocket") {
-                    console.log(e.data);
-                }
-                else { //json data
-                    var obj = JSON.parse(e.data); //this could error based on encodings
-                    //console.log(obj);
-                    app.UpdateWithData(obj);
 
-                }
-                //console.log(e.data);
+            //This event occurs when connection is closed.
+            connection.onclose = function() {
+                console.log("ws closed");
+                document.getElementById('myModal').style.display = "block";
             }
-        }
 
-        //This event occurs when there is any error in communication.
-        connection.onerror = function(error) {
-            //alert('WebSocket error');
-            connection.close();
-        }
+            //This event occurs when client receives data from server.
+            connection.onmessage = function(e) {
+                //console.log("rcvd");
+                if(e.data instanceof ArrayBuffer) { //this is binary data
+                    console.log("binary data received.. ignoring");
+                    return;
+
+                    var dv = new DataView(e.data);
+                    var type = dv.getUint16(0, false);
+                    var flags = dv.getUint16(2, false);
+                    var length = dv.getUint16(4, false);
+                    var reserved = dv.getUint16(6, false);
+                    if(type == 2) { //BP_TELEM_TYPE_STORAGE
+                        previousStorageObj = currentStorageObj;
+                        currentStorageObj = {
+                            timestamp : dv.getUint64(8, false), //uint64_t
+                            msg_count : dv.getUint64(16, false), //uint64_t
+                            msg_bytes : dv.getUint64(24, false), //uint64_t
+                            dropped_count : dv.getUint64(32, false), //uint64_t
+                            dropped_bytes : dv.getUint64(40, false), //uint64_t
+                            read_count : dv.getUint64(48, false), //uint64_t
+                            read_bytes : dv.getUint64(56, false), //uint64_t
+                            written_count : dv.getUint64(64, false), //uint64_t
+                            written_bytes : dv.getUint64(72, false), //uint64_t
+                            storage_available : dv.getUint64(80, false), //uint64_t
+                            storage_total : dv.getUint64(88, false), //uint64_t
+                            storage_count : dv.getUint16(90, false), //uint16_t
+                            worker_count : dv.getUint16(92, false), //uint16_t
+                            buffer_used : dv.getUint16(94, false), //uint16_t
+                            buffer_available : dv.getUint16(96, false) //uint16_t
+                        };
+                        if(previousStorageObj != null) { //had at least 2 telemetries received
+                            var c = currentStorageObj;
+                            var p = previousStorageObj;
+
+                            var timeStampDeltaSec = (c.timestamp - p.timestamp) * 0.001;
+                            var writtenBytesDelta = c.written_bytes - p.written_bytes;
+                            var readBytesDelta = c.read_bytes - p.read_bytes;
+
+                            var telemObj = {
+                                speedStorageToDisk : writtenBytesDelta / timeStampDeltaSec,
+                                speedDiskToStorage : readBytesDelta / timeStampDeltaSec,
+                                diskSizeBytes : c.storage_total,
+                                diskUsageBytes : c.storage_total - c.storage_available,
+                                diskBufferUsageNormalized : c.buffer_used / (c.buffer_used + c.buffer_available)
+                            }
+                            app.UpdateWithData(telemObj);
+                        }
+                    }
+                    else if(type == 3) { //BP_TELEM_TYPE_EGRESS
+                        previousEgressObj = currentEgressObj;
+                        currentEgressObj = {
+                            timestamp : dv.getUint64(8, false), //uint64_t
+                            msg_count : dv.getUint64(16, false), //uint64_t
+                            msg_bytes : dv.getUint64(24, false), //uint64_t
+                            dropped_count : dv.getUint64(32, false), //uint64_t
+                            dropped_bytes : dv.getUint64(40, false), //uint64_t
+                            bundles_out : dv.getUint64(48, false), //uint64_t
+                            bytes_out : dv.getUint64(56, false), //uint64_t
+                            receipt_tsc : dv.getUint64(64, false), //uint64_t
+                            encode_tsc : dv.getUint64(72, false) //uint64_t
+                        };
+
+                        if(previousEgressObj != null) { //had at least 2 telemetries received
+                            var c = currentEgressObj;
+                            var p = previousEgressObj;
+
+                            var timeStampDeltaSec = (c.timestamp - p.timestamp) * 0.001;
+                            var msgCountDelta = c.msg_count - p.msg_count;
+                            var msgBytesDelta = c.msg_bytes - p.msg_bytes;
+                            var bundlesOutDelta = c.bundles_out - p.bundles_out;
+                            var bytesOutDelta = c.bytes_out - p.bytes_out;
+
+                            var telemObj = {
+                                speedMessagesIn : msgCountDelta / timeStampDeltaSec,
+                                speedBytesIn : msgBytesDelta / timeStampDeltaSec,
+                                speedBundlesOut : bundlesOutDelta / timeStampDeltaSec,
+                                speedBytesOut : bytesOutDelta / timeStampDeltaSec
+                            }
+                            app.UpdateWithData(telemObj);
+                        }
+                    }
+                    else if(type == 4) { //BP_TELEM_TYPE_INGRESS
+                        previousIngressObj = currentIngressObj;
+                        currentIngressObj = {
+                            timestamp : dv.getUint64(8, false), //uint64_t
+                            msg_count : dv.getUint64(16, false), //uint64_t
+                            msg_bytes : dv.getUint64(24, false), //uint64_t
+                            dropped_count : dv.getUint64(32, false), //uint64_t
+                            dropped_bytes : dv.getUint64(40, false), //uint64_t
+                            bundles_in : dv.getUint64(48, false), //uint64_t
+                            bytes_in : dv.getUint64(56, false), //uint64_t
+                            receipt_tsc : dv.getUint64(64, false), //uint64_t
+                            encode_tsc : dv.getUint64(72, false) //uint64_t
+                        };
+
+                        if(previousIngressObj != null) { //had at least 2 telemetries received
+                            var c = currentIngressObj;
+                            var p = previousIngressObj;
+
+                            var timeStampDeltaSec = (c.timestamp - p.timestamp) * 0.001;
+                            var msgCountDelta = c.msg_count - p.msg_count;
+                            var msgBytesDelta = c.msg_bytes - p.msg_bytes;
+                            var bundlesInDelta = c.bundles_in - p.bundles_in;
+                            var bytesInDelta = c.bytes_in - p.bytes_in;
+
+                            var telemObj = {
+                                speedMessagesOut : msgCountDelta / timeStampDeltaSec,
+                                speedBytesOut : msgBytesDelta / timeStampDeltaSec,
+                                speedBundlesIn : bundlesInDelta / timeStampDeltaSec,
+                                speedBytesIn : bytesInDelta / timeStampDeltaSec
+                            }
+                            app.UpdateWithData(telemObj);
+                        }
+                    }
+
+                    UpdateActiveToolTip();
+
+
+                }
+                else { //this is text data such as json
+                    if(e.data === "Hello websocket") {
+                        console.log(e.data);
+                    }
+                    else { //json data
+                        var obj = JSON.parse(e.data); //this could error based on encodings
+                        //console.log(obj);
+                        app.UpdateWithData(obj);
+
+                    }
+                    //console.log(e.data);
+                }
+            }
+
+            //This event occurs when there is any error in communication.
+            connection.onerror = function(error) {
+                //alert('WebSocket error');
+                connection.close();
+            }
+        } //running http(s)
 
     });
 

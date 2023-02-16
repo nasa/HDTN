@@ -188,7 +188,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
 #ifdef RUN_TELEMETRY
         LOG_INFO(subprocess) << "Starting telemetry runner...";
         std::unique_ptr<TelemetryRunner> telemetryRunnerPtr = boost::make_unique<TelemetryRunner>();
-        if (!telemetryRunnerPtr->Init(hdtnOneProcessZmqInprocContextPtr.get(), telemetryRunnerOptions)) {
+        if (!telemetryRunnerPtr->Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get(), telemetryRunnerOptions)) {
             return false;
         }
 #endif

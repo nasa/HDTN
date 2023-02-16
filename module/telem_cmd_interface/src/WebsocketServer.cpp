@@ -33,8 +33,7 @@ static const hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::gui
 
 ExitHandler::ExitHandler() : CivetHandler(), m_exitNow(false) {}
 
-bool ExitHandler::handleGet(CivetServer *server, struct mg_connection *conn)
-{
+bool ExitHandler::handleGet(CivetServer *server, struct mg_connection *conn) {
     mg_printf(conn,
               "HTTP/1.1 200 OK\r\nContent-Type: "
               "text/plain\r\nConnection: close\r\n\r\n");
@@ -47,35 +46,35 @@ WebSocketHandler::WebSocketHandler() : CivetWebSocketHandler() {}
 
 WebSocketHandler::~WebSocketHandler() {}
 
-void WebSocketHandler::SendBinaryDataToActiveWebsockets(const char *data, std::size_t size)
-{
+void WebSocketHandler::SendTextDataToActiveWebsockets(const char* data, std::size_t size) {
     boost::mutex::scoped_lock lock(m_mutex);
-    for (std::set<struct mg_connection *>::iterator it = m_activeConnections.begin(); it != m_activeConnections.end(); ++it)
-    {
+    for (std::set<struct mg_connection*>::iterator it = m_activeConnections.begin(); it != m_activeConnections.end(); ++it) {
+        mg_websocket_write(*it, MG_WEBSOCKET_OPCODE_TEXT, data, size);
+    }
+}
+
+void WebSocketHandler::SendBinaryDataToActiveWebsockets(const char *data, std::size_t size) {
+    boost::mutex::scoped_lock lock(m_mutex);
+    for (std::set<struct mg_connection *>::iterator it = m_activeConnections.begin(); it != m_activeConnections.end(); ++it) {
         mg_websocket_write(*it, MG_WEBSOCKET_OPCODE_BINARY, data, size);
     }
 }
 
-bool WebSocketHandler::handleConnection(CivetServer *server, const struct mg_connection *conn)
-{
+bool WebSocketHandler::handleConnection(CivetServer *server, const struct mg_connection *conn) {
     boost::mutex::scoped_lock lock(m_mutex);
-    if (m_activeConnections.insert((struct mg_connection *)conn).second)
-    {
+    if (m_activeConnections.insert((struct mg_connection *)conn).second) {
         LOG_INFO(subprocess) << "WS connected";
         return true;
     }
-    else
-    {
+    else {
         LOG_ERROR(subprocess) << "this WS is already connected";
         return false;
     }
 }
 
-void WebSocketHandler::handleReadyState(CivetServer *server, struct mg_connection *conn)
-{
+void WebSocketHandler::handleReadyState(CivetServer *server, struct mg_connection *conn) {
     boost::mutex::scoped_lock lock(m_mutex);
-    if (m_activeConnections.count(conn) == 0)
-    {
+    if (m_activeConnections.count(conn) == 0) {
         LOG_ERROR(subprocess) << "error in handleReadyState, connections do not match";
         return;
     }
@@ -83,21 +82,22 @@ void WebSocketHandler::handleReadyState(CivetServer *server, struct mg_connectio
 
     const char *text = "Hello websocket";
     mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, text, strlen(text));
+
+    if (m_onNewWebsocketConnectionCallback) {
+        m_onNewWebsocketConnectionCallback(conn);
+    }
 }
 
-bool WebSocketHandler::handleData(CivetServer *server, struct mg_connection *conn, int bits, char *data, size_t data_len)
-{
+bool WebSocketHandler::handleData(CivetServer *server, struct mg_connection *conn, int bits, char *data, size_t data_len) {
     boost::mutex::scoped_lock lock(m_mutex);
-    if (m_activeConnections.count(conn) == 0)
-    {
+    if (m_activeConnections.count(conn) == 0) {
         LOG_ERROR(subprocess) << "error in handleData, connections do not match";
         return false;
     }
 
     LOG_INFO(subprocess) << "WS got" << data_len << "bytes";
 
-    if (data_len < 1)
-    {
+    if (data_len < 1) {
         return true;
     }
 
@@ -107,31 +107,38 @@ bool WebSocketHandler::handleData(CivetServer *server, struct mg_connection *con
     { // send an initial packet from behind the windows firewall to the server
     }
 
+    if (m_onNewWebsocketDataReceivedCallback) {
+        return m_onNewWebsocketDataReceivedCallback(conn, data, data_len);
+    }
+
     return true; // return true to keep socket open
 }
 
-void WebSocketHandler::handleClose(CivetServer *server, const struct mg_connection *conn)
-{
+void WebSocketHandler::handleClose(CivetServer *server, const struct mg_connection *conn) {
     boost::mutex::scoped_lock lock(m_mutex);
-    if (m_activeConnections.erase((struct mg_connection *)conn) == 0)
-    { // if nothing was erased
+    if (m_activeConnections.erase((struct mg_connection *)conn) == 0) {
+        // if nothing was erased
         LOG_ERROR(subprocess) << "error in handleClose, connections do not match";
     }
     LOG_INFO(subprocess) << "WS closed";
 }
+void WebSocketHandler::SetOnNewWebsocketConnectionCallback(const OnNewWebsocketConnectionCallback_t& callback) {
+    m_onNewWebsocketConnectionCallback = callback;
+}
+void WebSocketHandler::SetOnNewWebsocketDataReceivedCallback(const OnNewWebsocketDataReceivedCallback_t& callback) {
+    m_onNewWebsocketDataReceivedCallback = callback;
+}
 
 WebsocketServer::WebsocketServer() {}
 
-bool WebsocketServer::Init(const boost::filesystem::path& documentRoot, const std::string& portNumberAsString)
-{
+bool WebsocketServer::Init(const boost::filesystem::path& documentRoot, const std::string& portNumberAsString) {
     const std::string documentRootAsString = documentRoot.string();
     LOG_INFO(subprocess) << "starting websocket server\n";
     const char *options[] = {
         "document_root", documentRootAsString.c_str(), "listening_ports", portNumberAsString.c_str(), 0};
 
     std::vector<std::string> cpp_options;
-    for (int i = 0; i < (sizeof(options) / sizeof(options[0]) - 1); i++)
-    {
+    for (int i = 0; i < (sizeof(options) / sizeof(options[0]) - 1); ++i) {
         cpp_options.push_back(options[i]);
     }
 
@@ -148,18 +155,24 @@ bool WebsocketServer::Init(const boost::filesystem::path& documentRoot, const st
     return true;
 }
 
-bool WebsocketServer::RequestsExit()
-{
+bool WebsocketServer::RequestsExit() {
     return m_exitHandlerPtr->m_exitNow;
 }
 
-void WebsocketServer::SendNewBinaryData(const char *data, std::size_t size)
-{
+void WebsocketServer::SendNewBinaryData(const char *data, std::size_t size) {
     m_websocketHandlerPtr->SendBinaryDataToActiveWebsockets(data, size);
 }
+void WebsocketServer::SendNewTextData(const char* data, std::size_t size) {
+    m_websocketHandlerPtr->SendTextDataToActiveWebsockets(data, size);
+}
+void WebsocketServer::SetOnNewWebsocketConnectionCallback(const OnNewWebsocketConnectionCallback_t& callback) {
+    m_websocketHandlerPtr->SetOnNewWebsocketConnectionCallback(callback);
+}
+void WebsocketServer::SetOnNewWebsocketDataReceivedCallback(const OnNewWebsocketDataReceivedCallback_t& callback) {
+    m_websocketHandlerPtr->SetOnNewWebsocketDataReceivedCallback(callback);
+}
 
-WebsocketServer::~WebsocketServer()
-{
+WebsocketServer::~WebsocketServer() {
     m_civetServerPtr.reset(); // delete main server before handlers to prevent crash
     m_exitHandlerPtr.reset();
     m_websocketHandlerPtr.reset();

@@ -1,3 +1,22 @@
+if(window.location.protocol == 'file:') {
+
+var INDUCT_ACTIVE_CONNECTIONS = [
+    {
+        "activeConnections": ["Engine 103"]
+    },
+    {
+        "activeConnections": ["UDP Src[0]"]
+    },
+    {
+        "activeConnections": ["Node 160", "Node 161"]
+    },
+    {
+        "activeConnections": ["Node 170", "Node 171", "Node 172"]
+    },
+    {
+        "activeConnections": ["STCP Src[0]", "STCP Src[1]"]
+    }
+];
 var INITIAL_HDTN_CONFIG = {
     "hdtnConfigName": "my hdtn config",
     "userInterfaceOn": true,
@@ -246,3 +265,6 @@ let changeFunctions = [
 changeFunctions.forEach(function(f, i){
     setTimeout(f, 5000 * (i+1));
 });
+
+
+}//window.location.protocol == file:
