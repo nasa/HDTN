@@ -301,34 +301,40 @@ var AOCT = {
 
 let changeFunctions = [
     function() {
-        app.UpdateWithData(INDUCT_ACTIVE_CONNECTIONS);
+        let clone = JSON.parse(JSON.stringify(INDUCT_ACTIVE_CONNECTIONS));
+        app.UpdateWithData(clone);
     },
     function() {
-        app.UpdateWithData(AOCT);
+        let clone = JSON.parse(JSON.stringify(AOCT));
+        app.UpdateWithData(clone);
     },
     function() {
         //remove element 0 "ipn:4.1"
         INDUCT_ACTIVE_CONNECTIONS.inductActiveConnections[3].activeConnections.splice(1, 1); // 2nd parameter means remove one item only ;
-        app.UpdateWithData(INDUCT_ACTIVE_CONNECTIONS);
+        let clone = JSON.parse(JSON.stringify(INDUCT_ACTIVE_CONNECTIONS));
+        app.UpdateWithData(clone);
     },
     function() {
         //remove element 0 "ipn:4.1"
         INDUCT_ACTIVE_CONNECTIONS.inductActiveConnections[3].activeConnections.push("Node 177");
-        app.UpdateWithData(INDUCT_ACTIVE_CONNECTIONS);
+        let clone = JSON.parse(JSON.stringify(INDUCT_ACTIVE_CONNECTIONS));
+        app.UpdateWithData(clone);
     },
     function() {
         //remove element 0 "ipn:4.1"
         AOCT.outductCapabilityTelemetryList[1].finalDestinationEidsList.splice(0, 1); // 2nd parameter means remove one item only ;
-        app.UpdateWithData(AOCT);
+        let clone = JSON.parse(JSON.stringify(AOCT));
+        app.UpdateWithData(clone);
     },
     function() {
         //remove element 0 "ipn:4.1"
         AOCT.outductCapabilityTelemetryList[1].finalDestinationEidsList.unshift("ipn:4.1");
-        app.UpdateWithData(AOCT);
+        let clone = JSON.parse(JSON.stringify(AOCT));
+        app.UpdateWithData(clone);
     }
 ];
 changeFunctions.forEach(function(f, i){
-    setTimeout(f, 5000 * (i+1));
+    setTimeout(f, 200 * (i+1)); //slower than transition so will queue animations
 });
 
 

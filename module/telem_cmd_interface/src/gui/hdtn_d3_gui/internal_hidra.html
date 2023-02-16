@@ -585,8 +585,22 @@
             }
         }
 
-
+        var telemQueue = [];
         var inTransition = false;
+
+        function PostTelemQueuePop() {
+            let nextTelemObj = telemQueue.shift();
+            //console.log("pop");
+            InternalUpdateWithData(nextTelemObj);
+        }
+        function DoTransitionEnd() {
+            if(telemQueue.length) {
+                setTimeout(PostTelemQueuePop, 0);
+            }
+            else {
+                inTransition = false;
+            }
+        }
         function Update(redrawObj, delayMs) {
             if (typeof delayMs === 'undefined') delayMs = 2000;
 
@@ -601,10 +615,10 @@
 
             sharedTransition
                 .on("interrupt", function() {
-                    inTransition = false;
+                    DoTransitionEnd();
                 })
                 .on("end", function() {
-                    inTransition = false;
+                    DoTransitionEnd();
                 });
 
             myActiveInductConnsRectComponent.Update(redrawObj.activeInductConnsD3Array, sharedTransition);
@@ -659,10 +673,10 @@
                 null// FLIP_HORIZONTAL_MAP
             );
 
-            if(inTransition) {
-                console.log("new hdtn config received while in transition.. dropping");
-                return;
-            }
+            //if(inTransition) {
+            //    console.log("new hdtn config received while in transition.. dropping");
+            //    return;
+            //}
 
             console.log("new hdtn telem received");
 
@@ -678,34 +692,44 @@
 
         }
 
+        function InternalUpdateWithData(objJson) {
+            //console.log(objJson);
+            if("hdtnConfigName" in objJson) {
+                HandleReceivedNewHdtnConfig(objJson);
+            }
+            else if(hdtnConfig == null) {
+                console.log("error, out of order command, hdtnConfig must be received first");
+            }
+            else if("inductActiveConnections" in objJson) {
+                UpdateActiveInductConnections(hdtnConfig, objJson);
+                HandleReceivedNewHdtnConfig(hdtnConfig);
+            }
+            else if("outductCapabilityTelemetryList" in objJson) {
+                UpdateAllOutductCapabilities(hdtnConfig, objJson);
+                HandleReceivedNewHdtnConfig(hdtnConfig);
+            }
+            else if("speedBundlesIn" in objJson) {
+                ReceivedNewTelemetryIngress(objJson);
+            }
+            else if("speedBundlesOut" in objJson) {
+                ReceivedNewTelemetryEgress(objJson);
+            }
+            else if("speedStorageToDisk" in objJson) {
+                ReceivedNewTelemetryDisk(objJson);
+            }
+            else {
+                //HandleReceivedNewHdtnConfig(objJson);
+            }
+        }
         return {
-            UpdateWithData: function(objJson){
-                //console.log(objJson);
-                if("hdtnConfigName" in objJson) {
-                    HandleReceivedNewHdtnConfig(objJson);
-                }
-                else if(hdtnConfig == null) {
-                    console.log("error, out of order command, hdtnConfig must be received first");
-                }
-                else if("inductActiveConnections" in objJson) {
-                    UpdateActiveInductConnections(hdtnConfig, objJson);
-                    HandleReceivedNewHdtnConfig(hdtnConfig);
-                }
-                else if("outductCapabilityTelemetryList" in objJson) {
-                    UpdateAllOutductCapabilities(hdtnConfig, objJson);
-                    HandleReceivedNewHdtnConfig(hdtnConfig);
-                }
-                else if("speedBundlesIn" in objJson) {
-                    ReceivedNewTelemetryIngress(objJson);
-                }
-                else if("speedBundlesOut" in objJson) {
-                    ReceivedNewTelemetryEgress(objJson);
-                }
-                else if("speedStorageToDisk" in objJson) {
-                    ReceivedNewTelemetryDisk(objJson);
+            UpdateWithData: function(objJson) {
+                if(inTransition) {
+                    telemQueue.push(objJson);
+                    //console.log("push");
                 }
                 else {
-                    //HandleReceivedNewHdtnConfig(objJson);
+                    //console.log("nopush");
+                    InternalUpdateWithData(objJson);
                 }
             }
         };
