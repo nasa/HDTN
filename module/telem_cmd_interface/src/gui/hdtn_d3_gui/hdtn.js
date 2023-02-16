@@ -1,22 +1,24 @@
 if(window.location.protocol == 'file:') {
 
-var INDUCT_ACTIVE_CONNECTIONS = [
-    {
-        "activeConnections": ["Engine 103"]
-    },
-    {
-        "activeConnections": ["UDP Src[0]"]
-    },
-    {
-        "activeConnections": ["Node 160", "Node 161"]
-    },
-    {
-        "activeConnections": ["Node 170", "Node 171", "Node 172"]
-    },
-    {
-        "activeConnections": ["STCP Src[0]", "STCP Src[1]"]
-    }
-];
+var INDUCT_ACTIVE_CONNECTIONS = {
+    "inductActiveConnections": [
+        {
+            "activeConnections": ["Engine 103"]
+        },
+        {
+            "activeConnections": ["UDP Src[0]"]
+        },
+        {
+            "activeConnections": ["Node 160", "Node 161"]
+        },
+        {
+            "activeConnections": ["Node 170", "Node 171", "Node 172"]
+        },
+        {
+            "activeConnections": ["STCP Src[0]", "STCP Src[1]"]
+        }
+    ]
+};
 var INITIAL_HDTN_CONFIG = {
     "hdtnConfigName": "my hdtn config",
     "userInterfaceOn": true,
@@ -73,8 +75,7 @@ var INITIAL_HDTN_CONFIG = {
                 "delaySendingOfReportSegmentsTimeMsOrZeroToDisable": 20,
                 "keepActiveSessionDataOnDisk": false,
                 "activeSessionDataOnDiskNewFileDurationMs": 2000,
-                "activeSessionDataOnDiskDirectory": ".\/",
-                "activeConnections": ["Engine 103"]
+                "activeSessionDataOnDiskDirectory": ".\/"
             },
             {
                 "name": "i2",
@@ -91,8 +92,7 @@ var INITIAL_HDTN_CONFIG = {
                 "numRxCircularBufferElements": 1009,
                 "numRxCircularBufferBytesPerElement": 2000,
                 "keepAliveIntervalSeconds": 16,
-                "tcpclV3MyMaxTxSegmentSizeBytes": 100000000,
-                "activeConnections": ["Node 160", "Node 161"]
+                "tcpclV3MyMaxTxSegmentSizeBytes": 100000000
             },
             {
                 "name": "i4",
@@ -105,16 +105,14 @@ var INITIAL_HDTN_CONFIG = {
                 "tlsIsRequired": false,
                 "certificatePemFile": "C:\/hdtn_ssl_certificates\/cert.pem",
                 "privateKeyPemFile": "C:\/hdtn_ssl_certificates\/privatekey.pem",
-                "diffieHellmanParametersPemFile": "C:\/hdtn_ssl_certificates\/dh4096.pem",
-                "activeConnections": ["Node 170", "Node 171", "Node 172"]
+                "diffieHellmanParametersPemFile": "C:\/hdtn_ssl_certificates\/dh4096.pem"
             },
             {
                 "name": "i5",
                 "convergenceLayer": "stcp",
                 "boundPort": 4559,
                 "numRxCircularBufferElements": 1000,
-                "keepAliveIntervalSeconds": 17,
-                "activeConnections": ["STCP Src[0]", "STCP Src[1]"]
+                "keepAliveIntervalSeconds": 17
             }
         ]
     },
@@ -239,27 +237,94 @@ var INITIAL_HDTN_CONFIG = {
     }
 };
 
+var AOCT = {
+    "type": "allOutductCapability",
+    "outductCapabilityTelemetryList": [
+        {
+            "type": "outductCapability",
+            "outductArrayIndex": 0,
+            "maxBundlesInPipeline": 5,
+            "maxBundleSizeBytesInPipeline": 50000000,
+            "nextHopNodeId": 50,
+            "finalDestinationEidsList": [
+                "ipn:1.1",
+                "ipn:2.1",
+                "ipn:7.*"
+            ]
+        },
+        {
+            "type": "outductCapability",
+            "outductArrayIndex": 1,
+            "maxBundlesInPipeline": 5,
+            "maxBundleSizeBytesInPipeline": 50000000,
+            "nextHopNodeId": 51,
+            "finalDestinationEidsList": [
+                "ipn:4.1",
+                "ipn:6.1"
+            ]
+        },
+        {
+            "type": "outductCapability",
+            "outductArrayIndex": 2,
+            "maxBundlesInPipeline": 5,
+            "maxBundleSizeBytesInPipeline": 50000000,
+            "nextHopNodeId": 52,
+            "finalDestinationEidsList": [
+                "ipn:10.1",
+                "ipn:26.1"
+            ]
+        },
+        {
+            "type": "outductCapability",
+            "outductArrayIndex": 3,
+            "maxBundlesInPipeline": 50,
+            "maxBundleSizeBytesInPipeline": 50000000,
+            "nextHopNodeId": 1,
+            "finalDestinationEidsList": [
+                "ipn:3.1"
+            ]
+        },
+        {
+            "type": "outductCapability",
+            "outductArrayIndex": 4,
+            "maxBundlesInPipeline": 5,
+            "maxBundleSizeBytesInPipeline": 50000000,
+            "nextHopNodeId": 53,
+            "finalDestinationEidsList": [
+                "ipn:100.1",
+                "ipn:200.1",
+                "ipn:300.1"
+            ]
+        }
+    ]
+};
 
 let changeFunctions = [
     function() {
-        //remove element 0 "ipn:4.1"
-        INITIAL_HDTN_CONFIG.inductsConfig.inductVector[3].activeConnections.splice(1, 1); // 2nd parameter means remove one item only ;
-        app.UpdateWithData(INITIAL_HDTN_CONFIG);
+        app.UpdateWithData(INDUCT_ACTIVE_CONNECTIONS);
+    },
+    function() {
+        app.UpdateWithData(AOCT);
     },
     function() {
         //remove element 0 "ipn:4.1"
-        INITIAL_HDTN_CONFIG.inductsConfig.inductVector[3].activeConnections.push("Node 177");
-        app.UpdateWithData(INITIAL_HDTN_CONFIG);
+        INDUCT_ACTIVE_CONNECTIONS.inductActiveConnections[3].activeConnections.splice(1, 1); // 2nd parameter means remove one item only ;
+        app.UpdateWithData(INDUCT_ACTIVE_CONNECTIONS);
     },
     function() {
         //remove element 0 "ipn:4.1"
-        INITIAL_HDTN_CONFIG.outductsConfig.outductVector[1].finalDestinationEidUris.splice(0, 1); // 2nd parameter means remove one item only ;
-        app.UpdateWithData(INITIAL_HDTN_CONFIG);
+        INDUCT_ACTIVE_CONNECTIONS.inductActiveConnections[3].activeConnections.push("Node 177");
+        app.UpdateWithData(INDUCT_ACTIVE_CONNECTIONS);
     },
     function() {
         //remove element 0 "ipn:4.1"
-        INITIAL_HDTN_CONFIG.outductsConfig.outductVector[1].finalDestinationEidUris.unshift("ipn:4.1");
-        app.UpdateWithData(INITIAL_HDTN_CONFIG);
+        AOCT.outductCapabilityTelemetryList[1].finalDestinationEidsList.splice(0, 1); // 2nd parameter means remove one item only ;
+        app.UpdateWithData(AOCT);
+    },
+    function() {
+        //remove element 0 "ipn:4.1"
+        AOCT.outductCapabilityTelemetryList[1].finalDestinationEidsList.unshift("ipn:4.1");
+        app.UpdateWithData(AOCT);
     }
 ];
 changeFunctions.forEach(function(f, i){

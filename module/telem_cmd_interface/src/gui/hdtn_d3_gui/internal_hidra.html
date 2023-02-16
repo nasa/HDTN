@@ -262,7 +262,8 @@
     function HidraGui(paramParentDiv, paramUniqueId) {
 
         var d3ContentDiv = paramParentDiv;
-        let hdtnTelem = null;
+        let hdtnOldDrawHash = null;
+        let hdtnConfig = null;
         let wireConnectionsOldMap = {};
 
         //document.getElementById('idDeclutterSelect').addEventListener('change', DeclutterSelectChanged, false);
@@ -643,9 +644,10 @@
             myWireEgressToOutside.SetSpeedBps(obj.speedBundlesOut);
         }
         function HandleReceivedNewHdtnConfig(newHdtnConfig) {
+            hdtnConfig = newHdtnConfig;
             let redrawObj = ParseHdtnConfig(
                 wireConnectionsOldMap,
-                hdtnTelem,
+                hdtnOldDrawHash,
                 newHdtnConfig,
                 false, // declutter,
                 false, // shrink,
@@ -678,8 +680,20 @@
 
         return {
             UpdateWithData: function(objJson){
+                //console.log(objJson);
                 if("hdtnConfigName" in objJson) {
                     HandleReceivedNewHdtnConfig(objJson);
+                }
+                else if(hdtnConfig == null) {
+                    console.log("error, out of order command, hdtnConfig must be received first");
+                }
+                else if("inductActiveConnections" in objJson) {
+                    UpdateActiveInductConnections(hdtnConfig, objJson);
+                    HandleReceivedNewHdtnConfig(hdtnConfig);
+                }
+                else if("outductCapabilityTelemetryList" in objJson) {
+                    UpdateAllOutductCapabilities(hdtnConfig, objJson);
+                    HandleReceivedNewHdtnConfig(hdtnConfig);
                 }
                 else if("speedBundlesIn" in objJson) {
                     ReceivedNewTelemetryIngress(objJson);
@@ -733,6 +747,7 @@
 
         app = HidraGui(document.getElementById("mygui"), "aaa");
         if(typeof INITIAL_HDTN_CONFIG !== 'undefined'){
+            InitActiveInductConnections(INITIAL_HDTN_CONFIG);
             app.UpdateWithData(INITIAL_HDTN_CONFIG); //running from filesystem (for testing animation)
         }
         else if (!("WebSocket" in window)) {

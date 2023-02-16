@@ -1,4 +1,35 @@
-function ParseHdtnConfig(paramWireConnectionsOldMap, paramOldHdtnConfig, paramNewHdtnConfig, paramDeclutter, paramShrink, paramD3FaultsMap, PARAM_MAP_NAMES, PARAM_SUB_MAP_NAMES, PARAM_D3_SHAPE_ATTRIBUTES, PARAM_ABS_POSITION_MAP, PARAM_FLIP_HORIZONTAL_MAP) {
+function UpdateActiveInductConnections(paramHdtnConfig, paramActiveInductConnections) {
+    let inductsConfig = paramHdtnConfig["inductsConfig"];
+    let inductVector = inductsConfig["inductVector"];
+    inductVector.forEach(function(ind, i) {
+        //console.log(i);
+        ind["activeConnections"] = paramActiveInductConnections.inductActiveConnections[i].activeConnections;
+    });
+}
+function InitActiveInductConnections(paramHdtnConfig) {
+    let inductsConfig = paramHdtnConfig["inductsConfig"];
+    let inductVector = inductsConfig["inductVector"];
+    inductVector.forEach(function(ind, i) {
+        //console.log(i);
+        ind["activeConnections"] = ["null"];
+    });
+}
+
+function UpdateAllOutductCapabilities(paramHdtnConfig, paramAoct) {
+    let outductsConfig = paramHdtnConfig["outductsConfig"];
+    let outductVector = outductsConfig["outductVector"];
+    paramAoct.outductCapabilityTelemetryList.forEach(function(oct) {
+        let i = oct.outductArrayIndex;
+        let od = outductVector[i];
+        if(od.nextHopNodeId != oct.nextHopNodeId) {
+            console.log("invalid AOCT");
+            return;
+        }
+        od["finalDestinationEidUris"] = oct.finalDestinationEidsList;
+    });
+}
+
+function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, paramNewHdtnConfig, paramDeclutter, paramShrink, paramD3FaultsMap, PARAM_MAP_NAMES, PARAM_SUB_MAP_NAMES, PARAM_D3_SHAPE_ATTRIBUTES, PARAM_ABS_POSITION_MAP, PARAM_FLIP_HORIZONTAL_MAP) {
 
     function GetDrawHash(receivedConfig) {
         let hashStr = "";
@@ -38,16 +69,15 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramOldHdtnConfig, paramNe
         wireConnections.push(wireObj);
     }
 
-    let oldHashStr = GetDrawHash(paramOldHdtnConfig);
     let newHashStr = GetDrawHash(paramNewHdtnConfig);
-    let needsRedraw = (oldHashStr !== newHashStr);
+    let needsRedraw = (paramHdtnOldDrawHash == null) || (paramHdtnOldDrawHash !== newHashStr);
     if(!needsRedraw) {
         console.log("does not need redraw");
         return null;//todo
     }
     else {
         console.log("needs redraw");
-        paramOldHdtnConfig = paramNewHdtnConfig;
+        paramHdtnOldDrawHash = newHashStr;
     }
 
     var BUSBAR_WIDTH_PX = 5;
