@@ -198,6 +198,8 @@ void TcpclV3BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8
     uint64_t bytesToAck = 0;
     if (isStartFlag && isEndFlag) { //optimization for whole (non-fragmented) data
         bytesToAck = dataSegmentDataVec.size(); //grab the size now in case vector gets stolen in m_wholeBundleReadyCallback
+        ++(m_base_inductConnectionTelemetry.m_totalBundlesReceived);
+        m_base_inductConnectionTelemetry.m_totalBundleBytesReceived += bytesToAck;
         Virtual_WholeBundleReady(dataSegmentDataVec);
     }
     else {
@@ -207,6 +209,8 @@ void TcpclV3BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8
         m_base_fragmentedBundleRxConcat.insert(m_base_fragmentedBundleRxConcat.end(), dataSegmentDataVec.begin(), dataSegmentDataVec.end()); //concatenate
         bytesToAck = m_base_fragmentedBundleRxConcat.size();
         if (isEndFlag) { //fragmentation complete
+            ++(m_base_inductConnectionTelemetry.m_totalBundlesReceived);
+            m_base_inductConnectionTelemetry.m_totalBundleBytesReceived += bytesToAck;
             Virtual_WholeBundleReady(m_base_fragmentedBundleRxConcat);
         }
     }
@@ -634,6 +638,7 @@ void TcpclV3BidirectionalLink::BaseClass_ContactHeaderCallback(CONTACT_HEADER_FL
         return;
     }
 
+    m_base_inductConnectionTelemetry.m_connectionName += std::string(" ") + localEid; //append after remote ip:port
     m_base_tcpclRemoteEidString = localEid;
     m_base_tcpclRemoteNodeId = remoteNodeId;
     LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " received valid contact header from remote with EID " << m_base_tcpclRemoteEidString;

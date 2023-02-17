@@ -31,6 +31,7 @@
 #include <memory>
 #include "Tcpcl.h"
 #include "TcpAsyncSender.h"
+#include "TelemetryDefinitions.h"
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "BidirectionalLink.h"
 #include "BundleCallbackFunctionDefines.h"
@@ -72,6 +73,8 @@ public:
     TCPCL_LIB_EXPORT void BaseClass_SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     TCPCL_LIB_EXPORT void BaseClass_SetUserAssignedUuid(uint64_t userAssignedUuid);
 
+public:
+    InductConnectionTelemetry_t m_base_inductConnectionTelemetry;
 protected:
     const std::string M_BASE_IMPLEMENTATION_STRING_FOR_COUT;
     const uint64_t M_BASE_SHUTDOWN_MESSAGE_RECONNECTION_DELAY_SECONDS_TO_SEND;

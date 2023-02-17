@@ -33,6 +33,7 @@ public:
         const uint64_t myNodeId, const uint64_t maxBundleSizeBytes, const OnNewOpportunisticLinkCallback_t & onNewOpportunisticLinkCallback,
         const OnDeletedOpportunisticLinkCallback_t & onDeletedOpportunisticLinkCallback);
     INDUCT_MANAGER_LIB_EXPORT virtual ~TcpclV4Induct() override;
+    INDUCT_MANAGER_LIB_EXPORT virtual void PopulateInductTelemetry(InductTelemetry_t& inductTelem) override;
 private:
     
 
@@ -58,6 +59,7 @@ private:
     std::unique_ptr<boost::asio::io_service::work> m_workPtr;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     std::list<TcpclV4BundleSink> m_listTcpclV4BundleSinks;
+    boost::mutex m_listTcpclV4BundleSinksMutex;
     const uint64_t M_MY_NODE_ID;
     volatile bool m_allowRemoveInactiveTcpConnections;
     const uint64_t M_MAX_BUNDLE_SIZE_BYTES;

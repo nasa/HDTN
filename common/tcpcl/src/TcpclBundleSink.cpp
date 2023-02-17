@@ -67,6 +67,8 @@ TcpclBundleSink::TcpclBundleSink(
     m_running(false)
 {
     m_base_tcpSocketPtr = tcpSocketPtr;
+    m_base_inductConnectionTelemetry.m_connectionName = tcpSocketPtr->remote_endpoint().address().to_string()
+        + ":" + boost::lexical_cast<std::string>(tcpSocketPtr->remote_endpoint().port());
 
     for (unsigned int i = 0; i < M_NUM_CIRCULAR_BUFFER_VECTORS; ++i) {
         m_tcpReceiveBuffersCbVec[i].resize(M_CIRCULAR_BUFFER_BYTES_PER_VECTOR);
