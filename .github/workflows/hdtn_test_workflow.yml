@@ -106,6 +106,7 @@ jobs:
           cd $HDTN_SOURCE_ROOT
           git pull
           cd $HDTN_SOURCE_ROOT/build
+          rm -rf idir
           make clean
           cov-build --dir idir make -j8
           cov-analyze --dir idir --all --enable-constraint-fpp --enable-fnptr --enable-virtual --strip-path $HDTN_SOURCE_ROOT
