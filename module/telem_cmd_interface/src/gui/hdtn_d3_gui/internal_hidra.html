@@ -262,7 +262,9 @@
     function HidraGui(paramParentDiv, paramUniqueId) {
 
         var d3ContentDiv = paramParentDiv;
-        let hdtnOldDrawHash = null;
+        let hdtnOldDrawHash = {
+            "strVal": null
+        };
         let hdtnConfig = null;
         let wireConnectionsOldMap = {};
 
@@ -636,10 +638,11 @@
         function UpdateLite() {
             //++updateCounter;
             //ParsePowerSystem();
-            batteries.UpdateSoc(D3_SHAPE_ATTRIBUTES.batteryMap.d3Array);
-            wires.UpdateLite();
+            //batteries.UpdateSoc(D3_SHAPE_ATTRIBUTES.batteryMap.d3Array);
+            //wires.UpdateLite();
 
-            toolTipObj.Update();
+            //toolTipObj.Update();
+            DoTransitionEnd();
         }
 
 
@@ -662,7 +665,7 @@
             let redrawObj = ParseHdtnConfig(
                 wireConnectionsOldMap,
                 hdtnOldDrawHash,
-                newHdtnConfig,
+                hdtnConfig,
                 false, // declutter,
                 false, // shrink,
                 null, // d3FaultsMap,

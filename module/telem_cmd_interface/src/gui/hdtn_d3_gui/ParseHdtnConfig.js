@@ -75,14 +75,16 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
     }
 
     let newHashStr = GetDrawHash(paramNewHdtnConfig);
-    let needsRedraw = (paramHdtnOldDrawHash == null) || (paramHdtnOldDrawHash !== newHashStr);
+    let needsRedraw = (paramHdtnOldDrawHash.strVal == null) || (paramHdtnOldDrawHash.strVal !== newHashStr);
     if(!needsRedraw) {
         console.log("does not need redraw");
         return null;//todo
     }
     else {
         console.log("needs redraw");
-        paramHdtnOldDrawHash = newHashStr;
+        console.log("new: " + newHashStr);
+        console.log("old: " + paramHdtnOldDrawHash.strVal);
+        paramHdtnOldDrawHash.strVal = newHashStr;
     }
 
     var BUSBAR_WIDTH_PX = 5;
