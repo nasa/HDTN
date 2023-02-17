@@ -57,3 +57,16 @@ bool LtpInduct::Init() {
 }
 
 LtpInduct::~LtpInduct() {}
+
+void LtpInduct::PopulateInductTelemetry(InductTelemetry_t& inductTelem) {
+    inductTelem.m_convergenceLayer = "LTP";
+    inductTelem.m_listInductConnections.clear();
+    if (m_ltpBundleSinkPtr) {
+        inductTelem.m_listInductConnections.emplace_back(m_ltpBundleSinkPtr->m_telemetry);
+    }
+    else {
+        InductConnectionTelemetry_t c;
+        c.m_connectionName = "null";
+        inductTelem.m_listInductConnections.emplace_back(c);
+    }
+}

@@ -28,6 +28,7 @@
 #include <boost/function.hpp>
 #include "LtpEngine.h"
 #include "LtpEngineConfig.h"
+#include "TelemetryDefinitions.h"
 #include "PaddedVectorUint8.h"
 #include <boost/core/noncopyable.hpp>
 
@@ -56,6 +57,8 @@ protected:
     const LtpEngineConfig m_ltpRxCfg;
     const uint64_t M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
     LtpEngine * m_ltpEnginePtr;
+public:
+    InductConnectionTelemetry_t m_telemetry;
 };
 
 

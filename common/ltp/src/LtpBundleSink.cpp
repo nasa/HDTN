@@ -26,6 +26,8 @@ LtpBundleSink::LtpBundleSink(const LtpWholeBundleReadyCallback_t& ltpWholeBundle
     m_ltpRxCfg(ltpRxCfg),
     M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID(ltpRxCfg.remoteEngineId)
 {
+    m_telemetry.m_connectionName = ltpRxCfg.remoteHostname + ":" + boost::lexical_cast<std::string>(ltpRxCfg.remotePort)
+        + " Eng:" + boost::lexical_cast<std::string>(ltpRxCfg.remoteEngineId);
 }
 
 bool LtpBundleSink::Init() {
@@ -47,6 +49,8 @@ LtpBundleSink::~LtpBundleSink() {}
 void LtpBundleSink::RedPartReceptionCallback(const Ltp::session_id_t & sessionId, padded_vector_uint8_t & movableClientServiceDataVec,
     uint64_t lengthOfRedPart, uint64_t clientServiceId, bool isEndOfBlock)
 {
+    m_telemetry.m_totalBundleBytesReceived += movableClientServiceDataVec.size();
+    ++(m_telemetry.m_totalBundlesReceived);
     m_ltpWholeBundleReadyCallback(movableClientServiceDataVec);
 
     //This function is holding up the LtpEngine thread.  Once this red part reception callback exits, the last LTP checkpoint report segment (ack)

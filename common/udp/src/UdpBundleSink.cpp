@@ -117,8 +117,13 @@ void UdpBundleSink::HandleUdpReceive(const boost::system::error_code & error, st
         else {
             if (m_lastRemoteEndpoint != m_remoteEndpoint) {
                 m_lastRemoteEndpoint = m_remoteEndpoint;
-                m_telemetry.m_connectionName = m_remoteEndpoint.address().to_string()
-                    + ":" + boost::lexical_cast<std::string>(m_remoteEndpoint.port());
+                if (m_telemetry.m_connectionName == "null") {
+                    m_telemetry.m_connectionName = m_remoteEndpoint.address().to_string()
+                        + ":" + boost::lexical_cast<std::string>(m_remoteEndpoint.port());
+                }
+                else {
+                    m_telemetry.m_connectionName = "multi-src detected";
+                }
             }
 
             m_udpReceiveBuffer.swap(m_udpReceiveBuffersCbVec[writeIndex]);
