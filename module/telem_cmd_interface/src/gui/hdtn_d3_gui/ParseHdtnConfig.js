@@ -3,7 +3,12 @@ function UpdateActiveInductConnections(paramHdtnConfig, paramActiveInductConnect
     let inductVector = inductsConfig["inductVector"];
     inductVector.forEach(function(ind, i) {
         //console.log(i);
-        ind["activeConnections"] = paramActiveInductConnections.inductActiveConnections[i].activeConnections;
+        let inductTelem = paramActiveInductConnections.allInducts[i];
+        let activeConnectionsArray = [];
+        inductTelem.inductConnections.forEach(function(conn) {
+            activeConnectionsArray.push(conn.connectionName);
+        });
+        ind["activeConnections"] = activeConnectionsArray;
     });
 }
 function InitActiveInductConnections(paramHdtnConfig) {

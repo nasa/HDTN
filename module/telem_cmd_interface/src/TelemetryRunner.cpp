@@ -62,6 +62,7 @@ class TelemetryRunner::Impl : private boost::noncopyable {
     private:
         void ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDistributedConfigPtr, zmq::context_t * inprocContextPtr);
         void OnNewTelemetry(uint8_t* buffer, uint64_t bufferSize);
+        void OnNewJsonTelemetry(const char* buffer, uint64_t bufferSize);
         void OnNewWebsocketConnectionCallback(struct mg_connection* conn);
         bool OnNewWebsocketDataReceivedCallback(struct mg_connection* conn, char* data, size_t data_len);
 
@@ -241,6 +242,8 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
                 receiveEventsMask |= REC_INGRESS;
                 zmq::message_t msg = ingressConnection->ReadMessage();
                 OnNewTelemetry((uint8_t*)msg.data(), msg.size());
+                zmq::message_t msgJson = ingressConnection->ReadMessage();
+                OnNewJsonTelemetry((const char*)msgJson.data(), msgJson.size());
             }
             if (poller.HasNewMessage(*egressConnection)) {
                 receiveEventsMask |= REC_EGRESS;
@@ -290,6 +293,13 @@ void TelemetryRunner::Impl::OnNewTelemetry(uint8_t* buffer, uint64_t bufferSize)
         m_websocketServerPtr->SendNewBinaryData((const char*)buffer, bufferSize);
     }
     
+}
+
+void TelemetryRunner::Impl::OnNewJsonTelemetry(const char* buffer, uint64_t bufferSize) {
+    printf("%.*s", (int)bufferSize, buffer); //not null terminated
+    if (m_websocketServerPtr) {
+        m_websocketServerPtr->SendNewTextData(buffer, bufferSize);
+    }
 }
 
 bool TelemetryRunner::Impl::ShouldExit()

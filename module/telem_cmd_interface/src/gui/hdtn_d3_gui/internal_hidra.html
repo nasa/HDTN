@@ -390,7 +390,7 @@
         var INGRESS_EGRESS_DX = (EGRESS_X - INGRESS_RIGHT_X);
         var STORAGE_X = INGRESS_RIGHT_X + INGRESS_EGRESS_DX/2 - (STORAGE_W/2);
         var ABS_POSITION_MAP = {
-            "active_induct_conns" : {"X" : 0, "Y" : 100, "WIDTH": 130, "HEIGHT": 500},
+            "active_induct_conns" : {"X" : -200, "Y" : 100, "WIDTH": 300, "HEIGHT": 500},
             "ingress" : {"X" : INGRESS_X, "Y" : 100, "WIDTH": INGRESS_W, "HEIGHT": 500},
             "egress" : {"X" : EGRESS_X, "Y" : 100, "WIDTH": EGRESS_W, "HEIGHT": 500},
             "storage" : {"X" : STORAGE_X, "Y" : (100 + 100), "WIDTH": STORAGE_W, "HEIGHT": 150},
@@ -701,7 +701,7 @@
             else if(hdtnConfig == null) {
                 console.log("error, out of order command, hdtnConfig must be received first");
             }
-            else if("inductActiveConnections" in objJson) {
+            else if("allInducts" in objJson) {
                 UpdateActiveInductConnections(hdtnConfig, objJson);
                 HandleReceivedNewHdtnConfig(hdtnConfig);
             }

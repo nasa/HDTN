@@ -501,6 +501,9 @@ static void CustomCleanupPaddedVecUint8(void *data, void *hint) {
 static void CustomCleanupStdVecUint8(void *data, void *hint) {
     delete static_cast<std::vector<uint8_t>*>(hint);
 }
+static void CustomCleanupStdString(void* data, void* hint) {
+    delete static_cast<std::string*>(hint);
+}
 
 static void CustomCleanupToEgressHdr(void *data, void *hint) {
     delete static_cast<hdtn::ToEgressHdr*>(hint);
@@ -709,8 +712,8 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                 else {
                     AllInductTelemetry_t allInductTelem;
                     m_inductManager.PopulateAllInductTelemetry(allInductTelem);
-                    const std::string allInductTelemJson = allInductTelem.ToJson();
-                    std::cout << allInductTelemJson << "\n";
+                    std::string* allInductTelemJsonStringPtr = new std::string(allInductTelem.ToJson());
+                    zmq::message_t zmqJsonMessage(allInductTelemJsonStringPtr->data(), allInductTelemJsonStringPtr->size(), CustomCleanupStdString, allInductTelemJsonStringPtr);
 
                     //send telemetry
                     IngressTelemetry_t telem;
@@ -730,8 +733,12 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                     vecUint8RawPointer->resize(telemPtr - telemSerializationBase);
 
                     zmq::message_t zmqTelemMessage(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
-                    if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(zmqTelemMessage), zmq::send_flags::dontwait)) {
+                    if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(zmqTelemMessage), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
                         LOG_ERROR(subprocess) << "can't send telemetry to telem";
+                    }
+
+                    if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(zmqJsonMessage), zmq::send_flags::dontwait)) {
+                        LOG_ERROR(subprocess) << "can't send json telemetry to telem";
                     }
                 }
             }
