@@ -30,6 +30,7 @@
 #include <memory>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "PaddedVectorUint8.h"
+#include "TelemetryDefinitions.h"
 #include "udp_lib_export.h"
 
 class UdpBundleSink {
@@ -55,7 +56,9 @@ private:
     UDP_LIB_NO_EXPORT void DoUdpShutdown();
     UDP_LIB_NO_EXPORT void HandleSocketShutdown();
 
-    
+public:
+    InductConnectionTelemetry_t m_telemetry;
+private:
     //std::vector<uint8_t> m_fragmentedBundleRxConcat;
 
     const WholeBundleReadyCallbackUdp_t m_wholeBundleReadyCallback;
@@ -68,6 +71,7 @@ private:
     const unsigned int M_MAX_UDP_PACKET_SIZE_BYTES;
     padded_vector_uint8_t m_udpReceiveBuffer;
     boost::asio::ip::udp::endpoint m_remoteEndpoint;
+    boost::asio::ip::udp::endpoint m_lastRemoteEndpoint;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_circularIndexBuffer;
     std::vector<padded_vector_uint8_t > m_udpReceiveBuffersCbVec;
     std::vector<boost::asio::ip::udp::endpoint> m_remoteEndpointsCbVec;

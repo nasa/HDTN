@@ -51,3 +51,9 @@ void UdpInduct::RemoveInactiveConnection() {
 void UdpInduct::ConnectionReadyToBeDeletedNotificationReceived() {
     boost::asio::post(m_ioService, boost::bind(&UdpInduct::RemoveInactiveConnection, this));
 }
+
+void UdpInduct::PopulateInductTelemetry(InductTelemetry_t& inductTelem) {
+    inductTelem.m_convergenceLayer = "UDP";
+    inductTelem.m_listInductConnections.clear();
+    inductTelem.m_listInductConnections.emplace_back(m_udpBundleSinkPtr->m_telemetry);
+}

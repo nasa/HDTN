@@ -44,6 +44,7 @@ UdpBundleSink::UdpBundleSink(boost::asio::io_service & ioService,
     m_countCircularBufferOverruns(0),
     m_printedCbTooSmallNotice(false)
 {
+    m_telemetry.m_connectionName = "null";
     for (unsigned int i = 0; i < M_NUM_CIRCULAR_BUFFER_VECTORS; ++i) {
         m_udpReceiveBuffersCbVec[i].resize(M_MAX_UDP_PACKET_SIZE_BYTES);
     }
@@ -114,6 +115,12 @@ void UdpBundleSink::HandleUdpReceive(const boost::system::error_code & error, st
             }
         }
         else {
+            if (m_lastRemoteEndpoint != m_remoteEndpoint) {
+                m_lastRemoteEndpoint = m_remoteEndpoint;
+                m_telemetry.m_connectionName = m_remoteEndpoint.address().to_string()
+                    + ":" + boost::lexical_cast<std::string>(m_remoteEndpoint.port());
+            }
+
             m_udpReceiveBuffer.swap(m_udpReceiveBuffersCbVec[writeIndex]);
             m_udpReceiveBytesTransferredCbVec[writeIndex] = bytesTransferred;
             m_remoteEndpointsCbVec[writeIndex] = std::move(m_remoteEndpoint);
@@ -151,8 +158,11 @@ void UdpBundleSink::PopCbThreadFunc() {
                 continue;
             }
         }
+        const std::size_t bytesTransferred = m_udpReceiveBytesTransferredCbVec[consumeIndex];
+        m_telemetry.m_totalBundleBytesReceived += bytesTransferred;
+        ++(m_telemetry.m_totalBundlesReceived);
         //m_wholeBundleReadyCallback(m_udpReceiveBuffersCbVec[consumeIndex], m_udpReceiveBytesTransferredCbVec[consumeIndex]);
-        m_udpReceiveBuffersCbVec[consumeIndex].resize(m_udpReceiveBytesTransferredCbVec[consumeIndex]);
+        m_udpReceiveBuffersCbVec[consumeIndex].resize(bytesTransferred);
         m_wholeBundleReadyCallback(m_udpReceiveBuffersCbVec[consumeIndex]);
         //if (m_udpReceiveBuffersCbVec[consumeIndex].size() != 0) {
         //}
