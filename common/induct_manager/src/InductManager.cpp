@@ -51,7 +51,8 @@ void InductManager::LoadInductsFromConfig(const InductProcessBundleCallback_t & 
                 myNodeId, maxBundleSizeBytes, onNewOpportunisticLinkCallback, onDeletedOpportunisticLinkCallback));
         }
         else if (thisInductConfig.convergenceLayer == "stcp") {
-            m_inductsList.emplace_back(boost::make_unique<StcpInduct>(inductProcessBundleCallback, thisInductConfig, maxBundleSizeBytes));
+            m_inductsList.emplace_back(boost::make_unique<StcpInduct>(inductProcessBundleCallback, thisInductConfig,
+                maxBundleSizeBytes, onNewOpportunisticLinkCallback, onDeletedOpportunisticLinkCallback));
         }
         else if (thisInductConfig.convergenceLayer == "udp") {
             m_inductsList.emplace_back(boost::make_unique<UdpInduct>(inductProcessBundleCallback, thisInductConfig));
@@ -77,4 +78,12 @@ void InductManager::LoadInductsFromConfig(const InductProcessBundleCallback_t & 
 
 void InductManager::Clear() {
     m_inductsList.clear();
+}
+
+void InductManager::PopulateAllInductTelemetry(AllInductTelemetry_t& allInductTelem) {
+    allInductTelem.m_listAllInducts.clear();
+    for (std::list<std::unique_ptr<Induct> >::const_iterator it = m_inductsList.cbegin(); it != m_inductsList.cend(); ++it) {
+        allInductTelem.m_listAllInducts.emplace_back(); 
+        (*it)->PopulateInductTelemetry(allInductTelem.m_listAllInducts.back());
+    }
 }

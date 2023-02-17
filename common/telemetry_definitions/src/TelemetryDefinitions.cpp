@@ -962,159 +962,123 @@ std::ostream& operator<<(std::ostream& os, const AllOutductCapabilitiesTelemetry
     }
     return os;
 }
-/*
-static void Put64LeToPt(boost::property_tree::ptree& pt, const boost::property_tree::path& p, const uint8_t*& serialized) {
-    pt.put(p, boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized))));
-    serialized += sizeof(uint64_t);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/////////////////////////////////////
+//InductConnectionTelemetry_t
+/////////////////////////////////////
+
+InductConnectionTelemetry_t::InductConnectionTelemetry_t() : m_totalBundlesReceived(0), m_totalBundleBytesReceived(0) {}
+bool InductConnectionTelemetry_t::operator==(const InductConnectionTelemetry_t& o) const {
+    return (m_connectionName == o.m_connectionName)
+        && (m_totalBundlesReceived == o.m_totalBundlesReceived)
+        && (m_totalBundleBytesReceived == o.m_totalBundleBytesReceived);
 }
-static bool PutList64LeToPt(boost::property_tree::ptree& pt, const std::vector<boost::property_tree::path>& paths, const uint8_t*& serialized, uint64_t& bufSizeBytes) {
-    const uint64_t sizeBytesTelem = paths.size() * sizeof(uint64_t); //struct is virtual so can't use sizeof
-    if (bufSizeBytes < sizeBytesTelem) {
+bool InductConnectionTelemetry_t::operator!=(const InductConnectionTelemetry_t& o) const {
+    return !(*this == o);
+}
+bool InductConnectionTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    try {
+        m_connectionName = pt.get<std::string>("connectionName");
+        m_totalBundlesReceived = pt.get<uint64_t>("totalBundlesReceived");
+        m_totalBundleBytesReceived = pt.get<uint64_t>("totalBundleBytesReceived");
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON InductConnectionTelemetry_t: " << e.what();
         return false;
     }
-    bufSizeBytes -= sizeBytesTelem;
-    for (const boost::property_tree::path& p : paths) {
-        Put64LeToPt(pt, p, serialized);
-    }
     return true;
 }
-static bool Get64(uint64_t& val, const uint8_t*& serialized, uint64_t& bufSizeBytes) {
-    if (bufSizeBytes < sizeof(val)) {
+boost::property_tree::ptree InductConnectionTelemetry_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt;
+    pt.put("connectionName", m_connectionName);
+    pt.put("totalBundlesReceived", m_totalBundlesReceived);
+    pt.put("totalBundleBytesReceived", m_totalBundleBytesReceived);
+    return pt;
+}
+
+
+InductTelemetry_t::InductTelemetry_t() {}
+bool InductTelemetry_t::operator==(const InductTelemetry_t& o) const {
+    return (m_listInductConnections == o.m_listInductConnections);
+}
+bool InductTelemetry_t::operator!=(const InductTelemetry_t& o) const {
+    return !(*this == o);
+}
+bool InductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    try {
+        m_convergenceLayer = pt.get<std::string>("convergenceLayer");
+        //for non-throw versions of get_child which return a reference to the second parameter
+        static const boost::property_tree::ptree EMPTY_PTREE;
+        const boost::property_tree::ptree& inductConnectionsPt = pt.get_child("inductConnections", EMPTY_PTREE); //non-throw version
+        m_listInductConnections.clear();
+        BOOST_FOREACH(const boost::property_tree::ptree::value_type & inductConnectionPt, inductConnectionsPt) {
+            m_listInductConnections.emplace_back();
+            m_listInductConnections.back().SetValuesFromPropertyTree(inductConnectionPt.second);
+        }
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON InductTelemetry_t: " << e.what();
         return false;
     }
-    bufSizeBytes -= sizeof(val);
-    val = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
-    serialized += sizeof(uint64_t);
     return true;
 }
-bool AppendSerializedTelemetryToPropertyTree(boost::property_tree::ptree& pt, const uint8_t* serialized, uint64_t bufSizeBytes) {
-    while (bufSizeBytes) {
-        if (bufSizeBytes < sizeof(uint64_t)) {
-            return false;
-        }
-        bufSizeBytes -= sizeof(uint64_t);
-        const uint64_t type = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
-        serialized += sizeof(uint64_t);
-        
+boost::property_tree::ptree InductTelemetry_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt;
+    pt.put("convergenceLayer", m_convergenceLayer);
+    boost::property_tree::ptree& inductConnectionsPt = pt.put_child("inductConnections",
+        m_listInductConnections.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
+    for (std::list<InductConnectionTelemetry_t>::const_iterator it = m_listInductConnections.cbegin(); it != m_listInductConnections.cend(); ++it) {
+        const InductConnectionTelemetry_t& ict = *it;
+        inductConnectionsPt.push_back(std::make_pair("", ict.GetNewPropertyTree())); //using "" as key creates json array
+    }
+    return pt;
+}
 
-        if (type == 1) { //ingress
-            boost::property_tree::ptree& ingressTelemPt= pt.put_child("ingressTelemetry", boost::property_tree::ptree());
-            static const std::vector<boost::property_tree::path> paths({ "totalDataBytes", "bundleCountEgress", "bundleCountStorage" });
-            if (!PutList64LeToPt(ingressTelemPt, paths, serialized, bufSizeBytes)) {
-                return false;
-            }
-        }
-        else if (type == 2) { //egress
-            boost::property_tree::ptree& egressTelemPt = pt.put_child("egressTelemetry", boost::property_tree::ptree());
-            static const std::vector<boost::property_tree::path> paths({ "egressBundleCount", "totalDataBytes", "egressMessageCount" });
-            if (!PutList64LeToPt(egressTelemPt, paths, serialized, bufSizeBytes)) {
-                return false;
-            }
-        }
-        else if (type == 3) { //storage
-            boost::property_tree::ptree& storageTelemPt = pt.put_child("storageTelemetry", boost::property_tree::ptree());
-            static const std::vector<boost::property_tree::path> paths({ "totalBundlesErasedFromStorage",
-                "totalBundlesSentToEgressFromStorage", "usedSpaceBytes", "freeSpaceBytes"});
-            if (!PutList64LeToPt(storageTelemPt, paths, serialized, bufSizeBytes)) {
-                return false;
-            }
-        }
-        else if (type == 10) { //StorageExpiringBeforeThresholdTelemetry_t
-            boost::property_tree::ptree& storageExpTelemPt = pt.put_child("StorageExpiringBeforeThresholdTelemetry", boost::property_tree::ptree());
-            static const std::vector<boost::property_tree::path> paths({ "priority", "thresholdSecondsSinceStartOfYear2000" });
-            if (!PutList64LeToPt(storageExpTelemPt, paths, serialized, bufSizeBytes)) {
-                return false;
-            }
 
-            uint64_t numNodes;
-            if (!Get64(numNodes, serialized, bufSizeBytes)) {
-                return false;
-            }
-
-            boost::property_tree::ptree& vecPt = storageExpTelemPt.put_child("elements", 
-                (numNodes == 0) ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());                
-            for (uint64_t i = 0; i < numNodes; ++i) {
-                boost::property_tree::ptree& elementPt = (vecPt.push_back(std::make_pair("", boost::property_tree::ptree())))->second; //using "" as key creates json array
-                static const std::vector<boost::property_tree::path> paths({ "finalDestNode", "bundleCount", "totalBundleBytes" });
-                if (!PutList64LeToPt(elementPt, paths, serialized, bufSizeBytes)) {
-                    return false;
-                }
-            }
-        }
-        else if (type == 4) { //a single outduct
-            uint64_t convergenceLayerType;
-            if (!Get64(convergenceLayerType, serialized, bufSizeBytes)) {
-                return false;
-            }
-
-            if (convergenceLayerType == 1) { //a single stcp outduct
-                LOG_INFO(subprocess) << "STCP Outduct Telem:";
-                if (size < sizeof(StcpOutductTelemetry_t)) return false;
-                size -= sizeof(StcpOutductTelemetry_t);
-            }
-            else if (convergenceLayerType == 2) { //a single ltp outduct
-                LOG_INFO(subprocess) << "LTP Outduct Telem:";
-                if (size < sizeof(LtpOutductTelemetry_t)) return false;
-                size -= sizeof(LtpOutductTelemetry_t);
-            }
-            //else if (convergenceLayerType == 2) { //a single tcpclv3 outduct
-            //else if (convergenceLayerType == 3) { //a single tcpclv4 outduct
-            //else if (convergenceLayerType == 4) { //a single ltp outduct
-            //else if (convergenceLayerType == 5) { //a single udp outduct
-            else {
-                LOG_INFO(subprocess) << "Invalid telemetry convergence layer type (" << convergenceLayerType << ")";
-                return false;
-            }
-
-            //common to all convergence layers (base class OutductTelemetry_t)
-            const uint64_t totalBundlesAcked = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
-            serialized += sizeof(uint64_t);
-            const uint64_t totalBundleBytesAcked = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
-            serialized += sizeof(uint64_t);
-            const uint64_t totalBundlesSent = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
-            serialized += sizeof(uint64_t);
-            const uint64_t totalBundleBytesSent = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
-            serialized += sizeof(uint64_t);
-            const uint64_t totalBundlesFailedToSend = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
-            serialized += sizeof(uint64_t);
-            const uint64_t totalBundlesQueued = totalBundlesSent - totalBundlesAcked;
-            const uint64_t totalBundleBytessQueued = totalBundleBytesSent - totalBundleBytesAcked;
-            LOG_INFO(subprocess) << " totalBundlesAcked: " << totalBundlesAcked;
-            LOG_INFO(subprocess) << " totalBundleBytesAcked: " << totalBundleBytesAcked;
-            LOG_INFO(subprocess) << " totalBundlesSent: " << totalBundlesSent;
-            LOG_INFO(subprocess) << " totalBundleBytesSent: " << totalBundleBytesSent;
-            LOG_INFO(subprocess) << " totalBundlesFailedToSend: " << totalBundlesFailedToSend;
-            LOG_INFO(subprocess) << " totalBundlesQueued: " << totalBundlesQueued;
-            LOG_INFO(subprocess) << " totalBundleBytessQueued: " << totalBundleBytessQueued;
-            
-            if (convergenceLayerType == 1) { //a single stcp outduct
-                const uint64_t totalStcpBytesSent = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
-                serialized += sizeof(uint64_t);
-                LOG_INFO(subprocess) << "  Specific to STCP:";
-                LOG_INFO(subprocess) << "  totalStcpBytesSent: " << totalStcpBytesSent;
-            }
-            else if (convergenceLayerType == 2) { //a single ltp outduct
-                const uint64_t numCheckpointsExpired = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
-                serialized += sizeof(uint64_t);
-                const uint64_t numDiscretionaryCheckpointsNotResent = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
-                serialized += sizeof(uint64_t);
-                const uint64_t countUdpPacketsSent = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
-                serialized += sizeof(uint64_t);
-                const uint64_t countRxUdpCircularBufferOverruns = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
-                serialized += sizeof(uint64_t);
-                const uint64_t countTxUdpPacketsLimitedByRate = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
-                serialized += sizeof(uint64_t);
-                LOG_INFO(subprocess) << "  Specific to LTP:";
-                LOG_INFO(subprocess) << "  numCheckpointsExpired: " << numCheckpointsExpired;
-                LOG_INFO(subprocess) << "  numDiscretionaryCheckpointsNotResent: " << numDiscretionaryCheckpointsNotResent;
-                LOG_INFO(subprocess) << "  countUdpPacketsSent: " << countUdpPacketsSent;
-                LOG_INFO(subprocess) << "  countRxUdpCircularBufferOverruns: " << countRxUdpCircularBufferOverruns;
-                LOG_INFO(subprocess) << "  countTxUdpPacketsLimitedByRate: " << countTxUdpPacketsLimitedByRate;
-            }
-            //else if (convergenceLayerType == 3) { //a single tcpclv4 outduct
-            //else if (convergenceLayerType == 4) { //a single ltp outduct
-            //else if (convergenceLayerType == 5) { //a single udp outduct
+AllInductTelemetry_t::AllInductTelemetry_t() {}
+bool AllInductTelemetry_t::operator==(const AllInductTelemetry_t& o) const {
+    return (m_listAllInducts == o.m_listAllInducts);
+}
+bool AllInductTelemetry_t::operator!=(const AllInductTelemetry_t& o) const {
+    return !(*this == o);
+}
+bool AllInductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    try {
+        //for non-throw versions of get_child which return a reference to the second parameter
+        static const boost::property_tree::ptree EMPTY_PTREE;
+        const boost::property_tree::ptree& allInductsPt = pt.get_child("allInducts", EMPTY_PTREE); //non-throw version
+        m_listAllInducts.clear();
+        BOOST_FOREACH(const boost::property_tree::ptree::value_type & inductPt, allInductsPt) {
+            m_listAllInducts.emplace_back();
+            m_listAllInducts.back().SetValuesFromPropertyTree(inductPt.second);
         }
     }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON AllInductTelemetry_t: " << e.what();
+        return false;
+    }
     return true;
-}*/
+}
+boost::property_tree::ptree AllInductTelemetry_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt;
+    boost::property_tree::ptree& allInductsPt = pt.put_child("allInducts",
+        m_listAllInducts.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
+    for (std::list<InductTelemetry_t>::const_iterator it = m_listAllInducts.cbegin(); it != m_listAllInducts.cend(); ++it) {
+        const InductTelemetry_t& induct = *it;
+        allInductsPt.push_back(std::make_pair("", induct.GetNewPropertyTree())); //using "" as key creates json array
+    }
+    return pt;
+}

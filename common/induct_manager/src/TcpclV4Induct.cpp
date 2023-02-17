@@ -150,10 +150,10 @@ void TcpclV4Induct::HandleTcpAccept(std::shared_ptr<boost::asio::ip::tcp::socket
 void TcpclV4Induct::RemoveInactiveTcpConnections() {
     const OnDeletedOpportunisticLinkCallback_t & callbackRef = m_onDeletedOpportunisticLinkCallback;
     if (m_allowRemoveInactiveTcpConnections) {
-        m_listTcpclV4BundleSinks.remove_if([&callbackRef](TcpclV4BundleSink & sink) {
+        m_listTcpclV4BundleSinks.remove_if([&callbackRef, this](TcpclV4BundleSink & sink) {
             if (sink.ReadyToBeDeleted()) {
                 if (callbackRef) {
-                    callbackRef(sink.GetRemoteNodeId());
+                    callbackRef(sink.GetRemoteNodeId(), this, &sink);
                 }
                 return true;
             }
@@ -183,7 +183,7 @@ void TcpclV4Induct::OnContactHeaderCallback_FromIoServiceThread(TcpclV4BundleSin
     thisTcpclBundleSinkPtr->SetTryGetOpportunisticDataFunction(boost::bind(&TcpclV4Induct::BundleSinkTryGetData_FromIoServiceThread, this, boost::ref(opportunisticBundleQueue), boost::placeholders::_1));
     thisTcpclBundleSinkPtr->SetNotifyOpportunisticDataAckedCallback(boost::bind(&TcpclV4Induct::BundleSinkNotifyOpportunisticDataAcked_FromIoServiceThread, this, boost::ref(opportunisticBundleQueue)));
     if (m_onNewOpportunisticLinkCallback) {
-        m_onNewOpportunisticLinkCallback(thisTcpclBundleSinkPtr->GetRemoteNodeId(), this);
+        m_onNewOpportunisticLinkCallback(thisTcpclBundleSinkPtr->GetRemoteNodeId(), this, thisTcpclBundleSinkPtr);
     }
 }
 

@@ -19,13 +19,19 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-StcpInduct::StcpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig, const uint64_t maxBundleSizeBytes) :
+StcpInduct::StcpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback,
+    const induct_element_config_t & inductConfig, const uint64_t maxBundleSizeBytes,
+    const OnNewOpportunisticLinkCallback_t& onNewOpportunisticLinkCallback, //for telemetry (so know when a new connection is made)
+    const OnDeletedOpportunisticLinkCallback_t& onDeletedOpportunisticLinkCallback) :
     Induct(inductProcessBundleCallback, inductConfig),
     m_tcpAcceptor(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), inductConfig.boundPort)),
     m_workPtr(boost::make_unique<boost::asio::io_service::work>(m_ioService)),
     m_allowRemoveInactiveTcpConnections(true),
     M_MAX_BUNDLE_SIZE_BYTES(maxBundleSizeBytes)
 {
+    m_onNewOpportunisticLinkCallback = onNewOpportunisticLinkCallback;
+    m_onDeletedOpportunisticLinkCallback = onDeletedOpportunisticLinkCallback;
+
     StartTcpAccept();
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
     ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceStcpInduct");
@@ -62,11 +68,17 @@ void StcpInduct::StartTcpAccept() {
 void StcpInduct::HandleTcpAccept(std::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code& error) {
     if (!error) {
         LOG_INFO(subprocess) << "stcp tcp connection: " << newTcpSocketPtr->remote_endpoint().address() << ":" << newTcpSocketPtr->remote_endpoint().port();
-        m_listStcpBundleSinks.emplace_back(newTcpSocketPtr, m_ioService,
-            m_inductProcessBundleCallback,
-            m_inductConfig.numRxCircularBufferElements,
-            M_MAX_BUNDLE_SIZE_BYTES,
-            boost::bind(&StcpInduct::ConnectionReadyToBeDeletedNotificationReceived, this));
+        {
+            boost::mutex::scoped_lock lock(m_listStcpBundleSinksMutex);
+            m_listStcpBundleSinks.emplace_back(newTcpSocketPtr, m_ioService,
+                m_inductProcessBundleCallback,
+                m_inductConfig.numRxCircularBufferElements,
+                M_MAX_BUNDLE_SIZE_BYTES,
+                boost::bind(&StcpInduct::ConnectionReadyToBeDeletedNotificationReceived, this));
+        }
+        if (m_onNewOpportunisticLinkCallback) {
+            m_onNewOpportunisticLinkCallback(0, this, &m_listStcpBundleSinks.back());
+        }
 
         StartTcpAccept(); //only accept if there was no error
     }
@@ -78,8 +90,20 @@ void StcpInduct::HandleTcpAccept(std::shared_ptr<boost::asio::ip::tcp::socket> &
 }
 
 void StcpInduct::RemoveInactiveTcpConnections() {
+    const OnDeletedOpportunisticLinkCallback_t& callbackRef = m_onDeletedOpportunisticLinkCallback;
     if (m_allowRemoveInactiveTcpConnections) {
-        m_listStcpBundleSinks.remove_if([](StcpBundleSink & sink) { return sink.ReadyToBeDeleted(); });
+        boost::mutex::scoped_lock lock(m_listStcpBundleSinksMutex);
+        m_listStcpBundleSinks.remove_if([&callbackRef, this](StcpBundleSink& sink) {
+            if (sink.ReadyToBeDeleted()) {
+                if (callbackRef) {
+                    callbackRef(0, this, &sink);
+                }
+                return true;
+            }
+            else {
+                return false;
+            }
+        });
     }
 }
 
@@ -89,4 +113,20 @@ void StcpInduct::DisableRemoveInactiveTcpConnections() {
 
 void StcpInduct::ConnectionReadyToBeDeletedNotificationReceived() {
     boost::asio::post(m_ioService, boost::bind(&StcpInduct::RemoveInactiveTcpConnections, this));
+}
+
+void StcpInduct::PopulateInductTelemetry(InductTelemetry_t& inductTelem) {
+    inductTelem.m_convergenceLayer = "STCP";
+    inductTelem.m_listInductConnections.clear();
+    {
+        boost::mutex::scoped_lock lock(m_listStcpBundleSinksMutex);
+        for (std::list<StcpBundleSink>::const_iterator it = m_listStcpBundleSinks.cbegin(); it != m_listStcpBundleSinks.cend(); ++it) {
+            inductTelem.m_listInductConnections.emplace_back(it->m_telemetry);
+        }
+    }
+    if (inductTelem.m_listInductConnections.empty()) {
+        InductConnectionTelemetry_t c;
+        c.m_connectionName = "null";
+        inductTelem.m_listInductConnections.emplace_back(c);
+    }
 }

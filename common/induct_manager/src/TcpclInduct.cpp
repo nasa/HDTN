@@ -97,10 +97,10 @@ void TcpclInduct::RemoveInactiveTcpConnections() {
     //std::map<uint64_t, OpportunisticBundleQueue> & mapNodeIdToOpportunisticBundleQueueRef = m_mapNodeIdToOpportunisticBundleQueue;
     //boost::mutex & mapNodeIdToOpportunisticBundleQueueMutexRef = m_mapNodeIdToOpportunisticBundleQueueMutex;
     if (m_allowRemoveInactiveTcpConnections) {
-        m_listTcpclBundleSinks.remove_if([&callbackRef/*, &mapNodeIdToOpportunisticBundleQueueMutexRef, &mapNodeIdToOpportunisticBundleQueueRef*/](TcpclBundleSink & sink) {
+        m_listTcpclBundleSinks.remove_if([&callbackRef, this/*, &mapNodeIdToOpportunisticBundleQueueMutexRef, &mapNodeIdToOpportunisticBundleQueueRef*/](TcpclBundleSink & sink) {
             if (sink.ReadyToBeDeleted()) {
                 if (callbackRef) {
-                    callbackRef(sink.GetRemoteNodeId());
+                    callbackRef(sink.GetRemoteNodeId(), this, &sink);
                 }
                 //mapNodeIdToOpportunisticBundleQueueMutexRef.lock();
                 //mapNodeIdToOpportunisticBundleQueueRef.erase(sink.GetRemoteNodeId());
@@ -137,7 +137,7 @@ void TcpclInduct::OnContactHeaderCallback_FromIoServiceThread(TcpclBundleSink * 
     thisTcpclBundleSinkPtr->SetTryGetOpportunisticDataFunction(boost::bind(&TcpclInduct::BundleSinkTryGetData_FromIoServiceThread, this, boost::ref(opportunisticBundleQueue), boost::placeholders::_1));
     thisTcpclBundleSinkPtr->SetNotifyOpportunisticDataAckedCallback(boost::bind(&TcpclInduct::BundleSinkNotifyOpportunisticDataAcked_FromIoServiceThread, this, boost::ref(opportunisticBundleQueue)));
     if (m_onNewOpportunisticLinkCallback) {
-        m_onNewOpportunisticLinkCallback(thisTcpclBundleSinkPtr->GetRemoteNodeId(), this);
+        m_onNewOpportunisticLinkCallback(thisTcpclBundleSinkPtr->GetRemoteNodeId(), this, thisTcpclBundleSinkPtr);
     }
 }
 

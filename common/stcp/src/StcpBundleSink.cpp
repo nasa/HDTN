@@ -43,6 +43,8 @@ StcpBundleSink::StcpBundleSink(std::shared_ptr<boost::asio::ip::tcp::socket> tcp
     m_running(false),
     m_safeToDelete(false)
 {
+    m_telemetry.m_connectionName = tcpSocketPtr->remote_endpoint().address().to_string() 
+        + ":" + boost::lexical_cast<std::string>(tcpSocketPtr->remote_endpoint().port());
     LOG_INFO(subprocess) << "stcp sink using CB size: " << M_NUM_CIRCULAR_BUFFER_VECTORS;
     m_running = true;
     m_threadCbReaderPtr = boost::make_unique<boost::thread>(
@@ -144,6 +146,8 @@ void StcpBundleSink::HandleTcpReceiveBundleData(const boost::system::error_code 
             m_circularIndexBuffer.CommitWrite(); //write complete at this point
             m_mutexCb.unlock();
             m_conditionVariableCb.notify_one();
+            m_telemetry.m_totalBundleBytesReceived += bytesTransferred;
+            ++(m_telemetry.m_totalBundlesReceived);
             m_stateTcpReadActive = false; //must be false before calling TryStartTcpReceive
             TryStartTcpReceive(); //restart operation only if there was no error
         }

@@ -297,7 +297,42 @@ struct AllOutductCapabilitiesTelemetry_t : public Telemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 };
 
-//TELEMETRY_DEFINITIONS_EXPORT bool AppendSerializedTelemetryToPropertyTree(boost::property_tree::ptree& pt, const uint8_t* serialized, uint64_t bufSizeBytes);
+
+struct InductConnectionTelemetry_t : public JsonSerializable {
+    TELEMETRY_DEFINITIONS_EXPORT InductConnectionTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const InductConnectionTelemetry_t& o) const; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const InductConnectionTelemetry_t& o) const;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+
+    std::string m_connectionName;
+    uint64_t m_totalBundlesReceived;
+    uint64_t m_totalBundleBytesReceived;
+};
+
+struct InductTelemetry_t : public JsonSerializable {
+    TELEMETRY_DEFINITIONS_EXPORT InductTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const InductTelemetry_t& o) const; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const InductTelemetry_t& o) const;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+
+    std::string m_convergenceLayer;
+    std::list<InductConnectionTelemetry_t> m_listInductConnections;
+};
+
+struct AllInductTelemetry_t : public JsonSerializable {
+    TELEMETRY_DEFINITIONS_EXPORT AllInductTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const AllInductTelemetry_t& o) const; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const AllInductTelemetry_t& o) const;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+
+    std::list<InductTelemetry_t> m_listAllInducts;
+};
 
 static const uint8_t TELEM_REQ_MSG = 1;
 

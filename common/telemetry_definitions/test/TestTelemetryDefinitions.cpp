@@ -14,6 +14,7 @@
 
 #include <boost/test/unit_test.hpp>
 #include "TelemetryDefinitions.h"
+#include <boost/lexical_cast.hpp>
 
 BOOST_AUTO_TEST_CASE(TelemetryDefinitionsFactoryTestCase)
 {
@@ -564,4 +565,27 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsStorageExpiringBeforeThresholdTestCase)
         telem.mapNodeIdToExpiringBeforeThresholdCount[9] = bundleCountAndBytes;
         BOOST_REQUIRE_EQUAL(telem.GetSerializationSize(), 80);
     }
+}
+
+BOOST_AUTO_TEST_CASE(AllInductTelemetryTestCase)
+{
+    AllInductTelemetry_t ait;
+    for (std::size_t i = 0; i < 10; ++i) {
+        ait.m_listAllInducts.emplace_back();
+        InductTelemetry_t& inductTelem = ait.m_listAllInducts.back();
+        inductTelem.m_convergenceLayer.assign(i+1, 'a' + ((char)i));
+        for (std::size_t j = 0; j < 2; ++j) {
+            inductTelem.m_listInductConnections.emplace_back();
+            InductConnectionTelemetry_t& conn = inductTelem.m_listInductConnections.back();
+            conn.m_connectionName = boost::lexical_cast<std::string>(i) + " " + boost::lexical_cast<std::string>(j);
+            conn.m_totalBundleBytesReceived = i;
+            conn.m_totalBundlesReceived = j;
+        }
+    }
+    const std::string aitJson = ait.ToJson();
+    //std::cout << aitJson << "\n";
+    AllInductTelemetry_t ait2;
+    ait2.SetValuesFromJson(aitJson);
+    BOOST_REQUIRE(ait == ait2);
+    BOOST_REQUIRE_EQUAL(aitJson, ait2.ToJson());
 }

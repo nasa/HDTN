@@ -38,12 +38,13 @@
 #include <zmq.hpp>
 #include "BidirectionalLink.h"
 #include "PaddedVectorUint8.h"
+#include "TelemetryDefinitions.h"
 
 
 class Induct;
 typedef boost::function<void(padded_vector_uint8_t & movableBundle)> InductProcessBundleCallback_t;
-typedef boost::function<void(const uint64_t remoteNodeId, Induct* thisInductPtr)> OnNewOpportunisticLinkCallback_t;
-typedef boost::function<void(const uint64_t remoteNodeId)> OnDeletedOpportunisticLinkCallback_t;
+typedef boost::function<void(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtr)> OnNewOpportunisticLinkCallback_t;
+typedef boost::function<void(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtrAboutToBeDeleted)> OnDeletedOpportunisticLinkCallback_t;
 
 class CLASS_VISIBILITY_INDUCT_MANAGER_LIB Induct {
 private:
@@ -52,6 +53,7 @@ public:
     INDUCT_MANAGER_LIB_EXPORT Induct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig);
     INDUCT_MANAGER_LIB_EXPORT virtual ~Induct();
     INDUCT_MANAGER_LIB_EXPORT virtual bool Init(); //optional
+    INDUCT_MANAGER_LIB_EXPORT virtual void PopulateInductTelemetry(InductTelemetry_t& inductTelem) {};
 
     //tcpcl only
     INDUCT_MANAGER_LIB_EXPORT bool ForwardOnOpportunisticLink(const uint64_t remoteNodeId, std::vector<uint8_t> & dataVec, const uint32_t timeoutSeconds);

@@ -34,6 +34,7 @@
 #include "codec/BundleViewV7.h"
 #include "TcpclInduct.h"
 #include "TcpclV4Induct.h"
+#include "StcpInduct.h"
 #include "TelemetryDefinitions.h"
 #include "ThreadNamer.h"
 #include <unordered_map>
@@ -61,8 +62,8 @@ private:
         const bool usingZmqData, const bool needsProcessing);
     void ReadTcpclOpportunisticBundlesFromEgressThreadFunc();
     void WholeBundleReadyCallback(padded_vector_uint8_t& wholeBundleVec);
-    void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr);
-    void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId);
+    void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtr);
+    void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtrAboutToBeDeleted);
     void SendOpportunisticLinkMessages(const uint64_t remoteNodeId, bool isAvailable);
 
 public:
@@ -650,8 +651,8 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
 
                                     m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::Impl::WholeBundleReadyCallback, this, boost::placeholders::_1), m_hdtnConfig.m_inductsConfig,
                                         m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes, m_hdtnConfig.m_maxBundleSizeBytes,
-                                        boost::bind(&Ingress::Impl::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2),
-                                        boost::bind(&Ingress::Impl::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1));
+                                        boost::bind(&Ingress::Impl::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
+                                        boost::bind(&Ingress::Impl::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
 
                                     m_egressFullyInitialized = true;
 
@@ -706,6 +707,11 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                     LOG_ERROR(subprocess) << "telemMsgByte not 1";
                 }
                 else {
+                    AllInductTelemetry_t allInductTelem;
+                    m_inductManager.PopulateAllInductTelemetry(allInductTelem);
+                    const std::string allInductTelemJson = allInductTelem.ToJson();
+                    std::cout << allInductTelemJson << "\n";
+
                     //send telemetry
                     IngressTelemetry_t telem;
                     telem.totalDataBytes = m_bundleData;
@@ -1305,7 +1311,7 @@ void Ingress::Impl::SendOpportunisticLinkMessages(const uint64_t remoteNodeId, b
     }
 }
 
-void Ingress::Impl::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr) {
+void Ingress::Impl::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtr) {
     if (TcpclInduct * tcpclInductPtr = dynamic_cast<TcpclInduct*>(thisInductPtr)) {
         LOG_INFO(subprocess) << "New opportunistic link detected on TcpclV3 induct for ipn:" << remoteNodeId << ".*";
         SendOpportunisticLinkMessages(remoteNodeId, true);
@@ -1318,15 +1324,23 @@ void Ingress::Impl::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, 
         boost::mutex::scoped_lock lock(m_availableDestOpportunisticNodeIdToTcpclInductMapMutex);
         m_availableDestOpportunisticNodeIdToTcpclInductMap[remoteNodeId] = tcpclInductPtr;
     }
+    else if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
+
+    }
     else {
         LOG_ERROR(subprocess) << "OnNewOpportunisticLinkCallback: Induct ptr cannot cast to TcpclInduct or TcpclV4Induct";
     }
 }
-void Ingress::Impl::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId) {
-    LOG_INFO(subprocess) << "Deleted opportunistic link on Tcpcl induct for ipn:" << remoteNodeId << ".*";
-    SendOpportunisticLinkMessages(remoteNodeId, false);
-    boost::mutex::scoped_lock lock(m_availableDestOpportunisticNodeIdToTcpclInductMapMutex);
-    m_availableDestOpportunisticNodeIdToTcpclInductMap.erase(remoteNodeId);
+void Ingress::Impl::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtrAboutToBeDeleted) {
+    if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
+
+    }
+    else {
+        LOG_INFO(subprocess) << "Deleted opportunistic link on Tcpcl induct for ipn:" << remoteNodeId << ".*";
+        SendOpportunisticLinkMessages(remoteNodeId, false);
+        boost::mutex::scoped_lock lock(m_availableDestOpportunisticNodeIdToTcpclInductMapMutex);
+        m_availableDestOpportunisticNodeIdToTcpclInductMap.erase(remoteNodeId);
+    }
 }
 
 }  // namespace hdtn
