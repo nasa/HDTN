@@ -695,6 +695,7 @@
         function InternalUpdateWithData(objJson) {
             //console.log(objJson);
             if("hdtnConfigName" in objJson) {
+                InitActiveInductConnections(objJson);
                 HandleReceivedNewHdtnConfig(objJson);
             }
             else if(hdtnConfig == null) {
@@ -920,7 +921,7 @@
                     }
                     else { //json data
                         var obj = JSON.parse(e.data); //this could error based on encodings
-                        //console.log(obj);
+                        console.log(obj);
                         app.UpdateWithData(obj);
 
                     }

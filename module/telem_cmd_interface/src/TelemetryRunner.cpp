@@ -71,6 +71,9 @@ class TelemetryRunner::Impl : private boost::noncopyable {
         std::unique_ptr<TelemetryLogger> m_telemetryLoggerPtr;
         DeadlineTimer m_deadlineTimer;
         HdtnConfig m_hdtnConfig;
+
+        boost::mutex m_lastSerializedAllOutductCapabilitiesMutex;
+        std::string m_lastSerializedAllOutductCapabilities;
 };
 
 /**
@@ -142,6 +145,12 @@ void TelemetryRunner::Impl::OnNewWebsocketConnectionCallback(struct mg_connectio
     std::cout << "newconn\n";
     const std::string hdtnConfigSerialized = m_hdtnConfig.ToJson();
     mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, hdtnConfigSerialized.data(), hdtnConfigSerialized.size());
+    {
+        boost::mutex::scoped_lock lock(m_lastSerializedAllOutductCapabilitiesMutex);
+        if (m_lastSerializedAllOutductCapabilities.size()) {
+            mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, m_lastSerializedAllOutductCapabilities.data(), m_lastSerializedAllOutductCapabilities.size());
+        }
+    }
 }
 bool TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback(struct mg_connection* conn, char* data, size_t data_len) {
     std::cout << "newdata\n";
@@ -263,7 +272,14 @@ void TelemetryRunner::Impl::OnNewTelemetry(uint8_t* buffer, uint64_t bufferSize)
     std::cout << "telemListSize " << telemList.size() << "\n";
     for (std::unique_ptr<Telemetry_t>& telem : telemList) {
         if (telem->GetType() == TelemetryType::allOutductCapability) {
-            std::cout << telem->ToJson() << "\n";
+            //std::cout << telem->ToJson() << "\n";
+            {
+                boost::mutex::scoped_lock lock(m_lastSerializedAllOutductCapabilitiesMutex);
+                m_lastSerializedAllOutductCapabilities = telem->ToJson();
+            }
+            if (m_websocketServerPtr) {
+                m_websocketServerPtr->SendNewTextData(m_lastSerializedAllOutductCapabilities.data(), m_lastSerializedAllOutductCapabilities.size());
+            }
         }
         if (m_telemetryLoggerPtr) {
             m_telemetryLoggerPtr->LogTelemetry(telem.get());
