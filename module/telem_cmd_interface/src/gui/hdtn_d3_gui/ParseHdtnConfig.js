@@ -7,6 +7,11 @@ function UpdateActiveInductConnections(paramHdtnConfig, paramActiveInductConnect
         let activeConnectionsArray = [];
         inductTelem.inductConnections.forEach(function(conn) {
             activeConnectionsArray.push(conn.connectionName);
+            let baseId = "induct_" + i + "_conn_" + conn.connectionName;
+            paramHdtnConfig.inductIdToWireDataMap[baseId] = {
+                "totalBundlesReceived": conn.totalBundlesReceived,
+                "totalBundleBytesReceived": conn.totalBundleBytesReceived
+            };
         });
         ind["activeConnections"] = activeConnectionsArray;
     });
@@ -18,6 +23,7 @@ function InitActiveInductConnections(paramHdtnConfig) {
         //console.log(i);
         ind["activeConnections"] = ["null"];
     });
+    paramHdtnConfig.inductIdToWireDataMap = {};
 }
 
 function UpdateAllOutductCapabilities(paramHdtnConfig, paramAoct) {
@@ -34,7 +40,7 @@ function UpdateAllOutductCapabilities(paramHdtnConfig, paramAoct) {
     });
 }
 
-function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, paramNewHdtnConfig, paramDeclutter, paramShrink, paramD3FaultsMap, PARAM_MAP_NAMES, PARAM_SUB_MAP_NAMES, PARAM_D3_SHAPE_ATTRIBUTES, PARAM_ABS_POSITION_MAP, PARAM_FLIP_HORIZONTAL_MAP) {
+function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, paramHdtnConfig, paramDeclutter, paramShrink, paramD3FaultsMap, PARAM_MAP_NAMES, PARAM_SUB_MAP_NAMES, PARAM_D3_SHAPE_ATTRIBUTES, PARAM_ABS_POSITION_MAP, PARAM_FLIP_HORIZONTAL_MAP) {
 
     function GetDrawHash(receivedConfig) {
         let hashStr = "";
@@ -74,7 +80,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         wireConnections.push(wireObj);
     }
 
-    let newHashStr = GetDrawHash(paramNewHdtnConfig);
+    let newHashStr = GetDrawHash(paramHdtnConfig);
     let needsRedraw = (paramHdtnOldDrawHash.strVal == null) || (paramHdtnOldDrawHash.strVal !== newHashStr);
     if(!needsRedraw) {
         console.log("does not need redraw");
@@ -82,8 +88,6 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
     }
     else {
         console.log("needs redraw");
-        console.log("new: " + newHashStr);
-        console.log("old: " + paramHdtnOldDrawHash.strVal);
         paramHdtnOldDrawHash.strVal = newHashStr;
     }
 
@@ -140,7 +144,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
     var activeInductConnsD3Array = [activeInductConnsObj];
 
 
-    var inductsConfig = paramNewHdtnConfig["inductsConfig"];
+    var inductsConfig = paramHdtnConfig["inductsConfig"];
     var inductVector = inductsConfig["inductVector"];
 
     var inductRelYLeft =  PARENT_TOP_HEADER_PX;// + CHILD_HEIGHT_PX/2;
@@ -156,7 +160,9 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
             ///////////induct
             var induct = {};
             induct.linkIsUp = true;
-            induct.parent = egressObj;
+            induct.parent = ingressObj;
+            induct.wireDataId = baseId;
+            induct.wireDataMap = paramHdtnConfig.inductIdToWireDataMap;
             induct.id = "induct_" + baseId;
             var cvName = "??";
             if(ind.convergenceLayer === "ltp_over_udp") {
@@ -268,7 +274,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
     finalDestsObj.height = 500;
     var finalDestsD3Array = [finalDestsObj];
 
-    var outductsConfig = paramNewHdtnConfig["outductsConfig"];
+    var outductsConfig = paramHdtnConfig["outductsConfig"];
     var outductVector = outductsConfig["outductVector"];
     //console.log(outductVector);
 

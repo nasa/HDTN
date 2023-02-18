@@ -11,7 +11,21 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
     var d3WiresArray = [];
 
     function GetWireText(wire) {
-        return "";
+        let objWithMap = null;
+        if(wire.src.hasOwnProperty("wireDataId")) {
+            objWithMap = wire.src;
+        }
+        else if(wire.dest.hasOwnProperty("wireDataId")) {
+            objWithMap = wire.dest;
+        }
+        else {
+            return "";
+        }
+        if(!objWithMap.wireDataMap.hasOwnProperty(objWithMap.wireDataId)) {
+            return "";
+        }
+        let wireData = objWithMap.wireDataMap[objWithMap.wireDataId];
+        return "" + wireData["totalBundleBytesReceived"] + "";
         var showCurrent = document.getElementById("id_showCurrent").checked;
         var showVoltage = document.getElementById("id_showVoltage").checked;
         var amps = wire.src.hasOwnProperty("currentOut") ? wire.src.currentOut : wire.dest.currentIn;
