@@ -90,7 +90,7 @@ build-static-analysis:
 
 # Run unit tests and generate a test report
 unit-test:
-  stage: unit-tests
+  stage: test
   tags:
   - docker
   - linux-x86
@@ -109,8 +109,8 @@ unit-test:
       junit: report.xml
 
 # Run unit tests and generate a test report
-unit-test:
-  stage: integrated-tests
+integrated-test:
+  stage: test
   tags:
   - docker
   - linux-x86
