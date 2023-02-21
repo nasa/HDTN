@@ -22,6 +22,7 @@
 #include "UdpInduct.h"
 #include "LtpOverUdpInduct.h"
 #include "LtpOverIpcInduct.h"
+#include "TimestampUtil.h"
 
 InductManager::InductManager() {}
 
@@ -86,4 +87,5 @@ void InductManager::PopulateAllInductTelemetry(AllInductTelemetry_t& allInductTe
         allInductTelem.m_listAllInducts.emplace_back(); 
         (*it)->PopulateInductTelemetry(allInductTelem.m_listAllInducts.back());
     }
+    allInductTelem.m_timestampMilliseconds = TimestampUtil::GetMillisecondsSinceEpochRfc5050();
 }

@@ -1057,6 +1057,7 @@ bool AllInductTelemetry_t::operator!=(const AllInductTelemetry_t& o) const {
 }
 bool AllInductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
     try {
+        m_timestampMilliseconds = pt.get<uint64_t>("timestampMilliseconds");
         //for non-throw versions of get_child which return a reference to the second parameter
         static const boost::property_tree::ptree EMPTY_PTREE;
         const boost::property_tree::ptree& allInductsPt = pt.get_child("allInducts", EMPTY_PTREE); //non-throw version
@@ -1074,6 +1075,7 @@ bool AllInductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree:
 }
 boost::property_tree::ptree AllInductTelemetry_t::GetNewPropertyTree() const {
     boost::property_tree::ptree pt;
+    pt.put("timestampMilliseconds", m_timestampMilliseconds);
     boost::property_tree::ptree& allInductsPt = pt.put_child("allInducts",
         m_listAllInducts.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
     for (std::list<InductTelemetry_t>::const_iterator it = m_listAllInducts.cbegin(); it != m_listAllInducts.cend(); ++it) {

@@ -330,7 +330,7 @@ struct AllInductTelemetry_t : public JsonSerializable {
 
     TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
-
+    uint64_t m_timestampMilliseconds;
     std::list<InductTelemetry_t> m_listAllInducts;
 };
 
