@@ -324,6 +324,7 @@
         var activeInductConnsGroup = guiGroup.append("g");
         var egressGroup = guiGroup.append("g");
         var ingressGroup = guiGroup.append("g");
+        var inductsGroup = guiGroup.append("g");
         var storageGroup = guiGroup.append("g");
         var diskGroup = guiGroup.append("g");
         var nextHopsGroup = guiGroup.append("g");
@@ -406,6 +407,18 @@
             "activeInductConn_group", //paramSvgChildGroupClass
             "", //paramParentRectStyleClass
             true, //paramHideParent
+            toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
+            ContextMenuEvent, //paramContextMenuEventFunction
+            GetOruRectClass, //paramGetParentRectClassFunction
+            GetSwitchRectClass //paramGetChildRectClassFunction
+        );
+
+        var myInductsRectComponent = RectComponents(
+            inductsGroup, //paramSvgRootGroup, , ,
+            "loadBank_group", //paramSvgRootGroupClass
+            "load_group", //paramSvgChildGroupClass
+            "induct_body", //paramParentRectStyleClass
+            false, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
             ContextMenuEvent, //paramContextMenuEventFunction
             GetOruRectClass, //paramGetParentRectClassFunction
@@ -625,6 +638,7 @@
 
             myActiveInductConnsRectComponent.Update(redrawObj.activeInductConnsD3Array, sharedTransition);
             myIngressRectComponent.Update(redrawObj.ingressD3Array, sharedTransition);
+            myInductsRectComponent.Update(redrawObj.inductsD3Array, sharedTransition);
             myEgressRectComponent.Update(redrawObj.egressD3Array, sharedTransition);
             myStorageRectComponent.Update(redrawObj.storageD3Array, sharedTransition);
             myNextHopsRectComponent.Update(redrawObj.nextHopsD3Array, sharedTransition);

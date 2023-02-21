@@ -5,13 +5,22 @@ function UpdateActiveInductConnections(paramHdtnConfig, paramActiveInductConnect
         //console.log(i);
         let inductTelem = paramActiveInductConnections.allInducts[i];
         let activeConnectionsArray = [];
-        inductTelem.inductConnections.forEach(function(conn) {
-            activeConnectionsArray.push(conn.connectionName);
-            let baseId = "induct_" + i + "_conn_" + conn.connectionName;
+        let mapConnectionNameToD3Obj = ind["mapConnectionNameToD3Obj"];
+        inductTelem.inductConnections.forEach(function(connTelem) {
+            activeConnectionsArray.push(connTelem.connectionName);
+            let baseId = "induct_" + i + "_conn_" + connTelem.connectionName;
             paramHdtnConfig.inductIdToWireDataMap[baseId] = {
-                "totalBundlesReceived": conn.totalBundlesReceived,
-                "totalBundleBytesReceived": conn.totalBundleBytesReceived
+                "totalBundlesReceived": connTelem.totalBundlesReceived,
+                "totalBundleBytesReceived": connTelem.totalBundleBytesReceived
             };
+            if(!mapConnectionNameToD3Obj.hasOwnProperty(connTelem.connectionName)) {
+                mapConnectionNameToD3Obj[connTelem.connectionName] = {};
+            }
+            let d3Obj = mapConnectionNameToD3Obj[connTelem.connectionName];
+            d3Obj["totalBundlesReceived"] = connTelem.totalBundlesReceived;
+            d3Obj["totalBundleBytesReceived"] = connTelem.totalBundleBytesReceived;
+            d3Obj["remoteConnD3Obj"] = {}
+
         });
         ind["activeConnections"] = activeConnectionsArray;
     });
@@ -21,7 +30,8 @@ function InitActiveInductConnections(paramHdtnConfig) {
     let inductVector = inductsConfig["inductVector"];
     inductVector.forEach(function(ind, i) {
         //console.log(i);
-        ind["activeConnections"] = ["null"];
+        ind["activeConnections"] = [];
+        ind["mapConnectionNameToD3Obj"] = {};
     });
     paramHdtnConfig.inductIdToWireDataMap = {};
 }
@@ -150,57 +160,86 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
     var inductRelYLeft =  PARENT_TOP_HEADER_PX;// + CHILD_HEIGHT_PX/2;
     var activeInductConnsRelY = PARENT_TOP_HEADER_PX;
 
+    //var indAbsPosition = PARAM_ABS_POSITION_MAP["next_hops"];
+    var indAbsPositionY = ingressObj.absY + PARENT_TOP_HEADER_PX;
+    var inductsD3Array = [];
+
     inductVector.forEach(function(ind, i) {
         //console.log(i);
+        let mapConnectionNameToD3Obj = ind["mapConnectionNameToD3Obj"];
+
+        ///////////induct (using the hdtn config object itself to store d3 info)
+        ind.topHeaderHeight = PARENT_TOP_HEADER_PX;
+        ind.parent = null;
+        ind.d3ChildArray = [];
+        ind.id = "induct_" + i;
+        let cvName = "??";
+        if(ind.convergenceLayer === "ltp_over_udp") {
+            cvName = "LTP";
+        }
+        else if(ind.convergenceLayer === "udp") {
+            cvName = "UDP";
+        }
+        else if(ind.convergenceLayer === "tcpcl_v3") {
+            cvName = "TCP3";
+        }
+        else if(ind.convergenceLayer === "tcpcl_v4") {
+            cvName = "TCP4";
+        }
+        else if(ind.convergenceLayer === "stcp") {
+            cvName = "STCP";
+        }
+        ind.name = cvName + "[" + i + "]";
+        ind.absX = ingressObj.absX + CHILD_SIDE_MARGIN_PX;
+        ind.absY = indAbsPositionY;
+        ind.width = (ingressAbsPosition.WIDTH - 2*CHILD_SIDE_MARGIN_PX) * (3/4) - BUSBAR_WIDTH_PX/2;
+        inductsD3Array.push(ind);
+
+
+
+
 
         var activeInductConnsNames = ind["activeConnections"];
+        var inductInputConnectionRelY =  PARENT_TOP_HEADER_PX;// + CHILD_HEIGHT_PX/2;
+        ind.height = inductInputConnectionRelY;
         activeInductConnsNames.forEach(function(connName, j) {
 
+            ///////////induct connection input port
+            if(!mapConnectionNameToD3Obj.hasOwnProperty(connName)) {
+                return;
+            }
+            let inductInputConnectionObj = mapConnectionNameToD3Obj[connName];
+            inductInputConnectionObj.linkIsUp = true;
+            inductInputConnectionObj.parent = ind;
+            inductInputConnectionObj.id = "induct_conn_" + ind.id + "_" + connName;
+            inductInputConnectionObj.name = "";
+
+            inductInputConnectionObj.width = ind.width - 2*CHILD_SIDE_MARGIN_PX;
+            inductInputConnectionObj.height = CHILD_HEIGHT_PX;
+
+            inductInputConnectionObj.relX = CHILD_SIDE_MARGIN_PX;
+            inductInputConnectionObj.relY = inductInputConnectionRelY;
+            inductInputConnectionRelY += CHILD_HEIGHT_PX + CHILD_BOTTOM_MARGIN_PX;
+            ind.height = inductInputConnectionRelY;
+
+            inductInputConnectionObj.absWireOutY = ind.absY + inductInputConnectionObj.relY + inductInputConnectionObj.height/2;
+            inductInputConnectionObj.absWireInY = inductInputConnectionObj.absWireOutY;
+            inductInputConnectionObj.absWireOutX = ind.absX + inductInputConnectionObj.relX + inductInputConnectionObj.width;
+            inductInputConnectionObj.absWireInX = ind.absX + inductInputConnectionObj.relX;
+
+
+            //console.log(nextHop);
+            ind.d3ChildArray.push(inductInputConnectionObj);
+
+
+
             var baseId = "induct_" + i + "_conn_" + connName;// + "_" + j; //don't use j, will affect redraw on deletion
-            ///////////induct
-            var induct = {};
-            induct.linkIsUp = true;
-            induct.parent = ingressObj;
-            induct.wireDataId = baseId;
-            induct.wireDataMap = paramHdtnConfig.inductIdToWireDataMap;
-            induct.id = "induct_" + baseId;
-            var cvName = "??";
-            if(ind.convergenceLayer === "ltp_over_udp") {
-                cvName = "LTP";
-            }
-            else if(ind.convergenceLayer === "udp") {
-                cvName = "UDP";
-            }
-            else if(ind.convergenceLayer === "tcpcl_v3") {
-                cvName = "TCP3";
-            }
-            else if(ind.convergenceLayer === "tcpcl_v4") {
-                cvName = "TCP4";
-            }
-            else if(ind.convergenceLayer === "stcp") {
-                cvName = "STCP";
-            }
-            induct.name = cvName + "[" + i + "]";
 
-            induct.width = (ingressAbsPosition.WIDTH - 2*CHILD_SIDE_MARGIN_PX) * (3/4) - BUSBAR_WIDTH_PX/2;
-            induct.height = CHILD_HEIGHT_PX;
-            //left side
-            induct.relX = CHILD_SIDE_MARGIN_PX;
-            induct.relY = inductRelYLeft;
-            inductRelYLeft += CHILD_HEIGHT_PX + CHILD_BOTTOM_MARGIN_PX;
-
-            induct.absWireOutY = ingressObj.absY + induct.relY + induct.height/2;
-            induct.absWireInY = induct.absWireOutY;
-            induct.absWireOutX = ingressObj.absX + induct.relX + induct.width;
-            induct.absWireInX = ingressObj.absX + induct.relX;
-
-            //console.log(induct);
-            ingressObj.d3ChildArray.push(induct);
 
 
 
             ////////////////active induct connections
-            var connObj = {};
+            let connObj = inductInputConnectionObj.remoteConnD3Obj;
             connObj.linkIsUp = true;
             connObj.parent = activeInductConnsObj;
             connObj.id = "conn_" + baseId;
@@ -209,7 +248,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
             connObj.width = (activeInductConnsAbsPosition.WIDTH - 2*CHILD_SIDE_MARGIN_PX);
             connObj.height = CHILD_HEIGHT_PX;
             connObj.relX = CHILD_SIDE_MARGIN_PX;
-            connObj.relY = activeInductConnsRelY;
+            connObj.relY = inductInputConnectionObj.relY + ind.absY - ingressObj.absY;
             activeInductConnsRelY += CHILD_HEIGHT_PX + CHILD_BOTTOM_MARGIN_PX;
 
 
@@ -220,9 +259,10 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
 
             activeInductConnsObj.d3ChildArray.push(connObj);
 
-            AddWire(connObj, induct, "conn_induct");
+            AddWire(connObj, inductInputConnectionObj, "conn_induct");
         });
 
+        indAbsPositionY += ind.height + PARENT_GROUP_VERTICAL_SPACING_PX;
 
     });
 
@@ -329,16 +369,16 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         egressObj.d3ChildArray.push(outduct);
 
         ///////////next hop
-        var nextHopsObj = {};
-        nextHopsObj.topHeaderHeight = PARENT_TOP_HEADER_PX;
-        nextHopsObj.parent = null;
-        nextHopsObj.d3ChildArray = [];
-        nextHopsObj.id = "next_hop_node_id_" + od.nextHopNodeId;
-        nextHopsObj.name = "Node " + od.nextHopNodeId;
-        nextHopsObj.absX = nextHopsAbsPosition.X;
-        nextHopsObj.absY = nextHopsAbsPositionY;
-        nextHopsObj.width = nextHopsAbsPosition.WIDTH;
-        nextHopsD3Array.push(nextHopsObj);
+        var nextHopObj = {};
+        nextHopObj.topHeaderHeight = PARENT_TOP_HEADER_PX;
+        nextHopObj.parent = null;
+        nextHopObj.d3ChildArray = [];
+        nextHopObj.id = "next_hop_node_id_" + od.nextHopNodeId;
+        nextHopObj.name = "Node " + od.nextHopNodeId;
+        nextHopObj.absX = nextHopsAbsPosition.X;
+        nextHopObj.absY = nextHopsAbsPositionY;
+        nextHopObj.width = nextHopsAbsPosition.WIDTH;
+        nextHopsD3Array.push(nextHopObj);
 
 
 
@@ -350,7 +390,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
             ///////////next hop out port
             var nextHop = {};
             nextHop.linkIsUp = true;
-            nextHop.parent = nextHopsObj;
+            nextHop.parent = nextHopObj;
             nextHop.id = "next_hop_" + fd;
             nextHop.name = "";
 
@@ -360,16 +400,16 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
             nextHop.relX = CHILD_SIDE_MARGIN_PX + (nextHopsAbsPosition.WIDTH - 2*CHILD_SIDE_MARGIN_PX) * (1/2) + BUSBAR_WIDTH_PX/2;
             nextHop.relY = nextHopRelY;
             nextHopRelY += CHILD_HEIGHT_PX + CHILD_BOTTOM_MARGIN_PX;
-            nextHopsObj.height = nextHopRelY;
+            nextHopObj.height = nextHopRelY;
 
-            nextHop.absWireOutY = nextHopsObj.absY + nextHop.relY + nextHop.height/2;
+            nextHop.absWireOutY = nextHopObj.absY + nextHop.relY + nextHop.height/2;
             nextHop.absWireInY = nextHop.absWireOutY;
-            nextHop.absWireOutX = nextHopsObj.absX + nextHop.relX + nextHop.width;
-            nextHop.absWireInX = nextHopsObj.absX + nextHop.relX;
+            nextHop.absWireOutX = nextHopObj.absX + nextHop.relX + nextHop.width;
+            nextHop.absWireInX = nextHopObj.absX + nextHop.relX;
 
 
             //console.log(nextHop);
-            nextHopsObj.d3ChildArray.push(nextHop);
+            nextHopObj.d3ChildArray.push(nextHop);
 
             ////////////////final dests
             //console.log(fd);
@@ -395,25 +435,25 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
 
             AddWire(nextHop, finalDest, "nextHop_finalDest");
         });
-        nextHopsObj.busBar = {
+        nextHopObj.busBar = {
             "x1": nextHopsAbsPosition.WIDTH / 2.0,
             "y1": PARENT_TOP_HEADER_PX,
             "x2": nextHopsAbsPosition.WIDTH / 2.0,
-            "y2": PARENT_TOP_HEADER_PX + nextHopsObj.height - PARENT_TOP_HEADER_PX - CHILD_BOTTOM_MARGIN_PX
+            "y2": PARENT_TOP_HEADER_PX + nextHopObj.height - PARENT_TOP_HEADER_PX - CHILD_BOTTOM_MARGIN_PX
         };
 
 
-        nextHopsObj.absWireOutY = nextHopsAbsPositionY + nextHopsObj.height/2;
-        nextHopsObj.absWireInY = nextHopsObj.absWireOutY;
-        nextHopsObj.absWireOutX = nextHopsObj.absX + nextHopsObj.width;
-        nextHopsObj.absWireInX = nextHopsObj.absX;
+        nextHopObj.absWireOutY = nextHopsAbsPositionY + nextHopObj.height/2;
+        nextHopObj.absWireInY = nextHopObj.absWireOutY;
+        nextHopObj.absWireOutX = nextHopObj.absX + nextHopObj.width;
+        nextHopObj.absWireInX = nextHopObj.absX;
 
-        nextHopsAbsPositionY += nextHopsObj.height + PARENT_GROUP_VERTICAL_SPACING_PX;
+        nextHopsAbsPositionY += nextHopObj.height + PARENT_GROUP_VERTICAL_SPACING_PX;
 
 
 
         if(!paramDeclutter || outduct.linkIsUp) { //if cluttered or on
-            AddWire(outduct, nextHopsObj, "outduct_nextHop");
+            AddWire(outduct, nextHopObj, "outduct_nextHop");
         }
 
 
@@ -436,6 +476,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
     return {
         "activeInductConnsD3Array": activeInductConnsD3Array,
         "ingressD3Array": ingressD3Array,
+        "inductsD3Array": inductsD3Array,
         "egressD3Array": egressD3Array,
         "storageD3Array": storageD3Array,
         "nextHopsD3Array": nextHopsD3Array,

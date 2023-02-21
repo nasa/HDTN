@@ -85,3 +85,7 @@ div.emergencyState {
 .bus_bar {
     stroke-width: 5;
 }
+
+.induct_body {
+    fill: yellow;
+}

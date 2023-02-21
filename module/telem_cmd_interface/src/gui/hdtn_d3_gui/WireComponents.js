@@ -12,20 +12,16 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
 
     function GetWireText(wire) {
         let objWithMap = null;
-        if(wire.src.hasOwnProperty("wireDataId")) {
+        if(wire.src.hasOwnProperty("totalBundlesReceived")) {
             objWithMap = wire.src;
         }
-        else if(wire.dest.hasOwnProperty("wireDataId")) {
+        else if(wire.dest.hasOwnProperty("totalBundlesReceived")) {
             objWithMap = wire.dest;
         }
         else {
             return "";
         }
-        if(!objWithMap.wireDataMap.hasOwnProperty(objWithMap.wireDataId)) {
-            return "";
-        }
-        let wireData = objWithMap.wireDataMap[objWithMap.wireDataId];
-        return "" + wireData["totalBundleBytesReceived"] + "";
+        return "" + objWithMap["totalBundlesReceived"] + "";
         var showCurrent = document.getElementById("id_showCurrent").checked;
         var showVoltage = document.getElementById("id_showVoltage").checked;
         var amps = wire.src.hasOwnProperty("currentOut") ? wire.src.currentOut : wire.dest.currentIn;
