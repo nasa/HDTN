@@ -90,7 +90,7 @@ build-static-analysis:
 
 # Run unit tests and generate a test report
 unit-test:
-  stage: test
+  stage: unit-tests
   tags:
   - docker
   - linux-x86
@@ -108,6 +108,26 @@ unit-test:
     reports:
       junit: report.xml
 
+# Run unit tests and generate a test report
+unit-test:
+  stage: integrated-tests
+  tags:
+  - docker
+  - linux-x86
+  image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
+  needs:
+    - build-with-gui
+  dependencies:
+    - build-with-gui
+  script:
+    - ./build/tests/integrated_tests/integrated-tests --log_format=JUNIT --log_sink=report.xml
+  artifacts:
+    when: always
+    paths:
+      - report.xml
+    reports:
+      junit: report.xml
+      
 # Static Analysis Legacy defects  
 static-analysis-legacy:
   stage: test
