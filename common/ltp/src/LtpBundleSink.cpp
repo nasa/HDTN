@@ -28,6 +28,7 @@ LtpBundleSink::LtpBundleSink(const LtpWholeBundleReadyCallback_t& ltpWholeBundle
 {
     m_telemetry.m_connectionName = ltpRxCfg.remoteHostname + ":" + boost::lexical_cast<std::string>(ltpRxCfg.remotePort)
         + " Eng:" + boost::lexical_cast<std::string>(ltpRxCfg.remoteEngineId);
+    m_telemetry.m_inputName = std::string("*:") + boost::lexical_cast<std::string>(ltpRxCfg.myBoundUdpPort);
 }
 
 bool LtpBundleSink::Init() {

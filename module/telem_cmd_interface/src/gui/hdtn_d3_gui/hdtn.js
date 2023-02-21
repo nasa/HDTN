@@ -7,6 +7,7 @@ var INDUCT_ACTIVE_CONNECTIONS = {
             "inductConnections": [
                 {
                     "connectionName": "localhost:1113 Eng:103",
+                    "inputName": "*:1113",
                     "totalBundlesReceived": 4775,
                     "totalBundleBytesReceived": 477628669
                 }
@@ -17,6 +18,7 @@ var INDUCT_ACTIVE_CONNECTIONS = {
             "inductConnections": [
                 {
                     "connectionName": "127.0.0.1:62000",
+                    "inputName": "*:1114",
                     "totalBundlesReceived": 15522,
                     "totalBundleBytesReceived": 1552618710
                 }
@@ -27,11 +29,13 @@ var INDUCT_ACTIVE_CONNECTIONS = {
             "inductConnections": [
                 {
                     "connectionName": "127.0.0.1:62090 ipn:1.0",
+                    "inputName": "*:65000",
                     "totalBundlesReceived": 15522,
                     "totalBundleBytesReceived": 1552618710
                 },
                 {
                     "connectionName": "127.0.0.1:62091 ipn:3.0",
+                    "inputName": "*:65000",
                     "totalBundlesReceived": 4775,
                     "totalBundleBytesReceived": 477628669
                 }
@@ -42,17 +46,20 @@ var INDUCT_ACTIVE_CONNECTIONS = {
             "inductConnections": [
                 {
                     "connectionName": "127.0.0.1:62092 TLS ipn:4.0",
+                    "inputName": "*:65001",
                     "totalBundlesReceived": 15522,
                     "totalBundleBytesReceived": 1552618710
                 },
                 {
                     "connectionName": "127.0.0.1:62093 ipn:5.0",
+                    "inputName": "*:65001",
                     "totalBundlesReceived": 4775,
                     "totalBundleBytesReceived": 477628669
                 }
                 ,
                 {
                     "connectionName": "127.0.0.1:63000 ipn:6.0",
+                    "inputName": "*:65001",
                     "totalBundlesReceived": 4775,
                     "totalBundleBytesReceived": 477628669
                 }
@@ -62,14 +69,10 @@ var INDUCT_ACTIVE_CONNECTIONS = {
             "convergenceLayer": "STCP",
             "inductConnections": [
                 {
-                    "connectionName": "127.0.0.1:62094",
+                    "connectionName": "null", //"127.0.0.1:62094",
+                    "inputName": "*:65002",
                     "totalBundlesReceived": 15522,
                     "totalBundleBytesReceived": 1552618710
-                },
-                {
-                    "connectionName": "127.0.0.1:62095",
-                    "totalBundlesReceived": 4775,
-                    "totalBundleBytesReceived": 477628669
                 }
             ]
         }
@@ -374,9 +377,22 @@ let changeFunctions = [
         //remove element 0 "ipn:4.1"
         INDUCT_ACTIVE_CONNECTIONS.allInducts[3].inductConnections.push({
                     "connectionName": "127.0.0.1:62090 ipn:177.0",
+                    "inputName": "*:65001",
                     "totalBundlesReceived": 15522,
                     "totalBundleBytesReceived": 1552618710
                 });
+        let clone = JSON.parse(JSON.stringify(INDUCT_ACTIVE_CONNECTIONS));
+        app.UpdateWithData(clone);
+    },
+    function() {
+        //remove element 0 "ipn:4.1"
+        INDUCT_ACTIVE_CONNECTIONS.allInducts[4].inductConnections[0].connectionName= "127.0.0.1:62090 ipn:177.0";
+        let clone = JSON.parse(JSON.stringify(INDUCT_ACTIVE_CONNECTIONS));
+        app.UpdateWithData(clone);
+    },
+    function() {
+        //remove element 0 "ipn:4.1"
+        INDUCT_ACTIVE_CONNECTIONS.allInducts[4].inductConnections[0].connectionName= "null";
         let clone = JSON.parse(JSON.stringify(INDUCT_ACTIVE_CONNECTIONS));
         app.UpdateWithData(clone);
     },

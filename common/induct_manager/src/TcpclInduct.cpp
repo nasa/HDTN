@@ -168,6 +168,7 @@ void TcpclInduct::PopulateInductTelemetry(InductTelemetry_t& inductTelem) {
     if (inductTelem.m_listInductConnections.empty()) {
         InductConnectionTelemetry_t c;
         c.m_connectionName = "null";
+        c.m_inputName = std::string("*:") + boost::lexical_cast<std::string>(m_tcpAcceptor.local_endpoint().port());
         inductTelem.m_listInductConnections.emplace_back(c);
     }
 }

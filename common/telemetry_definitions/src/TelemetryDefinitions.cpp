@@ -992,6 +992,7 @@ bool InductConnectionTelemetry_t::operator!=(const InductConnectionTelemetry_t& 
 bool InductConnectionTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
     try {
         m_connectionName = pt.get<std::string>("connectionName");
+        m_inputName = pt.get<std::string>("inputName");
         m_totalBundlesReceived = pt.get<uint64_t>("totalBundlesReceived");
         m_totalBundleBytesReceived = pt.get<uint64_t>("totalBundleBytesReceived");
     }
@@ -1004,6 +1005,7 @@ bool InductConnectionTelemetry_t::SetValuesFromPropertyTree(const boost::propert
 boost::property_tree::ptree InductConnectionTelemetry_t::GetNewPropertyTree() const {
     boost::property_tree::ptree pt;
     pt.put("connectionName", m_connectionName);
+    pt.put("inputName", m_inputName);
     pt.put("totalBundlesReceived", m_totalBundlesReceived);
     pt.put("totalBundleBytesReceived", m_totalBundleBytesReceived);
     return pt;

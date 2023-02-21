@@ -45,6 +45,7 @@ StcpBundleSink::StcpBundleSink(std::shared_ptr<boost::asio::ip::tcp::socket> tcp
 {
     m_telemetry.m_connectionName = tcpSocketPtr->remote_endpoint().address().to_string() 
         + ":" + boost::lexical_cast<std::string>(tcpSocketPtr->remote_endpoint().port());
+    m_telemetry.m_inputName = std::string("*:") + boost::lexical_cast<std::string>(tcpSocketPtr->local_endpoint().port());
     LOG_INFO(subprocess) << "stcp sink using CB size: " << M_NUM_CIRCULAR_BUFFER_VECTORS;
     m_running = true;
     m_threadCbReaderPtr = boost::make_unique<boost::thread>(

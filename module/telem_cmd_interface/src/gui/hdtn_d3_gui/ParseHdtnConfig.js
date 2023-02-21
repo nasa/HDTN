@@ -19,6 +19,7 @@ function UpdateActiveInductConnections(paramHdtnConfig, paramActiveInductConnect
             let d3Obj = mapConnectionNameToD3Obj[connTelem.connectionName];
             d3Obj["totalBundlesReceived"] = connTelem.totalBundlesReceived;
             d3Obj["totalBundleBytesReceived"] = connTelem.totalBundleBytesReceived;
+            d3Obj["name"] = connTelem.inputName;
             d3Obj["remoteConnD3Obj"] = {}
 
         });
@@ -212,7 +213,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
             inductInputConnectionObj.linkIsUp = true;
             inductInputConnectionObj.parent = ind;
             inductInputConnectionObj.id = "induct_conn_" + ind.id + "_" + connName;
-            inductInputConnectionObj.name = "";
+            //inductInputConnectionObj.name = ""; //already set
 
             inductInputConnectionObj.width = ind.width - 2*CHILD_SIDE_MARGIN_PX;
             inductInputConnectionObj.height = CHILD_HEIGHT_PX;
@@ -230,6 +231,10 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
 
             //console.log(nextHop);
             ind.d3ChildArray.push(inductInputConnectionObj);
+
+            if(connName == "null") { //reserved so tcp connections can show bound port but no connection
+                return;
+            }
 
 
 

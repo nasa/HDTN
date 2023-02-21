@@ -45,6 +45,7 @@ UdpBundleSink::UdpBundleSink(boost::asio::io_service & ioService,
     m_printedCbTooSmallNotice(false)
 {
     m_telemetry.m_connectionName = "null";
+    m_telemetry.m_inputName = std::string("*:") + boost::lexical_cast<std::string>(udpPort);
     for (unsigned int i = 0; i < M_NUM_CIRCULAR_BUFFER_VECTORS; ++i) {
         m_udpReceiveBuffersCbVec[i].resize(M_MAX_UDP_PACKET_SIZE_BYTES);
     }

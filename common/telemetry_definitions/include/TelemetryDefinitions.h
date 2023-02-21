@@ -307,6 +307,7 @@ struct InductConnectionTelemetry_t : public JsonSerializable {
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     std::string m_connectionName;
+    std::string m_inputName;
     uint64_t m_totalBundlesReceived;
     uint64_t m_totalBundleBytesReceived;
 };
