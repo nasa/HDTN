@@ -116,12 +116,6 @@ void Logger::ensureInitialized()
     }
 }
 
-Logger* Logger::getInstance()
-{
-    ensureInitialized();
-    return logger_.get();
-}
-
 void Logger::init()
 {
     //To prevent crash on termination
@@ -265,16 +259,6 @@ std::string Logger::toString(Logger::SubProcess subprocess)
     return subprocess_strings[subprocess_val];
 }
 
-Logger::SubProcess Logger::fromString(std::string subprocess) {
-    static constexpr uint32_t num_modules = sizeof(subprocess_strings)/sizeof(*subprocess_strings);
-    for (uint32_t i=0; i<num_modules; i++) {
-        if (subprocess.compare(subprocess_strings[i]) == 0) {
-            return Logger::SubProcess(i);
-        }
-    }
-    return Logger::SubProcess::none;
-}
-
 void Logger::createStdoutSink() {
     boost::shared_ptr<sinks::text_ostream_backend> stdout_sink_backend =
         boost::make_shared<sinks::text_ostream_backend>();
@@ -317,51 +301,6 @@ Logger::Process Logger::getProcessAttributeVal()
         return val.get();
     }
     return Logger::Process::none;
-}
-
-void Logger::logInfo(const std::string & subprocess, const std::string & message)
-{
-    BOOST_LOG_STREAM_CHANNEL_SEV(
-        hdtn::Logger::m_severityChannelLogger,
-        fromString(subprocess),
-        boost::log::trivial::severity_level::debug
-    );
-}
-
-void Logger::logNotification(const std::string & subprocess, const std::string & message)
-{
-    BOOST_LOG_STREAM_CHANNEL_SEV(
-        hdtn::Logger::m_severityChannelLogger,
-        fromString(subprocess),
-        boost::log::trivial::severity_level::info
-    );
-}
-
-void Logger::logWarning(const std::string & subprocess, const std::string & message)
-{
-    BOOST_LOG_STREAM_CHANNEL_SEV(
-        hdtn::Logger::m_severityChannelLogger,
-        fromString(subprocess),
-        boost::log::trivial::severity_level::warning
-    );
-}
-
-void Logger::logError(const std::string & subprocess, const std::string & message)
-{
-    BOOST_LOG_STREAM_CHANNEL_SEV(
-        hdtn::Logger::m_severityChannelLogger,
-        fromString(subprocess),
-        boost::log::trivial::severity_level::error
-    );
-}
-
-void Logger::logCritical(const std::string & subprocess, const std::string & message)
-{
-    BOOST_LOG_STREAM_CHANNEL_SEV(
-        hdtn::Logger::m_severityChannelLogger,
-        fromString(subprocess),
-        boost::log::trivial::severity_level::fatal
-    );
 }
 
 

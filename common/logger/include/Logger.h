@@ -193,16 +193,6 @@ public:
     > severity_channel_logger_t; //mt for multithreaded
     LOG_LIB_EXPORT static Logger::severity_channel_logger_t m_severityChannelLogger;
 
-    // Deprecated -- use LOG_* macros instead.
-    LOG_LIB_EXPORT static SubProcess fromString(std::string subprocess);
-    LOG_LIB_EXPORT static Logger* getInstance();
-    LOG_LIB_EXPORT void logInfo(const std::string & subprocess, const std::string & message);
-    LOG_LIB_EXPORT void logNotification(const std::string & subprocess, const std::string & message);
-    LOG_LIB_EXPORT void logWarning(const std::string & subprocess, const std::string & message);
-    LOG_LIB_EXPORT void logError(const std::string & subprocess, const std::string & message);
-    LOG_LIB_EXPORT void logCritical(const std::string & subprocess, const std::string & message);
-    // End deprecation.
-
     LOG_LIB_EXPORT ~Logger();
 
 private:
