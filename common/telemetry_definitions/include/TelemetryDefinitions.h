@@ -37,8 +37,8 @@ enum class TelemetryType : uint64_t {
     ingress = 1,
     egress,
     storage,
-    ltpoutduct,
-    stcpoutduct,
+    unused4,
+    unused5,
     unused6,
     unused7,
     unused8,
@@ -138,59 +138,6 @@ struct StorageTelemetry_t : public Telemetry_t
     uint64_t freeSpaceBytes;
 };
 
-struct OutductTelemetry_t : public Telemetry_t
-{
-    OutductTelemetry_t() = delete;
-    TELEMETRY_DEFINITIONS_EXPORT OutductTelemetry_t(TelemetryType type);
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~OutductTelemetry_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const OutductTelemetry_t& o) const; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const OutductTelemetry_t& o) const;
-
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
-
-    uint64_t convergenceLayerType;
-    uint64_t totalBundlesAcked;
-    uint64_t totalBundleBytesAcked;
-    uint64_t totalBundlesSent;
-    uint64_t totalBundleBytesSent;
-    uint64_t totalBundlesFailedToSend;
-    
-
-    TELEMETRY_DEFINITIONS_EXPORT uint64_t GetTotalBundlesQueued() const;
-    TELEMETRY_DEFINITIONS_EXPORT uint64_t GetTotalBundleBytesQueued() const;
-};
-
-struct StcpOutductTelemetry_t : public OutductTelemetry_t {
-    TELEMETRY_DEFINITIONS_EXPORT StcpOutductTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~StcpOutductTelemetry_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const StcpOutductTelemetry_t& o) const; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const StcpOutductTelemetry_t& o) const;
-
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
-
-    uint64_t totalStcpBytesSent;
-};
-
-struct LtpOutductTelemetry_t : public OutductTelemetry_t {
-    TELEMETRY_DEFINITIONS_EXPORT LtpOutductTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~LtpOutductTelemetry_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const LtpOutductTelemetry_t& o) const; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const LtpOutductTelemetry_t& o) const;
-
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
-
-    //ltp engine session sender stats
-    uint64_t numCheckpointsExpired;
-    uint64_t numDiscretionaryCheckpointsNotResent;
-
-    //ltp udp engine
-    uint64_t countUdpPacketsSent;
-    uint64_t countRxUdpCircularBufferOverruns;
-    uint64_t countTxUdpPacketsLimitedByRate;
-};
 
 struct StorageExpiringBeforeThresholdTelemetry_t : public Telemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT StorageExpiringBeforeThresholdTelemetry_t();
@@ -337,12 +284,12 @@ struct AllInductTelemetry_t : public JsonSerializable {
 
 
 
-struct OutductTelemetry2_t : public JsonSerializable
+struct OutductTelemetry_t : public JsonSerializable
 {
-    TELEMETRY_DEFINITIONS_EXPORT OutductTelemetry2_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~OutductTelemetry2_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry2_t& o) const; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry2_t& o) const;
+    TELEMETRY_DEFINITIONS_EXPORT OutductTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~OutductTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry_t& o) const;
 
     TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
@@ -359,11 +306,11 @@ struct OutductTelemetry2_t : public JsonSerializable
     TELEMETRY_DEFINITIONS_EXPORT uint64_t GetTotalBundleBytesQueued() const;
 };
 
-struct StcpOutductTelemetry2_t : public OutductTelemetry2_t {
-    TELEMETRY_DEFINITIONS_EXPORT StcpOutductTelemetry2_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~StcpOutductTelemetry2_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry2_t& o) const override; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry2_t& o) const override;
+struct StcpOutductTelemetry_t : public OutductTelemetry_t {
+    TELEMETRY_DEFINITIONS_EXPORT StcpOutductTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~StcpOutductTelemetry_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry_t& o) const override;
 
     TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
@@ -371,11 +318,11 @@ struct StcpOutductTelemetry2_t : public OutductTelemetry2_t {
     uint64_t m_totalStcpBytesSent;
 };
 
-struct LtpOutductTelemetry2_t : public OutductTelemetry2_t {
-    TELEMETRY_DEFINITIONS_EXPORT LtpOutductTelemetry2_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~LtpOutductTelemetry2_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry2_t& o) const override; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry2_t& o) const override;
+struct LtpOutductTelemetry_t : public OutductTelemetry_t {
+    TELEMETRY_DEFINITIONS_EXPORT LtpOutductTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~LtpOutductTelemetry_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry_t& o) const override;
 
     TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
@@ -390,11 +337,11 @@ struct LtpOutductTelemetry2_t : public OutductTelemetry2_t {
     uint64_t m_countTxUdpPacketsLimitedByRate;
 };
 
-struct TcpclV3OutductTelemetry_t : public OutductTelemetry2_t {
+struct TcpclV3OutductTelemetry_t : public OutductTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT TcpclV3OutductTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~TcpclV3OutductTelemetry_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry2_t& o) const override; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry2_t& o) const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry_t& o) const override;
 
     TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
@@ -406,11 +353,11 @@ struct TcpclV3OutductTelemetry_t : public OutductTelemetry2_t {
     uint64_t m_totalBundleBytesReceived;
 };
 
-struct TcpclV4OutductTelemetry_t : public OutductTelemetry2_t {
+struct TcpclV4OutductTelemetry_t : public OutductTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT TcpclV4OutductTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~TcpclV4OutductTelemetry_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry2_t& o) const override; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry2_t& o) const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry_t& o) const override;
 
     TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
@@ -422,11 +369,11 @@ struct TcpclV4OutductTelemetry_t : public OutductTelemetry2_t {
     uint64_t m_totalBundleBytesReceived;
 };
 
-struct UdpOutductTelemetry_t : public OutductTelemetry2_t {
+struct UdpOutductTelemetry_t : public OutductTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT UdpOutductTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~UdpOutductTelemetry_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry2_t& o) const override; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry2_t& o) const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry_t& o) const override;
 
     TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
@@ -446,7 +393,7 @@ struct AllOutductTelemetry_t : public JsonSerializable {
     TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
     uint64_t m_timestampMilliseconds;
-    std::list<std::unique_ptr<OutductTelemetry2_t> > m_listAllOutducts;
+    std::list<std::unique_ptr<OutductTelemetry_t> > m_listAllOutducts;
 };
 
 static const uint8_t TELEM_REQ_MSG = 1;

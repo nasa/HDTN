@@ -148,6 +148,7 @@ private:
 
 public:
     InductConnectionTelemetry_t m_base_inductConnectionTelemetry;
+    TcpclV4OutductTelemetry_t m_base_outductTelemetry;
 protected:
     const std::string M_BASE_IMPLEMENTATION_STRING_FOR_COUT;
     const uint64_t M_BASE_SHUTDOWN_MESSAGE_RECONNECTION_DELAY_SECONDS_TO_SEND;
@@ -212,15 +213,6 @@ protected:
     OnSuccessfulBundleSendCallback_t m_base_onSuccessfulBundleSendCallback;
     OnOutductLinkStatusChangedCallback_t m_base_onOutductLinkStatusChangedCallback;
     uint64_t m_base_userAssignedUuid;
-
-public:
-    //tcpcl stats
-    std::size_t m_base_totalBundlesAcked;
-    std::size_t m_base_totalBytesAcked;
-    std::size_t m_base_totalBundlesSent;
-    std::size_t m_base_totalFragmentedAcked;
-    std::size_t m_base_totalFragmentedSent;
-    std::size_t m_base_totalBundleBytesSent;
 };
 
 

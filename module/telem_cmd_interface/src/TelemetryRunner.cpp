@@ -249,6 +249,8 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
                 receiveEventsMask |= REC_EGRESS;
                 zmq::message_t msg = egressConnection->ReadMessage();
                 OnNewTelemetry((uint8_t*)msg.data(), msg.size());
+                zmq::message_t msgJson = egressConnection->ReadMessage();
+                OnNewJsonTelemetry((const char*)msgJson.data(), msgJson.size());
             }
             if (poller.HasNewMessage(*storageConnection)) {
                 receiveEventsMask |= REC_STORAGE;

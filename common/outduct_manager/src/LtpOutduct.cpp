@@ -112,7 +112,7 @@ void LtpOutduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
     finalStats.m_totalDataSegmentsOrPacketsAcked = m_ltpBundleSourcePtr->GetTotalDataSegmentsAcked();
     finalStats.m_totalDataSegmentsOrPacketsSent = m_ltpBundleSourcePtr->GetTotalDataSegmentsSent();
 }
-uint64_t LtpOutduct::GetOutductTelemetry(uint8_t* data, uint64_t bufferSize) {
+void LtpOutduct::PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& outductTelem) {
     m_ltpBundleSourcePtr->SyncTelemetry();
-    return m_ltpBundleSourcePtr->m_ltpOutductTelemetry.SerializeToLittleEndian(data, bufferSize);
+    outductTelem = std::make_unique<LtpOutductTelemetry_t>(m_ltpBundleSourcePtr->m_ltpOutductTelemetry);
 }

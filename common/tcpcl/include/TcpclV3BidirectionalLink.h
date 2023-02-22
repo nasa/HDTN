@@ -75,6 +75,7 @@ public:
 
 public:
     InductConnectionTelemetry_t m_base_inductConnectionTelemetry;
+    TcpclV3OutductTelemetry_t m_base_outductTelemetry;
 protected:
     const std::string M_BASE_IMPLEMENTATION_STRING_FOR_COUT;
     const uint64_t M_BASE_SHUTDOWN_MESSAGE_RECONNECTION_DELAY_SECONDS_TO_SEND;
@@ -153,14 +154,6 @@ private:
     TCPCL_LIB_NO_EXPORT void BaseClass_DoHandleSocketShutdown(bool sendShutdownMessage, bool reasonWasTimeOut);
     TCPCL_LIB_NO_EXPORT void BaseClass_OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e);
 
-public:
-    //tcpcl stats
-    std::size_t m_base_totalBundlesAcked;
-    std::size_t m_base_totalBytesAcked;
-    std::size_t m_base_totalBundlesSent;
-    std::size_t m_base_totalFragmentedAcked;
-    std::size_t m_base_totalFragmentedSent;
-    std::size_t m_base_totalBundleBytesSent;
     
 };
 

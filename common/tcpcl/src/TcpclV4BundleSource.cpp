@@ -68,12 +68,12 @@ TcpclV4BundleSource::TcpclV4BundleSource(
 TcpclV4BundleSource::~TcpclV4BundleSource() {
     Stop();
     //print stats
-    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalBundlesAcked " << m_base_totalBundlesAcked;
-    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalBytesAcked " << m_base_totalBytesAcked;
-    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalBundlesSent " << m_base_totalBundlesSent;
-    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalFragmentedAcked " << m_base_totalFragmentedAcked;
-    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalFragmentedSent " << m_base_totalFragmentedSent;
-    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalBundleBytesSent " << m_base_totalBundleBytesSent;
+    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalBundlesAcked " << m_base_outductTelemetry.m_totalBundlesAcked;
+    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalBundleBytesAcked " << m_base_outductTelemetry.m_totalBundleBytesAcked;
+    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalBundlesSent " << m_base_outductTelemetry.m_totalBundlesSent;
+    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalFragmentsAcked " << m_base_outductTelemetry.m_totalFragmentsAcked;
+    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalFragmentsSent " << m_base_outductTelemetry.m_totalFragmentsSent;
+    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalBundleBytesSent " << m_base_outductTelemetry.m_totalBundleBytesSent;
 }
 
 void TcpclV4BundleSource::Stop() {

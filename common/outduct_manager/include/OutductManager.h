@@ -54,7 +54,7 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT bool Forward(const cbhe_eid_t & finalDestEid, zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData);
     OUTDUCT_MANAGER_LIB_EXPORT bool Forward(const cbhe_eid_t & finalDestEid, std::vector<uint8_t> & movableDataVec, std::vector<uint8_t>&& userData);
 
-    OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetAllOutductTelemetry(uint8_t* serialization, uint64_t bufferSize) const;
+    OUTDUCT_MANAGER_LIB_EXPORT void PopulateAllOutductTelemetry(AllOutductTelemetry_t& allOutductTelem);
 private:
 
     std::map<cbhe_eid_t, std::shared_ptr<Outduct> > m_finalDestEidToOutductMap;

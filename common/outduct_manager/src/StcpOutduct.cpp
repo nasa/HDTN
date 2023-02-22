@@ -67,6 +67,6 @@ void StcpOutduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
     finalStats.m_totalDataSegmentsOrPacketsAcked = m_stcpBundleSource.GetTotalDataSegmentsAcked();
     finalStats.m_totalDataSegmentsOrPacketsSent = m_stcpBundleSource.GetTotalDataSegmentsSent();
 }
-uint64_t StcpOutduct::GetOutductTelemetry(uint8_t* data, uint64_t bufferSize) {
-    return m_stcpBundleSource.m_stcpOutductTelemetry.SerializeToLittleEndian(data, bufferSize);
+void StcpOutduct::PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& outductTelem) {
+    outductTelem = std::make_unique<StcpOutductTelemetry_t>(m_stcpBundleSource.m_stcpOutductTelemetry);
 }

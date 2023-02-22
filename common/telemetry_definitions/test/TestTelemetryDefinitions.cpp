@@ -66,46 +66,6 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsFactoryTestCase)
     BOOST_REQUIRE_EQUAL(storageTelem.freeSpaceBytes, storageTelem2->freeSpaceBytes);
 }
 
-BOOST_AUTO_TEST_CASE(TelemetryDefinitionsFactoryTestCombinedCase)
-{
-    EgressTelemetry_t egressTelem;
-    egressTelem.egressBundleCount = 5;
-    egressTelem.egressMessageCount = 10;
-    egressTelem.totalDataBytes = 100;
-    std::vector<uint8_t> result1 = std::vector<uint8_t>(egressTelem.GetSerializationSize());
-    egressTelem.SerializeToLittleEndian(result1.data(), result1.size());
-
-    StcpOutductTelemetry_t stcpTelem;
-    stcpTelem.totalBundlesAcked = 1;
-    stcpTelem.totalBundleBytesAcked = 2;
-    stcpTelem.totalBundlesSent = 3;
-    stcpTelem.totalBundleBytesSent = 4;
-    stcpTelem.totalBundlesFailedToSend = 5;
-    stcpTelem.totalStcpBytesSent = 6;
-    std::vector<uint8_t> result2 = std::vector<uint8_t>(stcpTelem.GetSerializationSize());
-    stcpTelem.SerializeToLittleEndian(result2.data(), result2.size());
-
-    result1.insert(result1.end(), result2.begin(), result2.end());
-    std::vector<std::unique_ptr<Telemetry_t>> telemList = TelemetryFactory::DeserializeFromLittleEndian(result1.data(), result1.size());
-    BOOST_REQUIRE_EQUAL(telemList.size(), 2);
-
-    EgressTelemetry_t* egressTelem2 = dynamic_cast<EgressTelemetry_t*>(telemList[0].get());
-    BOOST_TEST(egressTelem2 != nullptr);
-    BOOST_REQUIRE_EQUAL(egressTelem2->GetType(), TelemetryType::egress);
-    BOOST_REQUIRE_EQUAL(egressTelem.egressBundleCount, egressTelem2->egressBundleCount);
-    BOOST_REQUIRE_EQUAL(egressTelem.egressMessageCount, egressTelem2->egressMessageCount);
-    BOOST_REQUIRE_EQUAL(egressTelem.totalDataBytes, egressTelem2->totalDataBytes);
-
-    StcpOutductTelemetry_t* stcpTelem2 = dynamic_cast<StcpOutductTelemetry_t*>(telemList[1].get());
-    BOOST_TEST(stcpTelem2 != nullptr);
-    BOOST_REQUIRE_EQUAL(stcpTelem2->GetType(), TelemetryType::stcpoutduct);
-    BOOST_REQUIRE_EQUAL(stcpTelem.totalBundleBytesAcked, stcpTelem2->totalBundleBytesAcked);
-    BOOST_REQUIRE_EQUAL(stcpTelem.totalBundlesAcked, stcpTelem2->totalBundlesAcked);
-    BOOST_REQUIRE_EQUAL(stcpTelem.totalBundlesSent, stcpTelem2->totalBundlesSent);
-    BOOST_REQUIRE_EQUAL(stcpTelem.totalBundleBytesSent, stcpTelem2->totalBundleBytesSent);
-    BOOST_REQUIRE_EQUAL(stcpTelem.totalBundlesFailedToSend, stcpTelem2->totalBundlesFailedToSend);
-    BOOST_REQUIRE_EQUAL(stcpTelem.totalStcpBytesSent, stcpTelem2->totalStcpBytesSent);
-}
 
 BOOST_AUTO_TEST_CASE(TelemetryDefinitionsIngressTestCase)
 {
@@ -260,158 +220,6 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsStorageTestCase)
     BOOST_REQUIRE(telem2 == telemFromJson);
 }
 
-BOOST_AUTO_TEST_CASE(TelemetryDefinitionsLtpOutductTestCase)
-{
-    // Test default constructor
-    LtpOutductTelemetry_t def;
-    BOOST_REQUIRE_EQUAL(def.GetSerializationSize(), 96);
-    BOOST_REQUIRE_EQUAL(def.totalBundleBytesAcked, 0);
-    BOOST_REQUIRE_EQUAL(def.totalBundleBytesSent, 0);
-    BOOST_REQUIRE_EQUAL(def.totalBundlesAcked, 0);
-    BOOST_REQUIRE_EQUAL(def.totalBundlesSent, 0);
-    BOOST_REQUIRE_EQUAL(def.totalBundlesFailedToSend, 0);
-    BOOST_REQUIRE_EQUAL(def.numCheckpointsExpired, 0);
-    BOOST_REQUIRE_EQUAL(def.numDiscretionaryCheckpointsNotResent, 0);
-    BOOST_REQUIRE_EQUAL(def.countUdpPacketsSent, 0);
-    BOOST_REQUIRE_EQUAL(def.countRxUdpCircularBufferOverruns, 0);
-    BOOST_REQUIRE_EQUAL(def.countTxUdpPacketsLimitedByRate, 0);
-
-    // Test serialize
-    LtpOutductTelemetry_t telem;
-    telem.totalBundlesAcked = 1;
-    telem.totalBundleBytesAcked = 2;
-    telem.totalBundlesSent = 3;
-    telem.totalBundleBytesSent = 4;
-    telem.totalBundlesFailedToSend = 5;
-    telem.numCheckpointsExpired = 6;
-    telem.numDiscretionaryCheckpointsNotResent = 7;
-    telem.countUdpPacketsSent = 8;
-    telem.countRxUdpCircularBufferOverruns = 9;
-    telem.countTxUdpPacketsLimitedByRate = 10;
-
-    std::vector<uint8_t> actual = std::vector<uint8_t>(telem.GetSerializationSize());
-    telem.SerializeToLittleEndian(actual.data(), actual.size());
-    std::vector<uint8_t> expected;
-    expected.insert(expected.end(), {
-        4,  0, 0, 0, 0, 0, 0, 0,
-        2,  0, 0, 0, 0, 0, 0, 0,
-        1,  0, 0, 0, 0, 0, 0, 0,
-        2,  0, 0, 0, 0, 0, 0, 0,
-        3,  0, 0, 0, 0, 0, 0, 0,
-        4,  0, 0, 0, 0, 0, 0, 0,
-        5,  0, 0, 0, 0, 0, 0, 0,
-        6,  0, 0, 0, 0, 0, 0, 0,
-        7,  0, 0, 0, 0, 0, 0, 0,
-        8,  0, 0, 0, 0, 0, 0, 0,
-        9,  0, 0, 0, 0, 0, 0, 0,
-        10, 0, 0, 0, 0, 0, 0, 0
-    });
-
-    BOOST_REQUIRE_EQUAL(actual.size(), 96);
-    BOOST_REQUIRE_EQUAL_COLLECTIONS(actual.begin(), actual.end(), expected.begin(), expected.end());
-
-    // Test deserialize
-    std::vector<uint8_t> serialized;
-    serialized.insert(serialized.end(), {
-        4,  0, 0, 0, 0, 0, 0, 0,
-        2,  0, 0, 0, 0, 0, 0, 0,
-        1,  0, 0, 0, 0, 0, 0, 0,
-        2,  0, 0, 0, 0, 0, 0, 0,
-        3,  0, 0, 0, 0, 0, 0, 0,
-        4,  0, 0, 0, 0, 0, 0, 0,
-        5,  0, 0, 0, 0, 0, 0, 0,
-        6,  0, 0, 0, 0, 0, 0, 0,
-        7,  0, 0, 0, 0, 0, 0, 0,
-        8,  0, 0, 0, 0, 0, 0, 0,
-        9,  0, 0, 0, 0, 0, 0, 0,
-        10, 0, 0, 0, 0, 0, 0, 0
-    });
-
-    LtpOutductTelemetry_t telem2;
-    uint64_t numBytesTakenToDecode;
-    BOOST_REQUIRE(telem2.DeserializeFromLittleEndian(serialized.data(), numBytesTakenToDecode, serialized.size()));
-    BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, serialized.size());
-    BOOST_REQUIRE_EQUAL(telem2.totalBundlesAcked, 1);
-    BOOST_REQUIRE_EQUAL(telem2.totalBundleBytesAcked, 2);
-    BOOST_REQUIRE_EQUAL(telem2.totalBundlesSent, 3);
-    BOOST_REQUIRE_EQUAL(telem2.totalBundleBytesSent, 4);
-    BOOST_REQUIRE_EQUAL(telem2.totalBundlesFailedToSend, 5);
-    BOOST_REQUIRE_EQUAL(telem.numCheckpointsExpired, 6);
-    BOOST_REQUIRE_EQUAL(telem.numDiscretionaryCheckpointsNotResent, 7);
-    BOOST_REQUIRE_EQUAL(telem.countUdpPacketsSent, 8);
-    BOOST_REQUIRE_EQUAL(telem.countRxUdpCircularBufferOverruns, 9);
-    BOOST_REQUIRE_EQUAL(telem.countTxUdpPacketsLimitedByRate, 10);
-
-    LtpOutductTelemetry_t telemFromJson;
-    BOOST_REQUIRE(telemFromJson.SetValuesFromJson(telem2.ToJson()));
-    BOOST_REQUIRE(telem2 == telemFromJson);
-}
-
-BOOST_AUTO_TEST_CASE(TelemetryDefinitionsStcpOutductTestCase)
-{
-    // Test default constructor
-    StcpOutductTelemetry_t def;
-    BOOST_REQUIRE_EQUAL(def.GetSerializationSize(), 64);
-    BOOST_REQUIRE_EQUAL(def.totalBundleBytesAcked, 0);
-    BOOST_REQUIRE_EQUAL(def.totalBundleBytesSent, 0);
-    BOOST_REQUIRE_EQUAL(def.totalBundlesAcked, 0);
-    BOOST_REQUIRE_EQUAL(def.totalBundlesSent, 0);
-    BOOST_REQUIRE_EQUAL(def.totalBundlesFailedToSend, 0);
-    BOOST_REQUIRE_EQUAL(def.totalStcpBytesSent, 0);
-
-    // Test serialize
-    StcpOutductTelemetry_t telem;
-    telem.totalBundlesAcked = 1;
-    telem.totalBundleBytesAcked = 2;
-    telem.totalBundlesSent = 3;
-    telem.totalBundleBytesSent = 4;
-    telem.totalBundlesFailedToSend = 5;
-    telem.totalStcpBytesSent = 6;
-    std::vector<uint8_t> actual = std::vector<uint8_t>(telem.GetSerializationSize());
-    telem.SerializeToLittleEndian(actual.data(), actual.size());
-    std::vector<uint8_t> expected;
-    expected.insert(expected.end(), {
-        5, 0, 0, 0, 0, 0, 0, 0,
-        1,  0, 0, 0, 0, 0, 0, 0,
-        1, 0, 0, 0, 0, 0, 0, 0,
-        2, 0, 0, 0, 0, 0, 0, 0,
-        3, 0, 0, 0, 0, 0, 0, 0,
-        4, 0, 0, 0, 0, 0, 0, 0,
-        5, 0, 0, 0, 0, 0, 0, 0,
-        6, 0, 0, 0, 0, 0, 0, 0
-    });
-
-    BOOST_REQUIRE_EQUAL(actual.size(), 64);
-    BOOST_REQUIRE_EQUAL_COLLECTIONS(actual.begin(), actual.end(), expected.begin(), expected.end());
-
-    // Test deserialize
-    std::vector<uint8_t> serialized;
-    serialized.insert(serialized.end(), {
-        5, 0, 0, 0, 0, 0, 0, 0,
-        1,  0, 0, 0, 0, 0, 0, 0,
-        1, 0, 0, 0, 0, 0, 0, 0,
-        2, 0, 0, 0, 0, 0, 0, 0,
-        3, 0, 0, 0, 0, 0, 0, 0,
-        4, 0, 0, 0, 0, 0, 0, 0,
-        5, 0, 0, 0, 0, 0, 0, 0,
-        6, 0, 0, 0, 0, 0, 0, 0
-    });
-
-    StcpOutductTelemetry_t telem2;
-    uint64_t numBytesTakenToDecode;
-    BOOST_REQUIRE(telem2.DeserializeFromLittleEndian(serialized.data(), numBytesTakenToDecode, serialized.size()));
-    BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, serialized.size());
-    BOOST_REQUIRE_EQUAL(telem2.totalBundlesAcked, 1);
-    BOOST_REQUIRE_EQUAL(telem2.totalBundleBytesAcked, 2);
-    BOOST_REQUIRE_EQUAL(telem2.totalBundlesSent, 3);
-    BOOST_REQUIRE_EQUAL(telem2.totalBundleBytesSent, 4);
-    BOOST_REQUIRE_EQUAL(telem2.totalBundlesFailedToSend, 5);
-    BOOST_REQUIRE_EQUAL(telem2.totalStcpBytesSent, 6);
-
-    StcpOutductTelemetry_t telemFromJson;
-    BOOST_REQUIRE(telemFromJson.SetValuesFromJson(telem2.ToJson()));
-    BOOST_REQUIRE(telem2 == telemFromJson);
-}
 
 BOOST_AUTO_TEST_CASE(TelemetryDefinitionsOutductTestCase)
 {
@@ -594,7 +402,7 @@ BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
 {
     AllOutductTelemetry_t aot;
     {
-        std::unique_ptr<LtpOutductTelemetry2_t> ptr = std::make_unique<LtpOutductTelemetry2_t>();
+        std::unique_ptr<LtpOutductTelemetry_t> ptr = std::make_unique<LtpOutductTelemetry_t>();
         ptr->m_countRxUdpCircularBufferOverruns = 10;
         ptr->m_countTxUdpPacketsLimitedByRate = 11;
         ptr->m_countUdpPacketsSent = 12;
@@ -603,7 +411,7 @@ BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
         aot.m_listAllOutducts.emplace_back(std::move(ptr));
     }
     {
-        std::unique_ptr<StcpOutductTelemetry2_t> ptr = std::make_unique<StcpOutductTelemetry2_t>();
+        std::unique_ptr<StcpOutductTelemetry_t> ptr = std::make_unique<StcpOutductTelemetry_t>();
         ptr->m_totalStcpBytesSent = 20;
         aot.m_listAllOutducts.emplace_back(std::move(ptr));
     }
@@ -632,8 +440,8 @@ BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
         ptr->m_totalPacketsLimitedByRate = 54;
         aot.m_listAllOutducts.emplace_back(std::move(ptr));
     }
-    for (std::list<std::unique_ptr<OutductTelemetry2_t> >::iterator it = aot.m_listAllOutducts.begin(); it != aot.m_listAllOutducts.end(); ++it) {
-        OutductTelemetry2_t& ot = *(it->get());
+    for (std::list<std::unique_ptr<OutductTelemetry_t> >::iterator it = aot.m_listAllOutducts.begin(); it != aot.m_listAllOutducts.end(); ++it) {
+        OutductTelemetry_t& ot = *(it->get());
         ot.m_totalBundlesAcked = ot.m_convergenceLayer.size();
         ot.m_totalBundleBytesAcked = ot.m_convergenceLayer.size() + 1;
         ot.m_totalBundlesSent = ot.m_convergenceLayer.size() + 2;

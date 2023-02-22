@@ -340,6 +340,9 @@ static void CustomCleanupEgressAckHdrNoHint(void *data, void *hint) {
 static void CustomCleanupStdVecUint8(void* data, void* hint) {
     delete static_cast<std::vector<uint8_t>*>(hint);
 }
+static void CustomCleanupStdString(void* data, void* hint) {
+    delete static_cast<std::string*>(hint);
+}
 static void CustomCleanupSharedPtrStdVecUint8(void* data, void* hint) {
     std::shared_ptr<std::vector<uint8_t> >* serializedRawPtrToSharedPtr = static_cast<std::shared_ptr<std::vector<uint8_t> > *>(hint);
     //LOG_DEBUG(subprocess) << "cleanup refcnt=" << serializedRawPtrToSharedPtr->use_count();
@@ -585,8 +588,13 @@ void Egress::Impl::ReadZmqThreadFunc() {
                     LOG_ERROR(subprocess) << "error telemMsgByte not 1";
                 }
                 else {
-                    //send telemetry
 
+                    AllOutductTelemetry_t allOutductTelem;
+                    m_outductManager.PopulateAllOutductTelemetry(allOutductTelem);
+                    std::string* allOutductTelemJsonStringPtr = new std::string(allOutductTelem.ToJson());
+                    zmq::message_t zmqJsonMessage(allOutductTelemJsonStringPtr->data(), allOutductTelemJsonStringPtr->size(), CustomCleanupStdString, allOutductTelemJsonStringPtr);
+
+                    //send telemetry
                     std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(1000 + ((m_lastSerializedAoctSharedPtr) ? m_lastSerializedAoctSharedPtr->size() : 0)); //will be 64-bit aligned;
                     uint8_t* telemPtr = vecUint8RawPointer->data();
                     const uint8_t* const telemSerializationBase = telemPtr;
@@ -599,22 +607,21 @@ void Egress::Impl::ReadZmqThreadFunc() {
                         m_lastSerializedAoctSharedPtr.reset();
                     }
 
-                    //start zmq message with egress telemetry
+                    //(concat) zmq message with egress telemetry
                     const uint64_t egressTelemSize = m_telemetry.SerializeToLittleEndian(telemPtr, telemBufferSize);
                     telemBufferSize -= egressTelemSize;
                     telemPtr += egressTelemSize;
-
-                    //append all outduct telemetry to same zmq message right after egress telemetry
-                    const uint64_t outductTelemSize = m_outductManager.GetAllOutductTelemetry(telemPtr, telemBufferSize);
-                    telemBufferSize -= outductTelemSize;
-                    telemPtr += outductTelemSize;
 
                     vecUint8RawPointer->resize(telemPtr - telemSerializationBase);
 
                     zmq::message_t zmqTelemMessageWithDataStolen(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
 
-                    if (!m_zmqRepSock_connectingTelemToFromBoundEgressPtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::dontwait)) {
+                    if (!m_zmqRepSock_connectingTelemToFromBoundEgressPtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
                         LOG_ERROR(subprocess) << "can't send telemetry to telemetry interface";
+                    }
+
+                    if (!m_zmqRepSock_connectingTelemToFromBoundEgressPtr->send(std::move(zmqJsonMessage), zmq::send_flags::dontwait)) {
+                        LOG_ERROR(subprocess) << "can't send json telemetry to telem";
                     }
                 }
             }

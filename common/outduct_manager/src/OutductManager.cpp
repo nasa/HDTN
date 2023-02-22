@@ -384,13 +384,14 @@ std::shared_ptr<Outduct> OutductManager::GetOutductSharedPtrByOutductUuid(const 
     return NULL;
 }
 
-uint64_t OutductManager::GetAllOutductTelemetry(uint8_t* serialization, uint64_t bufferSize) const {
-    const uint8_t* const serializationBase = serialization;
+void OutductManager::PopulateAllOutductTelemetry(AllOutductTelemetry_t& allOutductTelem) {
+    allOutductTelem.m_listAllOutducts.clear();
     for (std::vector<std::shared_ptr<Outduct> >::const_iterator it = m_outductsVec.cbegin(); it != m_outductsVec.cend(); ++it) {
-        const std::shared_ptr<Outduct>& o = (*it);
-        const uint64_t sizeSerialized = o->GetOutductTelemetry(serialization, bufferSize);
-        serialization += sizeSerialized;
-        bufferSize -= sizeSerialized;
+        allOutductTelem.m_listAllOutducts.emplace_back();
+        (*it)->PopulateOutductTelemetry(allOutductTelem.m_listAllOutducts.back());
+        if (!allOutductTelem.m_listAllOutducts.back()) {
+            allOutductTelem.m_listAllOutducts.pop_back();
+        }
     }
-    return serialization - serializationBase;
+    allOutductTelem.m_timestampMilliseconds = TimestampUtil::GetMillisecondsSinceEpochRfc5050();
 }

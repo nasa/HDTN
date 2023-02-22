@@ -110,12 +110,12 @@ TcpclBundleSink::~TcpclBundleSink() {
     m_base_tcpAsyncSenderPtr.reset();
 
     //print stats
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBundlesAcked " << m_base_totalBundlesAcked;
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBytesAcked " << m_base_totalBytesAcked;
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBundlesSent " << m_base_totalBundlesSent;
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalFragmentedAcked " << m_base_totalFragmentedAcked;
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalFragmentedSent " << m_base_totalFragmentedSent;
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBundleBytesSent " << m_base_totalBundleBytesSent;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBundlesAcked " << m_base_outductTelemetry.m_totalBundlesAcked;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBundleBytesAcked " << m_base_outductTelemetry.m_totalBundleBytesAcked;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBundlesSent " << m_base_outductTelemetry.m_totalBundlesSent;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalFragmentsAcked " << m_base_outductTelemetry.m_totalFragmentsAcked;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalFragmentsSent " << m_base_outductTelemetry.m_totalFragmentsSent;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBundleBytesSent " << m_base_outductTelemetry.m_totalBundleBytesSent;
 }
 
 
@@ -231,7 +231,7 @@ void TcpclBundleSink::TrySendOpportunisticBundleIfAvailable_FromIoServiceThread(
         return;
     }
     std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > bundleDataPair;
-    const std::size_t totalBundlesUnacked = m_base_totalBundlesSent - m_base_totalBundlesAcked; //same as Virtual_GetTotalBundlesUnacked
+    const std::size_t totalBundlesUnacked = m_base_outductTelemetry.m_totalBundlesSent - m_base_outductTelemetry.m_totalBundlesAcked; //same as Virtual_GetTotalBundlesUnacked
     if ((totalBundlesUnacked < M_BASE_MAX_UNACKED_BUNDLES_IN_PIPELINE) && m_tryGetOpportunisticDataFunction && m_tryGetOpportunisticDataFunction(bundleDataPair)) {
         BaseClass_Forward(bundleDataPair.first, bundleDataPair.second, static_cast<bool>(bundleDataPair.first), std::vector<uint8_t>());
     }
