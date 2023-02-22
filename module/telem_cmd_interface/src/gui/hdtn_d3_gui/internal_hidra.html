@@ -722,6 +722,10 @@
                 UpdateActiveInductConnections(hdtnConfig, objJson);
                 HandleReceivedNewHdtnConfig(hdtnConfig);
             }
+            else if("allOutducts" in objJson) {
+                UpdateAllOutductTelemetry(hdtnConfig, objJson);
+                UpdateLite();
+            }
             else if("outductCapabilityTelemetryList" in objJson) {
                 UpdateAllOutductCapabilities(hdtnConfig, objJson);
                 HandleReceivedNewHdtnConfig(hdtnConfig);
@@ -938,7 +942,7 @@
                     }
                     else { //json data
                         var obj = JSON.parse(e.data); //this could error based on encodings
-                        console.log(obj);
+                        //console.log(obj);
                         app.UpdateWithData(obj);
 
                     }

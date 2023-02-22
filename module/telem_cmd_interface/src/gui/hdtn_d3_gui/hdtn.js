@@ -297,6 +297,71 @@ var INITIAL_HDTN_CONFIG = {
     }
 };
 
+var OUTDUCT_TELEM_UPDATE = {
+    "timestampMilliseconds": 0,
+    "allOutducts": [
+        {
+            "convergenceLayer": "ltp_over_udp",
+            "totalBundlesAcked": 12,
+            "totalBundleBytesAcked": 13,
+            "totalBundlesSent": 14,
+            "totalBundleBytesSent": 15,
+            "totalBundlesFailedToSend": 16,
+            "numCheckpointsExpired": 13,
+            "numDiscretionaryCheckpointsNotResent": 14,
+            "countUdpPacketsSent": 12,
+            "countRxUdpCircularBufferOverruns": 10,
+            "countTxUdpPacketsLimitedByRate": 11
+        },
+        {
+            "convergenceLayer": "udp",
+            "totalBundlesAcked": 3,
+            "totalBundleBytesAcked": 4,
+            "totalBundlesSent": 5,
+            "totalBundleBytesSent": 6,
+            "totalBundlesFailedToSend": 7,
+            "totalPacketsSent": 50,
+            "totalPacketBytesSent": 51,
+            "totalPacketsDequeuedForSend": 52,
+            "totalPacketBytesDequeuedForSend": 53,
+            "totalPacketsLimitedByRate": 54
+        },
+        {
+            "convergenceLayer": "tcpcl_v3",
+            "totalBundlesAcked": 8,
+            "totalBundleBytesAcked": 9,
+            "totalBundlesSent": 10,
+            "totalBundleBytesSent": 11,
+            "totalBundlesFailedToSend": 12,
+            "totalFragmentsAcked": 30,
+            "totalFragmentsSent": 31,
+            "totalBundlesReceived": 32,
+            "totalBundleBytesReceived": 33
+        },
+        {
+            "convergenceLayer": "tcpcl_v4",
+            "totalBundlesAcked": 8,
+            "totalBundleBytesAcked": 9,
+            "totalBundlesSent": 10,
+            "totalBundleBytesSent": 11,
+            "totalBundlesFailedToSend": 12,
+            "totalFragmentsAcked": 40,
+            "totalFragmentsSent": 41,
+            "totalBundlesReceived": 42,
+            "totalBundleBytesReceived": 43
+        },
+        {
+            "convergenceLayer": "stcp",
+            "totalBundlesAcked": 4,
+            "totalBundleBytesAcked": 5,
+            "totalBundlesSent": 6,
+            "totalBundleBytesSent": 7,
+            "totalBundlesFailedToSend": 8,
+            "totalStcpBytesSent": 20
+        }
+    ]
+};
+
 var AOCT = {
     "type": "allOutductCapability",
     "outductCapabilityTelemetryList": [
@@ -359,13 +424,31 @@ var AOCT = {
     ]
 };
 
+function IncOutductTelem(paramIncBundles) {
+    OUTDUCT_TELEM_UPDATE.timestampMilliseconds += 1000;
+    OUTDUCT_TELEM_UPDATE.allOutducts.forEach(function(outductTelem, i) {
+        outductTelem.totalBundlesAcked += paramIncBundles;
+        outductTelem.totalBundleBytesAcked += paramIncBundles * 100000;
+    });
+}
+
 let changeFunctions = [
+    function() {
+        IncOutductTelem(10);
+        let clone = JSON.parse(JSON.stringify(OUTDUCT_TELEM_UPDATE));
+        app.UpdateWithData(clone);
+    },
     function() {
         let clone = JSON.parse(JSON.stringify(INDUCT_ACTIVE_CONNECTIONS));
         app.UpdateWithData(clone);
     },
     function() {
         let clone = JSON.parse(JSON.stringify(AOCT));
+        app.UpdateWithData(clone);
+    },
+    function() {
+        IncOutductTelem(100);
+        let clone = JSON.parse(JSON.stringify(OUTDUCT_TELEM_UPDATE));
         app.UpdateWithData(clone);
     },
     function() {
@@ -392,6 +475,11 @@ let changeFunctions = [
         app.UpdateWithData(clone);
     },
     function() {
+        IncOutductTelem(1000);
+        let clone = JSON.parse(JSON.stringify(OUTDUCT_TELEM_UPDATE));
+        app.UpdateWithData(clone);
+    },
+    function() {
         //remove element 0 "ipn:4.1"
         INDUCT_ACTIVE_CONNECTIONS.allInducts[4].inductConnections[0].connectionName= "null";
         let clone = JSON.parse(JSON.stringify(INDUCT_ACTIVE_CONNECTIONS));
@@ -401,6 +489,11 @@ let changeFunctions = [
         //remove element 0 "ipn:4.1"
         AOCT.outductCapabilityTelemetryList[1].finalDestinationEidsList.splice(0, 1); // 2nd parameter means remove one item only ;
         let clone = JSON.parse(JSON.stringify(AOCT));
+        app.UpdateWithData(clone);
+    },
+    function() {
+        IncOutductTelem(10000);
+        let clone = JSON.parse(JSON.stringify(OUTDUCT_TELEM_UPDATE));
         app.UpdateWithData(clone);
     },
     function() {

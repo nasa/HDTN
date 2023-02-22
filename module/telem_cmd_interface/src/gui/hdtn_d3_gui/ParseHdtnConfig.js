@@ -74,6 +74,42 @@ function UpdateAllOutductCapabilities(paramHdtnConfig, paramAoct) {
     });
 }
 
+function UpdateAllOutductTelemetry(paramHdtnConfig, paramAot) {
+    let timestampMilliseconds = paramAot.timestampMilliseconds;
+    let deltaTimestampMilliseconds = 0;
+    if(paramHdtnConfig.hasOwnProperty("lastOutductTelemTimestampMilliseconds")) {
+        deltaTimestampMilliseconds = timestampMilliseconds - paramHdtnConfig.lastOutductTelemTimestampMilliseconds;
+    }
+    paramHdtnConfig.lastOutductTelemTimestampMilliseconds = timestampMilliseconds;
+
+    let outductsConfig = paramHdtnConfig["outductsConfig"];
+    let outductVector = outductsConfig["outductVector"];
+    paramAot.allOutducts.forEach(function(outductTelem, i) {
+        let od = outductVector[i];
+        if(od.convergenceLayer != outductTelem.convergenceLayer) {
+            console.log("invalid AOT");
+            return;
+        }
+        if(!od.hasOwnProperty("outductPreviousTelem")) {
+            od["outductPreviousTelem"] = outductTelem;
+            od["outductTelem"] = outductTelem;
+            od.outductPreviousTelem["totalBundleBytesAcked"] = 0;
+            od.outductPreviousTelem["totalBundlesAcked"] = 0;
+            return;
+        }
+        od["outductPreviousTelem"] = od["outductTelem"];
+        od["outductTelem"] = outductTelem;
+        if(deltaTimestampMilliseconds > 1) {
+            outductTelem["rateBitsPerSec"] = (od.outductTelem["totalBundleBytesAcked"] - od.outductPreviousTelem["totalBundleBytesAcked"]) * 8000.0 / deltaTimestampMilliseconds;
+            outductTelem["rateBundlesPerSec"] = (od.outductTelem["totalBundlesAcked"] - od.outductPreviousTelem["totalBundlesAcked"]) * 1000.0 / deltaTimestampMilliseconds;
+        }
+        od["rateBitsPerSecHumanReadable"] = formatHumanReadable(outductTelem["rateBitsPerSec"], 2, 'bit/s');
+        od["rateBundlesPerSecHumanReadable"] = formatHumanReadable(outductTelem["rateBundlesPerSec"], 2, 'Bun/s');
+
+
+    });
+}
+
 function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, paramHdtnConfig, paramDeclutter, paramShrink, paramD3FaultsMap, PARAM_MAP_NAMES, PARAM_SUB_MAP_NAMES, PARAM_D3_SHAPE_ATTRIBUTES, PARAM_ABS_POSITION_MAP, PARAM_FLIP_HORIZONTAL_MAP) {
 
     function GetDrawHash(receivedConfig) {
@@ -357,7 +393,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         //console.log(i);
 
         ///////////outduct
-        var outduct = {};
+        var outduct = od;
         outduct.linkIsUp = true;
         outduct.parent = egressObj;
         outduct.id = "outduct_" + i;
