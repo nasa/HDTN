@@ -607,6 +607,31 @@ BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
         ptr->m_totalStcpBytesSent = 20;
         aot.m_listAllOutducts.emplace_back(std::move(ptr));
     }
+    {
+        std::unique_ptr<TcpclV3OutductTelemetry_t> ptr = std::make_unique<TcpclV3OutductTelemetry_t>();
+        ptr->m_totalFragmentsAcked = 30;
+        ptr->m_totalFragmentsSent = 31;
+        ptr->m_totalBundlesReceived = 32;
+        ptr->m_totalBundleBytesReceived = 33;
+        aot.m_listAllOutducts.emplace_back(std::move(ptr));
+    }
+    {
+        std::unique_ptr<TcpclV4OutductTelemetry_t> ptr = std::make_unique<TcpclV4OutductTelemetry_t>();
+        ptr->m_totalFragmentsAcked = 40;
+        ptr->m_totalFragmentsSent = 41;
+        ptr->m_totalBundlesReceived = 42;
+        ptr->m_totalBundleBytesReceived = 43;
+        aot.m_listAllOutducts.emplace_back(std::move(ptr));
+    }
+    {
+        std::unique_ptr<UdpOutductTelemetry_t> ptr = std::make_unique<UdpOutductTelemetry_t>();
+        ptr->m_totalPacketsSent = 50;
+        ptr->m_totalPacketBytesSent = 51;
+        ptr->m_totalPacketsDequeuedForSend = 52;
+        ptr->m_totalPacketBytesDequeuedForSend = 53;
+        ptr->m_totalPacketsLimitedByRate = 54;
+        aot.m_listAllOutducts.emplace_back(std::move(ptr));
+    }
     for (std::list<std::unique_ptr<OutductTelemetry2_t> >::iterator it = aot.m_listAllOutducts.begin(); it != aot.m_listAllOutducts.end(); ++it) {
         OutductTelemetry2_t& ot = *(it->get());
         ot.m_totalBundlesAcked = ot.m_convergenceLayer.size();

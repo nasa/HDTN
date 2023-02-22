@@ -390,6 +390,54 @@ struct LtpOutductTelemetry2_t : public OutductTelemetry2_t {
     uint64_t m_countTxUdpPacketsLimitedByRate;
 };
 
+struct TcpclV3OutductTelemetry_t : public OutductTelemetry2_t {
+    TELEMETRY_DEFINITIONS_EXPORT TcpclV3OutductTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~TcpclV3OutductTelemetry_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry2_t& o) const override; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry2_t& o) const override;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+
+    uint64_t m_totalFragmentsAcked;
+    uint64_t m_totalFragmentsSent;
+    //bidirectionality (identical to InductConnectionTelemetry_t)
+    uint64_t m_totalBundlesReceived;
+    uint64_t m_totalBundleBytesReceived;
+};
+
+struct TcpclV4OutductTelemetry_t : public OutductTelemetry2_t {
+    TELEMETRY_DEFINITIONS_EXPORT TcpclV4OutductTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~TcpclV4OutductTelemetry_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry2_t& o) const override; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry2_t& o) const override;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+
+    uint64_t m_totalFragmentsAcked;
+    uint64_t m_totalFragmentsSent;
+    //bidirectionality (identical to InductConnectionTelemetry_t)
+    uint64_t m_totalBundlesReceived;
+    uint64_t m_totalBundleBytesReceived;
+};
+
+struct UdpOutductTelemetry_t : public OutductTelemetry2_t {
+    TELEMETRY_DEFINITIONS_EXPORT UdpOutductTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~UdpOutductTelemetry_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry2_t& o) const override; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry2_t& o) const override;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+
+    uint64_t m_totalPacketsSent;
+    uint64_t m_totalPacketBytesSent;
+    uint64_t m_totalPacketsDequeuedForSend;
+    uint64_t m_totalPacketBytesDequeuedForSend;
+    uint64_t m_totalPacketsLimitedByRate;
+};
+
 struct AllOutductTelemetry_t : public JsonSerializable {
     TELEMETRY_DEFINITIONS_EXPORT AllOutductTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT bool operator==(const AllOutductTelemetry_t& o) const; //operator ==

@@ -1233,6 +1233,149 @@ boost::property_tree::ptree LtpOutductTelemetry2_t::GetNewPropertyTree() const {
     return pt;
 }
 
+
+TcpclV3OutductTelemetry_t::TcpclV3OutductTelemetry_t() :
+    OutductTelemetry2_t(),
+    m_totalFragmentsAcked(0), m_totalFragmentsSent(0), m_totalBundlesReceived(0),
+    m_totalBundleBytesReceived(0)
+{
+    m_convergenceLayer = "tcpcl_v3";
+}
+TcpclV3OutductTelemetry_t::~TcpclV3OutductTelemetry_t() {};
+bool TcpclV3OutductTelemetry_t::operator==(const OutductTelemetry2_t& o) const {
+    if (const TcpclV3OutductTelemetry_t* oPtr = dynamic_cast<const TcpclV3OutductTelemetry_t*>(&o)) {
+        return OutductTelemetry2_t::operator==(o)
+            && (m_totalFragmentsAcked == oPtr->m_totalFragmentsAcked)
+            && (m_totalFragmentsSent == oPtr->m_totalFragmentsSent)
+            && (m_totalBundlesReceived == oPtr->m_totalBundlesReceived)
+            && (m_totalBundleBytesReceived == oPtr->m_totalBundleBytesReceived);
+    }
+    return false;
+}
+bool TcpclV3OutductTelemetry_t::operator!=(const OutductTelemetry2_t& o) const {
+    return !(*this == o);
+}
+bool TcpclV3OutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!OutductTelemetry2_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
+    try {
+        m_totalFragmentsAcked = pt.get<uint64_t>("totalFragmentsAcked");
+        m_totalFragmentsSent = pt.get<uint64_t>("totalFragmentsSent");
+        m_totalBundlesReceived = pt.get<uint64_t>("totalBundlesReceived");
+        m_totalBundleBytesReceived = pt.get<uint64_t>("totalBundleBytesReceived");
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON StcpOutductTelemetry_t: " << e.what();
+        return false;
+    }
+    return true;
+}
+boost::property_tree::ptree TcpclV3OutductTelemetry_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt = OutductTelemetry2_t::GetNewPropertyTree();
+    pt.put("totalFragmentsAcked", m_totalFragmentsAcked);
+    pt.put("totalFragmentsSent", m_totalFragmentsSent);
+    pt.put("totalBundlesReceived", m_totalBundlesReceived);
+    pt.put("totalBundleBytesReceived", m_totalBundleBytesReceived);
+    return pt;
+}
+
+TcpclV4OutductTelemetry_t::TcpclV4OutductTelemetry_t() :
+    OutductTelemetry2_t(),
+    m_totalFragmentsAcked(0), m_totalFragmentsSent(0), m_totalBundlesReceived(0),
+    m_totalBundleBytesReceived(0)
+{
+    m_convergenceLayer = "tcpcl_v4";
+}
+TcpclV4OutductTelemetry_t::~TcpclV4OutductTelemetry_t() {};
+bool TcpclV4OutductTelemetry_t::operator==(const OutductTelemetry2_t& o) const {
+    if (const TcpclV4OutductTelemetry_t* oPtr = dynamic_cast<const TcpclV4OutductTelemetry_t*>(&o)) {
+        return OutductTelemetry2_t::operator==(o)
+            && (m_totalFragmentsAcked == oPtr->m_totalFragmentsAcked)
+            && (m_totalFragmentsSent == oPtr->m_totalFragmentsSent)
+            && (m_totalBundlesReceived == oPtr->m_totalBundlesReceived)
+            && (m_totalBundleBytesReceived == oPtr->m_totalBundleBytesReceived);
+    }
+    return false;
+}
+bool TcpclV4OutductTelemetry_t::operator!=(const OutductTelemetry2_t& o) const {
+    return !(*this == o);
+}
+bool TcpclV4OutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!OutductTelemetry2_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
+    try {
+        m_totalFragmentsAcked = pt.get<uint64_t>("totalFragmentsAcked");
+        m_totalFragmentsSent = pt.get<uint64_t>("totalFragmentsSent");
+        m_totalBundlesReceived = pt.get<uint64_t>("totalBundlesReceived");
+        m_totalBundleBytesReceived = pt.get<uint64_t>("totalBundleBytesReceived");
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON StcpOutductTelemetry_t: " << e.what();
+        return false;
+    }
+    return true;
+}
+boost::property_tree::ptree TcpclV4OutductTelemetry_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt = OutductTelemetry2_t::GetNewPropertyTree();
+    pt.put("totalFragmentsAcked", m_totalFragmentsAcked);
+    pt.put("totalFragmentsSent", m_totalFragmentsSent);
+    pt.put("totalBundlesReceived", m_totalBundlesReceived);
+    pt.put("totalBundleBytesReceived", m_totalBundleBytesReceived);
+    return pt;
+}
+
+
+UdpOutductTelemetry_t::UdpOutductTelemetry_t() :
+    OutductTelemetry2_t(),
+    m_totalPacketsSent(0), m_totalPacketBytesSent(0), m_totalPacketsDequeuedForSend(0),
+    m_totalPacketBytesDequeuedForSend(0), m_totalPacketsLimitedByRate(0)
+{
+    m_convergenceLayer = "udp";
+}
+UdpOutductTelemetry_t::~UdpOutductTelemetry_t() {};
+bool UdpOutductTelemetry_t::operator==(const OutductTelemetry2_t& o) const {
+    if (const UdpOutductTelemetry_t* oPtr = dynamic_cast<const UdpOutductTelemetry_t*>(&o)) {
+        return OutductTelemetry2_t::operator==(o)
+            && (m_totalPacketsSent == oPtr->m_totalPacketsSent)
+            && (m_totalPacketBytesSent == oPtr->m_totalPacketBytesSent)
+            && (m_totalPacketsDequeuedForSend == oPtr->m_totalPacketsDequeuedForSend)
+            && (m_totalPacketBytesDequeuedForSend == oPtr->m_totalPacketBytesDequeuedForSend)
+            && (m_totalPacketsLimitedByRate == oPtr->m_totalPacketsLimitedByRate);
+    }
+    return false;
+}
+bool UdpOutductTelemetry_t::operator!=(const OutductTelemetry2_t& o) const {
+    return !(*this == o);
+}
+bool UdpOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!OutductTelemetry2_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
+    try {
+        m_totalPacketsSent = pt.get<uint64_t>("totalPacketsSent");
+        m_totalPacketBytesSent = pt.get<uint64_t>("totalPacketBytesSent");
+        m_totalPacketsDequeuedForSend = pt.get<uint64_t>("totalPacketsDequeuedForSend");
+        m_totalPacketBytesDequeuedForSend = pt.get<uint64_t>("totalPacketBytesDequeuedForSend");
+        m_totalPacketsLimitedByRate = pt.get<uint64_t>("totalPacketsLimitedByRate");
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON StcpOutductTelemetry_t: " << e.what();
+        return false;
+    }
+    return true;
+}
+boost::property_tree::ptree UdpOutductTelemetry_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt = OutductTelemetry2_t::GetNewPropertyTree();
+    pt.put("totalPacketsSent", m_totalPacketsSent);
+    pt.put("totalPacketBytesSent", m_totalPacketBytesSent);
+    pt.put("totalPacketsDequeuedForSend", m_totalPacketsDequeuedForSend);
+    pt.put("totalPacketBytesDequeuedForSend", m_totalPacketBytesDequeuedForSend);
+    pt.put("totalPacketsLimitedByRate", m_totalPacketsLimitedByRate);
+    return pt;
+}
+
 AllOutductTelemetry_t::AllOutductTelemetry_t() : m_timestampMilliseconds(0) {}
 static bool UniquePtrOutductTelemEquivalent(const std::unique_ptr<OutductTelemetry2_t>& a, const std::unique_ptr<OutductTelemetry2_t>& b) {
     if ((!a) && (!b)) return true; //both null
@@ -1260,13 +1403,13 @@ bool AllOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree
                 m_listAllOutducts.emplace_back(std::make_unique<LtpOutductTelemetry2_t>());
             }
             else if (convergenceLayer == "udp") {
-                return false;
+                m_listAllOutducts.emplace_back(std::make_unique<UdpOutductTelemetry_t>());
             }
             else if (convergenceLayer == "tcpcl_v3") {
-                return false;
+                m_listAllOutducts.emplace_back(std::make_unique<TcpclV3OutductTelemetry_t>());
             }
             else if (convergenceLayer == "tcpcl_v4") {
-                return false;
+                m_listAllOutducts.emplace_back(std::make_unique<TcpclV4OutductTelemetry_t>());
             }
             else if (convergenceLayer == "stcp") {
                 m_listAllOutducts.emplace_back(std::make_unique<StcpOutductTelemetry2_t>());
