@@ -589,3 +589,39 @@ BOOST_AUTO_TEST_CASE(AllInductTelemetryTestCase)
     BOOST_REQUIRE(ait == ait2);
     BOOST_REQUIRE_EQUAL(aitJson, ait2.ToJson());
 }
+
+BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
+{
+    AllOutductTelemetry_t aot;
+    {
+        std::unique_ptr<LtpOutductTelemetry2_t> ptr = std::make_unique<LtpOutductTelemetry2_t>();
+        ptr->m_countRxUdpCircularBufferOverruns = 10;
+        ptr->m_countTxUdpPacketsLimitedByRate = 11;
+        ptr->m_countUdpPacketsSent = 12;
+        ptr->m_numCheckpointsExpired = 13;
+        ptr->m_numDiscretionaryCheckpointsNotResent = 14;
+        aot.m_listAllOutducts.emplace_back(std::move(ptr));
+    }
+    {
+        std::unique_ptr<StcpOutductTelemetry2_t> ptr = std::make_unique<StcpOutductTelemetry2_t>();
+        ptr->m_totalStcpBytesSent = 20;
+        aot.m_listAllOutducts.emplace_back(std::move(ptr));
+    }
+    for (std::list<std::unique_ptr<OutductTelemetry2_t> >::iterator it = aot.m_listAllOutducts.begin(); it != aot.m_listAllOutducts.end(); ++it) {
+        OutductTelemetry2_t& ot = *(it->get());
+        ot.m_totalBundlesAcked = ot.m_convergenceLayer.size();
+        ot.m_totalBundleBytesAcked = ot.m_convergenceLayer.size() + 1;
+        ot.m_totalBundlesSent = ot.m_convergenceLayer.size() + 2;
+        ot.m_totalBundleBytesSent = ot.m_convergenceLayer.size() + 3;
+        ot.m_totalBundlesFailedToSend = ot.m_convergenceLayer.size() + 4;
+    }
+    const std::string aotJson = aot.ToJson();
+    std::cout << aotJson << "\n";
+    AllOutductTelemetry_t aot2;
+    aot2.SetValuesFromJson(aotJson);
+    BOOST_REQUIRE(aot == aot2);
+    BOOST_REQUIRE(!(aot != aot2));
+    BOOST_REQUIRE_EQUAL(aotJson, aot2.ToJson());
+    aot.m_listAllOutducts.back()->m_totalBundleBytesAcked = 5000;
+    BOOST_REQUIRE(aot != aot2);
+}
