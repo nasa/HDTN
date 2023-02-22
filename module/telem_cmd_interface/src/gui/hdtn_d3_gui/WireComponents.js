@@ -11,25 +11,23 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
     var d3WiresArray = [];
 
     function GetWireText(wire) {
-        let objWithMap = null;
-        if(wire.src.hasOwnProperty("totalBundlesReceived")) {
-            objWithMap = wire.src;
+        let objWithVal = null;
+        if(wire.src.hasOwnProperty("rateBitsPerSecHumanReadable")) {
+            objWithVal = wire.src;
         }
-        else if(wire.dest.hasOwnProperty("totalBundlesReceived")) {
-            objWithMap = wire.dest;
+        else if(wire.dest.hasOwnProperty("rateBitsPerSecHumanReadable")) {
+            objWithVal = wire.dest;
         }
         else {
             return "";
         }
-        return "" + objWithMap["totalBundlesReceived"] + "";
-        var showCurrent = document.getElementById("id_showCurrent").checked;
-        var showVoltage = document.getElementById("id_showVoltage").checked;
-        var amps = wire.src.hasOwnProperty("currentOut") ? wire.src.currentOut : wire.dest.currentIn;
-        var volts = wire.src.hasOwnProperty("voltageOut") ? wire.src.voltageOut : wire.dest.voltageIn;
-        var ampsStr = showCurrent ? (Number.parseFloat(amps).toFixed(1) + "A") : "";
-        var separatorStr = showCurrent ? " " : "";
-        var voltsStr = showVoltage ? (Number.parseFloat(volts).toFixed(1) + "V") : "";
-        return "" + (ampsStr.startsWith("-") ? "" : "\u00A0") + ampsStr + separatorStr + (voltsStr.startsWith("-") ? "" : "\u00A0") + voltsStr;
+
+        const showBitRate = document.getElementById("id_showBitRate").checked;
+        const showBundleRate = document.getElementById("id_showBundleRate").checked;
+        let separatorStr = (showBitRate && showBundleRate) ? "\u00A0\u00A0" : "";
+        return ((showBitRate) ? objWithVal["rateBitsPerSecHumanReadable"] : "")
+            + separatorStr
+            + ((showBundleRate) ? objWithVal["rateBundlesPerSecHumanReadable"] : "");
     }
 
     function GetWireTextTransform(wire) {

@@ -272,7 +272,7 @@ void TelemetryRunner::Impl::OnNewTelemetry(uint8_t* buffer, uint64_t bufferSize)
         LOG_ERROR(subprocess) << e.what();
         return;
     }
-    std::cout << "telemListSize " << telemList.size() << "\n";
+    //std::cout << "telemListSize " << telemList.size() << "\n";
     for (std::unique_ptr<Telemetry_t>& telem : telemList) {
         if (telem->GetType() == TelemetryType::allOutductCapability) {
             //std::cout << telem->ToJson() << "\n";
@@ -296,7 +296,7 @@ void TelemetryRunner::Impl::OnNewTelemetry(uint8_t* buffer, uint64_t bufferSize)
 }
 
 void TelemetryRunner::Impl::OnNewJsonTelemetry(const char* buffer, uint64_t bufferSize) {
-    printf("%.*s", (int)bufferSize, buffer); //not null terminated
+    //printf("%.*s", (int)bufferSize, buffer); //not null terminated
     if (m_websocketServerPtr) {
         m_websocketServerPtr->SendNewTextData(buffer, bufferSize);
     }

@@ -1,4 +1,20 @@
+//https://stackoverflow.com/questions/15900485/correct-way-to-convert-size-in-bytes-to-kb-mb-gb-in-javascript
+function formatHumanReadable(num, decimals, unitStr) {
+   if(num == 0) return '0 ' + unitStr;
+   var k = 1024,
+       dm = decimals <= 0 ? 0 : decimals || 2,
+       sizes = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'],
+       i = Math.floor(Math.log(num) / Math.log(k));
+   return ((num / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i] + unitStr;
+}
 function UpdateActiveInductConnections(paramHdtnConfig, paramActiveInductConnections) {
+    let timestampMilliseconds = paramActiveInductConnections.timestampMilliseconds;
+    let deltaTimestampMilliseconds = 0;
+    if(paramHdtnConfig.hasOwnProperty("lastInductTelemTimestampMilliseconds")) {
+        deltaTimestampMilliseconds = timestampMilliseconds - paramHdtnConfig.lastInductTelemTimestampMilliseconds;
+    }
+    paramHdtnConfig.lastInductTelemTimestampMilliseconds = timestampMilliseconds;
+
     let inductsConfig = paramHdtnConfig["inductsConfig"];
     let inductVector = inductsConfig["inductVector"];
     inductVector.forEach(function(ind, i) {
@@ -8,17 +24,25 @@ function UpdateActiveInductConnections(paramHdtnConfig, paramActiveInductConnect
         let mapConnectionNameToD3Obj = ind["mapConnectionNameToD3Obj"];
         inductTelem.inductConnections.forEach(function(connTelem) {
             activeConnectionsArray.push(connTelem.connectionName);
-            let baseId = "induct_" + i + "_conn_" + connTelem.connectionName;
-            paramHdtnConfig.inductIdToWireDataMap[baseId] = {
-                "totalBundlesReceived": connTelem.totalBundlesReceived,
-                "totalBundleBytesReceived": connTelem.totalBundleBytesReceived
-            };
             if(!mapConnectionNameToD3Obj.hasOwnProperty(connTelem.connectionName)) {
-                mapConnectionNameToD3Obj[connTelem.connectionName] = {};
+                mapConnectionNameToD3Obj[connTelem.connectionName] = {
+                    "lastTotalBundlesReceived": 0,
+                    "lastTotalBundleBytesReceived": 0,
+                    "rateBitsPerSec": 0,
+                    "rateBundlesPerSec": 0
+                };
             }
             let d3Obj = mapConnectionNameToD3Obj[connTelem.connectionName];
+            d3Obj["lastTotalBundlesReceived"] = d3Obj["totalBundlesReceived"];
+            d3Obj["lastTotalBundleBytesReceived"] = d3Obj["totalBundleBytesReceived"];
             d3Obj["totalBundlesReceived"] = connTelem.totalBundlesReceived;
             d3Obj["totalBundleBytesReceived"] = connTelem.totalBundleBytesReceived;
+            if(deltaTimestampMilliseconds > 1) {
+                d3Obj["rateBitsPerSec"] = (d3Obj["totalBundleBytesReceived"] - d3Obj["lastTotalBundleBytesReceived"]) * 8000.0 / deltaTimestampMilliseconds;
+                d3Obj["rateBundlesPerSec"] = (d3Obj["totalBundlesReceived"] - d3Obj["lastTotalBundlesReceived"]) * 1000.0 / deltaTimestampMilliseconds;
+            }
+            d3Obj["rateBitsPerSecHumanReadable"] = formatHumanReadable(d3Obj["rateBitsPerSec"], 2, 'bit/s');
+            d3Obj["rateBundlesPerSecHumanReadable"] = formatHumanReadable(d3Obj["rateBundlesPerSec"], 2, 'Bun/s');
             d3Obj["name"] = connTelem.inputName;
             d3Obj["remoteConnD3Obj"] = {}
 
@@ -34,7 +58,6 @@ function InitActiveInductConnections(paramHdtnConfig) {
         ind["activeConnections"] = [];
         ind["mapConnectionNameToD3Obj"] = {};
     });
-    paramHdtnConfig.inductIdToWireDataMap = {};
 }
 
 function UpdateAllOutductCapabilities(paramHdtnConfig, paramAoct) {

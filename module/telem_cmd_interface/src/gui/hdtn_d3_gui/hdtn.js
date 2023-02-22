@@ -1,6 +1,7 @@
 if(window.location.protocol == 'file:') {
 
 var INDUCT_ACTIVE_CONNECTIONS = {
+    "timestampMilliseconds": 10000,
     "allInducts": [
         {
             "convergenceLayer": "LTP",
