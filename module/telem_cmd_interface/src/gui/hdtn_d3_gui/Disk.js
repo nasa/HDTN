@@ -37,7 +37,7 @@ function Disk(paramSvgRootGroup, paramX, paramY, paramRadius, paramPerspectiveRa
             .attr("d", GetCylinderFillPath(radius, perspectiveRadius, height*percentage*.01));
 
         diskGroup.selectAll("text.cylinder_text")
-            .text(percentage.toFixed(0) + "%");
+            .text(percentage.toFixed(2) + "% used");
 
         diskGroup.selectAll("stop")
             .attr('offset', bufferPercentage*.01);

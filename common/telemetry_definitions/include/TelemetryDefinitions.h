@@ -36,7 +36,7 @@ enum class TelemetryType : uint64_t {
     undefined = 0,
     unused1 = 1,
     egress,
-    storage,
+    unused3,
     unused4,
     unused5,
     unused6,
@@ -108,20 +108,41 @@ struct EgressTelemetry_t : public Telemetry_t
     uint64_t egressMessageCount;
 };
 
-struct StorageTelemetry_t : public Telemetry_t
+struct StorageTelemetry_t : public JsonSerializable
 {
     TELEMETRY_DEFINITIONS_EXPORT StorageTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~StorageTelemetry_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT ~StorageTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT bool operator==(const StorageTelemetry_t& o) const; //operator ==
     TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const StorageTelemetry_t& o) const;
 
     TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
-    uint64_t totalBundlesErasedFromStorage;
-    uint64_t totalBundlesSentToEgressFromStorage;
-    uint64_t usedSpaceBytes;
-    uint64_t freeSpaceBytes;
+    uint64_t m_timestampMilliseconds;
+
+    //from ZmqStorageInterface
+    uint64_t m_totalBundlesErasedFromStorageNoCustodyTransfer;
+    uint64_t m_totalBundlesErasedFromStorageWithCustodyTransfer;
+    uint64_t m_totalBundlesRewrittenToStorageFromFailedEgressSend;
+    uint64_t m_totalBundlesSentToEgressFromStorageReadFromDisk;
+    uint64_t m_totalBundleBytesSentToEgressFromStorageReadFromDisk;
+    uint64_t m_totalBundlesSentToEgressFromStorageForwardCutThrough;
+    uint64_t m_totalBundleBytesSentToEgressFromStorageForwardCutThrough;
+    uint64_t m_numRfc5050CustodyTransfers;
+    uint64_t m_numAcsCustodyTransfers;
+    uint64_t m_numAcsPacketsReceived;
+    
+    //from BundleStorageCatalog
+    uint64_t m_numBundlesOnDisk;
+    uint64_t m_numBundleBytesOnDisk;
+    uint64_t m_totalBundleWriteOperationsToDisk;
+    uint64_t m_totalBundleByteWriteOperationsToDisk;
+    uint64_t m_totalBundleEraseOperationsFromDisk;
+    uint64_t m_totalBundleByteEraseOperationsFromDisk;
+
+    //from BundleStorageManagerBase's MemoryManager
+    uint64_t m_usedSpaceBytes;
+    uint64_t m_freeSpaceBytes;
 };
 
 

@@ -34,22 +34,6 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsFactoryTestCase)
     BOOST_REQUIRE_EQUAL(egressTelem.egressBundleCount, egressTelem2->egressBundleCount);
     BOOST_REQUIRE_EQUAL(egressTelem.egressMessageCount, egressTelem2->egressMessageCount);
 
-    // Storage
-    StorageTelemetry_t storageTelem;
-    storageTelem.totalBundlesErasedFromStorage = 5;
-    storageTelem.totalBundlesSentToEgressFromStorage = 10;
-    storageTelem.usedSpaceBytes = 100;
-    storageTelem.freeSpaceBytes = 200;
-
-    std::vector<uint8_t> serializedStorage = std::vector<uint8_t>(storageTelem.GetSerializationSize());
-    storageTelem.SerializeToLittleEndian(serializedStorage.data(), serializedStorage.size());
-    telem = TelemetryFactory::DeserializeFromLittleEndian(serializedStorage.data(), serializedStorage.size());
-    BOOST_REQUIRE_EQUAL(telem.size(), 1);
-    StorageTelemetry_t* storageTelem2 = (StorageTelemetry_t*)telem[0].get();
-    BOOST_REQUIRE_EQUAL(storageTelem.totalBundlesErasedFromStorage, storageTelem2->totalBundlesErasedFromStorage);
-    BOOST_REQUIRE_EQUAL(storageTelem.totalBundlesSentToEgressFromStorage, storageTelem2->totalBundlesSentToEgressFromStorage);
-    BOOST_REQUIRE_EQUAL(storageTelem.usedSpaceBytes, storageTelem2->usedSpaceBytes);
-    BOOST_REQUIRE_EQUAL(storageTelem.freeSpaceBytes, storageTelem2->freeSpaceBytes);
 }
 
 
@@ -105,56 +89,40 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsEgressTestCase)
 
 BOOST_AUTO_TEST_CASE(TelemetryDefinitionsStorageTestCase)
 {
-    // Test default constructor
-    StorageTelemetry_t def;
-    BOOST_REQUIRE_EQUAL(def.GetSerializationSize(), 40);
-    BOOST_REQUIRE_EQUAL(def.totalBundlesErasedFromStorage, 0);
-    BOOST_REQUIRE_EQUAL(def.totalBundlesSentToEgressFromStorage, 0);
-    BOOST_REQUIRE_EQUAL(def.usedSpaceBytes, 0);
-    BOOST_REQUIRE_EQUAL(def.freeSpaceBytes, 0);
+    StorageTelemetry_t t;
+    t.m_timestampMilliseconds = 10000;
+    t.m_totalBundlesErasedFromStorageNoCustodyTransfer = 10;
+    t.m_totalBundlesErasedFromStorageWithCustodyTransfer = 20;
+    t.m_totalBundlesRewrittenToStorageFromFailedEgressSend = 30;
+    t.m_totalBundlesSentToEgressFromStorageReadFromDisk = 40;
+    t.m_totalBundleBytesSentToEgressFromStorageReadFromDisk = 45;
+    t.m_totalBundlesSentToEgressFromStorageForwardCutThrough = 50;
+    t.m_totalBundleBytesSentToEgressFromStorageForwardCutThrough = 55;
+    t.m_numRfc5050CustodyTransfers = 60;
+    t.m_numAcsCustodyTransfers = 70;
+    t.m_numAcsPacketsReceived = 80;
 
-    // Test serialize
-    StorageTelemetry_t telem;
-    telem.totalBundlesErasedFromStorage = 50;
-    telem.totalBundlesSentToEgressFromStorage = 100;
-    telem.usedSpaceBytes = 30;
-    telem.freeSpaceBytes = 10;
-    std::vector<uint8_t> actual = std::vector<uint8_t>(telem.GetSerializationSize());
-    telem.SerializeToLittleEndian(actual.data(), actual.size());
-    std::vector<uint8_t> expected;
-    expected.insert(expected.end(), {
-        3,   0, 0, 0, 0, 0, 0, 0,
-        50,  0, 0, 0, 0, 0, 0, 0,
-        100, 0, 0, 0, 0, 0, 0, 0,
-        30,  0, 0, 0, 0, 0, 0, 0,
-        10,  0, 0, 0, 0, 0, 0, 0
-    });
+    //from BundleStorageCatalog
+    t.m_numBundlesOnDisk = 90;
+    t.m_numBundleBytesOnDisk = 100;
+    t.m_totalBundleWriteOperationsToDisk = 110;
+    t.m_totalBundleByteWriteOperationsToDisk = 120;
+    t.m_totalBundleEraseOperationsFromDisk = 130;
+    t.m_totalBundleByteEraseOperationsFromDisk = 140;
 
-    BOOST_REQUIRE_EQUAL(actual.size(), 40);
-    BOOST_REQUIRE_EQUAL_COLLECTIONS(actual.begin(), actual.end(), expected.begin(), expected.end());
+    //from BundleStorageManagerBase's MemoryManager
+    t.m_usedSpaceBytes = 150;
+    t.m_freeSpaceBytes = 160;
 
-    // Test deserialize
-    std::vector<uint8_t> serialized;
-    serialized.insert(serialized.end(), {
-        3,   0, 0, 0, 0, 0, 0, 0,
-        200, 0, 0, 0, 0, 0, 0, 0,
-        10,  0, 0, 0, 0, 0, 0, 0,
-        15,  0, 0, 0, 0, 0, 0, 0,
-        12,  0, 0, 0, 0, 0, 0, 0
-    });
-
-    StorageTelemetry_t telem2;
-    uint64_t numBytesTakenToDecode;
-    BOOST_REQUIRE(telem2.DeserializeFromLittleEndian(serialized.data(), numBytesTakenToDecode, serialized.size()));
-    BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, serialized.size());
-    BOOST_REQUIRE_EQUAL(telem2.totalBundlesErasedFromStorage, 200);
-    BOOST_REQUIRE_EQUAL(telem2.totalBundlesSentToEgressFromStorage, 10);
-    BOOST_REQUIRE_EQUAL(telem2.usedSpaceBytes, 15);
-    BOOST_REQUIRE_EQUAL(telem2.freeSpaceBytes, 12);
-
-    StorageTelemetry_t telemFromJson;
-    BOOST_REQUIRE(telemFromJson.SetValuesFromJson(telem2.ToJson()));
-    BOOST_REQUIRE(telem2 == telemFromJson);
+    const std::string tJson = t.ToJson();
+    //std::cout << tJson << "\n";
+    StorageTelemetry_t t2;
+    t2.SetValuesFromJson(tJson);
+    BOOST_REQUIRE(t == t2);
+    BOOST_REQUIRE(!(t != t2));
+    BOOST_REQUIRE_EQUAL(tJson, t2.ToJson());
+    t.m_totalBundleWriteOperationsToDisk += 1000;
+    BOOST_REQUIRE(t != t2);
 }
 
 

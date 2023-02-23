@@ -111,17 +111,11 @@ private:
     void RepopulateUpLinksVec();
     void SetLinkDown(OutductInfo_t & info);
     void ThreadFunc();
+    void SyncTelemetry();
     static std::string SprintCustodyidToSizeMap(const custodyid_to_size_map_t& m);
 
 public:
-    std::size_t m_totalBundlesErasedFromStorageNoCustodyTransfer;
-    std::size_t m_totalBundlesRewrittenToStorageFromFailedEgressSend;
-    std::size_t m_totalBundlesErasedFromStorageWithCustodyTransfer;
-    std::size_t m_totalBundlesSentToEgressFromStorageReadFromDisk;
-    std::size_t m_totalBundlesSentToEgressFromStorageForwardCutThrough;
-    uint64_t m_numRfc5050CustodyTransfers;
-    uint64_t m_numAcsCustodyTransfers;
-    uint64_t m_numAcsPacketsReceived;
+    StorageTelemetry_t m_telem;
     cbhe_eid_t M_HDTN_EID_CUSTODY;
 
 private:
@@ -160,15 +154,7 @@ private:
 
 ZmqStorageInterface::Impl::Impl() :
     m_running(false),
-    m_totalBundlesErasedFromStorageNoCustodyTransfer(0),
-    m_totalBundlesRewrittenToStorageFromFailedEgressSend(0),
-    m_totalBundlesErasedFromStorageWithCustodyTransfer(0),
-    m_totalBundlesSentToEgressFromStorageReadFromDisk(0),
-    m_totalBundlesSentToEgressFromStorageForwardCutThrough(0),
-    m_numRfc5050CustodyTransfers(0),
-    m_numAcsCustodyTransfers(0),
-    m_numAcsPacketsReceived(0),
-    m_workerThreadStartupInProgress(0),
+    m_workerThreadStartupInProgress(false),
     m_hdtnOneProcessZmqInprocContextPtr(nullptr) {}
 
 ZmqStorageInterface::Impl::~Impl() {
@@ -178,14 +164,7 @@ ZmqStorageInterface::Impl::~Impl() {
 ZmqStorageInterface::ZmqStorageInterface() : 
     m_pimpl(boost::make_unique<ZmqStorageInterface::Impl>()),
     //references
-    m_totalBundlesErasedFromStorageNoCustodyTransfer(m_pimpl->m_totalBundlesErasedFromStorageNoCustodyTransfer),
-    m_totalBundlesRewrittenToStorageFromFailedEgressSend(m_pimpl->m_totalBundlesRewrittenToStorageFromFailedEgressSend),
-    m_totalBundlesErasedFromStorageWithCustodyTransfer(m_pimpl->m_totalBundlesErasedFromStorageWithCustodyTransfer),
-    m_totalBundlesSentToEgressFromStorageReadFromDisk(m_pimpl->m_totalBundlesSentToEgressFromStorageReadFromDisk),
-    m_totalBundlesSentToEgressFromStorageForwardCutThrough(m_pimpl->m_totalBundlesSentToEgressFromStorageForwardCutThrough),
-    m_numRfc5050CustodyTransfers(m_pimpl->m_numRfc5050CustodyTransfers),
-    m_numAcsCustodyTransfers(m_pimpl->m_numAcsCustodyTransfers),
-    m_numAcsPacketsReceived(m_pimpl->m_numAcsPacketsReceived) {}
+    m_telemRef(m_pimpl->m_telem) {}
 
 ZmqStorageInterface::~ZmqStorageInterface() {
     Stop();
@@ -442,7 +421,7 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
                 const BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE adminRecordType = adminRecordBlockPtr->m_adminRecordTypeCode;
 
                 if (adminRecordType == BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::AGGREGATE_CUSTODY_SIGNAL) {
-                    ++m_numAcsPacketsReceived;
+                    ++m_telem.m_numAcsPacketsReceived;
                     //check acs
                     Bpv6AdministrativeRecordContentAggregateCustodySignal* acsPtr = dynamic_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
                     if (acsPtr == NULL) {
@@ -457,7 +436,7 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
 
                     //todo figure out what to do with failed custody from next hop
                     for (FragmentSet::data_fragment_set_t::const_iterator it = acs.m_custodyIdFills.cbegin(); it != acs.m_custodyIdFills.cend(); ++it) {
-                        m_numAcsCustodyTransfers += (it->endIndex + 1) - it->beginIndex;
+                        m_telem.m_numAcsCustodyTransfers += (it->endIndex + 1) - it->beginIndex;
                         m_custodyIdAllocatorPtr->FreeCustodyIdRange(it->beginIndex, it->endIndex);
                         for (uint64_t currentCustodyId = it->beginIndex; currentCustodyId <= it->endIndex; ++currentCustodyId) {
                             catalog_entry_t* catalogEntryPtr = m_bsmPtr->GetCatalogEntryPtrFromCustodyId(currentCustodyId);
@@ -472,7 +451,7 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
                                 LOG_ERROR(subprocess) << "error freeing bundle identified by acs custody signal from disk";
                                 continue;
                             }
-                            ++m_totalBundlesErasedFromStorageWithCustodyTransfer;
+                            ++m_telem.m_totalBundlesErasedFromStorageWithCustodyTransfer;
                         }
                     }
                 }
@@ -529,8 +508,8 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
                         LOG_ERROR(subprocess) << "error freeing bundle identified by rfc5050 custody signal from disk";
                         return false;
                     }
-                    ++m_totalBundlesErasedFromStorageWithCustodyTransfer;
-                    ++m_numRfc5050CustodyTransfers;
+                    ++m_telem.m_totalBundlesErasedFromStorageWithCustodyTransfer;
+                    ++m_telem.m_numRfc5050CustodyTransfers;
                 }
                 else {
                     LOG_ERROR(subprocess) << "error unknown admin record type";
@@ -640,6 +619,9 @@ static void CustomCleanupStorageAckHdr(void *data, void *hint) {
 }
 static void CustomCleanupStdVecUint8(void *data, void *hint) {
     delete static_cast<std::vector<uint8_t>*>(hint);
+}
+static void CustomCleanupStdString(void* data, void* hint) {
+    delete static_cast<std::string*>(hint);
 }
 
 bool ZmqStorageInterface::Impl::ReleaseOne_NoBlock(const OutductInfo_t& info, const uint64_t maxBundleSizeToRead, uint64_t& returnedBundleSize)
@@ -778,6 +760,21 @@ void ZmqStorageInterface::Impl::SetLinkDown(OutductInfo_t & info) {
     }
 }
 
+void ZmqStorageInterface::Impl::SyncTelemetry() {
+    if (m_bsmPtr) {
+        const BundleStorageCatalog& bsc = m_bsmPtr->GetBundleStorageCatalogConstRef();
+        m_telem.m_numBundlesOnDisk = bsc.GetNumBundlesInCatalog();
+        m_telem.m_numBundleBytesOnDisk = bsc.GetNumBundleBytesInCatalog();
+        m_telem.m_totalBundleWriteOperationsToDisk = bsc.GetTotalBundleWriteOperationsToCatalog();
+        m_telem.m_totalBundleByteWriteOperationsToDisk = bsc.GetTotalBundleByteWriteOperationsToCatalog();
+        m_telem.m_totalBundleEraseOperationsFromDisk = bsc.GetTotalBundleEraseOperationsFromCatalog();
+        m_telem.m_totalBundleByteEraseOperationsFromDisk = bsc.GetTotalBundleByteEraseOperationsFromCatalog();
+
+        m_telem.m_usedSpaceBytes = m_bsmPtr->GetUsedSpaceBytes();
+        m_telem.m_freeSpaceBytes = m_bsmPtr->GetFreeSpaceBytes();
+    }
+}
+
 void ZmqStorageInterface::Impl::ThreadFunc() {
     ThreadNamer::SetThisThreadName("ZmqStorageInterface");
     
@@ -811,14 +808,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
     m_bsmPtr->Start();
     
 
-    m_totalBundlesErasedFromStorageNoCustodyTransfer = 0;
-    m_totalBundlesRewrittenToStorageFromFailedEgressSend = 0;
-    m_totalBundlesErasedFromStorageWithCustodyTransfer = 0;
-    m_totalBundlesSentToEgressFromStorageReadFromDisk = 0;
-    m_totalBundlesSentToEgressFromStorageForwardCutThrough = 0;
-    m_numRfc5050CustodyTransfers = 0;
-    m_numAcsCustodyTransfers = 0;
-    m_numAcsPacketsReceived = 0;
+    
     std::size_t totalEventsNoDataInStorageForAvailableLinks = 0;
     std::size_t totalEventsDataInStorageForCloggedLinks = 0;
     std::size_t numCustodyTransferTimeouts = 0;
@@ -941,7 +931,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                             LOG_ERROR(subprocess) << "error freeing bundle from disk";
                                         }
                                         else {
-                                            ++m_totalBundlesErasedFromStorageNoCustodyTransfer;
+                                            ++m_telem.m_totalBundlesErasedFromStorageNoCustodyTransfer;
                                         }
                                     }
                                     info.bytesInPipeline -= it->second;
@@ -972,7 +962,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     else {
                         cbhe_eid_t finalDestEidReturnedFromWrite;
                         Write(&zmqBundleDataReceived, finalDestEidReturnedFromWrite, true, true); //last true because if cut through then definitely no custody or not admin record
-                        ++m_totalBundlesRewrittenToStorageFromFailedEgressSend;
+                        ++m_telem.m_totalBundlesRewrittenToStorageFromFailedEgressSend;
                         finalDestEidReturnedFromWrite.serviceId = 0;
                         if (egressFullyInitialized) {
                             LOG_WARNING(subprocess) << "Storage got a link down notification from egress (with the failed bundle) for final dest "
@@ -1235,28 +1225,14 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                 }
                 else if (telemMsgByte == TELEM_REQ_MSG) {                    
                     //send telemetry
-                    StorageTelemetry_t telem;
-                    telem.totalBundlesErasedFromStorage = GetCurrentNumberOfBundlesDeletedFromStorage();
-                    telem.totalBundlesSentToEgressFromStorage = m_totalBundlesSentToEgressFromStorageReadFromDisk; //+ m_totalBundlesSentToEgressFromStorageForwardCutThrough;
-                    telem.usedSpaceBytes = m_bsmPtr->GetUsedSpaceBytes();
-                    telem.freeSpaceBytes = m_bsmPtr->GetFreeSpaceBytes();
+                    SyncTelemetry();
+                    m_telem.m_timestampMilliseconds = TimestampUtil::GetMillisecondsSinceEpochRfc5050();
 
-                    std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(telem.GetSerializationSize()); //will be 64-bit aligned
-                    uint8_t* telemPtr = vecUint8RawPointer->data();
-                    const uint8_t* const telemSerializationBase = telemPtr;
-                    uint64_t telemBufferSize = vecUint8RawPointer->size();
+                    std::string* storageTelemJsonStringPtr = new std::string(m_telem.ToJson());
+                    zmq::message_t zmqJsonMessage(storageTelemJsonStringPtr->data(), storageTelemJsonStringPtr->size(), CustomCleanupStdString, storageTelemJsonStringPtr);
 
-                    //start zmq message with telemetry
-                    const uint64_t storageTelemSize = telem.SerializeToLittleEndian(telemPtr, telemBufferSize);
-                    telemBufferSize -= storageTelemSize;
-                    telemPtr += storageTelemSize;
-
-                    vecUint8RawPointer->resize(telemPtr - telemSerializationBase);
-
-                    zmq::message_t zmqTelemMessageWithDataStolen(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
-
-                    if (!m_zmqRepSock_connectingTelemToFromBoundStoragePtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::dontwait)) {
-                        LOG_ERROR(subprocess) << "storage can't send telemetry to telem";
+                    if (!m_zmqRepSock_connectingTelemToFromBoundStoragePtr->send(std::move(zmqJsonMessage), zmq::send_flags::dontwait)) {
+                        LOG_ERROR(subprocess) << "can't send json telemetry to telem";
                     }
                 }
                 /*
@@ -1304,6 +1280,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                 }
                 else if (telemReq.type == ((uint64_t)TelemetryType::storageExpiringBeforeThreshold)) {
                     //send telemetry
+                    /*
                     StorageTelemetry_t storageTelem;
                     storageTelem.freeSpaceBytes = m_bsmPtr->GetFreeSpaceBytes();
                     storageTelem.usedSpaceBytes = m_bsmPtr->GetUsedSpaceBytes();
@@ -1332,7 +1309,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                         if (!m_zmqRepSock_connectingUisToFromBoundStoragePtr->send(std::move(zmqTelemMessage), zmq::send_flags::dontwait)) {
                             LOG_ERROR(subprocess) << "storage can't send telemetry to uis";
                         }
-                    }
+                    }*/
                 }
                 else {
                     LOG_ERROR(subprocess) << "error telemReq.type not 10";
@@ -1424,7 +1401,8 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     else { //success
                         info.bytesInPipeline += bundleSizeBytes;
                         timeoutPoll = 0; //no timeout as we need to keep feeding to egress
-                        ++m_totalBundlesSentToEgressFromStorageForwardCutThrough;
+                        ++m_telem.m_totalBundlesSentToEgressFromStorageForwardCutThrough;
+                        m_telem.m_totalBundleBytesSentToEgressFromStorageForwardCutThrough += bundleSizeBytes;
                     }
                     info.cutThroughQueue.pop();
                 }
@@ -1435,7 +1413,8 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                         }
                         info.bytesInPipeline += returnedBundleSizeReadFromDisk;
                         timeoutPoll = 0; //no timeout as we need to keep feeding to egress
-                        ++m_totalBundlesSentToEgressFromStorageReadFromDisk;
+                        ++m_telem.m_totalBundlesSentToEgressFromStorageReadFromDisk;
+                        m_telem.m_totalBundleBytesSentToEgressFromStorageReadFromDisk += returnedBundleSizeReadFromDisk;
                     }
                     else {
                         LOG_ERROR(subprocess) << "could not insert custody id into finalDestNodeIdToOpenCustIdsMap";
@@ -1458,21 +1437,21 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
             }
         }
     }
-    LOG_DEBUG(subprocess) << "Storage bundles sent: FromDisk=" << m_totalBundlesSentToEgressFromStorageReadFromDisk
-        << "  FromCutThroughForward=" << m_totalBundlesSentToEgressFromStorageForwardCutThrough;
+    LOG_DEBUG(subprocess) << "Storage bundles sent: FromDisk=" << m_telem.m_totalBundlesSentToEgressFromStorageReadFromDisk
+        << "  FromCutThroughForward=" << m_telem.m_totalBundlesSentToEgressFromStorageForwardCutThrough;
     LOG_DEBUG(subprocess) << "totalEventsNoDataInStorageForAvailableLinks: " << totalEventsNoDataInStorageForAvailableLinks;
     LOG_DEBUG(subprocess) << "totalEventsDataInStorageForCloggedLinks: " << totalEventsDataInStorageForCloggedLinks;
-    LOG_DEBUG(subprocess) << "m_numRfc5050CustodyTransfers: " << m_numRfc5050CustodyTransfers;
-    LOG_DEBUG(subprocess) << "m_numAcsCustodyTransfers: " << m_numAcsCustodyTransfers;
-    LOG_DEBUG(subprocess) << "m_numAcsPacketsReceived: " << m_numAcsPacketsReceived;
-    LOG_DEBUG(subprocess) << "m_totalBundlesErasedFromStorageNoCustodyTransfer: " << m_totalBundlesErasedFromStorageNoCustodyTransfer;
-    LOG_DEBUG(subprocess) << "m_totalBundlesErasedFromStorageWithCustodyTransfer: " << m_totalBundlesErasedFromStorageWithCustodyTransfer;
+    LOG_DEBUG(subprocess) << "m_numRfc5050CustodyTransfers: " << m_telem.m_numRfc5050CustodyTransfers;
+    LOG_DEBUG(subprocess) << "m_numAcsCustodyTransfers: " << m_telem.m_numAcsCustodyTransfers;
+    LOG_DEBUG(subprocess) << "m_numAcsPacketsReceived: " << m_telem.m_numAcsPacketsReceived;
+    LOG_DEBUG(subprocess) << "m_totalBundlesErasedFromStorageNoCustodyTransfer: " << m_telem.m_totalBundlesErasedFromStorageNoCustodyTransfer;
+    LOG_DEBUG(subprocess) << "m_totalBundlesErasedFromStorageWithCustodyTransfer: " << m_telem.m_totalBundlesErasedFromStorageWithCustodyTransfer;
     LOG_DEBUG(subprocess) << "numCustodyTransferTimeouts: " << numCustodyTransferTimeouts;
-    LOG_DEBUG(subprocess) << "m_totalBundlesRewrittenToStorageFromFailedEgressSend: " << m_totalBundlesRewrittenToStorageFromFailedEgressSend;
+    LOG_DEBUG(subprocess) << "m_totalBundlesRewrittenToStorageFromFailedEgressSend: " << m_telem.m_totalBundlesRewrittenToStorageFromFailedEgressSend;
 }
 
 std::size_t ZmqStorageInterface::Impl::GetCurrentNumberOfBundlesDeletedFromStorage() {
-    return m_totalBundlesErasedFromStorageNoCustodyTransfer + m_totalBundlesErasedFromStorageWithCustodyTransfer;
+    return m_telem.m_totalBundlesErasedFromStorageNoCustodyTransfer + m_telem.m_totalBundlesErasedFromStorageWithCustodyTransfer;
 }
 std::size_t ZmqStorageInterface::GetCurrentNumberOfBundlesDeletedFromStorage() {
     return m_pimpl->GetCurrentNumberOfBundlesDeletedFromStorage();

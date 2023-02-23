@@ -252,8 +252,8 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
             }
             if (poller.HasNewMessage(*storageConnection)) {
                 receiveEventsMask |= REC_STORAGE;
-                zmq::message_t msg = storageConnection->ReadMessage();
-                OnNewTelemetry((uint8_t*)msg.data(), msg.size());
+                zmq::message_t msgJson = storageConnection->ReadMessage();
+                OnNewJsonTelemetry((const char*)msgJson.data(), msgJson.size());
             }
         }
         if (receiveEventsMask != REC_ALL) {

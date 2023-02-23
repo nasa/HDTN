@@ -38,13 +38,14 @@ void TelemetryLogger::LogTelemetry(Telemetry_t* telem)
             }
             break;
         }
+                                  /*
         case TelemetryType::storage: {
             StorageTelemetry_t* storageTelem = dynamic_cast<StorageTelemetry_t*>(telem);
             if (storageTelem != nullptr) {
                 LogTelemetry(storageTelem);
             }
             break;
-        }
+        }*/
     }
 }
 /*

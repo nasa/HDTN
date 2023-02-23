@@ -366,6 +366,28 @@ var OUTDUCT_TELEM_UPDATE = {
     ]
 };
 
+var STORAGE_TELEM_UPDATE = {
+    "timestampMilliseconds": 10000,
+    "totalBundlesErasedFromStorageNoCustodyTransfer": 10,
+    "totalBundlesErasedFromStorageWithCustodyTransfer": 20,
+    "totalBundlesRewrittenToStorageFromFailedEgressSend": 30,
+    "totalBundlesSentToEgressFromStorageReadFromDisk": 40,
+    "totalBundleBytesSentToEgressFromStorageReadFromDisk": 45,
+    "totalBundlesSentToEgressFromStorageForwardCutThrough": 50,
+    "totalBundleBytesSentToEgressFromStorageForwardCutThrough": 55,
+    "numRfc5050CustodyTransfers": 60,
+    "numAcsCustodyTransfers": 70,
+    "numAcsPacketsReceived": 80,
+    "numBundlesOnDisk": 90,
+    "numBundleBytesOnDisk": 100,
+    "totalBundleWriteOperationsToDisk": 110,
+    "totalBundleByteWriteOperationsToDisk": 120,
+    "totalBundleEraseOperationsFromDisk": 130,
+    "totalBundleByteEraseOperationsFromDisk": 140,
+    "usedSpaceBytes": 0,
+    "freeSpaceBytes": 1000
+};
+
 var AOCT = {
     "type": "allOutductCapability",
     "outductCapabilityTelemetryList": [
@@ -436,10 +458,32 @@ function IncOutductTelem(paramIncBundles) {
     });
 }
 
+function IncStorageTelem(paramInc) {
+    STORAGE_TELEM_UPDATE.timestampMilliseconds += 1000;
+    STORAGE_TELEM_UPDATE.usedSpaceBytes += paramInc;
+    STORAGE_TELEM_UPDATE.freeSpaceBytes -= paramInc;
+    STORAGE_TELEM_UPDATE.totalBundlesSentToEgressFromStorageReadFromDisk += paramInc;
+    STORAGE_TELEM_UPDATE.totalBundleBytesSentToEgressFromStorageReadFromDisk += paramInc * 100000;
+
+    STORAGE_TELEM_UPDATE.totalBundlesSentToEgressFromStorageReadFromDisk += paramInc;
+    STORAGE_TELEM_UPDATE.totalBundleBytesSentToEgressFromStorageReadFromDisk += paramInc * 100000;
+
+    STORAGE_TELEM_UPDATE.totalBundlesSentToEgressFromStorageForwardCutThrough += paramInc;
+    STORAGE_TELEM_UPDATE.totalBundleBytesSentToEgressFromStorageForwardCutThrough += paramInc * 100000;
+
+    STORAGE_TELEM_UPDATE.totalBundleWriteOperationsToDisk += paramInc;
+    STORAGE_TELEM_UPDATE.totalBundleByteWriteOperationsToDisk += paramInc * 100000;
+}
+
 let changeFunctions = [
     function() {
         IncOutductTelem(10);
         let clone = JSON.parse(JSON.stringify(OUTDUCT_TELEM_UPDATE));
+        app.UpdateWithData(clone);
+    },
+    function() {
+        IncStorageTelem(10);
+        let clone = JSON.parse(JSON.stringify(STORAGE_TELEM_UPDATE));
         app.UpdateWithData(clone);
     },
     function() {
@@ -453,6 +497,11 @@ let changeFunctions = [
     function() {
         IncOutductTelem(100);
         let clone = JSON.parse(JSON.stringify(OUTDUCT_TELEM_UPDATE));
+        app.UpdateWithData(clone);
+    },
+    function() {
+        IncStorageTelem(30);
+        let clone = JSON.parse(JSON.stringify(STORAGE_TELEM_UPDATE));
         app.UpdateWithData(clone);
     },
     function() {
@@ -481,6 +530,11 @@ let changeFunctions = [
     function() {
         IncOutductTelem(1000);
         let clone = JSON.parse(JSON.stringify(OUTDUCT_TELEM_UPDATE));
+        app.UpdateWithData(clone);
+    },
+    function() {
+        IncStorageTelem(50);
+        let clone = JSON.parse(JSON.stringify(STORAGE_TELEM_UPDATE));
         app.UpdateWithData(clone);
     },
     function() {

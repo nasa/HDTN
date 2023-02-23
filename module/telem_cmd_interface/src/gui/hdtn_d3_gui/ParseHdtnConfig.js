@@ -7,6 +7,73 @@ function formatHumanReadable(num, decimals, unitStr) {
        i = Math.floor(Math.log(num) / Math.log(k));
    return ((num / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i] + unitStr;
 }
+function UpdateStorageTelemetry(paramHdtnConfig, paramStorageTelem) {
+    let timestampMilliseconds = paramStorageTelem.timestampMilliseconds;
+    let deltaTimestampMilliseconds = 0;
+    if(paramHdtnConfig.hasOwnProperty("lastStorageTelemTimestampMilliseconds")) {
+        deltaTimestampMilliseconds = timestampMilliseconds - paramHdtnConfig.lastStorageTelemTimestampMilliseconds;
+    }
+    paramHdtnConfig.lastStorageTelemTimestampMilliseconds = timestampMilliseconds;
+
+    if(!paramHdtnConfig.hasOwnProperty("lastStorageTelemetry")) {
+        paramHdtnConfig["lastStorageTelemetry"] = {//rate calculation subset
+            //disk to storage wire
+            "totalBundlesSentToEgressFromStorageReadFromDisk": 0,
+            "totalBundleBytesSentToEgressFromStorageReadFromDisk": 0,
+            //part of computation for storage to egress wire (summed with above)
+            "totalBundlesSentToEgressFromStorageForwardCutThrough": 0,
+            "totalBundleBytesSentToEgressFromStorageForwardCutThrough": 0,
+            //storage to egress wire (summed with above)
+            "totalBundlesSentToEgressFromStorage": 0,
+            "totalBundleBytesSentToEgressFromStorage": 0,
+            //storage to disk wire
+            "totalBundleWriteOperationsToDisk": 0,
+            "totalBundleByteWriteOperationsToDisk": 0
+        };
+    }
+    let lastT = paramHdtnConfig["lastStorageTelemetry"];
+    let currT = {
+        //disk to storage wire
+        "totalBundlesSentToEgressFromStorageReadFromDisk": paramStorageTelem.totalBundlesSentToEgressFromStorageReadFromDisk,
+        "totalBundleBytesSentToEgressFromStorageReadFromDisk": paramStorageTelem.totalBundleBytesSentToEgressFromStorageReadFromDisk,
+        //part of computation for storage to egress wire (summed with above)
+        "totalBundlesSentToEgressFromStorageForwardCutThrough": paramStorageTelem.totalBundlesSentToEgressFromStorageForwardCutThrough,
+        "totalBundleBytesSentToEgressFromStorageForwardCutThrough": paramStorageTelem.totalBundleBytesSentToEgressFromStorageForwardCutThrough,
+        //storage to egress wire (summed with above)
+        "totalBundlesSentToEgressFromStorage": paramStorageTelem.totalBundlesSentToEgressFromStorageReadFromDisk
+            + paramStorageTelem.totalBundlesSentToEgressFromStorageForwardCutThrough,
+        "totalBundleBytesSentToEgressFromStorage": paramStorageTelem.totalBundleBytesSentToEgressFromStorageReadFromDisk
+            + paramStorageTelem.totalBundleBytesSentToEgressFromStorageForwardCutThrough,
+        //storage to disk wire
+        "totalBundleWriteOperationsToDisk": paramStorageTelem.totalBundleWriteOperationsToDisk,
+        "totalBundleByteWriteOperationsToDisk": paramStorageTelem.totalBundleByteWriteOperationsToDisk
+    };
+    if(deltaTimestampMilliseconds > 1) {
+        paramHdtnConfig["storageToDiskRateBitsPerSec"] = (currT["totalBundleByteWriteOperationsToDisk"] - lastT["totalBundleByteWriteOperationsToDisk"]) * 8000.0 / deltaTimestampMilliseconds;
+        paramHdtnConfig["storageToDiskRateBundlesPerSec"] = (currT["totalBundleWriteOperationsToDisk"] - lastT["totalBundleWriteOperationsToDisk"]) * 1000.0 / deltaTimestampMilliseconds;
+        paramHdtnConfig["diskToStorageRateBitsPerSec"] = (currT["totalBundleBytesSentToEgressFromStorageReadFromDisk"] - lastT["totalBundleBytesSentToEgressFromStorageReadFromDisk"]) * 8000.0 / deltaTimestampMilliseconds;
+        paramHdtnConfig["diskToStorageRateBundlesPerSec"] = (currT["totalBundlesSentToEgressFromStorageReadFromDisk"] - lastT["totalBundlesSentToEgressFromStorageReadFromDisk"]) * 1000.0 / deltaTimestampMilliseconds;
+        paramHdtnConfig["storageToEgressRateBitsPerSec"] = (currT["totalBundleBytesSentToEgressFromStorage"] - lastT["totalBundleBytesSentToEgressFromStorage"]) * 8000.0 / deltaTimestampMilliseconds;
+        paramHdtnConfig["storageToEgressRateBundlesPerSec"] = (currT["totalBundlesSentToEgressFromStorage"] - lastT["totalBundlesSentToEgressFromStorage"]) * 1000.0 / deltaTimestampMilliseconds;
+    }
+    else {
+        paramHdtnConfig["storageToDiskRateBitsPerSec"] = 0;
+        paramHdtnConfig["storageToDiskRateBundlesPerSec"] = 0;
+        paramHdtnConfig["diskToStorageRateBitsPerSec"] = 0;
+        paramHdtnConfig["diskToStorageRateBundlesPerSec"] = 0;
+        paramHdtnConfig["storageToEgressRateBitsPerSec"] = 0;
+        paramHdtnConfig["storageToEgressRateBundlesPerSec"] = 0;
+    }
+    paramHdtnConfig["storageToDiskRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToDiskRateBitsPerSec"], 2, 'bit/s');
+    paramHdtnConfig["storageToDiskRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToDiskRateBundlesPerSec"], 2, 'Bun/s');
+    paramHdtnConfig["diskToStorageRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["diskToStorageRateBitsPerSec"], 2, 'bit/s');
+    paramHdtnConfig["diskToStorageRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["diskToStorageRateBundlesPerSec"], 2, 'Bun/s');
+    paramHdtnConfig["storageToEgressRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToEgressRateBitsPerSec"], 2, 'bit/s');
+    paramHdtnConfig["storageToEgressRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToEgressRateBundlesPerSec"], 2, 'Bun/s');
+
+    paramHdtnConfig["lastStorageTelemetry"] = currT;
+}
+
 function UpdateActiveInductConnections(paramHdtnConfig, paramActiveInductConnections) {
     let timestampMilliseconds = paramActiveInductConnections.timestampMilliseconds;
     let deltaTimestampMilliseconds = 0;

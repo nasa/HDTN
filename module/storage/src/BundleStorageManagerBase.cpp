@@ -124,8 +124,11 @@ BundleStorageManagerBase::~BundleStorageManagerBase() {
 }
 
 
-const MemoryManagerTreeArray & BundleStorageManagerBase::GetMemoryManagerConstRef() {
+const MemoryManagerTreeArray& BundleStorageManagerBase::GetMemoryManagerConstRef() const {
     return m_memoryManager;
+}
+const BundleStorageCatalog& BundleStorageManagerBase::GetBundleStorageCatalogConstRef() const {
+    return m_bundleStorageCatalog;
 }
 uint64_t BundleStorageManagerBase::GetFreeSpaceBytes() const noexcept {
     return (M_MAX_SEGMENTS - m_memoryManager.GetNumAllocatedSegments_NotThreadSafe()) * SEGMENT_SIZE;

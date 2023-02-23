@@ -243,7 +243,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         LOG_INFO(subprocess) << "Storage: stopping..";
         storagePtr->Stop();
         m_totalBundlesErasedFromStorage = storagePtr->GetCurrentNumberOfBundlesDeletedFromStorage();
-        m_totalBundlesSentToEgressFromStorage = storagePtr->m_totalBundlesSentToEgressFromStorageReadFromDisk;
+        m_totalBundlesSentToEgressFromStorage = storagePtr->m_telemRef.m_totalBundlesSentToEgressFromStorageReadFromDisk;
         LOG_INFO(subprocess) << "Storage: deleting..";
         storagePtr.reset();
 

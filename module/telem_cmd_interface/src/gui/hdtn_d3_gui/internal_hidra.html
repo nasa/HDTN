@@ -683,6 +683,23 @@
                 UpdateAllOutductCapabilities(hdtnConfig, objJson);
                 HandleReceivedNewHdtnConfig(hdtnConfig);
             }
+            else if("usedSpaceBytes" in objJson) {
+                UpdateStorageTelemetry(hdtnConfig, objJson);
+                myWireStorageToDisk.SetSpeeds(hdtnConfig["storageToDiskRateBitsPerSec"],
+                    hdtnConfig["storageToDiskRateBitsPerSecHumanReadable"],
+                    hdtnConfig["storageToDiskRateBundlesPerSecHumanReadable"]);
+                myWireDiskToStorage.SetSpeeds(hdtnConfig["diskToStorageRateBitsPerSec"],
+                    hdtnConfig["diskToStorageRateBitsPerSecHumanReadable"],
+                    hdtnConfig["diskToStorageRateBundlesPerSecHumanReadable"]);
+                myWireStorageToEgress.SetSpeeds(hdtnConfig["storageToEgressRateBitsPerSec"],
+                    hdtnConfig["storageToEgressRateBitsPerSecHumanReadable"],
+                    hdtnConfig["storageToEgressRateBundlesPerSecHumanReadable"]);
+                myDisk.SetDiskUsage( objJson.usedSpaceBytes / (objJson.usedSpaceBytes + objJson.freeSpaceBytes) * 100,
+                    ((hdtnConfig["storageToDiskRateBitsPerSec"] > 1) ? 50 : 0)
+                    + ((hdtnConfig["diskToStorageRateBitsPerSec"] > 1) ? 50 : 0)
+                );
+                UpdateLite();
+            }
             else if("speedBundlesIn" in objJson) {
                 ReceivedNewTelemetryIngress(objJson);
             }

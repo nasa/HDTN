@@ -25,6 +25,7 @@
 #include <memory>
 #include "HdtnConfig.h"
 #include "HdtnDistributedConfig.h"
+#include "TelemetryDefinitions.h"
 #include <boost/core/noncopyable.hpp>
 #include "storage_lib_export.h"
 
@@ -50,16 +51,7 @@ private:
 
 
 public:
-    std::size_t& m_totalBundlesErasedFromStorageNoCustodyTransfer;
-    std::size_t& m_totalBundlesRewrittenToStorageFromFailedEgressSend;
-    std::size_t& m_totalBundlesErasedFromStorageWithCustodyTransfer;
-    std::size_t& m_totalBundlesSentToEgressFromStorageReadFromDisk;
-    std::size_t& m_totalBundlesSentToEgressFromStorageForwardCutThrough;
-    uint64_t& m_numRfc5050CustodyTransfers;
-    uint64_t& m_numAcsCustodyTransfers;
-    uint64_t& m_numAcsPacketsReceived;
-
-
+    StorageTelemetry_t& m_telemRef;
 };
 
 

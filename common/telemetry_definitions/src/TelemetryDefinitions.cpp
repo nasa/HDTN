@@ -195,41 +195,75 @@ boost::property_tree::ptree EgressTelemetry_t::GetNewPropertyTree() const {
 //StorageTelemetry_t
 /////////////////////////////////////
 StorageTelemetry_t::StorageTelemetry_t() :
-    Telemetry_t(TelemetryType::storage),
-    totalBundlesErasedFromStorage(0),
-    totalBundlesSentToEgressFromStorage(0),
-    usedSpaceBytes(0),
-    freeSpaceBytes(0)
-{
-    Telemetry_t::m_fieldsToSerialize.insert(m_fieldsToSerialize.end(), {
-        &totalBundlesErasedFromStorage,
-        &totalBundlesSentToEgressFromStorage,
-        &usedSpaceBytes,
-        &freeSpaceBytes
-    });
-}
-
+    m_timestampMilliseconds(0),
+    //from ZmqStorageInterface
+    m_totalBundlesErasedFromStorageNoCustodyTransfer(0),
+    m_totalBundlesErasedFromStorageWithCustodyTransfer(0),
+    m_totalBundlesRewrittenToStorageFromFailedEgressSend(0),
+    m_totalBundlesSentToEgressFromStorageReadFromDisk(0),
+    m_totalBundleBytesSentToEgressFromStorageReadFromDisk(0),
+    m_totalBundlesSentToEgressFromStorageForwardCutThrough(0),
+    m_totalBundleBytesSentToEgressFromStorageForwardCutThrough(0),
+    m_numRfc5050CustodyTransfers(0),
+    m_numAcsCustodyTransfers(0),
+    m_numAcsPacketsReceived(0),
+    //from BundleStorageCatalog
+    m_numBundlesOnDisk(0),
+    m_numBundleBytesOnDisk(0),
+    m_totalBundleWriteOperationsToDisk(0),
+    m_totalBundleByteWriteOperationsToDisk(0),
+    m_totalBundleEraseOperationsFromDisk(0),
+    m_totalBundleByteEraseOperationsFromDisk(0),
+    //from BundleStorageManagerBase's MemoryManager
+    m_usedSpaceBytes(0),
+    m_freeSpaceBytes(0) {}
 StorageTelemetry_t::~StorageTelemetry_t() {};
 bool StorageTelemetry_t::operator==(const StorageTelemetry_t& o) const {
-    return Telemetry_t::operator==(o)
-        && (totalBundlesErasedFromStorage == o.totalBundlesErasedFromStorage)
-        && (totalBundlesSentToEgressFromStorage == o.totalBundlesSentToEgressFromStorage)
-        && (usedSpaceBytes == o.usedSpaceBytes)
-        && (freeSpaceBytes == o.freeSpaceBytes);
+    return (m_timestampMilliseconds == o.m_timestampMilliseconds)
+        &&(m_totalBundlesErasedFromStorageNoCustodyTransfer == o.m_totalBundlesErasedFromStorageNoCustodyTransfer)
+        && (m_totalBundlesErasedFromStorageWithCustodyTransfer == o.m_totalBundlesErasedFromStorageWithCustodyTransfer)
+        && (m_totalBundlesRewrittenToStorageFromFailedEgressSend == o.m_totalBundlesRewrittenToStorageFromFailedEgressSend)
+        && (m_totalBundlesSentToEgressFromStorageReadFromDisk == o.m_totalBundlesSentToEgressFromStorageReadFromDisk)
+        && (m_totalBundleBytesSentToEgressFromStorageReadFromDisk == o.m_totalBundleBytesSentToEgressFromStorageReadFromDisk)
+        && (m_totalBundlesSentToEgressFromStorageForwardCutThrough == o.m_totalBundlesSentToEgressFromStorageForwardCutThrough)
+        && (m_totalBundleBytesSentToEgressFromStorageForwardCutThrough == o.m_totalBundleBytesSentToEgressFromStorageForwardCutThrough)
+        && (m_numRfc5050CustodyTransfers == o.m_numRfc5050CustodyTransfers)
+        && (m_numAcsCustodyTransfers == o.m_numAcsCustodyTransfers)
+        && (m_numAcsPacketsReceived == o.m_numAcsPacketsReceived)
+        && (m_numBundlesOnDisk == o.m_numBundlesOnDisk)
+        && (m_numBundleBytesOnDisk == o.m_numBundleBytesOnDisk)
+        && (m_totalBundleWriteOperationsToDisk == o.m_totalBundleWriteOperationsToDisk)
+        && (m_totalBundleByteWriteOperationsToDisk == o.m_totalBundleByteWriteOperationsToDisk)
+        && (m_totalBundleEraseOperationsFromDisk == o.m_totalBundleEraseOperationsFromDisk)
+        && (m_totalBundleByteEraseOperationsFromDisk == o.m_totalBundleByteEraseOperationsFromDisk)
+        && (m_usedSpaceBytes == o.m_usedSpaceBytes)
+        && (m_freeSpaceBytes == o.m_freeSpaceBytes);
 }
 bool StorageTelemetry_t::operator!=(const StorageTelemetry_t& o) const {
     return !(*this == o);
 }
 
 bool StorageTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
-    if (!Telemetry_t::SetValuesFromPropertyTree(pt)) {
-        return false;
-    }
     try {
-        totalBundlesErasedFromStorage = pt.get<uint64_t>("totalBundlesErasedFromStorage");
-        totalBundlesSentToEgressFromStorage = pt.get<uint64_t>("totalBundlesSentToEgressFromStorage");
-        usedSpaceBytes = pt.get<uint64_t>("usedSpaceBytes");
-        freeSpaceBytes = pt.get<uint64_t>("freeSpaceBytes");
+        m_timestampMilliseconds = pt.get<uint64_t>("timestampMilliseconds");
+        m_totalBundlesErasedFromStorageNoCustodyTransfer = pt.get<uint64_t>("totalBundlesErasedFromStorageNoCustodyTransfer");
+        m_totalBundlesErasedFromStorageWithCustodyTransfer = pt.get<uint64_t>("totalBundlesErasedFromStorageWithCustodyTransfer");
+        m_totalBundlesRewrittenToStorageFromFailedEgressSend = pt.get<uint64_t>("totalBundlesRewrittenToStorageFromFailedEgressSend");
+        m_totalBundlesSentToEgressFromStorageReadFromDisk = pt.get<uint64_t>("totalBundlesSentToEgressFromStorageReadFromDisk");
+        m_totalBundleBytesSentToEgressFromStorageReadFromDisk = pt.get<uint64_t>("totalBundleBytesSentToEgressFromStorageReadFromDisk");
+        m_totalBundlesSentToEgressFromStorageForwardCutThrough = pt.get<uint64_t>("totalBundlesSentToEgressFromStorageForwardCutThrough");
+        m_totalBundleBytesSentToEgressFromStorageForwardCutThrough = pt.get<uint64_t>("totalBundleBytesSentToEgressFromStorageForwardCutThrough");
+        m_numRfc5050CustodyTransfers = pt.get<uint64_t>("numRfc5050CustodyTransfers");
+        m_numAcsCustodyTransfers = pt.get<uint64_t>("numAcsCustodyTransfers");
+        m_numAcsPacketsReceived = pt.get<uint64_t>("numAcsPacketsReceived");
+        m_numBundlesOnDisk = pt.get<uint64_t>("numBundlesOnDisk");
+        m_numBundleBytesOnDisk = pt.get<uint64_t>("numBundleBytesOnDisk");
+        m_totalBundleWriteOperationsToDisk = pt.get<uint64_t>("totalBundleWriteOperationsToDisk");
+        m_totalBundleByteWriteOperationsToDisk = pt.get<uint64_t>("totalBundleByteWriteOperationsToDisk");
+        m_totalBundleEraseOperationsFromDisk = pt.get<uint64_t>("totalBundleEraseOperationsFromDisk");
+        m_totalBundleByteEraseOperationsFromDisk = pt.get<uint64_t>("totalBundleByteEraseOperationsFromDisk");
+        m_usedSpaceBytes = pt.get<uint64_t>("usedSpaceBytes");
+        m_freeSpaceBytes = pt.get<uint64_t>("freeSpaceBytes");
     }
     catch (const boost::property_tree::ptree_error& e) {
         LOG_ERROR(subprocess) << "parsing JSON StorageTelemetry_t: " << e.what();
@@ -239,11 +273,26 @@ bool StorageTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::p
 }
 
 boost::property_tree::ptree StorageTelemetry_t::GetNewPropertyTree() const {
-    boost::property_tree::ptree pt = Telemetry_t::GetNewPropertyTree();
-    pt.put("totalBundlesErasedFromStorage", totalBundlesErasedFromStorage);
-    pt.put("totalBundlesSentToEgressFromStorage", totalBundlesSentToEgressFromStorage);
-    pt.put("usedSpaceBytes", usedSpaceBytes);
-    pt.put("freeSpaceBytes", freeSpaceBytes);
+    boost::property_tree::ptree pt;
+    pt.put("timestampMilliseconds", m_timestampMilliseconds);
+    pt.put("totalBundlesErasedFromStorageNoCustodyTransfer", m_totalBundlesErasedFromStorageNoCustodyTransfer);
+    pt.put("totalBundlesErasedFromStorageWithCustodyTransfer", m_totalBundlesErasedFromStorageWithCustodyTransfer);
+    pt.put("totalBundlesRewrittenToStorageFromFailedEgressSend", m_totalBundlesRewrittenToStorageFromFailedEgressSend);
+    pt.put("totalBundlesSentToEgressFromStorageReadFromDisk", m_totalBundlesSentToEgressFromStorageReadFromDisk);
+    pt.put("totalBundleBytesSentToEgressFromStorageReadFromDisk", m_totalBundleBytesSentToEgressFromStorageReadFromDisk);
+    pt.put("totalBundlesSentToEgressFromStorageForwardCutThrough", m_totalBundlesSentToEgressFromStorageForwardCutThrough);
+    pt.put("totalBundleBytesSentToEgressFromStorageForwardCutThrough", m_totalBundleBytesSentToEgressFromStorageForwardCutThrough);
+    pt.put("numRfc5050CustodyTransfers", m_numRfc5050CustodyTransfers);
+    pt.put("numAcsCustodyTransfers", m_numAcsCustodyTransfers);
+    pt.put("numAcsPacketsReceived", m_numAcsPacketsReceived);
+    pt.put("numBundlesOnDisk", m_numBundlesOnDisk);
+    pt.put("numBundleBytesOnDisk", m_numBundleBytesOnDisk);
+    pt.put("totalBundleWriteOperationsToDisk", m_totalBundleWriteOperationsToDisk);
+    pt.put("totalBundleByteWriteOperationsToDisk", m_totalBundleByteWriteOperationsToDisk);
+    pt.put("totalBundleEraseOperationsFromDisk", m_totalBundleEraseOperationsFromDisk);
+    pt.put("totalBundleByteEraseOperationsFromDisk", m_totalBundleByteEraseOperationsFromDisk);
+    pt.put("usedSpaceBytes", m_usedSpaceBytes);
+    pt.put("freeSpaceBytes", m_freeSpaceBytes);
     return pt;
 }
 
@@ -382,9 +431,6 @@ std::vector<std::unique_ptr<Telemetry_t> > TelemetryFactory::DeserializeFromLitt
         switch (type) {
             case TelemetryType::egress:
                 telem = boost::make_unique<EgressTelemetry_t>();
-                break;
-            case TelemetryType::storage:
-                telem = boost::make_unique<StorageTelemetry_t>();
                 break;
             case TelemetryType::storageExpiringBeforeThreshold:
                 telem = boost::make_unique<StorageExpiringBeforeThresholdTelemetry_t>();

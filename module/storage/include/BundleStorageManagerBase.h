@@ -109,7 +109,8 @@ public:
 
     STORAGE_LIB_EXPORT bool RestoreFromDisk(uint64_t * totalBundlesRestored, uint64_t * totalBytesRestored, uint64_t * totalSegmentsRestored);
 
-    STORAGE_LIB_EXPORT const MemoryManagerTreeArray & GetMemoryManagerConstRef();
+    STORAGE_LIB_EXPORT const MemoryManagerTreeArray& GetMemoryManagerConstRef() const;
+    STORAGE_LIB_EXPORT const BundleStorageCatalog& GetBundleStorageCatalogConstRef() const;
 
     STORAGE_LIB_EXPORT uint64_t GetFreeSpaceBytes() const noexcept;
     STORAGE_LIB_EXPORT uint64_t GetUsedSpaceBytes() const noexcept;
