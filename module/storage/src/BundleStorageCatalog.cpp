@@ -17,7 +17,9 @@
 #include <boost/make_unique.hpp>
 
 
-BundleStorageCatalog::BundleStorageCatalog() {}
+BundleStorageCatalog::BundleStorageCatalog() : 
+    m_numBundlesInCatalog(0),
+    m_numBundleBytesInCatalog(0) {}
 
 
 
@@ -102,8 +104,13 @@ bool BundleStorageCatalog::CatalogIncomingBundleForStore(catalog_entry_t & catal
     if (!AddEntryToAwaitingSend(catalogEntryToTake, custodyId, order)) {
         return false;
     }
+    const uint64_t bundleSizeBytes = catalogEntryToTake.bundleSizeBytes;
     if (!m_custodyIdToCatalogEntryHashmap.Insert(custodyId, std::move(catalogEntryToTake))) {
         return false;
+    }
+    else {
+        ++m_numBundlesInCatalog;
+        m_numBundleBytesInCatalog += bundleSizeBytes;
     }
     
     return true;
@@ -258,6 +265,8 @@ std::pair<bool, uint16_t> BundleStorageCatalog::Remove(const uint64_t custodyId,
         error = true;
     }
     else {
+        --m_numBundlesInCatalog;
+        m_numBundleBytesInCatalog -= entry.bundleSizeBytes;
         ++numRemovals;
     }
     if ((!error) && alsoNeedsRemovedFromAwaitingSend) {
@@ -335,3 +344,11 @@ bool BundleStorageCatalog::GetStorageExpiringBeforeThresholdTelemetry(StorageExp
     
     return true;
 }
+
+uint64_t BundleStorageCatalog::GetNumBundlesInCatalog() const noexcept {
+    return m_numBundlesInCatalog;
+}
+uint64_t BundleStorageCatalog::GetNumBundleBytesInCatalog() const noexcept {
+    return m_numBundleBytesInCatalog;
+}
+

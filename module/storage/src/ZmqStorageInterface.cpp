@@ -102,7 +102,7 @@ struct ZmqStorageInterface::Impl : private boost::noncopyable {
 private:
     bool WriteAcsBundle(const Bpv6CbhePrimaryBlock& primary, const std::vector<uint8_t>& acsBundleSerialized);
     bool Write(zmq::message_t* message,
-        cbhe_eid_t& finalDestEidReturned, ZmqStorageInterface::Impl* forStats, bool dontWriteIfCustodyFlagSet,
+        cbhe_eid_t& finalDestEidReturned, bool dontWriteIfCustodyFlagSet,
         bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord);
     bool WriteBundle(const PrimaryBlock& bundlePrimaryBlock,
         const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize);
@@ -398,7 +398,7 @@ bool ZmqStorageInterface::Impl::WriteAcsBundle(const Bpv6CbhePrimaryBlock & prim
 }
 
 bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
-    cbhe_eid_t & finalDestEidReturned, ZmqStorageInterface::Impl * forStats, bool dontWriteIfCustodyFlagSet,
+    cbhe_eid_t & finalDestEidReturned, bool dontWriteIfCustodyFlagSet,
     bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord)
 {
     
@@ -427,7 +427,7 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
 
             //admin records pertaining to this hdtn node do not get written to disk.. they signal a deletion from disk
             static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::ADMINRECORD;
-            if (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEidReturned == forStats->M_HDTN_EID_CUSTODY)) {
+            if (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEidReturned == M_HDTN_EID_CUSTODY)) {
                 std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
                 bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
                 if (blocks.size() != 1) {
@@ -442,7 +442,7 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
                 const BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE adminRecordType = adminRecordBlockPtr->m_adminRecordTypeCode;
 
                 if (adminRecordType == BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::AGGREGATE_CUSTODY_SIGNAL) {
-                    ++forStats->m_numAcsPacketsReceived;
+                    ++m_numAcsPacketsReceived;
                     //check acs
                     Bpv6AdministrativeRecordContentAggregateCustodySignal* acsPtr = dynamic_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
                     if (acsPtr == NULL) {
@@ -457,7 +457,7 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
 
                     //todo figure out what to do with failed custody from next hop
                     for (FragmentSet::data_fragment_set_t::const_iterator it = acs.m_custodyIdFills.cbegin(); it != acs.m_custodyIdFills.cend(); ++it) {
-                        forStats->m_numAcsCustodyTransfers += (it->endIndex + 1) - it->beginIndex;
+                        m_numAcsCustodyTransfers += (it->endIndex + 1) - it->beginIndex;
                         m_custodyIdAllocatorPtr->FreeCustodyIdRange(it->beginIndex, it->endIndex);
                         for (uint64_t currentCustodyId = it->beginIndex; currentCustodyId <= it->endIndex; ++currentCustodyId) {
                             catalog_entry_t* catalogEntryPtr = m_bsmPtr->GetCatalogEntryPtrFromCustodyId(currentCustodyId);
@@ -472,7 +472,7 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
                                 LOG_ERROR(subprocess) << "error freeing bundle identified by acs custody signal from disk";
                                 continue;
                             }
-                            ++forStats->m_totalBundlesErasedFromStorageWithCustodyTransfer;
+                            ++m_totalBundlesErasedFromStorageWithCustodyTransfer;
                         }
                     }
                 }
@@ -529,8 +529,8 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
                         LOG_ERROR(subprocess) << "error freeing bundle identified by rfc5050 custody signal from disk";
                         return false;
                     }
-                    ++forStats->m_totalBundlesErasedFromStorageWithCustodyTransfer;
-                    ++forStats->m_numRfc5050CustodyTransfers;
+                    ++m_totalBundlesErasedFromStorageWithCustodyTransfer;
+                    ++m_numRfc5050CustodyTransfers;
                 }
                 else {
                     LOG_ERROR(subprocess) << "error unknown admin record type";
@@ -764,7 +764,7 @@ void ZmqStorageInterface::Impl::SetLinkDown(OutductInfo_t & info) {
             while (!info.cutThroughQueue.empty()) {
                 CutThroughQueueData& qd = info.cutThroughQueue.front();
                 cbhe_eid_t finalDestEidReturnedFromWrite;
-                Write(&qd.bundleToEgress, finalDestEidReturnedFromWrite, this, true, true); //last true because if cut through then definitely no custody or not admin record
+                Write(&qd.bundleToEgress, finalDestEidReturnedFromWrite, true, true); //last true because if cut through then definitely no custody or not admin record
                 hdtn::StorageAckHdr* storageAckHdr = (hdtn::StorageAckHdr*)qd.ackToIngress.data();
                 storageAckHdr->error = 1;
                 if (!m_zmqPushSock_connectingStorageToBoundIngressPtr->send(std::move(qd.ackToIngress), zmq::send_flags::dontwait)) {
@@ -971,7 +971,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     }
                     else {
                         cbhe_eid_t finalDestEidReturnedFromWrite;
-                        Write(&zmqBundleDataReceived, finalDestEidReturnedFromWrite, this, true, true); //last true because if cut through then definitely no custody or not admin record
+                        Write(&zmqBundleDataReceived, finalDestEidReturnedFromWrite, true, true); //last true because if cut through then definitely no custody or not admin record
                         ++m_totalBundlesRewrittenToStorageFromFailedEgressSend;
                         finalDestEidReturnedFromWrite.serviceId = 0;
                         if (egressFullyInitialized) {
@@ -1156,7 +1156,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
 
                             cbhe_eid_t finalDestEidReturnedFromWrite;
                             const bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord = (toStorageHeader.isCustodyOrAdminRecord == 0);
-                            Write(&zmqBundleDataReceived, finalDestEidReturnedFromWrite, this, false, isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord);
+                            Write(&zmqBundleDataReceived, finalDestEidReturnedFromWrite, false, isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord);
 
                             //storageAckHdr->finalDestEid = finalDestEidReturnedFromWrite; //no longer needed as ingress decodes that
 
