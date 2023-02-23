@@ -15,7 +15,7 @@ function ObjToTooltipText(obj) {
     return text;
 }
 function UpdateStorageTelemetry(paramHdtnConfig, paramStorageTelem) {
-    paramHdtnConfig.storageObj.toolTipText = ObjToTooltipText(paramStorageTelem);
+    paramHdtnConfig.storageD3Obj.toolTipText = ObjToTooltipText(paramStorageTelem);
     let timestampMilliseconds = paramStorageTelem.timestampMilliseconds;
     let deltaTimestampMilliseconds = 0;
     if(paramHdtnConfig.hasOwnProperty("lastStorageTelemTimestampMilliseconds")) {
@@ -287,18 +287,20 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
 
 
     var storageAbsPosition = PARAM_ABS_POSITION_MAP["storage"];
-    var storageObj = {};
-    storageObj.parent = null;
-    //storageObj.d3ChildArray = []; //keep undefined
-    storageObj.id = "storage";
-    storageObj.name = "Storage";
-    storageObj.absX = storageAbsPosition.X;
-    storageObj.absY = storageAbsPosition.Y;
-    storageObj.width = storageAbsPosition.WIDTH;
-    storageObj.height = storageAbsPosition.HEIGHT;
-    var storageD3Array = [storageObj];
-    storageObj.topHeaderHeight = PARENT_TOP_HEADER_PX;
-    paramHdtnConfig.storageObj = storageObj;
+    if(!paramHdtnConfig.hasOwnProperty("storageD3Obj")) {
+        paramHdtnConfig.storageD3Obj = {
+            "parent": null,
+            //d3ChildArray = []; //keep undefined
+            "id": "storage",
+            "name": "Storage",
+            "absX": storageAbsPosition.X,
+            "absY": storageAbsPosition.Y,
+            "width": storageAbsPosition.WIDTH,
+            "height": storageAbsPosition.HEIGHT,
+            "topHeaderHeight": PARENT_TOP_HEADER_PX
+        };
+    }
+    var storageD3Array = [paramHdtnConfig.storageD3Obj];
 
 
     var ingressAbsPosition = PARAM_ABS_POSITION_MAP["ingress"];
