@@ -7,7 +7,15 @@ function formatHumanReadable(num, decimals, unitStr) {
        i = Math.floor(Math.log(num) / Math.log(k));
    return ((num / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i] + unitStr;
 }
+function ObjToTooltipText(obj) {
+    const json = JSON.stringify(obj);
+    const unbracketed = json.replace(/[{}]/g, '');
+    const unquoted = unbracketed.replace(/"([^"]+)":/g, '$1:'); //https://stackoverflow.com/questions/11233498/json-stringify-without-quotes-on-properties
+    const text = unquoted.replace(/[,]/g, '<br />');
+    return text;
+}
 function UpdateStorageTelemetry(paramHdtnConfig, paramStorageTelem) {
+    paramHdtnConfig.storageObj.toolTipText = ObjToTooltipText(paramStorageTelem);
     let timestampMilliseconds = paramStorageTelem.timestampMilliseconds;
     let deltaTimestampMilliseconds = 0;
     if(paramHdtnConfig.hasOwnProperty("lastStorageTelemTimestampMilliseconds")) {
@@ -134,6 +142,7 @@ function UpdateActiveInductConnections(paramHdtnConfig, paramActiveInductConnect
                 };
             }
             let d3Obj = mapConnectionNameToD3Obj[connTelem.connectionName];
+            d3Obj.toolTipText = ObjToTooltipText(connTelem);
             d3Obj["lastTotalBundlesReceived"] = d3Obj["totalBundlesReceived"];
             d3Obj["lastTotalBundleBytesReceived"] = d3Obj["totalBundleBytesReceived"];
             d3Obj["totalBundlesReceived"] = connTelem.totalBundlesReceived;
@@ -191,6 +200,7 @@ function UpdateAllOutductTelemetry(paramHdtnConfig, paramAot) {
             console.log("invalid AOT");
             return;
         }
+        od.toolTipText = ObjToTooltipText(outductTelem);
         if(!od.hasOwnProperty("outductPreviousTelem")) {
             od["outductPreviousTelem"] = outductTelem;
             od["outductTelem"] = outductTelem;
@@ -288,6 +298,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
     storageObj.height = storageAbsPosition.HEIGHT;
     var storageD3Array = [storageObj];
     storageObj.topHeaderHeight = PARENT_TOP_HEADER_PX;
+    paramHdtnConfig.storageObj = storageObj;
 
 
     var ingressAbsPosition = PARAM_ABS_POSITION_MAP["ingress"];

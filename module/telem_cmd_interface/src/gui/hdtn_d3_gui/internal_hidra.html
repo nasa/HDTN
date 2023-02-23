@@ -106,7 +106,6 @@
     <input type="checkbox" id="id_showBitRate" checked /><Label>Show Bit Rate</Label>
     <input type="checkbox" id="id_showBundleRate" checked /><Label>Show Bundle Rate</Label>
     <div id="mygui"></div>
-    <div class="tooltip"></div>
 
 
     <script src="d3.v5.min.js"></script>
@@ -143,62 +142,6 @@
         function onThemeChanged(newTheme) {
             SwitchStyle(newTheme);
         }
-
-         // Define the div for the tooltip
-        var divTooltip = d3.select(".tooltip")
-            .style("opacity", 0);
-
-        var globalToolTipObject = null;
-        function UpdateActiveToolTip() {
-            if(globalToolTipObject != null) {
-                UpdateToolTipText(globalToolTipObject, false);
-            }
-        }
-        function UpdateToolTipText(obj, isMouseEvent) {
-            globalToolTipObject = obj;
-            var dataObj = {};
-            if(obj === "Storage" && currentStorageObj != null) {
-                dataObj = currentStorageObj;
-            }
-            else if(obj === "Ingress" && currentIngressObj != null) {
-                dataObj = currentIngressObj;
-            }
-            else if(obj === "Egress" && currentEgressObj != null) {
-                dataObj = currentEgressObj;
-            }
-
-            var textStr = "";
-            for(var propName in dataObj) {
-                textStr += "<br/>" + propName + ": " + dataObj[propName];
-            }
-
-            divTooltip.html(textStr);
-            if(isMouseEvent) {
-                divTooltip.style("left", (d3.event.pageX) + "px");
-                divTooltip.style("top", (d3.event.pageY - 310) + "px");
-            }
-
-        }
-        function MouseEventToolTip(d) {
-            if(d3.event.type === "mouseover") {
-                divTooltip.transition()
-                    .duration(200)
-                    .style("opacity", .9);
-                UpdateToolTipText(d, true);
-            }
-            else if(d3.event.type === "mousemove") {
-                UpdateToolTipText(d, true);
-            }
-            else if(d3.event.type === "mouseout") {
-                divTooltip.transition()
-                    .duration(200)
-                    .style("opacity", 0);
-            }
-        }
-
-
-
-
 
 
 
@@ -600,7 +543,7 @@
             //batteries.UpdateSoc(D3_SHAPE_ATTRIBUTES.batteryMap.d3Array);
             wiresComponent.UpdateLite();
 
-            //toolTipObj.Update();
+            toolTipObj.Update();
             DoTransitionEnd();
         }
 

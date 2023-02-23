@@ -16,19 +16,9 @@ function ToolTip() {
 
     function UpdateToolTipText(obj, isMouseEvent) {
         globalToolTipObject = obj;
-        var textStr = obj.id;
-        for(var propName in obj) {
-            if(["currentIn", "currentOut", "voltageIn", "voltageOut", "soc", "nominalCapacityAmpHours", "state"].indexOf(propName) != -1) {
-                var numToStr = Number.parseFloat(obj[propName]).toFixed(1);
-                textStr += "<br/>" + propName + ": " + numToStr;
-            }
-        }
-        if(obj.pathName in d3FaultsMapLocal) {
-            textStr += "<br/>Faults:";
-            var faults = d3FaultsMapLocal[obj.pathName].faultTypes;
-            for(var i=0; i< faults.length; ++i) {
-                textStr += "<br/> " + faults[i];
-            }
+        var textStr = "";
+        if(obj.hasOwnProperty("toolTipText")) {
+            textStr = obj.toolTipText;
         }
         divTooltip.html(textStr);
         if(isMouseEvent) {
