@@ -138,57 +138,7 @@ boost::property_tree::ptree Telemetry_t::GetNewPropertyTree() const {
     return pt;
 }
 
-/////////////////////////////////////
-//IngressTelemetry_t
-/////////////////////////////////////
-IngressTelemetry_t::IngressTelemetry_t() :
-    Telemetry_t(TelemetryType::ingress),
-    totalDataBytes(0),
-    bundleCountEgress(0),
-    bundleCountStorage(0)
-{
-    Telemetry_t::m_fieldsToSerialize.insert(m_fieldsToSerialize.end(), {
-        &totalDataBytes,
-        &bundleCountEgress,
-        &bundleCountStorage
-    });
-}
 
-IngressTelemetry_t::~IngressTelemetry_t() {};
-
-bool IngressTelemetry_t::operator==(const IngressTelemetry_t& o) const {
-    return Telemetry_t::operator==(o)
-        && (totalDataBytes == o.totalDataBytes)
-        && (bundleCountEgress == o.bundleCountEgress)
-        && (bundleCountStorage == o.bundleCountStorage);
-}
-bool IngressTelemetry_t::operator!=(const IngressTelemetry_t& o) const {
-    return !(*this == o);
-}
-
-bool IngressTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
-    if (!Telemetry_t::SetValuesFromPropertyTree(pt)) {
-        return false;
-    }
-    try {
-        totalDataBytes = pt.get<uint64_t>("totalDataBytes");
-        bundleCountEgress = pt.get<uint64_t>("bundleCountEgress");
-        bundleCountStorage = pt.get<uint64_t>("bundleCountStorage");
-    }
-    catch (const boost::property_tree::ptree_error& e) {
-        LOG_ERROR(subprocess) << "parsing JSON IngressTelemetry_t: " << e.what();
-        return false;
-    }
-    return true;
-}
-
-boost::property_tree::ptree IngressTelemetry_t::GetNewPropertyTree() const {
-    boost::property_tree::ptree pt = Telemetry_t::GetNewPropertyTree();
-    pt.put("totalDataBytes", totalDataBytes);
-    pt.put("bundleCountEgress", bundleCountEgress);
-    pt.put("bundleCountStorage", bundleCountStorage);
-    return pt;
-}
 
 /////////////////////////////////////
 //EgressTelemetry_t
@@ -430,9 +380,6 @@ std::vector<std::unique_ptr<Telemetry_t> > TelemetryFactory::DeserializeFromLitt
         // Attempt to deserialize
         std::unique_ptr<Telemetry_t> telem;
         switch (type) {
-            case TelemetryType::ingress:
-                telem = boost::make_unique<IngressTelemetry_t>();
-                break;
             case TelemetryType::egress:
                 telem = boost::make_unique<EgressTelemetry_t>();
                 break;
@@ -877,9 +824,19 @@ boost::property_tree::ptree InductTelemetry_t::GetNewPropertyTree() const {
 }
 
 
-AllInductTelemetry_t::AllInductTelemetry_t() : m_timestampMilliseconds(0) {}
+AllInductTelemetry_t::AllInductTelemetry_t() : 
+    m_timestampMilliseconds(0),
+    m_bundleCountEgress(0),
+    m_bundleCountStorage(0),
+    m_bundleByteCountEgress(0),
+    m_bundleByteCountStorage(0) {}
 bool AllInductTelemetry_t::operator==(const AllInductTelemetry_t& o) const {
-    return (m_listAllInducts == o.m_listAllInducts);
+    return (m_listAllInducts == o.m_listAllInducts)
+        && (m_timestampMilliseconds == o.m_timestampMilliseconds)
+        && (m_bundleCountEgress == o.m_bundleCountEgress)
+        && (m_bundleCountStorage == o.m_bundleCountStorage)
+        && (m_bundleByteCountEgress == o.m_bundleByteCountEgress)
+        && (m_bundleByteCountStorage == o.m_bundleByteCountStorage);
 }
 bool AllInductTelemetry_t::operator!=(const AllInductTelemetry_t& o) const {
     return !(*this == o);
@@ -887,6 +844,10 @@ bool AllInductTelemetry_t::operator!=(const AllInductTelemetry_t& o) const {
 bool AllInductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
     try {
         m_timestampMilliseconds = pt.get<uint64_t>("timestampMilliseconds");
+        m_bundleCountEgress = pt.get<uint64_t>("bundleCountEgress");
+        m_bundleCountStorage = pt.get<uint64_t>("bundleCountStorage");
+        m_bundleByteCountEgress = pt.get<uint64_t>("bundleByteCountEgress");
+        m_bundleByteCountStorage = pt.get<uint64_t>("bundleByteCountStorage");
         //for non-throw versions of get_child which return a reference to the second parameter
         static const boost::property_tree::ptree EMPTY_PTREE;
         const boost::property_tree::ptree& allInductsPt = pt.get_child("allInducts", EMPTY_PTREE); //non-throw version
@@ -905,6 +866,10 @@ bool AllInductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree:
 boost::property_tree::ptree AllInductTelemetry_t::GetNewPropertyTree() const {
     boost::property_tree::ptree pt;
     pt.put("timestampMilliseconds", m_timestampMilliseconds);
+    pt.put("bundleCountEgress", m_bundleCountEgress);
+    pt.put("bundleCountStorage", m_bundleCountStorage);
+    pt.put("bundleByteCountEgress", m_bundleByteCountEgress);
+    pt.put("bundleByteCountStorage", m_bundleByteCountStorage);
     boost::property_tree::ptree& allInductsPt = pt.put_child("allInducts",
         m_listAllInducts.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
     for (std::list<InductTelemetry_t>::const_iterator it = m_listAllInducts.cbegin(); it != m_listAllInducts.cend(); ++it) {

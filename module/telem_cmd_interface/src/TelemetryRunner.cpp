@@ -240,8 +240,6 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
 
             if (poller.HasNewMessage(*ingressConnection)) {
                 receiveEventsMask |= REC_INGRESS;
-                zmq::message_t msg = ingressConnection->ReadMessage();
-                OnNewTelemetry((uint8_t*)msg.data(), msg.size());
                 zmq::message_t msgJson = ingressConnection->ReadMessage();
                 OnNewJsonTelemetry((const char*)msgJson.data(), msgJson.size());
             }

@@ -18,20 +18,6 @@
 
 BOOST_AUTO_TEST_CASE(TelemetryDefinitionsFactoryTestCase)
 {
-    // Ingress
-    IngressTelemetry_t ingressTelem;
-    ingressTelem.bundleCountEgress = 5;
-    ingressTelem.bundleCountStorage = 10;
-    ingressTelem.totalDataBytes = 100;
-
-    std::vector<uint8_t> serialized = std::vector<uint8_t>(ingressTelem.GetSerializationSize());
-    ingressTelem.SerializeToLittleEndian(serialized.data(), serialized.size());
-    std::vector<std::unique_ptr<Telemetry_t>> telem = TelemetryFactory::DeserializeFromLittleEndian(serialized.data(), serialized.size());
-    BOOST_REQUIRE_EQUAL(telem.size(), 1);
-    IngressTelemetry_t* ingressTelem2 = (IngressTelemetry_t*)telem[0].get();
-    BOOST_REQUIRE_EQUAL(ingressTelem.totalDataBytes, ingressTelem2->totalDataBytes);
-    BOOST_REQUIRE_EQUAL(ingressTelem.bundleCountEgress, ingressTelem2->bundleCountEgress);
-    BOOST_REQUIRE_EQUAL(ingressTelem.bundleCountStorage, ingressTelem2->bundleCountStorage);
 
     // Egress
     EgressTelemetry_t egressTelem;
@@ -41,7 +27,7 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsFactoryTestCase)
 
     std::vector<uint8_t> serializedEgress = std::vector<uint8_t>(egressTelem.GetSerializationSize());
     egressTelem.SerializeToLittleEndian(serializedEgress.data(), serializedEgress.size());
-    telem = TelemetryFactory::DeserializeFromLittleEndian(serializedEgress.data(), serializedEgress.size());
+    std::vector<std::unique_ptr<Telemetry_t>> telem = TelemetryFactory::DeserializeFromLittleEndian(serializedEgress.data(), serializedEgress.size());
     BOOST_REQUIRE_EQUAL(telem.size(), 1);
     EgressTelemetry_t* egressTelem2 = (EgressTelemetry_t*)telem[0].get();
     BOOST_REQUIRE_EQUAL(egressTelem.totalDataBytes, egressTelem2->totalDataBytes);
@@ -67,55 +53,6 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsFactoryTestCase)
 }
 
 
-BOOST_AUTO_TEST_CASE(TelemetryDefinitionsIngressTestCase)
-{
-    // Test default constructor
-    IngressTelemetry_t def;
-    BOOST_REQUIRE_EQUAL(def.GetSerializationSize(), 32);
-    BOOST_REQUIRE_EQUAL(def.totalDataBytes, 0);
-    BOOST_REQUIRE_EQUAL(def.bundleCountEgress, 0);
-    BOOST_REQUIRE_EQUAL(def.bundleCountStorage, 0);
-
-    // Test serialize
-    IngressTelemetry_t telem;
-    telem.bundleCountEgress = 5;
-    telem.bundleCountStorage = 10;
-    telem.totalDataBytes = 100;
-    std::vector<uint8_t> actual = std::vector<uint8_t>(telem.GetSerializationSize());
-    telem.SerializeToLittleEndian(actual.data(), actual.size());
-    BOOST_REQUIRE_EQUAL(actual.size(), 32);
-
-    std::vector<uint8_t> expected;
-    expected.insert(expected.end(), {
-        1,   0, 0, 0, 0, 0, 0, 0,
-        100, 0, 0, 0, 0, 0, 0, 0,
-        5,   0, 0, 0, 0, 0, 0, 0,
-        10,  0, 0, 0, 0, 0, 0, 0
-    });
-    BOOST_REQUIRE_EQUAL_COLLECTIONS(actual.begin(), actual.end(), expected.begin(), expected.end());
-
-    // Test deserialize
-    std::vector<uint8_t> serialized;
-    serialized.insert(serialized.end(), {
-        1,   0, 0, 0, 0, 0, 0, 0,
-        200, 0, 0, 0, 0, 0, 0, 0,
-        10,  0, 0, 0, 0, 0, 0, 0,
-        15,  0, 0, 0, 0, 0, 0, 0
-    });
-
-    IngressTelemetry_t telem2;
-    uint64_t numBytesTakenToDecode;
-    BOOST_REQUIRE(telem2.DeserializeFromLittleEndian(serialized.data(), numBytesTakenToDecode, serialized.size()));
-    BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, serialized.size());
-    BOOST_REQUIRE_EQUAL(telem2.totalDataBytes, 200);
-    BOOST_REQUIRE_EQUAL(telem2.bundleCountEgress, 10);
-    BOOST_REQUIRE_EQUAL(telem2.bundleCountStorage, 15);
-
-    IngressTelemetry_t telemFromJson;
-    BOOST_REQUIRE(telemFromJson.SetValuesFromJson(telem2.ToJson()));
-    BOOST_REQUIRE(telem2 == telemFromJson);
-    //std::cout << telem2.ToJson() << "\n\n";
-}
 
 BOOST_AUTO_TEST_CASE(TelemetryDefinitionsEgressTestCase)
 {
@@ -378,6 +315,10 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsStorageExpiringBeforeThresholdTestCase)
 BOOST_AUTO_TEST_CASE(AllInductTelemetryTestCase)
 {
     AllInductTelemetry_t ait;
+    ait.m_bundleCountEgress = 101;
+    ait.m_bundleCountStorage = 102;
+    ait.m_bundleByteCountEgress = 103;
+    ait.m_bundleByteCountStorage = 104;
     for (std::size_t i = 0; i < 10; ++i) {
         ait.m_listAllInducts.emplace_back();
         InductTelemetry_t& inductTelem = ait.m_listAllInducts.back();
@@ -391,7 +332,7 @@ BOOST_AUTO_TEST_CASE(AllInductTelemetryTestCase)
         }
     }
     const std::string aitJson = ait.ToJson();
-    //std::cout << aitJson << "\n";
+    std::cout << aitJson << "\n";
     AllInductTelemetry_t ait2;
     ait2.SetValuesFromJson(aitJson);
     BOOST_REQUIRE(ait == ait2);

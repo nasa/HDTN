@@ -196,62 +196,6 @@
             }
         }
 
-        function ExponentialMovingAverage(paramAlpha) {
-
-            var alpha = paramAlpha;
-            var oneMinusAlpha = 1.0 - alpha;
-            var mean = 0;
-
-
-            return {
-                Update: function(newValue) {
-                    mean = (mean * oneMinusAlpha) + (newValue * alpha);
-                    return mean;
-                },
-                GetMean: function() {
-                    return mean;
-                }
-            };
-        }
-        //TEST CODE FOR ExponentialMovingAverage
-        //var em = ExponentialMovingAverage(0.1);
-        //for(var i=0; i<100; ++i) {
-        //    console.log(em.Update(10));
-        //}
-
-
-        //https://stackoverflow.com/questions/15900485/correct-way-to-convert-size-in-bytes-to-kb-mb-gb-in-javascript
-        function formatBytes(bytes,decimals) {
-           if(bytes == 0) return '0 Bytes/s';
-           var k = 1024,
-               dm = decimals <= 0 ? 0 : decimals || 2,
-               sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'],
-               i = Math.floor(Math.log(bytes) / Math.log(k));
-           return ((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i] + '/s';
-        }
-        function formatBundles(bytes,decimals) {
-           if(bytes == 0) return '0 Bun/s';
-           var k = 1000,
-               dm = decimals <= 0 ? 0 : decimals || 2,
-               sizes = ['Bun', 'K-Bun', 'M-Bun', 'G-Bun', 'T-Bun', 'P-Bun', 'E-Bun', 'Z-Bun', 'Y-Bun'],
-               i = Math.floor(Math.log(bytes) / Math.log(k));
-           return ((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i] + '/s';
-        }
-        function formatMessages(bytes,decimals) {
-           if(bytes == 0) return '0 Msg/s';
-           var k = 1000,
-               dm = decimals <= 0 ? 0 : decimals || 2,
-               sizes = ['Msg', 'K-Msg', 'M-Msg', 'G-Msg', 'T-Msg', 'P-Msg', 'E-Msg', 'Z-Msg', 'Y-Msg'],
-               i = Math.floor(Math.log(bytes) / Math.log(k));
-           return ((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i] + '/s';
-        }
-
-
-
-
-
-
-
 
 
 
@@ -510,19 +454,20 @@
                                 "HDTN");
 
         var speedUpperLimitBps = 1000;
-        var myWireIngressToStorage = StraightWire(internalHdtnWiresGroup, 0, formatBytes, speedUpperLimitBps, ExponentialMovingAverage(0.1),
+        var alpha = 1.0; //disable ema
+        var myWireIngressToStorage = StraightWire(internalHdtnWiresGroup, 0, speedUpperLimitBps,
             ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, ABS_POSITION_MAP.storage.Y + 20,
             ABS_POSITION_MAP.storage.X, ABS_POSITION_MAP.storage.Y + 20);
-        var myWireStorageToEgress = StraightWire(internalHdtnWiresGroup, 0, formatBytes, speedUpperLimitBps, ExponentialMovingAverage(0.1),
+        var myWireStorageToEgress = StraightWire(internalHdtnWiresGroup, 0, speedUpperLimitBps,
             ABS_POSITION_MAP.storage.X + ABS_POSITION_MAP.storage.WIDTH, ABS_POSITION_MAP.storage.Y + 20,
             ABS_POSITION_MAP.egress.X, ABS_POSITION_MAP.storage.Y + 20);
-        var myWireIngressToEgress = StraightWire(internalHdtnWiresGroup, 0, formatBytes, speedUpperLimitBps, ExponentialMovingAverage(0.1),
+        var myWireIngressToEgress = StraightWire(internalHdtnWiresGroup, 0, speedUpperLimitBps,
             ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, ABS_POSITION_MAP.ingress.Y + 20,
             ABS_POSITION_MAP.egress.X, ABS_POSITION_MAP.egress.Y + 20);
-        var myWireStorageToDisk = StraightWire(internalHdtnWiresGroup, -90, formatBytes, speedUpperLimitBps, ExponentialMovingAverage(0.1),
+        var myWireStorageToDisk = StraightWire(internalHdtnWiresGroup, -90, speedUpperLimitBps,
             myDisk.GetWirePos("top").x - 10, ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT,
             myDisk.GetWirePos("top").x - 10, myDisk.GetWirePos("top").y);
-        var myWireDiskToStorage = StraightWire(internalHdtnWiresGroup, 90, formatBytes, speedUpperLimitBps, ExponentialMovingAverage(0.1),
+        var myWireDiskToStorage = StraightWire(internalHdtnWiresGroup, 90, speedUpperLimitBps,
             myDisk.GetWirePos("top").x + 10, myDisk.GetWirePos("top").y,
             myDisk.GetWirePos("top").x + 10, ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT);
         //var myWireOutsideToIngress = StraightWire(guiGroup, 0, formatBundles,
@@ -667,8 +612,9 @@
             myDisk.SetDiskUsage((obj.diskUsageBytes/obj.diskSizeBytes) * 100, obj.diskBufferUsageNormalized * 100);
         }
         function ReceivedNewTelemetryIngress(obj) {
-            myWireOutsideToIngress.SetSpeedBps(obj.speedBundlesIn);
-            myWireIngressToStorage.SetSpeedBps(obj.speedBytesOut);
+            //myWireOutsideToIngress.SetSpeedBps(obj.speedBundlesIn);
+            myWireIngressToEgress.SetSpeeds(obj.speedBytesOut);
+            myWireIngressToStorage.SetSpeeds(obj.speedBytesOut);
         }
         function ReceivedNewTelemetryEgress(obj) {
             myWireStorageToEgress.SetSpeedBps(obj.speedBytesIn);
@@ -720,7 +666,14 @@
             }
             else if("allInducts" in objJson) {
                 UpdateActiveInductConnections(hdtnConfig, objJson);
+                myWireIngressToEgress.SetSpeeds(hdtnConfig["ingressToEgressRateBitsPerSec"],
+                    hdtnConfig["ingressToEgressRateBitsPerSecHumanReadable"],
+                    hdtnConfig["ingressToEgressRateBundlesPerSecHumanReadable"]);
+                myWireIngressToStorage.SetSpeeds(hdtnConfig["ingressToStorageRateBitsPerSec"],
+                    hdtnConfig["ingressToStorageRateBitsPerSecHumanReadable"],
+                    hdtnConfig["ingressToStorageRateBundlesPerSecHumanReadable"]);
                 HandleReceivedNewHdtnConfig(hdtnConfig);
+
             }
             else if("allOutducts" in objJson) {
                 UpdateAllOutductTelemetry(hdtnConfig, objJson);

@@ -15,6 +15,40 @@ function UpdateActiveInductConnections(paramHdtnConfig, paramActiveInductConnect
     }
     paramHdtnConfig.lastInductTelemTimestampMilliseconds = timestampMilliseconds;
 
+    if(!paramHdtnConfig.hasOwnProperty("lastIngressTelemetry")) {
+        paramHdtnConfig["lastIngressTelemetry"] = {
+            "bundleCountEgress": 0,
+            "bundleCountStorage": 0,
+            "bundleByteCountEgress": 0,
+            "bundleByteCountStorage": 0
+        };
+    }
+    let lastIt = paramHdtnConfig["lastIngressTelemetry"];
+    let currIt = {
+        "bundleCountEgress": paramActiveInductConnections.bundleCountEgress,
+        "bundleCountStorage": paramActiveInductConnections.bundleCountStorage,
+        "bundleByteCountEgress": paramActiveInductConnections.bundleByteCountEgress,
+        "bundleByteCountStorage": paramActiveInductConnections.bundleByteCountStorage
+    };
+    if(deltaTimestampMilliseconds > 1) {
+        paramHdtnConfig["ingressToStorageRateBitsPerSec"] = (currIt["bundleByteCountStorage"] - lastIt["bundleByteCountStorage"]) * 8000.0 / deltaTimestampMilliseconds;
+        paramHdtnConfig["ingressToStorageRateBundlesPerSec"] = (currIt["bundleCountStorage"] - lastIt["bundleCountStorage"]) * 1000.0 / deltaTimestampMilliseconds;
+        paramHdtnConfig["ingressToEgressRateBitsPerSec"] = (currIt["bundleByteCountEgress"] - lastIt["bundleByteCountEgress"]) * 8000.0 / deltaTimestampMilliseconds;
+        paramHdtnConfig["ingressToEgressRateBundlesPerSec"] = (currIt["bundleCountEgress"] - lastIt["bundleCountEgress"]) * 1000.0 / deltaTimestampMilliseconds;
+    }
+    else {
+        paramHdtnConfig["ingressToStorageRateBitsPerSec"] = 0;
+        paramHdtnConfig["ingressToStorageRateBundlesPerSec"] = 0;
+        paramHdtnConfig["ingressToEgressRateBitsPerSec"] = 0;
+        paramHdtnConfig["ingressToEgressRateBundlesPerSec"] = 0;
+    }
+    paramHdtnConfig["ingressToStorageRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["ingressToStorageRateBitsPerSec"], 2, 'bit/s');
+    paramHdtnConfig["ingressToStorageRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["ingressToStorageRateBundlesPerSec"], 2, 'Bun/s');
+    paramHdtnConfig["ingressToEgressRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["ingressToEgressRateBitsPerSec"], 2, 'bit/s');
+    paramHdtnConfig["ingressToEgressRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["ingressToEgressRateBundlesPerSec"], 2, 'Bun/s');
+
+    paramHdtnConfig["lastIngressTelemetry"] = currIt;
+
     let inductsConfig = paramHdtnConfig["inductsConfig"];
     let inductVector = inductsConfig["inductVector"];
     inductVector.forEach(function(ind, i) {

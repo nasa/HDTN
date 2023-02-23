@@ -1,16 +1,16 @@
-function StraightWire(paramSvgRootGroup, paramTextAngleDegrees, paramFormatValueHumanReadableFn, paramSpeedUpperLimit,
-    paramSpeedBpsAverageCalculator, paramSrcX, paramSrcY, paramDestX, paramDestY) {
+function StraightWire(paramSvgRootGroup, paramTextAngleDegrees, paramSpeedUpperLimitBitsPerSec,
+    paramSrcX, paramSrcY, paramDestX, paramDestY) {
 
     var svgRootGroup = paramSvgRootGroup;
     var srcX = paramSrcX;
     var srcY = paramSrcY;
     var destX = paramDestX;
     var destY = paramDestY;
-    var formatValueHumanReadableFn = paramFormatValueHumanReadableFn;
-    var speedUpperLimit = paramSpeedUpperLimit;
+    var speedUpperLimitBitsPerSec = paramSpeedUpperLimitBitsPerSec;
     var textAngleDegrees = paramTextAngleDegrees;
-    var speedBps = 0;
-    var speedBpsAverageCalculator = paramSpeedBpsAverageCalculator;
+    var speedBitsPerSec = 0;
+    var textBitsPerSec = "";
+    var textBundlesPerSec = "";
     var WIRE_DASHARRAY = "6 2";
 
     function GetWirePathStr() {
@@ -21,10 +21,12 @@ function StraightWire(paramSvgRootGroup, paramTextAngleDegrees, paramFormatValue
 
 
     function GetWireText() {
-        if(formatValueHumanReadableFn != null) {
-            return formatValueHumanReadableFn(speedBps, 2);
-        }
-        return "";
+        const showBitRate = document.getElementById("id_showBitRate").checked;
+        const showBundleRate = document.getElementById("id_showBundleRate").checked;
+        let separatorStr = (showBitRate && showBundleRate) ? "\u00A0\u00A0" : "";
+        return ((showBitRate) ? textBitsPerSec : "")
+            + separatorStr
+            + ((showBundleRate) ? textBundlesPerSec : "");
     }
 
 
@@ -35,7 +37,7 @@ function StraightWire(paramSvgRootGroup, paramTextAngleDegrees, paramFormatValue
         .attr("d", GetWirePathStr)
         .attr("marker-end", "url(#arrow)")
         .attr("class", "wire_tx")
-        .attr("stroke-dasharray", (paramFormatValueHumanReadableFn == null) ? null : WIRE_DASHARRAY)
+        .attr("stroke-dasharray", WIRE_DASHARRAY)
         .attr("stroke-dashoffset", 0);
 
 
@@ -48,9 +50,7 @@ function StraightWire(paramSvgRootGroup, paramTextAngleDegrees, paramFormatValue
 
     WireRepeatFunc();
     function WireRepeatFunc() {
-        if(paramFormatValueHumanReadableFn != null) {
-            DoRepeat();
-        }
+        DoRepeat();
         function DoRepeat() {
             wirePathObj
                 .attr("stroke-dasharray", WIRE_DASHARRAY)
@@ -61,8 +61,8 @@ function StraightWire(paramSvgRootGroup, paramTextAngleDegrees, paramFormatValue
                     //if(unit === "bytes") divider = 250000000.0; //for bytes (0 to 20Gbps, 2.5GBps) -> (0 to 10)
                     //return Math.round(parseInt(speedBps)/divider) * 8;
 
-                    var divider = speedUpperLimit / 10.0;
-                    return Math.round(parseInt(speedBps)/divider) * 8;
+                    var divider = speedUpperLimitBitsPerSec / 10.0;
+                    return Math.round(parseInt(Math.min(speedBitsPerSec, speedUpperLimitBitsPerSec))/divider) * 8;
                 })
                 .transition().ease(d3.easeLinear).duration(1000)
                 .attr("stroke-dashoffset", 0)
@@ -75,8 +75,10 @@ function StraightWire(paramSvgRootGroup, paramTextAngleDegrees, paramFormatValue
 
 
     return {
-        SetSpeedBps: function(paramSpeedBps){
-            speedBps = speedBpsAverageCalculator.Update(paramSpeedBps);
+        SetSpeeds: function(paramSpeedBitsPerSec, paramTextBitsPerSec, paramTextBundlesPerSec) {
+            speedBitsPerSec = paramSpeedBitsPerSec;
+            textBitsPerSec = paramTextBitsPerSec;
+            textBundlesPerSec = paramTextBundlesPerSec;
             wireText.text(GetWireText);
         }
     };

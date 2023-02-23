@@ -2,6 +2,10 @@ if(window.location.protocol == 'file:') {
 
 var INDUCT_ACTIVE_CONNECTIONS = {
     "timestampMilliseconds": 10000,
+    "bundleCountEgress": 101,
+    "bundleCountStorage": 102,
+    "bundleByteCountEgress": 103,
+    "bundleByteCountStorage": 104,
     "allInducts": [
         {
             "convergenceLayer": "LTP",

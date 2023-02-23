@@ -208,11 +208,6 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
             }
         }
 
-        LOG_INFO(subprocess) << "Elapsed, Bundle Count (M), Rate (Mbps), Bundles/sec, Bundle Data (MB) ";
-        //Possibly out of Date
-        double rate = 8 * ((ingressPtr->m_bundleData / (double)(1024 * 1024)) / ingressPtr->m_elapsed);
-        LOG_INFO(subprocess) << ingressPtr->m_elapsed << "," << ingressPtr->m_bundleCount / 1000000.0f << "," << rate << ","
-            << ingressPtr->m_bundleCount / ingressPtr->m_elapsed << ", " << ingressPtr->m_bundleData / (double)(1024 * 1024);
 
 #ifdef RUN_TELEMETRY
         LOG_INFO(subprocess) << "Telemetry: stopping..";
@@ -238,8 +233,10 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         ingressPtr->Stop();
         m_ingressBundleCountStorage = ingressPtr->m_bundleCountStorage;
         m_ingressBundleCountEgress = ingressPtr->m_bundleCountEgress;
-        m_ingressBundleCount = ingressPtr->m_bundleCount;
-        m_ingressBundleData = ingressPtr->m_bundleData;
+        m_ingressBundleCount = (ingressPtr->m_bundleCountEgress + ingressPtr->m_bundleCountStorage);
+        m_ingressBundleData = (ingressPtr->m_bundleByteCountEgress + ingressPtr->m_bundleByteCountStorage);
+        LOG_INFO(subprocess) << "Ingress Bundle Count (M), Bundle Data (MB)";
+        LOG_INFO(subprocess) << m_ingressBundleCount << "," << (m_ingressBundleData / (1024.0 * 1024.0));
         LOG_INFO(subprocess) << "Ingress: deleting..";
         ingressPtr.reset();
 

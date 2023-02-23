@@ -43,7 +43,7 @@ class TelemetryLogger
         );
 
     private:
-        TELEM_LIB_EXPORT void LogTelemetry(IngressTelemetry_t* telem);
+        //TELEM_LIB_EXPORT void LogTelemetry(IngressTelemetry_t* telem);
         TELEM_LIB_EXPORT void LogTelemetry(EgressTelemetry_t* telem);
         TELEM_LIB_EXPORT void LogTelemetry(StorageTelemetry_t* telem);
 

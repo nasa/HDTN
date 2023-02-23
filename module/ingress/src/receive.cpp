@@ -67,11 +67,10 @@ private:
     void SendOpportunisticLinkMessages(const uint64_t remoteNodeId, bool isAvailable);
 
 public:
-    uint64_t m_bundleCountStorage;
-    boost::atomic_uint64_t m_bundleCountEgress;
-    uint64_t m_bundleCount;
-    boost::atomic_uint64_t m_bundleData;
-    double m_elapsed;
+    uint64_t m_bundleCountStorage; //protected by m_ingressToStorageZmqSocketMutex
+    uint64_t m_bundleByteCountStorage; //protected by m_ingressToStorageZmqSocketMutex
+    uint64_t m_bundleCountEgress; //protected by m_ingressToEgressZmqSocketMutex
+    uint64_t m_bundleByteCountEgress; //protected by m_ingressToEgressZmqSocketMutex
 
 private:
     struct BundlePipelineAckingSet : private boost::noncopyable {
@@ -263,10 +262,9 @@ uint64_t Ingress::Impl::BundlePipelineAckingSet::GetNextHopNodeId() const {
 
 Ingress::Impl::Impl() : 
     m_bundleCountStorage(0),
+    m_bundleByteCountStorage(0),
     m_bundleCountEgress(0),
-    m_bundleCount(0),
-    m_bundleData(0),
-    m_elapsed(0),
+    m_bundleByteCountEgress(0),
     m_singleStorageBundlePipelineAckingSet(10, 10, UINT64_MAX, false), //initial don't cares for a deleted default constructor, set later
     m_eventsTooManyInStorageCutThroughQueue(0),
     m_eventsTooManyInEgressCutThroughQueue(0),
@@ -280,10 +278,9 @@ Ingress::Ingress() :
     m_pimpl(boost::make_unique<Ingress::Impl>()),
     //references
     m_bundleCountStorage(m_pimpl->m_bundleCountStorage),
+    m_bundleByteCountStorage(m_pimpl->m_bundleByteCountStorage),
     m_bundleCountEgress(m_pimpl->m_bundleCountEgress),
-    m_bundleCount(m_pimpl->m_bundleCount),
-    m_bundleData(m_pimpl->m_bundleData),
-    m_elapsed(m_pimpl->m_elapsed) {}
+    m_bundleByteCountEgress(m_pimpl->m_bundleByteCountEgress) {}
 
 Ingress::Impl::~Impl() {
     Stop();
@@ -711,31 +708,18 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                 }
                 else {
                     AllInductTelemetry_t allInductTelem;
-                    m_inductManager.PopulateAllInductTelemetry(allInductTelem);
+                    m_inductManager.PopulateAllInductTelemetry(allInductTelem); //sets timestamp
+                    m_ingressToEgressZmqSocketMutex.lock();
+                    allInductTelem.m_bundleCountEgress = m_bundleCountEgress;
+                    allInductTelem.m_bundleByteCountEgress = m_bundleByteCountEgress;
+                    m_ingressToEgressZmqSocketMutex.unlock();
+                    m_ingressToStorageZmqSocketMutex.lock();
+                    allInductTelem.m_bundleCountStorage = m_bundleCountStorage;
+                    allInductTelem.m_bundleByteCountStorage = m_bundleByteCountStorage;
+                    m_ingressToStorageZmqSocketMutex.unlock();
+                    
                     std::string* allInductTelemJsonStringPtr = new std::string(allInductTelem.ToJson());
                     zmq::message_t zmqJsonMessage(allInductTelemJsonStringPtr->data(), allInductTelemJsonStringPtr->size(), CustomCleanupStdString, allInductTelemJsonStringPtr);
-
-                    //send telemetry
-                    IngressTelemetry_t telem;
-                    telem.totalDataBytes = m_bundleData;
-                    telem.bundleCountEgress = m_bundleCountEgress;
-                    telem.bundleCountStorage = m_bundleCountStorage;
-                    std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(telem.GetSerializationSize()); //will be 64-bit aligned
-                    uint8_t* telemPtr = vecUint8RawPointer->data();
-                    const uint8_t* const telemSerializationBase = telemPtr;
-                    uint64_t telemBufferSize = vecUint8RawPointer->size();
-
-                    //start zmq message with telemetry
-                    const uint64_t ingressTelemSize = telem.SerializeToLittleEndian(telemPtr, telemBufferSize);
-                    telemBufferSize -= ingressTelemSize;
-                    telemPtr += ingressTelemSize;
-
-                    vecUint8RawPointer->resize(telemPtr - telemSerializationBase);
-
-                    zmq::message_t zmqTelemMessage(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
-                    if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(zmqTelemMessage), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
-                        LOG_ERROR(subprocess) << "can't send telemetry to telem";
-                    }
 
                     if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(zmqJsonMessage), zmq::send_flags::dontwait)) {
                         LOG_ERROR(subprocess) << "can't send json telemetry to telem";
@@ -747,9 +731,10 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
     LOG_INFO(subprocess) << "totalAcksFromEgress: " << totalAcksFromEgress;
     LOG_INFO(subprocess) << "totalAcksFromStorage: " << totalAcksFromStorage;
     LOG_INFO(subprocess) << "m_bundleCountStorage: " << m_bundleCountStorage;
+    LOG_INFO(subprocess) << "m_bundleByteCountStorage: " << m_bundleByteCountStorage;
     LOG_INFO(subprocess) << "m_bundleCountEgress: " << m_bundleCountEgress;
-    m_bundleCount = m_bundleCountStorage + m_bundleCountEgress;
-    LOG_INFO(subprocess) << "m_bundleCount: " << m_bundleCount;
+    LOG_INFO(subprocess) << "m_bundleByteCountEgress: " << m_bundleByteCountEgress;
+    LOG_INFO(subprocess) << "bundleCount: " << (m_bundleCountStorage + m_bundleCountEgress);
     LOG_DEBUG(subprocess) << "BpIngressSyscall::ReadZmqAcksThreadFunc thread exiting";
 }
 
@@ -1039,7 +1024,10 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                 if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(*zmqMessageToSendUniquePtr), zmq::send_flags::dontwait)) {
                     LOG_ERROR(subprocess) << "can't send bundle intended for scheduler to egress";
                 }
-                //else success
+                else { //success
+                    ++m_bundleCountEgress; //protected by m_ingressToEgressZmqSocketMutex
+                    m_bundleByteCountEgress += bundleCurrentSize; //protected by m_ingressToEgressZmqSocketMutex
+                }
             }
         }
         return true;
@@ -1208,7 +1196,8 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                                     }
                                     else {
                                         //success                            
-                                        m_bundleCountEgress.fetch_add(1, boost::memory_order_relaxed);
+                                        ++m_bundleCountEgress; //protected by m_ingressToEgressZmqSocketMutex
+                                        m_bundleByteCountEgress += bundleCurrentSize; //protected by m_ingressToEgressZmqSocketMutex
                                     }
                                 }
                             }
@@ -1262,6 +1251,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                         else {
                             //success                            
                             ++m_bundleCountStorage; //protected by m_ingressToStorageZmqSocketMutex
+                            m_bundleByteCountStorage += bundleCurrentSize; //protected by m_ingressToStorageZmqSocketMutex
                         }
                     }
                 }
@@ -1271,9 +1261,6 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             }
         } //end scope for cut-through shared mutex lock
     }
-
-
-    m_bundleData.fetch_add(bundleCurrentSize, boost::memory_order_relaxed);
 
     return true;
 }

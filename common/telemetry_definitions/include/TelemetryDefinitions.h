@@ -34,7 +34,7 @@
 
 enum class TelemetryType : uint64_t {
     undefined = 0,
-    ingress = 1,
+    unused1 = 1,
     egress,
     storage,
     unused4,
@@ -91,20 +91,6 @@ class Telemetry_t : public JsonSerializable {
     protected:
         TelemetryType m_type;
         std::vector<uint64_t*> m_fieldsToSerialize;
-};
-
-struct IngressTelemetry_t : public Telemetry_t {
-    TELEMETRY_DEFINITIONS_EXPORT IngressTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~IngressTelemetry_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const IngressTelemetry_t& o) const; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const IngressTelemetry_t& o) const;
-
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
-
-    uint64_t totalDataBytes;
-    uint64_t bundleCountEgress;
-    uint64_t bundleCountStorage;
 };
 
 struct EgressTelemetry_t : public Telemetry_t
@@ -279,6 +265,12 @@ struct AllInductTelemetry_t : public JsonSerializable {
     TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
     uint64_t m_timestampMilliseconds;
+    //ingress specific
+    uint64_t m_bundleCountEgress;
+    uint64_t m_bundleCountStorage;
+    uint64_t m_bundleByteCountEgress;
+    uint64_t m_bundleByteCountStorage;
+    //inducts specific
     std::list<InductTelemetry_t> m_listAllInducts;
 };
 

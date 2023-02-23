@@ -23,13 +23,14 @@ TelemetryLogger::TelemetryLogger()
 void TelemetryLogger::LogTelemetry(Telemetry_t* telem)
 {
     switch (telem->GetType()) {
+        /*
         case TelemetryType::ingress: {
             IngressTelemetry_t* ingressTelem = dynamic_cast<IngressTelemetry_t*>(telem);
             if (ingressTelem != nullptr) {
                 LogTelemetry(ingressTelem);
             }
             break;
-        }
+        }*/
         case TelemetryType::egress: {
             EgressTelemetry_t* egressTelem = dynamic_cast<EgressTelemetry_t*>(telem);
             if (egressTelem != nullptr) {
@@ -46,7 +47,7 @@ void TelemetryLogger::LogTelemetry(Telemetry_t* telem)
         }
     }
 }
-
+/*
 void TelemetryLogger::LogTelemetry(IngressTelemetry_t* telem)
 {
     boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();
@@ -65,7 +66,7 @@ void TelemetryLogger::LogTelemetry(IngressTelemetry_t* telem)
     lastTotalDataBytes = telem->totalDataBytes;
     lastProcessedTime = nowTime;
 }
-
+*/
 void TelemetryLogger::LogTelemetry(EgressTelemetry_t* telem)
 {
     boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();
