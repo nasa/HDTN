@@ -19,7 +19,11 @@
 
 BundleStorageCatalog::BundleStorageCatalog() : 
     m_numBundlesInCatalog(0),
-    m_numBundleBytesInCatalog(0) {}
+    m_numBundleBytesInCatalog(0),
+    m_totalBundleWriteOperationsToCatalog(0),
+    m_totalBundleByteWriteOperationsToCatalog(0),
+    m_totalBundleEraseOperationsFromCatalog(0),
+    m_totalBundleByteEraseOperationsFromCatalog(0) {}
 
 
 
@@ -111,6 +115,8 @@ bool BundleStorageCatalog::CatalogIncomingBundleForStore(catalog_entry_t & catal
     else {
         ++m_numBundlesInCatalog;
         m_numBundleBytesInCatalog += bundleSizeBytes;
+        ++m_totalBundleWriteOperationsToCatalog;
+        m_totalBundleByteWriteOperationsToCatalog += bundleSizeBytes;
     }
     
     return true;
@@ -267,6 +273,8 @@ std::pair<bool, uint16_t> BundleStorageCatalog::Remove(const uint64_t custodyId,
     else {
         --m_numBundlesInCatalog;
         m_numBundleBytesInCatalog -= entry.bundleSizeBytes;
+        ++m_totalBundleEraseOperationsFromCatalog;
+        m_totalBundleByteEraseOperationsFromCatalog += entry.bundleSizeBytes;
         ++numRemovals;
     }
     if ((!error) && alsoNeedsRemovedFromAwaitingSend) {
@@ -351,4 +359,15 @@ uint64_t BundleStorageCatalog::GetNumBundlesInCatalog() const noexcept {
 uint64_t BundleStorageCatalog::GetNumBundleBytesInCatalog() const noexcept {
     return m_numBundleBytesInCatalog;
 }
-
+uint64_t BundleStorageCatalog::GetTotalBundleWriteOperationsToCatalog() const noexcept {
+    return m_totalBundleWriteOperationsToCatalog;
+}
+uint64_t BundleStorageCatalog::GetTotalBundleByteWriteOperationsToCatalog() const noexcept {
+    return m_totalBundleByteWriteOperationsToCatalog;
+}
+uint64_t BundleStorageCatalog::GetTotalBundleEraseOperationsFromCatalog() const noexcept {
+    return m_totalBundleEraseOperationsFromCatalog;
+}
+uint64_t BundleStorageCatalog::GetTotalBundleByteEraseOperationsFromCatalog() const noexcept {
+    return m_totalBundleByteEraseOperationsFromCatalog;
+}

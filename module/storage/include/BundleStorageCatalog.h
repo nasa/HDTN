@@ -75,6 +75,12 @@ public:
     STORAGE_LIB_EXPORT uint64_t GetNumBundlesInCatalog() const noexcept;
     STORAGE_LIB_EXPORT uint64_t GetNumBundleBytesInCatalog() const noexcept;
 
+    STORAGE_LIB_EXPORT uint64_t GetTotalBundleWriteOperationsToCatalog() const noexcept;
+    STORAGE_LIB_EXPORT uint64_t GetTotalBundleByteWriteOperationsToCatalog() const noexcept;
+
+    STORAGE_LIB_EXPORT uint64_t GetTotalBundleEraseOperationsFromCatalog() const noexcept;
+    STORAGE_LIB_EXPORT uint64_t GetTotalBundleByteEraseOperationsFromCatalog() const noexcept;
+
 private:
     STORAGE_LIB_NO_EXPORT catalog_entry_t * PopEntryFromAwaitingSend(uint64_t & custodyId,
         const std::vector<std::pair<const cbhe_eid_t*, priorities_to_expirations_array_t *> > & destEidPlusPriorityArrayPtrs);
@@ -91,6 +97,10 @@ protected:
     custid_to_custody_xfer_expiry_bimap_t m_custodyIdToCustodyTransferExpiryBimap;
     uint64_t m_numBundlesInCatalog;
     uint64_t m_numBundleBytesInCatalog;
+    uint64_t m_totalBundleWriteOperationsToCatalog;
+    uint64_t m_totalBundleByteWriteOperationsToCatalog;
+    uint64_t m_totalBundleEraseOperationsFromCatalog;
+    uint64_t m_totalBundleByteEraseOperationsFromCatalog;
 };
 
 

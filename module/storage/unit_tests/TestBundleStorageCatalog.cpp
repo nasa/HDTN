@@ -92,9 +92,15 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogTestCase)
             BOOST_REQUIRE(bsc.CatalogIncomingBundleForStore(catalogEntryToTake, *primaries[i], custodyId, BundleStorageCatalog::DUPLICATE_EXPIRY_ORDER::FIFO));
             BOOST_REQUIRE_EQUAL(bsc.GetNumBundlesInCatalog(), i + 1);
             BOOST_REQUIRE_EQUAL(bsc.GetNumBundleBytesInCatalog(), sumBundleBytes);
+            BOOST_REQUIRE_EQUAL(bsc.GetNumBundlesInCatalog(), bsc.GetTotalBundleWriteOperationsToCatalog());
+            BOOST_REQUIRE_EQUAL(bsc.GetNumBundleBytesInCatalog(), bsc.GetTotalBundleByteWriteOperationsToCatalog());
+            BOOST_REQUIRE_EQUAL(bsc.GetTotalBundleEraseOperationsFromCatalog(), 0);
+            BOOST_REQUIRE_EQUAL(bsc.GetTotalBundleByteEraseOperationsFromCatalog(), 0);
             catalogEntryCopiesForVerification.back().ptrUuidKeyInMap = catalogEntryToTake.ptrUuidKeyInMap; //was potentially modified at CatalogIncomingBundleForStore
             BOOST_REQUIRE_EQUAL(catalogEntryToTake.segmentIdChainVec.size(), 0); //verify was moved
         }
+        const uint64_t highestSumBundleBytes = sumBundleBytes;
+        uint64_t sumBundleBytesDeleted = 0;
         const std::vector<cbhe_eid_t> availableDestinationEids({ cbhe_eid_t(501, 501) });
         for (std::size_t i = 0; i < 10; ++i) {
             const uint64_t expectedCustodyId = i;
@@ -146,6 +152,11 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogTestCase)
                 BOOST_REQUIRE_GE(entryFromCustodyIdPtr->bundleSizeBytes, 1000);
                 sumBundleBytes -= entryFromCustodyIdPtr->bundleSizeBytes;
                 BOOST_REQUIRE_EQUAL(bsc.GetNumBundleBytesInCatalog(), sumBundleBytes);
+                BOOST_REQUIRE_EQUAL(bsc.GetTotalBundleWriteOperationsToCatalog(), 10);
+                BOOST_REQUIRE_EQUAL(bsc.GetTotalBundleByteWriteOperationsToCatalog(), highestSumBundleBytes);
+                BOOST_REQUIRE_EQUAL(bsc.GetTotalBundleEraseOperationsFromCatalog(), i + 1);
+                sumBundleBytesDeleted += 1000 + i;
+                BOOST_REQUIRE_EQUAL(bsc.GetTotalBundleByteEraseOperationsFromCatalog(), sumBundleBytesDeleted);
                 //make sure remove again fails
                 std::pair<bool, uint16_t> expectedRetFail(false, 0);
                 BOOST_REQUIRE(expectedRetFail == bsc.Remove(expectedCustodyId, false));
