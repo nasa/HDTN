@@ -28,7 +28,7 @@ function Disk(paramSvgRootGroup, paramX, paramY, paramRadius, paramPerspectiveRa
             + "a" + rx + "," + ry + " 0 1 0 " + (2 * rx) + ",0"; //arc top left to top right
     }
 
-    function SetUsage(percentage, bufferPercentage) {
+    function SetUsage(percentage, bufferPercentage, bytesUsed) {
         diskGroup.selectAll("path.cylinder_top_front_line_path")
             .attr("d", GetCylinderTopFrontLinePath(radius, perspectiveRadius, height*percentage*.01));
 
@@ -36,8 +36,9 @@ function Disk(paramSvgRootGroup, paramX, paramY, paramRadius, paramPerspectiveRa
         diskGroup.selectAll("path.cylinder_fill_path")
             .attr("d", GetCylinderFillPath(radius, perspectiveRadius, height*percentage*.01));
 
-        diskGroup.selectAll("text.cylinder_text")
-            .text(percentage.toFixed(2) + "% used");
+        diskUsageTspanAbove.text(percentage.toFixed(2) + "% Used");
+        let bytesUsedHumanReadable = formatHumanReadable(bytesUsed, 2, 'Bytes Used');
+        diskUsageTspanBelow.text('(' + bytesUsedHumanReadable + ')');
 
         diskGroup.selectAll("stop")
             .attr('offset', bufferPercentage*.01);
@@ -107,13 +108,20 @@ function Disk(paramSvgRootGroup, paramX, paramY, paramRadius, paramPerspectiveRa
         .attr("stroke", "black")
         .attr("fill", "none");
 
-    diskGroup.append("svg:text")
+    var diskUsageText = diskGroup.append("svg:text")
         .attr("class", "cylinder_text")
         .attr("dy", ".35em")
         //.attr("text-anchor", "end")
         .attr("transform", "translate(0," + (-height*.5) +")")
-        .attr("text-anchor", "middle")
-        .text("");
+        .attr("text-anchor", "middle");
+
+    var diskUsageTspanAbove = diskUsageText.append('tspan')
+        .attr('x', 0)
+        .attr('dy', 0);
+
+    var diskUsageTspanBelow = diskUsageText.append('tspan')
+        .attr('x', 0)
+        .attr('dy', '1.4em');
 
     diskGroup.append("svg:text")
         .attr("class", "disk_name_text")
@@ -159,8 +167,8 @@ function Disk(paramSvgRootGroup, paramX, paramY, paramRadius, paramPerspectiveRa
 
 
     return {
-        SetDiskUsage: function(percentage, bufferPercentage){
-            SetUsage(percentage, bufferPercentage);
+        SetDiskUsage: function(percentage, bufferPercentage, bytesUsed){
+            SetUsage(percentage, bufferPercentage, bytesUsed);
         },
         GetWirePos: function(posStr) {
             if(posStr === "right") return GetRightWirePosition();

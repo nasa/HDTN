@@ -20,13 +20,14 @@ function StraightWire(paramSvgRootGroup, paramTextAngleDegrees, paramSpeedUpperL
 
 
 
-    function GetWireText() {
+    function GetWireTextAbove() {
         const showBitRate = document.getElementById("id_showBitRate").checked;
+        return ((showBitRate) ? textBitsPerSec : "");
+    }
+
+    function GetWireTextBelow() {
         const showBundleRate = document.getElementById("id_showBundleRate").checked;
-        let separatorStr = (showBitRate && showBundleRate) ? "\u00A0\u00A0" : "";
-        return ((showBitRate) ? textBitsPerSec : "")
-            + separatorStr
-            + ((showBundleRate) ? textBundlesPerSec : "");
+        return ((showBundleRate) ? textBundlesPerSec : "");
     }
 
 
@@ -45,8 +46,15 @@ function StraightWire(paramSvgRootGroup, paramTextAngleDegrees, paramSpeedUpperL
     var wireText = svgRootGroup.append("svg:text")
             .attr("class", "wire_txt")
             .attr("text-anchor", "middle")
-            .attr("transform", "translate(" + ((srcX + destX) * 0.5) + "," + ((srcY + destY) * 0.5) + ") rotate(" + textAngleDegrees + ") translate(0,-5)")
-            .text(GetWireText);
+            .attr("transform", "translate(" + ((srcX + destX) * 0.5) + "," + ((srcY + destY) * 0.5) + ") rotate(" + textAngleDegrees + ") translate(0,-5)");
+
+    var wireTspanAbove = wireText.append('tspan')
+        .attr('x', 0)
+        .attr('dy', 0);
+
+    var wireTspanBelow = wireText.append('tspan')
+        .attr('x', 0)
+        .attr('dy', '1.4em');
 
     WireRepeatFunc();
     function WireRepeatFunc() {
@@ -79,7 +87,8 @@ function StraightWire(paramSvgRootGroup, paramTextAngleDegrees, paramSpeedUpperL
             speedBitsPerSec = paramSpeedBitsPerSec;
             textBitsPerSec = paramTextBitsPerSec;
             textBundlesPerSec = paramTextBundlesPerSec;
-            wireText.text(GetWireText);
+            wireTspanAbove.text(GetWireTextAbove);
+            wireTspanBelow.text(GetWireTextBelow);
         }
     };
 }

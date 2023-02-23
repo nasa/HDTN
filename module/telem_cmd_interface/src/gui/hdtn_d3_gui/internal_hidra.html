@@ -332,7 +332,7 @@
         var INGRESS_W = 130;
         var EGRESS_X = 850;
         var EGRESS_W = 130;
-        var STORAGE_W = 100;
+        var STORAGE_W = 120;
         var INGRESS_RIGHT_X = (INGRESS_X + INGRESS_W);
         var INGRESS_EGRESS_DX = (EGRESS_X - INGRESS_RIGHT_X);
         var STORAGE_X = INGRESS_RIGHT_X + INGRESS_EGRESS_DX/2 - (STORAGE_W/2);
@@ -440,7 +440,7 @@
         var myDisk = Disk(diskGroup,
                                 ABS_POSITION_MAP.storage.X + ABS_POSITION_MAP.storage.WIDTH/2,
                                 ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT + 250,
-                                50,
+                                80,
                                 10,
                                 100,
                                 "Disk1");
@@ -454,7 +454,7 @@
                                 "HDTN");
 
         var speedUpperLimitBps = 1000;
-        var alpha = 1.0; //disable ema
+        const diskWireSepFromMiddlePx = 40;
         var myWireIngressToStorage = StraightWire(internalHdtnWiresGroup, 0, speedUpperLimitBps,
             ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, ABS_POSITION_MAP.storage.Y + 20,
             ABS_POSITION_MAP.storage.X, ABS_POSITION_MAP.storage.Y + 20);
@@ -465,11 +465,11 @@
             ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, ABS_POSITION_MAP.ingress.Y + 20,
             ABS_POSITION_MAP.egress.X, ABS_POSITION_MAP.egress.Y + 20);
         var myWireStorageToDisk = StraightWire(internalHdtnWiresGroup, -90, speedUpperLimitBps,
-            myDisk.GetWirePos("top").x - 10, ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT,
-            myDisk.GetWirePos("top").x - 10, myDisk.GetWirePos("top").y);
+            myDisk.GetWirePos("top").x - diskWireSepFromMiddlePx, ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT,
+            myDisk.GetWirePos("top").x - diskWireSepFromMiddlePx, myDisk.GetWirePos("top").y);
         var myWireDiskToStorage = StraightWire(internalHdtnWiresGroup, 90, speedUpperLimitBps,
-            myDisk.GetWirePos("top").x + 10, myDisk.GetWirePos("top").y,
-            myDisk.GetWirePos("top").x + 10, ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT);
+            myDisk.GetWirePos("top").x + diskWireSepFromMiddlePx, myDisk.GetWirePos("top").y,
+            myDisk.GetWirePos("top").x + diskWireSepFromMiddlePx, ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT);
         //var myWireOutsideToIngress = StraightWire(guiGroup, 0, formatBundles,
         //    myIngress.GetWirePos("left").x - 200, myIngress.GetWirePos("left").y,
         //    myIngress.GetWirePos("left").x, myIngress.GetWirePos("left").y);
@@ -696,7 +696,8 @@
                     hdtnConfig["storageToEgressRateBundlesPerSecHumanReadable"]);
                 myDisk.SetDiskUsage( objJson.usedSpaceBytes / (objJson.usedSpaceBytes + objJson.freeSpaceBytes) * 100,
                     ((hdtnConfig["storageToDiskRateBitsPerSec"] > 1) ? 50 : 0)
-                    + ((hdtnConfig["diskToStorageRateBitsPerSec"] > 1) ? 50 : 0)
+                    + ((hdtnConfig["diskToStorageRateBitsPerSec"] > 1) ? 50 : 0),
+                    objJson.usedSpaceBytes
                 );
                 UpdateLite();
             }
