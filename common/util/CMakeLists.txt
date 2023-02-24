@@ -1,7 +1,7 @@
-add_library(hdtn_util
-	src/CpuFlagDetection.cpp
-    src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
-    src/Environment.cpp
+
+set(hdtn_util_SOURCES 
+	src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
+	src/Environment.cpp
 	src/JsonSerializable.cpp
 	src/SignalHandler.cpp
 	src/TimestampUtil.cpp
@@ -21,6 +21,13 @@ add_library(hdtn_util
 	src/ThreadNamer.cpp
 	src/Utf8Paths.cpp
 )
+
+if (${USE_X86_HARDWARE_ACCELERATION})  # only use x86 on non ARM platforms
+	add_library(hdtn_util ${hdtn_util_SOURCES} src/CpuFlagDetection.cpp) 
+else()
+	add_library(hdtn_util ${hdtn_util_SOURCES}) # do not add cpu flag detection to ARM builds
+endif()
+
 target_compile_options(hdtn_util PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 GENERATE_EXPORT_HEADER(hdtn_util)
 get_target_property(target_type hdtn_util TYPE)

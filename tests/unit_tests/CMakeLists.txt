@@ -61,6 +61,11 @@ add_executable(unit-tests
 	$<$<BOOL:${RUN_TELEMETRY}>:../../module/telem_cmd_interface/unit_tests/TelemetryRunnerProgramOptionsTests.cpp>
 	../../module/scheduler/unit_tests/SchedulerTests.cpp
 )
+
+if (${USE_X86_HARDWARE_ACCELERATION} # only add TestCpuFlagDetection on non-ARM builds
+	target_sources(unit-tests PUBLIC ../../common/util/test/TestCpuFlagDetection.cpp)
+endif()
+
 install(TARGETS unit-tests DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 target_link_libraries(unit-tests
