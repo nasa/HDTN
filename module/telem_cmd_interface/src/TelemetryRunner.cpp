@@ -61,7 +61,6 @@ class TelemetryRunner::Impl : private boost::noncopyable {
 
     private:
         void ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDistributedConfigPtr, zmq::context_t * inprocContextPtr);
-        void OnNewTelemetry(uint8_t* buffer, uint64_t bufferSize);
         void OnNewJsonTelemetry(const char* buffer, uint64_t bufferSize);
         void OnNewWebsocketConnectionCallback(struct mg_connection* conn);
         bool OnNewWebsocketDataReceivedCallback(struct mg_connection* conn, char* data, size_t data_len);
@@ -243,10 +242,21 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
                 receiveEventsMask |= REC_INGRESS;
                 zmq::message_t msgJson = ingressConnection->ReadMessage();
                 OnNewJsonTelemetry((const char*)msgJson.data(), msgJson.size());
+                if (m_telemetryLoggerPtr) {
+                    AllInductTelemetry_t t;
+                    if (t.SetValuesFromJsonCharArray((const char*)msgJson.data(), msgJson.size())) {
+                        m_telemetryLoggerPtr->LogTelemetry(&t);
+                    }
+                    else {
+                        LOG_ERROR(subprocess) << "cannot deserialize AllInductTelemetry_t for TelemetryLogger";
+                    }
+                }
             }
             if (poller.HasNewMessage(*egressConnection)) {
                 receiveEventsMask |= REC_EGRESS;
                 zmq::message_t msg = egressConnection->ReadMessage();
+                zmq::message_t msg2;
+                const zmq::message_t* messageOutductTelemPtr = &msg;
                 OnNewJsonTelemetry((const char*)msg.data(), msg.size());
                 if (msg.more()) { //msg was Aoct type, msg2 is normal ouduct telem
                     {
@@ -257,14 +267,33 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
                         m_websocketServerPtr->SendNewTextData((const char*)m_lastZmqJsonSerializedAllOutductCapabilities.data(),
                             m_lastZmqJsonSerializedAllOutductCapabilities.size());
                     }
-                    zmq::message_t msg2 = egressConnection->ReadMessage();
+                    msg2 = egressConnection->ReadMessage();
                     OnNewJsonTelemetry((const char*)msg2.data(), msg2.size());
+                    messageOutductTelemPtr = &msg2;
+                }
+                if (m_telemetryLoggerPtr) {
+                    AllOutductTelemetry_t t;
+                    if (t.SetValuesFromJsonCharArray((const char*)messageOutductTelemPtr->data(), messageOutductTelemPtr->size())) {
+                        m_telemetryLoggerPtr->LogTelemetry(&t);
+                    }
+                    else {
+                        LOG_ERROR(subprocess) << "cannot deserialize AllOutductTelemetry_t for TelemetryLogger";
+                    }
                 }
             }
             if (poller.HasNewMessage(*storageConnection)) {
                 receiveEventsMask |= REC_STORAGE;
                 zmq::message_t msgJson = storageConnection->ReadMessage();
                 OnNewJsonTelemetry((const char*)msgJson.data(), msgJson.size());
+                if (m_telemetryLoggerPtr) {
+                    StorageTelemetry_t t;
+                    if (t.SetValuesFromJsonCharArray((const char*)msgJson.data(), msgJson.size())) {
+                        m_telemetryLoggerPtr->LogTelemetry(&t);
+                    }
+                    else {
+                        LOG_ERROR(subprocess) << "cannot deserialize StorageTelemetry_t for TelemetryLogger";
+                    }
+                }
             }
         }
         if (receiveEventsMask != REC_ALL) {
@@ -274,28 +303,6 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
     LOG_DEBUG(subprocess) << "ThreadFunc exiting";
 }
 
-void TelemetryRunner::Impl::OnNewTelemetry(uint8_t* buffer, uint64_t bufferSize) {
-    std::vector<std::unique_ptr<Telemetry_t> > telemList;
-    try {
-        telemList = TelemetryFactory::DeserializeFromLittleEndian(buffer, bufferSize);
-    }
-    catch (std::exception& e) {
-        LOG_ERROR(subprocess) << e.what();
-        return;
-    }
-    //std::cout << "telemListSize " << telemList.size() << "\n";
-    for (std::unique_ptr<Telemetry_t>& telem : telemList) {
-        
-        if (m_telemetryLoggerPtr) {
-            m_telemetryLoggerPtr->LogTelemetry(telem.get());
-        }
-    }
-
-    if (m_websocketServerPtr) {
-        m_websocketServerPtr->SendNewBinaryData((const char*)buffer, bufferSize);
-    }
-    
-}
 
 void TelemetryRunner::Impl::OnNewJsonTelemetry(const char* buffer, uint64_t bufferSize) {
     //printf("%.*s", (int)bufferSize, buffer); //not null terminated

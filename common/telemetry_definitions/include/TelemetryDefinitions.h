@@ -30,66 +30,7 @@
 #include "telemetry_definitions_export.h"
 #include "codec/Cbhe.h"
 #include "JsonSerializable.h"
-#include "EnumAsFlagsMacro.h"
 
-enum class TelemetryType : uint64_t {
-    undefined = 0,
-    unused1 = 1,
-    unused2,
-    unused3,
-    unused4,
-    unused5,
-    unused6,
-    unused7,
-    unused8,
-    unused9,
-    storageExpiringBeforeThreshold = 10,
-    none
-};
-//MAKE_ENUM_SUPPORT_FLAG_OPERATORS(TelemetryType);
-MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(TelemetryType);
-
-class Telemetry_t : public JsonSerializable {
-    public:
-        TELEMETRY_DEFINITIONS_EXPORT Telemetry_t();
-        TELEMETRY_DEFINITIONS_EXPORT Telemetry_t(TelemetryType type);
-        TELEMETRY_DEFINITIONS_EXPORT virtual ~Telemetry_t();
-
-        TELEMETRY_DEFINITIONS_EXPORT bool operator==(const Telemetry_t& o) const; //operator ==
-        TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const Telemetry_t& o) const;
-
-        /**
-         * Gets the underlying telemetry type
-         */
-        TELEMETRY_DEFINITIONS_EXPORT TelemetryType GetType();
-
-        /**
-         *  Gets the size, in bytes, to allocate for the serialized telemetry
-         */
-        TELEMETRY_DEFINITIONS_EXPORT virtual uint64_t GetSerializationSize() const;
-
-        /**
-         * Serializes a telemetry object into little-endian format
-         * @param buffer the buffer to place the serialized result
-         * @param bufferSize the size of the provided buffer
-         * @return the number of bytes serialized
-         */
-        TELEMETRY_DEFINITIONS_EXPORT virtual uint64_t SerializeToLittleEndian(uint8_t* buffer, uint64_t bufferSize) const;
-
-        /**
-         * Deserializes a little-endian uint8_t buffer into the telemetry object. By default,
-         * this function will deserialize all fields that were appended to m_fieldsToSerialize.
-         * @return the number of bytes that were deserialized
-         */
-        TELEMETRY_DEFINITIONS_EXPORT virtual bool DeserializeFromLittleEndian(const uint8_t* serialization, uint64_t& numBytesTakenToDecode, uint64_t bufferSize);
-
-        TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-        TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
-
-    protected:
-        TelemetryType m_type;
-        std::vector<uint64_t*> m_fieldsToSerialize;
-};
 
 struct StorageTelemetry_t : public JsonSerializable
 {
@@ -129,9 +70,9 @@ struct StorageTelemetry_t : public JsonSerializable
 };
 
 
-struct StorageExpiringBeforeThresholdTelemetry_t : public Telemetry_t {
+struct StorageExpiringBeforeThresholdTelemetry_t : public JsonSerializable {
     TELEMETRY_DEFINITIONS_EXPORT StorageExpiringBeforeThresholdTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~StorageExpiringBeforeThresholdTelemetry_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT ~StorageExpiringBeforeThresholdTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT bool operator==(const StorageExpiringBeforeThresholdTelemetry_t& o) const; //operator ==
     TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const StorageExpiringBeforeThresholdTelemetry_t& o) const;
 
@@ -142,40 +83,8 @@ struct StorageExpiringBeforeThresholdTelemetry_t : public Telemetry_t {
     uint64_t thresholdSecondsSinceStartOfYear2000;
     typedef std::pair<uint64_t, uint64_t> bundle_count_plus_bundle_bytes_pair_t;
     std::map<uint64_t, bundle_count_plus_bundle_bytes_pair_t> mapNodeIdToExpiringBeforeThresholdCount;
-
-    TELEMETRY_DEFINITIONS_EXPORT virtual uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual uint64_t GetSerializationSize() const override;
 };
 
-class TelemetryFactory {
-    public:
-        class TelemetryDeserializeUnknownTypeException : public std::exception {
-            public:
-                const char* what() const noexcept override {
-                    return "failed to deserialize telemetry: unknown type";
-                }
-        };
-
-        class TelemetryDeserializeInvalidFormatException : public std::exception {
-            public:
-                const char* what() const noexcept override {
-                    return "failed to deserialize telemetry: invalid format";
-                }
-        };
-
-        /**
-         * Deserializes a buffer that contains one or more serialized telemetry objects.
-         * After deserializing, GetType can be used to determine the underlying type of each
-         * object.
-         * @return a vector of Telemetry_t points
-         * @throws TelemetryDeserializeUnknownTypeException
-         */
-        TELEMETRY_DEFINITIONS_EXPORT static std::vector<std::unique_ptr<Telemetry_t>>
-            DeserializeFromLittleEndian(
-                const uint8_t* buffer,
-                uint64_t bufferSize
-            );
-};
 
 struct StorageTelemetryRequest_t {
     TELEMETRY_DEFINITIONS_EXPORT StorageTelemetryRequest_t();

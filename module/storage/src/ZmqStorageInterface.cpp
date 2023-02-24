@@ -1275,38 +1275,38 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     LOG_ERROR(subprocess) << "telemMsgByte message mismatch: untruncated = " << res->untruncated_size
                         << " truncated = " << res->size << " expected = " << sizeof(telemReq);
                 }
-                else if (telemReq.type == ((uint64_t)TelemetryType::storageExpiringBeforeThreshold)) {
+                else if (telemReq.type == 10) { //((uint64_t)TelemetryType::storageExpiringBeforeThreshold)) {
                     //send telemetry
-                    /*
-                    StorageTelemetry_t storageTelem;
-                    storageTelem.freeSpaceBytes = m_bsmPtr->GetFreeSpaceBytes();
-                    storageTelem.usedSpaceBytes = m_bsmPtr->GetUsedSpaceBytes();
-                    storageTelem.totalBundlesErasedFromStorage = GetCurrentNumberOfBundlesDeletedFromStorage();
-                    storageTelem.totalBundlesSentToEgressFromStorage = m_totalBundlesSentToEgressFromStorageReadFromDisk;
+                    SyncTelemetry();
+                    m_telem.m_timestampMilliseconds = TimestampUtil::GetMillisecondsSinceEpochRfc5050();
+
+                    std::string* storageTelemJsonStringPtr = new std::string(m_telem.ToJson());
+                    zmq::message_t zmqJsonMessage(storageTelemJsonStringPtr->data(), storageTelemJsonStringPtr->size(),
+                        CustomCleanupStdString, storageTelemJsonStringPtr);
+
+                    
 
                     StorageExpiringBeforeThresholdTelemetry_t expiringTelem;
                     expiringTelem.priority = telemReq.priority;
-                    expiringTelem.thresholdSecondsSinceStartOfYear2000 = TimestampUtil::GetSecondsSinceEpochRfc5050(boost::posix_time::microsec_clock::universal_time() + boost::posix_time::seconds(telemReq.thresholdSecondsFromNow));
+                    expiringTelem.thresholdSecondsSinceStartOfYear2000 = TimestampUtil::GetSecondsSinceEpochRfc5050(
+                        boost::posix_time::microsec_clock::universal_time() + boost::posix_time::seconds(telemReq.thresholdSecondsFromNow));
                     if (!m_bsmPtr->GetStorageExpiringBeforeThresholdTelemetry(expiringTelem)) {
                         LOG_ERROR(subprocess) << "storage can't get StorageExpiringBeforeThresholdTelemetry";
                     }
                     else {
                         //send telemetry
-                        const uint64_t totalBytes = storageTelem.GetSerializationSize() + expiringTelem.GetSerializationSize();
-                        std::vector<uint8_t> buffer = std::vector<uint8_t>(totalBytes);
-                        uint8_t *bufferPtr = buffer.data();
-                        uint64_t bufferSize = buffer.size();
-                        uint64_t bytesWritten = expiringTelem.SerializeToLittleEndian(bufferPtr, bufferSize);
-                        bufferPtr += bytesWritten;
-                        bufferSize -= bytesWritten;
-                        storageTelem.SerializeToLittleEndian(bufferPtr, bufferSize);
+                        std::string* expiringTelemJsonStringPtr = new std::string(expiringTelem.ToJson());
+                        zmq::message_t zmqExpiringTelemJsonMessage(expiringTelemJsonStringPtr->data(),
+                            expiringTelemJsonStringPtr->size(), CustomCleanupStdString, expiringTelemJsonStringPtr);
 
-                        zmq::message_t zmqTelemMessage(buffer.data(), buffer.size());
-                        LOG_INFO(subprocess) << "send storage telem to uis with size " << zmqTelemMessage.size();
-                        if (!m_zmqRepSock_connectingUisToFromBoundStoragePtr->send(std::move(zmqTelemMessage), zmq::send_flags::dontwait)) {
-                            LOG_ERROR(subprocess) << "storage can't send telemetry to uis";
+                        LOG_INFO(subprocess) << "send storage multi-part telem to uis";
+                        if (!m_zmqRepSock_connectingUisToFromBoundStoragePtr->send(std::move(zmqJsonMessage), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+                            LOG_ERROR(subprocess) << "storage can't send json storage telemetry to uis";
                         }
-                    }*/
+                        else if (!m_zmqRepSock_connectingUisToFromBoundStoragePtr->send(std::move(zmqExpiringTelemJsonMessage), zmq::send_flags::dontwait)) {
+                            LOG_ERROR(subprocess) << "storage can't send json StorageExpiringBeforeThresholdTelemetry_t to uis";
+                        }
+                    }
                 }
                 else {
                     LOG_ERROR(subprocess) << "error telemReq.type not 10";

@@ -139,44 +139,14 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsStorageExpiringBeforeThresholdTestCase)
     bundleCountAndBytes.second = 2000;
     telem.mapNodeIdToExpiringBeforeThresholdCount[4] = bundleCountAndBytes;
 
-    //std::cout << telem.ToJson() << "\n";
+    
     StorageExpiringBeforeThresholdTelemetry_t telemFromJson;
-    BOOST_REQUIRE(telemFromJson.SetValuesFromJson(telem.ToJson()));
+    const std::string telemJson = telem.ToJson();
+    //std::cout << telemJson << "\n";
+    BOOST_REQUIRE(telemFromJson.SetValuesFromJson(telemJson));
     BOOST_REQUIRE(telem == telemFromJson);
-
-    {
-        std::vector<uint8_t>* actual = new std::vector<uint8_t>(1000); //will be 64-bit aligned
-        uint8_t* telemPtr = actual->data();
-        const uint8_t* const telemSerializationBase = telemPtr;
-        uint64_t telemBufferSize = actual->size();
-
-        //start zmq message with telemetry
-        const uint64_t storageTelemSize = telem.SerializeToLittleEndian(telemPtr, telemBufferSize);
-        telemBufferSize -= storageTelemSize;
-        telemPtr += storageTelemSize;
-
-        actual->resize(telemPtr - telemSerializationBase);
-        std::vector<uint8_t> expected;
-        expected.insert(expected.end(), {
-            10,  0, 0, 0, 0, 0, 0, 0,
-            1,   0, 0, 0, 0, 0, 0, 0,
-            100, 0, 0, 0, 0, 0, 0, 0,
-            1,   0, 0, 0, 0, 0, 0, 0,
-            4,   0, 0, 0, 0, 0, 0, 0,
-            90,  0, 0, 0, 0, 0, 0, 0,
-            208, 7, 0, 0, 0, 0, 0, 0
-        });
-
-        BOOST_REQUIRE_EQUAL(actual->size(), 56);
-        BOOST_REQUIRE_EQUAL_COLLECTIONS(actual->begin(), actual->end(), expected.begin(), expected.end());
-        delete actual;
-    }
-
-    {
-        BOOST_REQUIRE_EQUAL(telem.GetSerializationSize(), 56);
-        telem.mapNodeIdToExpiringBeforeThresholdCount[9] = bundleCountAndBytes;
-        BOOST_REQUIRE_EQUAL(telem.GetSerializationSize(), 80);
-    }
+    BOOST_REQUIRE_EQUAL(telemJson, telemFromJson.ToJson());
+    
 }
 
 BOOST_AUTO_TEST_CASE(AllInductTelemetryTestCase)
@@ -199,7 +169,7 @@ BOOST_AUTO_TEST_CASE(AllInductTelemetryTestCase)
         }
     }
     const std::string aitJson = ait.ToJson();
-    std::cout << aitJson << "\n";
+    //std::cout << aitJson << "\n";
     AllInductTelemetry_t ait2;
     ait2.SetValuesFromJson(aitJson);
     BOOST_REQUIRE(ait == ait2);
@@ -266,7 +236,7 @@ BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
         ot.m_totalBundlesFailedToSend = ot.m_convergenceLayer.size() + 4;
     }
     const std::string aotJson = aot.ToJson();
-    std::cout << aotJson << "\n";
+    //std::cout << aotJson << "\n";
     AllOutductTelemetry_t aot2;
     aot2.SetValuesFromJson(aotJson);
     BOOST_REQUIRE(aot == aot2);

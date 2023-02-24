@@ -23,118 +23,6 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-static constexpr std::size_t numTypes = static_cast<std::size_t>(TelemetryType::none) + 1;
-static const std::string typeToString[numTypes] =
-{
-    "undefined",
-    "ingress",
-    "egress",
-    "storage",
-    "ltpoutduct",
-    "stcpoutduct",
-    "unused6",
-    "unused7",
-    "unused8",
-    "unused9",
-    "storageExpiringBeforeThreshold",
-    ""
-};
-std::string TypeToString(TelemetryType t) {
-    std::size_t val = static_cast<std::size_t>(t);
-    if (val >= numTypes) {
-        return "";
-    }
-    return typeToString[val];
-}
-static const TelemetryType typeFromString(const std::string& typeStr) {
-    for (std::size_t i = 0; i < numTypes; ++i) {
-        if (typeStr == typeToString[i]) {
-            return TelemetryType(i);
-        }
-    }
-    return TelemetryType::none;
-}
-
-static void SerializeUint64ArrayToLittleEndian(uint64_t* dest, const uint64_t* src, const uint64_t numElements) {
-    for (uint64_t i = 0; i < numElements; ++i) {
-        const uint64_t nativeSrc = *src++;
-        const uint64_t littleDest = boost::endian::native_to_little(nativeSrc);
-        *dest++ = littleDest;
-    }
-}
-
-static double LittleToNativeDouble(const uint64_t* doubleAsUint64Little) {
-    const uint64_t doubleAsUint64Native = boost::endian::little_to_native(*doubleAsUint64Little);
-    return *(reinterpret_cast<const double*>(&doubleAsUint64Native));
-}
-
-/////////////////////////////////////
-//Telemetry_t (base class)
-/////////////////////////////////////
-Telemetry_t::Telemetry_t() : Telemetry_t(TelemetryType::undefined) {}
-Telemetry_t::Telemetry_t(TelemetryType type) : m_type(type) {
-    m_fieldsToSerialize.push_back(reinterpret_cast<uint64_t*>(&m_type));
-}
-
-Telemetry_t::~Telemetry_t() {};
-bool Telemetry_t::operator==(const Telemetry_t& o) const {
-    return (m_type == o.m_type);
-}
-bool Telemetry_t::operator!=(const Telemetry_t& o) const {
-    return !(*this == o);
-}
-
-uint64_t Telemetry_t::SerializeToLittleEndian(uint8_t* buffer, uint64_t bufferSize) const {
-    uint64_t numBytes = Telemetry_t::GetSerializationSize();
-    if (numBytes > bufferSize) {
-        return 0;
-    }
-    uint64_t* buffer64 = reinterpret_cast<uint64_t*>(buffer);
-    for (uint64_t* field : m_fieldsToSerialize) {
-        const uint64_t fieldLittleEndian = boost::endian::native_to_little(*field);
-        *buffer64++ = fieldLittleEndian;
-    }
-    return numBytes;
-}
-
-TelemetryType Telemetry_t::GetType()
-{
-    return TelemetryType(m_type); 
-}
-
-uint64_t Telemetry_t::GetSerializationSize() const {
-    return m_fieldsToSerialize.size() * sizeof(uint64_t);
-}
-
-bool Telemetry_t::DeserializeFromLittleEndian(const uint8_t* serialization, uint64_t& numBytesTakenToDecode, uint64_t bufferSize) {
-    numBytesTakenToDecode = Telemetry_t::GetSerializationSize();
-    if (bufferSize < numBytesTakenToDecode) {
-        return false;
-    }
-    const uint64_t* buffer64 = reinterpret_cast<const uint64_t*>(serialization);
-    for (uint64_t i = 0; i < m_fieldsToSerialize.size(); ++i) {
-        *m_fieldsToSerialize[i] = boost::endian::little_to_native(*buffer64);
-        buffer64++;
-    }
-    return true;
-}
-
-bool Telemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
-    try {
-        m_type = typeFromString(pt.get<std::string>("type"));
-    }
-    catch (const boost::property_tree::ptree_error& e) {
-        LOG_ERROR(subprocess) << "parsing JSON Telemetry_t: " << e.what();
-        return false;
-    }
-    return true;
-}
-
-boost::property_tree::ptree Telemetry_t::GetNewPropertyTree() const {
-    boost::property_tree::ptree pt;
-    pt.put("type", TypeToString(m_type));
-    return pt;
-}
 
 
 
@@ -248,20 +136,12 @@ boost::property_tree::ptree StorageTelemetry_t::GetNewPropertyTree() const {
 //StorageExpiringBeforeThresholdTelemetry_t
 /////////////////////////////////////
 StorageExpiringBeforeThresholdTelemetry_t::StorageExpiringBeforeThresholdTelemetry_t() :
-    Telemetry_t(TelemetryType::storageExpiringBeforeThreshold),
     priority(0),
-    thresholdSecondsSinceStartOfYear2000(0)
-{
-    Telemetry_t::m_fieldsToSerialize.insert(m_fieldsToSerialize.end(), {
-        &priority,
-        &thresholdSecondsSinceStartOfYear2000,
-    });
-}
+    thresholdSecondsSinceStartOfYear2000(0) {}
 
 StorageExpiringBeforeThresholdTelemetry_t::~StorageExpiringBeforeThresholdTelemetry_t() {}
 bool StorageExpiringBeforeThresholdTelemetry_t::operator==(const StorageExpiringBeforeThresholdTelemetry_t& o) const {
-    return Telemetry_t::operator==(o)
-        && (priority == o.priority)
+    return (priority == o.priority)
         && (thresholdSecondsSinceStartOfYear2000 == o.thresholdSecondsSinceStartOfYear2000)
         && (mapNodeIdToExpiringBeforeThresholdCount == o.mapNodeIdToExpiringBeforeThresholdCount);
 }
@@ -272,51 +152,9 @@ bool StorageExpiringBeforeThresholdTelemetry_t::operator!=(const StorageExpiring
 static const uint64_t mapEntrySize = sizeof(uint64_t) +
     sizeof(StorageExpiringBeforeThresholdTelemetry_t::bundle_count_plus_bundle_bytes_pair_t);
 
-uint64_t StorageExpiringBeforeThresholdTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const {
-    // Let the base method handle the uint64_t fields
-    uint64_t bytesSerialized = Telemetry_t::SerializeToLittleEndian(data, bufferSize);
-    bufferSize -= bytesSerialized;
-    data += bytesSerialized;
 
-    // Now, handle the map
-    uint64_t* data64Ptr = reinterpret_cast<uint64_t*>(data);
-    if (bufferSize < (8 + mapEntrySize)) {
-        return 0; //failure
-    }
-
-    // Serialize the map size
-    *data64Ptr++ = boost::endian::native_to_little(static_cast<uint64_t>(mapNodeIdToExpiringBeforeThresholdCount.size()));
-    bufferSize -= 8;
-    bytesSerialized += 8;
-
-    // Serialize the map values
-    for (std::map<uint64_t, bundle_count_plus_bundle_bytes_pair_t>::const_iterator it = mapNodeIdToExpiringBeforeThresholdCount.cbegin();
-        it != mapNodeIdToExpiringBeforeThresholdCount.cend();
-        ++it)
-    {
-        if (bufferSize < mapEntrySize) {
-            return 0; //failure
-        }
-        bufferSize -= mapEntrySize;
-        bytesSerialized += mapEntrySize;
-        *data64Ptr++ = boost::endian::native_to_little(it->first); //node id
-        *data64Ptr++ = boost::endian::native_to_little(it->second.first); //bundle count
-        *data64Ptr++ = boost::endian::native_to_little(it->second.second); //total bundle bytes
-    }
-    return bytesSerialized;
-}
-
-uint64_t StorageExpiringBeforeThresholdTelemetry_t::GetSerializationSize() const {
-    uint64_t size = Telemetry_t::GetSerializationSize();
-    size += sizeof(uint64_t);
-    size += mapNodeIdToExpiringBeforeThresholdCount.size() * mapEntrySize;
-    return size;
-}
 
 bool StorageExpiringBeforeThresholdTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
-    if (!Telemetry_t::SetValuesFromPropertyTree(pt)) {
-        return false;
-    }
     try {
         priority = pt.get<uint64_t>("priority");
         thresholdSecondsSinceStartOfYear2000 = pt.get<uint64_t>("thresholdSecondsSinceStartOfYear2000");
@@ -345,7 +183,7 @@ bool StorageExpiringBeforeThresholdTelemetry_t::SetValuesFromPropertyTree(const 
 }
 
 boost::property_tree::ptree StorageExpiringBeforeThresholdTelemetry_t::GetNewPropertyTree() const {
-    boost::property_tree::ptree pt = Telemetry_t::GetNewPropertyTree();
+    boost::property_tree::ptree pt;
     pt.put("priority", priority);
     pt.put("thresholdSecondsSinceStartOfYear2000", thresholdSecondsSinceStartOfYear2000);
     boost::property_tree::ptree& mapNodeIdToExpiringBeforeThresholdCountPt = pt.put_child("mapNodeIdToExpiringBeforeThresholdCount",
@@ -363,43 +201,8 @@ boost::property_tree::ptree StorageExpiringBeforeThresholdTelemetry_t::GetNewPro
     return pt;
 }
 
-/////////////////////////////////////
-//TelemetryFactory
-/////////////////////////////////////
-std::vector<std::unique_ptr<Telemetry_t> > TelemetryFactory::DeserializeFromLittleEndian(const uint8_t* buffer, uint64_t bufferSize) {
-    std::vector<std::unique_ptr<Telemetry_t> > telemList;
-    while (bufferSize > 0) {
-        // First determine the type
-        const uint64_t* buffer64 = reinterpret_cast<const uint64_t*>(buffer);
-        TelemetryType type = TelemetryType(*buffer64);
 
-        // Attempt to deserialize
-        std::unique_ptr<Telemetry_t> telem;
-        switch (type) {
-            case TelemetryType::storageExpiringBeforeThreshold:
-                telem = boost::make_unique<StorageExpiringBeforeThresholdTelemetry_t>();
-                break;
-            default:
-                throw TelemetryFactory::TelemetryDeserializeUnknownTypeException();
-        };
-        uint64_t numBytesTakenToDecode;
-        if (!telem->DeserializeFromLittleEndian(buffer, numBytesTakenToDecode, bufferSize)) {
-            // We know the buffer isn't empty. So if nothing was written, there is
-            // a formatting issue.
-            throw TelemetryFactory::TelemetryDeserializeInvalidFormatException();
-        }
-        telemList.push_back(std::move(telem));
-
-        bufferSize -= numBytesTakenToDecode;
-        buffer += numBytesTakenToDecode;
-    }
-    return telemList;
-}
-
-StorageTelemetryRequest_t::StorageTelemetryRequest_t() : type(10) {}
-
-
-
+StorageTelemetryRequest_t::StorageTelemetryRequest_t() : type(10), priority(0), thresholdSecondsFromNow(0) {}
 
 
 /////////////////////////////////////
