@@ -446,18 +446,16 @@ void Scheduler::Impl::EgressEventsHandler() {
     }
     else if (linkStatusHdr.base.type == HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY) {
         AllOutductCapabilitiesTelemetry_t aoct;
-        uint64_t numBytesTakenToDecode;
         m_zmqMessageOutductCapabilitiesTelemPtr = boost::make_unique<zmq::message_t>();
         //message guaranteed to be there due to the zmq::send_flags::sndmore
         if (!m_zmqPullSock_boundEgressToConnectingSchedulerPtr->recv(*m_zmqMessageOutductCapabilitiesTelemPtr, zmq::recv_flags::none)) {
             LOG_ERROR(subprocess) << "error receiving AllOutductCapabilitiesTelemetry";
         }
-        else if (!aoct.DeserializeFromLittleEndian((uint8_t*)m_zmqMessageOutductCapabilitiesTelemPtr->data(), numBytesTakenToDecode, m_zmqMessageOutductCapabilitiesTelemPtr->size())) {
+        else if (!aoct.SetValuesFromJsonCharArray((char*)m_zmqMessageOutductCapabilitiesTelemPtr->data(), m_zmqMessageOutductCapabilitiesTelemPtr->size())) {
             LOG_ERROR(subprocess) << "error deserializing AllOutductCapabilitiesTelemetry";
         }
         else {
             LOG_INFO(subprocess) << "Scheduler received initial " << aoct.outductCapabilityTelemetryList.size() << " outduct telemetries from egress";
-            LOG_INFO(subprocess) << "Telemetry message content: " << aoct ;
 
             boost::asio::post(m_ioService, boost::bind(&Scheduler::Impl::PopulateMapsFromAllOutductCapabilitiesTelemetry, this, std::move(aoct)));
     	    

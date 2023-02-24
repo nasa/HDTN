@@ -67,6 +67,7 @@ public:
     virtual boost::property_tree::ptree GetNewPropertyTree() const = 0;
     virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree & pt) = 0;
     bool SetValuesFromJson(const std::string & jsonString);
+    bool SetValuesFromJsonCharArray(const char* data, const std::size_t size);
 
 
 protected:

@@ -63,7 +63,6 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsOutductTestCase)
     {
         OutductCapabilityTelemetry_t oct;
         
-        BOOST_REQUIRE_EQUAL(oct.GetType(), TelemetryType::outductCapability);
         oct.maxBundlesInPipeline = 50;
         oct.maxBundleSizeBytesInPipeline = 5000;
         oct.outductArrayIndex = 2;
@@ -71,18 +70,7 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsOutductTestCase)
         oct.finalDestinationEidList = { cbhe_eid_t(1,1), cbhe_eid_t(2,1) };
         oct.finalDestinationNodeIdList = { 3, 4, 5 };
 
-        const uint64_t serializationSize = oct.GetSerializationSize();
-        BOOST_REQUIRE_EQUAL(serializationSize, (7*8) + (2*16) + (3*8));
-
-        std::vector<uint8_t> serialized(serializationSize);
-        BOOST_REQUIRE_EQUAL(oct.SerializeToLittleEndian(serialized.data(), serializationSize - 1), 0); //fail due to too small of buffer size
-        BOOST_REQUIRE_EQUAL(oct.SerializeToLittleEndian(serialized.data(), serializationSize), serializationSize);
-        OutductCapabilityTelemetry_t oct2;
-        uint64_t numBytesTakenToDecode;
-        BOOST_REQUIRE(!oct2.DeserializeFromLittleEndian(serialized.data(), numBytesTakenToDecode, serializationSize - 1)); //fail due to too small of buffer size
-        BOOST_REQUIRE(oct2.DeserializeFromLittleEndian(serialized.data(), numBytesTakenToDecode, serializationSize));
         
-        BOOST_REQUIRE(oct == oct2);
 
         OutductCapabilityTelemetry_t octFromJson;
         BOOST_REQUIRE(octFromJson.SetValuesFromJson(oct.ToJson()));
@@ -90,11 +78,11 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsOutductTestCase)
         //std::cout << oct.ToJson() << "\n\n";
         
         //misc
-        BOOST_REQUIRE(!(oct != oct2));
+        BOOST_REQUIRE(!(oct != octFromJson));
         OutductCapabilityTelemetry_t octCopy = oct;
         OutductCapabilityTelemetry_t octCopy2(oct);
-        OutductCapabilityTelemetry_t oct2Moved = std::move(oct2);
-        BOOST_REQUIRE(oct != oct2); //oct2 moved
+        OutductCapabilityTelemetry_t oct2Moved = std::move(octFromJson);
+        BOOST_REQUIRE(oct != octFromJson); //oct2 moved
         BOOST_REQUIRE(oct == oct2Moved);
         BOOST_REQUIRE(oct == octCopy);
         BOOST_REQUIRE(oct == octCopy2);
@@ -108,8 +96,6 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsOutductTestCase)
     {
         AllOutductCapabilitiesTelemetry_t aoct;
 
-        BOOST_REQUIRE_EQUAL(aoct.GetType(), TelemetryType::allOutductCapability);
-        uint64_t expectedSerializationSize = 2 * sizeof(uint64_t);
         for (unsigned int i = 0; i < 10; ++i) {
             aoct.outductCapabilityTelemetryList.emplace_back();
             OutductCapabilityTelemetry_t& oct = aoct.outductCapabilityTelemetryList.back();
@@ -120,37 +106,19 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsOutductTestCase)
             const unsigned int base = i * 100;
             oct.finalDestinationEidList = { cbhe_eid_t(base + 1,1), cbhe_eid_t(base + 2,1) };
             oct.finalDestinationNodeIdList = { base + 3, base + 4, base + 5 };
-
-            const uint64_t serializationSize = oct.GetSerializationSize();
-            BOOST_REQUIRE_EQUAL(serializationSize, (7 * 8) + (2 * 16) + (3 * 8));
-            expectedSerializationSize += serializationSize;
         }
-
-        const uint64_t serializationSize = aoct.GetSerializationSize();
-        BOOST_REQUIRE_EQUAL(serializationSize, expectedSerializationSize);
-
-        std::vector<uint8_t> serialized(serializationSize);
-        BOOST_REQUIRE_EQUAL(aoct.SerializeToLittleEndian(serialized.data(), serializationSize - 1), 0); //fail due to too small of buffer size
-        BOOST_REQUIRE_EQUAL(aoct.SerializeToLittleEndian(serialized.data(), serializationSize), serializationSize);
-        AllOutductCapabilitiesTelemetry_t aoct2;
-        uint64_t numBytesTakenToDecode;
-        BOOST_REQUIRE(!aoct2.DeserializeFromLittleEndian(serialized.data(), numBytesTakenToDecode, serializationSize - 1)); //fail due to too small of buffer size
-        BOOST_REQUIRE(aoct2.DeserializeFromLittleEndian(serialized.data(), numBytesTakenToDecode, serializationSize));
-
-        BOOST_REQUIRE(aoct == aoct2);
 
         AllOutductCapabilitiesTelemetry_t aoctFromJson;
         BOOST_REQUIRE(aoctFromJson.SetValuesFromJson(aoct.ToJson()));
         BOOST_REQUIRE(aoct == aoctFromJson);
         //std::cout << aoct.ToJson() << "\n\n";
-        //std::cout << aoct2 << std::endl;
 
         //misc
-        BOOST_REQUIRE(!(aoct != aoct2));
+        BOOST_REQUIRE(!(aoct != aoctFromJson));
         AllOutductCapabilitiesTelemetry_t aoctCopy = aoct;
         AllOutductCapabilitiesTelemetry_t aoctCopy2(aoct);
-        AllOutductCapabilitiesTelemetry_t aoct2Moved = std::move(aoct2);
-        BOOST_REQUIRE(aoct != aoct2); //oct2 moved
+        AllOutductCapabilitiesTelemetry_t aoct2Moved = std::move(aoctFromJson);
+        BOOST_REQUIRE(aoct != aoctFromJson); //oct2 moved
         BOOST_REQUIRE(aoct == aoct2Moved);
         BOOST_REQUIRE(aoct == aoctCopy);
         BOOST_REQUIRE(aoct == aoctCopy2);

@@ -576,19 +576,17 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                 }
                 else if (receivedEgressAckHdr.base.type == HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY) {
                     AllOutductCapabilitiesTelemetry_t aoct;
-                    uint64_t numBytesTakenToDecode;
                     
                     zmq::message_t zmqMessageOutductTelem;
                     //message guaranteed to be there due to the zmq::send_flags::sndmore
                     if (!m_zmqPullSock_connectingEgressToBoundIngressPtr->recv(zmqMessageOutductTelem, zmq::recv_flags::none)) {
                         LOG_ERROR(subprocess) << "error receiving AllOutductCapabilitiesTelemetry";
                     }
-                    else if (!aoct.DeserializeFromLittleEndian((uint8_t*)zmqMessageOutductTelem.data(), numBytesTakenToDecode, zmqMessageOutductTelem.size())) {
+                    else if (!aoct.SetValuesFromJsonCharArray((char*)zmqMessageOutductTelem.data(), zmqMessageOutductTelem.size())) {
                         LOG_ERROR(subprocess) << "error deserializing AllOutductCapabilitiesTelemetry";
                     }
                     else {
-                        //std::cout << aoct << std::endl;
-
+                        
                         if (aoct.outductCapabilityTelemetryList.empty()) {
                             LOG_ERROR(subprocess) << "received outductCapabilityTelemetryList is empty!";
                         }

@@ -74,7 +74,7 @@ class TelemetryRunner::Impl : private boost::noncopyable {
         HdtnConfig m_hdtnConfig;
 
         boost::mutex m_lastSerializedAllOutductCapabilitiesMutex;
-        std::string m_lastSerializedAllOutductCapabilities;
+        zmq::message_t m_lastZmqJsonSerializedAllOutductCapabilities;
 };
 
 /**
@@ -148,8 +148,9 @@ void TelemetryRunner::Impl::OnNewWebsocketConnectionCallback(struct mg_connectio
     mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, hdtnConfigSerialized.data(), hdtnConfigSerialized.size());
     {
         boost::mutex::scoped_lock lock(m_lastSerializedAllOutductCapabilitiesMutex);
-        if (m_lastSerializedAllOutductCapabilities.size()) {
-            mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, m_lastSerializedAllOutductCapabilities.data(), m_lastSerializedAllOutductCapabilities.size());
+        if (m_lastZmqJsonSerializedAllOutductCapabilities.size()) {
+            mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT,
+                (const char*)m_lastZmqJsonSerializedAllOutductCapabilities.data(), m_lastZmqJsonSerializedAllOutductCapabilities.size());
         }
     }
 }
@@ -246,13 +247,18 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
             if (poller.HasNewMessage(*egressConnection)) {
                 receiveEventsMask |= REC_EGRESS;
                 zmq::message_t msg = egressConnection->ReadMessage();
-                if (msg.more()) { //includes first message with binary data
-                    OnNewTelemetry((uint8_t*)msg.data(), msg.size());
-                    zmq::message_t msgJson = egressConnection->ReadMessage();
-                    OnNewJsonTelemetry((const char*)msgJson.data(), msgJson.size());
-                }
-                else { //just a json message
-                    OnNewJsonTelemetry((const char*)msg.data(), msg.size());
+                OnNewJsonTelemetry((const char*)msg.data(), msg.size());
+                if (msg.more()) { //msg was Aoct type, msg2 is normal ouduct telem
+                    {
+                        boost::mutex::scoped_lock lock(m_lastSerializedAllOutductCapabilitiesMutex);
+                        m_lastZmqJsonSerializedAllOutductCapabilities = std::move(msg);
+                    }
+                    if (m_websocketServerPtr) {
+                        m_websocketServerPtr->SendNewTextData((const char*)m_lastZmqJsonSerializedAllOutductCapabilities.data(),
+                            m_lastZmqJsonSerializedAllOutductCapabilities.size());
+                    }
+                    zmq::message_t msg2 = egressConnection->ReadMessage();
+                    OnNewJsonTelemetry((const char*)msg2.data(), msg2.size());
                 }
             }
             if (poller.HasNewMessage(*storageConnection)) {
@@ -279,16 +285,7 @@ void TelemetryRunner::Impl::OnNewTelemetry(uint8_t* buffer, uint64_t bufferSize)
     }
     //std::cout << "telemListSize " << telemList.size() << "\n";
     for (std::unique_ptr<Telemetry_t>& telem : telemList) {
-        if (telem->GetType() == TelemetryType::allOutductCapability) {
-            //std::cout << telem->ToJson() << "\n";
-            {
-                boost::mutex::scoped_lock lock(m_lastSerializedAllOutductCapabilitiesMutex);
-                m_lastSerializedAllOutductCapabilities = telem->ToJson();
-            }
-            if (m_websocketServerPtr) {
-                m_websocketServerPtr->SendNewTextData(m_lastSerializedAllOutductCapabilities.data(), m_lastSerializedAllOutductCapabilities.size());
-            }
-        }
+        
         if (m_telemetryLoggerPtr) {
             m_telemetryLoggerPtr->LogTelemetry(telem.get());
         }
