@@ -600,12 +600,14 @@ void Egress::Impl::ReadZmqThreadFunc() {
                     m_mutexPushBundleToIngress.unlock();
 
                     std::string* allOutductTelemJsonStringPtr = new std::string(m_allOutductTelem.ToJson());
-                    zmq::message_t zmqJsonMessage(allOutductTelemJsonStringPtr->data(), allOutductTelemJsonStringPtr->size(), CustomCleanupStdString, allOutductTelemJsonStringPtr);
+                    std::string& strRef = *allOutductTelemJsonStringPtr;
+                    zmq::message_t zmqJsonMessage(&strRef[0], allOutductTelemJsonStringPtr->size(), CustomCleanupStdString, allOutductTelemJsonStringPtr);
 
                     //send telemetry
                     if (m_lastJsonAoctSharedPtr) {
                         std::string* stringRawPointer = new std::string(std::move(*m_lastJsonAoctSharedPtr));
-                        zmq::message_t zmqTelemMessageWithDataStolen(stringRawPointer->data(), stringRawPointer->size(), CustomCleanupStdString, stringRawPointer);
+                        std::string& strAoctRef = *stringRawPointer;
+                        zmq::message_t zmqTelemMessageWithDataStolen(&strAoctRef[0], stringRawPointer->size(), CustomCleanupStdString, stringRawPointer);
                         m_lastJsonAoctSharedPtr.reset();
                         //use msg.more() on receiving end to know if this is multipart
                         if (!m_zmqRepSock_connectingTelemToFromBoundEgressPtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
@@ -663,25 +665,26 @@ void Egress::Impl::ResendOutductCapabilities() {
     std::shared_ptr<std::string>* jsonRawPtrToSharedPtr =
         new std::shared_ptr<std::string>(std::make_shared<std::string>(allOutductCapabilitiesTelemetry.ToJson()));
     std::shared_ptr<std::string>& sharedPtrRef = *jsonRawPtrToSharedPtr;
+    std::string& strRef = *sharedPtrRef;
 
     zmq::message_t zmqMsgToIngress(
-        sharedPtrRef->data(),
-        sharedPtrRef->size(),
+        &strRef[0],
+        strRef.size(),
         CustomCleanupSharedPtrStdString,
         jsonRawPtrToSharedPtr);
 
     std::shared_ptr<std::string>* jsonRawPtrToSharedPtr2 = new std::shared_ptr<std::string>(sharedPtrRef); //ref count 2
     zmq::message_t zmqMsgToStorage(
-        sharedPtrRef->data(),
-        sharedPtrRef->size(),
+        &strRef[0],
+        strRef.size(),
         CustomCleanupSharedPtrStdString,
         jsonRawPtrToSharedPtr2);
 
     std::shared_ptr<std::string>* jsonRawPtrToSharedPtr3 = new std::shared_ptr<std::string>(sharedPtrRef); //ref count 3
     m_lastJsonAoctSharedPtr = sharedPtrRef; //for sending the latest on telemetry request (ref count 4)
     zmq::message_t zmqMsgToScheduler(
-        sharedPtrRef->data(),
-        sharedPtrRef->size(),
+        &strRef[0],
+        strRef.size(),
         CustomCleanupSharedPtrStdString,
         jsonRawPtrToSharedPtr3);
 

@@ -717,7 +717,8 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                     m_ingressToStorageZmqSocketMutex.unlock();
                     
                     std::string* allInductTelemJsonStringPtr = new std::string(allInductTelem.ToJson());
-                    zmq::message_t zmqJsonMessage(allInductTelemJsonStringPtr->data(), allInductTelemJsonStringPtr->size(), CustomCleanupStdString, allInductTelemJsonStringPtr);
+                    std::string& strRef = *allInductTelemJsonStringPtr;
+                    zmq::message_t zmqJsonMessage(&strRef[0], allInductTelemJsonStringPtr->size(), CustomCleanupStdString, allInductTelemJsonStringPtr);
 
                     if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(zmqJsonMessage), zmq::send_flags::dontwait)) {
                         LOG_ERROR(subprocess) << "can't send json telemetry to telem";

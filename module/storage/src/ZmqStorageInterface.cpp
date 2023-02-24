@@ -1226,7 +1226,8 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     m_telem.m_timestampMilliseconds = TimestampUtil::GetMillisecondsSinceEpochRfc5050();
 
                     std::string* storageTelemJsonStringPtr = new std::string(m_telem.ToJson());
-                    zmq::message_t zmqJsonMessage(storageTelemJsonStringPtr->data(), storageTelemJsonStringPtr->size(), CustomCleanupStdString, storageTelemJsonStringPtr);
+                    std::string& strRef = *storageTelemJsonStringPtr;
+                    zmq::message_t zmqJsonMessage(&strRef[0], storageTelemJsonStringPtr->size(), CustomCleanupStdString, storageTelemJsonStringPtr);
 
                     if (!m_zmqRepSock_connectingTelemToFromBoundStoragePtr->send(std::move(zmqJsonMessage), zmq::send_flags::dontwait)) {
                         LOG_ERROR(subprocess) << "can't send json telemetry to telem";
@@ -1281,7 +1282,8 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     m_telem.m_timestampMilliseconds = TimestampUtil::GetMillisecondsSinceEpochRfc5050();
 
                     std::string* storageTelemJsonStringPtr = new std::string(m_telem.ToJson());
-                    zmq::message_t zmqJsonMessage(storageTelemJsonStringPtr->data(), storageTelemJsonStringPtr->size(),
+                    std::string& strRef = *storageTelemJsonStringPtr;
+                    zmq::message_t zmqJsonMessage(&strRef[0], storageTelemJsonStringPtr->size(),
                         CustomCleanupStdString, storageTelemJsonStringPtr);
 
                     
@@ -1296,7 +1298,8 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     else {
                         //send telemetry
                         std::string* expiringTelemJsonStringPtr = new std::string(expiringTelem.ToJson());
-                        zmq::message_t zmqExpiringTelemJsonMessage(expiringTelemJsonStringPtr->data(),
+                        std::string& strRefExpiring = *expiringTelemJsonStringPtr;
+                        zmq::message_t zmqExpiringTelemJsonMessage(&strRefExpiring[0],
                             expiringTelemJsonStringPtr->size(), CustomCleanupStdString, expiringTelemJsonStringPtr);
 
                         LOG_INFO(subprocess) << "send storage multi-part telem to uis";
