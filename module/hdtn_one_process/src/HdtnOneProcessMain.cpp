@@ -40,8 +40,8 @@ int main(int argc, const char* argv[]) {
     LOG_INFO(subprocess) << "m_ingressBundleCount: " << runner.m_ingressBundleCount;
     LOG_INFO(subprocess) << "m_ingressBundleData: " << runner.m_ingressBundleData;
 
-    LOG_INFO(subprocess) << "Egress: Msg Count, Bundle Count, Bundle data bytes";
-    LOG_INFO(subprocess) << runner.m_egressMessageCount << "," << runner.m_egressBundleCount << "," << runner.m_egressBundleData;
+    LOG_INFO(subprocess) << "Egress: Bundle Count, Bundle data bytes";
+    LOG_INFO(subprocess) << runner.m_egressTotalBundlesGivenToOutducts << "," << runner.m_egressTotalBundleBytesGivenToOutducts;
 
     LOG_INFO(subprocess) << "totalBundlesErasedFromStorage: " << runner.m_totalBundlesErasedFromStorage;
     LOG_INFO(subprocess) << "totalBundlesSentToEgressFromStorage: " << runner.m_totalBundlesSentToEgressFromStorage;

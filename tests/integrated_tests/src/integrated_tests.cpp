@@ -98,7 +98,7 @@ int RunEgressAsync(const char * argv[], int argc, bool & running, uint64_t* ptrB
     {
         EgressAsyncRunner runner;
         runner.Run(argc, argv, running, false);
-        *ptrBundleCount = runner.m_bundleCount;
+        *ptrBundleCount = runner.m_totalBundlesGivenToOutducts;
     }
     return 0;
 }

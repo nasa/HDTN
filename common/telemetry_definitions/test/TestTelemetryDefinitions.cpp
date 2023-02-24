@@ -16,76 +16,7 @@
 #include "TelemetryDefinitions.h"
 #include <boost/lexical_cast.hpp>
 
-BOOST_AUTO_TEST_CASE(TelemetryDefinitionsFactoryTestCase)
-{
 
-    // Egress
-    EgressTelemetry_t egressTelem;
-    egressTelem.egressBundleCount = 5;
-    egressTelem.egressMessageCount = 10;
-    egressTelem.totalDataBytes = 100;
-
-    std::vector<uint8_t> serializedEgress = std::vector<uint8_t>(egressTelem.GetSerializationSize());
-    egressTelem.SerializeToLittleEndian(serializedEgress.data(), serializedEgress.size());
-    std::vector<std::unique_ptr<Telemetry_t>> telem = TelemetryFactory::DeserializeFromLittleEndian(serializedEgress.data(), serializedEgress.size());
-    BOOST_REQUIRE_EQUAL(telem.size(), 1);
-    EgressTelemetry_t* egressTelem2 = (EgressTelemetry_t*)telem[0].get();
-    BOOST_REQUIRE_EQUAL(egressTelem.totalDataBytes, egressTelem2->totalDataBytes);
-    BOOST_REQUIRE_EQUAL(egressTelem.egressBundleCount, egressTelem2->egressBundleCount);
-    BOOST_REQUIRE_EQUAL(egressTelem.egressMessageCount, egressTelem2->egressMessageCount);
-
-}
-
-
-
-BOOST_AUTO_TEST_CASE(TelemetryDefinitionsEgressTestCase)
-{
-    // Test default constructor
-    EgressTelemetry_t def;
-    BOOST_REQUIRE_EQUAL(def.GetSerializationSize(), 32);
-    BOOST_REQUIRE_EQUAL(def.egressBundleCount, 0);
-    BOOST_REQUIRE_EQUAL(def.totalDataBytes, 0);
-    BOOST_REQUIRE_EQUAL(def.egressMessageCount, 0);
-
-    // Test serialize
-    EgressTelemetry_t telem;
-    telem.egressBundleCount = 5;
-    telem.totalDataBytes = 100;
-    telem.egressMessageCount = 10;
-    std::vector<uint8_t> actual = std::vector<uint8_t>(telem.GetSerializationSize());
-    telem.SerializeToLittleEndian(actual.data(), actual.size());
-    std::vector<uint8_t> expected;
-    expected.insert(expected.end(), {
-        2,   0, 0, 0, 0, 0, 0, 0,
-        5,   0, 0, 0, 0, 0, 0, 0,
-        100, 0, 0, 0, 0, 0, 0, 0,
-        10,  0, 0, 0, 0, 0, 0, 0
-    });
-
-    BOOST_REQUIRE_EQUAL(actual.size(), 32);
-    BOOST_REQUIRE_EQUAL_COLLECTIONS(actual.begin(), actual.end(), expected.begin(), expected.end());
-
-    // Test deserialize
-    std::vector<uint8_t> serialized;
-    serialized.insert(serialized.end(), {
-        2,   0, 0, 0, 0, 0, 0, 0,
-        10,  0, 0, 0, 0, 0, 0, 0,
-        200, 0, 0, 0, 0, 0, 0, 0,
-        15,  0, 0, 0, 0, 0, 0, 0
-    });
-
-    EgressTelemetry_t telem2;
-    uint64_t numBytesTakenToDecode;
-    BOOST_REQUIRE(telem2.DeserializeFromLittleEndian(serialized.data(), numBytesTakenToDecode, serialized.size()));
-    BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, serialized.size());
-    BOOST_REQUIRE_EQUAL(telem2.egressBundleCount, 10);
-    BOOST_REQUIRE_EQUAL(telem2.totalDataBytes, 200);
-    BOOST_REQUIRE_EQUAL(telem2.egressMessageCount, 15);
-
-    EgressTelemetry_t telemFromJson;
-    BOOST_REQUIRE(telemFromJson.SetValuesFromJson(telem2.ToJson()));
-    BOOST_REQUIRE(telem2 == telemFromJson);
-}
 
 BOOST_AUTO_TEST_CASE(TelemetryDefinitionsStorageTestCase)
 {
@@ -310,6 +241,15 @@ BOOST_AUTO_TEST_CASE(AllInductTelemetryTestCase)
 BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
 {
     AllOutductTelemetry_t aot;
+    aot.m_timestampMilliseconds = 1;
+    aot.m_totalBundlesGivenToOutducts = 2;
+    aot.m_totalBundleBytesGivenToOutducts = 3;
+    aot.m_totalTcpclBundlesReceived = 4;
+    aot.m_totalTcpclBundleBytesReceived = 5;
+    aot.m_totalStorageToIngressOpportunisticBundles = 6;
+    aot.m_totalStorageToIngressOpportunisticBundleBytes = 7;
+    aot.m_totalBundlesSuccessfullySent = 8;
+    aot.m_totalBundleBytesSuccessfullySent = 9;
     {
         std::unique_ptr<LtpOutductTelemetry_t> ptr = std::make_unique<LtpOutductTelemetry_t>();
         ptr->m_countRxUdpCircularBufferOverruns = 10;

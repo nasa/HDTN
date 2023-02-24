@@ -53,10 +53,13 @@ private:
 
 public:
     //telemetry
-    EgressTelemetry_t m_telemetry;
+    AllOutductTelemetry_t m_allOutductTelem;
     std::size_t m_totalCustodyTransfersSentToStorage;
     std::size_t m_totalCustodyTransfersSentToIngress;
 private:
+    uint64_t m_totalTcpclBundlesReceivedMutexProtected;
+    uint64_t m_totalTcpclBundleBytesReceivedMutexProtected;
+
     std::unique_ptr<zmq::context_t> m_zmqCtxPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingEgressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingEgressToBoundIngressPtr;
@@ -95,12 +98,14 @@ Egress::Impl::Impl() :
     m_running(false),
     m_totalCustodyTransfersSentToIngress(0),
     m_totalCustodyTransfersSentToStorage(0),
+    m_totalTcpclBundlesReceivedMutexProtected(0),
+    m_totalTcpclBundleBytesReceivedMutexProtected(0),
     m_workerThreadStartupInProgress(false) {}
 
 Egress::Egress() :
     m_pimpl(boost::make_unique<Egress::Impl>()),
     //references
-    m_telemetry(m_pimpl->m_telemetry),
+    m_allOutductTelemRef(m_pimpl->m_allOutductTelem),
     m_totalCustodyTransfersSentToStorage(m_pimpl->m_totalCustodyTransfersSentToStorage),
     m_totalCustodyTransfersSentToIngress(m_pimpl->m_totalCustodyTransfersSentToIngress) {}
 
@@ -140,12 +145,6 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDistributedConf
 
     m_hdtnConfig = hdtnConfig;
 
-    
-
-
-    m_telemetry.egressBundleCount = 0;
-    m_telemetry.totalDataBytes = 0;
-    m_telemetry.egressMessageCount = 0;
 
     m_zmqCtxPtr = boost::make_unique<zmq::context_t>(); //needed at least by scheduler pubsub (and if one-process is not used)
     try {
@@ -495,7 +494,6 @@ void Egress::Impl::ReadZmqThreadFunc() {
                     LOG_ERROR(subprocess) << "toEgressHeader.base.type != HDTN_MSGTYPE_EGRESS";
                     continue;
                 }
-                ++m_telemetry.egressMessageCount;
                 
                 zmq::message_t zmqMessageBundle;
                 //message guaranteed to be there due to the zmq::send_flags::sndmore
@@ -503,9 +501,8 @@ void Egress::Impl::ReadZmqThreadFunc() {
                     LOG_ERROR(subprocess) << "error on sockets[itemIndex]->recv";
                     continue;
                 }
-                       
-                m_telemetry.totalDataBytes += zmqMessageBundle.size();
-                ++m_telemetry.egressBundleCount;
+                const uint64_t zmqMessageBundleSize = zmqMessageBundle.size();
+                
 
                 const cbhe_eid_t & finalDestEid = toEgressHeader.finalDestEid;
                 //TODO DERMINE IF availableDestOpportunisticNodeIdsSet IS NEEDED
@@ -541,6 +538,10 @@ void Egress::Impl::ReadZmqThreadFunc() {
                     else if (!m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->send(std::move(zmqMessageBundle), zmq::send_flags::none)) { //blocks if above 5 high water mark
                         LOG_ERROR(subprocess) << "WholeBundleReadyCallback: zmq could not forward bundle to ingress";
                     }
+                    else {
+                        ++m_allOutductTelem.m_totalStorageToIngressOpportunisticBundles;
+                        m_allOutductTelem.m_totalStorageToIngressOpportunisticBundleBytes += zmqMessageBundleSize;
+                    }
                 }
                 else if (Outduct * outduct = m_outductManager.GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
                     std::vector<uint8_t> userData(sizeof(hdtn::EgressAckHdr));
@@ -560,6 +561,10 @@ void Egress::Impl::ReadZmqThreadFunc() {
                         LOG_ERROR(subprocess) << "hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved.. bundle shall remain in storage";
 
                         OnFailedBundleZmqSendCallback(zmqMessageBundle, userData, outduct->GetOutductUuid(), false); //todo is this correct?.. verify userdata not moved
+                    }
+                    else {
+                        m_allOutductTelem.m_totalBundleBytesGivenToOutducts += zmqMessageBundleSize;
+                        ++m_allOutductTelem.m_totalBundlesGivenToOutducts;
                     }
                 }
                 else {
@@ -589,35 +594,25 @@ void Egress::Impl::ReadZmqThreadFunc() {
                 }
                 else {
 
-                    AllOutductTelemetry_t allOutductTelem;
-                    m_outductManager.PopulateAllOutductTelemetry(allOutductTelem);
-                    std::string* allOutductTelemJsonStringPtr = new std::string(allOutductTelem.ToJson());
+                    
+                    m_outductManager.PopulateAllOutductTelemetry(m_allOutductTelem); //also sets m_totalBundlesSuccessfullySent, m_totalBundleBytesSuccessfullySent
+                    m_mutexPushBundleToIngress.lock();
+                    m_allOutductTelem.m_totalTcpclBundlesReceived = m_totalTcpclBundlesReceivedMutexProtected;
+                    m_allOutductTelem.m_totalTcpclBundleBytesReceived = m_totalTcpclBundleBytesReceivedMutexProtected;
+                    m_mutexPushBundleToIngress.unlock();
+
+                    std::string* allOutductTelemJsonStringPtr = new std::string(m_allOutductTelem.ToJson());
                     zmq::message_t zmqJsonMessage(allOutductTelemJsonStringPtr->data(), allOutductTelemJsonStringPtr->size(), CustomCleanupStdString, allOutductTelemJsonStringPtr);
 
                     //send telemetry
-                    std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(1000 + ((m_lastSerializedAoctSharedPtr) ? m_lastSerializedAoctSharedPtr->size() : 0)); //will be 64-bit aligned;
-                    uint8_t* telemPtr = vecUint8RawPointer->data();
-                    const uint8_t* const telemSerializationBase = telemPtr;
-                    uint64_t telemBufferSize = vecUint8RawPointer->size();
-
                     if (m_lastSerializedAoctSharedPtr) {
-                        memcpy(telemPtr, m_lastSerializedAoctSharedPtr->data(), m_lastSerializedAoctSharedPtr->size());
-                        telemBufferSize -= m_lastSerializedAoctSharedPtr->size();
-                        telemPtr += m_lastSerializedAoctSharedPtr->size();
+                        std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(std::move(*m_lastSerializedAoctSharedPtr)); //will be 64-bit aligned;
+                        zmq::message_t zmqTelemMessageWithDataStolen(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
                         m_lastSerializedAoctSharedPtr.reset();
-                    }
-
-                    //(concat) zmq message with egress telemetry
-                    const uint64_t egressTelemSize = m_telemetry.SerializeToLittleEndian(telemPtr, telemBufferSize);
-                    telemBufferSize -= egressTelemSize;
-                    telemPtr += egressTelemSize;
-
-                    vecUint8RawPointer->resize(telemPtr - telemSerializationBase);
-
-                    zmq::message_t zmqTelemMessageWithDataStolen(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
-
-                    if (!m_zmqRepSock_connectingTelemToFromBoundEgressPtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
-                        LOG_ERROR(subprocess) << "can't send telemetry to telemetry interface";
+                        //use msg.more() on receiving end to know if this is multipart
+                        if (!m_zmqRepSock_connectingTelemToFromBoundEgressPtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+                            LOG_ERROR(subprocess) << "can't send telemetry to telemetry interface";
+                        }
                     }
 
                     if (!m_zmqRepSock_connectingTelemToFromBoundEgressPtr->send(std::move(zmqJsonMessage), zmq::send_flags::dontwait)) {
@@ -780,6 +775,7 @@ void Egress::Impl::WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleV
     //required by 0MQ, with the data and hint arguments supplied to zmq_msg_init_data().
     static const char messageFlags = 1; //1 => from egress and needs processing
     static const zmq::const_buffer messageFlagsConstBuf(&messageFlags, sizeof(messageFlags));
+    const uint64_t wholeBundleVecSize = wholeBundleVec.size();
     padded_vector_uint8_t * rxBufRawPointer = new padded_vector_uint8_t(std::move(wholeBundleVec));
     zmq::message_t paddedMessageWithDataStolen(rxBufRawPointer->data() - rxBufRawPointer->get_allocator().PADDING_ELEMENTS_BEFORE,
         rxBufRawPointer->size() + rxBufRawPointer->get_allocator().TOTAL_PADDING_ELEMENTS, CustomCleanupPaddedVecUint8, rxBufRawPointer);
@@ -789,6 +785,10 @@ void Egress::Impl::WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleV
     }
     else if (!m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->send(std::move(paddedMessageWithDataStolen), zmq::send_flags::none)) { //blocks if above 5 high water mark
         LOG_ERROR(subprocess) << "WholeBundleReadyCallback: zmq could not forward bundle to ingress";
+    }
+    else {
+        ++m_totalTcpclBundlesReceivedMutexProtected;
+        m_totalTcpclBundleBytesReceivedMutexProtected += wholeBundleVecSize;
     }
 }
 

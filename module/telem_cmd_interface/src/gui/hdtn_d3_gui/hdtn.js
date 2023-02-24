@@ -303,6 +303,14 @@ var INITIAL_HDTN_CONFIG = {
 
 var OUTDUCT_TELEM_UPDATE = {
     "timestampMilliseconds": 0,
+    "totalBundlesGivenToOutducts": 2,
+    "totalBundleBytesGivenToOutducts": 3,
+    "totalTcpclBundlesReceived": 4,
+    "totalTcpclBundleBytesReceived": 5,
+    "totalStorageToIngressOpportunisticBundles": 6,
+    "totalStorageToIngressOpportunisticBundleBytes": 7,
+    "totalBundlesSuccessfullySent": 8,
+    "totalBundleBytesSuccessfullySent": 9,
     "allOutducts": [
         {
             "convergenceLayer": "ltp_over_udp",

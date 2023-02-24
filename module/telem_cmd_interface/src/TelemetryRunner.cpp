@@ -246,9 +246,14 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
             if (poller.HasNewMessage(*egressConnection)) {
                 receiveEventsMask |= REC_EGRESS;
                 zmq::message_t msg = egressConnection->ReadMessage();
-                OnNewTelemetry((uint8_t*)msg.data(), msg.size());
-                zmq::message_t msgJson = egressConnection->ReadMessage();
-                OnNewJsonTelemetry((const char*)msgJson.data(), msgJson.size());
+                if (msg.more()) { //includes first message with binary data
+                    OnNewTelemetry((uint8_t*)msg.data(), msg.size());
+                    zmq::message_t msgJson = egressConnection->ReadMessage();
+                    OnNewJsonTelemetry((const char*)msgJson.data(), msgJson.size());
+                }
+                else { //just a json message
+                    OnNewJsonTelemetry((const char*)msg.data(), msg.size());
+                }
             }
             if (poller.HasNewMessage(*storageConnection)) {
                 receiveEventsMask |= REC_STORAGE;

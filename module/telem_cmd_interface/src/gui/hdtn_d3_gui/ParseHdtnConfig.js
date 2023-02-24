@@ -185,6 +185,16 @@ function UpdateAllOutductCapabilities(paramHdtnConfig, paramAoct) {
 }
 
 function UpdateAllOutductTelemetry(paramHdtnConfig, paramAot) {
+    paramHdtnConfig.egressD3Obj.toolTipText = ObjToTooltipText( {
+        "totalBundlesGivenToOutducts": paramAot.totalBundlesGivenToOutducts,
+        "totalBundleBytesGivenToOutducts": paramAot.totalBundleBytesGivenToOutducts,
+        "totalTcpclBundlesReceived": paramAot.totalTcpclBundlesReceived,
+        "totalTcpclBundleBytesReceived": paramAot.totalTcpclBundleBytesReceived,
+        "totalStorageToIngressOpportunisticBundles": paramAot.totalStorageToIngressOpportunisticBundles,
+        "totalStorageToIngressOpportunisticBundleBytes": paramAot.totalStorageToIngressOpportunisticBundleBytes,
+        "totalBundlesSuccessfullySent": paramAot.totalBundlesSuccessfullySent,
+        "totalBundleBytesSuccessfullySent": paramAot.totalBundleBytesSuccessfullySent,
+    });
     let timestampMilliseconds = paramAot.timestampMilliseconds;
     let deltaTimestampMilliseconds = 0;
     if(paramHdtnConfig.hasOwnProperty("lastOutductTelemTimestampMilliseconds")) {
@@ -459,21 +469,21 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
 
 
 
-
-
-
-
     var egressAbsPosition = PARAM_ABS_POSITION_MAP["egress"];
-    var egressObj = {};
-    egressObj.parent = null;
-    egressObj.d3ChildArray = [];
-    egressObj.id = "egress";
-    egressObj.name = "Egress";
-    egressObj.absX = egressAbsPosition.X;
-    egressObj.absY = egressAbsPosition.Y;
-    egressObj.width = egressAbsPosition.WIDTH;
-    egressObj.height = egressAbsPosition.HEIGHT;
-    var egressD3Array = [egressObj];
+    if(!paramHdtnConfig.hasOwnProperty("egressD3Obj")) {
+        paramHdtnConfig.egressD3Obj = {
+            "parent": null,
+            "d3ChildArray": [],
+            "id": "egress",
+            "name": "Egress",
+            "absX": egressAbsPosition.X,
+            "absY": egressAbsPosition.Y,
+            "width": egressAbsPosition.WIDTH,
+            "height": egressAbsPosition.HEIGHT,
+            "topHeaderHeight": PARENT_TOP_HEADER_PX
+        };
+    }
+    var egressD3Array = [paramHdtnConfig.egressD3Obj];
 
     var nextHopsAbsPosition = PARAM_ABS_POSITION_MAP["next_hops"];
     var nextHopsAbsPositionY = nextHopsAbsPosition.Y;
@@ -509,7 +519,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         ///////////outduct
         var outduct = od;
         outduct.linkIsUp = true;
-        outduct.parent = egressObj;
+        outduct.parent = paramHdtnConfig.egressD3Obj;
         outduct.id = "outduct_" + i;
         var cvName = "??";
         if(od.convergenceLayer === "ltp_over_udp") {
@@ -536,15 +546,15 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         outduct.relY = outductRelYRight;
         outductRelYRight += CHILD_HEIGHT_PX + CHILD_BOTTOM_MARGIN_PX;
 
-        outduct.absWireOutY = egressObj.absY + outduct.relY + outduct.height/2;
+        outduct.absWireOutY = paramHdtnConfig.egressD3Obj.absY + outduct.relY + outduct.height/2;
         outduct.absWireInY = outduct.absWireOutY;
-        outduct.absWireOutX = egressObj.absX + outduct.relX + outduct.width;
-        outduct.absWireInX = egressObj.absX + outduct.relX;
+        outduct.absWireOutX = paramHdtnConfig.egressD3Obj.absX + outduct.relX + outduct.width;
+        outduct.absWireInX = paramHdtnConfig.egressD3Obj.absX + outduct.relX;
 
 
 
         //console.log(outduct);
-        egressObj.d3ChildArray.push(outduct);
+        paramHdtnConfig.egressD3Obj.d3ChildArray.push(outduct);
 
         ///////////next hop
         var nextHopObj = {};
@@ -638,13 +648,12 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
     });
 
     //obj.height = Math.max(subObjRelYLeft, subObjRelYRight);
-    egressObj.topHeaderHeight = PARENT_TOP_HEADER_PX;
 
 
 
     finalDestsObj.topHeaderHeight = PARENT_TOP_HEADER_PX;
 
-    egressObj.busBar = {
+    paramHdtnConfig.egressD3Obj.busBar = {
         "x1": egressAbsPosition.WIDTH / 4.0,
         "y1": PARENT_TOP_HEADER_PX,
         "x2": egressAbsPosition.WIDTH / 4.0,

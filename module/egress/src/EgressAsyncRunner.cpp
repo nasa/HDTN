@@ -29,9 +29,8 @@ void EgressAsyncRunner::MonitorExitKeypressThreadFunction() {
 
 
 EgressAsyncRunner::EgressAsyncRunner() :
-    m_bundleCount(0),
-    m_bundleData(0),
-    m_messageCount(0),
+    m_totalBundlesGivenToOutducts(0),
+    m_totalBundleBytesGivenToOutducts(0),
     m_runningFromSigHandler(false) {}
 EgressAsyncRunner::~EgressAsyncRunner() {}
 
@@ -111,9 +110,8 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
 
         LOG_INFO(subprocess) << "EgressAsyncRunner: exiting cleanly..";
         egress.Stop();
-        m_bundleCount = egress.m_telemetry.egressBundleCount;
-        m_bundleData = static_cast<uint64_t>(egress.m_telemetry.totalDataBytes);
-        m_messageCount = egress.m_telemetry.egressMessageCount;
+        m_totalBundlesGivenToOutducts = egress.m_allOutductTelemRef.m_totalBundlesGivenToOutducts;
+        m_totalBundleBytesGivenToOutducts = static_cast<uint64_t>(egress.m_allOutductTelemRef.m_totalBundleBytesGivenToOutducts);
     }
     LOG_INFO(subprocess) << "EgressAsyncRunner: exited cleanly";
     return true;

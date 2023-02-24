@@ -30,7 +30,7 @@ void TelemetryLogger::LogTelemetry(Telemetry_t* telem)
                 LogTelemetry(ingressTelem);
             }
             break;
-        }*/
+        }
         case TelemetryType::egress: {
             EgressTelemetry_t* egressTelem = dynamic_cast<EgressTelemetry_t*>(telem);
             if (egressTelem != nullptr) {
@@ -38,7 +38,7 @@ void TelemetryLogger::LogTelemetry(Telemetry_t* telem)
             }
             break;
         }
-                                  /*
+                                  
         case TelemetryType::storage: {
             StorageTelemetry_t* storageTelem = dynamic_cast<StorageTelemetry_t*>(telem);
             if (storageTelem != nullptr) {
@@ -67,7 +67,7 @@ void TelemetryLogger::LogTelemetry(IngressTelemetry_t* telem)
     lastTotalDataBytes = telem->totalDataBytes;
     lastProcessedTime = nowTime;
 }
-*/
+
 void TelemetryLogger::LogTelemetry(EgressTelemetry_t* telem)
 {
     boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();
@@ -88,7 +88,7 @@ void TelemetryLogger::LogTelemetry(EgressTelemetry_t* telem)
     lastTotalDataBytes = telem->totalDataBytes;
     lastProcessedTime = nowTime;
 }
-
+*/
 void TelemetryLogger::LogTelemetry(StorageTelemetry_t* telem)
 {
     // No-op. Currently, there's no need for logging storage data

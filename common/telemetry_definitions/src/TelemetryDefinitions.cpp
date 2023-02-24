@@ -141,57 +141,6 @@ boost::property_tree::ptree Telemetry_t::GetNewPropertyTree() const {
 
 
 /////////////////////////////////////
-//EgressTelemetry_t
-/////////////////////////////////////
-EgressTelemetry_t::EgressTelemetry_t() :
-    Telemetry_t(TelemetryType::egress),
-    totalDataBytes(0),
-    egressBundleCount(0),
-    egressMessageCount(0)
-{
-    Telemetry_t::m_fieldsToSerialize.insert(m_fieldsToSerialize.end(), {
-        &egressBundleCount,
-        &totalDataBytes,
-        &egressMessageCount
-    });
-}
-
-EgressTelemetry_t::~EgressTelemetry_t() {};
-bool EgressTelemetry_t::operator==(const EgressTelemetry_t& o) const {
-    return Telemetry_t::operator==(o)
-        && (totalDataBytes == o.totalDataBytes)
-        && (egressBundleCount == o.egressBundleCount)
-        && (egressMessageCount == o.egressMessageCount);
-}
-bool EgressTelemetry_t::operator!=(const EgressTelemetry_t& o) const {
-    return !(*this == o);
-}
-
-bool EgressTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
-    if (!Telemetry_t::SetValuesFromPropertyTree(pt)) {
-        return false;
-    }
-    try {
-        totalDataBytes = pt.get<uint64_t>("totalDataBytes");
-        egressBundleCount = pt.get<uint64_t>("egressBundleCount");
-        egressMessageCount = pt.get<uint64_t>("egressMessageCount");
-    }
-    catch (const boost::property_tree::ptree_error& e) {
-        LOG_ERROR(subprocess) << "parsing JSON EgressTelemetry_t: " << e.what();
-        return false;
-    }
-    return true;
-}
-
-boost::property_tree::ptree EgressTelemetry_t::GetNewPropertyTree() const {
-    boost::property_tree::ptree pt = Telemetry_t::GetNewPropertyTree();
-    pt.put("totalDataBytes", totalDataBytes);
-    pt.put("egressBundleCount", egressBundleCount);
-    pt.put("egressMessageCount", egressMessageCount);
-    return pt;
-}
-
-/////////////////////////////////////
 //StorageTelemetry_t
 /////////////////////////////////////
 StorageTelemetry_t::StorageTelemetry_t() :
@@ -429,9 +378,6 @@ std::vector<std::unique_ptr<Telemetry_t> > TelemetryFactory::DeserializeFromLitt
         // Attempt to deserialize
         std::unique_ptr<Telemetry_t> telem;
         switch (type) {
-            case TelemetryType::egress:
-                telem = boost::make_unique<EgressTelemetry_t>();
-                break;
             case TelemetryType::storageExpiringBeforeThreshold:
                 telem = boost::make_unique<StorageExpiringBeforeThresholdTelemetry_t>();
                 break;
@@ -1217,7 +1163,16 @@ boost::property_tree::ptree UdpOutductTelemetry_t::GetNewPropertyTree() const {
     return pt;
 }
 
-AllOutductTelemetry_t::AllOutductTelemetry_t() : m_timestampMilliseconds(0) {}
+AllOutductTelemetry_t::AllOutductTelemetry_t() :
+    m_timestampMilliseconds(0),
+    m_totalBundlesGivenToOutducts(0),
+    m_totalBundleBytesGivenToOutducts(0),
+    m_totalTcpclBundlesReceived(0),
+    m_totalTcpclBundleBytesReceived(0),
+    m_totalStorageToIngressOpportunisticBundles(0),
+    m_totalStorageToIngressOpportunisticBundleBytes(0),
+    m_totalBundlesSuccessfullySent(0),
+    m_totalBundleBytesSuccessfullySent(0) {}
 static bool UniquePtrOutductTelemEquivalent(const std::unique_ptr<OutductTelemetry_t>& a, const std::unique_ptr<OutductTelemetry_t>& b) {
     if ((!a) && (!b)) return true; //both null
     if (!a) return false;
@@ -1225,7 +1180,16 @@ static bool UniquePtrOutductTelemEquivalent(const std::unique_ptr<OutductTelemet
     return ((*a) == (*b));
 }
 bool AllOutductTelemetry_t::operator==(const AllOutductTelemetry_t& o) const {
-    return std::equal(m_listAllOutducts.begin(), m_listAllOutducts.end(), o.m_listAllOutducts.begin(), UniquePtrOutductTelemEquivalent);
+    return (m_timestampMilliseconds == o.m_timestampMilliseconds)
+        && (m_totalBundlesGivenToOutducts == o.m_totalBundlesGivenToOutducts)
+        && (m_totalBundleBytesGivenToOutducts == o.m_totalBundleBytesGivenToOutducts)
+        && (m_totalTcpclBundlesReceived == o.m_totalTcpclBundlesReceived)
+        && (m_totalTcpclBundleBytesReceived == o.m_totalTcpclBundleBytesReceived)
+        && (m_totalStorageToIngressOpportunisticBundles == o.m_totalStorageToIngressOpportunisticBundles)
+        && (m_totalStorageToIngressOpportunisticBundleBytes == o.m_totalStorageToIngressOpportunisticBundleBytes)
+        && (m_totalBundlesSuccessfullySent == o.m_totalBundlesSuccessfullySent)
+        && (m_totalBundleBytesSuccessfullySent == o.m_totalBundleBytesSuccessfullySent)
+        && std::equal(m_listAllOutducts.begin(), m_listAllOutducts.end(), o.m_listAllOutducts.begin(), UniquePtrOutductTelemEquivalent);
 }
 bool AllOutductTelemetry_t::operator!=(const AllOutductTelemetry_t& o) const {
     return !(*this == o);
@@ -1233,6 +1197,14 @@ bool AllOutductTelemetry_t::operator!=(const AllOutductTelemetry_t& o) const {
 bool AllOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
     try {
         m_timestampMilliseconds = pt.get<uint64_t>("timestampMilliseconds");
+        m_totalBundlesGivenToOutducts = pt.get<uint64_t>("totalBundlesGivenToOutducts");
+        m_totalBundleBytesGivenToOutducts = pt.get<uint64_t>("totalBundleBytesGivenToOutducts");
+        m_totalTcpclBundlesReceived = pt.get<uint64_t>("totalTcpclBundlesReceived");
+        m_totalTcpclBundleBytesReceived = pt.get<uint64_t>("totalTcpclBundleBytesReceived");
+        m_totalStorageToIngressOpportunisticBundles = pt.get<uint64_t>("totalStorageToIngressOpportunisticBundles");
+        m_totalStorageToIngressOpportunisticBundleBytes = pt.get<uint64_t>("totalStorageToIngressOpportunisticBundleBytes");
+        m_totalBundlesSuccessfullySent = pt.get<uint64_t>("totalBundlesSuccessfullySent");
+        m_totalBundleBytesSuccessfullySent = pt.get<uint64_t>("totalBundleBytesSuccessfullySent");
         //for non-throw versions of get_child which return a reference to the second parameter
         static const boost::property_tree::ptree EMPTY_PTREE;
         const boost::property_tree::ptree& allOutductsPt = pt.get_child("allOutducts", EMPTY_PTREE); //non-throw version
@@ -1270,6 +1242,14 @@ bool AllOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree
 boost::property_tree::ptree AllOutductTelemetry_t::GetNewPropertyTree() const {
     boost::property_tree::ptree pt;
     pt.put("timestampMilliseconds", m_timestampMilliseconds);
+    pt.put("totalBundlesGivenToOutducts", m_totalBundlesGivenToOutducts);
+    pt.put("totalBundleBytesGivenToOutducts", m_totalBundleBytesGivenToOutducts);
+    pt.put("totalTcpclBundlesReceived", m_totalTcpclBundlesReceived);
+    pt.put("totalTcpclBundleBytesReceived", m_totalTcpclBundleBytesReceived);
+    pt.put("totalStorageToIngressOpportunisticBundles", m_totalStorageToIngressOpportunisticBundles);
+    pt.put("totalStorageToIngressOpportunisticBundleBytes", m_totalStorageToIngressOpportunisticBundleBytes);
+    pt.put("totalBundlesSuccessfullySent", m_totalBundlesSuccessfullySent);
+    pt.put("totalBundleBytesSuccessfullySent", m_totalBundleBytesSuccessfullySent);
     boost::property_tree::ptree& allInductsPt = pt.put_child("allOutducts",
         m_listAllOutducts.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
     for (std::list<std::unique_ptr<OutductTelemetry_t> >::const_iterator it = m_listAllOutducts.cbegin(); it != m_listAllOutducts.cend(); ++it) {

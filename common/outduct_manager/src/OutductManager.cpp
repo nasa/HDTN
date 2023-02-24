@@ -386,11 +386,18 @@ std::shared_ptr<Outduct> OutductManager::GetOutductSharedPtrByOutductUuid(const 
 
 void OutductManager::PopulateAllOutductTelemetry(AllOutductTelemetry_t& allOutductTelem) {
     allOutductTelem.m_listAllOutducts.clear();
+    allOutductTelem.m_totalBundlesSuccessfullySent = 0;
+    allOutductTelem.m_totalBundleBytesSuccessfullySent = 0;
     for (std::vector<std::shared_ptr<Outduct> >::const_iterator it = m_outductsVec.cbegin(); it != m_outductsVec.cend(); ++it) {
         allOutductTelem.m_listAllOutducts.emplace_back();
-        (*it)->PopulateOutductTelemetry(allOutductTelem.m_listAllOutducts.back());
-        if (!allOutductTelem.m_listAllOutducts.back()) {
+        std::unique_ptr<OutductTelemetry_t>& otPtr = allOutductTelem.m_listAllOutducts.back();
+        (*it)->PopulateOutductTelemetry(otPtr);
+        if (!otPtr) {
             allOutductTelem.m_listAllOutducts.pop_back();
+        }
+        else {
+            allOutductTelem.m_totalBundlesSuccessfullySent += otPtr->m_totalBundlesAcked;
+            allOutductTelem.m_totalBundleBytesSuccessfullySent += otPtr->m_totalBundleBytesAcked;
         }
     }
     allOutductTelem.m_timestampMilliseconds = TimestampUtil::GetMillisecondsSinceEpochRfc5050();

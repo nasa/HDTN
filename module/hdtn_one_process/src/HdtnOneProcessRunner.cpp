@@ -52,9 +52,8 @@ HdtnOneProcessRunner::HdtnOneProcessRunner() :
     m_ingressBundleData(0),
 
     //egress
-    m_egressBundleCount(0),
-    m_egressBundleData(0),
-    m_egressMessageCount(0),
+    m_egressTotalBundlesGivenToOutducts(0),
+    m_egressTotalBundleBytesGivenToOutducts(0),
 
     //storage
     m_totalBundlesErasedFromStorage(0),
@@ -249,9 +248,8 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
 
         LOG_INFO(subprocess) << "Egress: stopping..";
         egressPtr->Stop();
-        m_egressBundleCount = egressPtr->m_telemetry.egressBundleCount;
-        m_egressBundleData = static_cast<uint64_t>(egressPtr->m_telemetry.totalDataBytes);
-        m_egressMessageCount = egressPtr->m_telemetry.egressMessageCount;
+        m_egressTotalBundlesGivenToOutducts = egressPtr->m_allOutductTelemRef.m_totalBundlesGivenToOutducts;
+        m_egressTotalBundleBytesGivenToOutducts = static_cast<uint64_t>(egressPtr->m_allOutductTelemRef.m_totalBundleBytesGivenToOutducts);
         LOG_INFO(subprocess) << "Egress: deleting..";
         egressPtr.reset();
 
