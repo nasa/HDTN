@@ -83,6 +83,13 @@ function UpdateStorageTelemetry(paramHdtnConfig, paramStorageTelem) {
 }
 
 function UpdateActiveInductConnections(paramHdtnConfig, paramActiveInductConnections) {
+    paramHdtnConfig.ingressD3Obj.toolTipText = ObjToTooltipText( {
+        "timestampMilliseconds": paramActiveInductConnections.timestampMilliseconds,
+        "bundleCountEgress": paramActiveInductConnections.bundleCountEgress,
+        "bundleCountStorage": paramActiveInductConnections.bundleCountStorage,
+        "bundleByteCountEgress": paramActiveInductConnections.bundleByteCountEgress,
+        "bundleByteCountStorage": paramActiveInductConnections.bundleByteCountStorage
+    });
     let timestampMilliseconds = paramActiveInductConnections.timestampMilliseconds;
     let deltaTimestampMilliseconds = 0;
     if(paramHdtnConfig.hasOwnProperty("lastInductTelemTimestampMilliseconds")) {
@@ -186,6 +193,7 @@ function UpdateAllOutductCapabilities(paramHdtnConfig, paramAoct) {
 
 function UpdateAllOutductTelemetry(paramHdtnConfig, paramAot) {
     paramHdtnConfig.egressD3Obj.toolTipText = ObjToTooltipText( {
+        "timestampMilliseconds": paramAot.timestampMilliseconds,
         "totalBundlesGivenToOutducts": paramAot.totalBundlesGivenToOutducts,
         "totalBundleBytesGivenToOutducts": paramAot.totalBundleBytesGivenToOutducts,
         "totalTcpclBundlesReceived": paramAot.totalTcpclBundlesReceived,
@@ -193,7 +201,7 @@ function UpdateAllOutductTelemetry(paramHdtnConfig, paramAot) {
         "totalStorageToIngressOpportunisticBundles": paramAot.totalStorageToIngressOpportunisticBundles,
         "totalStorageToIngressOpportunisticBundleBytes": paramAot.totalStorageToIngressOpportunisticBundleBytes,
         "totalBundlesSuccessfullySent": paramAot.totalBundlesSuccessfullySent,
-        "totalBundleBytesSuccessfullySent": paramAot.totalBundleBytesSuccessfullySent,
+        "totalBundleBytesSuccessfullySent": paramAot.totalBundleBytesSuccessfullySent
     });
     let timestampMilliseconds = paramAot.timestampMilliseconds;
     let deltaTimestampMilliseconds = 0;
@@ -314,16 +322,20 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
 
 
     var ingressAbsPosition = PARAM_ABS_POSITION_MAP["ingress"];
-    var ingressObj = {};
-    ingressObj.parent = null;
-    ingressObj.d3ChildArray = [];
-    ingressObj.id = "ingress";
-    ingressObj.name = "Ingress";
-    ingressObj.absX = ingressAbsPosition.X;
-    ingressObj.absY = ingressAbsPosition.Y;
-    ingressObj.width = ingressAbsPosition.WIDTH;
-    ingressObj.height = ingressAbsPosition.HEIGHT;
-    var ingressD3Array = [ingressObj];
+    if(!paramHdtnConfig.hasOwnProperty("ingressD3Obj")) {
+        paramHdtnConfig.ingressD3Obj = {
+            "parent": null,
+            "d3ChildArray": [],
+            "id": "ingress",
+            "name": "Ingress",
+            "absX": ingressAbsPosition.X,
+            "absY": ingressAbsPosition.Y,
+            "width": ingressAbsPosition.WIDTH,
+            "height": ingressAbsPosition.HEIGHT,
+            "topHeaderHeight": PARENT_TOP_HEADER_PX
+        };
+    }
+    var ingressD3Array = [paramHdtnConfig.ingressD3Obj];
 
 
     var activeInductConnsAbsPosition = PARAM_ABS_POSITION_MAP["active_induct_conns"];
@@ -345,7 +357,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
     var activeInductConnsRelY = PARENT_TOP_HEADER_PX;
 
     //var indAbsPosition = PARAM_ABS_POSITION_MAP["next_hops"];
-    var indAbsPositionY = ingressObj.absY + PARENT_TOP_HEADER_PX;
+    var indAbsPositionY = paramHdtnConfig.ingressD3Obj.absY + PARENT_TOP_HEADER_PX;
     var inductsD3Array = [];
 
     inductVector.forEach(function(ind, i) {
@@ -374,7 +386,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
             cvName = "STCP";
         }
         ind.name = cvName + "[" + i + "]";
-        ind.absX = ingressObj.absX + CHILD_SIDE_MARGIN_PX;
+        ind.absX = paramHdtnConfig.ingressD3Obj.absX + CHILD_SIDE_MARGIN_PX;
         ind.absY = indAbsPositionY;
         ind.width = (ingressAbsPosition.WIDTH - 2*CHILD_SIDE_MARGIN_PX) * (3/4) - BUSBAR_WIDTH_PX/2;
         inductsD3Array.push(ind);
@@ -436,7 +448,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
             connObj.width = (activeInductConnsAbsPosition.WIDTH - 2*CHILD_SIDE_MARGIN_PX);
             connObj.height = CHILD_HEIGHT_PX;
             connObj.relX = CHILD_SIDE_MARGIN_PX;
-            connObj.relY = inductInputConnectionObj.relY + ind.absY - ingressObj.absY;
+            connObj.relY = inductInputConnectionObj.relY + ind.absY - paramHdtnConfig.ingressD3Obj.absY;
             activeInductConnsRelY += CHILD_HEIGHT_PX + CHILD_BOTTOM_MARGIN_PX;
 
 
@@ -455,11 +467,10 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
     });
 
     //obj.height = Math.max(subObjRelYLeft, subObjRelYRight);
-    ingressObj.topHeaderHeight = PARENT_TOP_HEADER_PX;
 
     activeInductConnsObj.topHeaderHeight = PARENT_TOP_HEADER_PX;
 
-    ingressObj.busBar = {
+    paramHdtnConfig.ingressD3Obj.busBar = {
         "x1": ingressAbsPosition.WIDTH * 3.0 / 4.0,
         "y1": PARENT_TOP_HEADER_PX,
         "x2": ingressAbsPosition.WIDTH * 3.0 / 4.0,

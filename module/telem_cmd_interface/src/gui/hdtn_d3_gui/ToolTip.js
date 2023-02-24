@@ -1,7 +1,6 @@
 function ToolTip() {
 
     var globalToolTipObject = null;
-    var d3FaultsMapLocal = {};
 
     // Define the div for the tooltip
     var divTooltip = d3.select("body").append("div")
@@ -28,18 +27,25 @@ function ToolTip() {
     }
     function MouseEventToolTip(d) {
         if(d3.event.type === "mouseover") {
-            divTooltip.transition()
-                .duration(200)
-                .style("opacity", .9);
-            UpdateToolTipText(d, true);
+            if(d.hasOwnProperty("toolTipText")) {
+                divTooltip.transition()
+                    .duration(200)
+                    .style("opacity", .9);
+                UpdateToolTipText(d, true);
+            }
         }
         else if(d3.event.type === "mousemove") {
             UpdateToolTipText(d, true);
         }
         else if(d3.event.type === "mouseout") {
-            divTooltip.transition()
-                .duration(200)
-                .style("opacity", 0);
+            if(d.hasOwnProperty("toolTipText")) {
+                divTooltip.transition()
+                    .duration(200)
+                    .style("opacity", 0);
+            }
+            else {
+                divTooltip.style("opacity", 0);
+            }
         }
     }
 
@@ -48,10 +54,7 @@ function ToolTip() {
         Update: function(){
             UpdateActiveToolTip();
         },
-        "MouseEventToolTip" : MouseEventToolTip,
-        SetD3FaultsMap: function(paramD3FaultsMap) {
-            d3FaultsMapLocal = paramD3FaultsMap;
-        }
+        "MouseEventToolTip" : MouseEventToolTip
 
     };
 
