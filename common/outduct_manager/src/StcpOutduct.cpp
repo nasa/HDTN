@@ -68,5 +68,5 @@ void StcpOutduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
     finalStats.m_totalDataSegmentsOrPacketsSent = m_stcpBundleSource.GetTotalDataSegmentsSent();
 }
 void StcpOutduct::PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& outductTelem) {
-    outductTelem = std::make_unique<StcpOutductTelemetry_t>(m_stcpBundleSource.m_stcpOutductTelemetry);
+    outductTelem = boost::make_unique<StcpOutductTelemetry_t>(m_stcpBundleSource.m_stcpOutductTelemetry);
 }

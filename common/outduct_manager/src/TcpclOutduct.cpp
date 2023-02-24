@@ -72,5 +72,5 @@ void TcpclOutduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
     finalStats.m_totalDataSegmentsOrPacketsSent = m_tcpclBundleSource.Virtual_GetTotalBundlesSent();
 }
 void TcpclOutduct::PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& outductTelem) {
-    outductTelem = std::make_unique<TcpclV3OutductTelemetry_t>(m_tcpclBundleSource.m_base_outductTelemetry);
+    outductTelem = boost::make_unique<TcpclV3OutductTelemetry_t>(m_tcpclBundleSource.m_base_outductTelemetry);
 }

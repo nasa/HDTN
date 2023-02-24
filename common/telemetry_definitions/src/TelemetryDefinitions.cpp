@@ -844,19 +844,19 @@ bool AllOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree
             const std::string convergenceLayer = outductPt.second.get<std::string>("convergenceLayer");
             
             if (convergenceLayer == "ltp_over_udp") {
-                m_listAllOutducts.emplace_back(std::make_unique<LtpOutductTelemetry_t>());
+                m_listAllOutducts.emplace_back(boost::make_unique<LtpOutductTelemetry_t>());
             }
             else if (convergenceLayer == "udp") {
-                m_listAllOutducts.emplace_back(std::make_unique<UdpOutductTelemetry_t>());
+                m_listAllOutducts.emplace_back(boost::make_unique<UdpOutductTelemetry_t>());
             }
             else if (convergenceLayer == "tcpcl_v3") {
-                m_listAllOutducts.emplace_back(std::make_unique<TcpclV3OutductTelemetry_t>());
+                m_listAllOutducts.emplace_back(boost::make_unique<TcpclV3OutductTelemetry_t>());
             }
             else if (convergenceLayer == "tcpcl_v4") {
-                m_listAllOutducts.emplace_back(std::make_unique<TcpclV4OutductTelemetry_t>());
+                m_listAllOutducts.emplace_back(boost::make_unique<TcpclV4OutductTelemetry_t>());
             }
             else if (convergenceLayer == "stcp") {
-                m_listAllOutducts.emplace_back(std::make_unique<StcpOutductTelemetry_t>());
+                m_listAllOutducts.emplace_back(boost::make_unique<StcpOutductTelemetry_t>());
             }
             else {
                 return false;

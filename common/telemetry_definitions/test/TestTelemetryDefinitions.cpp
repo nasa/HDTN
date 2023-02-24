@@ -15,7 +15,7 @@
 #include <boost/test/unit_test.hpp>
 #include "TelemetryDefinitions.h"
 #include <boost/lexical_cast.hpp>
-
+#include <boost/make_unique.hpp>
 
 
 BOOST_AUTO_TEST_CASE(TelemetryDefinitionsStorageTestCase)
@@ -189,7 +189,7 @@ BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
     aot.m_totalBundlesSuccessfullySent = 8;
     aot.m_totalBundleBytesSuccessfullySent = 9;
     {
-        std::unique_ptr<LtpOutductTelemetry_t> ptr = std::make_unique<LtpOutductTelemetry_t>();
+        std::unique_ptr<LtpOutductTelemetry_t> ptr = boost::make_unique<LtpOutductTelemetry_t>();
         ptr->m_countRxUdpCircularBufferOverruns = 10;
         ptr->m_countTxUdpPacketsLimitedByRate = 11;
         ptr->m_countUdpPacketsSent = 12;
@@ -198,12 +198,12 @@ BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
         aot.m_listAllOutducts.emplace_back(std::move(ptr));
     }
     {
-        std::unique_ptr<StcpOutductTelemetry_t> ptr = std::make_unique<StcpOutductTelemetry_t>();
+        std::unique_ptr<StcpOutductTelemetry_t> ptr = boost::make_unique<StcpOutductTelemetry_t>();
         ptr->m_totalStcpBytesSent = 20;
         aot.m_listAllOutducts.emplace_back(std::move(ptr));
     }
     {
-        std::unique_ptr<TcpclV3OutductTelemetry_t> ptr = std::make_unique<TcpclV3OutductTelemetry_t>();
+        std::unique_ptr<TcpclV3OutductTelemetry_t> ptr = boost::make_unique<TcpclV3OutductTelemetry_t>();
         ptr->m_totalFragmentsAcked = 30;
         ptr->m_totalFragmentsSent = 31;
         ptr->m_totalBundlesReceived = 32;
@@ -211,7 +211,7 @@ BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
         aot.m_listAllOutducts.emplace_back(std::move(ptr));
     }
     {
-        std::unique_ptr<TcpclV4OutductTelemetry_t> ptr = std::make_unique<TcpclV4OutductTelemetry_t>();
+        std::unique_ptr<TcpclV4OutductTelemetry_t> ptr = boost::make_unique<TcpclV4OutductTelemetry_t>();
         ptr->m_totalFragmentsAcked = 40;
         ptr->m_totalFragmentsSent = 41;
         ptr->m_totalBundlesReceived = 42;
@@ -219,7 +219,7 @@ BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
         aot.m_listAllOutducts.emplace_back(std::move(ptr));
     }
     {
-        std::unique_ptr<UdpOutductTelemetry_t> ptr = std::make_unique<UdpOutductTelemetry_t>();
+        std::unique_ptr<UdpOutductTelemetry_t> ptr = boost::make_unique<UdpOutductTelemetry_t>();
         ptr->m_totalPacketsSent = 50;
         ptr->m_totalPacketBytesSent = 51;
         ptr->m_totalPacketsDequeuedForSend = 52;
