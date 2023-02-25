@@ -37,7 +37,7 @@ function Disk(paramSvgRootGroup, paramX, paramY, paramRadius, paramPerspectiveRa
             .attr("d", GetCylinderFillPath(radius, perspectiveRadius, height*percentage*.01));
 
         diskUsageTspanAbove.text(percentage.toFixed(2) + "% Used");
-        let bytesUsedHumanReadable = formatHumanReadable(bytesUsed, 2, 'Bytes Used');
+        let bytesUsedHumanReadable = formatHumanReadable(bytesUsed, 2, 'Bytes Used', 1024);
         diskUsageTspanBelow.text('(' + bytesUsedHumanReadable + ')');
 
         diskGroup.selectAll("stop")

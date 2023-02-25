@@ -1,7 +1,7 @@
 //https://stackoverflow.com/questions/15900485/correct-way-to-convert-size-in-bytes-to-kb-mb-gb-in-javascript
-function formatHumanReadable(num, decimals, unitStr) {
+function formatHumanReadable(num, decimals, unitStr, thousand) {
    if(num == 0) return '0 ' + unitStr;
-   var k = 1024,
+   var k = thousand, //1024,
        dm = decimals <= 0 ? 0 : decimals || 2,
        sizes = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'],
        i = Math.floor(Math.log(num) / Math.log(k));
@@ -72,12 +72,12 @@ function UpdateStorageTelemetry(paramHdtnConfig, paramStorageTelem) {
         paramHdtnConfig["storageToEgressRateBitsPerSec"] = 0;
         paramHdtnConfig["storageToEgressRateBundlesPerSec"] = 0;
     }
-    paramHdtnConfig["storageToDiskRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToDiskRateBitsPerSec"], 2, 'bit/s');
-    paramHdtnConfig["storageToDiskRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToDiskRateBundlesPerSec"], 2, 'Bun/s');
-    paramHdtnConfig["diskToStorageRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["diskToStorageRateBitsPerSec"], 2, 'bit/s');
-    paramHdtnConfig["diskToStorageRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["diskToStorageRateBundlesPerSec"], 2, 'Bun/s');
-    paramHdtnConfig["storageToEgressRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToEgressRateBitsPerSec"], 2, 'bit/s');
-    paramHdtnConfig["storageToEgressRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToEgressRateBundlesPerSec"], 2, 'Bun/s');
+    paramHdtnConfig["storageToDiskRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToDiskRateBitsPerSec"], 2, 'bit/s', 1000);
+    paramHdtnConfig["storageToDiskRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToDiskRateBundlesPerSec"], 2, 'Bun/s', 1000);
+    paramHdtnConfig["diskToStorageRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["diskToStorageRateBitsPerSec"], 2, 'bit/s', 1000);
+    paramHdtnConfig["diskToStorageRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["diskToStorageRateBundlesPerSec"], 2, 'Bun/s', 1000);
+    paramHdtnConfig["storageToEgressRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToEgressRateBitsPerSec"], 2, 'bit/s', 1000);
+    paramHdtnConfig["storageToEgressRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToEgressRateBundlesPerSec"], 2, 'Bun/s', 1000);
 
     paramHdtnConfig["lastStorageTelemetry"] = currT;
 }
@@ -124,10 +124,10 @@ function UpdateActiveInductConnections(paramHdtnConfig, paramActiveInductConnect
         paramHdtnConfig["ingressToEgressRateBitsPerSec"] = 0;
         paramHdtnConfig["ingressToEgressRateBundlesPerSec"] = 0;
     }
-    paramHdtnConfig["ingressToStorageRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["ingressToStorageRateBitsPerSec"], 2, 'bit/s');
-    paramHdtnConfig["ingressToStorageRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["ingressToStorageRateBundlesPerSec"], 2, 'Bun/s');
-    paramHdtnConfig["ingressToEgressRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["ingressToEgressRateBitsPerSec"], 2, 'bit/s');
-    paramHdtnConfig["ingressToEgressRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["ingressToEgressRateBundlesPerSec"], 2, 'Bun/s');
+    paramHdtnConfig["ingressToStorageRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["ingressToStorageRateBitsPerSec"], 2, 'bit/s', 1000);
+    paramHdtnConfig["ingressToStorageRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["ingressToStorageRateBundlesPerSec"], 2, 'Bun/s', 1000);
+    paramHdtnConfig["ingressToEgressRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["ingressToEgressRateBitsPerSec"], 2, 'bit/s', 1000);
+    paramHdtnConfig["ingressToEgressRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["ingressToEgressRateBundlesPerSec"], 2, 'Bun/s', 1000);
 
     paramHdtnConfig["lastIngressTelemetry"] = currIt;
 
@@ -158,8 +158,8 @@ function UpdateActiveInductConnections(paramHdtnConfig, paramActiveInductConnect
                 d3Obj["rateBitsPerSec"] = (d3Obj["totalBundleBytesReceived"] - d3Obj["lastTotalBundleBytesReceived"]) * 8000.0 / deltaTimestampMilliseconds;
                 d3Obj["rateBundlesPerSec"] = (d3Obj["totalBundlesReceived"] - d3Obj["lastTotalBundlesReceived"]) * 1000.0 / deltaTimestampMilliseconds;
             }
-            d3Obj["rateBitsPerSecHumanReadable"] = formatHumanReadable(d3Obj["rateBitsPerSec"], 2, 'bit/s');
-            d3Obj["rateBundlesPerSecHumanReadable"] = formatHumanReadable(d3Obj["rateBundlesPerSec"], 2, 'Bun/s');
+            d3Obj["rateBitsPerSecHumanReadable"] = formatHumanReadable(d3Obj["rateBitsPerSec"], 2, 'bit/s', 1000);
+            d3Obj["rateBundlesPerSecHumanReadable"] = formatHumanReadable(d3Obj["rateBundlesPerSec"], 2, 'Bun/s', 1000);
             d3Obj["name"] = connTelem.inputName;
             d3Obj["remoteConnD3Obj"] = {}
 
@@ -210,6 +210,46 @@ function UpdateAllOutductTelemetry(paramHdtnConfig, paramAot) {
     }
     paramHdtnConfig.lastOutductTelemTimestampMilliseconds = timestampMilliseconds;
 
+    if(!paramHdtnConfig.hasOwnProperty("lastEgressTelemetry")) {
+        paramHdtnConfig["lastEgressTelemetry"] = {
+            "totalBundlesGivenToOutducts": 0,
+            "totalBundleBytesGivenToOutducts": 0,
+            "totalTcpclBundlesReceived": 0,
+            "totalTcpclBundleBytesReceived": 0,
+            "totalStorageToIngressOpportunisticBundles": 0,
+            "totalStorageToIngressOpportunisticBundleBytes": 0,
+            "totalBundlesSuccessfullySent": 0,
+            "totalBundleBytesSuccessfullySent": 0
+        };
+    }
+    let lastIt = paramHdtnConfig["lastEgressTelemetry"];
+    let currIt = {
+        "totalBundlesGivenToOutducts": paramAot.totalBundlesGivenToOutducts,
+        "totalBundleBytesGivenToOutducts": paramAot.totalBundleBytesGivenToOutducts,
+        "totalTcpclBundlesReceived": paramAot.totalTcpclBundlesReceived,
+        "totalTcpclBundleBytesReceived": paramAot.totalTcpclBundleBytesReceived,
+        "totalStorageToIngressOpportunisticBundles": paramAot.totalStorageToIngressOpportunisticBundles,
+        "totalStorageToIngressOpportunisticBundleBytes": paramAot.totalStorageToIngressOpportunisticBundleBytes,
+        "totalBundlesSuccessfullySent": paramAot.totalBundlesSuccessfullySent,
+        "totalBundleBytesSuccessfullySent": paramAot.totalBundleBytesSuccessfullySent
+    };
+    if(deltaTimestampMilliseconds > 1) {
+        paramHdtnConfig["egressToIngressRateBitsPerSec"] =
+            ((currIt["totalTcpclBundleBytesReceived"] - lastIt["totalTcpclBundleBytesReceived"])
+            + (currIt["totalStorageToIngressOpportunisticBundleBytes"] - lastIt["totalStorageToIngressOpportunisticBundleBytes"])) * 8000.0 / deltaTimestampMilliseconds;
+        paramHdtnConfig["egressToIngressRateBundlesPerSec"] =
+            ((currIt["totalTcpclBundlesReceived"] - lastIt["totalTcpclBundlesReceived"])
+            + (currIt["totalStorageToIngressOpportunisticBundles"] - lastIt["totalStorageToIngressOpportunisticBundles"])) * 1000.0 / deltaTimestampMilliseconds;
+    }
+    else {
+        paramHdtnConfig["egressToIngressRateBitsPerSec"] = 0;
+        paramHdtnConfig["egressToIngressRateBundlesPerSec"] = 0;
+    }
+    paramHdtnConfig["egressToIngressRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["egressToIngressRateBitsPerSec"], 2, 'bit/s', 1000);
+    paramHdtnConfig["egressToIngressRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["egressToIngressRateBundlesPerSec"], 2, 'Bun/s', 1000);
+
+    paramHdtnConfig["lastEgressTelemetry"] = currIt;
+
     let outductsConfig = paramHdtnConfig["outductsConfig"];
     let outductVector = outductsConfig["outductVector"];
     paramAot.allOutducts.forEach(function(outductTelem, i) {
@@ -232,8 +272,8 @@ function UpdateAllOutductTelemetry(paramHdtnConfig, paramAot) {
             outductTelem["rateBitsPerSec"] = (od.outductTelem["totalBundleBytesAcked"] - od.outductPreviousTelem["totalBundleBytesAcked"]) * 8000.0 / deltaTimestampMilliseconds;
             outductTelem["rateBundlesPerSec"] = (od.outductTelem["totalBundlesAcked"] - od.outductPreviousTelem["totalBundlesAcked"]) * 1000.0 / deltaTimestampMilliseconds;
         }
-        od["rateBitsPerSecHumanReadable"] = formatHumanReadable(outductTelem["rateBitsPerSec"], 2, 'bit/s');
-        od["rateBundlesPerSecHumanReadable"] = formatHumanReadable(outductTelem["rateBundlesPerSec"], 2, 'Bun/s');
+        od["rateBitsPerSecHumanReadable"] = formatHumanReadable(outductTelem["rateBitsPerSec"], 2, 'bit/s', 1000);
+        od["rateBundlesPerSecHumanReadable"] = formatHumanReadable(outductTelem["rateBundlesPerSec"], 2, 'Bun/s', 1000);
 
 
     });

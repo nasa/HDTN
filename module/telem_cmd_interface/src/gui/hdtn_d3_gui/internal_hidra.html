@@ -109,6 +109,7 @@
 
 
     <script src="d3.v5.min.js"></script>
+    <script src="d3_context_menu.js"></script>
     <script src="hdtn.js"></script>
     <script src="ParseHdtnConfig.js"></script>
     <script src="RectComponents.js"></script>
@@ -283,7 +284,7 @@
             "active_induct_conns" : {"X" : -200, "Y" : 100, "WIDTH": 300, "HEIGHT": 500},
             "ingress" : {"X" : INGRESS_X, "Y" : 100, "WIDTH": INGRESS_W, "HEIGHT": 500},
             "egress" : {"X" : EGRESS_X, "Y" : 100, "WIDTH": EGRESS_W, "HEIGHT": 500},
-            "storage" : {"X" : STORAGE_X, "Y" : (100 + 100), "WIDTH": STORAGE_W, "HEIGHT": 150},
+            "storage" : {"X" : STORAGE_X, "Y" : (220), "WIDTH": STORAGE_W, "HEIGHT": 100},
             "next_hops" : {"X" : 1100, "Y" : 100, "WIDTH": 100, "HEIGHT": 500},
             "final_dests" : {"X" : 1400, "Y" : 100, "WIDTH": 100, "HEIGHT": 500}
         };
@@ -375,11 +376,6 @@
 
         var wiresComponent = WireComponents(wiresComponentGroup, "wires_group", arrowMarker);
 
-        //sar
-        //var sars = RectComponents(sarGroup, "sar_group", "", "", false, toolTipObj.MouseEventToolTip, ContextMenuEvent, GetOruRectClass, GetSwitchRectClass);
-
-        //var loadbanks = RectComponents(loadBankGroup, "loadBank_group", "load_group", "", true, toolTipObj.MouseEventToolTip, ContextMenuEvent, GetOruRectClass, GetSwitchRectClass);
-        //var wires = WireComponents(wiresGroup, "wires_group", arrowMarker, WIRE_CONNECTIONS);
         var myDisk = Disk(diskGroup,
                                 ABS_POSITION_MAP.storage.X + ABS_POSITION_MAP.storage.WIDTH/2,
                                 ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT + 250,
@@ -405,44 +401,20 @@
             ABS_POSITION_MAP.storage.X + ABS_POSITION_MAP.storage.WIDTH, ABS_POSITION_MAP.storage.Y + 20,
             ABS_POSITION_MAP.egress.X, ABS_POSITION_MAP.storage.Y + 20);
         var myWireIngressToEgress = StraightWire(internalHdtnWiresGroup, 0, speedUpperLimitBps,
-            ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, ABS_POSITION_MAP.ingress.Y + 20,
-            ABS_POSITION_MAP.egress.X, ABS_POSITION_MAP.egress.Y + 20);
+            ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, ABS_POSITION_MAP.ingress.Y + 15,
+            ABS_POSITION_MAP.egress.X, ABS_POSITION_MAP.egress.Y + 15);
+        var myWireEgressToIngress = StraightWire(internalHdtnWiresGroup, 0, speedUpperLimitBps,
+            ABS_POSITION_MAP.egress.X, ABS_POSITION_MAP.ingress.Y + 75,
+            ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, ABS_POSITION_MAP.egress.Y + 75);
         var myWireStorageToDisk = StraightWire(internalHdtnWiresGroup, -90, speedUpperLimitBps,
             myDisk.GetWirePos("top").x - diskWireSepFromMiddlePx, ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT,
             myDisk.GetWirePos("top").x - diskWireSepFromMiddlePx, myDisk.GetWirePos("top").y);
         var myWireDiskToStorage = StraightWire(internalHdtnWiresGroup, 90, speedUpperLimitBps,
             myDisk.GetWirePos("top").x + diskWireSepFromMiddlePx, myDisk.GetWirePos("top").y,
             myDisk.GetWirePos("top").x + diskWireSepFromMiddlePx, ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT);
-        //var myWireOutsideToIngress = StraightWire(guiGroup, 0, formatBundles,
-        //    myIngress.GetWirePos("left").x - 200, myIngress.GetWirePos("left").y,
-        //    myIngress.GetWirePos("left").x, myIngress.GetWirePos("left").y);
-        //var myWireEgressToOutside = StraightWire(guiGroup, 0, formatBundles,
-        //    myEgress.GetWirePos("right").x, myEgress.GetWirePos("right").y,
-        //    myEgress.GetWirePos("right").x + 200, myEgress.GetWirePos("right").y);
 
-        /*
-        var diskUsage = 0;
-        myDisk.SetDiskUsage(diskUsage, diskUsage*.5);
-        function TimeoutDiskFunc() {
-            diskUsage = (diskUsage + 1) % 101;
-            myDisk.SetDiskUsage(diskUsage, diskUsage*.5);
-            setTimeout(TimeoutDiskFunc, 300);
-        }
-        setTimeout(TimeoutDiskFunc, 300);
-        */
 
-        /*
-        function ReceivedNewTelemetry(obj) {
-            myWireIngressToStorage.SetSpeedBps(obj.speedIngressToStorage);
-            myWireStorageToEgress.SetSpeedBps(obj.speedStorageToEgress);
-            myWireStorageToDisk.SetSpeedBps(obj.speedStorageToDisk);
-            myWireDiskToStorage.SetSpeedBps(obj.speedDiskToStorage);
-            myWireOutsideToIngress.SetSpeedBps(obj.speedIngressIn);
-            myWireEgressToOutside.SetSpeedBps(obj.speedEgressOut);
 
-            myDisk.SetDiskUsage((obj.diskUsageBytes/obj.diskSizeBytes) * 100, obj.diskBufferUsageNormalized * 100);
-        }
-        */
 
         function ContextMenuEvent(d) {
             if(d3.event.type === "contextmenu") {
@@ -548,21 +520,6 @@
         }
 
 
-
-        function ReceivedNewTelemetryDisk(obj) {
-            myWireStorageToDisk.SetSpeedBps(obj.speedStorageToDisk);
-            myWireDiskToStorage.SetSpeedBps(obj.speedDiskToStorage);
-            myDisk.SetDiskUsage((obj.diskUsageBytes/obj.diskSizeBytes) * 100, obj.diskBufferUsageNormalized * 100);
-        }
-        function ReceivedNewTelemetryIngress(obj) {
-            //myWireOutsideToIngress.SetSpeedBps(obj.speedBundlesIn);
-            myWireIngressToEgress.SetSpeeds(obj.speedBytesOut);
-            myWireIngressToStorage.SetSpeeds(obj.speedBytesOut);
-        }
-        function ReceivedNewTelemetryEgress(obj) {
-            myWireStorageToEgress.SetSpeedBps(obj.speedBytesIn);
-            myWireEgressToOutside.SetSpeedBps(obj.speedBundlesOut);
-        }
         function HandleReceivedNewHdtnConfig(newHdtnConfig) {
             hdtnConfig = newHdtnConfig;
             let redrawObj = ParseHdtnConfig(
@@ -620,6 +577,9 @@
             }
             else if("allOutducts" in objJson) {
                 UpdateAllOutductTelemetry(hdtnConfig, objJson);
+                myWireEgressToIngress.SetSpeeds(hdtnConfig["egressToIngressRateBitsPerSec"],
+                    hdtnConfig["egressToIngressRateBitsPerSecHumanReadable"],
+                    hdtnConfig["egressToIngressRateBundlesPerSecHumanReadable"]);
                 UpdateLite();
             }
             else if("outductCapabilityTelemetryList" in objJson) {
@@ -644,15 +604,6 @@
                 );
                 UpdateLite();
             }
-            else if("speedBundlesIn" in objJson) {
-                ReceivedNewTelemetryIngress(objJson);
-            }
-            else if("speedBundlesOut" in objJson) {
-                ReceivedNewTelemetryEgress(objJson);
-            }
-            else if("speedStorageToDisk" in objJson) {
-                ReceivedNewTelemetryDisk(objJson);
-            }
             else {
                 //HandleReceivedNewHdtnConfig(objJson);
             }
@@ -671,38 +622,10 @@
         };
     }
 
-    //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DataView
-    DataView.prototype.getUint64 = function(byteOffset, littleEndian) {
-        // split 64-bit number into two 32-bit (4-byte) parts
-        const left =  this.getUint32(byteOffset, littleEndian);
-        const right = this.getUint32(byteOffset+4, littleEndian);
-
-        // combine the two 32-bit values
-        const combined = littleEndian? left + 2**32*right : 2**32*left + right;
-
-        if (!Number.isSafeInteger(combined))
-            console.warn(combined, 'exceeds MAX_SAFE_INTEGER. Precision may be lost');
-
-        return combined;
-    }
-
     var app = null;
     var connection = null;
-    //var globalStorageObj = {
-    //    previousTimeStamp : 0,
-    //    previousWrittenBytes : 0,
-    //    previousReadBytes : 0
-    //};
-    var currentStorageObj = null;
-    var previousStorageObj = null;
-    var currentEgressObj = null;
-    var previousEgressObj = null;
-    var currentIngressObj = null;
-    var previousIngressObj = null;
     window.addEventListener("load", function(event) {
         console.log("All resources finished loading!");
-
-    ////////////
 
 
         app = HidraGui(document.getElementById("mygui"), "aaa");
@@ -735,120 +658,6 @@
                 //console.log("rcvd");
                 if(e.data instanceof ArrayBuffer) { //this is binary data
                     console.log("binary data received.. ignoring");
-                    return;
-
-                    var dv = new DataView(e.data);
-                    var type = dv.getUint16(0, false);
-                    var flags = dv.getUint16(2, false);
-                    var length = dv.getUint16(4, false);
-                    var reserved = dv.getUint16(6, false);
-                    if(type == 2) { //BP_TELEM_TYPE_STORAGE
-                        previousStorageObj = currentStorageObj;
-                        currentStorageObj = {
-                            timestamp : dv.getUint64(8, false), //uint64_t
-                            msg_count : dv.getUint64(16, false), //uint64_t
-                            msg_bytes : dv.getUint64(24, false), //uint64_t
-                            dropped_count : dv.getUint64(32, false), //uint64_t
-                            dropped_bytes : dv.getUint64(40, false), //uint64_t
-                            read_count : dv.getUint64(48, false), //uint64_t
-                            read_bytes : dv.getUint64(56, false), //uint64_t
-                            written_count : dv.getUint64(64, false), //uint64_t
-                            written_bytes : dv.getUint64(72, false), //uint64_t
-                            storage_available : dv.getUint64(80, false), //uint64_t
-                            storage_total : dv.getUint64(88, false), //uint64_t
-                            storage_count : dv.getUint16(90, false), //uint16_t
-                            worker_count : dv.getUint16(92, false), //uint16_t
-                            buffer_used : dv.getUint16(94, false), //uint16_t
-                            buffer_available : dv.getUint16(96, false) //uint16_t
-                        };
-                        if(previousStorageObj != null) { //had at least 2 telemetries received
-                            var c = currentStorageObj;
-                            var p = previousStorageObj;
-
-                            var timeStampDeltaSec = (c.timestamp - p.timestamp) * 0.001;
-                            var writtenBytesDelta = c.written_bytes - p.written_bytes;
-                            var readBytesDelta = c.read_bytes - p.read_bytes;
-
-                            var telemObj = {
-                                speedStorageToDisk : writtenBytesDelta / timeStampDeltaSec,
-                                speedDiskToStorage : readBytesDelta / timeStampDeltaSec,
-                                diskSizeBytes : c.storage_total,
-                                diskUsageBytes : c.storage_total - c.storage_available,
-                                diskBufferUsageNormalized : c.buffer_used / (c.buffer_used + c.buffer_available)
-                            }
-                            app.UpdateWithData(telemObj);
-                        }
-                    }
-                    else if(type == 3) { //BP_TELEM_TYPE_EGRESS
-                        previousEgressObj = currentEgressObj;
-                        currentEgressObj = {
-                            timestamp : dv.getUint64(8, false), //uint64_t
-                            msg_count : dv.getUint64(16, false), //uint64_t
-                            msg_bytes : dv.getUint64(24, false), //uint64_t
-                            dropped_count : dv.getUint64(32, false), //uint64_t
-                            dropped_bytes : dv.getUint64(40, false), //uint64_t
-                            bundles_out : dv.getUint64(48, false), //uint64_t
-                            bytes_out : dv.getUint64(56, false), //uint64_t
-                            receipt_tsc : dv.getUint64(64, false), //uint64_t
-                            encode_tsc : dv.getUint64(72, false) //uint64_t
-                        };
-
-                        if(previousEgressObj != null) { //had at least 2 telemetries received
-                            var c = currentEgressObj;
-                            var p = previousEgressObj;
-
-                            var timeStampDeltaSec = (c.timestamp - p.timestamp) * 0.001;
-                            var msgCountDelta = c.msg_count - p.msg_count;
-                            var msgBytesDelta = c.msg_bytes - p.msg_bytes;
-                            var bundlesOutDelta = c.bundles_out - p.bundles_out;
-                            var bytesOutDelta = c.bytes_out - p.bytes_out;
-
-                            var telemObj = {
-                                speedMessagesIn : msgCountDelta / timeStampDeltaSec,
-                                speedBytesIn : msgBytesDelta / timeStampDeltaSec,
-                                speedBundlesOut : bundlesOutDelta / timeStampDeltaSec,
-                                speedBytesOut : bytesOutDelta / timeStampDeltaSec
-                            }
-                            app.UpdateWithData(telemObj);
-                        }
-                    }
-                    else if(type == 4) { //BP_TELEM_TYPE_INGRESS
-                        previousIngressObj = currentIngressObj;
-                        currentIngressObj = {
-                            timestamp : dv.getUint64(8, false), //uint64_t
-                            msg_count : dv.getUint64(16, false), //uint64_t
-                            msg_bytes : dv.getUint64(24, false), //uint64_t
-                            dropped_count : dv.getUint64(32, false), //uint64_t
-                            dropped_bytes : dv.getUint64(40, false), //uint64_t
-                            bundles_in : dv.getUint64(48, false), //uint64_t
-                            bytes_in : dv.getUint64(56, false), //uint64_t
-                            receipt_tsc : dv.getUint64(64, false), //uint64_t
-                            encode_tsc : dv.getUint64(72, false) //uint64_t
-                        };
-
-                        if(previousIngressObj != null) { //had at least 2 telemetries received
-                            var c = currentIngressObj;
-                            var p = previousIngressObj;
-
-                            var timeStampDeltaSec = (c.timestamp - p.timestamp) * 0.001;
-                            var msgCountDelta = c.msg_count - p.msg_count;
-                            var msgBytesDelta = c.msg_bytes - p.msg_bytes;
-                            var bundlesInDelta = c.bundles_in - p.bundles_in;
-                            var bytesInDelta = c.bytes_in - p.bytes_in;
-
-                            var telemObj = {
-                                speedMessagesOut : msgCountDelta / timeStampDeltaSec,
-                                speedBytesOut : msgBytesDelta / timeStampDeltaSec,
-                                speedBundlesIn : bundlesInDelta / timeStampDeltaSec,
-                                speedBytesIn : bytesInDelta / timeStampDeltaSec
-                            }
-                            app.UpdateWithData(telemObj);
-                        }
-                    }
-
-                    UpdateActiveToolTip();
-
-
                 }
                 else { //this is text data such as json
                     if(e.data === "Hello websocket") {
