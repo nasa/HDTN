@@ -74,7 +74,7 @@ public:
     TCPCL_LIB_EXPORT void BaseClass_SetUserAssignedUuid(uint64_t userAssignedUuid);
 
 public:
-    InductConnectionTelemetry_t m_base_inductConnectionTelemetry;
+    TcpclV3InductConnectionTelemetry_t m_base_inductConnectionTelemetry;
     TcpclV3OutductTelemetry_t m_base_outductTelemetry;
 protected:
     const std::string M_BASE_IMPLEMENTATION_STRING_FOR_COUT;

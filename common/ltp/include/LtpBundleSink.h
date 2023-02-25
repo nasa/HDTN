@@ -41,9 +41,11 @@ public:
     LTP_LIB_EXPORT LtpBundleSink(const LtpWholeBundleReadyCallback_t & ltpWholeBundleReadyCallback, const LtpEngineConfig & ltpRxCfg);
     LTP_LIB_EXPORT virtual ~LtpBundleSink();
     LTP_LIB_EXPORT bool Init();
+    LTP_LIB_EXPORT void SyncTelemetry();
     LTP_LIB_EXPORT virtual bool ReadyToBeDeleted() = 0;
 protected:
     LTP_LIB_EXPORT virtual bool SetLtpEnginePtr() = 0;
+    LTP_LIB_EXPORT virtual void SyncTransportLayerSpecificTelem() = 0;
 private:
 
     //tcpcl received data callback functions
@@ -58,7 +60,7 @@ protected:
     const uint64_t M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
     LtpEngine * m_ltpEnginePtr;
 public:
-    InductConnectionTelemetry_t m_telemetry;
+    LtpInductConnectionTelemetry_t m_telemetry;
 };
 
 

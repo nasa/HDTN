@@ -205,18 +205,18 @@ void TcpclV4Induct::Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(cons
 }
 
 void TcpclV4Induct::PopulateInductTelemetry(InductTelemetry_t& inductTelem) {
-    inductTelem.m_convergenceLayer = "TCPCLv4";
+    inductTelem.m_convergenceLayer = "tcpcl_v4";
     inductTelem.m_listInductConnections.clear();
     {
         boost::mutex::scoped_lock lock(m_listTcpclV4BundleSinksMutex);
         for (std::list<TcpclV4BundleSink>::const_iterator it = m_listTcpclV4BundleSinks.cbegin(); it != m_listTcpclV4BundleSinks.cend(); ++it) {
-            inductTelem.m_listInductConnections.emplace_back(it->m_base_inductConnectionTelemetry);
+            inductTelem.m_listInductConnections.emplace_back(boost::make_unique<TcpclV4InductConnectionTelemetry_t>(it->m_base_inductConnectionTelemetry));
         }
     }
     if (inductTelem.m_listInductConnections.empty()) {
-        InductConnectionTelemetry_t c;
-        c.m_connectionName = "null";
-        c.m_inputName = std::string("*:") + boost::lexical_cast<std::string>(m_tcpAcceptor.local_endpoint().port());
-        inductTelem.m_listInductConnections.emplace_back(c);
+        std::unique_ptr<TcpclV4InductConnectionTelemetry_t> c = boost::make_unique<TcpclV4InductConnectionTelemetry_t>();
+        c->m_connectionName = "null";
+        c->m_inputName = std::string("*:") + boost::lexical_cast<std::string>(m_tcpAcceptor.local_endpoint().port());
+        inductTelem.m_listInductConnections.emplace_back(std::move(c));
     }
 }

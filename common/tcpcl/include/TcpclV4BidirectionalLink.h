@@ -147,7 +147,7 @@ private:
     TCPCL_LIB_NO_EXPORT void BaseClass_CloseAndDeleteSockets();
 
 public:
-    InductConnectionTelemetry_t m_base_inductConnectionTelemetry;
+    TcpclV4InductConnectionTelemetry_t m_base_inductConnectionTelemetry;
     TcpclV4OutductTelemetry_t m_base_outductTelemetry;
 protected:
     const std::string M_BASE_IMPLEMENTATION_STRING_FOR_COUT;

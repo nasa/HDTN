@@ -102,6 +102,7 @@ void StcpBundleSink::TryStartTcpReceive() {
 
 void StcpBundleSink::HandleTcpReceiveIncomingBundleSize(const boost::system::error_code & error, std::size_t bytesTransferred, const unsigned int writeIndex) {
     if (!error) {
+        m_telemetry.m_totalStcpBytesReceived += bytesTransferred;
         if (m_incomingBundleSize == 0) { //keepalive (0 is endian agnostic)
             LOG_INFO(subprocess) << "keepalive packet received";
             //StartTcpReceiveIncomingBundleSize
@@ -148,6 +149,7 @@ void StcpBundleSink::HandleTcpReceiveBundleData(const boost::system::error_code 
             m_mutexCb.unlock();
             m_conditionVariableCb.notify_one();
             m_telemetry.m_totalBundleBytesReceived += bytesTransferred;
+            m_telemetry.m_totalStcpBytesReceived += bytesTransferred;
             ++(m_telemetry.m_totalBundlesReceived);
             m_stateTcpReadActive = false; //must be false before calling TryStartTcpReceive
             TryStartTcpReceive(); //restart operation only if there was no error

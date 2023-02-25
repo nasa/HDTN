@@ -55,7 +55,7 @@ StorageTelemetry_t::StorageTelemetry_t() :
 StorageTelemetry_t::~StorageTelemetry_t() {};
 bool StorageTelemetry_t::operator==(const StorageTelemetry_t& o) const {
     return (m_timestampMilliseconds == o.m_timestampMilliseconds)
-        &&(m_totalBundlesErasedFromStorageNoCustodyTransfer == o.m_totalBundlesErasedFromStorageNoCustodyTransfer)
+        && (m_totalBundlesErasedFromStorageNoCustodyTransfer == o.m_totalBundlesErasedFromStorageNoCustodyTransfer)
         && (m_totalBundlesErasedFromStorageWithCustodyTransfer == o.m_totalBundlesErasedFromStorageWithCustodyTransfer)
         && (m_totalBundlesRewrittenToStorageFromFailedEgressSend == o.m_totalBundlesRewrittenToStorageFromFailedEgressSend)
         && (m_totalBundlesSentToEgressFromStorageReadFromDisk == o.m_totalBundlesSentToEgressFromStorageReadFromDisk)
@@ -378,6 +378,7 @@ AllOutductCapabilitiesTelemetry_t& AllOutductCapabilitiesTelemetry_t::operator=(
 /////////////////////////////////////
 
 InductConnectionTelemetry_t::InductConnectionTelemetry_t() : m_totalBundlesReceived(0), m_totalBundleBytesReceived(0) {}
+InductConnectionTelemetry_t::~InductConnectionTelemetry_t() {}
 bool InductConnectionTelemetry_t::operator==(const InductConnectionTelemetry_t& o) const {
     return (m_connectionName == o.m_connectionName)
         && (m_totalBundlesReceived == o.m_totalBundlesReceived)
@@ -408,10 +409,277 @@ boost::property_tree::ptree InductConnectionTelemetry_t::GetNewPropertyTree() co
     return pt;
 }
 
+StcpInductConnectionTelemetry_t::StcpInductConnectionTelemetry_t() :
+    InductConnectionTelemetry_t(),
+    m_totalStcpBytesReceived(0) {}
+StcpInductConnectionTelemetry_t::~StcpInductConnectionTelemetry_t() {};
+bool StcpInductConnectionTelemetry_t::operator==(const InductConnectionTelemetry_t& o) const {
+    if (const StcpInductConnectionTelemetry_t* oPtr = dynamic_cast<const StcpInductConnectionTelemetry_t*>(&o)) {
+        return InductConnectionTelemetry_t::operator==(o)
+            && (m_totalStcpBytesReceived == oPtr->m_totalStcpBytesReceived);
+    }
+    return false;
+}
+bool StcpInductConnectionTelemetry_t::operator!=(const InductConnectionTelemetry_t& o) const {
+    return !(*this == o);
+}
+bool StcpInductConnectionTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!InductConnectionTelemetry_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
+    try {
+        m_totalStcpBytesReceived = pt.get<uint64_t>("totalStcpBytesReceived");
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON StcpInductConnectionTelemetry_t: " << e.what();
+        return false;
+    }
+    return true;
+}
+boost::property_tree::ptree StcpInductConnectionTelemetry_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt = InductConnectionTelemetry_t::GetNewPropertyTree();
+    pt.put("totalStcpBytesReceived", m_totalStcpBytesReceived);
+    return pt;
+}
+
+
+UdpInductConnectionTelemetry_t::UdpInductConnectionTelemetry_t() :
+    InductConnectionTelemetry_t(),
+    m_countCircularBufferOverruns(0) {}
+UdpInductConnectionTelemetry_t::~UdpInductConnectionTelemetry_t() {};
+bool UdpInductConnectionTelemetry_t::operator==(const InductConnectionTelemetry_t& o) const {
+    if (const UdpInductConnectionTelemetry_t* oPtr = dynamic_cast<const UdpInductConnectionTelemetry_t*>(&o)) {
+        return InductConnectionTelemetry_t::operator==(o)
+            && (m_countCircularBufferOverruns == oPtr->m_countCircularBufferOverruns);
+    }
+    return false;
+}
+bool UdpInductConnectionTelemetry_t::operator!=(const InductConnectionTelemetry_t& o) const {
+    return !(*this == o);
+}
+bool UdpInductConnectionTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!InductConnectionTelemetry_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
+    try {
+        m_countCircularBufferOverruns = pt.get<uint64_t>("countCircularBufferOverruns");
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON UdpInductConnectionTelemetry_t: " << e.what();
+        return false;
+    }
+    return true;
+}
+boost::property_tree::ptree UdpInductConnectionTelemetry_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt = InductConnectionTelemetry_t::GetNewPropertyTree();
+    pt.put("countCircularBufferOverruns", m_countCircularBufferOverruns);
+    return pt;
+}
+
+
+TcpclV3InductConnectionTelemetry_t::TcpclV3InductConnectionTelemetry_t() :
+    InductConnectionTelemetry_t(),
+    m_totalIncomingFragmentsAcked(0),
+    m_totalOutgoingFragmentsSent(0),
+    m_totalBundlesSentAndAcked(0),
+    m_totalBundleBytesSentAndAcked(0),
+    m_totalBundlesSent(0),
+    m_totalBundleBytesSent(0),
+    m_totalBundlesFailedToSend(0) {}
+TcpclV3InductConnectionTelemetry_t::~TcpclV3InductConnectionTelemetry_t() {};
+bool TcpclV3InductConnectionTelemetry_t::operator==(const InductConnectionTelemetry_t& o) const {
+    if (const TcpclV3InductConnectionTelemetry_t* oPtr = dynamic_cast<const TcpclV3InductConnectionTelemetry_t*>(&o)) {
+        return InductConnectionTelemetry_t::operator==(o)
+            && (m_totalIncomingFragmentsAcked == oPtr->m_totalIncomingFragmentsAcked)
+            && (m_totalOutgoingFragmentsSent == oPtr->m_totalOutgoingFragmentsSent)
+            && (m_totalBundlesSentAndAcked == oPtr->m_totalBundlesSentAndAcked)
+            && (m_totalBundleBytesSentAndAcked == oPtr->m_totalBundleBytesSentAndAcked)
+            && (m_totalBundlesSent == oPtr->m_totalBundlesSent)
+            && (m_totalBundleBytesSent == oPtr->m_totalBundleBytesSent)
+            && (m_totalBundlesFailedToSend == oPtr->m_totalBundlesFailedToSend);
+    }
+    return false;
+}
+bool TcpclV3InductConnectionTelemetry_t::operator!=(const InductConnectionTelemetry_t& o) const {
+    return !(*this == o);
+}
+bool TcpclV3InductConnectionTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!InductConnectionTelemetry_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
+    try {
+        m_totalIncomingFragmentsAcked = pt.get<uint64_t>("totalIncomingFragmentsAcked");
+        m_totalOutgoingFragmentsSent = pt.get<uint64_t>("totalOutgoingFragmentsSent");
+        m_totalBundlesSentAndAcked = pt.get<uint64_t>("totalBundlesSentAndAcked");
+        m_totalBundleBytesSentAndAcked = pt.get<uint64_t>("totalBundleBytesSentAndAcked");
+        m_totalBundlesSent = pt.get<uint64_t>("totalBundlesSent");
+        m_totalBundleBytesSent = pt.get<uint64_t>("totalBundleBytesSent");
+        m_totalBundlesFailedToSend = pt.get<uint64_t>("totalBundlesFailedToSend");
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON TcpclV3InductConnectionTelemetry_t: " << e.what();
+        return false;
+    }
+    return true;
+}
+boost::property_tree::ptree TcpclV3InductConnectionTelemetry_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt = InductConnectionTelemetry_t::GetNewPropertyTree();
+    pt.put("totalIncomingFragmentsAcked", m_totalIncomingFragmentsAcked);
+    pt.put("totalOutgoingFragmentsSent", m_totalOutgoingFragmentsSent);
+    pt.put("totalBundlesSentAndAcked", m_totalBundlesSentAndAcked);
+    pt.put("totalBundleBytesSentAndAcked", m_totalBundleBytesSentAndAcked);
+    pt.put("totalBundlesSent", m_totalBundlesSent);
+    pt.put("totalBundleBytesSent", m_totalBundleBytesSent);
+    pt.put("totalBundlesFailedToSend", m_totalBundlesFailedToSend);
+    return pt;
+}
+
+
+TcpclV4InductConnectionTelemetry_t::TcpclV4InductConnectionTelemetry_t() :
+    InductConnectionTelemetry_t(),
+    m_totalIncomingFragmentsAcked(0),
+    m_totalOutgoingFragmentsSent(0),
+    m_totalBundlesSentAndAcked(0),
+    m_totalBundleBytesSentAndAcked(0),
+    m_totalBundlesSent(0),
+    m_totalBundleBytesSent(0),
+    m_totalBundlesFailedToSend(0) {}
+TcpclV4InductConnectionTelemetry_t::~TcpclV4InductConnectionTelemetry_t() {};
+bool TcpclV4InductConnectionTelemetry_t::operator==(const InductConnectionTelemetry_t& o) const {
+    if (const TcpclV4InductConnectionTelemetry_t* oPtr = dynamic_cast<const TcpclV4InductConnectionTelemetry_t*>(&o)) {
+        return InductConnectionTelemetry_t::operator==(o)
+            && (m_totalIncomingFragmentsAcked == oPtr->m_totalIncomingFragmentsAcked)
+            && (m_totalOutgoingFragmentsSent == oPtr->m_totalOutgoingFragmentsSent)
+            && (m_totalBundlesSentAndAcked == oPtr->m_totalBundlesSentAndAcked)
+            && (m_totalBundleBytesSentAndAcked == oPtr->m_totalBundleBytesSentAndAcked)
+            && (m_totalBundlesSent == oPtr->m_totalBundlesSent)
+            && (m_totalBundleBytesSent == oPtr->m_totalBundleBytesSent)
+            && (m_totalBundlesFailedToSend == oPtr->m_totalBundlesFailedToSend);
+    }
+    return false;
+}
+bool TcpclV4InductConnectionTelemetry_t::operator!=(const InductConnectionTelemetry_t& o) const {
+    return !(*this == o);
+}
+bool TcpclV4InductConnectionTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!InductConnectionTelemetry_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
+    try {
+        m_totalIncomingFragmentsAcked = pt.get<uint64_t>("totalIncomingFragmentsAcked");
+        m_totalOutgoingFragmentsSent = pt.get<uint64_t>("totalOutgoingFragmentsSent");
+        m_totalBundlesSentAndAcked = pt.get<uint64_t>("totalBundlesSentAndAcked");
+        m_totalBundleBytesSentAndAcked = pt.get<uint64_t>("totalBundleBytesSentAndAcked");
+        m_totalBundlesSent = pt.get<uint64_t>("totalBundlesSent");
+        m_totalBundleBytesSent = pt.get<uint64_t>("totalBundleBytesSent");
+        m_totalBundlesFailedToSend = pt.get<uint64_t>("totalBundlesFailedToSend");
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON TcpclV4InductConnectionTelemetry_t: " << e.what();
+        return false;
+    }
+    return true;
+}
+boost::property_tree::ptree TcpclV4InductConnectionTelemetry_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt = InductConnectionTelemetry_t::GetNewPropertyTree();
+    pt.put("totalIncomingFragmentsAcked", m_totalIncomingFragmentsAcked);
+    pt.put("totalOutgoingFragmentsSent", m_totalOutgoingFragmentsSent);
+    pt.put("totalBundlesSentAndAcked", m_totalBundlesSentAndAcked);
+    pt.put("totalBundleBytesSentAndAcked", m_totalBundleBytesSentAndAcked);
+    pt.put("totalBundlesSent", m_totalBundlesSent);
+    pt.put("totalBundleBytesSent", m_totalBundleBytesSent);
+    pt.put("totalBundlesFailedToSend", m_totalBundlesFailedToSend);
+    return pt;
+}
+
+LtpInductConnectionTelemetry_t::LtpInductConnectionTelemetry_t() :
+    InductConnectionTelemetry_t(),
+    m_numReportSegmentTimerExpiredCallbacks(0),
+    m_numReportSegmentsUnableToBeIssued(0),
+    m_numReportSegmentsTooLargeAndNeedingSplit(0),
+    m_numReportSegmentsCreatedViaSplit(0),
+    m_numGapsFilledByOutOfOrderDataSegments(0),
+    m_numDelayedFullyClaimedPrimaryReportSegmentsSent(0),
+    m_numDelayedFullyClaimedSecondaryReportSegmentsSent(0),
+    m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent(0),
+    m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent(0),
+    m_countUdpPacketsSent(0),
+    m_countRxUdpCircularBufferOverruns(0),
+    m_countTxUdpPacketsLimitedByRate(0) {}
+LtpInductConnectionTelemetry_t::~LtpInductConnectionTelemetry_t() {};
+bool LtpInductConnectionTelemetry_t::operator==(const InductConnectionTelemetry_t& o) const {
+    if (const LtpInductConnectionTelemetry_t* oPtr = dynamic_cast<const LtpInductConnectionTelemetry_t*>(&o)) {
+        return InductConnectionTelemetry_t::operator==(o)
+            && (m_numReportSegmentTimerExpiredCallbacks == oPtr->m_numReportSegmentTimerExpiredCallbacks)
+            && (m_numReportSegmentsUnableToBeIssued == oPtr->m_numReportSegmentsUnableToBeIssued)
+            && (m_numReportSegmentsTooLargeAndNeedingSplit == oPtr->m_numReportSegmentsTooLargeAndNeedingSplit)
+            && (m_numReportSegmentsCreatedViaSplit == oPtr->m_numReportSegmentsCreatedViaSplit)
+            && (m_numGapsFilledByOutOfOrderDataSegments == oPtr->m_numGapsFilledByOutOfOrderDataSegments)
+            && (m_numDelayedFullyClaimedPrimaryReportSegmentsSent == oPtr->m_numDelayedFullyClaimedPrimaryReportSegmentsSent)
+            && (m_numDelayedFullyClaimedSecondaryReportSegmentsSent == oPtr->m_numDelayedFullyClaimedSecondaryReportSegmentsSent)
+            && (m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent == oPtr->m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent)
+            && (m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent == oPtr->m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent)
+            && (m_countUdpPacketsSent == oPtr->m_countUdpPacketsSent)
+            && (m_countRxUdpCircularBufferOverruns == oPtr->m_countRxUdpCircularBufferOverruns)
+            && (m_countTxUdpPacketsLimitedByRate == oPtr->m_countTxUdpPacketsLimitedByRate);
+    }
+    return false;
+}
+bool LtpInductConnectionTelemetry_t::operator!=(const InductConnectionTelemetry_t& o) const {
+    return !(*this == o);
+}
+bool LtpInductConnectionTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!InductConnectionTelemetry_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
+    try {
+        m_numReportSegmentTimerExpiredCallbacks = pt.get<uint64_t>("numReportSegmentTimerExpiredCallbacks");
+        m_numReportSegmentsUnableToBeIssued = pt.get<uint64_t>("numReportSegmentsUnableToBeIssued");
+        m_numReportSegmentsTooLargeAndNeedingSplit = pt.get<uint64_t>("numReportSegmentsTooLargeAndNeedingSplit");
+        m_numReportSegmentsCreatedViaSplit = pt.get<uint64_t>("numReportSegmentsCreatedViaSplit");
+        m_numGapsFilledByOutOfOrderDataSegments = pt.get<uint64_t>("numGapsFilledByOutOfOrderDataSegments");
+        m_numDelayedFullyClaimedPrimaryReportSegmentsSent = pt.get<uint64_t>("numDelayedFullyClaimedPrimaryReportSegmentsSent");
+        m_numDelayedFullyClaimedSecondaryReportSegmentsSent = pt.get<uint64_t>("numDelayedFullyClaimedSecondaryReportSegmentsSent");
+        m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent = pt.get<uint64_t>("numDelayedPartiallyClaimedPrimaryReportSegmentsSent");
+        m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent = pt.get<uint64_t>("numDelayedPartiallyClaimedSecondaryReportSegmentsSent");
+        m_countUdpPacketsSent = pt.get<uint64_t>("countUdpPacketsSent");
+        m_countRxUdpCircularBufferOverruns = pt.get<uint64_t>("countRxUdpCircularBufferOverruns");
+        m_countTxUdpPacketsLimitedByRate = pt.get<uint64_t>("countTxUdpPacketsLimitedByRate");
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON LtpInductConnectionTelemetry_t: " << e.what();
+        return false;
+    }
+    return true;
+}
+boost::property_tree::ptree LtpInductConnectionTelemetry_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt = InductConnectionTelemetry_t::GetNewPropertyTree();
+    pt.put("numReportSegmentTimerExpiredCallbacks", m_numReportSegmentTimerExpiredCallbacks);
+    pt.put("numReportSegmentsUnableToBeIssued", m_numReportSegmentsUnableToBeIssued);
+    pt.put("numReportSegmentsTooLargeAndNeedingSplit", m_numReportSegmentsTooLargeAndNeedingSplit);
+    pt.put("numReportSegmentsCreatedViaSplit", m_numReportSegmentsCreatedViaSplit);
+    pt.put("numGapsFilledByOutOfOrderDataSegments", m_numGapsFilledByOutOfOrderDataSegments);
+    pt.put("numDelayedFullyClaimedPrimaryReportSegmentsSent", m_numDelayedFullyClaimedPrimaryReportSegmentsSent);
+    pt.put("numDelayedFullyClaimedSecondaryReportSegmentsSent", m_numDelayedFullyClaimedSecondaryReportSegmentsSent);
+    pt.put("numDelayedPartiallyClaimedPrimaryReportSegmentsSent", m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent);
+    pt.put("numDelayedPartiallyClaimedSecondaryReportSegmentsSent", m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent);
+    pt.put("countUdpPacketsSent", m_countUdpPacketsSent);
+    pt.put("countRxUdpCircularBufferOverruns", m_countRxUdpCircularBufferOverruns);
+    pt.put("countTxUdpPacketsLimitedByRate", m_countTxUdpPacketsLimitedByRate);
+    return pt;
+}
+
 
 InductTelemetry_t::InductTelemetry_t() {}
+static bool UniquePtrInductConnectionTelemEquivalent(const std::unique_ptr<InductConnectionTelemetry_t>& a, const std::unique_ptr<InductConnectionTelemetry_t>& b) {
+    if ((!a) && (!b)) return true; //both null
+    if (!a) return false;
+    if (!b) return false;
+    return ((*a) == (*b));
+}
 bool InductTelemetry_t::operator==(const InductTelemetry_t& o) const {
-    return (m_listInductConnections == o.m_listInductConnections);
+    return std::equal(m_listInductConnections.begin(), m_listInductConnections.end(), o.m_listInductConnections.begin(), UniquePtrInductConnectionTelemEquivalent);
+    //(m_listInductConnections == o.m_listInductConnections);
 }
 bool InductTelemetry_t::operator!=(const InductTelemetry_t& o) const {
     return !(*this == o);
@@ -424,8 +692,25 @@ bool InductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::pt
         const boost::property_tree::ptree& inductConnectionsPt = pt.get_child("inductConnections", EMPTY_PTREE); //non-throw version
         m_listInductConnections.clear();
         BOOST_FOREACH(const boost::property_tree::ptree::value_type & inductConnectionPt, inductConnectionsPt) {
-            m_listInductConnections.emplace_back();
-            m_listInductConnections.back().SetValuesFromPropertyTree(inductConnectionPt.second);
+            if (m_convergenceLayer == "ltp_over_udp") {
+                m_listInductConnections.emplace_back(boost::make_unique<LtpInductConnectionTelemetry_t>());
+            }
+            else if (m_convergenceLayer == "udp") {
+                m_listInductConnections.emplace_back(boost::make_unique<UdpInductConnectionTelemetry_t>());
+            }
+            else if (m_convergenceLayer == "tcpcl_v3") {
+                m_listInductConnections.emplace_back(boost::make_unique<TcpclV3InductConnectionTelemetry_t>());
+            }
+            else if (m_convergenceLayer == "tcpcl_v4") {
+                m_listInductConnections.emplace_back(boost::make_unique<TcpclV4InductConnectionTelemetry_t>());
+            }
+            else if (m_convergenceLayer == "stcp") {
+                m_listInductConnections.emplace_back(boost::make_unique<StcpInductConnectionTelemetry_t>());
+            }
+            else {
+                return false;
+            }
+            m_listInductConnections.back()->SetValuesFromPropertyTree(inductConnectionPt.second);
         }
     }
     catch (const boost::property_tree::ptree_error& e) {
@@ -439,12 +724,16 @@ boost::property_tree::ptree InductTelemetry_t::GetNewPropertyTree() const {
     pt.put("convergenceLayer", m_convergenceLayer);
     boost::property_tree::ptree& inductConnectionsPt = pt.put_child("inductConnections",
         m_listInductConnections.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
-    for (std::list<InductConnectionTelemetry_t>::const_iterator it = m_listInductConnections.cbegin(); it != m_listInductConnections.cend(); ++it) {
-        const InductConnectionTelemetry_t& ict = *it;
-        inductConnectionsPt.push_back(std::make_pair("", ict.GetNewPropertyTree())); //using "" as key creates json array
+    for (std::list<std::unique_ptr<InductConnectionTelemetry_t> >::const_iterator it = m_listInductConnections.cbegin(); it != m_listInductConnections.cend(); ++it) {
+        const std::unique_ptr<InductConnectionTelemetry_t>& ictPtr = *it;
+        if (!ictPtr) {
+            break;
+        }
+        inductConnectionsPt.push_back(std::make_pair("", ictPtr->GetNewPropertyTree())); //using "" as key creates json array
     }
     return pt;
 }
+
 
 
 AllInductTelemetry_t::AllInductTelemetry_t() : 
@@ -606,7 +895,6 @@ LtpOutductTelemetry_t::LtpOutductTelemetry_t() :
 {
     m_convergenceLayer = "ltp_over_udp";
 }
-
 LtpOutductTelemetry_t::~LtpOutductTelemetry_t() {};
 bool LtpOutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
     if (const LtpOutductTelemetry_t* oPtr = dynamic_cast<const LtpOutductTelemetry_t*>(&o)) {
@@ -622,7 +910,6 @@ bool LtpOutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
 bool LtpOutductTelemetry_t::operator!=(const OutductTelemetry_t& o) const {
     return !(*this == o);
 }
-
 bool LtpOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
     if (!OutductTelemetry_t::SetValuesFromPropertyTree(pt)) {
         return false;
@@ -635,12 +922,11 @@ bool LtpOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree
         m_countTxUdpPacketsLimitedByRate = pt.get<uint64_t>("countTxUdpPacketsLimitedByRate");
     }
     catch (const boost::property_tree::ptree_error& e) {
-        LOG_ERROR(subprocess) << "parsing JSON StcpOutductTelemetry_t: " << e.what();
+        LOG_ERROR(subprocess) << "parsing JSON LtpOutductTelemetry_t: " << e.what();
         return false;
     }
     return true;
 }
-
 boost::property_tree::ptree LtpOutductTelemetry_t::GetNewPropertyTree() const {
     boost::property_tree::ptree pt = OutductTelemetry_t::GetNewPropertyTree();
     pt.put("numCheckpointsExpired", m_numCheckpointsExpired);
@@ -684,7 +970,7 @@ bool TcpclV3OutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_
         m_totalBundleBytesReceived = pt.get<uint64_t>("totalBundleBytesReceived");
     }
     catch (const boost::property_tree::ptree_error& e) {
-        LOG_ERROR(subprocess) << "parsing JSON StcpOutductTelemetry_t: " << e.what();
+        LOG_ERROR(subprocess) << "parsing JSON TcpclV3OutductTelemetry_t: " << e.what();
         return false;
     }
     return true;
@@ -730,7 +1016,7 @@ bool TcpclV4OutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_
         m_totalBundleBytesReceived = pt.get<uint64_t>("totalBundleBytesReceived");
     }
     catch (const boost::property_tree::ptree_error& e) {
-        LOG_ERROR(subprocess) << "parsing JSON StcpOutductTelemetry_t: " << e.what();
+        LOG_ERROR(subprocess) << "parsing JSON TcpclV4OutductTelemetry_t: " << e.what();
         return false;
     }
     return true;
@@ -779,7 +1065,7 @@ bool UdpOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree
         m_totalPacketsLimitedByRate = pt.get<uint64_t>("totalPacketsLimitedByRate");
     }
     catch (const boost::property_tree::ptree_error& e) {
-        LOG_ERROR(subprocess) << "parsing JSON StcpOutductTelemetry_t: " << e.what();
+        LOG_ERROR(subprocess) << "parsing JSON UdpOutductTelemetry_t: " << e.what();
         return false;
     }
     return true;

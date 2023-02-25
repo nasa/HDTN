@@ -41,7 +41,6 @@ UdpBundleSink::UdpBundleSink(boost::asio::io_service & ioService,
     m_udpReceiveBytesTransferredCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_running(false),
     m_safeToDelete(false),
-    m_countCircularBufferOverruns(0),
     m_printedCbTooSmallNotice(false)
 {
     m_telemetry.m_connectionName = "null";
@@ -93,7 +92,7 @@ UdpBundleSink::~UdpBundleSink() {
         m_threadCbReaderPtr->join();
         m_threadCbReaderPtr.reset(); //delete it
     }
-    LOG_INFO(subprocess) << "UdpBundleSink m_countCircularBufferOverruns: " << m_countCircularBufferOverruns;
+    LOG_INFO(subprocess) << "UdpBundleSink m_countCircularBufferOverruns: " << m_telemetry.m_countCircularBufferOverruns;
 }
 
 void UdpBundleSink::StartUdpReceive() {
@@ -109,7 +108,7 @@ void UdpBundleSink::HandleUdpReceive(const boost::system::error_code & error, st
     if (!error) {
         const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
         if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) {
-            ++m_countCircularBufferOverruns;
+            ++m_telemetry.m_countCircularBufferOverruns;
             if (!m_printedCbTooSmallNotice) {
                 m_printedCbTooSmallNotice = true;
                 LOG_INFO(subprocess) << "LtpUdpEngine::StartUdpReceive(): buffers full.. you might want to increase the circular buffer size! This UDP packet will be dropped!";

@@ -116,18 +116,18 @@ void StcpInduct::ConnectionReadyToBeDeletedNotificationReceived() {
 }
 
 void StcpInduct::PopulateInductTelemetry(InductTelemetry_t& inductTelem) {
-    inductTelem.m_convergenceLayer = "STCP";
+    inductTelem.m_convergenceLayer = "stcp";
     inductTelem.m_listInductConnections.clear();
     {
         boost::mutex::scoped_lock lock(m_listStcpBundleSinksMutex);
         for (std::list<StcpBundleSink>::const_iterator it = m_listStcpBundleSinks.cbegin(); it != m_listStcpBundleSinks.cend(); ++it) {
-            inductTelem.m_listInductConnections.emplace_back(it->m_telemetry);
+            inductTelem.m_listInductConnections.emplace_back(boost::make_unique<StcpInductConnectionTelemetry_t>(it->m_telemetry));
         }
     }
     if (inductTelem.m_listInductConnections.empty()) {
-        InductConnectionTelemetry_t c;
-        c.m_connectionName = "null";
-        c.m_inputName = std::string("*:") + boost::lexical_cast<std::string>(m_tcpAcceptor.local_endpoint().port());
-        inductTelem.m_listInductConnections.emplace_back(c);
+        std::unique_ptr<StcpInductConnectionTelemetry_t> c = boost::make_unique<StcpInductConnectionTelemetry_t>();
+        c->m_connectionName = "null";
+        c->m_inputName = std::string("*:") + boost::lexical_cast<std::string>(m_tcpAcceptor.local_endpoint().port());
+        inductTelem.m_listInductConnections.emplace_back(std::move(c));
     }
 }

@@ -48,7 +48,7 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsStorageTestCase)
     const std::string tJson = t.ToJson();
     //std::cout << tJson << "\n";
     StorageTelemetry_t t2;
-    t2.SetValuesFromJson(tJson);
+    BOOST_REQUIRE(t2.SetValuesFromJson(tJson));
     BOOST_REQUIRE(t == t2);
     BOOST_REQUIRE(!(t != t2));
     BOOST_REQUIRE_EQUAL(tJson, t2.ToJson());
@@ -156,22 +156,129 @@ BOOST_AUTO_TEST_CASE(AllInductTelemetryTestCase)
     ait.m_bundleCountStorage = 102;
     ait.m_bundleByteCountEgress = 103;
     ait.m_bundleByteCountStorage = 104;
-    for (std::size_t i = 0; i < 10; ++i) {
+
+    {
         ait.m_listAllInducts.emplace_back();
         InductTelemetry_t& inductTelem = ait.m_listAllInducts.back();
-        inductTelem.m_convergenceLayer.assign(i+1, 'a' + ((char)i));
+        inductTelem.m_convergenceLayer = "ltp_over_udp";
         for (std::size_t j = 0; j < 2; ++j) {
-            inductTelem.m_listInductConnections.emplace_back();
-            InductConnectionTelemetry_t& conn = inductTelem.m_listInductConnections.back();
-            conn.m_connectionName = boost::lexical_cast<std::string>(i) + " " + boost::lexical_cast<std::string>(j);
-            conn.m_totalBundleBytesReceived = i;
-            conn.m_totalBundlesReceived = j;
+            std::unique_ptr<LtpInductConnectionTelemetry_t> ptr = boost::make_unique<LtpInductConnectionTelemetry_t>();
+            LtpInductConnectionTelemetry_t& conn = *ptr;
+            conn.m_connectionName = inductTelem.m_convergenceLayer + boost::lexical_cast<std::string>(j);
+            conn.m_inputName = conn.m_connectionName + "_input";
+            conn.m_totalBundleBytesReceived = conn.m_connectionName.size() + j + 100;
+            conn.m_totalBundlesReceived = conn.m_connectionName.size() + j;
+
+            //session receiver stats
+            conn.m_numReportSegmentTimerExpiredCallbacks = 1000 + j*1000;
+            conn.m_numReportSegmentsUnableToBeIssued = 1001 + j * 1000;
+            conn.m_numReportSegmentsTooLargeAndNeedingSplit = 1002 + j * 1000;
+            conn.m_numReportSegmentsCreatedViaSplit = 1003 + j * 1000;
+            conn.m_numGapsFilledByOutOfOrderDataSegments = 1004 + j * 1000;
+            conn.m_numDelayedFullyClaimedPrimaryReportSegmentsSent = 1005 + j * 1000;
+            conn.m_numDelayedFullyClaimedSecondaryReportSegmentsSent = 1006 + j * 1000;
+            conn.m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent = 1007 + j * 1000;
+            conn.m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent = 1008 + j * 1000;
+
+            //ltp udp engine
+            conn.m_countUdpPacketsSent = 1009 + j * 1000;
+            conn.m_countRxUdpCircularBufferOverruns = 1010 + j * 1000;
+            conn.m_countTxUdpPacketsLimitedByRate = 1011 + j * 1000;
+
+            inductTelem.m_listInductConnections.emplace_back(std::move(ptr));
         }
     }
+
+    {
+        ait.m_listAllInducts.emplace_back();
+        InductTelemetry_t& inductTelem = ait.m_listAllInducts.back();
+        inductTelem.m_convergenceLayer = "tcpcl_v3";
+        for (std::size_t j = 0; j < 2; ++j) {
+            std::unique_ptr<TcpclV3InductConnectionTelemetry_t> ptr = boost::make_unique<TcpclV3InductConnectionTelemetry_t>();
+            TcpclV3InductConnectionTelemetry_t& conn = *ptr;
+            conn.m_connectionName = inductTelem.m_convergenceLayer + boost::lexical_cast<std::string>(j);
+            conn.m_inputName = conn.m_connectionName + "_input";
+            conn.m_totalBundleBytesReceived = conn.m_connectionName.size() + j + 100;
+            conn.m_totalBundlesReceived = conn.m_connectionName.size() + j;
+
+            conn.m_totalIncomingFragmentsAcked = 1000 + j * 1000;
+            conn.m_totalOutgoingFragmentsSent = 1001 + j * 1000;
+            //bidirectionality (identical to OutductTelemetry_t)
+            conn.m_totalBundlesSentAndAcked = 1002 + j * 1000;
+            conn.m_totalBundleBytesSentAndAcked = 1003 + j * 1000;
+            conn.m_totalBundlesSent = 1004 + j * 1000;
+            conn.m_totalBundleBytesSent = 1005 + j * 1000;
+            conn.m_totalBundlesFailedToSend = 1006 + j * 1000;
+
+            inductTelem.m_listInductConnections.emplace_back(std::move(ptr));
+        }
+    }
+
+    {
+        ait.m_listAllInducts.emplace_back();
+        InductTelemetry_t& inductTelem = ait.m_listAllInducts.back();
+        inductTelem.m_convergenceLayer = "tcpcl_v4";
+        for (std::size_t j = 0; j < 2; ++j) {
+            std::unique_ptr<TcpclV4InductConnectionTelemetry_t> ptr = boost::make_unique<TcpclV4InductConnectionTelemetry_t>();
+            TcpclV4InductConnectionTelemetry_t& conn = *ptr;
+            conn.m_connectionName = inductTelem.m_convergenceLayer + boost::lexical_cast<std::string>(j);
+            conn.m_inputName = conn.m_connectionName + "_input";
+            conn.m_totalBundleBytesReceived = conn.m_connectionName.size() + j + 100;
+            conn.m_totalBundlesReceived = conn.m_connectionName.size() + j;
+
+            conn.m_totalIncomingFragmentsAcked = 1000 + j * 1000;
+            conn.m_totalOutgoingFragmentsSent = 1001 + j * 1000;
+            //bidirectionality (identical to OutductTelemetry_t)
+            conn.m_totalBundlesSentAndAcked = 1002 + j * 1000;
+            conn.m_totalBundleBytesSentAndAcked = 1003 + j * 1000;
+            conn.m_totalBundlesSent = 1004 + j * 1000;
+            conn.m_totalBundleBytesSent = 1005 + j * 1000;
+            conn.m_totalBundlesFailedToSend = 1006 + j * 1000;
+
+            inductTelem.m_listInductConnections.emplace_back(std::move(ptr));
+        }
+    }
+
+    {
+        ait.m_listAllInducts.emplace_back();
+        InductTelemetry_t& inductTelem = ait.m_listAllInducts.back();
+        inductTelem.m_convergenceLayer = "stcp";
+        for (std::size_t j = 0; j < 2; ++j) {
+            std::unique_ptr<StcpInductConnectionTelemetry_t> ptr = boost::make_unique<StcpInductConnectionTelemetry_t>();
+            StcpInductConnectionTelemetry_t& conn = *ptr;
+            conn.m_connectionName = inductTelem.m_convergenceLayer + boost::lexical_cast<std::string>(j);
+            conn.m_inputName = conn.m_connectionName + "_input";
+            conn.m_totalBundleBytesReceived = conn.m_connectionName.size() + j + 100;
+            conn.m_totalBundlesReceived = conn.m_connectionName.size() + j;
+
+            conn.m_totalStcpBytesReceived = 1000 + j * 1000;
+
+            inductTelem.m_listInductConnections.emplace_back(std::move(ptr));
+        }
+    }
+
+    {
+        ait.m_listAllInducts.emplace_back();
+        InductTelemetry_t& inductTelem = ait.m_listAllInducts.back();
+        inductTelem.m_convergenceLayer = "udp";
+        for (std::size_t j = 0; j < 2; ++j) {
+            std::unique_ptr<UdpInductConnectionTelemetry_t> ptr = boost::make_unique<UdpInductConnectionTelemetry_t>();
+            UdpInductConnectionTelemetry_t& conn = *ptr;
+            conn.m_connectionName = inductTelem.m_convergenceLayer + boost::lexical_cast<std::string>(j);
+            conn.m_inputName = conn.m_connectionName + "_input";
+            conn.m_totalBundleBytesReceived = conn.m_connectionName.size() + j + 100;
+            conn.m_totalBundlesReceived = conn.m_connectionName.size() + j;
+
+            conn.m_countCircularBufferOverruns = 1000 + j * 1000;
+
+            inductTelem.m_listInductConnections.emplace_back(std::move(ptr));
+        }
+    }
+
     const std::string aitJson = ait.ToJson();
     //std::cout << aitJson << "\n";
     AllInductTelemetry_t ait2;
-    ait2.SetValuesFromJson(aitJson);
+    BOOST_REQUIRE(ait2.SetValuesFromJson(aitJson));
     BOOST_REQUIRE(ait == ait2);
     BOOST_REQUIRE_EQUAL(aitJson, ait2.ToJson());
 }
@@ -238,7 +345,7 @@ BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
     const std::string aotJson = aot.ToJson();
     //std::cout << aotJson << "\n";
     AllOutductTelemetry_t aot2;
-    aot2.SetValuesFromJson(aotJson);
+    BOOST_REQUIRE(aot2.SetValuesFromJson(aotJson));
     BOOST_REQUIRE(aot == aot2);
     BOOST_REQUIRE(!(aot != aot2));
     BOOST_REQUIRE_EQUAL(aotJson, aot2.ToJson());

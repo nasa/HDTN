@@ -58,7 +58,7 @@ private:
     STCP_LIB_NO_EXPORT void HandleSocketShutdown();
 
 public:
-    InductConnectionTelemetry_t m_telemetry;
+    StcpInductConnectionTelemetry_t m_telemetry;
 private:
     
     const WholeBundleReadyCallback_t m_wholeBundleReadyCallback;

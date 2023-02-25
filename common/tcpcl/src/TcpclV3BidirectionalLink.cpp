@@ -242,6 +242,7 @@ void TcpclV3BidirectionalLink::BaseClass_AckCallback(uint64_t totalBytesAcknowle
             }
             if (expectedFragByteToAck == totalBytesAcknowledged) {
                 ++m_base_outductTelemetry.m_totalFragmentsAcked;
+                m_base_inductConnectionTelemetry.m_totalIncomingFragmentsAcked = m_base_outductTelemetry.m_totalFragmentsAcked;
             }
             else {
                 LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_AckCallback: wrong fragment bytes acked: expected "
@@ -254,6 +255,8 @@ void TcpclV3BidirectionalLink::BaseClass_AckCallback(uint64_t totalBytesAcknowle
             if (m_base_bytesToAckCbVec[readIndex] == totalBytesAcknowledged) {
                 ++m_base_outductTelemetry.m_totalBundlesAcked;
                 m_base_outductTelemetry.m_totalBundleBytesAcked += m_base_bytesToAckCbVec[readIndex];
+                m_base_inductConnectionTelemetry.m_totalBundlesSentAndAcked = m_base_outductTelemetry.m_totalBundlesAcked;
+                m_base_inductConnectionTelemetry.m_totalBundleBytesSentAndAcked = m_base_outductTelemetry.m_totalBundleBytesAcked;
                 if (m_base_onSuccessfulBundleSendCallback) {
                     m_base_onSuccessfulBundleSendCallback(m_base_userDataCbVec[readIndex], m_base_userAssignedUuid);
                 }
@@ -495,6 +498,8 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
 
     ++m_base_outductTelemetry.m_totalBundlesSent;
     m_base_outductTelemetry.m_totalBundleBytesSent += dataSize;
+    m_base_inductConnectionTelemetry.m_totalBundlesSent = m_base_outductTelemetry.m_totalBundlesSent;
+    m_base_inductConnectionTelemetry.m_totalBundleBytesSent = m_base_outductTelemetry.m_totalBundleBytesSent;
 
     std::vector<uint64_t> & currentFragmentBytesVec = m_base_fragmentBytesToAckCbVec[writeIndex];
     currentFragmentBytesVec.resize(0); //will be zero size if not fragmented
@@ -567,6 +572,7 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
 
     if (elements.size()) { //is fragmented
         m_base_outductTelemetry.m_totalFragmentsSent += elements.size();
+        m_base_inductConnectionTelemetry.m_totalOutgoingFragmentsSent = m_base_outductTelemetry.m_totalFragmentsSent;
         for (std::size_t i = 0; i < elements.size(); ++i) {
             m_base_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(elements[i]);
         }

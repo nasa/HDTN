@@ -57,7 +57,7 @@ private:
     UDP_LIB_NO_EXPORT void HandleSocketShutdown();
 
 public:
-    InductConnectionTelemetry_t m_telemetry;
+    UdpInductConnectionTelemetry_t m_telemetry;
 private:
     //std::vector<uint8_t> m_fragmentedBundleRxConcat;
 
@@ -82,7 +82,6 @@ private:
     volatile bool m_running;
     volatile bool m_safeToDelete;
     uint32_t m_incomingBundleSize;
-    uint64_t m_countCircularBufferOverruns;
     bool m_printedCbTooSmallNotice;
 };
 

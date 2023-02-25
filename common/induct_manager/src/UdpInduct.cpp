@@ -53,7 +53,7 @@ void UdpInduct::ConnectionReadyToBeDeletedNotificationReceived() {
 }
 
 void UdpInduct::PopulateInductTelemetry(InductTelemetry_t& inductTelem) {
-    inductTelem.m_convergenceLayer = "UDP";
+    inductTelem.m_convergenceLayer = "udp";
     inductTelem.m_listInductConnections.clear();
-    inductTelem.m_listInductConnections.emplace_back(m_udpBundleSinkPtr->m_telemetry);
+    inductTelem.m_listInductConnections.emplace_back(boost::make_unique<UdpInductConnectionTelemetry_t>(m_udpBundleSinkPtr->m_telemetry));
 }

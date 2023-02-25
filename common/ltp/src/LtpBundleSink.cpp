@@ -62,3 +62,19 @@ void LtpBundleSink::RedPartReceptionCallback(const Ltp::session_id_t & sessionId
 void LtpBundleSink::ReceptionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode) {
     LOG_INFO(subprocess) << "remote has cancelled session " << sessionId << " with reason code " << (int)reasonCode;
 }
+
+void LtpBundleSink::SyncTelemetry() {
+    if (m_ltpEnginePtr) {
+        m_telemetry.m_numReportSegmentTimerExpiredCallbacks = m_ltpEnginePtr->m_numReportSegmentTimerExpiredCallbacksRef;
+        m_telemetry.m_numReportSegmentsUnableToBeIssued = m_ltpEnginePtr->m_numReportSegmentsUnableToBeIssuedRef;
+        m_telemetry.m_numReportSegmentsTooLargeAndNeedingSplit = m_ltpEnginePtr->m_numReportSegmentsTooLargeAndNeedingSplitRef;
+        m_telemetry.m_numReportSegmentsCreatedViaSplit = m_ltpEnginePtr->m_numReportSegmentsCreatedViaSplitRef;
+        m_telemetry.m_numGapsFilledByOutOfOrderDataSegments = m_ltpEnginePtr->m_numGapsFilledByOutOfOrderDataSegmentsRef;
+        m_telemetry.m_numDelayedFullyClaimedPrimaryReportSegmentsSent = m_ltpEnginePtr->m_numDelayedFullyClaimedPrimaryReportSegmentsSentRef;
+        m_telemetry.m_numDelayedFullyClaimedSecondaryReportSegmentsSent = m_ltpEnginePtr->m_numDelayedFullyClaimedSecondaryReportSegmentsSentRef;
+        m_telemetry.m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent = m_ltpEnginePtr->m_numDelayedPartiallyClaimedPrimaryReportSegmentsSentRef;
+        m_telemetry.m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent = m_ltpEnginePtr->m_numDelayedPartiallyClaimedSecondaryReportSegmentsSentRef;
+        m_telemetry.m_countTxUdpPacketsLimitedByRate = m_ltpEnginePtr->m_countAsyncSendsLimitedByRate;
+        SyncTransportLayerSpecificTelem(); //virtual function call
+    }
+}
