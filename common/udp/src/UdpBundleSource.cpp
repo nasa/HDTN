@@ -224,6 +224,7 @@ void UdpBundleSource::OnResolve(const boost::system::error_code & ec, boost::asi
 
             LOG_INFO(subprocess) << "UDP Bound on ephemeral port " << m_udpSocket.local_endpoint().port();
             LOG_INFO(subprocess) << "UDP READY";
+            m_udpOutductTelemetry.m_linkIsUpPhysically = true;
             m_readyToForward = true;
 
         }
@@ -327,6 +328,7 @@ void UdpBundleSource::DoUdpShutdown() {
 
 void UdpBundleSource::DoHandleSocketShutdown() {
     //final code to shut down tcp sockets
+    m_udpOutductTelemetry.m_linkIsUpPhysically = false;
     m_readyToForward = false;
     if (m_udpSocket.is_open()) {
         try {

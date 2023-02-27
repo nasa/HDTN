@@ -297,6 +297,7 @@ void StcpBundleSource::OnConnect(const boost::system::error_code & ec) {
         m_tcpAsyncSenderPtr->SetOnFailedBundleZmqSendCallback(m_onFailedBundleZmqSendCallback);
         m_tcpAsyncSenderPtr->SetUserAssignedUuid(m_userAssignedUuid);
         StartTcpReceive();
+        m_stcpOutductTelemetry.m_linkIsUpPhysically = true;
         if (m_onOutductLinkStatusChangedCallback) { //let user know of link up event
             m_onOutductLinkStatusChangedCallback(false, m_userAssignedUuid);
         }
@@ -417,6 +418,7 @@ void StcpBundleSource::DoStcpShutdown(unsigned int reconnectionDelaySecondsIfNot
 void StcpBundleSource::DoHandleSocketShutdown(unsigned int reconnectionDelaySecondsIfNotZero) {
     //final code to shut down tcp sockets
     m_readyToForward = false;
+    m_stcpOutductTelemetry.m_linkIsUpPhysically = false;
     if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
         m_onOutductLinkStatusChangedCallback(true, m_userAssignedUuid);
     }

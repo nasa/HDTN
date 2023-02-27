@@ -302,6 +302,7 @@ BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
         ptr->m_countUdpPacketsSent = 12;
         ptr->m_numCheckpointsExpired = 13;
         ptr->m_numDiscretionaryCheckpointsNotResent = 14;
+        ptr->m_numDeletedFullyClaimedPendingReports = 15;
         aot.m_listAllOutducts.emplace_back(std::move(ptr));
     }
     {
@@ -341,6 +342,7 @@ BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
         ot.m_totalBundlesSent = ot.m_convergenceLayer.size() + 2;
         ot.m_totalBundleBytesSent = ot.m_convergenceLayer.size() + 3;
         ot.m_totalBundlesFailedToSend = ot.m_convergenceLayer.size() + 4;
+        ot.m_linkIsUpPhysically = (ot.m_convergenceLayer == "stcp");
     }
     const std::string aotJson = aot.ToJson();
     //std::cout << aotJson << "\n";

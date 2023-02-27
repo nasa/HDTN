@@ -319,8 +319,10 @@ var OUTDUCT_TELEM_UPDATE = {
             "totalBundlesSent": 14,
             "totalBundleBytesSent": 15,
             "totalBundlesFailedToSend": 16,
+            "linkIsUpPhysically": true,
             "numCheckpointsExpired": 13,
             "numDiscretionaryCheckpointsNotResent": 14,
+            "numDeletedFullyClaimedPendingReports": 15,
             "countUdpPacketsSent": 12,
             "countRxUdpCircularBufferOverruns": 10,
             "countTxUdpPacketsLimitedByRate": 11
@@ -332,6 +334,7 @@ var OUTDUCT_TELEM_UPDATE = {
             "totalBundlesSent": 5,
             "totalBundleBytesSent": 6,
             "totalBundlesFailedToSend": 7,
+            "linkIsUpPhysically": true,
             "totalPacketsSent": 50,
             "totalPacketBytesSent": 51,
             "totalPacketsDequeuedForSend": 52,
@@ -345,6 +348,7 @@ var OUTDUCT_TELEM_UPDATE = {
             "totalBundlesSent": 10,
             "totalBundleBytesSent": 11,
             "totalBundlesFailedToSend": 12,
+            "linkIsUpPhysically": true,
             "totalFragmentsAcked": 30,
             "totalFragmentsSent": 31,
             "totalBundlesReceived": 32,
@@ -357,6 +361,7 @@ var OUTDUCT_TELEM_UPDATE = {
             "totalBundlesSent": 10,
             "totalBundleBytesSent": 11,
             "totalBundlesFailedToSend": 12,
+            "linkIsUpPhysically": true,
             "totalFragmentsAcked": 40,
             "totalFragmentsSent": 41,
             "totalBundlesReceived": 42,
@@ -369,6 +374,7 @@ var OUTDUCT_TELEM_UPDATE = {
             "totalBundlesSent": 6,
             "totalBundleBytesSent": 7,
             "totalBundlesFailedToSend": 8,
+            "linkIsUpPhysically": true,
             "totalStcpBytesSent": 20
         }
     ]
@@ -566,6 +572,16 @@ let changeFunctions = [
         //remove element 0 "ipn:4.1"
         AOCT.outductCapabilityTelemetryList[1].finalDestinationEidsList.unshift("ipn:4.1");
         let clone = JSON.parse(JSON.stringify(AOCT));
+        app.UpdateWithData(clone);
+    },
+    function() { //outduct 4 goes down physically
+        OUTDUCT_TELEM_UPDATE.allOutducts[4].linkIsUpPhysically = false;
+        let clone = JSON.parse(JSON.stringify(OUTDUCT_TELEM_UPDATE));
+        app.UpdateWithData(clone);
+    },
+    function() { //outduct 4 goes up physically
+        OUTDUCT_TELEM_UPDATE.allOutducts[4].linkIsUpPhysically = true;
+        let clone = JSON.parse(JSON.stringify(OUTDUCT_TELEM_UPDATE));
         app.UpdateWithData(clone);
     }
 ];

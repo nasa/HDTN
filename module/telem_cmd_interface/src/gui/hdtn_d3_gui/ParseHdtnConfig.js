@@ -295,7 +295,8 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
             let outductsConfig = receivedConfig["outductsConfig"];
             let outductVector = outductsConfig["outductVector"];
             outductVector.forEach(function(od, i) {
-                hashStr += "outduct=" + od.convergenceLayer + "[" + i + "]->" + od.nextHopNodeId + "(" + od["finalDestinationEidUris"].toString() + ");";
+                hashStr += "outduct=" + od.convergenceLayer + "[" + i + "]->" + od.nextHopNodeId + "(" + od["finalDestinationEidUris"].toString() + ") ";
+                hashStr += "linkIsUpPhysically=" + (od.hasOwnProperty("outductTelem") ? od.outductTelem.linkIsUpPhysically : false) + ";";
             });
         }
 
@@ -578,7 +579,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
 
         ///////////outduct
         var outduct = od;
-        outduct.linkIsUp = true;
+        const outductLinkUpPhysically = (od.hasOwnProperty("outductTelem") ? od.outductTelem.linkIsUpPhysically : false);
         outduct.parent = paramHdtnConfig.egressD3Obj;
         outduct.id = "outduct_" + i;
         var cvName = "??";
@@ -695,7 +696,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         outduct.absWireOutY = paramHdtnConfig.egressD3Obj.absY + outduct.relY + outduct.height/2;
         outduct.absWireInY = outduct.absWireOutY;
 
-        if(!paramDeclutter || outduct.linkIsUp) { //if cluttered or on
+        if(/*!paramDeclutter ||*/ outductLinkUpPhysically) { //if cluttered or on
             AddWire(outduct, nextHopObj, "outduct_nextHop", true);
         }
 

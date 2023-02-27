@@ -363,6 +363,7 @@ void TcpclV3BidirectionalLink::BaseClass_DoHandleSocketShutdown(bool sendShutdow
         // Called from post() to keep socket shutdown within io_service thread.
 
         m_base_readyToForward = false;
+        m_base_outductTelemetry.m_linkIsUpPhysically = false;
         if (m_base_onOutductLinkStatusChangedCallback) { //let user know of link down event
             m_base_onOutductLinkStatusChangedCallback(true, m_base_userAssignedUuid);
         }
@@ -695,6 +696,7 @@ void TcpclV3BidirectionalLink::BaseClass_ContactHeaderCallback(CONTACT_HEADER_FL
 
     m_base_readyToForward = true;
     Virtual_OnContactHeaderCompletedSuccessfully();
+    m_base_outductTelemetry.m_linkIsUpPhysically = true;
     if (m_base_onOutductLinkStatusChangedCallback) { //let user know of link up event
         m_base_onOutductLinkStatusChangedCallback(false, m_base_userAssignedUuid);
     }

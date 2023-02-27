@@ -286,7 +286,7 @@ struct OutductTelemetry_t : public JsonSerializable
     uint64_t m_totalBundlesSent;
     uint64_t m_totalBundleBytesSent;
     uint64_t m_totalBundlesFailedToSend;
-
+    bool m_linkIsUpPhysically;
 
     TELEMETRY_DEFINITIONS_EXPORT uint64_t GetTotalBundlesQueued() const;
     TELEMETRY_DEFINITIONS_EXPORT uint64_t GetTotalBundleBytesQueued() const;
@@ -316,7 +316,7 @@ struct LtpOutductTelemetry_t : public OutductTelemetry_t {
     //ltp engine session sender stats
     uint64_t m_numCheckpointsExpired;
     uint64_t m_numDiscretionaryCheckpointsNotResent;
-    //uint64_t & m_numDeletedFullyClaimedPendingReportsRef;
+    uint64_t m_numDeletedFullyClaimedPendingReports;
 
     //ltp udp engine
     uint64_t m_countUdpPacketsSent;

@@ -802,7 +802,8 @@ OutductTelemetry_t::OutductTelemetry_t() :
     m_totalBundleBytesAcked(0),
     m_totalBundlesSent(0),
     m_totalBundleBytesSent(0),
-    m_totalBundlesFailedToSend(0)
+    m_totalBundlesFailedToSend(0),
+    m_linkIsUpPhysically(false)
 {
 }
 OutductTelemetry_t::~OutductTelemetry_t() {};
@@ -812,7 +813,8 @@ bool OutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
         && (m_totalBundleBytesAcked == o.m_totalBundleBytesAcked)
         && (m_totalBundlesSent == o.m_totalBundlesSent)
         && (m_totalBundleBytesSent == o.m_totalBundleBytesSent)
-        && (m_totalBundlesFailedToSend == o.m_totalBundlesFailedToSend);
+        && (m_totalBundlesFailedToSend == o.m_totalBundlesFailedToSend)
+        && (m_linkIsUpPhysically == o.m_linkIsUpPhysically);
 }
 bool OutductTelemetry_t::operator!=(const OutductTelemetry_t& o) const {
     return !(*this == o);
@@ -825,6 +827,7 @@ bool OutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::p
         m_totalBundlesSent = pt.get<uint64_t>("totalBundlesSent");
         m_totalBundleBytesSent = pt.get<uint64_t>("totalBundleBytesSent");
         m_totalBundlesFailedToSend = pt.get<uint64_t>("totalBundlesFailedToSend");
+        m_linkIsUpPhysically = pt.get<bool>("linkIsUpPhysically");
     }
     catch (const boost::property_tree::ptree_error& e) {
         LOG_ERROR(subprocess) << "parsing JSON OutductTelemetry_t: " << e.what();
@@ -840,6 +843,7 @@ boost::property_tree::ptree OutductTelemetry_t::GetNewPropertyTree() const {
     pt.put("totalBundlesSent", m_totalBundlesSent);
     pt.put("totalBundleBytesSent", m_totalBundleBytesSent);
     pt.put("totalBundlesFailedToSend", m_totalBundlesFailedToSend);
+    pt.put("linkIsUpPhysically", m_linkIsUpPhysically);
     return pt;
 }
 uint64_t OutductTelemetry_t::GetTotalBundlesQueued() const {
@@ -890,8 +894,12 @@ boost::property_tree::ptree StcpOutductTelemetry_t::GetNewPropertyTree() const {
 
 LtpOutductTelemetry_t::LtpOutductTelemetry_t() :
     OutductTelemetry_t(),
-    m_numCheckpointsExpired(0), m_numDiscretionaryCheckpointsNotResent(0), m_countUdpPacketsSent(0),
-    m_countRxUdpCircularBufferOverruns(0), m_countTxUdpPacketsLimitedByRate(0)
+    m_numCheckpointsExpired(0),
+    m_numDiscretionaryCheckpointsNotResent(0),
+    m_numDeletedFullyClaimedPendingReports(0),
+    m_countUdpPacketsSent(0),
+    m_countRxUdpCircularBufferOverruns(0),
+    m_countTxUdpPacketsLimitedByRate(0)
 {
     m_convergenceLayer = "ltp_over_udp";
 }
@@ -901,6 +909,7 @@ bool LtpOutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
         return OutductTelemetry_t::operator==(o)
             && (m_numCheckpointsExpired == oPtr->m_numCheckpointsExpired)
             && (m_numDiscretionaryCheckpointsNotResent == oPtr->m_numDiscretionaryCheckpointsNotResent)
+            && (m_numDeletedFullyClaimedPendingReports == oPtr->m_numDeletedFullyClaimedPendingReports)
             && (m_countUdpPacketsSent == oPtr->m_countUdpPacketsSent)
             && (m_countRxUdpCircularBufferOverruns == oPtr->m_countRxUdpCircularBufferOverruns)
             && (m_countTxUdpPacketsLimitedByRate == oPtr->m_countTxUdpPacketsLimitedByRate);
@@ -917,6 +926,7 @@ bool LtpOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree
     try {
         m_numCheckpointsExpired = pt.get<uint64_t>("numCheckpointsExpired");
         m_numDiscretionaryCheckpointsNotResent = pt.get<uint64_t>("numDiscretionaryCheckpointsNotResent");
+        m_numDeletedFullyClaimedPendingReports = pt.get<uint64_t>("numDeletedFullyClaimedPendingReports");
         m_countUdpPacketsSent = pt.get<uint64_t>("countUdpPacketsSent");
         m_countRxUdpCircularBufferOverruns = pt.get<uint64_t>("countRxUdpCircularBufferOverruns");
         m_countTxUdpPacketsLimitedByRate = pt.get<uint64_t>("countTxUdpPacketsLimitedByRate");
@@ -931,6 +941,7 @@ boost::property_tree::ptree LtpOutductTelemetry_t::GetNewPropertyTree() const {
     boost::property_tree::ptree pt = OutductTelemetry_t::GetNewPropertyTree();
     pt.put("numCheckpointsExpired", m_numCheckpointsExpired);
     pt.put("numDiscretionaryCheckpointsNotResent", m_numDiscretionaryCheckpointsNotResent);
+    pt.put("numDeletedFullyClaimedPendingReports", m_numDeletedFullyClaimedPendingReports);
     pt.put("countUdpPacketsSent", m_countUdpPacketsSent);
     pt.put("countRxUdpCircularBufferOverruns", m_countRxUdpCircularBufferOverruns);
     pt.put("countTxUdpPacketsLimitedByRate", m_countTxUdpPacketsLimitedByRate);

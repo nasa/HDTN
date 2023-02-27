@@ -580,7 +580,7 @@
                 myWireEgressToIngress.SetSpeeds(hdtnConfig["egressToIngressRateBitsPerSec"],
                     hdtnConfig["egressToIngressRateBitsPerSecHumanReadable"],
                     hdtnConfig["egressToIngressRateBundlesPerSecHumanReadable"]);
-                UpdateLite();
+                HandleReceivedNewHdtnConfig(hdtnConfig); //in case linkIsUpPhysically changes
             }
             else if("outductCapabilityTelemetryList" in objJson) {
                 UpdateAllOutductCapabilities(hdtnConfig, objJson);

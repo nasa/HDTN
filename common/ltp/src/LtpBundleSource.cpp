@@ -263,7 +263,9 @@ void LtpBundleSource::SyncTelemetry() {
     if (m_ltpEnginePtr) {
         m_ltpOutductTelemetry.m_numCheckpointsExpired = m_ltpEnginePtr->m_numCheckpointTimerExpiredCallbacksRef;
         m_ltpOutductTelemetry.m_numDiscretionaryCheckpointsNotResent = m_ltpEnginePtr->m_numDiscretionaryCheckpointsNotResentRef;
+        m_ltpOutductTelemetry.m_numDeletedFullyClaimedPendingReports = m_ltpEnginePtr->m_numDeletedFullyClaimedPendingReportsRef;
         m_ltpOutductTelemetry.m_countTxUdpPacketsLimitedByRate = m_ltpEnginePtr->m_countAsyncSendsLimitedByRate;
+        m_ltpOutductTelemetry.m_linkIsUpPhysically = m_ltpEnginePtr->m_senderLinkIsUpPhysically;
         SyncTransportLayerSpecificTelem(); //virtual function call
     }
 }

@@ -309,6 +309,7 @@ void LtpEngine::Reset() {
     m_countPacketsWithOngoingOperations = 0;
     m_countPacketsThatCompletedOngoingOperations = 0;
     m_numEventsTransmissionRequestDiskWritesTooSlow = 0;
+    m_senderLinkIsUpPhysically = false;
 
     m_numCheckpointTimerExpiredCallbacksRef = 0;
     m_numDiscretionaryCheckpointsNotResentRef = 0;
@@ -603,6 +604,7 @@ bool LtpEngine::GetNextPacketToSend(UdpSendPacketInfo& udpSendPacketInfo) {
                 const bool successCallbackAlreadyCalled = (m_memoryInFilesPtr) ? true : false;
                 if (txSessionIt->second.m_isFailedSession) { //give the bundle back to the user
                     const bool safeToMove = (csdRef.use_count() == 1); //not also involved in a send operation
+                    m_senderLinkIsUpPhysically = false;
                     if (m_onFailedBundleVecSendCallback) { //if the user wants the data back
                         std::vector<uint8_t> & vecRef = csdRef->GetVecRef();
                         if (vecRef.size()) { //this session sender is using vector<uint8_t> client service data
@@ -1144,6 +1146,7 @@ void LtpEngine::CancelAcknowledgementSegmentReceivedCallback(const Ltp::session_
     if (isToSender && LtpRandomNumberGenerator::IsPingSession(sessionId.sessionNumber, M_FORCE_32_BIT_RANDOM_NUMBERS)) {
         //sender ping is successful
         M_NEXT_PING_START_EXPIRY = boost::posix_time::microsec_clock::universal_time() + M_SENDER_PING_TIME;
+        m_senderLinkIsUpPhysically = true;
         if (m_onOutductLinkStatusChangedCallback) { //let user know of link up event
             m_onOutductLinkStatusChangedCallback(false, m_userAssignedUuid);
         }
@@ -1181,6 +1184,7 @@ void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmen
         if (info.isFromSender && LtpRandomNumberGenerator::IsPingSession(info.sessionId.sessionNumber, M_FORCE_32_BIT_RANDOM_NUMBERS)) {
             //sender ping failed
             M_NEXT_PING_START_EXPIRY = boost::posix_time::microsec_clock::universal_time() + M_SENDER_PING_TIME;
+            m_senderLinkIsUpPhysically = false;
             if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
                 m_onOutductLinkStatusChangedCallback(true, m_userAssignedUuid);
             }
@@ -1641,6 +1645,7 @@ void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) 
 }
 
 void LtpEngine::DoExternalLinkDownEvent() {
+    m_senderLinkIsUpPhysically = false;
     if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
         m_onOutductLinkStatusChangedCallback(true, m_userAssignedUuid);
     }
