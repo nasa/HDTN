@@ -55,9 +55,6 @@ div.emergencyState {
     background-color: red;
 }
 
-.faulted_switch_rect {
-    fill: red;
-}
 .off_switch_rect {
     fill: Gainsboro;
 }
@@ -65,23 +62,11 @@ div.emergencyState {
     fill: Lime;
 }
 
-.faulted_oru_rect {
-    fill: red;
-}
-.off_oru_rect {
-    fill: Gainsboro;
-}
-.on_oru_rect {
+
+.module_body {
     fill: burlywood;
 }
 
-.pdu_body, .mbsu_body {
-    fill: burlywood;
-}
-
-.pdu_input_port {
-    fill: lightgreen;
-}
 .bus_bar {
     stroke-width: 5;
 }

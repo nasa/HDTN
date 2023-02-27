@@ -1,3 +1,22 @@
+/**
+ * @file Disk.js
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * The Disk library is a closure that represents an svg cylinder representing how
+ * full a hard disk is.
+ */
+
 function Disk(paramSvgRootGroup, paramX, paramY, paramRadius, paramPerspectiveRadius, paramHeight, paramDiskName) {
 
     var svgRootGroup = paramSvgRootGroup;
@@ -72,27 +91,26 @@ function Disk(paramSvgRootGroup, paramX, paramY, paramRadius, paramPerspectiveRa
 
 
 
-    //DRAW THE HIDRA NODE
+    //DRAW THE DISK NODE
     diskGroup.append("svg:path")
         .attr("d", GetCylinderFillPath(radius, perspectiveRadius, height))
-        .attr("stroke", "black")
+        .attr("class", "disk_outline")
         .attr("fill", "none");
 
     diskGroup.append("svg:path")
         .attr("d", GetCylinderDashedLinePath(radius, perspectiveRadius))
-        .attr("stroke", "black")
+        .attr("class", "disk_outline")
         .attr("fill", "none")
         .attr("stroke-dasharray", "4 2");
 
     diskGroup.append("svg:path")
         .attr("d", GetCylinderTopFrontLinePath(radius, perspectiveRadius, height))
-        .attr("stroke", "black")
+        .attr("class", "disk_outline")
         .attr("fill", "none");
 
     diskGroup.append("svg:path")
-        .attr("class", "cylinder_top_front_line_path")
+        .attr("class", "cylinder_top_front_line_path disk_outline")
         .attr("d", GetCylinderTopFrontLinePath(radius, perspectiveRadius, height*.5))
-        .attr("stroke", "black")
         .attr("fill", "none");
 
     diskGroup.append("svg:path")
@@ -103,13 +121,12 @@ function Disk(paramSvgRootGroup, paramX, paramY, paramRadius, paramPerspectiveRa
         .style("opacity", .2);
 
     diskGroup.append("svg:path")
-        .attr("class", "cylinder_fill_path")
+        .attr("class", "cylinder_fill_path disk_outline")
         .attr("d", GetCylinderFillPath(radius, perspectiveRadius, height*.5))
-        .attr("stroke", "black")
         .attr("fill", "none");
 
     var diskUsageText = diskGroup.append("svg:text")
-        .attr("class", "cylinder_text")
+        .attr("class", "disk_text")
         .attr("dy", ".35em")
         //.attr("text-anchor", "end")
         .attr("transform", "translate(0," + (-height*.5) +")")
@@ -124,7 +141,7 @@ function Disk(paramSvgRootGroup, paramX, paramY, paramRadius, paramPerspectiveRa
         .attr('dy', '1.4em');
 
     diskGroup.append("svg:text")
-        .attr("class", "disk_name_text")
+        .attr("class", "disk_text")
         .attr("dy", ".35em")
         //.attr("text-anchor", "end")
         .attr("transform", "translate(0," + (30) +")")

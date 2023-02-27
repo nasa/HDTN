@@ -1,3 +1,22 @@
+/**
+ * @file StraightWire.js
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * The StraightWire library is a closure that represents a single svg path straight line.
+ * The path supports dash array animation and arrow head.
+ */
+
 function StraightWire(paramSvgRootGroup, paramTextAngleDegrees, paramSpeedUpperLimitBitsPerSec,
     paramSrcX, paramSrcY, paramDestX, paramDestY) {
 
@@ -11,7 +30,7 @@ function StraightWire(paramSvgRootGroup, paramTextAngleDegrees, paramSpeedUpperL
     var speedBitsPerSec = 0;
     var textBitsPerSec = "";
     var textBundlesPerSec = "";
-    var WIRE_DASHARRAY = "6 2";
+    //var WIRE_DASHARRAY = "6 2"; //now css property .wire_stroke_dash_array_attributes
 
     function GetWirePathStr() {
         return "M" + paramSrcX + " " + paramSrcY + " L" + paramDestX + " " + paramDestY;
@@ -37,14 +56,13 @@ function StraightWire(paramSvgRootGroup, paramTextAngleDegrees, paramSpeedUpperL
     var wirePathObj = svgRootGroup.append("svg:path")
         .attr("d", GetWirePathStr)
         .attr("marker-end", "url(#arrow)")
-        .attr("class", "wire_tx")
-        .attr("stroke-dasharray", WIRE_DASHARRAY)
+        .attr("class", "wire_on wire_stroke_width_attributes wire_stroke_dash_array_attributes") //.attr("stroke-dasharray", WIRE_DASHARRAY)
         .attr("stroke-dashoffset", 0);
 
 
 
     var wireText = svgRootGroup.append("svg:text")
-            .attr("class", "wire_txt")
+            .attr("class", "wire_text")
             .attr("text-anchor", "middle")
             .attr("transform", "translate(" + ((srcX + destX) * 0.5) + "," + ((srcY + destY) * 0.5) + ") rotate(" + textAngleDegrees + ") translate(0,-5)");
 
@@ -61,7 +79,7 @@ function StraightWire(paramSvgRootGroup, paramTextAngleDegrees, paramSpeedUpperL
         DoRepeat();
         function DoRepeat() {
             wirePathObj
-                .attr("stroke-dasharray", WIRE_DASHARRAY)
+                //.attr("stroke-dasharray", WIRE_DASHARRAY)
                 .attr("stroke-dashoffset", function(link) {
                     //scale between 0 and 10 for speed
 

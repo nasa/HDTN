@@ -1,3 +1,24 @@
+/**
+ * @file hdtn.js
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This file is used to test the d3 gui offline (apart from websocket)
+ * to verify correct animations and display.
+ * It sets up a fully-populated hdtn scenario with all induct and outduct types populated.
+ * The bottom of this file contains animation (new telemetry) events.
+ */
+
 if(window.location.protocol == 'file:') {
 
 var INDUCT_ACTIVE_CONNECTIONS = {

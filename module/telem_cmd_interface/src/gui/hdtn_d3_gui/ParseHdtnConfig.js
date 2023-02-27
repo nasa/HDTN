@@ -1,3 +1,22 @@
+/**
+ * @file ParseHdtnConfig.js
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * The ParseHdtnConfig library handles all json telemetry received from the backend
+ * and keeps the hdtn object up to date so it can be redrawn in the gui.
+ */
+
 //https://stackoverflow.com/questions/15900485/correct-way-to-convert-size-in-bytes-to-kb-mb-gb-in-javascript
 function formatHumanReadable(num, decimals, unitStr, thousand) {
    if(num == 0) return '0 ' + unitStr;
@@ -622,6 +641,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         var nextHopObj = {};
         nextHopObj.topHeaderHeight = PARENT_TOP_HEADER_PX;
         nextHopObj.parent = null;
+        nextHopObj.linkIsUp = true;
         nextHopObj.d3ChildArray = [];
         nextHopObj.id = "next_hop_node_id_" + outduct.nextHopNodeId;
         nextHopObj.name = "Node " + outduct.nextHopNodeId;

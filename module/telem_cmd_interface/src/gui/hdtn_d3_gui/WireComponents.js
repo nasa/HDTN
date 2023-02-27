@@ -1,3 +1,24 @@
+/**
+ * @file WireComponents.js
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * The WireComponents library is a closure that represents a set of svg paths.
+ * The path supports dash array animation, arrow head, arc jumpovers, collision avoidance, drawing (through d3 enter()),
+ * and undrawing (through d3 exit()).
+ * The path consists of one horizontal line, followed by one vertical line, followed by one horizontal line.
+ * Arc jumpovers can occur on the vertical line only (vertical line shown jumping over a horizontal line from another wire).
+ */
 
 function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMarker, paramSpeedUpperLimitBitsPerSec) {
 
@@ -7,7 +28,6 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
     var arrowMarker = paramArrowMarker;
     var speedUpperLimitBitsPerSec = paramSpeedUpperLimitBitsPerSec;
     var WIRE_DASHARRAY = "6 2";
-    var WIRE_WIDTH_PX = 3;
     var updateCounter = 0;
     var d3WiresArray = [];
 
@@ -81,9 +101,9 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
     }
 
     function GetWirePathClass(wire) {
-        var stateSrc = wire.src.hasOwnProperty("state") ? wire.src.state : 1;
-        var stateDest = wire.dest.hasOwnProperty("state") ? wire.dest.state : 1;
-        return ((stateSrc > 0.5) && (stateDest > 0.5)) ? "wire_on" : "wire_off";
+        const srcUp = wire.src.hasOwnProperty("linkIsUp") ? wire.src.linkIsUp : false;
+        const srcDown = wire.dest.hasOwnProperty("linkIsUp") ? wire.dest.linkIsUp : false;
+        return "wire_stroke_width_attributes " + (((srcUp) && (srcDown)) ? "wire_on" : "wire_off");
     }
 
     function GetWirePathStrWithJumps(wire) {
@@ -135,7 +155,7 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
         function DoRepeat() {
             if(currentCount == updateCounter) {
                 d3.select(obj)
-                    .attr("stroke-dasharray", WIRE_DASHARRAY) //6+2 = 8 => speed must be in multiples of 8
+                    .classed("wire_stroke_dash_array_attributes", true)//.attr("stroke-dasharray", WIRE_DASHARRAY) //6+2 = 8 => speed must be in multiples of 8
                     .attr("stroke-dashoffset", function(wire) {
                         //var amps = parseFloat(wire.src.hasOwnProperty("currentOut") ? wire.src.currentOut : wire.dest.currentIn);
                         //var ampsAbs = Math.abs(amps);
@@ -177,9 +197,9 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
         var wiresPath = enter.append("svg:path")
             .attr("d", GetWirePathStrWithJumps)
             .attr("fill", "none")
-            .style("stroke-width", WIRE_WIDTH_PX)
             .attr("marker-end", "url(#arrow)")
             .attr("class", GetWirePathClass)
+            .classed("wire_stroke_dash_array_attributes", false)
             .attr("stroke-dasharray", function() {
                 var totalLength = d3.select(this).node().getTotalLength();
                 return totalLength + " " + totalLength;
@@ -230,6 +250,7 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
             .attr("d", function(wire) {
                 return wire.pathWithoutJumpsPrev;
             })
+            .classed("wire_stroke_dash_array_attributes", false)
             .attr("stroke-dasharray", null)
             .attr("stroke-dashoffset", null)
             .attr("class", GetWirePathClass);
@@ -272,6 +293,7 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
             //.attr("d", function(wire) {
             //    return wire.pathWithoutJumpsPrev;
             //})
+            .classed("wire_stroke_dash_array_attributes", false)
             .attr("stroke-dasharray", function() {
                 var totalLength = d3.select(this).node().getTotalLength();
                 return totalLength + " " + totalLength;
@@ -450,10 +472,6 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
         SetDashArray: function(paramDashArray){
             WIRE_DASHARRAY = paramDashArray;
             //d3.selectAll("." + svgRootGroupClass + " path").attr("stroke-dasharray", WIRE_DASHARRAY);
-        },
-        SetStrokeWidth: function(paramStrokeWidth){
-            WIRE_WIDTH_PX = parseInt(paramStrokeWidth);
-            d3.selectAll("." + svgRootGroupClass + " path").style("stroke-width", WIRE_WIDTH_PX);
         },
         ComputeWires: function(paramActiveObjectsMap, paramPowerSystem){
             DoComputeWires(paramActiveObjectsMap, paramPowerSystem);

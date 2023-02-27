@@ -1,8 +1,25 @@
 <!DOCTYPE html>
 <html>
+<!--
+ * @file index.html
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This is the main file that imports all resources to draw the gui.
+-->
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <title>Hidra Gui</title>
+    <title>HDTN Gui</title>
     <link rel="icon" type="image/png" href="favicon.png" />
     <link type="text/css" rel="stylesheet" href="modal-websocket-disconnect.css">
     <link type="text/css" rel="stylesheet" href="styles.css">
@@ -37,16 +54,6 @@
         }
 
 
-        .wire_tx {
-            stroke: green;
-            fill: none;
-            stroke-width: 3;
-        }
-        .wire_rx {
-            stroke: red;
-            fill: none;
-            stroke-width: 3;
-        }
         .connected_node_circle {
             fill: red;
         }
@@ -56,6 +63,14 @@
         }
         .buffer_nonfill_color {
             stop-color: white;
+        }
+
+        /* must be here (in html body) so modifications allowed by CORS */
+        .wire_stroke_width_attributes {
+            stroke-width: 3;
+        }
+        .wire_stroke_dash_array_attributes {
+            stroke-dasharray: 6 2;
         }
 
 
@@ -144,10 +159,43 @@
             SwitchStyle(newTheme);
         }
 
+        function getThisDomStyleSheet() {
+            let sheets = document.styleSheets;
+            for( var i in sheets ) {
+                if( sheets[i].href  == null) {
+                    return sheets[i];
+                }
+            }
+            return null;
+        }
+
+        //https://stackoverflow.com/a/38133146
+        function changeStylesheetRule(stylesheet, selector, property, value) {
+            selector = selector.toLowerCase();
+            property = property.toLowerCase();
+            value = value.toLowerCase();
+
+            for(var i = 0; i < stylesheet.cssRules.length; i++) {
+                var rule = stylesheet.cssRules[i];
+                if(rule.selectorText === selector) {
+                    rule.style[property] = value;
+                    return;
+                }
+            }
+            stylesheet.insertRule(selector + " { " + property + ": " + value + "; }", 0);
+        }
+
+        function onWireWidthChanged(value) {
+            let s = getThisDomStyleSheet();
+            changeStylesheetRule(s, ".wire_stroke_width_attributes", "stroke-width", value);
+        }
+        function onWireDashArrayChanged(value) {
+            let s = getThisDomStyleSheet();
+            changeStylesheetRule(s, ".wire_stroke_dash_array_attributes", "stroke-dasharray", value);
+        }
 
 
-
-    function HidraGui(paramParentDiv, paramUniqueId) {
+    function HdtnGui(paramParentDiv, paramUniqueId) {
 
         var d3ContentDiv = paramParentDiv;
         let hdtnOldDrawHash = {
@@ -262,13 +310,10 @@
 
 
         function GetSwitchRectClass(d) {
-            //if(d.pathName in d3FaultsMap) return "faulted_switch_rect";
             return (d.linkIsUp) ? "on_switch_rect" : "off_switch_rect";
         }
 
         function GetOruRectClass(d) {
-            //if(d.pathName in d3FaultsMap) return "faulted_oru_rect";
-            //return (d.isLinkUp) ? "off_oru_rect" : "on_oru_rect";
             return "on_rect";
         }
 
@@ -318,7 +363,7 @@
             ingressGroup, //paramSvgRootGroup, , ,
             "ingress_group", //paramSvgRootGroupClass
             "induct_group", //paramSvgChildGroupClass
-            "pdu_body", //paramParentRectStyleClass
+            "module_body", //paramParentRectStyleClass
             false, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
             ContextMenuEvent, //paramContextMenuEventFunction
@@ -330,7 +375,7 @@
             storageGroup, //paramSvgRootGroup, , ,
             "storage_group", //paramSvgRootGroupClass
             "", //paramSvgChildGroupClass
-            "pdu_body", //paramParentRectStyleClass
+            "module_body", //paramParentRectStyleClass
             false, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
             ContextMenuEvent, //paramContextMenuEventFunction
@@ -342,7 +387,7 @@
             egressGroup, //paramSvgRootGroup, , ,
             "egress_group", //paramSvgRootGroupClass
             "outduct_group", //paramSvgChildGroupClass
-            "pdu_body", //paramParentRectStyleClass
+            "module_body", //paramParentRectStyleClass
             false, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
             ContextMenuEvent, //paramContextMenuEventFunction
@@ -354,7 +399,7 @@
             nextHopsGroup, //paramSvgRootGroup, , ,
             "loadBank_group", //paramSvgRootGroupClass
             "load_group", //paramSvgChildGroupClass
-            "pdu_body", //paramParentRectStyleClass
+            "module_body", //paramParentRectStyleClass
             false, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
             ContextMenuEvent, //paramContextMenuEventFunction
@@ -382,7 +427,7 @@
                                 80,
                                 10,
                                 100,
-                                "Disk1");
+                                "Disk");
         var SYSTEM_OUTLINE_MARGIN_X = 0;
         var SYSTEM_OUTLINE_MARGIN_Y = 50;
         var myOutline = SystemOutline(systemOutlineGroup,
@@ -628,7 +673,7 @@
         console.log("All resources finished loading!");
 
 
-        app = HidraGui(document.getElementById("mygui"), "aaa");
+        app = HdtnGui(document.getElementById("mygui"), "aaa");
         if(typeof INITIAL_HDTN_CONFIG !== 'undefined'){
             InitActiveInductConnections(INITIAL_HDTN_CONFIG);
             app.UpdateWithData(INITIAL_HDTN_CONFIG); //running from filesystem (for testing animation)

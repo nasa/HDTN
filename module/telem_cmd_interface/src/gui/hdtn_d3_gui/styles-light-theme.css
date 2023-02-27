@@ -3,27 +3,12 @@ div.tooltip {
     background: lightsteelblue;
 }
 
-.solar_array_text, .wire_text {
+.wire_text, .disk_text {
     fill: black;
 }
-
-.battery_text_label, .battery_text_soc {
-    fill: black;
-}
-.battery_terminal {
+.disk_outline {
     stroke: black;
-    fill: black;
-}
-
-.battery_outline {
-    stroke: black;
-}
-
-.battery_juice_color {
-    stop-color: lawngreen;
-}
-.battery_nonjuice_color {
-    stop-color: white;
+    stroke-width: 2;
 }
 
 .arrowHead {
@@ -32,10 +17,10 @@ div.tooltip {
 }
 
 .wire_on {
-    stroke: limegreen;
+    stroke: green;
 }
 .wire_off {
-    stroke: black;
+    stroke: red;
 }
 .system_outline_group_rect {
     stroke: black;

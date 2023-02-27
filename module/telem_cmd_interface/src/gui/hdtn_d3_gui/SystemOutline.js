@@ -1,3 +1,22 @@
+/**
+ * @file SystemOutline.js
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * The SystemOutline library is a closure that draws a single dashed svg rectangle box
+ * with a label in the top right corner.
+ */
+
 function SystemOutline(paramSvgRootGroup, paramX, paramY, paramWidth, paramHeight, paramLabel) {
 
     var svgRootGroup = paramSvgRootGroup;
@@ -35,8 +54,8 @@ function SystemOutline(paramSvgRootGroup, paramX, paramY, paramWidth, paramHeigh
 
 
     return {
-        SetDiskUsage: function(percentage){
-            SetUsage(percentage);
+        ClosurePlaceholder: function() {
+
         }
     };
 }

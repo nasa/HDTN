@@ -12,28 +12,14 @@ div.tooltip {
     color: black !important;
 }
 
-.solar_array_text, .wire_text {
+.wire_text, .disk_text {
     fill: white;
 }
-
-.battery_text_label, .battery_text_soc {
-    fill: white;
-}
-.battery_terminal {
+.disk_outline {
     stroke: white;
-    fill: white;
+    stroke-width: 2;
 }
 
-.battery_outline {
-    stroke: white;
-}
-
-.battery_juice_color {
-    stop-color: green;
-}
-.battery_nonjuice_color {
-    stop-color: #303030;
-}
 
 .arrowHead {
     stroke: red;
@@ -44,7 +30,7 @@ div.tooltip {
     stroke: limegreen;
 }
 .wire_off {
-    stroke: Gainsboro;
+    stroke: red;
 }
 .bus_bar {
     stroke: green;
