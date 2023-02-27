@@ -320,6 +320,7 @@ var OUTDUCT_TELEM_UPDATE = {
             "totalBundleBytesSent": 15,
             "totalBundlesFailedToSend": 16,
             "linkIsUpPhysically": true,
+            "linkIsUpPerTimeSchedule": true,
             "numCheckpointsExpired": 13,
             "numDiscretionaryCheckpointsNotResent": 14,
             "numDeletedFullyClaimedPendingReports": 15,
@@ -335,6 +336,7 @@ var OUTDUCT_TELEM_UPDATE = {
             "totalBundleBytesSent": 6,
             "totalBundlesFailedToSend": 7,
             "linkIsUpPhysically": true,
+            "linkIsUpPerTimeSchedule": true,
             "totalPacketsSent": 50,
             "totalPacketBytesSent": 51,
             "totalPacketsDequeuedForSend": 52,
@@ -349,6 +351,7 @@ var OUTDUCT_TELEM_UPDATE = {
             "totalBundleBytesSent": 11,
             "totalBundlesFailedToSend": 12,
             "linkIsUpPhysically": true,
+            "linkIsUpPerTimeSchedule": true,
             "totalFragmentsAcked": 30,
             "totalFragmentsSent": 31,
             "totalBundlesReceived": 32,
@@ -362,6 +365,7 @@ var OUTDUCT_TELEM_UPDATE = {
             "totalBundleBytesSent": 11,
             "totalBundlesFailedToSend": 12,
             "linkIsUpPhysically": true,
+            "linkIsUpPerTimeSchedule": false,
             "totalFragmentsAcked": 40,
             "totalFragmentsSent": 41,
             "totalBundlesReceived": 42,
@@ -375,6 +379,7 @@ var OUTDUCT_TELEM_UPDATE = {
             "totalBundleBytesSent": 7,
             "totalBundlesFailedToSend": 8,
             "linkIsUpPhysically": true,
+            "linkIsUpPerTimeSchedule": true,
             "totalStcpBytesSent": 20
         }
     ]
@@ -581,6 +586,16 @@ let changeFunctions = [
     },
     function() { //outduct 4 goes up physically
         OUTDUCT_TELEM_UPDATE.allOutducts[4].linkIsUpPhysically = true;
+        let clone = JSON.parse(JSON.stringify(OUTDUCT_TELEM_UPDATE));
+        app.UpdateWithData(clone);
+    },
+    function() { //outduct 3 goes up time based
+        OUTDUCT_TELEM_UPDATE.allOutducts[3].linkIsUpPerTimeSchedule = true;
+        let clone = JSON.parse(JSON.stringify(OUTDUCT_TELEM_UPDATE));
+        app.UpdateWithData(clone);
+    },
+    function() { //outduct 3 goes down time based
+        OUTDUCT_TELEM_UPDATE.allOutducts[3].linkIsUpPerTimeSchedule = false;
         let clone = JSON.parse(JSON.stringify(OUTDUCT_TELEM_UPDATE));
         app.UpdateWithData(clone);
     }

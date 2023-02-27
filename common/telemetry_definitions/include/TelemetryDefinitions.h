@@ -287,6 +287,7 @@ struct OutductTelemetry_t : public JsonSerializable
     uint64_t m_totalBundleBytesSent;
     uint64_t m_totalBundlesFailedToSend;
     bool m_linkIsUpPhysically;
+    bool m_linkIsUpPerTimeSchedule;
 
     TELEMETRY_DEFINITIONS_EXPORT uint64_t GetTotalBundlesQueued() const;
     TELEMETRY_DEFINITIONS_EXPORT uint64_t GetTotalBundleBytesQueued() const;

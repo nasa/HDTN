@@ -296,7 +296,8 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
             let outductVector = outductsConfig["outductVector"];
             outductVector.forEach(function(od, i) {
                 hashStr += "outduct=" + od.convergenceLayer + "[" + i + "]->" + od.nextHopNodeId + "(" + od["finalDestinationEidUris"].toString() + ") ";
-                hashStr += "linkIsUpPhysically=" + (od.hasOwnProperty("outductTelem") ? od.outductTelem.linkIsUpPhysically : false) + ";";
+                hashStr += "linkIsUpPhysically=" + (od.hasOwnProperty("outductTelem") ? od.outductTelem.linkIsUpPhysically : false);
+                hashStr += "linkIsUpPerTimeSchedule=" + (od.hasOwnProperty("outductTelem") ? od.outductTelem.linkIsUpPerTimeSchedule : false) + ";";
             });
         }
 
@@ -574,28 +575,28 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
     var finalDestRelYArray = [];
     var finalDestRelYCompactArray = [];
 
-    outductVector.forEach(function(od, i) {
+    outductVector.forEach(function(outduct, i) {
         //console.log(i);
 
         ///////////outduct
-        var outduct = od;
-        const outductLinkUpPhysically = (od.hasOwnProperty("outductTelem") ? od.outductTelem.linkIsUpPhysically : false);
+        const outductLinkUpPhysically = (outduct.hasOwnProperty("outductTelem") ? outduct.outductTelem.linkIsUpPhysically : false);
+        outduct.linkIsUp = (outduct.hasOwnProperty("outductTelem") ? outduct.outductTelem.linkIsUpPerTimeSchedule : false); //for class color of child object
         outduct.parent = paramHdtnConfig.egressD3Obj;
         outduct.id = "outduct_" + i;
         var cvName = "??";
-        if(od.convergenceLayer === "ltp_over_udp") {
+        if(outduct.convergenceLayer === "ltp_over_udp") {
             cvName = "LTP";
         }
-        else if(od.convergenceLayer === "udp") {
+        else if(outduct.convergenceLayer === "udp") {
             cvName = "UDP";
         }
-        else if(od.convergenceLayer === "tcpcl_v3") {
+        else if(outduct.convergenceLayer === "tcpcl_v3") {
             cvName = "TCP3";
         }
-        else if(od.convergenceLayer === "tcpcl_v4") {
+        else if(outduct.convergenceLayer === "tcpcl_v4") {
             cvName = "TCP4";
         }
-        else if(od.convergenceLayer === "stcp") {
+        else if(outduct.convergenceLayer === "stcp") {
             cvName = "STCP";
         }
         outduct.name = cvName + "[" + i + "]";
@@ -622,8 +623,8 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         nextHopObj.topHeaderHeight = PARENT_TOP_HEADER_PX;
         nextHopObj.parent = null;
         nextHopObj.d3ChildArray = [];
-        nextHopObj.id = "next_hop_node_id_" + od.nextHopNodeId;
-        nextHopObj.name = "Node " + od.nextHopNodeId;
+        nextHopObj.id = "next_hop_node_id_" + outduct.nextHopNodeId;
+        nextHopObj.name = "Node " + outduct.nextHopNodeId;
         nextHopObj.absX = nextHopsAbsPosition.X;
         nextHopObj.absY = nextHopsAbsPositionY;
         nextHopObj.width = nextHopsAbsPosition.WIDTH;
@@ -632,7 +633,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
 
 
 
-        var finalDestinationEidUris = od["finalDestinationEidUris"];
+        var finalDestinationEidUris = outduct["finalDestinationEidUris"];
         var nextHopRelY =  PARENT_TOP_HEADER_PX;// + CHILD_HEIGHT_PX/2;
         finalDestinationEidUris.forEach(function(fd, j) {
 

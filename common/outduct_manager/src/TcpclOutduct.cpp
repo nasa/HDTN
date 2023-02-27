@@ -73,4 +73,5 @@ void TcpclOutduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
 }
 void TcpclOutduct::PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& outductTelem) {
     outductTelem = boost::make_unique<TcpclV3OutductTelemetry_t>(m_tcpclBundleSource.m_base_outductTelemetry);
+    outductTelem->m_linkIsUpPerTimeSchedule = m_linkIsUpPerTimeSchedule;
 }

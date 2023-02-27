@@ -80,6 +80,8 @@ public:
 protected:
     const outduct_element_config_t m_outductConfig;
     const uint64_t m_outductUuid;
+public:
+    bool m_linkIsUpPerTimeSchedule;
 };
 
 #endif // OUTDUCT_H

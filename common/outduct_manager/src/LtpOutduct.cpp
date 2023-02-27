@@ -115,4 +115,5 @@ void LtpOutduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
 void LtpOutduct::PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& outductTelem) {
     m_ltpBundleSourcePtr->SyncTelemetry();
     outductTelem = boost::make_unique<LtpOutductTelemetry_t>(m_ltpBundleSourcePtr->m_ltpOutductTelemetry);
+    outductTelem->m_linkIsUpPerTimeSchedule = m_linkIsUpPerTimeSchedule;
 }

@@ -20,7 +20,8 @@
 
 Outduct::Outduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid) :
     m_outductConfig(outductConfig),
-    m_outductUuid(outductUuid)
+    m_outductUuid(outductUuid),
+    m_linkIsUpPerTimeSchedule(false)
 {}
 Outduct::~Outduct() {}
 

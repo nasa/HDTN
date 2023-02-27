@@ -343,6 +343,7 @@ BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
         ot.m_totalBundleBytesSent = ot.m_convergenceLayer.size() + 3;
         ot.m_totalBundlesFailedToSend = ot.m_convergenceLayer.size() + 4;
         ot.m_linkIsUpPhysically = (ot.m_convergenceLayer == "stcp");
+        ot.m_linkIsUpPerTimeSchedule = (ot.m_convergenceLayer == "udp");
     }
     const std::string aotJson = aot.ToJson();
     //std::cout << aotJson << "\n";

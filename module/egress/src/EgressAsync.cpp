@@ -898,27 +898,33 @@ void Egress::Impl::OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint
     
 }
 
-void Egress::Impl::SchedulerEventHandler(hdtn::IreleaseChangeHdr& releaseChangeHdr)
-{
-    if (releaseChangeHdr.base.type != HDTN_MSGTYPE_ILINKUP) {
-        return;
-    }
+void Egress::Impl::SchedulerEventHandler(hdtn::IreleaseChangeHdr& releaseChangeHdr) {
+    if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKUP) {
+        Outduct* outduct = m_outductManager.GetOutductByOutductUuid(releaseChangeHdr.outductArrayIndex);
+        if (!outduct) {
+            LOG_ERROR(subprocess) << "could not find outduct from scheduler link up event; not adjusting rate";
+            return;
+        }
+        outduct->m_linkIsUpPerTimeSchedule = true;
+        const uint64_t startingRateBitsPerSec = outduct->GetStartingMaxSendRateBitsPerSec();
+        if (startingRateBitsPerSec == 0) {
+            // If the starting rate is 0 ("unlimited"), never override it
+            LOG_INFO(subprocess) << "not updating max rate for contact. max rate was initiliazed to 0 (unlimited) "
+                << "or isn't supported by convergence layer";
+            return;
+        }
 
-    Outduct* outduct = m_outductManager.GetOutductByOutductUuid(releaseChangeHdr.outductArrayIndex);
-    if (!outduct) {
-        LOG_ERROR(subprocess) << "could not find outduct from scheduler event; not adjusting rate";
+        LOG_INFO(subprocess) << "setting rate to " << releaseChangeHdr.rateBps << " bps for new contact";
+        outduct->SetRate(releaseChangeHdr.rateBps);
     }
-
-    const uint64_t startingRateBitsPerSec = outduct->GetStartingMaxSendRateBitsPerSec();
-    if (startingRateBitsPerSec == 0) {
-        // If the starting rate is 0 ("unlimited"), never override it
-        LOG_INFO(subprocess) << "not updating max rate for contact. max rate was initiliazed to 0 (unlimited) "
-            << "or isn't supported by convergence layer";
-        return;
+    else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKDOWN) {
+        Outduct* outduct = m_outductManager.GetOutductByOutductUuid(releaseChangeHdr.outductArrayIndex);
+        if (!outduct) {
+            LOG_ERROR(subprocess) << "could not find outduct from scheduler link down event";
+            return;
+        }
+        outduct->m_linkIsUpPerTimeSchedule = false;
     }
-
-    LOG_INFO(subprocess) << "setting rate to " << releaseChangeHdr.rateBps << " bps for new contact";
-    outduct->SetRate(releaseChangeHdr.rateBps);
 }
 
 }  // namespace hdtn

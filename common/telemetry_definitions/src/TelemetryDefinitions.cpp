@@ -803,7 +803,8 @@ OutductTelemetry_t::OutductTelemetry_t() :
     m_totalBundlesSent(0),
     m_totalBundleBytesSent(0),
     m_totalBundlesFailedToSend(0),
-    m_linkIsUpPhysically(false)
+    m_linkIsUpPhysically(false),
+    m_linkIsUpPerTimeSchedule(false)
 {
 }
 OutductTelemetry_t::~OutductTelemetry_t() {};
@@ -814,7 +815,8 @@ bool OutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
         && (m_totalBundlesSent == o.m_totalBundlesSent)
         && (m_totalBundleBytesSent == o.m_totalBundleBytesSent)
         && (m_totalBundlesFailedToSend == o.m_totalBundlesFailedToSend)
-        && (m_linkIsUpPhysically == o.m_linkIsUpPhysically);
+        && (m_linkIsUpPhysically == o.m_linkIsUpPhysically)
+        && (m_linkIsUpPerTimeSchedule == o.m_linkIsUpPerTimeSchedule);
 }
 bool OutductTelemetry_t::operator!=(const OutductTelemetry_t& o) const {
     return !(*this == o);
@@ -828,6 +830,7 @@ bool OutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::p
         m_totalBundleBytesSent = pt.get<uint64_t>("totalBundleBytesSent");
         m_totalBundlesFailedToSend = pt.get<uint64_t>("totalBundlesFailedToSend");
         m_linkIsUpPhysically = pt.get<bool>("linkIsUpPhysically");
+        m_linkIsUpPerTimeSchedule = pt.get<bool>("linkIsUpPerTimeSchedule");
     }
     catch (const boost::property_tree::ptree_error& e) {
         LOG_ERROR(subprocess) << "parsing JSON OutductTelemetry_t: " << e.what();
@@ -844,6 +847,7 @@ boost::property_tree::ptree OutductTelemetry_t::GetNewPropertyTree() const {
     pt.put("totalBundleBytesSent", m_totalBundleBytesSent);
     pt.put("totalBundlesFailedToSend", m_totalBundlesFailedToSend);
     pt.put("linkIsUpPhysically", m_linkIsUpPhysically);
+    pt.put("linkIsUpPerTimeSchedule", m_linkIsUpPerTimeSchedule);
     return pt;
 }
 uint64_t OutductTelemetry_t::GetTotalBundlesQueued() const {

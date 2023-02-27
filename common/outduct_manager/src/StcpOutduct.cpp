@@ -69,4 +69,5 @@ void StcpOutduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
 }
 void StcpOutduct::PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& outductTelem) {
     outductTelem = boost::make_unique<StcpOutductTelemetry_t>(m_stcpBundleSource.m_stcpOutductTelemetry);
+    outductTelem->m_linkIsUpPerTimeSchedule = m_linkIsUpPerTimeSchedule;
 }

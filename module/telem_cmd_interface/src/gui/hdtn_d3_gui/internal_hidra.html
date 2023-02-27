@@ -263,7 +263,7 @@
 
         function GetSwitchRectClass(d) {
             //if(d.pathName in d3FaultsMap) return "faulted_switch_rect";
-            return (d.isLinkUp) ? "on_switch_rect" : "off_switch_rect";
+            return (d.linkIsUp) ? "on_switch_rect" : "off_switch_rect";
         }
 
         function GetOruRectClass(d) {
