@@ -373,8 +373,8 @@
             GetOruRectClass, //paramGetParentRectClassFunction
             GetSwitchRectClass //paramGetChildRectClassFunction
         );
-
-        var wiresComponent = WireComponents(wiresComponentGroup, "wires_group", arrowMarker);
+        const speedUpperLimitBps = 1000;
+        var wiresComponent = WireComponents(wiresComponentGroup, "wires_group", arrowMarker, speedUpperLimitBps);
 
         var myDisk = Disk(diskGroup,
                                 ABS_POSITION_MAP.storage.X + ABS_POSITION_MAP.storage.WIDTH/2,
@@ -392,7 +392,7 @@
                                 (2 * SYSTEM_OUTLINE_MARGIN_Y) + myDisk.GetWirePos("bottom").y - ABS_POSITION_MAP.ingress.Y,
                                 "HDTN");
 
-        var speedUpperLimitBps = 1000;
+
         const diskWireSepFromMiddlePx = 40;
         var myWireIngressToStorage = StraightWire(internalHdtnWiresGroup, 0, speedUpperLimitBps,
             ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, ABS_POSITION_MAP.storage.Y + 20,
@@ -401,12 +401,12 @@
             ABS_POSITION_MAP.storage.X + ABS_POSITION_MAP.storage.WIDTH, ABS_POSITION_MAP.storage.Y + 20,
             ABS_POSITION_MAP.egress.X, ABS_POSITION_MAP.storage.Y + 20);
         var myWireIngressToEgress = StraightWire(internalHdtnWiresGroup, 0, speedUpperLimitBps,
-            ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, ABS_POSITION_MAP.ingress.Y + 15,
-            ABS_POSITION_MAP.egress.X, ABS_POSITION_MAP.egress.Y + 15);
+            ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, ABS_POSITION_MAP.ingress.Y + 20,
+            ABS_POSITION_MAP.egress.X, ABS_POSITION_MAP.egress.Y + 20);
         var myWireEgressToIngress = StraightWire(internalHdtnWiresGroup, 0, speedUpperLimitBps,
             ABS_POSITION_MAP.egress.X, ABS_POSITION_MAP.ingress.Y + 75,
             ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, ABS_POSITION_MAP.egress.Y + 75);
-        var myWireStorageToDisk = StraightWire(internalHdtnWiresGroup, -90, speedUpperLimitBps,
+        var myWireStorageToDisk = StraightWire(internalHdtnWiresGroup, 90, speedUpperLimitBps, //don't rotate text -90, easier to read with both directions
             myDisk.GetWirePos("top").x - diskWireSepFromMiddlePx, ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT,
             myDisk.GetWirePos("top").x - diskWireSepFromMiddlePx, myDisk.GetWirePos("top").y);
         var myWireDiskToStorage = StraightWire(internalHdtnWiresGroup, 90, speedUpperLimitBps,

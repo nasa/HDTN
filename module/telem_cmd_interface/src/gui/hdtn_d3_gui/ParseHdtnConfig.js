@@ -269,11 +269,11 @@ function UpdateAllOutductTelemetry(paramHdtnConfig, paramAot) {
         od["outductPreviousTelem"] = od["outductTelem"];
         od["outductTelem"] = outductTelem;
         if(deltaTimestampMilliseconds > 1) {
-            outductTelem["rateBitsPerSec"] = (od.outductTelem["totalBundleBytesAcked"] - od.outductPreviousTelem["totalBundleBytesAcked"]) * 8000.0 / deltaTimestampMilliseconds;
-            outductTelem["rateBundlesPerSec"] = (od.outductTelem["totalBundlesAcked"] - od.outductPreviousTelem["totalBundlesAcked"]) * 1000.0 / deltaTimestampMilliseconds;
+            od["rateBitsPerSec"] = (od.outductTelem["totalBundleBytesAcked"] - od.outductPreviousTelem["totalBundleBytesAcked"]) * 8000.0 / deltaTimestampMilliseconds;
+            od["rateBundlesPerSec"] = (od.outductTelem["totalBundlesAcked"] - od.outductPreviousTelem["totalBundlesAcked"]) * 1000.0 / deltaTimestampMilliseconds;
         }
-        od["rateBitsPerSecHumanReadable"] = formatHumanReadable(outductTelem["rateBitsPerSec"], 2, 'bit/s', 1000);
-        od["rateBundlesPerSecHumanReadable"] = formatHumanReadable(outductTelem["rateBundlesPerSec"], 2, 'Bun/s', 1000);
+        od["rateBitsPerSecHumanReadable"] = formatHumanReadable(od["rateBitsPerSec"], 2, 'bit/s', 1000);
+        od["rateBundlesPerSecHumanReadable"] = formatHumanReadable(od["rateBundlesPerSec"], 2, 'Bun/s', 1000);
 
 
     });
@@ -304,7 +304,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
 
     wireConnections = [];
 
-    function AddWire(src, dest, groupName) {
+    function AddWire(src, dest, groupName, isMiddleTextLayout) {
         //preserve pathWithoutJumps (stored within wire obj)
         const wireId = src.id + "_" + dest.id;
         let wireObj = {};
@@ -314,6 +314,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         wireObj.src = src;
         wireObj.dest = dest;
         wireObj.groupName = groupName;
+        wireObj.isMiddleTextLayout = isMiddleTextLayout;
         paramWireConnectionsOldMap[wireId] = wireObj;
 
         wireConnections.push(wireObj);
@@ -365,7 +366,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
     if(!paramHdtnConfig.hasOwnProperty("ingressD3Obj")) {
         paramHdtnConfig.ingressD3Obj = {
             "parent": null,
-            "d3ChildArray": [],
+            "d3ChildArray": [], //not used, just drawing inducts over top manually
             "id": "ingress",
             "name": "Ingress",
             "absX": ingressAbsPosition.X,
@@ -464,7 +465,6 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
             inductInputConnectionObj.absWireInX = ind.absX + inductInputConnectionObj.relX;
 
 
-            //console.log(nextHop);
             ind.d3ChildArray.push(inductInputConnectionObj);
 
             if(connName == "null") { //reserved so tcp connections can show bound port but no connection
@@ -499,7 +499,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
 
             activeInductConnsObj.d3ChildArray.push(connObj);
 
-            AddWire(connObj, inductInputConnectionObj, "conn_induct");
+            AddWire(connObj, inductInputConnectionObj, "conn_induct", false);
         });
 
         indAbsPositionY += ind.height + PARENT_GROUP_VERTICAL_SPACING_PX;
@@ -535,6 +535,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         };
     }
     var egressD3Array = [paramHdtnConfig.egressD3Obj];
+    paramHdtnConfig.egressD3Obj.d3ChildArray = []; //clear array before repushing outduct objects to it!
 
     var nextHopsAbsPosition = PARAM_ABS_POSITION_MAP["next_hops"];
     var nextHopsAbsPositionY = nextHopsAbsPosition.Y;
@@ -543,15 +544,21 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
 
 
     var finalDestsAbsPosition = PARAM_ABS_POSITION_MAP["final_dests"];
-    var finalDestsObj = {};
-    finalDestsObj.parent = null;
-    finalDestsObj.d3ChildArray = [];
-    finalDestsObj.id = "final_dests"
-    finalDestsObj.absX = finalDestsAbsPosition.X;
-    finalDestsObj.absY = finalDestsAbsPosition.Y;
-    finalDestsObj.width = finalDestsAbsPosition.WIDTH;
-    finalDestsObj.height = 500;
-    var finalDestsD3Array = [finalDestsObj];
+    if(!paramHdtnConfig.hasOwnProperty("finalDestsD3Obj")) { //parent is invisible
+        paramHdtnConfig.finalDestsD3Obj = {
+            "parent": null,
+            "d3ChildArray": [],
+            "id": "final_dests",
+            "name": "",
+            "absX": finalDestsAbsPosition.X,
+            "absY": finalDestsAbsPosition.Y,
+            "width": finalDestsAbsPosition.WIDTH,
+            "height": 500,
+            "topHeaderHeight": PARENT_TOP_HEADER_PX
+        };
+    }
+    var finalDestsD3Array = [paramHdtnConfig.finalDestsD3Obj];
+    paramHdtnConfig.finalDestsD3Obj.d3ChildArray = []; //clear array before repushing objects to it!
 
     var outductsConfig = paramHdtnConfig["outductsConfig"];
     var outductVector = outductsConfig["outductVector"];
@@ -559,10 +566,12 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
 
 
 
-    var outductRelYRight = PARENT_TOP_HEADER_PX;
+    //var outductRelYRight = PARENT_TOP_HEADER_PX;
 
 
     var finalDestRelY = PARENT_TOP_HEADER_PX;
+    var finalDestRelYArray = [];
+    var finalDestRelYCompactArray = [];
 
     outductVector.forEach(function(od, i) {
         //console.log(i);
@@ -594,11 +603,11 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         outduct.height = CHILD_HEIGHT_PX;
         //right side
         outduct.relX = CHILD_SIDE_MARGIN_PX + (egressAbsPosition.WIDTH - 2*CHILD_SIDE_MARGIN_PX) * (1/4) + BUSBAR_WIDTH_PX/2;
-        outduct.relY = outductRelYRight;
-        outductRelYRight += CHILD_HEIGHT_PX + CHILD_BOTTOM_MARGIN_PX;
+        //outduct.relY = outductRelYRight;
+        //outductRelYRight += CHILD_HEIGHT_PX + CHILD_BOTTOM_MARGIN_PX;
 
-        outduct.absWireOutY = paramHdtnConfig.egressD3Obj.absY + outduct.relY + outduct.height/2;
-        outduct.absWireInY = outduct.absWireOutY;
+        //outduct.absWireOutY = paramHdtnConfig.egressD3Obj.absY + outduct.relY + outduct.height/2;
+        //outduct.absWireInY = outduct.absWireOutY;
         outduct.absWireOutX = paramHdtnConfig.egressD3Obj.absX + outduct.relX + outduct.width;
         outduct.absWireInX = paramHdtnConfig.egressD3Obj.absX + outduct.relX;
 
@@ -627,53 +636,45 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         finalDestinationEidUris.forEach(function(fd, j) {
 
             ///////////next hop out port
-            var nextHop = {};
-            nextHop.linkIsUp = true;
-            nextHop.parent = nextHopObj;
-            nextHop.id = "next_hop_" + fd;
-            nextHop.name = "";
+            var nextHopOutPort = {};
+            nextHopOutPort.linkIsUp = true;
+            nextHopOutPort.parent = nextHopObj;
+            nextHopOutPort.id = "next_hop_" + fd;
+            nextHopOutPort.name = "";
 
-            nextHop.width = (nextHopsAbsPosition.WIDTH - 2*CHILD_SIDE_MARGIN_PX) * (1/2) - BUSBAR_WIDTH_PX/2;
-            nextHop.height = CHILD_HEIGHT_PX;
+            nextHopOutPort.width = (nextHopsAbsPosition.WIDTH - 2*CHILD_SIDE_MARGIN_PX) * (1/2) - BUSBAR_WIDTH_PX/2;
+            nextHopOutPort.height = CHILD_HEIGHT_PX;
 
-            nextHop.relX = CHILD_SIDE_MARGIN_PX + (nextHopsAbsPosition.WIDTH - 2*CHILD_SIDE_MARGIN_PX) * (1/2) + BUSBAR_WIDTH_PX/2;
-            nextHop.relY = nextHopRelY;
+            nextHopOutPort.relX = CHILD_SIDE_MARGIN_PX + (nextHopsAbsPosition.WIDTH - 2*CHILD_SIDE_MARGIN_PX) * (1/2) + BUSBAR_WIDTH_PX/2;
+            nextHopOutPort.relY = nextHopRelY;
             nextHopRelY += CHILD_HEIGHT_PX + CHILD_BOTTOM_MARGIN_PX;
             nextHopObj.height = nextHopRelY;
 
-            nextHop.absWireOutY = nextHopObj.absY + nextHop.relY + nextHop.height/2;
-            nextHop.absWireInY = nextHop.absWireOutY;
-            nextHop.absWireOutX = nextHopObj.absX + nextHop.relX + nextHop.width;
-            nextHop.absWireInX = nextHopObj.absX + nextHop.relX;
+            nextHopOutPort.absWireOutY = nextHopObj.absY + nextHopOutPort.relY + nextHopOutPort.height/2;
+            nextHopOutPort.absWireInY = nextHopOutPort.absWireOutY;
+            nextHopOutPort.absWireOutX = nextHopObj.absX + nextHopOutPort.relX + nextHopOutPort.width;
+            nextHopOutPort.absWireInX = nextHopObj.absX + nextHopOutPort.relX;
 
 
-            //console.log(nextHop);
-            nextHopObj.d3ChildArray.push(nextHop);
+            //console.log(nextHopOutPort);
+            nextHopObj.d3ChildArray.push(nextHopOutPort);
+            finalDestRelYArray.push(nextHopObj.absY + nextHopOutPort.relY - finalDestsAbsPosition.Y);
+            finalDestRelYCompactArray.push(finalDestRelY);
+            finalDestRelY += CHILD_HEIGHT_PX + CHILD_BOTTOM_MARGIN_PX;
 
             ////////////////final dests
             //console.log(fd);
             var finalDest = {};
             finalDest.linkIsUp = true;
-            finalDest.parent = finalDestsObj;
+            finalDest.parent = paramHdtnConfig.finalDestsD3Obj;
             finalDest.id = "fd_" + fd;
             finalDest.name = fd;
+            paramHdtnConfig.finalDestsD3Obj.d3ChildArray.push(finalDest);
 
-            finalDest.width = (finalDestsAbsPosition.WIDTH - 2*CHILD_SIDE_MARGIN_PX);
-            finalDest.height = CHILD_HEIGHT_PX;
-            finalDest.relX = CHILD_SIDE_MARGIN_PX;
-            finalDest.relY = finalDestRelY;
-            finalDestRelY += CHILD_HEIGHT_PX + CHILD_BOTTOM_MARGIN_PX;
-
-
-            finalDest.absWireOutY = finalDestsObj.absY + finalDest.relY + finalDest.height/2;
-            finalDest.absWireInY = finalDest.absWireOutY;
-            finalDest.absWireOutX = finalDestsObj.absX + finalDest.relX + finalDest.width;
-            finalDest.absWireInX = finalDestsObj.absX + finalDest.relX;
-
-            finalDestsObj.d3ChildArray.push(finalDest);
-
-            AddWire(nextHop, finalDest, "nextHop_finalDest");
+            AddWire(nextHopOutPort, finalDest, "nextHop_finalDest", false);
         });
+
+
         nextHopObj.busBar = {
             "x1": nextHopsAbsPosition.WIDTH / 2.0,
             "y1": PARENT_TOP_HEADER_PX,
@@ -689,20 +690,53 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
 
         nextHopsAbsPositionY += nextHopObj.height + PARENT_GROUP_VERTICAL_SPACING_PX;
 
-
+        //line up outduct perfectly with center of next hop
+        outduct.relY = (nextHopObj.absWireInY - (outduct.height/2)) - paramHdtnConfig.egressD3Obj.absY;
+        outduct.absWireOutY = paramHdtnConfig.egressD3Obj.absY + outduct.relY + outduct.height/2;
+        outduct.absWireInY = outduct.absWireOutY;
 
         if(!paramDeclutter || outduct.linkIsUp) { //if cluttered or on
-            AddWire(outduct, nextHopObj, "outduct_nextHop");
+            AddWire(outduct, nextHopObj, "outduct_nextHop", true);
         }
+
+
+    });
+
+    let relYArray = finalDestRelYArray;
+    if(false) { //experiment with wire jumpovers
+        function compare( a, b ) {
+            if ( a.name < b.name ) {
+                return -1;
+            }
+            if ( a.name > b.name ) {
+                return 1;
+            }
+            return 0;
+        }
+
+        paramHdtnConfig.finalDestsD3Obj.d3ChildArray.sort(compare);
+        relYArray = finalDestRelYCompactArray;
+    }
+
+    paramHdtnConfig.finalDestsD3Obj.d3ChildArray.forEach(function(finalDest, i) {
+        finalDest.width = (finalDestsAbsPosition.WIDTH - 2*CHILD_SIDE_MARGIN_PX);
+        finalDest.height = CHILD_HEIGHT_PX;
+        finalDest.relX = CHILD_SIDE_MARGIN_PX;
+        finalDest.relY = relYArray[i]; //nextHopObj.absY + nextHopOutPort.relY - finalDestsAbsPosition.Y;
+
+
+        finalDest.absWireOutY = paramHdtnConfig.finalDestsD3Obj.absY + finalDest.relY + finalDest.height/2;
+        finalDest.absWireInY = finalDest.absWireOutY;
+        finalDest.absWireOutX = paramHdtnConfig.finalDestsD3Obj.absX + finalDest.relX + finalDest.width;
+        finalDest.absWireInX = paramHdtnConfig.finalDestsD3Obj.absX + finalDest.relX;
+
+
 
 
     });
 
     //obj.height = Math.max(subObjRelYLeft, subObjRelYRight);
 
-
-
-    finalDestsObj.topHeaderHeight = PARENT_TOP_HEADER_PX;
 
     paramHdtnConfig.egressD3Obj.busBar = {
         "x1": egressAbsPosition.WIDTH / 4.0,

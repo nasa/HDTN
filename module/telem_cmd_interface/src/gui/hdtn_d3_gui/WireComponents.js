@@ -1,16 +1,34 @@
 
-function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMarker) {
+function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMarker, paramSpeedUpperLimitBitsPerSec) {
 
 
     var svgRootGroup = paramSvgRootGroup;
     var svgRootGroupClass = paramSvgRootGroupClass;
     var arrowMarker = paramArrowMarker;
+    var speedUpperLimitBitsPerSec = paramSpeedUpperLimitBitsPerSec;
     var WIRE_DASHARRAY = "6 2";
     var WIRE_WIDTH_PX = 3;
     var updateCounter = 0;
     var d3WiresArray = [];
 
-    function GetWireText(wire) {
+    function GetWireBitsPerSec(wire) {
+        if(wire.src.hasOwnProperty("rateBitsPerSec")) {
+            return wire.src.rateBitsPerSec;
+        }
+        else if(wire.dest.hasOwnProperty("rateBitsPerSec")) {
+            return wire.dest.rateBitsPerSec;
+        }
+        else {
+            return 0;
+        }
+    }
+
+    function GetWireTextComponents(wire) {
+        let retVal = {
+            "above": "",
+            "below": "",
+            "bothSet": false
+        };
         let objWithVal = null;
         if(wire.src.hasOwnProperty("rateBitsPerSecHumanReadable")) {
             objWithVal = wire.src;
@@ -19,23 +37,46 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
             objWithVal = wire.dest;
         }
         else {
-            return "";
+            return retVal;
         }
 
         const showBitRate = document.getElementById("id_showBitRate").checked;
         const showBundleRate = document.getElementById("id_showBundleRate").checked;
-        let separatorStr = (showBitRate && showBundleRate) ? "\u00A0\u00A0" : "";
-        return ((showBitRate) ? objWithVal["rateBitsPerSecHumanReadable"] : "")
-            + separatorStr
-            + ((showBundleRate) ? objWithVal["rateBundlesPerSecHumanReadable"] : "");
+        retVal.bothSet = (showBitRate && showBundleRate);
+        retVal.above = ((showBitRate) ? objWithVal["rateBitsPerSecHumanReadable"] : "");
+        retVal.below = ((showBundleRate) ? objWithVal["rateBundlesPerSecHumanReadable"] : "");
+        return retVal;
+    }
+    function GetWireTextAbove(wire) {
+        return GetWireTextComponents(wire).above;
+    }
+
+    function GetWireTextBelow(wire) {
+        return GetWireTextComponents(wire).below;
+    }
+
+    function GetWireText(wire) { //single string above line
+        let tc = GetWireTextComponents(wire);
+        let separatorStr = (tc.bothSet) ? "\u00A0\u00A0" : "";
+        return tc.above + separatorStr + tc.below;
     }
 
     function GetWireTextTransform(wire) {
-        if(wire.src.absWireOutX < wire.dest.absWireInX) {
-            return "translate(" + (7+wire.src.absWireOutX) + "," + (wire.src.absWireOutY-10) + ")";
+        if(wire.isMiddleTextLayout) {
+            const textAngleDegrees = 0;
+            const srcX = wire.src.absWireOutX;
+            const srcY = wire.src.absWireOutY;
+            const destX = wire.dest.absWireInX;
+            const destY = wire.dest.absWireInY;
+            return "translate(" + ((srcX + destX) * 0.5) + "," + ((srcY + destY) * 0.5) + ") rotate(" + textAngleDegrees + ") translate(0,-5)";
         }
         else {
-            return "translate(" + (7+wire.dest.absWireInX) + "," + (wire.dest.absWireInY-10) + ")";
+            if(wire.src.absWireOutX < wire.dest.absWireInX) {
+                return "translate(" + (7+wire.src.absWireOutX) + "," + (wire.src.absWireOutY-10) + ")";
+            }
+            else {
+                return "translate(" + (7+wire.dest.absWireInX) + "," + (wire.dest.absWireInY-10) + ")";
+            }
         }
     }
 
@@ -96,13 +137,16 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
                 d3.select(obj)
                     .attr("stroke-dasharray", WIRE_DASHARRAY) //6+2 = 8 => speed must be in multiples of 8
                     .attr("stroke-dashoffset", function(wire) {
-                        var amps = parseFloat(wire.src.hasOwnProperty("currentOut") ? wire.src.currentOut : wire.dest.currentIn);
-                        var ampsAbs = Math.abs(amps);
+                        //var amps = parseFloat(wire.src.hasOwnProperty("currentOut") ? wire.src.currentOut : wire.dest.currentIn);
+                        //var ampsAbs = Math.abs(amps);
                         //animation looks good between -80 and 80 in multiples of 8
                         //+3 => 4-3=1AMP min turn on
-                        var speed = Math.round((ampsAbs+3)/8.0) * 8;
+                        //var speed = Math.round((ampsAbs+3)/8.0) * 8;
                         //return Math.round(parseInt(amps)) * 8;
-                        return (amps < 0) ? -speed : speed;
+                        //return (amps < 0) ? -speed : speed;
+                        var divider = speedUpperLimitBitsPerSec / 10.0;
+                        let rateBitsPerSec = GetWireBitsPerSec(wire);
+                        return Math.round(parseInt(Math.min(rateBitsPerSec, speedUpperLimitBitsPerSec))/divider) * 8;
                     })
                     .transition().ease(d3.easeLinear).duration(1000)
                     .attr("stroke-dashoffset", 0)
@@ -147,12 +191,29 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
 
         enter.append("svg:text")
             .attr("class", "wire_text")
-            .attr("dy", ".35em")
-            //.attr("text-anchor", function(wire) {
-            //    return "end";
-            //})
+            .attr("text-anchor", function(wire) {
+                return ((wire.isMiddleTextLayout) ? "middle" : "start");
+            })
             .attr("transform", GetWireTextTransform)
-            .text("");
+            .each(function(wire, i) {
+                if(wire.isMiddleTextLayout) {
+                    d3.select(this)
+                        .append('tspan')
+                        .attr("class", "tspanAbove")
+                        .attr('x', 0)
+                        .attr('dy', 0);
+                    d3.select(this)
+                        .append('tspan')
+                        .attr("class", "tspanBelow")
+                        .attr('x', 0)
+                        .attr('dy', '1.4em');
+                }
+                else {
+                    d3.select(this)
+                        .attr("dy", ".35em")
+                        .text("");
+                }
+            });
 
         enter.transition(paramSharedTransition)
             .select("path")
@@ -187,9 +248,18 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
                 ShowPowerRepeatFunc(this);
             });
 
+
         update.select("text")
             .attr("transform", GetWireTextTransform)
-            .text(GetWireText);
+            .each(function(wire, i) {
+                if(wire.isMiddleTextLayout) {
+                    d3.select(this).select(".tspanAbove").text(GetWireTextAbove);
+                    d3.select(this).select(".tspanBelow").text(GetWireTextBelow);
+                }
+                else {
+                    d3.select(this).text(GetWireText);
+                }
+            });
 
 
 
@@ -232,7 +302,15 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
             //});
 
         select.select("text")
-            .text(GetWireText);
+            .each(function(wire, i) {
+                if(wire.isMiddleTextLayout) {
+                    d3.select(this).select(".tspanAbove").text(GetWireTextAbove);
+                    d3.select(this).select(".tspanBelow").text(GetWireTextBelow);
+                }
+                else {
+                    d3.select(this).text(GetWireText);
+                }
+            });
     }
 
     function DoComputeWires(paramWireConnections) {
