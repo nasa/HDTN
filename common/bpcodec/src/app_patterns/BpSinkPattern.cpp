@@ -201,7 +201,10 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
                 primary.m_destinationEid = primary.m_sourceNodeId;
                 primary.m_sourceNodeId = m_myEidEcho;
                 bv.m_primaryBlockView.SetManuallyModified();
-                bv.Render(messageSize + 10);
+                if (!bv.Render(messageSize + 500)) {
+                    LOG_ERROR(subprocess) << "cannot render bpv6 echo bundle";
+                    return false;
+                }
                 Forward_ThreadSafe(srcEid, bv.m_frontBuffer); //srcEid is the new destination
                 return true;
             }
@@ -368,7 +371,10 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
                 primary.m_destinationEid = primary.m_sourceNodeId;
                 primary.m_sourceNodeId = m_myEidEcho;
                 bv.m_primaryBlockView.SetManuallyModified();
-                bv.Render(messageSize + 10);
+                if (!bv.Render(messageSize + 500)) {
+                    LOG_ERROR(subprocess) << "cannot render bpv7 echo bundle";
+                    return false;
+                }
                 Forward_ThreadSafe(srcEid, bv.m_frontBuffer); //srcEid is the new destination
                 return true;
             }

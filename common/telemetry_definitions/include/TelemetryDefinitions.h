@@ -393,5 +393,6 @@ struct AllOutductTelemetry_t : public JsonSerializable {
 };
 
 static const uint8_t TELEM_REQ_MSG = 1;
+static const uint8_t TELEM_REQ_MSG_PLUS_API_CALLS = 2;
 
 #endif // HDTN_TELEMETRY_H

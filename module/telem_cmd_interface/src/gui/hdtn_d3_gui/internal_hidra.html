@@ -54,9 +54,6 @@
         }
 
 
-        .connected_node_circle {
-            fill: red;
-        }
 
         .buffer_fill_color {
             stop-color: green;
@@ -313,7 +310,7 @@
             return (d.linkIsUp) ? "on_switch_rect" : "off_switch_rect";
         }
 
-        function GetOruRectClass(d) {
+        function GetModuleRectClass(d) {
             return "on_rect";
         }
 
@@ -342,7 +339,7 @@
             true, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
             ContextMenuEvent, //paramContextMenuEventFunction
-            GetOruRectClass, //paramGetParentRectClassFunction
+            GetModuleRectClass, //paramGetParentRectClassFunction
             GetSwitchRectClass //paramGetChildRectClassFunction
         );
 
@@ -354,7 +351,7 @@
             false, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
             ContextMenuEvent, //paramContextMenuEventFunction
-            GetOruRectClass, //paramGetParentRectClassFunction
+            GetModuleRectClass, //paramGetParentRectClassFunction
             GetSwitchRectClass //paramGetChildRectClassFunction
         );
 
@@ -367,7 +364,7 @@
             false, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
             ContextMenuEvent, //paramContextMenuEventFunction
-            GetOruRectClass, //paramGetParentRectClassFunction
+            GetModuleRectClass, //paramGetParentRectClassFunction
             GetSwitchRectClass //paramGetChildRectClassFunction
         );
 
@@ -379,7 +376,7 @@
             false, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
             ContextMenuEvent, //paramContextMenuEventFunction
-            GetOruRectClass, //paramGetParentRectClassFunction
+            GetModuleRectClass, //paramGetParentRectClassFunction
             GetSwitchRectClass //paramGetChildRectClassFunction
         );
 
@@ -391,7 +388,7 @@
             false, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
             ContextMenuEvent, //paramContextMenuEventFunction
-            GetOruRectClass, //paramGetParentRectClassFunction
+            GetModuleRectClass, //paramGetParentRectClassFunction
             GetSwitchRectClass //paramGetChildRectClassFunction
         );
 
@@ -403,7 +400,7 @@
             false, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
             ContextMenuEvent, //paramContextMenuEventFunction
-            GetOruRectClass, //paramGetParentRectClassFunction
+            GetModuleRectClass, //paramGetParentRectClassFunction
             GetSwitchRectClass //paramGetChildRectClassFunction
         );
 
@@ -414,8 +411,8 @@
             "", //paramParentRectStyleClass
             true, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
-            ContextMenuEvent, //paramContextMenuEventFunction
-            GetOruRectClass, //paramGetParentRectClassFunction
+            ContextMenuFinalDest, //paramContextMenuEventFunction
+            GetModuleRectClass, //paramGetParentRectClassFunction
             GetSwitchRectClass //paramGetChildRectClassFunction
         );
         const speedUpperLimitBps = 1000;
@@ -459,6 +456,46 @@
             myDisk.GetWirePos("top").x + diskWireSepFromMiddlePx, ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT);
 
 
+        function GetNodeNumFromIpnString(ipnStr) {
+            const m = ipnStr.match(/ipn:([0-9]+)\./);
+            const nodeId = parseInt(m[1]);
+            return nodeId;
+        }
+        function ContextMenuFinalDest(d) {
+            if(d3.event.type === "contextmenu") {
+                var menu = contextMenu().items(
+                    {
+                        "text" : "Ping ipn:" + GetNodeNumFromIpnString(d.name) + ".2047 BPv7",
+                        "func" : PingMe_Closure(d, 2047, 7)
+                    },
+                    {
+                        "text" : "Ping ipn:" + GetNodeNumFromIpnString(d.name) + ".2047 BPv6",
+                        "func" : PingMe_Closure(d, 2047, 6)
+                    }
+                );
+                d3.event.preventDefault();
+                menu(d3.mouse(svg.node())[0], d3.mouse(svg.node())[1]);
+            }
+        }
+        function PingMe_Closure(paramObj, paramPingServiceNumber, paramBpVersion) {
+            var obj = paramObj;
+            var pingServiceNumber = paramPingServiceNumber;
+            var bpVersion = paramBpVersion;
+            return function () {
+                const nodeId = GetNodeNumFromIpnString(obj.name);
+                //console.log(nodeId);
+                let apiObj = {
+                    "apiCall": "ping",
+                    "nodeId": nodeId,
+                    "serviceId": pingServiceNumber,
+                    "bpVersion": bpVersion
+                };
+                //var oruId = (obj.parent) ? obj.parent.id : obj.id;
+                //var switchId = (obj.parent) ? obj.id : "";
+                //console.log("Setting state of oruId=" + oruId + ", switchId=" + obj.id + " to " + state);
+                WebSocketSend(JSON.stringify(apiObj));
+            };
+        }
 
 
         function ContextMenuEvent(d) {
@@ -727,7 +764,9 @@
 
     });
 
-
+    function WebSocketSend(str) {
+        connection.send(str);
+    }
 
 
 

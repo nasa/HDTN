@@ -32,7 +32,9 @@ class TelemetryConnection
          * Sends a new message on the connnection
          * @param buffer the zmq::const_buffer to send
          */
-        TELEM_LIB_EXPORT bool SendZmqConstBufferMessage(const zmq::const_buffer& buffer); //note: SendMessage is a reserved define in Windows
+        TELEM_LIB_EXPORT bool SendZmqConstBufferMessage(const zmq::const_buffer& buffer, bool more); //note: SendMessage is a reserved define in Windows
+
+        TELEM_LIB_EXPORT bool SendZmqMessage(zmq::message_t&& zmqMessage, bool more);
 
         /**
          * Reads a new message from the connection, if available 

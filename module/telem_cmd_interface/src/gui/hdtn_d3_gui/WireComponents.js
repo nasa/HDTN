@@ -102,8 +102,11 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
 
     function GetWirePathClass(wire) {
         const srcUp = wire.src.hasOwnProperty("linkIsUp") ? wire.src.linkIsUp : false;
-        const srcDown = wire.dest.hasOwnProperty("linkIsUp") ? wire.dest.linkIsUp : false;
-        return "wire_stroke_width_attributes " + (((srcUp) && (srcDown)) ? "wire_on" : "wire_off");
+        const destUp = wire.dest.hasOwnProperty("linkIsUp") ? wire.dest.linkIsUp : false;
+        return (((srcUp) && (destUp)) ? "wire_on" : "wire_off");
+    }
+    function GetWirePathClassWithDashArrayClass(wire) {
+        return GetWirePathClass(wire) + " wire_stroke_dash_array_attributes";
     }
 
     function GetWirePathStrWithJumps(wire) {
@@ -155,7 +158,7 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
         function DoRepeat() {
             if(currentCount == updateCounter) {
                 d3.select(obj)
-                    .classed("wire_stroke_dash_array_attributes", true)//.attr("stroke-dasharray", WIRE_DASHARRAY) //6+2 = 8 => speed must be in multiples of 8
+                    .attr("class", GetWirePathClassWithDashArrayClass) //.classed("wire_stroke_dash_array_attributes", true)//.attr("stroke-dasharray", WIRE_DASHARRAY) //6+2 = 8 => speed must be in multiples of 8
                     .attr("stroke-dashoffset", function(wire) {
                         //var amps = parseFloat(wire.src.hasOwnProperty("currentOut") ? wire.src.currentOut : wire.dest.currentIn);
                         //var ampsAbs = Math.abs(amps);
@@ -191,7 +194,7 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
             });
 
         var enter = select.enter().append("svg:g")
-            .attr("class", svgRootGroupClass);
+            .attr("class", svgRootGroupClass + " wire_stroke_width_attributes");
 
         //https://www.visualcinnamon.com/2016/01/animating-dashed-line-d3
         var wiresPath = enter.append("svg:path")
@@ -256,8 +259,8 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
             .attr("class", GetWirePathClass);
             //.style("stroke", "black");
 
-        var update = updateBeforeTransition.transition(paramSharedTransition)
-            .attr("class", svgRootGroupClass);
+        var update = updateBeforeTransition.transition(paramSharedTransition);
+            //.attr("class", svgRootGroupClass);
 
 
         update.select("path")
@@ -316,8 +319,9 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
                 return wire.src.id + "_" + wire.dest.id;
             });
 
-        select.select("path")
-            .attr("class", GetWirePathClass);
+        //not needed as ShowPowerRepeatFunc will call GetWirePathClass (and the following causes flicker because a class gets removed and added)
+        ////select.select("path")
+        ////    .attr("class", GetWirePathClass);
             //.style("stroke", function(wire) {
             //    var volts = wire.src.hasOwnProperty("voltageOut") ? wire.src.voltageOut : wire.dest.voltageIn;
             //    return colorInterp(parseFloat(volts));

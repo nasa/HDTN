@@ -95,17 +95,22 @@ bool WebSocketHandler::handleData(CivetServer *server, struct mg_connection *con
         return false;
     }
 
-    LOG_INFO(subprocess) << "WS got" << data_len << "bytes";
+    //LOG_INFO(subprocess) << "WS got " << data_len << "bytes";
 
     if (data_len < 1) {
         return true;
     }
-
-    const std::string dataStr(data, data_len); // data is non-null-terminated c_str
-    LOG_INFO(subprocess) << dataStr;
-    if (boost::starts_with(dataStr, "CONNECT"))
-    { // send an initial packet from behind the windows firewall to the server
+    if (data_len == 2) {
+        printf("%x %x\n", (int)data[0], (int)data[1]);
+        return true;
     }
+    
+
+    //const std::string dataStr(data, data_len); // data is non-null-terminated c_str
+    //LOG_INFO(subprocess) << dataStr;
+    //if (boost::starts_with(dataStr, "CONNECT"))
+    //{ // send an initial packet from behind the windows firewall to the server
+    //}
 
     if (m_onNewWebsocketDataReceivedCallback) {
         return m_onNewWebsocketDataReceivedCallback(conn, data, data_len);
