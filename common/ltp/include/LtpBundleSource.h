@@ -51,7 +51,7 @@ public:
     LTP_LIB_EXPORT std::size_t GetTotalDataSegmentsAcked();
     LTP_LIB_EXPORT std::size_t GetTotalDataSegmentsSent();
     LTP_LIB_EXPORT std::size_t GetTotalDataSegmentsUnacked();
-    //std::size_t GetTotalBundleBytesAcked();
+    LTP_LIB_EXPORT std::size_t GetTotalBundleBytesAcked();
     LTP_LIB_EXPORT std::size_t GetTotalBundleBytesSent();
     //std::size_t GetTotalBundleBytesUnacked();
     LTP_LIB_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);

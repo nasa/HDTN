@@ -324,9 +324,9 @@ public:
     std::shared_ptr<LtpClientServiceDataToSend> m_dataToSendSharedPtr;
     /// Session attached client service data
     std::shared_ptr<LtpTransmissionRequestUserData> m_userDataPtr;
-private:
     /// Red part data length in bytes
-    uint64_t M_LENGTH_OF_RED_PART;
+    const uint64_t M_LENGTH_OF_RED_PART;
+private:
     /// Next first pass data offset, used for initial transmission, when (m_dataIndexFirstPass >= M_LENGTH_OF_RED_PART) the rest of the data pending initial transmission are all green data
     uint64_t m_dataIndexFirstPass;
     /// Our session ID

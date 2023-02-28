@@ -101,9 +101,9 @@ std::size_t LtpBundleSource::GetTotalDataSegmentsUnacked() {
     return GetTotalDataSegmentsSent() - GetTotalDataSegmentsAcked();
 }
 
-//std::size_t LtpBundleSource::GetTotalBundleBytesAcked() {
-//    return m_totalBytesAcked;
-//}
+std::size_t LtpBundleSource::GetTotalBundleBytesAcked() {
+    return m_ltpEnginePtr->m_totalRedDataBytesSuccessfullySent;
+}
 
 std::size_t LtpBundleSource::GetTotalBundleBytesSent() {
     return m_ltpOutductTelemetry.m_totalBundleBytesSent;
@@ -265,6 +265,8 @@ void LtpBundleSource::SyncTelemetry() {
         m_ltpOutductTelemetry.m_numDiscretionaryCheckpointsNotResent = m_ltpEnginePtr->m_numDiscretionaryCheckpointsNotResentRef;
         m_ltpOutductTelemetry.m_numDeletedFullyClaimedPendingReports = m_ltpEnginePtr->m_numDeletedFullyClaimedPendingReportsRef;
         m_ltpOutductTelemetry.m_countTxUdpPacketsLimitedByRate = m_ltpEnginePtr->m_countAsyncSendsLimitedByRate;
+        m_ltpOutductTelemetry.m_totalBundleBytesAcked = m_ltpEnginePtr->m_totalRedDataBytesSuccessfullySent;
+        //m_ltpOutductTelemetry.m_totalBundleBytesFailedToSend = m_ltpEnginePtr->m_totalRedDataBytesFailedToSend;
         m_ltpOutductTelemetry.m_linkIsUpPhysically = m_ltpEnginePtr->m_senderLinkIsUpPhysically;
         SyncTransportLayerSpecificTelem(); //virtual function call
     }

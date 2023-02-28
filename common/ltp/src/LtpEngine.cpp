@@ -309,7 +309,9 @@ void LtpEngine::Reset() {
     m_countPacketsWithOngoingOperations = 0;
     m_countPacketsThatCompletedOngoingOperations = 0;
     m_numEventsTransmissionRequestDiskWritesTooSlow = 0;
-    m_senderLinkIsUpPhysically = false;
+    m_totalRedDataBytesSuccessfullySent = 0;
+    m_totalRedDataBytesFailedToSend = 0;
+    m_senderLinkIsUpPhysically = true; //assume the link on startup is up physically until ping determines it down (for gui)
 
     m_numCheckpointTimerExpiredCallbacksRef = 0;
     m_numDiscretionaryCheckpointsNotResentRef = 0;
@@ -1688,7 +1690,14 @@ void LtpEngine::EraseTxSession(map_session_number_to_session_sender_t::iterator&
     if (m_memoryInFilesPtr) {
         m_memoryBlockIdsPendingDeletionQueue.emplace(txSession.MEMORY_BLOCK_ID);
     }
+    if (txSession.m_isFailedSession) {
+        m_totalRedDataBytesFailedToSend += txSession.M_LENGTH_OF_RED_PART;
+    }
+    else {
+        m_totalRedDataBytesSuccessfullySent += txSession.M_LENGTH_OF_RED_PART;
+    }
     m_mapSessionNumberToSessionSender.erase(txSessionIt);
+    
 }
 
 void LtpEngine::EraseRxSession(map_session_id_to_session_receiver_t::iterator& rxSessionIt) {
