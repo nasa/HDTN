@@ -43,6 +43,7 @@ LtpBundleSource::~LtpBundleSource() {
 
 bool LtpBundleSource::Init() {
     m_activeSessionNumbersSet.reserve(M_BUNDLE_PIPELINE_LIMIT);
+    m_activeSessionNumbersSet.get_allocator().SetMaxListSizeFromGetAllocatorCopy(M_BUNDLE_PIPELINE_LIMIT + 2);
     if (!SetLtpEnginePtr()) { //virtual function call
         return false;
     }

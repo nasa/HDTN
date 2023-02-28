@@ -31,6 +31,7 @@
 #include "TelemetryDefinitions.h"
 #include "LtpEngine.h"
 #include "LtpEngineConfig.h"
+#include "FreeListAllocator.h"
 #include "BundleCallbackFunctionDefines.h"
 #include <zmq.hpp>
 #include <atomic>
@@ -88,7 +89,11 @@ protected:
     const uint64_t M_REMOTE_LTP_ENGINE_ID;
     const uint64_t M_BUNDLE_PIPELINE_LIMIT;
 private:
-    std::unordered_set<uint64_t> m_activeSessionNumbersSet;
+    typedef std::unordered_set<uint64_t,
+        std::hash<uint64_t>,
+        std::equal_to<uint64_t>,
+        FreeListAllocatorDynamic<uint64_t> > active_session_number_set_t;
+    active_session_number_set_t m_activeSessionNumbersSet;
     std::atomic<unsigned int> m_startingCount;
 
     

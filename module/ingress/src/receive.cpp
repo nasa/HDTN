@@ -36,6 +36,7 @@
 #include "TcpclInduct.h"
 #include "TcpclV4Induct.h"
 #include "StcpInduct.h"
+#include "FreeListAllocator.h"
 #include "TelemetryDefinitions.h"
 #include "ThreadNamer.h"
 #include <unordered_map>
@@ -97,8 +98,12 @@ private:
         
         boost::mutex m_mutex;
         boost::condition_variable m_conditionVariable;
-        std::unordered_map<uint64_t, uint64_t> m_mapEgressBundleUniqueIdToBundleSizeBytes;
-        std::unordered_map<uint64_t, uint64_t> m_mapStorageBundleUniqueIdToBundleSizeBytes;
+        typedef std::unordered_map<uint64_t, uint64_t,
+            std::hash<uint64_t>,
+            std::equal_to<uint64_t>,
+            FreeListAllocatorDynamic<std::pair<const uint64_t, uint64_t> > > umap_64_to_64_t;
+        umap_64_to_64_t m_mapEgressBundleUniqueIdToBundleSizeBytes;
+        umap_64_to_64_t m_mapStorageBundleUniqueIdToBundleSizeBytes;
         uint64_t m_egressBytesInPipeline;
         uint64_t m_storageBytesInPipeline;
 
@@ -185,17 +190,20 @@ void Ingress::Impl::BundlePipelineAckingSet::Update(const uint64_t paramMaxBundl
     m_linkIsUp = paramLinkIsUp;
     //By default, unordered_set containers have a max_load_factor of 1.0.
     m_mapEgressBundleUniqueIdToBundleSizeBytes.reserve(m_maxBundlesInPipeline); //maxBundlesInPipeline is double of half
+    m_mapEgressBundleUniqueIdToBundleSizeBytes.get_allocator().SetMaxListSizeFromGetAllocatorCopy(m_maxBundlesInPipeline + 2);
+
     m_mapStorageBundleUniqueIdToBundleSizeBytes.reserve(m_maxBundlesInPipeline);
+    m_mapStorageBundleUniqueIdToBundleSizeBytes.get_allocator().SetMaxListSizeFromGetAllocatorCopy(m_maxBundlesInPipeline + 2);
 }
 
 bool Ingress::Impl::BundlePipelineAckingSet::CompareAndPop_ThreadSafe(const uint64_t uniqueId, const bool isEgress) {
     
     uint64_t& bytesInPipelineRef = (isEgress) ? m_egressBytesInPipeline : m_storageBytesInPipeline;
-    std::unordered_map<uint64_t, uint64_t>& mapBundleUniqueIdToBundleSizeBytes = (isEgress) ?
+    umap_64_to_64_t& mapBundleUniqueIdToBundleSizeBytes = (isEgress) ?
         m_mapEgressBundleUniqueIdToBundleSizeBytes : m_mapStorageBundleUniqueIdToBundleSizeBytes;
 
     boost::mutex::scoped_lock lock(m_mutex);
-    std::unordered_map<uint64_t, uint64_t>::iterator it = mapBundleUniqueIdToBundleSizeBytes.find(uniqueId);
+    umap_64_to_64_t::iterator it = mapBundleUniqueIdToBundleSizeBytes.find(uniqueId);
     if (it == mapBundleUniqueIdToBundleSizeBytes.end()) {
         return false;
     }
