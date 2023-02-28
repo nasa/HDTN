@@ -55,9 +55,14 @@ BundleStorageManagerAsio::BundleStorageManagerAsio(const StorageConfig_ptr & sto
 
 BundleStorageManagerAsio::~BundleStorageManagerAsio() {
     if (m_ioServiceThreadPtr) {
-        m_workPtr.reset(); //erase the work object (destructor is thread safe) so that io_service thread will exit when it runs out of work 
-        m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr.reset(); //delete it
+        try {
+            m_workPtr.reset(); //erase the work object (destructor is thread safe) so that io_service thread will exit when it runs out of work 
+            m_ioServiceThreadPtr->join();
+            m_ioServiceThreadPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping BundleStorageManagerAsio io_service";
+        }
     }
 
     for (unsigned int diskId = 0; diskId < M_NUM_STORAGE_DISKS; ++diskId) {

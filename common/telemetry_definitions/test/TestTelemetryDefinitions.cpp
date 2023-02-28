@@ -81,13 +81,29 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsOutductTestCase)
         BOOST_REQUIRE(!(oct != octFromJson));
         OutductCapabilityTelemetry_t octCopy = oct;
         OutductCapabilityTelemetry_t octCopy2(oct);
+
+        uintptr_t ptrPreMove1 = (uintptr_t)&octFromJson.finalDestinationEidList.front();
+        uintptr_t ptrPreMove2 = (uintptr_t)&octFromJson.finalDestinationNodeIdList.front();
         OutductCapabilityTelemetry_t oct2Moved = std::move(octFromJson);
-        BOOST_REQUIRE(oct != octFromJson); //oct2 moved
+        uintptr_t ptrPostMove1 = (uintptr_t)&oct2Moved.finalDestinationEidList.front();
+        uintptr_t ptrPostMove2 = (uintptr_t)&oct2Moved.finalDestinationNodeIdList.front();
+        //BOOST_REQUIRE(oct != octFromJson); //octFromJson moved
+        BOOST_REQUIRE(ptrPreMove1 == ptrPostMove1);
+        BOOST_REQUIRE(ptrPreMove2 == ptrPostMove2);
+
         BOOST_REQUIRE(oct == oct2Moved);
         BOOST_REQUIRE(oct == octCopy);
         BOOST_REQUIRE(oct == octCopy2);
+
+        ptrPreMove1 = (uintptr_t)&oct2Moved.finalDestinationEidList.front();
+        ptrPreMove2 = (uintptr_t)&oct2Moved.finalDestinationNodeIdList.front();
         OutductCapabilityTelemetry_t oct2Moved2(std::move(oct2Moved));
-        BOOST_REQUIRE(oct != oct2Moved); //oct2 moved
+        ptrPostMove1 = (uintptr_t)&oct2Moved2.finalDestinationEidList.front();
+        ptrPostMove2 = (uintptr_t)&oct2Moved2.finalDestinationNodeIdList.front();
+        //BOOST_REQUIRE(oct != oct2Moved); //oct2 moved
+        BOOST_REQUIRE(ptrPreMove1 == ptrPostMove1);
+        BOOST_REQUIRE(ptrPreMove2 == ptrPostMove2);
+
         BOOST_REQUIRE(oct == oct2Moved2);
 
         
@@ -117,13 +133,23 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsOutductTestCase)
         BOOST_REQUIRE(!(aoct != aoctFromJson));
         AllOutductCapabilitiesTelemetry_t aoctCopy = aoct;
         AllOutductCapabilitiesTelemetry_t aoctCopy2(aoct);
+
+        uintptr_t ptrPreMove = (uintptr_t)&aoctFromJson.outductCapabilityTelemetryList.front();
         AllOutductCapabilitiesTelemetry_t aoct2Moved = std::move(aoctFromJson);
-        BOOST_REQUIRE(aoct != aoctFromJson); //oct2 moved
+        uintptr_t ptrPostMove = (uintptr_t)&aoct2Moved.outductCapabilityTelemetryList.front();
+        //BOOST_REQUIRE(aoct != aoctFromJson); //oct2 moved
+        BOOST_REQUIRE(ptrPreMove == ptrPostMove);
+
         BOOST_REQUIRE(aoct == aoct2Moved);
         BOOST_REQUIRE(aoct == aoctCopy);
         BOOST_REQUIRE(aoct == aoctCopy2);
+
+        ptrPreMove = (uintptr_t)&aoct2Moved.outductCapabilityTelemetryList.front();
         AllOutductCapabilitiesTelemetry_t aoct2Moved2(std::move(aoct2Moved));
-        BOOST_REQUIRE(aoct != aoct2Moved); //oct2 moved
+        ptrPostMove = (uintptr_t)&aoct2Moved2.outductCapabilityTelemetryList.front();
+        //BOOST_REQUIRE(aoct != aoct2Moved); //oct2 moved
+        BOOST_REQUIRE(ptrPreMove == ptrPostMove);
+
         BOOST_REQUIRE(aoct == aoct2Moved2);
     }
 

@@ -51,9 +51,15 @@ StcpInduct::~StcpInduct() {
     }
     m_listStcpBundleSinks.clear(); //tcp bundle sink destructor is thread safe
     m_workPtr.reset();
+
     if (m_ioServiceThreadPtr) {
-        m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr.reset(); //delete it
+        try {
+            m_ioServiceThreadPtr->join();
+            m_ioServiceThreadPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping StcpInduct io_service";
+        }
     }
 }
 

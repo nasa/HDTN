@@ -13,10 +13,13 @@
  */
 
 #include "UdpInduct.h"
+#include "Logger.h"
 #include <iostream>
 #include <boost/make_unique.hpp>
 #include <memory>
 #include "ThreadNamer.h"
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 UdpInduct::UdpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig) :
     Induct(inductProcessBundleCallback, inductConfig)
@@ -36,8 +39,13 @@ UdpInduct::~UdpInduct() {
     m_udpBundleSinkPtr.reset();
     
     if (m_ioServiceThreadPtr) {
-        m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr.reset(); //delete it
+        try {
+            m_ioServiceThreadPtr->join();
+            m_ioServiceThreadPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping UdpInduct io_service";
+        }
     }
 }
 

@@ -54,8 +54,9 @@ function SystemOutline(paramSvgRootGroup, paramX, paramY, paramWidth, paramHeigh
 
 
     return {
-        ClosurePlaceholder: function() {
-
+        UpdateName: function(newName) {
+            label = newName;
+            systemOutlineGroup.select(".system_outline_group_text").text(label);
         }
     };
 }

@@ -23,7 +23,8 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-
+//for non-throw versions of get_child which return a reference to the second parameter
+static const boost::property_tree::ptree EMPTY_PTREE;
 
 
 /////////////////////////////////////
@@ -159,7 +160,7 @@ bool StorageExpiringBeforeThresholdTelemetry_t::SetValuesFromPropertyTree(const 
         priority = pt.get<uint64_t>("priority");
         thresholdSecondsSinceStartOfYear2000 = pt.get<uint64_t>("thresholdSecondsSinceStartOfYear2000");
         mapNodeIdToExpiringBeforeThresholdCount.clear();
-        const boost::property_tree::ptree& nodeIdMapPt = pt.get_child("mapNodeIdToExpiringBeforeThresholdCount", boost::property_tree::ptree()); //non-throw version
+        const boost::property_tree::ptree& nodeIdMapPt = pt.get_child("mapNodeIdToExpiringBeforeThresholdCount", EMPTY_PTREE); //non-throw version
         BOOST_FOREACH(const boost::property_tree::ptree::value_type & nodePt, nodeIdMapPt) {
             const uint64_t nodeIdKey = boost::lexical_cast<uint64_t>(nodePt.first);
             bundle_count_plus_bundle_bytes_pair_t& p = mapNodeIdToExpiringBeforeThresholdCount[nodeIdKey];
@@ -263,8 +264,6 @@ bool OutductCapabilityTelemetry_t::SetValuesFromPropertyTree(const boost::proper
         maxBundleSizeBytesInPipeline = pt.get<uint64_t>("maxBundleSizeBytesInPipeline");
         nextHopNodeId = pt.get<uint64_t>("nextHopNodeId");
 
-        //for non-throw versions of get_child which return a reference to the second parameter
-        static const boost::property_tree::ptree EMPTY_PTREE;
         const boost::property_tree::ptree& finalDestinationEidsListPt = pt.get_child("finalDestinationEidsList", EMPTY_PTREE); //non-throw version
         finalDestinationEidList.clear();
         finalDestinationNodeIdList.clear();
@@ -316,8 +315,6 @@ boost::property_tree::ptree OutductCapabilityTelemetry_t::GetNewPropertyTree() c
 AllOutductCapabilitiesTelemetry_t::AllOutductCapabilitiesTelemetry_t() {}
 bool AllOutductCapabilitiesTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
     try {
-        //for non-throw versions of get_child which return a reference to the second parameter
-        static const boost::property_tree::ptree EMPTY_PTREE;
         const boost::property_tree::ptree& outductCapabilityTelemetryListPt = pt.get_child("outductCapabilityTelemetryList", EMPTY_PTREE); //non-throw version
         outductCapabilityTelemetryList.clear();
         BOOST_FOREACH(const boost::property_tree::ptree::value_type & outductCapabilityTelemetryValuePt, outductCapabilityTelemetryListPt) {
@@ -687,8 +684,6 @@ bool InductTelemetry_t::operator!=(const InductTelemetry_t& o) const {
 bool InductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
     try {
         m_convergenceLayer = pt.get<std::string>("convergenceLayer");
-        //for non-throw versions of get_child which return a reference to the second parameter
-        static const boost::property_tree::ptree EMPTY_PTREE;
         const boost::property_tree::ptree& inductConnectionsPt = pt.get_child("inductConnections", EMPTY_PTREE); //non-throw version
         m_listInductConnections.clear();
         BOOST_FOREACH(const boost::property_tree::ptree::value_type & inductConnectionPt, inductConnectionsPt) {
@@ -760,8 +755,6 @@ bool AllInductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree:
         m_bundleCountStorage = pt.get<uint64_t>("bundleCountStorage");
         m_bundleByteCountEgress = pt.get<uint64_t>("bundleByteCountEgress");
         m_bundleByteCountStorage = pt.get<uint64_t>("bundleByteCountStorage");
-        //for non-throw versions of get_child which return a reference to the second parameter
-        static const boost::property_tree::ptree EMPTY_PTREE;
         const boost::property_tree::ptree& allInductsPt = pt.get_child("allInducts", EMPTY_PTREE); //non-throw version
         m_listAllInducts.clear();
         BOOST_FOREACH(const boost::property_tree::ptree::value_type & inductPt, allInductsPt) {
@@ -1137,8 +1130,6 @@ bool AllOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree
         m_totalStorageToIngressOpportunisticBundleBytes = pt.get<uint64_t>("totalStorageToIngressOpportunisticBundleBytes");
         m_totalBundlesSuccessfullySent = pt.get<uint64_t>("totalBundlesSuccessfullySent");
         m_totalBundleBytesSuccessfullySent = pt.get<uint64_t>("totalBundleBytesSuccessfullySent");
-        //for non-throw versions of get_child which return a reference to the second parameter
-        static const boost::property_tree::ptree EMPTY_PTREE;
         const boost::property_tree::ptree& allOutductsPt = pt.get_child("allOutducts", EMPTY_PTREE); //non-throw version
         m_listAllOutducts.clear();
         BOOST_FOREACH(const boost::property_tree::ptree::value_type & outductPt, allOutductsPt) {

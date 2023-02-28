@@ -626,11 +626,11 @@
             console.log("new hdtn telem received");
 
             if(redrawObj != null) {
-                console.log("redraw");
+                //console.log("redraw");
                 Update(redrawObj/*, declutter ? 1000 : 500*/);
             }
             else {
-                console.log("don't redraw")
+                //console.log("don't redraw")
                 UpdateLite();
             }
 
@@ -640,6 +640,7 @@
         function InternalUpdateWithData(objJson) {
             //console.log(objJson);
             if("hdtnConfigName" in objJson) {
+                myOutline.UpdateName("HDTN Node " + objJson.myNodeId + "");
                 InitActiveInductConnections(objJson);
                 HandleReceivedNewHdtnConfig(objJson);
             }

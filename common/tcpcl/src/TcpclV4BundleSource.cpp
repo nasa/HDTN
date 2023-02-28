@@ -91,9 +91,14 @@ void TcpclV4BundleSource::Stop() {
 #endif
     m_base_ioServiceRef.stop(); //ioservice requires stopping before join because of the m_work object
 
-    if(m_ioServiceThreadPtr) {
-        m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr.reset(); //delete it
+    if (m_ioServiceThreadPtr) {
+        try {
+            m_ioServiceThreadPtr->join();
+            m_ioServiceThreadPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping TcpclV4BundleSource io_service";
+        }
     }
 }
 

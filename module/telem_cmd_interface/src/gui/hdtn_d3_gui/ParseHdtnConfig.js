@@ -344,11 +344,11 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
     let newHashStr = GetDrawHash(paramHdtnConfig);
     let needsRedraw = (paramHdtnOldDrawHash.strVal == null) || (paramHdtnOldDrawHash.strVal !== newHashStr);
     if(!needsRedraw) {
-        console.log("does not need redraw");
+        //console.log("does not need redraw");
         return null;//todo
     }
     else {
-        console.log("needs redraw");
+        //console.log("needs redraw");
         paramHdtnOldDrawHash.strVal = newHashStr;
     }
 

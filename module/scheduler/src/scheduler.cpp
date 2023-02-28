@@ -203,18 +203,20 @@ void Scheduler::Stop() {
 void Scheduler::Impl::Stop() {
     m_running = false; //thread stopping criteria
 
-     if (m_threadZmqAckReaderPtr) {
+    if (m_threadZmqAckReaderPtr) {
         try {
             m_threadZmqAckReaderPtr->join(); 
             m_threadZmqAckReaderPtr.reset(); //delete it
-        } catch (const boost::thread_resource_error&) {
+        }
+        catch (const boost::thread_resource_error&) {
             LOG_ERROR(subprocess) << "error stopping Scheduler thread";
         }
     }
 
     try {	
         m_contactPlanTimer.cancel();
-    } catch (const boost::system::system_error&) {
+    }
+    catch (const boost::system::system_error&) {
         LOG_ERROR(subprocess) << "error cancelling contact plan timer ";
     }
 	
@@ -228,10 +230,10 @@ void Scheduler::Impl::Stop() {
 
     if (m_ioServiceThreadPtr) {
         try {
-	    m_ioServiceThreadPtr->join();
+            m_ioServiceThreadPtr->join();
             m_ioServiceThreadPtr.reset(); //delete it
-    
-	} catch (const boost::thread_resource_error&) {
+        }
+        catch (const boost::thread_resource_error&) {
             LOG_ERROR(subprocess) << "error stopping io_service";
         }
     }
