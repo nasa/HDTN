@@ -67,8 +67,13 @@ void BpSourcePattern::Stop() {
 
 //    boost::this_thread::sleep(boost::posix_time::seconds(1));
     if(m_bpSourcePatternThreadPtr) {
-        m_bpSourcePatternThreadPtr->join();
-        m_bpSourcePatternThreadPtr.reset(); //delete it
+        try {
+            m_bpSourcePatternThreadPtr->join();
+            m_bpSourcePatternThreadPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping BpSourcePattern thread";
+        }
     }
 
     m_outductManager.StopAllOutducts();

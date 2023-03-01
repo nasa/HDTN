@@ -59,7 +59,13 @@ StcpBundleSink::~StcpBundleSink() {
     if (!m_safeToDelete) {
         DoStcpShutdown();
         while (!m_safeToDelete) {
-            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+            try {
+                boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+            }
+            catch (const boost::thread_resource_error&) {}
+            catch (const boost::thread_interrupted&) {}
+            catch (const boost::condition_error&) {}
+            catch (const boost::lock_error&) {}
         }
     }
     
@@ -69,8 +75,13 @@ StcpBundleSink::~StcpBundleSink() {
     m_conditionVariableCb.notify_one();
 
     if (m_threadCbReaderPtr) {
-        m_threadCbReaderPtr->join();
-        m_threadCbReaderPtr.reset(); //delete it
+        try {
+            m_threadCbReaderPtr->join();
+            m_threadCbReaderPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping StcpBundleSink threadCbReader";
+        }
     }
 }
 

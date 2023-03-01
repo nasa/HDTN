@@ -250,8 +250,13 @@ LtpUdpEngineManager::~LtpUdpEngineManager() {
 void LtpUdpEngineManager::Stop() {
     if (m_ioServiceUdpThreadPtr) {
         boost::asio::post(m_ioServiceUdp, boost::bind(&LtpUdpEngineManager::DoUdpShutdown, this));
-        m_ioServiceUdpThreadPtr->join();
-        m_ioServiceUdpThreadPtr.reset(); //delete it
+        try {
+            m_ioServiceUdpThreadPtr->join();
+            m_ioServiceUdpThreadPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping LtpUdpEngineManager io_service udp thread";
+        }
     }
 
     //print stats

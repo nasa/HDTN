@@ -56,8 +56,13 @@ BundleStorageManagerMT::~BundleStorageManagerMT() {
     StopAllDiskThreads();
     for (unsigned int diskId = 0; diskId < M_NUM_STORAGE_DISKS; ++diskId) {
         if (m_threadPtrsVec[diskId]) {
-            m_threadPtrsVec[diskId]->join();
-            m_threadPtrsVec[diskId].reset(); //delete it
+            try {
+                m_threadPtrsVec[diskId]->join();
+                m_threadPtrsVec[diskId].reset(); //delete it
+            }
+            catch (const boost::thread_resource_error&) {
+                LOG_ERROR(subprocess) << "error stopping BundleStorageManagerMT disk thread ID " << diskId;
+            }
         }
     }
 }

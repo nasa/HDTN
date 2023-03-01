@@ -168,8 +168,13 @@ void LtpIpcEngine::Stop() {
     }
     
     if (m_readRemoteTxShmThreadPtr) {
-        m_readRemoteTxShmThreadPtr->join();
-        m_readRemoteTxShmThreadPtr.reset(); //delete it
+        try {
+            m_readRemoteTxShmThreadPtr->join();
+            m_readRemoteTxShmThreadPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping LtpIpcEngine readRemoteTxShmThread";
+        }
     }
 }
 

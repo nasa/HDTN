@@ -82,7 +82,13 @@ void TcpclV4BundleSource::Stop() {
 
     BaseClass_DoTcpclShutdown(true, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
     while (!m_base_tcpclShutdownComplete) {
-        boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+        try {
+            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+        }
+        catch (const boost::thread_resource_error&) {}
+        catch (const boost::thread_interrupted&) {}
+        catch (const boost::condition_error&) {}
+        catch (const boost::lock_error&) {}
     }
 #ifdef OPENSSL_SUPPORT_ENABLED
     m_base_tcpAsyncSenderSslPtr.reset(); //stop this first

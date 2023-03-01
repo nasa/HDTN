@@ -364,8 +364,8 @@ void TelemetryRunner::Impl::Stop() {
     try {
         m_threadPtr->join();
     }
-    catch (std::exception& e) {
-        LOG_WARNING(subprocess) << e.what();
+    catch (const boost::thread_resource_error&) {
+        LOG_ERROR(subprocess) << "error stopping TelemetryRunner thread";
     }
     m_threadPtr.reset(); // delete it
     

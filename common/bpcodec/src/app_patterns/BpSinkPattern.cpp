@@ -56,8 +56,13 @@ void BpSinkPattern::Stop() {
     m_cvCurrentlySendingBundleIdSet.notify_one(); //break out of the timed_wait (wait_until)
 
     if (m_threadSenderReaderPtr) {
-        m_threadSenderReaderPtr->join();
-        m_threadSenderReaderPtr.reset(); //delete it
+        try {
+            m_threadSenderReaderPtr->join();
+            m_threadSenderReaderPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping BpSinkPattern threadSenderReader";
+        }
     }
 
     m_inductManager.Clear();

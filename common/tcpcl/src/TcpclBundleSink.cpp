@@ -94,7 +94,13 @@ TcpclBundleSink::~TcpclBundleSink() {
     if (!m_base_sinkIsSafeToDelete) {
         BaseClass_DoTcpclShutdown(true, false);
         while (!m_base_sinkIsSafeToDelete) {
-            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+            try {
+                boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+            }
+            catch (const boost::thread_resource_error&) {}
+            catch (const boost::thread_interrupted&) {}
+            catch (const boost::condition_error&) {}
+            catch (const boost::lock_error&) {}
         }
     }
 
@@ -104,8 +110,13 @@ TcpclBundleSink::~TcpclBundleSink() {
     m_conditionVariableCb.notify_one();
 
     if (m_threadCbReaderPtr) {
-        m_threadCbReaderPtr->join();
-        m_threadCbReaderPtr.reset(); //delete it
+        try {
+            m_threadCbReaderPtr->join();
+            m_threadCbReaderPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping TcpclBundleSink threadCbReader";
+        }
     }
     m_base_tcpAsyncSenderPtr.reset();
 

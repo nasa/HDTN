@@ -91,7 +91,13 @@ void UdpBundleSource::Stop() {
 
     DoUdpShutdown();
     while (m_udpSocket.is_open()) {
-        boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+        try {
+            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+        }
+        catch (const boost::thread_resource_error&) {}
+        catch (const boost::thread_interrupted&) {}
+        catch (const boost::condition_error&) {}
+        catch (const boost::lock_error&) {}
     }
 
     //This function does not block, but instead simply signals the io_service to stop

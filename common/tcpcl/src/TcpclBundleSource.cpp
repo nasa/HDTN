@@ -61,7 +61,13 @@ void TcpclBundleSource::Stop() {
 
     BaseClass_DoTcpclShutdown(true, false);
     while (!m_base_tcpclShutdownComplete) {
-        boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+        try {
+            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+        }
+        catch (const boost::thread_resource_error&) {}
+        catch (const boost::thread_interrupted&) {}
+        catch (const boost::condition_error&) {}
+        catch (const boost::lock_error&) {}
     }
     m_base_tcpAsyncSenderPtr.reset(); //stop this first
     m_base_ioServiceRef.stop(); //ioservice requires stopping before join because of the m_work object
