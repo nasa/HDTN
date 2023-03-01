@@ -1,0 +1,22 @@
+get_filename_component(INGRESSLIB_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+include(CMakeFindDependencyMacro)
+
+find_dependency(HDTNUtil REQUIRED)
+find_dependency(LoggerLib REQUIRED)
+find_dependency(StorageLib REQUIRED)
+find_dependency(Bpcodec REQUIRED)
+find_dependency(SchedulerLib REQUIRED)
+find_dependency(RouterLib REQUIRED)
+find_dependency(EgressLib REQUIRED)
+find_dependency(IngressLib REQUIRED)
+find_dependency(TelemetryDefinitions REQUIRED)
+
+#find_dependency seems broken for multiple calls to find_boost, use find_package instead (https://stackoverflow.com/questions/52763112/cmake-boost-find-depedency-config)
+#find_dependency(Boost @MIN_BOOST_VERSION@ REQUIRED COMPONENTS program_options)
+find_package(Boost @MIN_BOOST_VERSION@ REQUIRED COMPONENTS program_options)
+
+if(NOT TARGET HDTN::HdtnOneProcessLib)
+	include("${INGRESSLIB_CMAKE_DIR}/HdtnOneProcessLibTargets.cmake")
+endif()
+
+set(HDTNONEPROCESSLIB_LIBRARIES HDTN::HdtnOneProcessLib)

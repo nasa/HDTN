@@ -27,13 +27,13 @@
 #define _HDTN_ONE_PROCESS_RUNNER_H 1
 
 #include <stdint.h>
-
+#include "hdtn_one_process_lib_export.h"
 
 class HdtnOneProcessRunner {
 public:
-    HdtnOneProcessRunner();
-    ~HdtnOneProcessRunner();
-    bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
+    HDTN_ONE_PROCESS_LIB_EXPORT HdtnOneProcessRunner();
+    HDTN_ONE_PROCESS_LIB_EXPORT ~HdtnOneProcessRunner();
+    HDTN_ONE_PROCESS_LIB_EXPORT bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
 
     //ingress
     uint64_t m_ingressBundleCountStorage;

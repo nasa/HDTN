@@ -37,5 +37,3 @@ BOOST_AUTO_TEST_CASE(cgrTest)
 
     BOOST_CHECK(nextHop == 2);
 }
-
-
