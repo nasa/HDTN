@@ -199,8 +199,18 @@ void UdpDelaySim::QueuePacketForDelayedSend_NotThreadSafe(std::vector<uint8_t>& 
 
 void UdpDelaySim::DoUdpShutdown() {
     //final code to shut down udp sockets
-    m_udpPacketSendDelayTimer.cancel();
-    m_timerTransferRateStats.cancel();
+    try {
+        m_udpPacketSendDelayTimer.cancel();
+    }
+    catch (const boost::system::system_error& e) {
+        LOG_WARNING(subprocess) << "UdpDelaySim::DoUdpShutdown calling udpPacketSendDelayTimer.cancel(): " << e.what();
+    }
+    try {
+        m_timerTransferRateStats.cancel();
+    }
+    catch (const boost::system::system_error& e) {
+        LOG_WARNING(subprocess) << "UdpDelaySim::DoUdpShutdown calling timerTransferRateStats.cancel(): " << e.what();
+    }
     if (m_udpSocket.is_open()) {
         try {
             LOG_INFO(subprocess) << "closing UdpDelaySim UDP socket..";

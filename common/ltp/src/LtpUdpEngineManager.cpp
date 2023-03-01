@@ -397,8 +397,18 @@ void LtpUdpEngineManager::SocketRestored_TimerExpired(const boost::system::error
 void LtpUdpEngineManager::DoUdpShutdown() {
     //final code to shut down tcp sockets
     m_readyToForward = false;
-    m_retryAfterSocketErrorTimer.cancel();
-    m_socketRestoredTimer.cancel();
+    try {
+        m_retryAfterSocketErrorTimer.cancel();
+    }
+    catch (const boost::system::system_error& e) {
+        LOG_WARNING(subprocess) << "LtpUdpEngineManager::DoUdpShutdown calling retryAfterSocketErrorTimer.cancel(): " << e.what();
+    }
+    try {
+        m_socketRestoredTimer.cancel();
+    }
+    catch (const boost::system::system_error& e) {
+        LOG_WARNING(subprocess) << "LtpUdpEngineManager::DoUdpShutdown calling socketRestoredTimer.cancel(): " << e.what();
+    }
     if (m_udpSocket.is_open()) {
         try {
             LOG_INFO(subprocess) << "closing LtpUdpEngineManager UDP socket..";

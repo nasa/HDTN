@@ -38,10 +38,25 @@ BpSinkPattern::~BpSinkPattern() {
 void BpSinkPattern::Stop() {
 
     if (m_ioServiceThreadPtr) {
-        m_timerAcs.cancel();
-        m_timerTransferRateStats.cancel();
-        m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr.reset(); //delete it
+        try {
+            m_timerAcs.cancel();
+        }
+        catch (const boost::system::system_error& e) {
+            LOG_WARNING(subprocess) << "BpSinkPattern::Stop calling timerAcs.cancel(): " << e.what();
+        }
+        try {
+            m_timerTransferRateStats.cancel();
+        }
+        catch (const boost::system::system_error& e) {
+            LOG_WARNING(subprocess) << "BpSinkPattern::Stop calling timerTransferRateStats.cancel(): " << e.what();
+        }
+        try {
+            m_ioServiceThreadPtr->join();
+            m_ioServiceThreadPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping BpSinkPattern io_service thread";
+        }
     }
 
     m_runningSenderThread = false; //thread stopping criteria
