@@ -47,7 +47,13 @@ StcpInduct::~StcpInduct() {
     }
     boost::asio::post(m_ioService, boost::bind(&StcpInduct::DisableRemoveInactiveTcpConnections, this));
     while (m_allowRemoveInactiveTcpConnections) {
-        boost::this_thread::sleep(boost::posix_time::milliseconds(100));
+        try {
+            boost::this_thread::sleep(boost::posix_time::milliseconds(100));
+        }
+        catch (const boost::thread_resource_error&) {}
+        catch (const boost::thread_interrupted&) {}
+        catch (const boost::condition_error&) {}
+        catch (const boost::lock_error&) {}
     }
     m_listStcpBundleSinks.clear(); //tcp bundle sink destructor is thread safe
     m_workPtr.reset();

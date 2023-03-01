@@ -73,6 +73,10 @@ BundleStorageManagerBase::BundleStorageManagerBase(const StorageConfig_ptr & sto
     m_memoryManager(M_MAX_SEGMENTS),
     m_filePathsVec(M_NUM_STORAGE_DISKS),
     m_circularIndexBuffersVec(M_NUM_STORAGE_DISKS, CircularIndexBufferSingleProducerSingleConsumerConfigurable(CIRCULAR_INDEX_BUFFER_SIZE)),
+    m_circularBufferBlockDataPtr(NULL),
+    m_circularBufferSegmentIdsPtr(NULL),
+    m_circularBufferIsReadCompletedPointers(), //zero initialize
+    m_circularBufferReadFromStoragePointers(), //zero initialize
     m_autoDeleteFilesOnExit((m_storageConfigPtr) ? m_storageConfigPtr->m_autoDeleteFilesOnExit : false),
     m_successfullyRestoredFromDisk(false),
     m_totalBundlesRestored(0),
