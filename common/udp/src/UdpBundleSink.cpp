@@ -41,9 +41,10 @@ UdpBundleSink::UdpBundleSink(boost::asio::io_service & ioService,
     m_udpReceiveBytesTransferredCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_running(false),
     m_safeToDelete(false),
-    m_countCircularBufferOverruns(0),
     m_printedCbTooSmallNotice(false)
 {
+    m_telemetry.m_connectionName = "null";
+    m_telemetry.m_inputName = std::string("*:") + boost::lexical_cast<std::string>(udpPort);
     for (unsigned int i = 0; i < M_NUM_CIRCULAR_BUFFER_VECTORS; ++i) {
         m_udpReceiveBuffersCbVec[i].resize(M_MAX_UDP_PACKET_SIZE_BYTES);
     }
@@ -77,7 +78,13 @@ UdpBundleSink::~UdpBundleSink() {
     if (!m_safeToDelete) {
         DoUdpShutdown();
         while (!m_safeToDelete) {
-            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+            try {
+                boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+            }
+            catch (const boost::thread_resource_error&) {}
+            catch (const boost::thread_interrupted&) {}
+            catch (const boost::condition_error&) {}
+            catch (const boost::lock_error&) {}
         }
     }
     
@@ -88,10 +95,15 @@ UdpBundleSink::~UdpBundleSink() {
     m_conditionVariableCb.notify_one();
 
     if (m_threadCbReaderPtr) {
-        m_threadCbReaderPtr->join();
-        m_threadCbReaderPtr.reset(); //delete it
+        try {
+            m_threadCbReaderPtr->join();
+            m_threadCbReaderPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping UdpBundleSink threadCbReader";
+        }
     }
-    LOG_INFO(subprocess) << "UdpBundleSink m_countCircularBufferOverruns: " << m_countCircularBufferOverruns;
+    LOG_INFO(subprocess) << "UdpBundleSink m_countCircularBufferOverruns: " << m_telemetry.m_countCircularBufferOverruns;
 }
 
 void UdpBundleSink::StartUdpReceive() {
@@ -107,13 +119,24 @@ void UdpBundleSink::HandleUdpReceive(const boost::system::error_code & error, st
     if (!error) {
         const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
         if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) {
-            ++m_countCircularBufferOverruns;
+            ++m_telemetry.m_countCircularBufferOverruns;
             if (!m_printedCbTooSmallNotice) {
                 m_printedCbTooSmallNotice = true;
                 LOG_INFO(subprocess) << "LtpUdpEngine::StartUdpReceive(): buffers full.. you might want to increase the circular buffer size! This UDP packet will be dropped!";
             }
         }
         else {
+            if (m_lastRemoteEndpoint != m_remoteEndpoint) {
+                m_lastRemoteEndpoint = m_remoteEndpoint;
+                if (m_telemetry.m_connectionName == "null") {
+                    m_telemetry.m_connectionName = m_remoteEndpoint.address().to_string()
+                        + ":" + boost::lexical_cast<std::string>(m_remoteEndpoint.port());
+                }
+                else {
+                    m_telemetry.m_connectionName = "multi-src detected";
+                }
+            }
+
             m_udpReceiveBuffer.swap(m_udpReceiveBuffersCbVec[writeIndex]);
             m_udpReceiveBytesTransferredCbVec[writeIndex] = bytesTransferred;
             m_remoteEndpointsCbVec[writeIndex] = std::move(m_remoteEndpoint);
@@ -151,8 +174,11 @@ void UdpBundleSink::PopCbThreadFunc() {
                 continue;
             }
         }
+        const std::size_t bytesTransferred = m_udpReceiveBytesTransferredCbVec[consumeIndex];
+        m_telemetry.m_totalBundleBytesReceived += bytesTransferred;
+        ++(m_telemetry.m_totalBundlesReceived);
         //m_wholeBundleReadyCallback(m_udpReceiveBuffersCbVec[consumeIndex], m_udpReceiveBytesTransferredCbVec[consumeIndex]);
-        m_udpReceiveBuffersCbVec[consumeIndex].resize(m_udpReceiveBytesTransferredCbVec[consumeIndex]);
+        m_udpReceiveBuffersCbVec[consumeIndex].resize(bytesTransferred);
         m_wholeBundleReadyCallback(m_udpReceiveBuffersCbVec[consumeIndex]);
         //if (m_udpReceiveBuffersCbVec[consumeIndex].size() != 0) {
         //}

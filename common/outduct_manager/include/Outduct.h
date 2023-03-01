@@ -34,6 +34,7 @@
 #include <list>
 #include <zmq.hpp>
 #include "BundleCallbackFunctionDefines.h"
+#include "TelemetryDefinitions.h"
 
 struct OutductFinalStats {
     std::string m_convergenceLayer;
@@ -52,6 +53,7 @@ public:
 
     OUTDUCT_MANAGER_LIB_EXPORT Outduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid);
     OUTDUCT_MANAGER_LIB_EXPORT virtual ~Outduct();
+    virtual void PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& outductTelem) = 0;
     virtual std::size_t GetTotalDataSegmentsUnacked() = 0;
     virtual bool Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t> && userData) = 0;
     virtual bool Forward(zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData) = 0;
@@ -67,7 +69,6 @@ public:
     virtual bool ReadyToForward() = 0;
     virtual void Stop() = 0;
     virtual void GetOutductFinalStats(OutductFinalStats & finalStats) = 0;
-    OUTDUCT_MANAGER_LIB_EXPORT virtual uint64_t GetOutductTelemetry(uint8_t* data, uint64_t bufferSize);
 
     OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetOutductUuid() const;
     OUTDUCT_MANAGER_LIB_EXPORT virtual uint64_t GetOutductMaxNumberOfBundlesInPipeline() const;
@@ -79,6 +80,8 @@ public:
 protected:
     const outduct_element_config_t m_outductConfig;
     const uint64_t m_outductUuid;
+public:
+    bool m_linkIsUpPerTimeSchedule;
 };
 
 #endif // OUTDUCT_H

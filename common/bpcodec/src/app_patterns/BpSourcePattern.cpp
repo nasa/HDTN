@@ -26,6 +26,7 @@
 #include "codec/bpv6.h"
 #include "TcpclInduct.h"
 #include "TcpclV4Induct.h"
+#include "StcpInduct.h"
 #include "codec/BundleViewV7.h"
 #include "ThreadNamer.h"
 
@@ -66,8 +67,13 @@ void BpSourcePattern::Stop() {
 
 //    boost::this_thread::sleep(boost::posix_time::seconds(1));
     if(m_bpSourcePatternThreadPtr) {
-        m_bpSourcePatternThreadPtr->join();
-        m_bpSourcePatternThreadPtr.reset(); //delete it
+        try {
+            m_bpSourcePatternThreadPtr->join();
+            m_bpSourcePatternThreadPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping BpSourcePattern thread";
+        }
     }
 
     m_outductManager.StopAllOutducts();
@@ -119,8 +125,8 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
         m_useCustodyTransfer = true;
         m_inductManager.LoadInductsFromConfig(boost::bind(&BpSourcePattern::WholeRxBundleReadyCallback, this, boost::placeholders::_1),
             *inductsConfigPtr, m_myEid.nodeId, UINT16_MAX, 1000000, //todo 1MB max bundle size on custody signals
-            boost::bind(&BpSourcePattern::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2),
-            boost::bind(&BpSourcePattern::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1));
+            boost::bind(&BpSourcePattern::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
+            boost::bind(&BpSourcePattern::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
     }
     else if ((outductsConfigPtr)
         && ((outductsConfigPtr->m_outductElementConfigVector[0].convergenceLayer == "tcpcl_v3") || (outductsConfigPtr->m_outductElementConfigVector[0].convergenceLayer == "tcpcl_v4"))
@@ -879,7 +885,7 @@ bool BpSourcePattern::ProcessNonAdminRecordBundlePayload(const uint8_t * data, c
     return true;
 }
 
-void BpSourcePattern::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr) {
+void BpSourcePattern::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtr) {
     if (m_tcpclInductPtr = dynamic_cast<TcpclInduct*>(thisInductPtr)) {
         LOG_INFO(subprocess) << "New opportunistic link detected on Tcpcl induct for ipn:" << remoteNodeId << ".*";
         m_tcpclOpportunisticRemoteNodeId = remoteNodeId;
@@ -888,13 +894,21 @@ void BpSourcePattern::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId
         LOG_INFO(subprocess) << "New opportunistic link detected on TcpclV4 induct for ipn:" << remoteNodeId << ".*";
         m_tcpclOpportunisticRemoteNodeId = remoteNodeId;
     }
+    else if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
+
+    }
     else {
         LOG_ERROR(subprocess) << "BpSourcePattern::OnNewOpportunisticLinkCallback: Induct ptr cannot cast to TcpclInduct or TcpclV4Induct";
     }
 }
-void BpSourcePattern::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId) {
-    m_tcpclOpportunisticRemoteNodeId = 0;
-    LOG_INFO(subprocess) << "Deleted opportunistic link on Tcpcl induct for ipn:" << remoteNodeId << ".*";
+void BpSourcePattern::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtrAboutToBeDeleted) {
+    if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
+
+    }
+    else {
+        m_tcpclOpportunisticRemoteNodeId = 0;
+        LOG_INFO(subprocess) << "Deleted opportunistic link on Tcpcl induct for ipn:" << remoteNodeId << ".*";
+    }
 }
 
 void BpSourcePattern::OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled) {

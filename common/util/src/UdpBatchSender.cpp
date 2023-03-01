@@ -133,7 +133,13 @@ void UdpBatchSender::Stop() {
     if (m_ioServiceThreadPtr) {
         DoUdpShutdown();
         while (m_udpSocketConnectedSenderOnly.is_open()) {
-            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+            try {
+                boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+            }
+            catch (const boost::thread_resource_error&) {}
+            catch (const boost::thread_interrupted&) {}
+            catch (const boost::condition_error&) {}
+            catch (const boost::lock_error&) {}
         }
 
         //This function does not block, but instead simply signals the io_service to stop
@@ -143,8 +149,15 @@ void UdpBatchSender::Stop() {
         if (!m_ioService.stopped()) {
             m_ioService.stop(); //ioservice requires stopping before join because of the m_work object
         }
-        m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr.reset(); //delete it
+        if (m_ioServiceThreadPtr) {
+            try {
+                m_ioServiceThreadPtr->join();
+                m_ioServiceThreadPtr.reset(); //delete it
+            }
+            catch (const boost::thread_resource_error&) {
+                LOG_ERROR(subprocess) << "error stopping UdpBatchSender io_service";
+            }
+        }
 
 #ifdef _WIN32
 # ifdef UDP_BATCH_SENDER_USE_OVERLAPPED

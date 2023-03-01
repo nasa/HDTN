@@ -116,12 +116,23 @@ void UdpDelaySim::Stop() {
 
     DoUdpShutdown();
     while (m_udpSocket.is_open()) {
-        boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+        try {
+            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+        }
+        catch (const boost::thread_resource_error&) {}
+        catch (const boost::thread_interrupted&) {}
+        catch (const boost::condition_error&) {}
+        catch (const boost::lock_error&) {}
     }
 
     if (m_ioServiceThreadPtr) {
-        m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr.reset(); //delete it
+        try {
+            m_ioServiceThreadPtr->join();
+            m_ioServiceThreadPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping UdpDelaySim io_service";
+        }
     }
     
 }
@@ -188,8 +199,18 @@ void UdpDelaySim::QueuePacketForDelayedSend_NotThreadSafe(std::vector<uint8_t>& 
 
 void UdpDelaySim::DoUdpShutdown() {
     //final code to shut down udp sockets
-    m_udpPacketSendDelayTimer.cancel();
-    m_timerTransferRateStats.cancel();
+    try {
+        m_udpPacketSendDelayTimer.cancel();
+    }
+    catch (const boost::system::system_error& e) {
+        LOG_WARNING(subprocess) << "UdpDelaySim::DoUdpShutdown calling udpPacketSendDelayTimer.cancel(): " << e.what();
+    }
+    try {
+        m_timerTransferRateStats.cancel();
+    }
+    catch (const boost::system::system_error& e) {
+        LOG_WARNING(subprocess) << "UdpDelaySim::DoUdpShutdown calling timerTransferRateStats.cancel(): " << e.what();
+    }
     if (m_udpSocket.is_open()) {
         try {
             LOG_INFO(subprocess) << "closing UdpDelaySim UDP socket..";

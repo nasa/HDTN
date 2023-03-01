@@ -33,6 +33,7 @@
 #include <zmq.hpp>
 #include <memory>
 #include "BundleCallbackFunctionDefines.h"
+#include "TelemetryDefinitions.h"
 #include "udp_lib_export.h"
 
 class UdpBundleSource {
@@ -109,11 +110,7 @@ private:
     uint64_t m_userAssignedUuid;
 
 public:
-    std::size_t m_totalPacketsSentBySentCallback;
-    std::size_t m_totalBytesSentBySentCallback;
-    std::size_t m_totalPacketsDequeuedForSend;
-    std::size_t m_totalBytesDequeuedForSend;
-    std::size_t m_totalPacketsLimitedByRate;
+    UdpOutductTelemetry_t m_udpOutductTelemetry;
 };
 
 

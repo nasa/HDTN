@@ -1159,8 +1159,14 @@ public:
     uint64_t m_countPacketsThatCompletedOngoingOperations;
     /// Total number of times a transmission request was written to disk prior to beginning transmission
     uint64_t m_numEventsTransmissionRequestDiskWritesTooSlow;
+    /// Total red data bytes successfully sent (needed here since TransmissionSessionCompletedCallback_t doesn't provide a byte count)
+    uint64_t m_totalRedDataBytesSuccessfullySent;
+    /// Total red data bytes failed to send
+    uint64_t m_totalRedDataBytesFailedToSend;
 
     //session sender stats (references to variables within m_ltpSessionSenderCommonData)
+    /// Indicates failed or successful pings or sessions
+    bool m_senderLinkIsUpPhysically;
     /// Total number of checkpoint retransmission timer expiry callback invocations
     uint64_t & m_numCheckpointTimerExpiredCallbacksRef;
     /// Total number of discretionary checkpoints reported received

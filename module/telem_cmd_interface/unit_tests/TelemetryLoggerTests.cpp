@@ -37,14 +37,13 @@ BOOST_AUTO_TEST_CASE(TelemetryLoggerLogTelemetryIngressTestCase)
     boost::filesystem::remove_all("stats/ingress_data_volume_bytes");
 
     TelemetryLogger logger;
-    IngressTelemetry_t telem;
-    telem.totalDataBytes = 1000;
-    Telemetry_t* t = &telem;
-    logger.LogTelemetry(t);
+    AllInductTelemetry_t telem;
+    telem.m_bundleByteCountEgress = 1000;
+    logger.LogTelemetry(&telem);
 
     boost::this_thread::sleep(boost::posix_time::milliseconds(200));
-    telem.totalDataBytes = 4000;
-    logger.LogTelemetry(t);
+    telem.m_bundleByteCountEgress = 4000;
+    logger.LogTelemetry(&telem);
 
     // Ensure stats are flushed
     boost::log::core::get()->flush();
@@ -78,14 +77,13 @@ BOOST_AUTO_TEST_CASE(TelemetryLoggerLogTelemetryEgressTestCase)
     boost::filesystem::remove_all("stats/egress_data_volume_bytes");
 
     TelemetryLogger logger;
-    EgressTelemetry_t telem;
-    telem.totalDataBytes = 1000;
-    Telemetry_t* t = &telem;
-    logger.LogTelemetry(t);
+    AllOutductTelemetry_t telem;
+    telem.m_totalBundleBytesGivenToOutducts = 1000;
+    logger.LogTelemetry(&telem);
 
     boost::this_thread::sleep(boost::posix_time::milliseconds(200));
-    telem.totalDataBytes = 4000;
-    logger.LogTelemetry(t);
+    telem.m_totalBundleBytesGivenToOutducts = 4000;
+    logger.LogTelemetry(&telem);
 
     // Ensure stats are flushed
     boost::log::core::get()->flush();

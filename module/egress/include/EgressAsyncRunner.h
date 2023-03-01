@@ -34,9 +34,8 @@ public:
     EGRESS_ASYNC_LIB_EXPORT EgressAsyncRunner();
     EGRESS_ASYNC_LIB_EXPORT ~EgressAsyncRunner();
     EGRESS_ASYNC_LIB_EXPORT bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
-    uint64_t m_bundleCount;
-    uint64_t m_bundleData;
-    uint64_t m_messageCount;
+    uint64_t m_totalBundlesGivenToOutducts;
+    uint64_t m_totalBundleBytesGivenToOutducts;
 
 private:
     EGRESS_ASYNC_LIB_NO_EXPORT void MonitorExitKeypressThreadFunction();

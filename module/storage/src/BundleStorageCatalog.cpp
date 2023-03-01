@@ -17,7 +17,13 @@
 #include <boost/make_unique.hpp>
 
 
-BundleStorageCatalog::BundleStorageCatalog() {}
+BundleStorageCatalog::BundleStorageCatalog() : 
+    m_numBundlesInCatalog(0),
+    m_numBundleBytesInCatalog(0),
+    m_totalBundleWriteOperationsToCatalog(0),
+    m_totalBundleByteWriteOperationsToCatalog(0),
+    m_totalBundleEraseOperationsFromCatalog(0),
+    m_totalBundleByteEraseOperationsFromCatalog(0) {}
 
 
 
@@ -102,8 +108,15 @@ bool BundleStorageCatalog::CatalogIncomingBundleForStore(catalog_entry_t & catal
     if (!AddEntryToAwaitingSend(catalogEntryToTake, custodyId, order)) {
         return false;
     }
+    const uint64_t bundleSizeBytes = catalogEntryToTake.bundleSizeBytes;
     if (!m_custodyIdToCatalogEntryHashmap.Insert(custodyId, std::move(catalogEntryToTake))) {
         return false;
+    }
+    else {
+        ++m_numBundlesInCatalog;
+        m_numBundleBytesInCatalog += bundleSizeBytes;
+        ++m_totalBundleWriteOperationsToCatalog;
+        m_totalBundleByteWriteOperationsToCatalog += bundleSizeBytes;
     }
     
     return true;
@@ -258,6 +271,10 @@ std::pair<bool, uint16_t> BundleStorageCatalog::Remove(const uint64_t custodyId,
         error = true;
     }
     else {
+        --m_numBundlesInCatalog;
+        m_numBundleBytesInCatalog -= entry.bundleSizeBytes;
+        ++m_totalBundleEraseOperationsFromCatalog;
+        m_totalBundleByteEraseOperationsFromCatalog += entry.bundleSizeBytes;
         ++numRemovals;
     }
     if ((!error) && alsoNeedsRemovedFromAwaitingSend) {
@@ -322,7 +339,7 @@ bool BundleStorageCatalog::GetStorageExpiringBeforeThresholdTelemetry(StorageExp
             const uint64_t thisExpiration = expirationsIt->first;
             if (thisExpiration <= expiry) {
                 custids_flist_queue_t& custodyIdFlistQueue = expirationsIt->second;
-                StorageExpiringBeforeThresholdTelemetry_t::bundle_count_plus_bundle_bytes_pair_t & bundleCountAndBytes = telem.map_node_id_to_expiring_before_threshold_count[eid.nodeId];
+                StorageExpiringBeforeThresholdTelemetry_t::bundle_count_plus_bundle_bytes_pair_t & bundleCountAndBytes = telem.mapNodeIdToExpiringBeforeThresholdCount[eid.nodeId];
                 for (custids_flist_queue_t::iterator cidFlistIt = custodyIdFlistQueue.begin(); cidFlistIt != custodyIdFlistQueue.end(); ++cidFlistIt) {
                     ++bundleCountAndBytes.first;
                     const uint64_t custodyId = *cidFlistIt;
@@ -334,4 +351,23 @@ bool BundleStorageCatalog::GetStorageExpiringBeforeThresholdTelemetry(StorageExp
     }
     
     return true;
+}
+
+uint64_t BundleStorageCatalog::GetNumBundlesInCatalog() const noexcept {
+    return m_numBundlesInCatalog;
+}
+uint64_t BundleStorageCatalog::GetNumBundleBytesInCatalog() const noexcept {
+    return m_numBundleBytesInCatalog;
+}
+uint64_t BundleStorageCatalog::GetTotalBundleWriteOperationsToCatalog() const noexcept {
+    return m_totalBundleWriteOperationsToCatalog;
+}
+uint64_t BundleStorageCatalog::GetTotalBundleByteWriteOperationsToCatalog() const noexcept {
+    return m_totalBundleByteWriteOperationsToCatalog;
+}
+uint64_t BundleStorageCatalog::GetTotalBundleEraseOperationsFromCatalog() const noexcept {
+    return m_totalBundleEraseOperationsFromCatalog;
+}
+uint64_t BundleStorageCatalog::GetTotalBundleByteEraseOperationsFromCatalog() const noexcept {
+    return m_totalBundleByteEraseOperationsFromCatalog;
 }

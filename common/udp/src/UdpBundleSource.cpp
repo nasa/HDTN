@@ -39,12 +39,7 @@ m_userDataCbVec(m_maxPacketsBeingSent + 10),
 m_readyToForward(false),
 m_useLocalConditionVariableAckReceived(false), //for destructor only
 m_tokenRefreshTimerIsRunning(false),
-m_userAssignedUuid(0),
-m_totalPacketsSentBySentCallback(0),
-m_totalBytesSentBySentCallback(0),
-m_totalPacketsDequeuedForSend(0),
-m_totalBytesDequeuedForSend(0),
-m_totalPacketsLimitedByRate(0)
+m_userAssignedUuid(0)
 {
     //m_rateManagerAsync.SetPacketsSentCallback(boost::bind(&UdpBundleSource::PacketsSentCallback, this));
     //const uint64_t minimumRateBytesPerSecond = 655360;
@@ -65,11 +60,11 @@ m_totalPacketsLimitedByRate(0)
 UdpBundleSource::~UdpBundleSource() {
     Stop();
     //print stats
-    LOG_INFO(subprocess) << "m_totalPacketsSentBySentCallback " << m_totalPacketsSentBySentCallback;
-    LOG_INFO(subprocess) << "m_totalBytesSentBySentCallback " << m_totalBytesSentBySentCallback;
-    LOG_INFO(subprocess) << "m_totalPacketsDequeuedForSend " << m_totalPacketsDequeuedForSend;
-    LOG_INFO(subprocess) << "m_totalBytesDequeuedForSend " << m_totalBytesDequeuedForSend;
-    LOG_INFO(subprocess) << "m_totalPacketsLimitedByRate " << m_totalPacketsLimitedByRate;
+    LOG_INFO(subprocess) << "m_totalPacketsSent " << m_udpOutductTelemetry.m_totalPacketsSent;
+    LOG_INFO(subprocess) << "m_totalPacketBytesSent " << m_udpOutductTelemetry.m_totalPacketBytesSent;
+    LOG_INFO(subprocess) << "m_totalPacketsDequeuedForSend " << m_udpOutductTelemetry.m_totalPacketsDequeuedForSend;
+    LOG_INFO(subprocess) << "m_totalPacketBytesDequeuedForSend " << m_udpOutductTelemetry.m_totalPacketBytesDequeuedForSend;
+    LOG_INFO(subprocess) << "m_totalPacketsLimitedByRate " << m_udpOutductTelemetry.m_totalPacketsLimitedByRate;
 }
 
 void UdpBundleSource::Stop() {
@@ -96,7 +91,13 @@ void UdpBundleSource::Stop() {
 
     DoUdpShutdown();
     while (m_udpSocket.is_open()) {
-        boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+        try {
+            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+        }
+        catch (const boost::thread_resource_error&) {}
+        catch (const boost::thread_interrupted&) {}
+        catch (const boost::condition_error&) {}
+        catch (const boost::lock_error&) {}
     }
 
     //This function does not block, but instead simply signals the io_service to stop
@@ -106,9 +107,14 @@ void UdpBundleSource::Stop() {
         m_ioService.stop(); //ioservice requires stopping before join because of the m_work object
     }
 
-    if(m_ioServiceThreadPtr) {
-        m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr.reset(); //delete it
+    if (m_ioServiceThreadPtr) {
+        try {
+            m_ioServiceThreadPtr->join();
+            m_ioServiceThreadPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping UdpBundleSource io_service";
+        }
     }
 
 }
@@ -135,8 +141,8 @@ bool UdpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_
         return false;
     }
 
-    ++m_totalPacketsDequeuedForSend;
-    m_totalBytesDequeuedForSend += dataVec.size();
+    ++m_udpOutductTelemetry.m_totalPacketsDequeuedForSend;
+    m_udpOutductTelemetry.m_totalPacketBytesDequeuedForSend += dataVec.size();
 
     m_bytesToAckBySentCallbackCbVec[writeIndexSentCallback] = dataVec.size();
     m_userDataCbVec[writeIndexSentCallback] = std::move(userData);
@@ -162,8 +168,8 @@ bool UdpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& u
         return false;
     }
 
-    ++m_totalPacketsDequeuedForSend;
-    m_totalBytesDequeuedForSend += dataZmq.size();
+    ++m_udpOutductTelemetry.m_totalPacketsDequeuedForSend;
+    m_udpOutductTelemetry.m_totalPacketBytesDequeuedForSend += dataZmq.size();
 
     m_bytesToAckBySentCallbackCbVec[writeIndexSentCallback] = dataZmq.size();
     m_userDataCbVec[writeIndexSentCallback] = std::move(userData);
@@ -182,27 +188,27 @@ bool UdpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size,
 
 
 std::size_t UdpBundleSource::GetTotalUdpPacketsAcked() {
-    return m_totalPacketsSentBySentCallback;
+    return m_udpOutductTelemetry.m_totalPacketsSent;
 }
 
 std::size_t UdpBundleSource::GetTotalUdpPacketsSent() {
-    return m_totalPacketsDequeuedForSend;
+    return m_udpOutductTelemetry.m_totalPacketsDequeuedForSend;
 }
 
 std::size_t UdpBundleSource::GetTotalUdpPacketsUnacked() {
-    return m_totalPacketsDequeuedForSend - m_totalPacketsSentBySentCallback;
+    return m_udpOutductTelemetry.m_totalPacketsDequeuedForSend - m_udpOutductTelemetry.m_totalPacketsSent;
 }
 
 std::size_t UdpBundleSource::GetTotalBundleBytesAcked() {
-    return m_totalBytesSentBySentCallback;
+    return m_udpOutductTelemetry.m_totalPacketBytesSent;
 }
 
 std::size_t UdpBundleSource::GetTotalBundleBytesSent() {
-    return m_totalBytesDequeuedForSend;
+    return m_udpOutductTelemetry.m_totalPacketBytesDequeuedForSend;
 }
 
 std::size_t UdpBundleSource::GetTotalBundleBytesUnacked() {
-    return m_totalBytesDequeuedForSend - m_totalBytesSentBySentCallback;
+    return m_udpOutductTelemetry.m_totalPacketBytesDequeuedForSend - m_udpOutductTelemetry.m_totalPacketBytesSent;
 }
 
 
@@ -229,6 +235,7 @@ void UdpBundleSource::OnResolve(const boost::system::error_code & ec, boost::asi
 
             LOG_INFO(subprocess) << "UDP Bound on ephemeral port " << m_udpSocket.local_endpoint().port();
             LOG_INFO(subprocess) << "UDP READY";
+            m_udpOutductTelemetry.m_linkIsUpPhysically = true;
             m_readyToForward = true;
 
         }
@@ -251,7 +258,7 @@ void UdpBundleSource::HandlePostForUdpSendVecMessage(std::shared_ptr<std::vector
                 boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
         m_queueVecDataToSendPtrs.pop();
-        m_totalPacketsLimitedByRate += (!m_queueVecDataToSendPtrs.empty());
+        m_udpOutductTelemetry.m_totalPacketsLimitedByRate += (!m_queueVecDataToSendPtrs.empty());
     }
     //else //no tokens available, the already queued packet will be processed by the m_tokenRefreshTimer expiration
         
@@ -270,7 +277,7 @@ void UdpBundleSource::HandlePostForUdpSendZmqMessage(std::shared_ptr<zmq::messag
                 boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
         m_queueZmqDataToSendPtrs.pop();
-        m_totalPacketsLimitedByRate += (!m_queueZmqDataToSendPtrs.empty());
+        m_udpOutductTelemetry.m_totalPacketsLimitedByRate += (!m_queueZmqDataToSendPtrs.empty());
     }
     //else //no tokens available, the already queued packet will be processed by the m_tokenRefreshTimer expiration
 
@@ -306,8 +313,8 @@ bool UdpBundleSource::ProcessPacketSent(std::size_t bytes_transferred) {
         return false;
     }
     else if (m_bytesToAckBySentCallbackCbVec[readIndex] == bytes_transferred) {
-        ++m_totalPacketsSentBySentCallback;
-        m_totalBytesSentBySentCallback += m_bytesToAckBySentCallbackCbVec[readIndex];
+        ++m_udpOutductTelemetry.m_totalPacketsSent;
+        m_udpOutductTelemetry.m_totalPacketBytesSent += m_bytesToAckBySentCallbackCbVec[readIndex];
         std::vector<uint8_t> userData(std::move(m_userDataCbVec[readIndex]));
         m_bytesToAckBySentCallbackCb.CommitRead();
 
@@ -332,6 +339,7 @@ void UdpBundleSource::DoUdpShutdown() {
 
 void UdpBundleSource::DoHandleSocketShutdown() {
     //final code to shut down tcp sockets
+    m_udpOutductTelemetry.m_linkIsUpPhysically = false;
     m_readyToForward = false;
     if (m_udpSocket.is_open()) {
         try {
@@ -398,7 +406,7 @@ void UdpBundleSource::OnTokenRefresh_TimerExpired(const boost::system::error_cod
                         boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred));
                 m_queueVecDataToSendPtrs.pop();
-                ++m_totalPacketsLimitedByRate;
+                ++m_udpOutductTelemetry.m_totalPacketsLimitedByRate;
             }
             else { //no tokens available, empty the packet queue at the next m_tokenRefreshTimer expiration
                 TryRestartTokenRefreshTimer(nowPtime);
@@ -415,7 +423,7 @@ void UdpBundleSource::OnTokenRefresh_TimerExpired(const boost::system::error_cod
                         boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred));
                 m_queueZmqDataToSendPtrs.pop();
-                ++m_totalPacketsLimitedByRate;
+                ++m_udpOutductTelemetry.m_totalPacketsLimitedByRate;
             }
             else { //no tokens available, empty the packet queue at the next m_tokenRefreshTimer expiration
                 TryRestartTokenRefreshTimer(nowPtime);

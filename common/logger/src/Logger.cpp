@@ -104,14 +104,21 @@ void Logger::initializeWithProcess(Logger::Process process) {
     ensureInitialized();
 }
 
-void Logger::ensureInitialized()
-{
-    if (!loggerSingletonFullyInitialized_) { //fast way to bypass a mutex lock all the time
-        //first thread that uses the logger gets to create the logger
-        boost::mutex::scoped_lock theLock(mutexSingletonInstance_);
-        if (!loggerSingletonFullyInitialized_) { //check it again now that mutex is locked
-            logger_.reset(new Logger());
-            loggerSingletonFullyInitialized_ = true;
+void Logger::ensureInitialized() noexcept {
+    while (!loggerSingletonFullyInitialized_) { //fast way to bypass a mutex lock all the time
+        try {
+            //first thread that uses the logger gets to create the logger
+            boost::mutex::scoped_lock theLock(mutexSingletonInstance_);
+            if (!loggerSingletonFullyInitialized_) { //check it again now that mutex is locked
+                logger_.reset(new Logger());
+                loggerSingletonFullyInitialized_ = true;
+            }
+        }
+        catch (const boost::lock_error&) {
+            continue;
+        }
+        catch (const std::exception&) {
+            continue;
         }
     }
 }

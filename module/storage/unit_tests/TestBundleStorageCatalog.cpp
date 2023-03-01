@@ -72,6 +72,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogTestCase)
         primariesV6.resize(10);
         primariesV7.resize(10);
         catalogEntryCopiesForVerification.reserve(10);
+        uint64_t sumBundleBytes = 0;
         for (std::size_t i = 0; i < 10; ++i) {
             if (whichBundleVersion == 6) {
                 CreatePrimaryV6(primariesV6[i], cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), true, 1000, i);
@@ -83,14 +84,23 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogTestCase)
             }
             catalog_entry_t catalogEntryToTake;
             catalogEntryToTake.Init(*primaries[i], 1000 + i, 1, NULL);
+            sumBundleBytes += 1000 + i;
             catalogEntryToTake.segmentIdChainVec = { static_cast<segment_id_t>(i) };
             catalogEntryCopiesForVerification.push_back(catalogEntryToTake); //make a copy for verification
             const uint64_t custodyId = i;
             BOOST_REQUIRE_EQUAL(catalogEntryToTake.segmentIdChainVec.size(), 1); //verify before move
             BOOST_REQUIRE(bsc.CatalogIncomingBundleForStore(catalogEntryToTake, *primaries[i], custodyId, BundleStorageCatalog::DUPLICATE_EXPIRY_ORDER::FIFO));
+            BOOST_REQUIRE_EQUAL(bsc.GetNumBundlesInCatalog(), i + 1);
+            BOOST_REQUIRE_EQUAL(bsc.GetNumBundleBytesInCatalog(), sumBundleBytes);
+            BOOST_REQUIRE_EQUAL(bsc.GetNumBundlesInCatalog(), bsc.GetTotalBundleWriteOperationsToCatalog());
+            BOOST_REQUIRE_EQUAL(bsc.GetNumBundleBytesInCatalog(), bsc.GetTotalBundleByteWriteOperationsToCatalog());
+            BOOST_REQUIRE_EQUAL(bsc.GetTotalBundleEraseOperationsFromCatalog(), 0);
+            BOOST_REQUIRE_EQUAL(bsc.GetTotalBundleByteEraseOperationsFromCatalog(), 0);
             catalogEntryCopiesForVerification.back().ptrUuidKeyInMap = catalogEntryToTake.ptrUuidKeyInMap; //was potentially modified at CatalogIncomingBundleForStore
             BOOST_REQUIRE_EQUAL(catalogEntryToTake.segmentIdChainVec.size(), 0); //verify was moved
         }
+        const uint64_t highestSumBundleBytes = sumBundleBytes;
+        uint64_t sumBundleBytesDeleted = 0;
         const std::vector<cbhe_eid_t> availableDestinationEids({ cbhe_eid_t(501, 501) });
         for (std::size_t i = 0; i < 10; ++i) {
             const uint64_t expectedCustodyId = i;
@@ -135,7 +145,18 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogTestCase)
                 //In actual storage implementation, the primary must be retrieved from actual storage
                 //return pair<success, numSuccessfulRemovals>
                 std::pair<bool, uint16_t> expectedRet(true, 2); //2 removals, m_custodyIdToCatalogEntryHashmap and m_uuidNoFragToCustodyIdHashMap
+                BOOST_REQUIRE_EQUAL(bsc.GetNumBundlesInCatalog(), 10 - i);
+                BOOST_REQUIRE_EQUAL(bsc.GetNumBundleBytesInCatalog(), sumBundleBytes);
                 BOOST_REQUIRE(expectedRet == bsc.Remove(expectedCustodyId, false));
+                BOOST_REQUIRE_EQUAL(bsc.GetNumBundlesInCatalog(), 10 - (i+1));
+                BOOST_REQUIRE_GE(entryFromCustodyIdPtr->bundleSizeBytes, 1000);
+                sumBundleBytes -= entryFromCustodyIdPtr->bundleSizeBytes;
+                BOOST_REQUIRE_EQUAL(bsc.GetNumBundleBytesInCatalog(), sumBundleBytes);
+                BOOST_REQUIRE_EQUAL(bsc.GetTotalBundleWriteOperationsToCatalog(), 10);
+                BOOST_REQUIRE_EQUAL(bsc.GetTotalBundleByteWriteOperationsToCatalog(), highestSumBundleBytes);
+                BOOST_REQUIRE_EQUAL(bsc.GetTotalBundleEraseOperationsFromCatalog(), i + 1);
+                sumBundleBytesDeleted += 1000 + i;
+                BOOST_REQUIRE_EQUAL(bsc.GetTotalBundleByteEraseOperationsFromCatalog(), sumBundleBytesDeleted);
                 //make sure remove again fails
                 std::pair<bool, uint16_t> expectedRetFail(false, 0);
                 BOOST_REQUIRE(expectedRetFail == bsc.Remove(expectedCustodyId, false));

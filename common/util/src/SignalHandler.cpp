@@ -13,10 +13,13 @@
  */
 
 #include "SignalHandler.h"
+#include "Logger.h"
 #include <boost/make_unique.hpp>
 #include <signal.h>
 #include <iostream>
 #include "ThreadNamer.h"
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 SignalHandler::SignalHandler(boost::function<void () > handleSignalFunction) :
 m_ioService(), m_signals(m_ioService), m_handleSignalFunction(handleSignalFunction) {
@@ -33,8 +36,13 @@ m_ioService(), m_signals(m_ioService), m_handleSignalFunction(handleSignalFuncti
 SignalHandler::~SignalHandler() {
 	m_ioService.stop();
 	if (m_ioServiceThreadPtr) {
-		m_ioServiceThreadPtr->join();
-		m_ioServiceThreadPtr.reset();
+		try {
+			m_ioServiceThreadPtr->join();
+			m_ioServiceThreadPtr.reset(); //delete it
+		}
+		catch (const boost::thread_resource_error&) {
+			LOG_ERROR(subprocess) << "error stopping SignalHandler io_service";
+		}
 	}
 }
 

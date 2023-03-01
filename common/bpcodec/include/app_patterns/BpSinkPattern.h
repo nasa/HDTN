@@ -59,8 +59,8 @@ private:
     BP_APP_PATTERNS_LIB_NO_EXPORT void AcsNeedToSend_TimerExpired(const boost::system::error_code& e);
     BP_APP_PATTERNS_LIB_NO_EXPORT void TransferRate_TimerExpired(const boost::system::error_code& e);
     BP_APP_PATTERNS_LIB_NO_EXPORT void SendAcsFromTimerThread();
-    BP_APP_PATTERNS_LIB_NO_EXPORT void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr);
-    BP_APP_PATTERNS_LIB_NO_EXPORT void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId);
+    BP_APP_PATTERNS_LIB_NO_EXPORT void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtr);
+    BP_APP_PATTERNS_LIB_NO_EXPORT void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtrAboutToBeDeleted);
     BP_APP_PATTERNS_LIB_NO_EXPORT bool Forward_ThreadSafe(const cbhe_eid_t & destEid, std::vector<uint8_t> & bundleToMoveAndSend);
     BP_APP_PATTERNS_LIB_NO_EXPORT void SenderReaderThreadFunc();
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid);

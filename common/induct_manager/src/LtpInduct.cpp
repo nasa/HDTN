@@ -57,3 +57,18 @@ bool LtpInduct::Init() {
 }
 
 LtpInduct::~LtpInduct() {}
+
+void LtpInduct::PopulateInductTelemetry(InductTelemetry_t& inductTelem) {
+    inductTelem.m_convergenceLayer = "ltp_over_udp";
+    inductTelem.m_listInductConnections.clear();
+    if (m_ltpBundleSinkPtr) {
+        m_ltpBundleSinkPtr->SyncTelemetry();
+        inductTelem.m_listInductConnections.emplace_back(boost::make_unique<LtpInductConnectionTelemetry_t>(m_ltpBundleSinkPtr->m_telemetry));
+    }
+    else {
+        std::unique_ptr<LtpInductConnectionTelemetry_t> c = boost::make_unique<LtpInductConnectionTelemetry_t>();
+        c->m_connectionName = "null";
+        c->m_inputName = std::string("*:") + boost::lexical_cast<std::string>(m_ltpRxCfg.myBoundUdpPort);
+        inductTelem.m_listInductConnections.emplace_back(std::move(c));
+    }
+}

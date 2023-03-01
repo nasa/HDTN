@@ -30,6 +30,7 @@
 #include <memory>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "PaddedVectorUint8.h"
+#include "TelemetryDefinitions.h"
 #include "stcp_lib_export.h"
 
 class StcpBundleSink {
@@ -55,6 +56,10 @@ private:
     STCP_LIB_NO_EXPORT void PopCbThreadFunc();
     STCP_LIB_NO_EXPORT void DoStcpShutdown();
     STCP_LIB_NO_EXPORT void HandleSocketShutdown();
+
+public:
+    StcpInductConnectionTelemetry_t m_telemetry;
+private:
     
     const WholeBundleReadyCallback_t m_wholeBundleReadyCallback;
     const NotifyReadyToDeleteCallback_t m_notifyReadyToDeleteCallback;

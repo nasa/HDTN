@@ -25,6 +25,7 @@
 #include <boost/thread.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
+#include <boost/function.hpp>
 #include "zmq.hpp"
 
 #include "CivetServer.h"
@@ -37,6 +38,9 @@
 #    define CLASS_VISIBILITY_GUI_LIB TELEM_LIB_EXPORT
 #  endif
 #endif
+
+typedef boost::function<void(struct mg_connection* conn)> OnNewWebsocketConnectionCallback_t;
+typedef boost::function<bool(struct mg_connection* conn, char* data, size_t data_len)> OnNewWebsocketDataReceivedCallback_t;
 
 class CLASS_VISIBILITY_GUI_LIB ExitHandler : public CivetHandler {
 public:
@@ -52,7 +56,8 @@ public:
     TELEM_LIB_EXPORT ~WebSocketHandler();
     TELEM_LIB_EXPORT void SendTextDataToActiveWebsockets(const char * data, std::size_t size);
     TELEM_LIB_EXPORT void SendBinaryDataToActiveWebsockets(const char * data, std::size_t size);
-
+    TELEM_LIB_EXPORT void SetOnNewWebsocketConnectionCallback(const OnNewWebsocketConnectionCallback_t& callback);
+    TELEM_LIB_EXPORT void SetOnNewWebsocketDataReceivedCallback(const OnNewWebsocketDataReceivedCallback_t& callback);
 private:
     TELEM_LIB_NO_EXPORT virtual bool handleConnection(CivetServer *server, const struct mg_connection *conn);
     TELEM_LIB_NO_EXPORT virtual void handleReadyState(CivetServer *server, struct mg_connection *conn);
@@ -61,6 +66,8 @@ private:
 
     boost::mutex m_mutex;
     std::set<struct mg_connection *> m_activeConnections; //allow multiple connections
+    OnNewWebsocketConnectionCallback_t m_onNewWebsocketConnectionCallback;
+    OnNewWebsocketDataReceivedCallback_t m_onNewWebsocketDataReceivedCallback;
 };
 
 class CLASS_VISIBILITY_GUI_LIB WebsocketServer {
@@ -69,6 +76,9 @@ public:
     TELEM_LIB_EXPORT bool Init(const boost::filesystem::path& documentRoot, const std::string& portNumberAsString);
     TELEM_LIB_EXPORT bool RequestsExit();
     TELEM_LIB_EXPORT void SendNewBinaryData(const char* data, std::size_t size);
+    TELEM_LIB_EXPORT void SendNewTextData(const char* data, std::size_t size);
+    TELEM_LIB_EXPORT void SetOnNewWebsocketConnectionCallback(const OnNewWebsocketConnectionCallback_t& callback);
+    TELEM_LIB_EXPORT void SetOnNewWebsocketDataReceivedCallback(const OnNewWebsocketDataReceivedCallback_t& callback);
     TELEM_LIB_EXPORT ~WebsocketServer();
 
 private:

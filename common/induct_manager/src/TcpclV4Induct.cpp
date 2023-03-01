@@ -83,13 +83,24 @@ TcpclV4Induct::~TcpclV4Induct() {
     }
     boost::asio::post(m_ioService, boost::bind(&TcpclV4Induct::DisableRemoveInactiveTcpConnections, this));
     while (m_allowRemoveInactiveTcpConnections) {
-        boost::this_thread::sleep(boost::posix_time::milliseconds(100));
+        try {
+            boost::this_thread::sleep(boost::posix_time::milliseconds(100));
+        }
+        catch (const boost::thread_resource_error&) {}
+        catch (const boost::thread_interrupted&) {}
+        catch (const boost::condition_error&) {}
+        catch (const boost::lock_error&) {}
     }
     m_listTcpclV4BundleSinks.clear(); //tcp bundle sink destructor is thread safe
     m_workPtr.reset();
     if (m_ioServiceThreadPtr) {
-        m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr.reset(); //delete it
+        try {
+            m_ioServiceThreadPtr->join();
+            m_ioServiceThreadPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping TcpclV4Induct io_service";
+        }
     }
 }
 
@@ -114,29 +125,33 @@ void TcpclV4Induct::StartTcpAccept() {
 void TcpclV4Induct::HandleTcpAccept(std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > & newSslStreamSharedPtr, const boost::system::error_code & error) {
     if (!error) {
         LOG_INFO(subprocess) << "tcpclv4 tcp connection: " << newSslStreamSharedPtr->next_layer().remote_endpoint().address() << ":" << newSslStreamSharedPtr->next_layer().remote_endpoint().port();
-        m_listTcpclV4BundleSinks.emplace_back(
-            newSslStreamSharedPtr,
+        {
+            boost::mutex::scoped_lock lock(m_listTcpclV4BundleSinksMutex);
+            m_listTcpclV4BundleSinks.emplace_back(
+                newSslStreamSharedPtr,
 #else
-void TcpclV4Induct::HandleTcpAccept(std::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code& error) {
+void TcpclV4Induct::HandleTcpAccept(std::shared_ptr<boost::asio::ip::tcp::socket> &newTcpSocketPtr, const boost::system::error_code & error) {
     if (!error) {
         LOG_INFO(subprocess) << "tcpclv4 tcp connection: " << newTcpSocketPtr->remote_endpoint().address() << ":" << newTcpSocketPtr->remote_endpoint().port();
-        m_listTcpclV4BundleSinks.emplace_back(
-            newTcpSocketPtr,
+        {
+            boost::mutex::scoped_lock lock(m_listTcpclV4BundleSinksMutex);
+            m_listTcpclV4BundleSinks.emplace_back(
+                newTcpSocketPtr,
 #endif
-            m_tlsSuccessfullyConfigured,
-            m_inductConfig.tlsIsRequired,
-            m_inductConfig.keepAliveIntervalSeconds,
-            m_ioService,
-            m_inductProcessBundleCallback,
-            m_inductConfig.numRxCircularBufferElements,
-            m_inductConfig.numRxCircularBufferBytesPerElement,
-            M_MY_NODE_ID,
-            M_MAX_BUNDLE_SIZE_BYTES,
-            boost::bind(&TcpclV4Induct::ConnectionReadyToBeDeletedNotificationReceived, this),
-            boost::bind(&TcpclV4Induct::OnContactHeaderCallback_FromIoServiceThread, this, boost::placeholders::_1),
-            10, //const unsigned int maxUnacked, (todo)
-            m_inductConfig.tcpclV4MyMaxRxSegmentSizeBytes); //const uint64_t maxFragmentSize = 100000000); (todo)
-
+                m_tlsSuccessfullyConfigured,
+                m_inductConfig.tlsIsRequired,
+                m_inductConfig.keepAliveIntervalSeconds,
+                m_ioService,
+                m_inductProcessBundleCallback,
+                m_inductConfig.numRxCircularBufferElements,
+                m_inductConfig.numRxCircularBufferBytesPerElement,
+                M_MY_NODE_ID,
+                M_MAX_BUNDLE_SIZE_BYTES,
+                boost::bind(&TcpclV4Induct::ConnectionReadyToBeDeletedNotificationReceived, this),
+                boost::bind(&TcpclV4Induct::OnContactHeaderCallback_FromIoServiceThread, this, boost::placeholders::_1),
+                10, //const unsigned int maxUnacked, (todo)
+                m_inductConfig.tcpclV4MyMaxRxSegmentSizeBytes); //const uint64_t maxFragmentSize = 100000000); (todo)
+        }
         StartTcpAccept(); //only accept if there was no error
     }
     else if (error != boost::asio::error::operation_aborted) {
@@ -150,10 +165,11 @@ void TcpclV4Induct::HandleTcpAccept(std::shared_ptr<boost::asio::ip::tcp::socket
 void TcpclV4Induct::RemoveInactiveTcpConnections() {
     const OnDeletedOpportunisticLinkCallback_t & callbackRef = m_onDeletedOpportunisticLinkCallback;
     if (m_allowRemoveInactiveTcpConnections) {
-        m_listTcpclV4BundleSinks.remove_if([&callbackRef](TcpclV4BundleSink & sink) {
+        boost::mutex::scoped_lock lock(m_listTcpclV4BundleSinksMutex);
+        m_listTcpclV4BundleSinks.remove_if([&callbackRef, this](TcpclV4BundleSink & sink) {
             if (sink.ReadyToBeDeleted()) {
                 if (callbackRef) {
-                    callbackRef(sink.GetRemoteNodeId());
+                    callbackRef(sink.GetRemoteNodeId(), this, &sink);
                 }
                 return true;
             }
@@ -183,7 +199,7 @@ void TcpclV4Induct::OnContactHeaderCallback_FromIoServiceThread(TcpclV4BundleSin
     thisTcpclBundleSinkPtr->SetTryGetOpportunisticDataFunction(boost::bind(&TcpclV4Induct::BundleSinkTryGetData_FromIoServiceThread, this, boost::ref(opportunisticBundleQueue), boost::placeholders::_1));
     thisTcpclBundleSinkPtr->SetNotifyOpportunisticDataAckedCallback(boost::bind(&TcpclV4Induct::BundleSinkNotifyOpportunisticDataAcked_FromIoServiceThread, this, boost::ref(opportunisticBundleQueue)));
     if (m_onNewOpportunisticLinkCallback) {
-        m_onNewOpportunisticLinkCallback(thisTcpclBundleSinkPtr->GetRemoteNodeId(), this);
+        m_onNewOpportunisticLinkCallback(thisTcpclBundleSinkPtr->GetRemoteNodeId(), this, thisTcpclBundleSinkPtr);
     }
 }
 
@@ -197,4 +213,21 @@ void TcpclV4Induct::NotifyBundleReadyToSend_FromIoServiceThread(const uint64_t r
 
 void TcpclV4Induct::Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId) {
     boost::asio::post(m_ioService, boost::bind(&TcpclV4Induct::NotifyBundleReadyToSend_FromIoServiceThread, this, remoteNodeId));
+}
+
+void TcpclV4Induct::PopulateInductTelemetry(InductTelemetry_t& inductTelem) {
+    inductTelem.m_convergenceLayer = "tcpcl_v4";
+    inductTelem.m_listInductConnections.clear();
+    {
+        boost::mutex::scoped_lock lock(m_listTcpclV4BundleSinksMutex);
+        for (std::list<TcpclV4BundleSink>::const_iterator it = m_listTcpclV4BundleSinks.cbegin(); it != m_listTcpclV4BundleSinks.cend(); ++it) {
+            inductTelem.m_listInductConnections.emplace_back(boost::make_unique<TcpclV4InductConnectionTelemetry_t>(it->m_base_inductConnectionTelemetry));
+        }
+    }
+    if (inductTelem.m_listInductConnections.empty()) {
+        std::unique_ptr<TcpclV4InductConnectionTelemetry_t> c = boost::make_unique<TcpclV4InductConnectionTelemetry_t>();
+        c->m_connectionName = "null";
+        c->m_inputName = std::string("*:") + boost::lexical_cast<std::string>(m_tcpAcceptor.local_endpoint().port());
+        inductTelem.m_listInductConnections.emplace_back(std::move(c));
+    }
 }

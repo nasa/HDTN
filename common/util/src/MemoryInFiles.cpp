@@ -710,7 +710,12 @@ MemoryInFiles::Impl::Impl(boost::asio::io_service& ioServiceRef,
     }
 }
 MemoryInFiles::Impl::~Impl() {
-    m_newFileAggregationTimer.cancel();
+    try {
+        m_newFileAggregationTimer.cancel();
+    }
+    catch (const boost::system::system_error& e) {
+        LOG_WARNING(subprocess) << "MemoryInFiles ~Impl calling newFileAggregationTimer.cancel(): " << e.what();
+    }
     m_mapIdToMemoryBlockInfo.clear();
     m_currentWritingFileInfoPtr.reset();
 

@@ -42,9 +42,8 @@ public:
     uint64_t m_ingressBundleData;
 
     //egress
-    uint64_t m_egressBundleCount;
-    uint64_t m_egressBundleData;
-    uint64_t m_egressMessageCount;
+    uint64_t m_egressTotalBundlesGivenToOutducts;
+    uint64_t m_egressTotalBundleBytesGivenToOutducts;
 
     //storage
     std::size_t m_totalBundlesErasedFromStorage;

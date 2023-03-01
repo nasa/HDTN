@@ -35,6 +35,7 @@ bool Telemetry::Run(int argc, const char *const argv[], volatile bool &running)
     desc.add_options()("help", "Produce help message.");
     TelemetryRunnerProgramOptions::AppendToDesc(desc);
     desc.add_options() //TODO should this be added here
+        ("hdtn-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
         ("hdtn-distributed-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn_distributed.json"), "HDTN Distributed Mode Configuration File.");
     boost::program_options::variables_map vm;
     boost::program_options::store(
@@ -50,8 +51,15 @@ bool Telemetry::Run(int argc, const char *const argv[], volatile bool &running)
         return false;
     }
 
+    const boost::filesystem::path configFileName = vm["hdtn-config-file"].as<boost::filesystem::path>();
+    HdtnConfig_ptr hdtnConfig = HdtnConfig::CreateFromJsonFilePath(configFileName);
+    if (!hdtnConfig) {
+        LOG_ERROR(subprocess) << "error loading config file: " << configFileName;
+        return false;
+    }
+
     TelemetryRunner telemetryRunner;
-    if (!telemetryRunner.Init(NULL, options)) {
+    if (!telemetryRunner.Init(*hdtnConfig, NULL, options)) {
         return false;
     }
 

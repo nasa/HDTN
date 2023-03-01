@@ -1,0 +1,33 @@
+div.tooltip {
+    color: black;
+    background: lightsteelblue;
+}
+
+.wire_text, .disk_text {
+    fill: black;
+}
+.disk_outline {
+    stroke: black;
+    stroke-width: 2;
+}
+
+.arrowHead {
+    stroke: black;
+    fill: black;
+}
+
+.wire_on {
+    stroke: green;
+}
+.wire_off {
+    stroke: red;
+}
+.system_outline_group_rect {
+    stroke: black;
+}
+.system_outline_group_text {
+    fill: black;
+}
+.bus_bar {
+    stroke: green;
+}

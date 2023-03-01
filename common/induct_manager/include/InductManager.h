@@ -31,6 +31,7 @@ public:
         const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp, const uint64_t maxBundleSizeBytes,
         const OnNewOpportunisticLinkCallback_t & onNewOpportunisticLinkCallback, const OnDeletedOpportunisticLinkCallback_t & onDeletedOpportunisticLinkCallback);
     INDUCT_MANAGER_LIB_EXPORT void Clear();
+    INDUCT_MANAGER_LIB_EXPORT void PopulateAllInductTelemetry(AllInductTelemetry_t& allInductTelem);
 public:
 
     std::list<std::unique_ptr<Induct> > m_inductsList;

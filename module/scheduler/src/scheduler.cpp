@@ -84,10 +84,11 @@ private:
     void PopulateMapsFromAllOutductCapabilitiesTelemetry(AllOutductCapabilitiesTelemetry_t& aoct);
     void HandlePhysicalLinkStatusChange(const hdtn::LinkStatusHdr& linkStatusHdr);
 
+    void NotifyEgressOfTimeBasedLinkChange(uint64_t outductArrayIndex, uint64_t rateBps, bool linkIsUpTimeBased);
     void SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
-            uint64_t time, uint64_t rateBps, uint64_t duration, bool isPhysical);
+        uint64_t time, uint64_t rateBps, uint64_t duration, bool isPhysical);
     void SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
-            uint64_t time, bool isPhysical);
+        uint64_t time, bool isPhysical);
 
     void EgressEventsHandler();
     bool SendBundle(const uint8_t* payloadData, const uint64_t payloadSizeBytes, const cbhe_eid_t& finalDestEid);
@@ -202,18 +203,20 @@ void Scheduler::Stop() {
 void Scheduler::Impl::Stop() {
     m_running = false; //thread stopping criteria
 
-     if (m_threadZmqAckReaderPtr) {
+    if (m_threadZmqAckReaderPtr) {
         try {
             m_threadZmqAckReaderPtr->join(); 
             m_threadZmqAckReaderPtr.reset(); //delete it
-        } catch (const boost::thread_resource_error&) {
+        }
+        catch (const boost::thread_resource_error&) {
             LOG_ERROR(subprocess) << "error stopping Scheduler thread";
         }
     }
 
     try {	
         m_contactPlanTimer.cancel();
-    } catch (const boost::system::system_error&) {
+    }
+    catch (const boost::system::system_error&) {
         LOG_ERROR(subprocess) << "error cancelling contact plan timer ";
     }
 	
@@ -227,10 +230,10 @@ void Scheduler::Impl::Stop() {
 
     if (m_ioServiceThreadPtr) {
         try {
-	    m_ioServiceThreadPtr->join();
+            m_ioServiceThreadPtr->join();
             m_ioServiceThreadPtr.reset(); //delete it
-    
-	} catch (const boost::thread_resource_error&) {
+        }
+        catch (const boost::thread_resource_error&) {
             LOG_ERROR(subprocess) << "error stopping io_service";
         }
     }
@@ -357,7 +360,6 @@ bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
 
 void Scheduler::Impl::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
 		             uint64_t time, bool isPhysical) {
-
     hdtn::IreleaseChangeHdr stopMsg;
     
     memset(&stopMsg, 0, sizeof(stopMsg));
@@ -382,26 +384,28 @@ void Scheduler::Impl::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outduct
         << "  src(" << src << ") == = > dest(" << dest << ") at time " << timeLocal;
 }
 
-void Scheduler::Impl::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex, uint64_t time, uint64_t rateBps, uint64_t duration, bool isPhysical) {
+void Scheduler::Impl::NotifyEgressOfTimeBasedLinkChange(uint64_t outductArrayIndex, uint64_t rateBps, bool linkIsUpTimeBased) {
     // First, send rate update message to egress, so it has time to
-    // update the rate before receiving bundles
-    if (!isPhysical) {
-        hdtn::IreleaseChangeHdr rateUpdateMsg;
-        memset(&rateUpdateMsg, 0, sizeof(rateUpdateMsg));
-        rateUpdateMsg.SetSubscribeEgressOnly();
-        rateUpdateMsg.rateBps = rateBps;
-        rateUpdateMsg.base.type = HDTN_MSGTYPE_ILINKUP;
+    // update the rate before receiving date.
+    // This message also serves for Egress to update telemetry of linkIsUpTimeBased for an outduct
+    hdtn::IreleaseChangeHdr rateUpdateMsg;
+    memset(&rateUpdateMsg, 0, sizeof(rateUpdateMsg));
+    rateUpdateMsg.SetSubscribeEgressOnly();
+    rateUpdateMsg.rateBps = rateBps;
+    rateUpdateMsg.base.type = linkIsUpTimeBased ? HDTN_MSGTYPE_ILINKUP : HDTN_MSGTYPE_ILINKDOWN;
+    rateUpdateMsg.outductArrayIndex = outductArrayIndex;
+    {
+        boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
+        if (!m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(
+            zmq::const_buffer(&rateUpdateMsg, sizeof(rateUpdateMsg)), zmq::send_flags::dontwait))
         {
-            boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
-            if (!m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(
-                zmq::const_buffer(&rateUpdateMsg, sizeof(rateUpdateMsg)), zmq::send_flags::dontwait))
-            {
-                LOG_FATAL(subprocess) << "Cannot send rate update message to egress";
-            }
+            LOG_FATAL(subprocess) << "Cannot send rate update message to egress";
         }
     }
+}
 
-    // Next, send event to the rest of the modules
+void Scheduler::Impl::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex, uint64_t time, uint64_t rateBps, uint64_t duration, bool isPhysical) {
+    // Send event to Ingress, Storage, and Router modules (not egress)
     hdtn::IreleaseChangeHdr releaseMsg;
     memset(&releaseMsg, 0, sizeof(releaseMsg));
     releaseMsg.SetSubscribeAll();
@@ -410,6 +414,7 @@ void Scheduler::Impl::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductAr
     releaseMsg.prevHopNodeId = src;
     releaseMsg.outductArrayIndex = outductArrayIndex;
     releaseMsg.time = time;
+    releaseMsg.rateBps = rateBps;
     releaseMsg.duration = duration;
     releaseMsg.isPhysical = (isPhysical ? 1 : 0);
     {
@@ -446,18 +451,16 @@ void Scheduler::Impl::EgressEventsHandler() {
     }
     else if (linkStatusHdr.base.type == HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY) {
         AllOutductCapabilitiesTelemetry_t aoct;
-        uint64_t numBytesTakenToDecode;
         m_zmqMessageOutductCapabilitiesTelemPtr = boost::make_unique<zmq::message_t>();
         //message guaranteed to be there due to the zmq::send_flags::sndmore
         if (!m_zmqPullSock_boundEgressToConnectingSchedulerPtr->recv(*m_zmqMessageOutductCapabilitiesTelemPtr, zmq::recv_flags::none)) {
             LOG_ERROR(subprocess) << "error receiving AllOutductCapabilitiesTelemetry";
         }
-        else if (!aoct.DeserializeFromLittleEndian((uint8_t*)m_zmqMessageOutductCapabilitiesTelemPtr->data(), numBytesTakenToDecode, m_zmqMessageOutductCapabilitiesTelemPtr->size())) {
+        else if (!aoct.SetValuesFromJsonCharArray((char*)m_zmqMessageOutductCapabilitiesTelemPtr->data(), m_zmqMessageOutductCapabilitiesTelemPtr->size())) {
             LOG_ERROR(subprocess) << "error deserializing AllOutductCapabilitiesTelemetry";
         }
         else {
             LOG_INFO(subprocess) << "Scheduler received initial " << aoct.outductCapabilityTelemetryList.size() << " outduct telemetries from egress";
-            LOG_INFO(subprocess) << "Telemetry message content: " << aoct ;
 
             boost::asio::post(m_ioService, boost::bind(&Scheduler::Impl::PopulateMapsFromAllOutductCapabilitiesTelemetry, this, std::move(aoct)));
     	    
@@ -912,7 +915,7 @@ void Scheduler::Impl::OnContactPlan_TimerExpired(const boost::system::error_code
                 //update linkIsUpTimeBased in the outductInfo
                 OutductInfo_t& outductInfo = outductInfoIt->second;
                 outductInfo.linkIsUpTimeBased = contactPlan.isLinkUp;
-
+                NotifyEgressOfTimeBasedLinkChange(contactPlan.outductArrayIndex, contactPlan.rateBps, outductInfo.linkIsUpTimeBased);
                 if (outductInfo.linkIsUpTimeBased) {
                     uint64_t duration = contactPlan.end - contactPlan.start;
                     SendLinkUp(contactPlan.source, contactPlan.dest, contactPlan.outductArrayIndex, contactPlan.start, contactPlan.rateBps, duration, false);

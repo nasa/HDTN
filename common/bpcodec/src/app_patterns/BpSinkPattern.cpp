@@ -21,6 +21,7 @@
 #include "Uri.h"
 #include "TcpclInduct.h"
 #include "TcpclV4Induct.h"
+#include "StcpInduct.h"
 #include "codec/BundleViewV7.h"
 #include "Logger.h"
 #include "StatsLogger.h"
@@ -37,10 +38,25 @@ BpSinkPattern::~BpSinkPattern() {
 void BpSinkPattern::Stop() {
 
     if (m_ioServiceThreadPtr) {
-        m_timerAcs.cancel();
-        m_timerTransferRateStats.cancel();
-        m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr.reset(); //delete it
+        try {
+            m_timerAcs.cancel();
+        }
+        catch (const boost::system::system_error& e) {
+            LOG_WARNING(subprocess) << "BpSinkPattern::Stop calling timerAcs.cancel(): " << e.what();
+        }
+        try {
+            m_timerTransferRateStats.cancel();
+        }
+        catch (const boost::system::system_error& e) {
+            LOG_WARNING(subprocess) << "BpSinkPattern::Stop calling timerTransferRateStats.cancel(): " << e.what();
+        }
+        try {
+            m_ioServiceThreadPtr->join();
+            m_ioServiceThreadPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping BpSinkPattern io_service thread";
+        }
     }
 
     m_runningSenderThread = false; //thread stopping criteria
@@ -55,8 +71,13 @@ void BpSinkPattern::Stop() {
     m_cvCurrentlySendingBundleIdSet.notify_one(); //break out of the timed_wait (wait_until)
 
     if (m_threadSenderReaderPtr) {
-        m_threadSenderReaderPtr->join();
-        m_threadSenderReaderPtr.reset(); //delete it
+        try {
+            m_threadSenderReaderPtr->join();
+            m_threadSenderReaderPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping BpSinkPattern threadSenderReader";
+        }
     }
 
     m_inductManager.Clear();
@@ -103,8 +124,8 @@ bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_pt
         m_currentlySendingBundleIdSet.reserve(1024); //todo
         m_inductManager.LoadInductsFromConfig(boost::bind(&BpSinkPattern::WholeBundleReadyCallback, this, boost::placeholders::_1),
             *inductsConfigPtr, myEid.nodeId, UINT16_MAX, maxBundleSizeBytes,
-            boost::bind(&BpSinkPattern::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2),
-            boost::bind(&BpSinkPattern::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1));
+            boost::bind(&BpSinkPattern::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
+            boost::bind(&BpSinkPattern::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
     }
 
     if (outductsConfigPtr) {
@@ -200,7 +221,10 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
                 primary.m_destinationEid = primary.m_sourceNodeId;
                 primary.m_sourceNodeId = m_myEidEcho;
                 bv.m_primaryBlockView.SetManuallyModified();
-                bv.Render(messageSize + 10);
+                if (!bv.Render(messageSize + 500)) {
+                    LOG_ERROR(subprocess) << "cannot render bpv6 echo bundle";
+                    return false;
+                }
                 Forward_ThreadSafe(srcEid, bv.m_frontBuffer); //srcEid is the new destination
                 return true;
             }
@@ -367,7 +391,10 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
                 primary.m_destinationEid = primary.m_sourceNodeId;
                 primary.m_sourceNodeId = m_myEidEcho;
                 bv.m_primaryBlockView.SetManuallyModified();
-                bv.Render(messageSize + 10);
+                if (!bv.Render(messageSize + 500)) {
+                    LOG_ERROR(subprocess) << "cannot render bpv7 echo bundle";
+                    return false;
+                }
                 Forward_ThreadSafe(srcEid, bv.m_frontBuffer); //srcEid is the new destination
                 return true;
             }
@@ -467,7 +494,7 @@ void BpSinkPattern::SendAcsFromTimerThread() {
     }
 }
 
-void BpSinkPattern::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr) {
+void BpSinkPattern::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtr) {
     if (m_tcpclInductPtr = dynamic_cast<TcpclInduct*>(thisInductPtr)) {
         LOG_INFO(subprocess) << "New opportunistic link detected on Tcpcl induct for ipn:" << remoteNodeId << ".*";
         m_tcpclOpportunisticRemoteNodeId = remoteNodeId;
@@ -476,13 +503,21 @@ void BpSinkPattern::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, 
         LOG_INFO(subprocess) << "New opportunistic link detected on TcpclV4 induct for ipn:" << remoteNodeId << ".*";
         m_tcpclOpportunisticRemoteNodeId = remoteNodeId;
     }
+    else if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
+
+    }
     else {
         LOG_ERROR(subprocess) << "Induct ptr cannot cast to TcpclInduct or TcpclV4Induct";
     }
 }
-void BpSinkPattern::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId) {
-    m_tcpclOpportunisticRemoteNodeId = 0;
-    LOG_INFO(subprocess) << "Deleted opportunistic link on Tcpcl induct for ipn:" << remoteNodeId << ".*";
+void BpSinkPattern::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtrAboutToBeDeleted) {
+    if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
+
+    }
+    else {
+        m_tcpclOpportunisticRemoteNodeId = 0;
+        LOG_INFO(subprocess) << "Deleted opportunistic link on Tcpcl induct for ipn:" << remoteNodeId << ".*";
+    }
 }
 
 bool BpSinkPattern::Forward_ThreadSafe(const cbhe_eid_t & destEid, std::vector<uint8_t> & bundleToMoveAndSend) {

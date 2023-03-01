@@ -29,11 +29,14 @@
 #include <boost/bind/bind.hpp>
 #include <boost/make_unique.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/format.hpp>
 #include "Uri.h"
 #include "codec/BundleViewV6.h"
 #include "codec/BundleViewV7.h"
 #include "TcpclInduct.h"
 #include "TcpclV4Induct.h"
+#include "StcpInduct.h"
+#include "FreeListAllocator.h"
 #include "TelemetryDefinitions.h"
 #include "ThreadNamer.h"
 #include <unordered_map>
@@ -45,6 +48,7 @@ namespace hdtn {
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::ingress;
 static constexpr uint64_t STORAGE_MAX_BUNDLES_IN_PIPELINE = 5;//"zmq-path-to-storage" up to zmqMaxMessageSizeBytes or 5 bundles,
+static constexpr uint64_t MY_PING_SERVICE_ID = 1;
 
 struct Ingress::Impl : private boost::noncopyable {
 
@@ -61,16 +65,17 @@ private:
         const bool usingZmqData, const bool needsProcessing);
     void ReadTcpclOpportunisticBundlesFromEgressThreadFunc();
     void WholeBundleReadyCallback(padded_vector_uint8_t& wholeBundleVec);
-    void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr);
-    void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId);
+    void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtr);
+    void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtrAboutToBeDeleted);
     void SendOpportunisticLinkMessages(const uint64_t remoteNodeId, bool isAvailable);
+    void SendPing(const uint64_t remoteNodeId, const uint64_t remotePingServiceNumber, const uint64_t bpVersion);
+    void ProcessReceivedPingPayload(const uint8_t* data, const uint64_t size, const uint64_t bpVersion);
 
 public:
-    uint64_t m_bundleCountStorage;
-    boost::atomic_uint64_t m_bundleCountEgress;
-    uint64_t m_bundleCount;
-    boost::atomic_uint64_t m_bundleData;
-    double m_elapsed;
+    uint64_t m_bundleCountStorage; //protected by m_ingressToStorageZmqSocketMutex
+    uint64_t m_bundleByteCountStorage; //protected by m_ingressToStorageZmqSocketMutex
+    uint64_t m_bundleCountEgress; //protected by m_ingressToEgressZmqSocketMutex
+    uint64_t m_bundleByteCountEgress; //protected by m_ingressToEgressZmqSocketMutex
 
 private:
     struct BundlePipelineAckingSet : private boost::noncopyable {
@@ -93,8 +98,12 @@ private:
         
         boost::mutex m_mutex;
         boost::condition_variable m_conditionVariable;
-        std::unordered_map<uint64_t, uint64_t> m_mapEgressBundleUniqueIdToBundleSizeBytes;
-        std::unordered_map<uint64_t, uint64_t> m_mapStorageBundleUniqueIdToBundleSizeBytes;
+        typedef std::unordered_map<uint64_t, uint64_t,
+            std::hash<uint64_t>,
+            std::equal_to<uint64_t>,
+            FreeListAllocatorDynamic<std::pair<const uint64_t, uint64_t> > > umap_64_to_64_t;
+        umap_64_to_64_t m_mapEgressBundleUniqueIdToBundleSizeBytes;
+        umap_64_to_64_t m_mapStorageBundleUniqueIdToBundleSizeBytes;
         uint64_t m_egressBytesInPipeline;
         uint64_t m_storageBytesInPipeline;
 
@@ -123,6 +132,7 @@ private:
     HdtnConfig m_hdtnConfig;
     cbhe_eid_t M_HDTN_EID_CUSTODY;
     cbhe_eid_t M_HDTN_EID_ECHO;
+    cbhe_eid_t M_HDTN_EID_PING;
     cbhe_eid_t M_HDTN_EID_TO_SCHEDULER_BUNDLES;
     boost::posix_time::time_duration M_MAX_INGRESS_BUNDLE_WAIT_ON_EGRESS_TIME_DURATION;
 
@@ -180,17 +190,20 @@ void Ingress::Impl::BundlePipelineAckingSet::Update(const uint64_t paramMaxBundl
     m_linkIsUp = paramLinkIsUp;
     //By default, unordered_set containers have a max_load_factor of 1.0.
     m_mapEgressBundleUniqueIdToBundleSizeBytes.reserve(m_maxBundlesInPipeline); //maxBundlesInPipeline is double of half
+    m_mapEgressBundleUniqueIdToBundleSizeBytes.get_allocator().SetMaxListSizeFromGetAllocatorCopy(m_maxBundlesInPipeline + 2);
+
     m_mapStorageBundleUniqueIdToBundleSizeBytes.reserve(m_maxBundlesInPipeline);
+    m_mapStorageBundleUniqueIdToBundleSizeBytes.get_allocator().SetMaxListSizeFromGetAllocatorCopy(m_maxBundlesInPipeline + 2);
 }
 
 bool Ingress::Impl::BundlePipelineAckingSet::CompareAndPop_ThreadSafe(const uint64_t uniqueId, const bool isEgress) {
     
     uint64_t& bytesInPipelineRef = (isEgress) ? m_egressBytesInPipeline : m_storageBytesInPipeline;
-    std::unordered_map<uint64_t, uint64_t>& mapBundleUniqueIdToBundleSizeBytes = (isEgress) ?
+    umap_64_to_64_t& mapBundleUniqueIdToBundleSizeBytes = (isEgress) ?
         m_mapEgressBundleUniqueIdToBundleSizeBytes : m_mapStorageBundleUniqueIdToBundleSizeBytes;
 
     boost::mutex::scoped_lock lock(m_mutex);
-    std::unordered_map<uint64_t, uint64_t>::iterator it = mapBundleUniqueIdToBundleSizeBytes.find(uniqueId);
+    umap_64_to_64_t::iterator it = mapBundleUniqueIdToBundleSizeBytes.find(uniqueId);
     if (it == mapBundleUniqueIdToBundleSizeBytes.end()) {
         return false;
     }
@@ -262,10 +275,9 @@ uint64_t Ingress::Impl::BundlePipelineAckingSet::GetNextHopNodeId() const {
 
 Ingress::Impl::Impl() : 
     m_bundleCountStorage(0),
+    m_bundleByteCountStorage(0),
     m_bundleCountEgress(0),
-    m_bundleCount(0),
-    m_bundleData(0),
-    m_elapsed(0),
+    m_bundleByteCountEgress(0),
     m_singleStorageBundlePipelineAckingSet(10, 10, UINT64_MAX, false), //initial don't cares for a deleted default constructor, set later
     m_eventsTooManyInStorageCutThroughQueue(0),
     m_eventsTooManyInEgressCutThroughQueue(0),
@@ -279,10 +291,9 @@ Ingress::Ingress() :
     m_pimpl(boost::make_unique<Ingress::Impl>()),
     //references
     m_bundleCountStorage(m_pimpl->m_bundleCountStorage),
+    m_bundleByteCountStorage(m_pimpl->m_bundleByteCountStorage),
     m_bundleCountEgress(m_pimpl->m_bundleCountEgress),
-    m_bundleCount(m_pimpl->m_bundleCount),
-    m_bundleData(m_pimpl->m_bundleData),
-    m_elapsed(m_pimpl->m_elapsed) {}
+    m_bundleByteCountEgress(m_pimpl->m_bundleByteCountEgress) {}
 
 Ingress::Impl::~Impl() {
     Stop();
@@ -346,6 +357,8 @@ bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConf
     M_HDTN_EID_CUSTODY.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_myCustodialServiceId);
 
     M_HDTN_EID_ECHO.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_myBpEchoServiceId);
+
+    M_HDTN_EID_PING.Set(m_hdtnConfig.m_myNodeId, MY_PING_SERVICE_ID);
 
     M_HDTN_EID_TO_SCHEDULER_BUNDLES.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_mySchedulerServiceId);
 
@@ -500,6 +513,9 @@ static void CustomCleanupPaddedVecUint8(void *data, void *hint) {
 static void CustomCleanupStdVecUint8(void *data, void *hint) {
     delete static_cast<std::vector<uint8_t>*>(hint);
 }
+static void CustomCleanupStdString(void* data, void* hint) {
+    delete static_cast<std::string*>(hint);
+}
 
 static void CustomCleanupToEgressHdr(void *data, void *hint) {
     delete static_cast<hdtn::ToEgressHdr*>(hint);
@@ -575,19 +591,17 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                 }
                 else if (receivedEgressAckHdr.base.type == HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY) {
                     AllOutductCapabilitiesTelemetry_t aoct;
-                    uint64_t numBytesTakenToDecode;
                     
                     zmq::message_t zmqMessageOutductTelem;
                     //message guaranteed to be there due to the zmq::send_flags::sndmore
                     if (!m_zmqPullSock_connectingEgressToBoundIngressPtr->recv(zmqMessageOutductTelem, zmq::recv_flags::none)) {
                         LOG_ERROR(subprocess) << "error receiving AllOutductCapabilitiesTelemetry";
                     }
-                    else if (!aoct.DeserializeFromLittleEndian((uint8_t*)zmqMessageOutductTelem.data(), numBytesTakenToDecode, zmqMessageOutductTelem.size())) {
+                    else if (!aoct.SetValuesFromJsonCharArray((char*)zmqMessageOutductTelem.data(), zmqMessageOutductTelem.size())) {
                         LOG_ERROR(subprocess) << "error deserializing AllOutductCapabilitiesTelemetry";
                     }
                     else {
-                        //std::cout << aoct << std::endl;
-
+                        
                         if (aoct.outductCapabilityTelemetryList.empty()) {
                             LOG_ERROR(subprocess) << "received outductCapabilityTelemetryList is empty!";
                         }
@@ -650,8 +664,8 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
 
                                     m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::Impl::WholeBundleReadyCallback, this, boost::placeholders::_1), m_hdtnConfig.m_inductsConfig,
                                         m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes, m_hdtnConfig.m_maxBundleSizeBytes,
-                                        boost::bind(&Ingress::Impl::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2),
-                                        boost::bind(&Ingress::Impl::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1));
+                                        boost::bind(&Ingress::Impl::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
+                                        boost::bind(&Ingress::Impl::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
 
                                     m_egressFullyInitialized = true;
 
@@ -702,30 +716,51 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                     LOG_ERROR(subprocess) << "telemMsgByte message mismatch: untruncated = " << res->untruncated_size
                         << " truncated = " << res->size << " expected = " << sizeof(telemMsgByte);
                 }
-                else if (telemMsgByte != TELEM_REQ_MSG) {
-                    LOG_ERROR(subprocess) << "telemMsgByte not 1";
-                }
                 else {
-                    //send telemetry
-                    IngressTelemetry_t telem;
-                    telem.totalDataBytes = m_bundleData;
-                    telem.bundleCountEgress = m_bundleCountEgress;
-                    telem.bundleCountStorage = m_bundleCountStorage;
-                    std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(telem.GetSerializationSize()); //will be 64-bit aligned
-                    uint8_t* telemPtr = vecUint8RawPointer->data();
-                    const uint8_t* const telemSerializationBase = telemPtr;
-                    uint64_t telemBufferSize = vecUint8RawPointer->size();
+                    const bool hasApiCalls = telemMsgByte > TELEM_REQ_MSG;
+                    if (hasApiCalls) {
+                        zmq::message_t apiMsg;
+                        do {
+                            if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->recv(apiMsg, zmq::recv_flags::dontwait)) {
+                                LOG_ERROR(subprocess) << "error receiving api message";
+                                continue;
+                            }
+                            boost::property_tree::ptree pt;
+                            if (JsonSerializable::GetPropertyTreeFromJsonCharArray((char*)apiMsg.data(), apiMsg.size(), pt)) {
+                                try {
+                                    const std::string apiCall = pt.get<std::string>("apiCall");
+                                    LOG_INFO(subprocess) << "got api call " << apiCall;
+                                    if (apiCall == "ping") {
+                                        const uint64_t nodeId = pt.get<uint64_t>("nodeId");
+                                        const uint64_t pingServiceNumber = pt.get<uint64_t>("serviceId");
+                                        const uint64_t bpVersion = pt.get<uint64_t>("bpVersion");
+                                        SendPing(nodeId, pingServiceNumber, bpVersion);
+                                    }
+                                }
+                                catch (const boost::property_tree::ptree_error& e) {
+                                    LOG_ERROR(subprocess) << "parsing JSON apiCall: " << e.what();
+                                    continue;
+                                }
+                            }
+                        } while (apiMsg.more());
+                    }
+                    AllInductTelemetry_t allInductTelem;
+                    m_inductManager.PopulateAllInductTelemetry(allInductTelem); //sets timestamp
+                    m_ingressToEgressZmqSocketMutex.lock();
+                    allInductTelem.m_bundleCountEgress = m_bundleCountEgress;
+                    allInductTelem.m_bundleByteCountEgress = m_bundleByteCountEgress;
+                    m_ingressToEgressZmqSocketMutex.unlock();
+                    m_ingressToStorageZmqSocketMutex.lock();
+                    allInductTelem.m_bundleCountStorage = m_bundleCountStorage;
+                    allInductTelem.m_bundleByteCountStorage = m_bundleByteCountStorage;
+                    m_ingressToStorageZmqSocketMutex.unlock();
+                    
+                    std::string* allInductTelemJsonStringPtr = new std::string(allInductTelem.ToJson());
+                    std::string& strRef = *allInductTelemJsonStringPtr;
+                    zmq::message_t zmqJsonMessage(&strRef[0], allInductTelemJsonStringPtr->size(), CustomCleanupStdString, allInductTelemJsonStringPtr);
 
-                    //start zmq message with telemetry
-                    const uint64_t ingressTelemSize = telem.SerializeToLittleEndian(telemPtr, telemBufferSize);
-                    telemBufferSize -= ingressTelemSize;
-                    telemPtr += ingressTelemSize;
-
-                    vecUint8RawPointer->resize(telemPtr - telemSerializationBase);
-
-                    zmq::message_t zmqTelemMessage(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
-                    if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(zmqTelemMessage), zmq::send_flags::dontwait)) {
-                        LOG_ERROR(subprocess) << "can't send telemetry to telem";
+                    if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(zmqJsonMessage), zmq::send_flags::dontwait)) {
+                        LOG_ERROR(subprocess) << "can't send json telemetry to telem";
                     }
                 }
             }
@@ -734,9 +769,10 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
     LOG_INFO(subprocess) << "totalAcksFromEgress: " << totalAcksFromEgress;
     LOG_INFO(subprocess) << "totalAcksFromStorage: " << totalAcksFromStorage;
     LOG_INFO(subprocess) << "m_bundleCountStorage: " << m_bundleCountStorage;
+    LOG_INFO(subprocess) << "m_bundleByteCountStorage: " << m_bundleByteCountStorage;
     LOG_INFO(subprocess) << "m_bundleCountEgress: " << m_bundleCountEgress;
-    m_bundleCount = m_bundleCountStorage + m_bundleCountEgress;
-    LOG_INFO(subprocess) << "m_bundleCount: " << m_bundleCount;
+    LOG_INFO(subprocess) << "m_bundleByteCountEgress: " << m_bundleByteCountEgress;
+    LOG_INFO(subprocess) << "bundleCount: " << (m_bundleCountStorage + m_bundleCountEgress);
     LOG_DEBUG(subprocess) << "BpIngressSyscall::ReadZmqAcksThreadFunc thread exiting";
 }
 
@@ -852,7 +888,8 @@ void Ingress::Impl::SchedulerEventHandler() {
 }
 
 bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCurrentSize,
-    std::unique_ptr<zmq::message_t> & zmqPaddedMessageUnderlyingDataUniquePtr, padded_vector_uint8_t & paddedVecMessageUnderlyingData, const bool usingZmqData, const bool needsProcessing)
+    std::unique_ptr<zmq::message_t> & zmqPaddedMessageUnderlyingDataUniquePtr,
+    padded_vector_uint8_t & paddedVecMessageUnderlyingData, const bool usingZmqData, const bool needsProcessing)
 {
     std::unique_ptr<zmq::message_t> zmqMessageToSendUniquePtr; //create on heap as zmq default constructor costly
     if (bundleCurrentSize > m_hdtnConfig.m_maxBundleSizeBytes) { //should never reach here as this is handled by induct
@@ -892,10 +929,24 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                 LOG_INFO(subprocess) << "Sending Ping for destination " << primary.m_destinationEid;
                 primary.m_sourceNodeId = M_HDTN_EID_ECHO;
                 bv.m_primaryBlockView.SetManuallyModified();
-                bv.Render(bundleCurrentSize + 10);
+                if (!bv.Render(bundleCurrentSize + 500)) {
+                    LOG_ERROR(subprocess) << "cannot render bpv6 echo bundle";
+                    return false;
+                }
                 std::vector<uint8_t> * rxBufRawPointer = new std::vector<uint8_t>(std::move(bv.m_frontBuffer));
                 zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer)));
                 bundleCurrentSize = zmqMessageToSendUniquePtr->size();
+            }
+            else if (finalDestEid == M_HDTN_EID_PING) {
+                std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+                bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+                if (blocks.size() != 1) {
+                    LOG_ERROR(subprocess) << "Received a ping response bundle with no payload block";
+                    return true;
+                }
+                Bpv6CanonicalBlock& payloadBlock = *(blocks[0]->headerPtr);
+                ProcessReceivedPingPayload(payloadBlock.m_blockTypeSpecificDataPtr, payloadBlock.m_blockTypeSpecificDataLength, 6);
+                return true;
             }
         }
         if (!zmqMessageToSendUniquePtr) { //no modifications
@@ -920,6 +971,18 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
         finalDestEid = primary.m_destinationEid;
         requestsCustody = false; //custody unsupported at this time
         if (needsProcessing) {
+            if (finalDestEid == M_HDTN_EID_PING) {
+                //get payload block
+                std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+                bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+                if (blocks.size() != 1) {
+                    LOG_ERROR(subprocess) << "Received a ping response bundle with no payload block";
+                    return true;
+                }
+                Bpv7CanonicalBlock& payloadBlock = *(blocks[0]->headerPtr);
+                ProcessReceivedPingPayload(payloadBlock.m_dataPtr, payloadBlock.m_dataLength, 7);
+                return true;
+            }
             //admin records pertaining to this hdtn node must go to storage.. they signal a deletion from disk
             static constexpr BPV7_BUNDLEFLAG requiredPrimaryFlagsForAdminRecord = BPV7_BUNDLEFLAG::ADMINRECORD;
             isAdminRecordForHdtnStorage = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == M_HDTN_EID_CUSTODY));
@@ -1026,7 +1089,10 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                 if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(*zmqMessageToSendUniquePtr), zmq::send_flags::dontwait)) {
                     LOG_ERROR(subprocess) << "can't send bundle intended for scheduler to egress";
                 }
-                //else success
+                else { //success
+                    ++m_bundleCountEgress; //protected by m_ingressToEgressZmqSocketMutex
+                    m_bundleByteCountEgress += bundleCurrentSize; //protected by m_ingressToEgressZmqSocketMutex
+                }
             }
         }
         return true;
@@ -1195,7 +1261,8 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                                     }
                                     else {
                                         //success                            
-                                        m_bundleCountEgress.fetch_add(1, boost::memory_order_relaxed);
+                                        ++m_bundleCountEgress; //protected by m_ingressToEgressZmqSocketMutex
+                                        m_bundleByteCountEgress += bundleCurrentSize; //protected by m_ingressToEgressZmqSocketMutex
                                     }
                                 }
                             }
@@ -1249,6 +1316,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                         else {
                             //success                            
                             ++m_bundleCountStorage; //protected by m_ingressToStorageZmqSocketMutex
+                            m_bundleByteCountStorage += bundleCurrentSize; //protected by m_ingressToStorageZmqSocketMutex
                         }
                     }
                 }
@@ -1258,9 +1326,6 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             }
         } //end scope for cut-through shared mutex lock
     }
-
-
-    m_bundleData.fetch_add(bundleCurrentSize, boost::memory_order_relaxed);
 
     return true;
 }
@@ -1305,7 +1370,7 @@ void Ingress::Impl::SendOpportunisticLinkMessages(const uint64_t remoteNodeId, b
     }
 }
 
-void Ingress::Impl::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr) {
+void Ingress::Impl::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtr) {
     if (TcpclInduct * tcpclInductPtr = dynamic_cast<TcpclInduct*>(thisInductPtr)) {
         LOG_INFO(subprocess) << "New opportunistic link detected on TcpclV3 induct for ipn:" << remoteNodeId << ".*";
         SendOpportunisticLinkMessages(remoteNodeId, true);
@@ -1318,15 +1383,181 @@ void Ingress::Impl::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, 
         boost::mutex::scoped_lock lock(m_availableDestOpportunisticNodeIdToTcpclInductMapMutex);
         m_availableDestOpportunisticNodeIdToTcpclInductMap[remoteNodeId] = tcpclInductPtr;
     }
+    else if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
+
+    }
     else {
         LOG_ERROR(subprocess) << "OnNewOpportunisticLinkCallback: Induct ptr cannot cast to TcpclInduct or TcpclV4Induct";
     }
 }
-void Ingress::Impl::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId) {
-    LOG_INFO(subprocess) << "Deleted opportunistic link on Tcpcl induct for ipn:" << remoteNodeId << ".*";
-    SendOpportunisticLinkMessages(remoteNodeId, false);
-    boost::mutex::scoped_lock lock(m_availableDestOpportunisticNodeIdToTcpclInductMapMutex);
-    m_availableDestOpportunisticNodeIdToTcpclInductMap.erase(remoteNodeId);
+void Ingress::Impl::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtrAboutToBeDeleted) {
+    if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
+
+    }
+    else {
+        LOG_INFO(subprocess) << "Deleted opportunistic link on Tcpcl induct for ipn:" << remoteNodeId << ".*";
+        SendOpportunisticLinkMessages(remoteNodeId, false);
+        boost::mutex::scoped_lock lock(m_availableDestOpportunisticNodeIdToTcpclInductMapMutex);
+        m_availableDestOpportunisticNodeIdToTcpclInductMap.erase(remoteNodeId);
+    }
+}
+
+struct ping_data_t {
+    ping_data_t() : sequence(0) {}
+    uint64_t sequence;
+    boost::posix_time::ptime sendTime;
+};
+
+void Ingress::Impl::SendPing(const uint64_t remoteNodeId, const uint64_t remotePingServiceNumber, const uint64_t bpVersion) {
+    static thread_local uint64_t lastMillisecondsSinceStartOfYear2000 = 0;
+    static thread_local uint64_t lastTimeRfc5050 = 0;
+    static thread_local uint64_t seq = 0;
+    static thread_local ping_data_t pingPayload;
+    static const uint64_t payloadSizeBytes = sizeof(pingPayload);
+    std::unique_ptr<zmq::message_t> zmqMessageToSendUniquePtr; //create on heap as zmq default constructor costly
+    if (bpVersion == 7) {
+        BundleViewV7 bv;
+        Bpv7CbhePrimaryBlock& primary = bv.m_primaryBlockView.header;
+        //primary.SetZero();
+        primary.m_bundleProcessingControlFlags = BPV7_BUNDLEFLAG::NOFRAGMENT;  //All BP endpoints identified by ipn-scheme endpoint IDs are singleton endpoints.
+        primary.m_sourceNodeId = M_HDTN_EID_PING;
+        primary.m_destinationEid.Set(remoteNodeId, remotePingServiceNumber);
+        primary.m_reportToEid.Set(0, 0);
+        primary.m_creationTimestamp.SetTimeFromNow();
+        if (primary.m_creationTimestamp.millisecondsSinceStartOfYear2000 == lastMillisecondsSinceStartOfYear2000) {
+            ++seq;
+        }
+        else {
+            seq = 0;
+        }
+        lastMillisecondsSinceStartOfYear2000 = primary.m_creationTimestamp.millisecondsSinceStartOfYear2000;
+        primary.m_creationTimestamp.sequenceNumber = seq;
+        primary.m_lifetimeMilliseconds = 100000;
+        primary.m_crcType = BPV7_CRC_TYPE::CRC32C;
+        bv.m_primaryBlockView.SetManuallyModified();
+
+        //add hop count block (before payload last block)
+        {
+            std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7HopCountCanonicalBlock>();
+            Bpv7HopCountCanonicalBlock& block = *(reinterpret_cast<Bpv7HopCountCanonicalBlock*>(blockPtr.get()));
+
+            block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+            block.m_blockNumber = 2;
+            block.m_crcType = BPV7_CRC_TYPE::CRC32C;
+            block.m_hopLimit = 100; //Hop limit MUST be in the range 1 through 255.
+            block.m_hopCount = 0; //the hop count value SHOULD initially be zero and SHOULD be increased by 1 on each hop.
+            bv.AppendMoveCanonicalBlock(blockPtr);
+        }
+
+        //append payload block (must be last block)
+        {
+            std::unique_ptr<Bpv7CanonicalBlock> payloadBlockPtr = boost::make_unique<Bpv7CanonicalBlock>();
+            Bpv7CanonicalBlock& payloadBlock = *payloadBlockPtr;
+            //payloadBlock.SetZero();
+
+            payloadBlock.m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PAYLOAD;
+            payloadBlock.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET;
+            payloadBlock.m_blockNumber = 1; //must be 1
+            payloadBlock.m_crcType = BPV7_CRC_TYPE::CRC32C;
+            payloadBlock.m_dataLength = payloadSizeBytes;
+            payloadBlock.m_dataPtr = NULL; //NULL will preallocate (won't copy or compute crc, user must do that manually below)
+            bv.AppendMoveCanonicalBlock(payloadBlockPtr);
+        }
+
+        //render bundle to the front buffer
+        if (!bv.Render(payloadSizeBytes + 1000)) {
+            LOG_ERROR(subprocess) << "error rendering bpv7 bundle";
+            return;
+        }
+
+        BundleViewV7::Bpv7CanonicalBlockView& payloadBlockView = bv.m_listCanonicalBlockView.back(); //payload block must be the last block
+
+        ++pingPayload.sequence;
+        pingPayload.sendTime = boost::posix_time::microsec_clock::universal_time();
+        //manually copy data to preallocated space and compute crc
+        memcpy(payloadBlockView.headerPtr->m_dataPtr, &pingPayload, sizeof(pingPayload)); //m_dataPtr now points to new allocated or copied data within the serialized block (from after Render())
+        payloadBlockView.headerPtr->RecomputeCrcAfterDataModification((uint8_t*)payloadBlockView.actualSerializedBlockPtr.data(), payloadBlockView.actualSerializedBlockPtr.size()); //recompute crc
+
+        //move the bundle out of bundleView
+        std::vector<uint8_t>* rxBufRawPointer = new std::vector<uint8_t>(std::move(bv.m_frontBuffer));
+        zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer)));
+    }
+    else { //bp version 6
+        BundleViewV6 bv;
+        Bpv6CbhePrimaryBlock& primary = bv.m_primaryBlockView.header;
+        //primary.SetZero();
+
+        primary.m_bundleProcessingControlFlags =
+            BPV6_BUNDLEFLAG::PRIORITY_NORMAL |
+            BPV6_BUNDLEFLAG::SINGLETON |
+            BPV6_BUNDLEFLAG::NOFRAGMENT;
+
+        primary.m_sourceNodeId = M_HDTN_EID_PING;
+        primary.m_destinationEid.Set(remoteNodeId, remotePingServiceNumber);
+
+        primary.m_creationTimestamp.SetTimeFromNow();
+        if (primary.m_creationTimestamp.secondsSinceStartOfYear2000 == lastTimeRfc5050) {
+            ++seq;
+        }
+        else {
+            seq = 0;
+        }
+        lastTimeRfc5050 = primary.m_creationTimestamp.secondsSinceStartOfYear2000;
+        primary.m_creationTimestamp.sequenceNumber = seq;
+        primary.m_lifetimeSeconds = 100;
+        bv.m_primaryBlockView.SetManuallyModified();
+
+        //append payload block (must be last block)
+        {
+            std::unique_ptr<Bpv6CanonicalBlock> payloadBlockPtr = boost::make_unique<Bpv6CanonicalBlock>();
+            Bpv6CanonicalBlock& payloadBlock = *payloadBlockPtr;
+            //payloadBlock.SetZero();
+
+            payloadBlock.m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::PAYLOAD;
+            payloadBlock.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET;
+            payloadBlock.m_blockTypeSpecificDataLength = payloadSizeBytes;
+            payloadBlock.m_blockTypeSpecificDataPtr = NULL; //NULL will preallocate (won't copy or compute crc, user must do that manually below)
+            bv.AppendMoveCanonicalBlock(payloadBlockPtr);
+        }
+
+        //render bundle to the front buffer
+        if (!bv.Render(payloadSizeBytes + 1000)) {
+            LOG_ERROR(subprocess) << "error rendering bpv6 bundle";
+            return;
+        }
+
+        BundleViewV6::Bpv6CanonicalBlockView& payloadBlockView = bv.m_listCanonicalBlockView.back(); //payload block is the last block in this case
+
+        ++pingPayload.sequence;
+        pingPayload.sendTime = boost::posix_time::microsec_clock::universal_time();
+
+        //manually copy data to preallocated space and compute crc
+        memcpy(payloadBlockView.headerPtr->m_blockTypeSpecificDataPtr, &pingPayload, sizeof(pingPayload)); //m_dataPtr now points to new allocated or copied data within the serialized block (from after Render())
+
+        //move the bundle out of bundleView
+        std::vector<uint8_t>* rxBufRawPointer = new std::vector<uint8_t>(std::move(bv.m_frontBuffer));
+        zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer)));
+    }
+    static padded_vector_uint8_t unusedPaddedVecMessage;
+    ProcessPaddedData((uint8_t*)zmqMessageToSendUniquePtr->data(), zmqMessageToSendUniquePtr->size(),
+        zmqMessageToSendUniquePtr, unusedPaddedVecMessage,
+        true, false); //last param false => does not need processing because it came from here (also needed because not padded data!)
+}
+
+void Ingress::Impl::ProcessReceivedPingPayload(const uint8_t* data, const uint64_t size, const uint64_t bpVersion) {
+    const boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();
+    ping_data_t pingData;
+    if (size != sizeof(pingData)) {
+        LOG_ERROR(subprocess) << "error in ProcessReceivedPingPayload: received payload size not " << sizeof(pingData);
+        return;
+    }
+    memcpy(&pingData, data, sizeof(pingData));
+    const boost::posix_time::time_duration diff = nowTime - pingData.sendTime;
+    const double millisecs = (static_cast<double>(diff.total_microseconds())) * 0.001;
+    static const boost::format fmtTemplate("Ping Bpv%d received: sequence=%d, took %0.3f milliseconds");
+    boost::format fmt(fmtTemplate);
+    fmt % bpVersion % pingData.sequence % millisecs;
+    LOG_INFO(subprocess) << fmt.str();
 }
 
 }  // namespace hdtn

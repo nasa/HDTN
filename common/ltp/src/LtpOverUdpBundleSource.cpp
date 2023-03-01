@@ -68,8 +68,8 @@ bool LtpOverUdpBundleSource::ReadyToForward() {
 
 void LtpOverUdpBundleSource::SyncTransportLayerSpecificTelem() {
     if (m_ltpUdpEnginePtr) {
-        m_ltpOutductTelemetry.countUdpPacketsSent = m_ltpUdpEnginePtr->m_countAsyncSendCallbackCalls + m_ltpUdpEnginePtr->m_countBatchUdpPacketsSent;
-        m_ltpOutductTelemetry.countRxUdpCircularBufferOverruns = m_ltpUdpEnginePtr->m_countCircularBufferOverruns;
+        m_ltpOutductTelemetry.m_countUdpPacketsSent = m_ltpUdpEnginePtr->m_countAsyncSendCallbackCalls + m_ltpUdpEnginePtr->m_countBatchUdpPacketsSent;
+        m_ltpOutductTelemetry.m_countRxUdpCircularBufferOverruns = m_ltpUdpEnginePtr->m_countCircularBufferOverruns;
     }
 }
 

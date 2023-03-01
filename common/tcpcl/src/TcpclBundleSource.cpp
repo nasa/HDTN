@@ -61,23 +61,34 @@ void TcpclBundleSource::Stop() {
 
     BaseClass_DoTcpclShutdown(true, false);
     while (!m_base_tcpclShutdownComplete) {
-        boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+        try {
+            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+        }
+        catch (const boost::thread_resource_error&) {}
+        catch (const boost::thread_interrupted&) {}
+        catch (const boost::condition_error&) {}
+        catch (const boost::lock_error&) {}
     }
     m_base_tcpAsyncSenderPtr.reset(); //stop this first
     m_base_ioServiceRef.stop(); //ioservice requires stopping before join because of the m_work object
 
-    if(m_ioServiceThreadPtr) {
-        m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr.reset(); //delete it
+    if (m_ioServiceThreadPtr) {
+        try {
+            m_ioServiceThreadPtr->join();
+            m_ioServiceThreadPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping TcpclBundleSource io_service";
+        }
     }
 
     //print stats
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Source totalBundlesAcked " << m_base_totalBundlesAcked;
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Source totalBytesAcked " << m_base_totalBytesAcked;
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Source totalBundlesSent " << m_base_totalBundlesSent;
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Source totalFragmentedAcked " << m_base_totalFragmentedAcked;
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Source totalFragmentedSent " << m_base_totalFragmentedSent;
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Source totalBundleBytesSent " << m_base_totalBundleBytesSent;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Source totalBundlesAcked " << m_base_outductTelemetry.m_totalBundlesAcked;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Source totalBundleBytesAcked " << m_base_outductTelemetry.m_totalBundleBytesAcked;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Source totalBundlesSent " << m_base_outductTelemetry.m_totalBundlesSent;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Source totalFragmentsAcked " << m_base_outductTelemetry.m_totalFragmentsAcked;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Source totalFragmentsSent " << m_base_outductTelemetry.m_totalFragmentsSent;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Source totalBundleBytesSent " << m_base_outductTelemetry.m_totalBundleBytesSent;
 }
 
 

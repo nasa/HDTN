@@ -30,7 +30,9 @@ class TelemetryLogger
         /**
          * Logs a set of telemetry data to files
          */
-        TELEM_LIB_EXPORT void LogTelemetry(Telemetry_t* telem);
+        TELEM_LIB_EXPORT void LogTelemetry(AllInductTelemetry_t* telem);
+        TELEM_LIB_EXPORT void LogTelemetry(AllOutductTelemetry_t* telem);
+        TELEM_LIB_EXPORT void LogTelemetry(StorageTelemetry_t* telem);
 
          /**
          * Helper function to calculate a megabit/s rate 
@@ -43,9 +45,7 @@ class TelemetryLogger
         );
 
     private:
-        TELEM_LIB_EXPORT void LogTelemetry(IngressTelemetry_t* telem);
-        TELEM_LIB_EXPORT void LogTelemetry(EgressTelemetry_t* telem);
-        TELEM_LIB_EXPORT void LogTelemetry(StorageTelemetry_t* telem);
+        
 
         boost::posix_time::ptime m_startTime;
 };
