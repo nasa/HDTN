@@ -58,30 +58,51 @@ StcpBundleSource::~StcpBundleSource() {
 
 void StcpBundleSource::Stop() {
     //prevent StcpBundleSource from exiting before all bundles sent and acked
-    boost::mutex localMutex;
-    boost::mutex::scoped_lock lock(localMutex);
-    m_useLocalConditionVariableAckReceived = true;
-    std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
-    for (unsigned int attempt = 0; attempt < 20; ++attempt) {
-        const std::size_t numUnacked = GetTotalDataSegmentsUnacked();
-        if (numUnacked) {
-            LOG_INFO(subprocess) << "StcpBundleSource destructor waiting on " << numUnacked << " unacked bundles";
+    try {
+        { //scope for destruction of lock within try block
+            boost::mutex localMutex;
+            boost::mutex::scoped_lock lock(localMutex);
+            m_useLocalConditionVariableAckReceived = true;
+            std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
+            for (unsigned int attempt = 0; attempt < 20; ++attempt) {
+                const std::size_t numUnacked = GetTotalDataSegmentsUnacked();
+                if (numUnacked) {
+                    LOG_INFO(subprocess) << "StcpBundleSource destructor waiting on " << numUnacked << " unacked bundles";
 
 
-            if (previousUnacked > numUnacked) {
-                previousUnacked = numUnacked;
-                attempt = 0;
+                    if (previousUnacked > numUnacked) {
+                        previousUnacked = numUnacked;
+                        attempt = 0;
+                    }
+                    m_localConditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(500)); // call lock.unlock() and blocks the current thread
+                    continue;
+                }
+                break;
             }
-            m_localConditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(500)); // call lock.unlock() and blocks the current thread
-            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
-            continue;
         }
-        break;
+    }
+    catch (const boost::condition_error& e) {
+        LOG_ERROR(subprocess) << "condition_error in StcpBundleSource::Stop: " << e.what();
+    }
+    catch (const boost::thread_resource_error& e) {
+        LOG_ERROR(subprocess) << "thread_resource_error in StcpBundleSource::Stop: " << e.what();
+    }
+    catch (const boost::thread_interrupted&) {
+        LOG_ERROR(subprocess) << "thread_interrupted in StcpBundleSource::Stop";
+    }
+    catch (const boost::lock_error& e) {
+        LOG_ERROR(subprocess) << "lock_error in StcpBundleSource::Stop: " << e.what();
     }
 
     DoStcpShutdown(0);
     while (!m_stcpShutdownComplete) {
-        boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+        try {
+            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+        }
+        catch (const boost::thread_resource_error&) {}
+        catch (const boost::thread_interrupted&) {}
+        catch (const boost::condition_error&) {}
+        catch (const boost::lock_error&) {}
     }
 
     m_tcpAsyncSenderPtr.reset(); //stop this first

@@ -116,7 +116,7 @@ public:
      * Initializes the logger if it hasn't been created yet. This is intended to be called from
      * the LOG_* macros.
      */
-    LOG_LIB_EXPORT static void ensureInitialized();
+    LOG_LIB_EXPORT static void ensureInitialized() noexcept;
 
     /**
      * Represents processes that Logger supports. New processes using the logger
