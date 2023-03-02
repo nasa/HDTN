@@ -220,8 +220,13 @@ uint64_t Bpv7AbstractSecurityBlock::SerializeBpv7(uint8_t * serialization) {
     //
     //The set of security results for a target is also represented as
     //a CBOR array of individual results.  An individual result is
-    //represented as a 2-tuple of a result id and a result value,
-    //defined as follows.
+    /////////////BEGIN OLD DRAFT!!!!!/////////////////////////////
+    // represented as a 2-tuple of a result id and a result value,
+    /////////////END OLD DRAFT!!!!!!!
+    /////////////BEGIN CURRENT RFC!!!!/////////////////////////////
+    //  represented as a CBOR array comprising a 2-tuple of a result Id and a result value
+    /////////////END CURRENT RFC!!!!/////////////////////////////
+    //, defined as follows.
     //
     //*  Result Id.  This field identifies which security result is
     //   being specified.  Some security results capture the primary
