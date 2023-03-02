@@ -523,10 +523,11 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7AbstractSecurityBlock : public Bpv7Canonical
     BPCODEC_EXPORT void ClearSecurityContextParametersPresent();
     BPCODEC_EXPORT void SetSecurityContextId(BPSEC_SECURITY_CONTEXT_IDENTIFIERS id);
 
-    BPCODEC_EXPORT static uint64_t SerializeIdValuePairsVecBpv7(uint8_t * serialization, const id_value_pairs_vec_t & idValuePairsVec, uint64_t bufferSize);
-    BPCODEC_EXPORT static uint64_t IdValuePairsVecBpv7SerializationSize(const id_value_pairs_vec_t & idValuePairsVec);
+    BPCODEC_EXPORT static uint64_t SerializeIdValuePairsVecBpv7(uint8_t * serialization,
+        const id_value_pairs_vec_t & idValuePairsVec, uint64_t bufferSize, bool encapsulatePairInArrayOfSizeOne);
+    BPCODEC_EXPORT static uint64_t IdValuePairsVecBpv7SerializationSize(const id_value_pairs_vec_t & idValuePairsVec, bool encapsulatePairInArrayOfSizeOne);
     BPCODEC_EXPORT static bool DeserializeIdValuePairsVecBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, id_value_pairs_vec_t & idValuePairsVec,
-        const BPSEC_SECURITY_CONTEXT_IDENTIFIERS securityContext, const bool isForSecurityParameters, const uint64_t maxElements);
+        const BPSEC_SECURITY_CONTEXT_IDENTIFIERS securityContext, const bool isForSecurityParameters, const uint64_t maxElements, bool pairIsEncapsulateInArrayOfSizeOne);
     BPCODEC_EXPORT static bool DeserializeIdValuePairBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, id_value_pair_t & idValuePair,
         const BPSEC_SECURITY_CONTEXT_IDENTIFIERS securityContext, const bool isForSecurityParameters);
     BPCODEC_EXPORT static bool IsEqual(const id_value_pairs_vec_t & pVec1, const id_value_pairs_vec_t & pVec2);
