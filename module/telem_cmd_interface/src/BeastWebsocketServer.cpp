@@ -23,6 +23,17 @@
 
 static const hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::gui;
 
+#define BEAST_WEBSOCKET_SERVER_NUM_THREADS 1
+
+#ifndef BEAST_WEBSOCKET_SERVER_NUM_THREADS
+#error "BEAST_WEBSOCKET_SERVER_NUM_THREADS must be defined"
+#elif (BEAST_WEBSOCKET_SERVER_NUM_THREADS < 1)
+#error "BEAST_WEBSOCKET_SERVER_NUM_THREADS must be at least 1"
+#elif (BEAST_WEBSOCKET_SERVER_NUM_THREADS == 1)
+#define BEAST_WEBSOCKET_SERVER_SINGLE_THREADED 1
+#endif // ! BEAST_WEBSOCKET_SERVER_NUM_THREADS
+
+
 
 //https://raw.githubusercontent.com/boostorg/beast/b07edea9d70ed5a613879ab94896ed9b7255f5a8/example/advanced/server-flex/advanced_server_flex.cpp
 //https://raw.githubusercontent.com/boostorg/beast/b07edea9d70ed5a613879ab94896ed9b7255f5a8/example/common/server_certificate.hpp
@@ -157,6 +168,7 @@ load_server_certificate(boost::asio::ssl::context& ctx)
 #include <boost/thread.hpp>
 #include "ThreadNamer.h"
 #include <vector>
+#include <array>
 #include <atomic>
 
 
@@ -434,7 +446,9 @@ private:
         // Accept the websocket handshake
         derived().ws().async_accept(
             req,
-            boost::beast::bind_front_handler(&websocket_session::on_accept, derived().shared_from_this()));
+            boost::bind(&websocket_session::on_accept,
+                derived().shared_from_this(),
+                boost::placeholders::_1));
     }
 
     void on_accept(boost::beast::error_code ec) {
@@ -463,9 +477,11 @@ private:
         // Read a message into our buffer
         derived().ws().async_read(
             m_flatBuffer,
-            boost::beast::bind_front_handler(
+            boost::bind(
                 &websocket_session::on_read,
-                derived().shared_from_this()));
+                derived().shared_from_this(),
+                boost::placeholders::_1,
+                boost::placeholders::_2));
     }
 
     void on_read(boost::beast::error_code ec, std::size_t bytes_transferred) {
@@ -543,9 +559,10 @@ private:
     void DoClose_NotThreadSafe() {
         if (m_isOpenSharedLockPtr) {
             derived().ws().async_close(boost::beast::websocket::close_code::none,
-                boost::beast::bind_front_handler(
+                boost::bind(
                     &websocket_session::OnClose,
-                    derived().shared_from_this())); //copied by value
+                    derived().shared_from_this(), //copied by value
+                    boost::placeholders::_1)); 
         }
     }
     void OnClose(boost::beast::error_code ec) {
@@ -717,10 +734,12 @@ class http_session {
                     boost::beast::http::async_write(
                         self_.derived().stream(),
                         m_httpMessage,
-                        boost::beast::bind_front_handler(
+                        boost::bind(
                             &http_session::on_write,
                             self_.derived().shared_from_this(),
-                            m_httpMessage.need_eof()));
+                            m_httpMessage.need_eof(),
+                            boost::placeholders::_1,
+                            boost::placeholders::_2));
                 }
             };
 
@@ -767,9 +786,11 @@ public:
             derived().stream(),
             m_flatBuffer,
             *parser_,
-            boost::beast::bind_front_handler(
+            boost::bind(
                 &http_session::on_read,
-                derived().shared_from_this()));
+                derived().shared_from_this(),
+                boost::placeholders::_1,
+                boost::placeholders::_2));
     }
 
     void on_read(boost::beast::error_code ec, std::size_t bytes_transferred) {
@@ -894,9 +915,11 @@ public:
         m_sslStream.async_handshake(
             boost::asio::ssl::stream_base::server,
             m_flatBuffer.data(),
-            boost::beast::bind_front_handler(
+            boost::bind(
                 &ssl_http_session::on_handshake,
-                shared_from_this()));
+                shared_from_this(),
+                boost::placeholders::_1,
+                boost::placeholders::_2));
     }
 
     // Called by the base class
@@ -916,9 +939,10 @@ public:
 
         // Perform the SSL shutdown
         m_sslStream.async_shutdown(
-            boost::beast::bind_front_handler(
+            boost::bind(
                 &ssl_http_session::on_shutdown,
-                shared_from_this()));
+                shared_from_this(),
+                boost::placeholders::_1));
     }
 
 private:
@@ -969,9 +993,9 @@ public:
         // thread-safe by default.
         boost::asio::dispatch(
             stream_.get_executor(),
-            boost::beast::bind_front_handler(
+            boost::bind(
                 &detect_session::on_run,
-                this->shared_from_this()));
+                shared_from_this()));
     }
 
     void on_run() {
@@ -981,9 +1005,11 @@ public:
         boost::beast::async_detect_ssl(
             stream_,
             m_flatBuffer,
-            boost::beast::bind_front_handler(
+            boost::bind(
                 &detect_session::on_detect,
-                this->shared_from_this()));
+                shared_from_this(),
+                boost::placeholders::_1,
+                boost::placeholders::_2));
     }
 
     void on_detect(boost::beast::error_code ec, bool result) {
@@ -1007,18 +1033,24 @@ public:
 
 // Accepts incoming connections and launches the sessions
 class listener {
-    boost::asio::io_service& m_ioService;
+    boost::asio::io_service& m_ioServiceRef;
     boost::asio::ssl::context& m_sslContext;
     boost::asio::ip::tcp::acceptor m_tcpAcceptor;
     ServerState_ptr m_serverStatePtr;
 
 public:
-    listener(boost::asio::io_service& ioc, boost::asio::ssl::context& ctx,
+    listener(boost::asio::io_service& ioService, boost::asio::ssl::context& ctx,
         boost::asio::ip::tcp::endpoint endpoint,
         ServerState_ptr& serverStatePtr) :
-        m_ioService(ioc),
+        m_ioServiceRef(ioService),
         m_sslContext(ctx),
-        m_tcpAcceptor(boost::asio::make_strand(ioc)),
+        m_tcpAcceptor(
+#ifdef BEAST_WEBSOCKET_SERVER_SINGLE_THREADED
+            ioService
+#else
+            boost::asio::make_strand(ioService)
+#endif
+        ),
         m_serverStatePtr(serverStatePtr)
     {
         boost::beast::error_code ec;
@@ -1072,17 +1104,27 @@ public:
 private:
     void do_accept() {
         // The new connection gets its own strand
+        std::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr = std::make_shared<boost::asio::ip::tcp::socket>(
+#ifdef BEAST_WEBSOCKET_SERVER_SINGLE_THREADED
+            m_ioServiceRef
+#else
+            boost::asio::make_strand(m_ioServiceRef)
+#endif
+        );
+        boost::asio::ip::tcp::socket& socketRef = *newTcpSocketPtr;
         m_tcpAcceptor.async_accept(
-            boost::asio::make_strand(m_ioService),
-            boost::beast::bind_front_handler(
+            socketRef,
+            boost::bind(
                 &listener::on_accept,
-                this));
+                this,
+                std::move(newTcpSocketPtr),
+                boost::placeholders::_1));
     }
 
-    void on_accept(boost::beast::error_code ec, boost::asio::ip::tcp::socket socket) {
+    void on_accept(std::shared_ptr<boost::asio::ip::tcp::socket>& newTcpSocketPtr, boost::beast::error_code ec) {
         if (!ec) {
             // Create the detector http_session and run it
-            std::shared_ptr<detect_session> detectSession = std::make_shared<detect_session>(std::move(socket), m_sslContext, m_serverStatePtr);
+            std::shared_ptr<detect_session> detectSession = std::make_shared<detect_session>(std::move(*newTcpSocketPtr), m_sslContext, m_serverStatePtr);
             detectSession->run();
             // Accept another connection
             do_accept();
@@ -1096,7 +1138,9 @@ private:
 struct BeastWebsocketServer::Impl : private boost::noncopyable {
 
     Impl() :
-        m_ioService(), //(1) => concurrency_hint of 1 thread
+#ifndef BEAST_WEBSOCKET_SERVER_SINGLE_THREADED
+        m_ioService(BEAST_WEBSOCKET_SERVER_NUM_THREADS), //(1) => concurrency_hint of 1 thread
+#endif // !BEAST_WEBSOCKET_SERVER_SINGLE_THREADED
         m_sslContext(boost::asio::ssl::context::tlsv12) {}
     ~Impl() {
         Stop();
@@ -1121,14 +1165,16 @@ struct BeastWebsocketServer::Impl : private boost::noncopyable {
             m_serverStatePtr.reset();
         }
         
-        if (m_ioServiceThreadPtr) {
+        if (m_ioServiceThreadPtrs[0]) {
             m_ioService.stop(); //stop anything remaining
-            try {
-                m_ioServiceThreadPtr->join();
-                m_ioServiceThreadPtr.reset(); //delete it
-            }
-            catch (const boost::thread_resource_error&) {
-                LOG_ERROR(subprocess) << "error stopping BeastWebsocketServer io_service";
+            for (std::size_t i = 0; i < m_ioServiceThreadPtrs.size(); ++i) {
+                try {
+                    m_ioServiceThreadPtrs[i]->join();
+                    m_ioServiceThreadPtrs[i].reset(); //delete it
+                }
+                catch (const boost::thread_resource_error&) {
+                    LOG_ERROR(subprocess) << "error stopping BeastWebsocketServer io_service";
+                }
             }
         }
     }
@@ -1146,8 +1192,18 @@ struct BeastWebsocketServer::Impl : private boost::noncopyable {
         m_listenerUniquePtr->run();
 
         //StartTcpAccept();
-        m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+#ifdef BEAST_WEBSOCKET_SERVER_SINGLE_THREADED
+        m_ioServiceThreadPtrs[0] = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
         ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceWebserver");
+#else
+        for (std::size_t i = 0; i < m_ioServiceThreadPtrs.size(); ++i) {
+            m_ioServiceThreadPtrs[i] = boost::make_unique<boost::thread>([this, i]() {
+                static const std::string namePrefix("ioServiceWeb");
+                ThreadNamer::SetThisThreadName(namePrefix + boost::lexical_cast<std::string>(i));
+                m_ioService.run();
+            });
+        }
+#endif
 
         LOG_INFO(subprocess) << "HDTN Webserver at http://localhost:" << portNumberAsString;
 
@@ -1171,7 +1227,7 @@ private:
     // (actually not needed, ptr contained within its callbacks)
     //std::shared_ptr<listener> m_listenerSharedPtr; 
 
-    std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
+    std::array<std::unique_ptr<boost::thread>, BEAST_WEBSOCKET_SERVER_NUM_THREADS> m_ioServiceThreadPtrs;
     std::unique_ptr<listener> m_listenerUniquePtr;
     ServerState_ptr m_serverStatePtr;
 public:
