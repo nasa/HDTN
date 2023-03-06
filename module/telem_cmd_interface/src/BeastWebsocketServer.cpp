@@ -159,7 +159,16 @@ load_server_certificate(boost::asio::ssl::context& ctx)
 #include <vector>
 
 
-
+#if (__cplusplus >= 201703L)
+#include <shared_mutex>
+typedef std::shared_mutex shared_mutex_t;
+typedef std::shared_lock<std::shared_mutex> shared_lock_t;
+typedef std::unique_lock<std::shared_mutex> exclusive_lock_t;
+#else
+typedef boost::shared_mutex shared_mutex_t;
+typedef boost::shared_lock<boost::shared_mutex> shared_lock_t;
+typedef boost::unique_lock<boost::shared_mutex> exclusive_lock_t;
+#endif
 
 struct ServerState : private boost::noncopyable {
     ServerState() = delete;
@@ -175,6 +184,7 @@ struct ServerState : private boost::noncopyable {
     const OnNewBeastWebsocketConnectionCallback_t m_onNewWebsocketConnectionCallback;
     const OnNewBeastWebsocketDataReceivedCallback_t m_onNewWebsocketDataReceivedCallback;
     boost::mutex m_activeConnectionsMutex;
+    shared_mutex_t m_unclosedConnectionsSharedMutex;
     uint32_t m_nextWebsocketConnectionId;
     typedef std::map<uint32_t, std::shared_ptr<WebsocketSessionBase> > active_connections_map_t;
     active_connections_map_t m_activeConnections; //allow multiple connections
@@ -385,6 +395,7 @@ protected:
     explicit websocket_session(uint32_t uniqueId, ServerState_ptr& serverStatePtr) :
         WebsocketSessionBase(uniqueId),
         m_serverStatePtr(serverStatePtr),
+        m_isOpenSharedLockPtr(boost::make_unique<shared_lock_t>(m_serverStatePtr->m_unclosedConnectionsSharedMutex)),
         m_writeInProgress(false),
         m_sendErrorOccurred(false) {}
 private:
@@ -399,6 +410,7 @@ private:
     boost::beast::flat_buffer m_flatBuffer;
     ServerState_ptr m_serverStatePtr;
     std::queue<std::shared_ptr<std::string> > m_queueDataToSend;
+    std::unique_ptr<shared_lock_t> m_isOpenSharedLockPtr;
     volatile bool m_writeInProgress;
     volatile bool m_sendErrorOccurred;
 
@@ -426,14 +438,16 @@ private:
     void on_accept(boost::beast::error_code ec) {
         std::cout << "ON ACCEPT\n";
         if (ec) {
-            return fail(ec, "accept");
+            fail(ec, "accept");
+            m_isOpenSharedLockPtr.reset();
         }
+        else {
+            // Read a message
+            do_read();
 
-        // Read a message
-        do_read();
-
-        if (m_serverStatePtr->m_onNewWebsocketConnectionCallback) {
-            m_serverStatePtr->m_onNewWebsocketConnectionCallback(*this);
+            if (m_serverStatePtr->m_onNewWebsocketConnectionCallback) {
+                m_serverStatePtr->m_onNewWebsocketConnectionCallback(*this);
+            }
         }
     }
 
@@ -451,62 +465,38 @@ private:
         std::cout << "ON READ\n";
         boost::ignore_unused(bytes_transferred);
 
-        // This indicates that the websocket_session was closed
-        if (ec == boost::beast::websocket::error::closed) {
-            std::cout << "calling lock1\n";
-            boost::mutex::scoped_lock lock(m_serverStatePtr->m_activeConnectionsMutex);
-            std::cout << "called lock1\n";
-            if (m_serverStatePtr->m_activeConnections.erase(m_uniqueId) == 0) {
-                LOG_ERROR(subprocess) << "cannot erase websocket id " << m_uniqueId << " from map";
-            }
-            else {
-                std::cout << "erased from map\n";
-            }
-            return;
-        }
-
         if (ec) {
-            std::cout << "FAIL READ\n";
-            fail(ec, "read");
-            return;
-        }
-
-        if (derived().ws().got_text()) {
-            if (m_serverStatePtr->m_onNewWebsocketDataReceivedCallback) {
-                std::string s = boost::beast::buffers_to_string(m_flatBuffer.data());
-                m_serverStatePtr->m_onNewWebsocketDataReceivedCallback(*this, s);
+            // This indicates that the websocket_session was closed (by remote)
+            if (ec == boost::beast::websocket::error::closed) {
+                std::cout << "calling lock1\n";
+                boost::mutex::scoped_lock lock(m_serverStatePtr->m_activeConnectionsMutex);
+                std::cout << "called lock1\n";
+                if (m_serverStatePtr->m_activeConnections.erase(m_uniqueId) == 0) {
+                    LOG_ERROR(subprocess) << "cannot erase websocket id " << m_uniqueId << " from map";
+                }
+                else {
+                    std::cout << "erased from map\n";
+                }
             }
+            else if (ec != boost::asio::error::operation_aborted) {
+                std::cout << "FAIL READ\n";
+                fail(ec, "read");
+            }
+            m_isOpenSharedLockPtr.reset();
         }
+        else {
+            if (derived().ws().got_text()) {
+                if (m_serverStatePtr->m_onNewWebsocketDataReceivedCallback) {
+                    m_serverStatePtr->m_onNewWebsocketDataReceivedCallback(*this, boost::beast::buffers_to_string(m_flatBuffer.data()));
+                }
+            }
 
-        // Echo the message
-        //derived().ws().text(derived().ws().got_text());
-        //derived().ws().async_write(
-        //    m_flatBuffer.data(),
-        //    boost::beast::bind_front_handler(
-        //        &websocket_session::on_write,
-        //        derived().shared_from_this()));
+            // Clear the buffer
+            m_flatBuffer.consume(m_flatBuffer.size());
 
-        // Clear the buffer
-        m_flatBuffer.consume(m_flatBuffer.size());
-
-        // Do another read
-        do_read();
-    }
-
-    void on_write(boost::beast::error_code ec, std::size_t bytes_transferred) {
-        boost::ignore_unused(bytes_transferred);
-
-        if (ec) {
-            fail(ec, "write");
-            return;
+            // Do another read
+            do_read();
         }
-        /*
-        // Clear the buffer
-        m_flatBuffer.consume(m_flatBuffer.size());
-
-        // Do another read
-        do_read();
-        */
     }
 
     void DoSendQueuedElement() {
@@ -535,14 +525,7 @@ private:
         }
     }
 
-    void OnClose(boost::beast::error_code ec) {
-        std::cout << "onclose\n";
-        if (ec) {
-            fail(ec, "close");
-        }
-    }
-
-    void HandleQueueAndSendTextData_NotThreadSafe(std::shared_ptr<std::string>& stringPtr) {
+    void QueueAndSendTextData_NotThreadSafe(std::shared_ptr<std::string>& stringPtr) {
         if (!m_sendErrorOccurred) {
             m_queueDataToSend.push(std::move(stringPtr));
             if (!m_writeInProgress) {
@@ -552,6 +535,21 @@ private:
         }
     }
 
+    void DoClose_NotThreadSafe() {
+        if (m_isOpenSharedLockPtr) {
+            derived().ws().async_close(boost::beast::websocket::close_code::none,
+                boost::beast::bind_front_handler(
+                    &websocket_session::OnClose,
+                    derived().shared_from_this())); //copied by value
+        }
+    }
+    void OnClose(boost::beast::error_code ec) {
+        std::cout << "onclose\n";
+        if (ec) {
+            fail(ec, "close");
+        }
+        m_isOpenSharedLockPtr.reset();
+    }
 public:
     // Start the asynchronous operation
     template<class Body, class Allocator>
@@ -561,15 +559,14 @@ public:
     }
     virtual void AsyncSendTextData(std::shared_ptr<std::string>&& stringPtr) override {
         boost::asio::post(derived().ws().get_executor(),
-            boost::bind(&websocket_session::HandleQueueAndSendTextData_NotThreadSafe,
+            boost::bind(&websocket_session::QueueAndSendTextData_NotThreadSafe,
                 derived().shared_from_this(), std::move(stringPtr)));
     }
 
     virtual void AsyncClose() override {
-        derived().ws().async_close(boost::beast::websocket::close_code::none,
-            boost::beast::bind_front_handler(
-                &websocket_session::OnClose,
-                derived().shared_from_this())); //copied by value
+        boost::asio::post(derived().ws().get_executor(),
+            boost::bind(&websocket_session::DoClose_NotThreadSafe,
+                derived().shared_from_this()));
     }
 };
 
@@ -1004,11 +1001,10 @@ public:
 };
 
 // Accepts incoming connections and launches the sessions
-class listener : public std::enable_shared_from_this<listener>
-{
+class listener {
     boost::asio::io_service& m_ioService;
     boost::asio::ssl::context& m_sslContext;
-    boost::asio::ip::tcp::acceptor acceptor_;
+    boost::asio::ip::tcp::acceptor m_tcpAcceptor;
     ServerState_ptr m_serverStatePtr;
 
 public:
@@ -1017,37 +1013,48 @@ public:
         ServerState_ptr& serverStatePtr) :
         m_ioService(ioc),
         m_sslContext(ctx),
-        acceptor_(boost::asio::make_strand(ioc)),
+        m_tcpAcceptor(boost::asio::make_strand(ioc)),
         m_serverStatePtr(serverStatePtr)
     {
         boost::beast::error_code ec;
 
         // Open the acceptor
-        acceptor_.open(endpoint.protocol(), ec);
+        m_tcpAcceptor.open(endpoint.protocol(), ec);
         if (ec) {
             fail(ec, "open");
             return;
         }
 
         // Allow address reuse
-        acceptor_.set_option(boost::asio::socket_base::reuse_address(true), ec);
+        m_tcpAcceptor.set_option(boost::asio::socket_base::reuse_address(true), ec);
         if (ec) {
             fail(ec, "set_option");
             return;
         }
 
         // Bind to the server address
-        acceptor_.bind(endpoint, ec);
+        m_tcpAcceptor.bind(endpoint, ec);
         if (ec) {
             fail(ec, "bind");
             return;
         }
 
         // Start listening for connections
-        acceptor_.listen(boost::asio::socket_base::max_listen_connections, ec);
+        m_tcpAcceptor.listen(boost::asio::socket_base::max_listen_connections, ec);
         if (ec) {
             fail(ec, "listen");
             return;
+        }
+    }
+
+    ~listener() {
+        if (m_tcpAcceptor.is_open()) {
+            try {
+                m_tcpAcceptor.close();
+            }
+            catch (const boost::system::system_error& e) {
+                LOG_ERROR(subprocess) << "Error closing HTTP TCP Acceptor:  " << e.what();
+            }
         }
     }
 
@@ -1056,28 +1063,28 @@ public:
         do_accept();
     }
 
+
 private:
     void do_accept() {
         // The new connection gets its own strand
-        acceptor_.async_accept(
+        m_tcpAcceptor.async_accept(
             boost::asio::make_strand(m_ioService),
             boost::beast::bind_front_handler(
                 &listener::on_accept,
-                shared_from_this()));
+                this));
     }
 
     void on_accept(boost::beast::error_code ec, boost::asio::ip::tcp::socket socket) {
-        if (ec) {
-            fail(ec, "accept");
-        }
-        else {
+        if (!ec) {
             // Create the detector http_session and run it
             std::shared_ptr<detect_session> detectSession = std::make_shared<detect_session>(std::move(socket), m_sslContext, m_serverStatePtr);
             detectSession->run();
+            // Accept another connection
+            do_accept();
         }
-
-        // Accept another connection
-        do_accept();
+        else if (ec != boost::asio::error::operation_aborted) {
+            LOG_ERROR(subprocess) << "tcp accept error: " << ec.message();
+        }
     }
 };
 
@@ -1090,6 +1097,7 @@ struct BeastWebsocketServer::Impl : private boost::noncopyable {
         Stop();
     }
     void Stop() {
+        m_listenerUniquePtr.reset(); //stop future connections
         if (m_serverStatePtr) {
             std::cout << "calling lockS\n";
             boost::mutex::scoped_lock lock(m_serverStatePtr->m_activeConnectionsMutex);
@@ -1101,12 +1109,18 @@ struct BeastWebsocketServer::Impl : private boost::noncopyable {
                 it->second->AsyncClose();
             }
 
-            m_serverStatePtr->m_activeConnections.clear();
+            //Clear this map's collection of shared_ptrs.
+            //The websocket connections themselves however contain their own copy of these shared_ptrs.
+            m_serverStatePtr->m_activeConnections.clear(); 
+
+            { //wait for websockets to gracefully close
+                exclusive_lock_t lockExclusive(m_serverStatePtr->m_unclosedConnectionsSharedMutex);
+            }
+            m_serverStatePtr.reset();
         }
-        m_serverStatePtr.reset();
-        boost::this_thread::sleep(boost::posix_time::seconds(2));
-        m_ioService.stop();
+        
         if (m_ioServiceThreadPtr) {
+            m_ioService.stop(); //stop anything remaining
             try {
                 m_ioServiceThreadPtr->join();
                 m_ioServiceThreadPtr.reset(); //delete it
@@ -1126,7 +1140,8 @@ struct BeastWebsocketServer::Impl : private boost::noncopyable {
         const uint16_t port = boost::lexical_cast<uint16_t>(portNumberAsString);
         m_serverStatePtr = std::make_shared<ServerState>(documentRoot.string(), connectionCallback, dataCallback);
         // Create and launch a listening port
-        std::make_shared<listener>(m_ioService, m_sslContext, boost::asio::ip::tcp::endpoint(address, port), m_serverStatePtr)->run();
+        m_listenerUniquePtr = boost::make_unique<listener>(m_ioService, m_sslContext, boost::asio::ip::tcp::endpoint(address, port), m_serverStatePtr);
+        m_listenerUniquePtr->run();
 
         //StartTcpAccept();
         m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
@@ -1155,6 +1170,7 @@ private:
     //std::shared_ptr<listener> m_listenerSharedPtr; 
 
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
+    std::unique_ptr<listener> m_listenerUniquePtr;
     ServerState_ptr m_serverStatePtr;
 public:
     
@@ -1180,88 +1196,3 @@ void BeastWebsocketServer::Stop() {
 void BeastWebsocketServer::SendTextDataToActiveWebsockets(const std::shared_ptr<std::string>& stringPtr) {
     m_pimpl->SendTextDataToActiveWebsockets(stringPtr);
 }
-
-/*
-
-void WebSocketHandler::SendTextDataToActiveWebsockets(const char* data, std::size_t size) {
-    boost::mutex::scoped_lock lock(m_mutex);
-    for (std::set<struct mg_connection*>::iterator it = m_activeConnections.begin(); it != m_activeConnections.end(); ++it) {
-        mg_websocket_write(*it, MG_WEBSOCKET_OPCODE_TEXT, data, size);
-    }
-}
-
-void WebSocketHandler::SendBinaryDataToActiveWebsockets(const char *data, std::size_t size) {
-    boost::mutex::scoped_lock lock(m_mutex);
-    for (std::set<struct mg_connection *>::iterator it = m_activeConnections.begin(); it != m_activeConnections.end(); ++it) {
-        mg_websocket_write(*it, MG_WEBSOCKET_OPCODE_BINARY, data, size);
-    }
-}
-
-bool WebSocketHandler::handleConnection(CivetServer *server, const struct mg_connection *conn) {
-    boost::mutex::scoped_lock lock(m_mutex);
-    if (m_activeConnections.insert((struct mg_connection *)conn).second) {
-        LOG_INFO(subprocess) << "WS connected";
-        return true;
-    }
-    else {
-        LOG_ERROR(subprocess) << "this WS is already connected";
-        return false;
-    }
-}
-
-void WebSocketHandler::handleReadyState(CivetServer *server, struct mg_connection *conn) {
-    boost::mutex::scoped_lock lock(m_mutex);
-    if (m_activeConnections.count(conn) == 0) {
-        LOG_ERROR(subprocess) << "error in handleReadyState, connections do not match";
-        return;
-    }
-    LOG_INFO(subprocess) << "WS ready";
-
-    const char *text = "Hello websocket";
-    mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, text, strlen(text));
-
-    if (m_onNewWebsocketConnectionCallback) {
-        m_onNewWebsocketConnectionCallback(conn);
-    }
-}
-
-bool WebSocketHandler::handleData(CivetServer *server, struct mg_connection *conn, int bits, char *data, size_t data_len) {
-    boost::mutex::scoped_lock lock(m_mutex);
-    if (m_activeConnections.count(conn) == 0) {
-        LOG_ERROR(subprocess) << "error in handleData, connections do not match";
-        return false;
-    }
-
-    //LOG_INFO(subprocess) << "WS got " << data_len << "bytes";
-
-    if (data_len < 1) {
-        return true;
-    }
-    if (data_len == 2) {
-        printf("%x %x\n", (int)data[0], (int)data[1]);
-        return true;
-    }
-    
-
-    //const std::string dataStr(data, data_len); // data is non-null-terminated c_str
-    //LOG_INFO(subprocess) << dataStr;
-    //if (boost::starts_with(dataStr, "CONNECT"))
-    //{ // send an initial packet from behind the windows firewall to the server
-    //}
-
-    if (m_onNewWebsocketDataReceivedCallback) {
-        return m_onNewWebsocketDataReceivedCallback(conn, data, data_len);
-    }
-
-    return true; // return true to keep socket open
-}
-
-void WebSocketHandler::handleClose(CivetServer *server, const struct mg_connection *conn) {
-    boost::mutex::scoped_lock lock(m_mutex);
-    if (m_activeConnections.erase((struct mg_connection *)conn) == 0) {
-        // if nothing was erased
-        LOG_ERROR(subprocess) << "error in handleClose, connections do not match";
-    }
-    LOG_INFO(subprocess) << "WS closed";
-}
-*/
