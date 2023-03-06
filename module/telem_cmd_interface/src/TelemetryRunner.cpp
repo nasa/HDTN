@@ -363,15 +363,7 @@ void TelemetryRunner::Impl::Stop() {
     }
     //stop websocket after thread
     if (m_websocketServerPtr) {
-        std::cout << "call ws stop\n";
         m_websocketServerPtr->Stop();
-        std::cout << "ws stopped\n";
         m_websocketServerPtr.reset();
-        std::cout << "ws deleted\n";
     }
-    
-    //The following is implicitly done at destruction.  If print statements are
-    // added before and after this reset(), you will observe this part takes at least a second.
-    // We may want to optimize this at some point.
-    //m_websocketServerPtr.reset();
 }
