@@ -411,7 +411,6 @@ protected:
         m_isOpenSharedLockPtr(boost::make_unique<shared_lock_t>(m_serverStatePtr->m_unclosedConnectionsSharedMutex)),
         m_writeInProgress(false),
         m_sendErrorOccurred(false) {}
-    virtual std::shared_ptr<WebsocketSessionBase> GetSharedFromThis() = 0;
 private:
     // Access the derived class, this is part of
     // the Curiously Recurring Template Pattern idiom.
@@ -463,7 +462,7 @@ private:
             { //add the websocket connection only when fully running
                 boost::mutex::scoped_lock lock(m_serverStatePtr->m_activeConnectionsMutex);
                 std::pair<ServerState::active_connections_map_t::iterator, bool> ret =
-                    m_serverStatePtr->m_activeConnections.emplace(m_uniqueId, std::move(GetSharedFromThis()));
+                    m_serverStatePtr->m_activeConnections.emplace(m_uniqueId, derived().shared_from_this());
             }
             LOG_INFO(subprocess) << "Websocket connection id " << m_uniqueId << " connected.";
 
@@ -610,10 +609,6 @@ public:
     boost::beast::websocket::stream<boost::beast::tcp_stream>& ws() {
         return m_websocketStream;
     }
-protected:
-    virtual std::shared_ptr<WebsocketSessionBase> GetSharedFromThis() override {
-        return shared_from_this();
-    }
 };
 
 //------------------------------------------------------------------------------
@@ -634,10 +629,6 @@ public:
     // Called by the base class
     boost::beast::websocket::stream<boost::beast::ssl_stream<boost::beast::tcp_stream> >& ws() {
         return m_sslWebsocketStream;
-    }
-protected:
-    virtual std::shared_ptr<WebsocketSessionBase> GetSharedFromThis() override {
-        return shared_from_this();
     }
 };
 
@@ -680,10 +671,7 @@ class http_session {
 
     // This queue is used for HTTP pipelining.
     class queue {
-        enum {
-            // Maximum number of responses we will queue
-            limit = 8
-        };
+        static const std::size_t QUEUE_LIMIT = 8; // Maximum number of responses we will queue
 
         // The type-erased, saved work item
         struct work {
@@ -691,30 +679,29 @@ class http_session {
             virtual void operator()() = 0;
         };
 
-        http_session& self_;
-        std::vector<std::unique_ptr<work> > items_;
+        http_session& m_selfRef;
+        std::queue<std::unique_ptr<work> > m_queueInternal;
 
     public:
-        explicit queue(http_session& self) : self_(self) {
-            static_assert(limit > 0, "queue limit must be positive");
-            items_.reserve(limit);
+        explicit queue(http_session& self) : m_selfRef(self) {
+            static_assert(QUEUE_LIMIT > 0, "queue limit must be positive");
         }
 
         // Returns `true` if we have reached the queue limit
         bool is_full() const noexcept {
-            return items_.size() >= limit;
+            return m_queueInternal.size() >= QUEUE_LIMIT;
         }
 
         // Called when a message finishes sending
         // Returns `true` if the caller should initiate a read
         bool on_write() {
-            BOOST_ASSERT(!items_.empty());
-            const bool was_full = is_full();
-            items_.erase(items_.begin());
-            if (!items_.empty()) {
-                (*items_.front())();
+            BOOST_ASSERT(!m_queueInternal.empty());
+            const bool wasFull = is_full();
+            m_queueInternal.pop();
+            if (!m_queueInternal.empty()) {
+                (*m_queueInternal.front())();
             }
-            return was_full;
+            return wasFull;
         }
 
         // Called by the HTTP handler to send a response.
@@ -723,20 +710,20 @@ class http_session {
             // This holds a work item
             struct work_impl : work
             {
-                http_session& self_;
+                http_session& m_selfRef;
                 boost::beast::http::message<isRequest, Body, Fields> m_httpMessage;
 
                 work_impl(http_session& self, boost::beast::http::message<isRequest, Body, Fields>&& msg) :
-                    self_(self),
+                    m_selfRef(self),
                     m_httpMessage(std::move(msg)) {}
 
                 void operator()() {
                     boost::beast::http::async_write(
-                        self_.derived().stream(),
+                        m_selfRef.derived().stream(),
                         m_httpMessage,
                         boost::bind(
                             &http_session::on_write,
-                            self_.derived().shared_from_this(),
+                            m_selfRef.derived().shared_from_this(),
                             m_httpMessage.need_eof(),
                             boost::placeholders::_1,
                             boost::placeholders::_2));
@@ -744,11 +731,11 @@ class http_session {
             };
 
             // Allocate and store the work
-            items_.push_back(boost::make_unique<work_impl>(self_, std::move(msg)));
+            m_queueInternal.emplace(boost::make_unique<work_impl>(m_selfRef, std::move(msg)));
 
             // If there was no previous work, start this one
-            if (items_.size() == 1) {
-                (*items_.front())();
+            if (m_queueInternal.size() == 1) {
+                (*m_queueInternal.front())();
             }
         }
     };
