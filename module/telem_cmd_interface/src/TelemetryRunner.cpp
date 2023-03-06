@@ -29,7 +29,7 @@
 #include "TelemetryLogger.h"
 #include "Environment.h"
 #include "DeadlineTimer.h"
-#include "WebsocketServer.h"
+#include "BeastWebsocketServer.h"
 #include "ThreadNamer.h"
 #include <queue>
 
@@ -67,18 +67,18 @@ class TelemetryRunner::Impl : private boost::noncopyable {
     private:
         void ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDistributedConfigPtr, zmq::context_t * inprocContextPtr);
         void OnNewJsonTelemetry(const char* buffer, uint64_t bufferSize);
-        void OnNewWebsocketConnectionCallback(struct mg_connection* conn);
-        bool OnNewWebsocketDataReceivedCallback(struct mg_connection* conn, char* data, size_t data_len);
+        void OnNewWebsocketConnectionCallback(WebsocketSessionBase& conn);
+        bool OnNewWebsocketDataReceivedCallback(WebsocketSessionBase& conn, std::string& receivedString);
 
         volatile bool m_running;
         std::unique_ptr<boost::thread> m_threadPtr;
-        std::unique_ptr<WebsocketServer> m_websocketServerPtr;
+        std::unique_ptr<BeastWebsocketServer> m_websocketServerPtr;
         std::unique_ptr<TelemetryLogger> m_telemetryLoggerPtr;
         DeadlineTimer m_deadlineTimer;
         HdtnConfig m_hdtnConfig;
 
         boost::mutex m_lastSerializedAllOutductCapabilitiesMutex;
-        zmq::message_t m_lastZmqJsonSerializedAllOutductCapabilities;
+        std::shared_ptr<std::string> m_lastJsonSerializedAllOutductCapabilitiesPtr;
 
         std::queue<zmq::message_t> m_apiCallsToIngressQueue;
         boost::mutex m_apiCallsToIngressQueueMutex;
@@ -128,13 +128,11 @@ bool TelemetryRunner::Impl::Init(const HdtnConfig& hdtnConfig, zmq::context_t *i
     }
     m_hdtnConfig = hdtnConfig;
 #ifdef USE_WEB_INTERFACE
-    m_websocketServerPtr = boost::make_unique<WebsocketServer>();
-    m_websocketServerPtr->Init(options.m_guiDocumentRoot, options.m_guiPortNumber);
-    m_websocketServerPtr->SetOnNewWebsocketConnectionCallback(
-        boost::bind(&TelemetryRunner::Impl::OnNewWebsocketConnectionCallback, this, boost::placeholders::_1));
-    m_websocketServerPtr->SetOnNewWebsocketDataReceivedCallback(
+    m_websocketServerPtr = boost::make_unique<BeastWebsocketServer>();
+    m_websocketServerPtr->Init(options.m_guiDocumentRoot, options.m_guiPortNumber,
+        boost::bind(&TelemetryRunner::Impl::OnNewWebsocketConnectionCallback, this, boost::placeholders::_1),
         boost::bind(&TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback, this,
-            boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
+            boost::placeholders::_1, boost::placeholders::_2));
 #endif
 
 #ifdef DO_STATS_LOGGING
@@ -147,22 +145,20 @@ bool TelemetryRunner::Impl::Init(const HdtnConfig& hdtnConfig, zmq::context_t *i
     return true;
 }
 
-void TelemetryRunner::Impl::OnNewWebsocketConnectionCallback(struct mg_connection* conn) {
+void TelemetryRunner::Impl::OnNewWebsocketConnectionCallback(WebsocketSessionBase& conn) {
     //std::cout << "newconn\n";
-    const std::string hdtnConfigSerialized = m_hdtnConfig.ToJson();
-    mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, hdtnConfigSerialized.data(), hdtnConfigSerialized.size());
+    conn.AsyncSendTextData(std::make_shared<std::string>(m_hdtnConfig.ToJson()));
     {
         boost::mutex::scoped_lock lock(m_lastSerializedAllOutductCapabilitiesMutex);
-        if (m_lastZmqJsonSerializedAllOutductCapabilities.size()) {
-            mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT,
-                (const char*)m_lastZmqJsonSerializedAllOutductCapabilities.data(), m_lastZmqJsonSerializedAllOutductCapabilities.size());
+        if (m_lastJsonSerializedAllOutductCapabilitiesPtr->size()) {
+            conn.AsyncSendTextData(std::shared_ptr<std::string>(m_lastJsonSerializedAllOutductCapabilitiesPtr)); //create copy of shared ptr and move the copy in
         }
     }
 }
-bool TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback(struct mg_connection* conn, char* data, size_t data_len) {
-    //std::cout << "newdata\n";
+bool TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback(WebsocketSessionBase& conn, std::string& receivedString) {
+    //std::cout << "newdata " << receivedString << "\n";
     boost::property_tree::ptree pt;
-    if (JsonSerializable::GetPropertyTreeFromJsonCharArray(data, data_len, pt)) {
+    if (JsonSerializable::GetPropertyTreeFromJsonString(receivedString, pt)) {
         std::string apiCall;
         try {
             apiCall = pt.get<std::string>("apiCall");
@@ -172,7 +168,7 @@ bool TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback(struct mg_connect
             return true; //keep open
         }
         //LOG_INFO(subprocess) << "got api call " << apiCall;
-        std::string* apiCmdStr = new std::string(data, data + data_len);
+        std::string* apiCmdStr = new std::string(std::move(receivedString));
         std::string& strRef = *apiCmdStr;
         if (apiCall == "ping") {
             boost::mutex::scoped_lock lock(m_apiCallsToIngressQueueMutex);
@@ -297,11 +293,10 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
                 if (msg.more()) { //msg was Aoct type, msg2 is normal ouduct telem
                     {
                         boost::mutex::scoped_lock lock(m_lastSerializedAllOutductCapabilitiesMutex);
-                        m_lastZmqJsonSerializedAllOutductCapabilities = std::move(msg);
+                        m_lastJsonSerializedAllOutductCapabilitiesPtr = std::make_shared<std::string>(msg.to_string());
                     }
                     if (m_websocketServerPtr) {
-                        m_websocketServerPtr->SendNewTextData((const char*)m_lastZmqJsonSerializedAllOutductCapabilities.data(),
-                            m_lastZmqJsonSerializedAllOutductCapabilities.size());
+                        m_websocketServerPtr->SendTextDataToActiveWebsockets(m_lastJsonSerializedAllOutductCapabilitiesPtr);
                     }
                     msg2 = egressConnection->ReadMessage();
                     OnNewJsonTelemetry((const char*)msg2.data(), msg2.size());
@@ -343,14 +338,13 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
 void TelemetryRunner::Impl::OnNewJsonTelemetry(const char* buffer, uint64_t bufferSize) {
     //printf("%.*s", (int)bufferSize, buffer); //not null terminated
     if (m_websocketServerPtr) {
-        m_websocketServerPtr->SendNewTextData(buffer, bufferSize);
+        std::shared_ptr<std::string> strPtr = std::make_shared<std::string>(buffer, bufferSize);
+        m_websocketServerPtr->SendTextDataToActiveWebsockets(strPtr);
     }
 }
 
 bool TelemetryRunner::Impl::ShouldExit() {
-    if (m_websocketServerPtr) {
-        return m_websocketServerPtr->RequestsExit();
-    }
+    //websocket server does not support this
     return false;
 }
 
@@ -358,16 +352,23 @@ void TelemetryRunner::Impl::Stop() {
     m_running = false;
     m_deadlineTimer.Disable();
     m_deadlineTimer.Cancel();
-    if (!m_threadPtr) {
-        return;
+    if (m_threadPtr) {
+        try {
+            m_threadPtr->join();
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping TelemetryRunner thread";
+        }
+        m_threadPtr.reset(); // delete it
     }
-    try {
-        m_threadPtr->join();
+    //stop websocket after thread
+    if (m_websocketServerPtr) {
+        std::cout << "call ws stop\n";
+        m_websocketServerPtr->Stop();
+        std::cout << "ws stopped\n";
+        m_websocketServerPtr.reset();
+        std::cout << "ws deleted\n";
     }
-    catch (const boost::thread_resource_error&) {
-        LOG_ERROR(subprocess) << "error stopping TelemetryRunner thread";
-    }
-    m_threadPtr.reset(); // delete it
     
     //The following is implicitly done at destruction.  If print statements are
     // added before and after this reset(), you will observe this part takes at least a second.

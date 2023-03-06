@@ -1,5 +1,6 @@
 add_library(telem_lib
     src/WebsocketServer.cpp
+	src/BeastWebsocketServer.cpp
 	src/TelemetryRunner.cpp
 	src/Telemetry.cpp
 	src/TelemetryConnection.cpp
@@ -15,6 +16,7 @@ if (target_type STREQUAL SHARED_LIBRARY)
 endif()
 set(MY_PUBLIC_HEADERS
     include/WebsocketServer.h
+	include/BeastWebsocketServer.h
 	include/TelemetryRunner.h
 	include/Telemetry.h
 	include/TelemetryConnection.h
@@ -23,6 +25,11 @@ set(MY_PUBLIC_HEADERS
 	include/TelemetryRunnerProgramOptions.h
 	${CMAKE_CURRENT_BINARY_DIR}/telem_lib_export.h
 )
+if (MSVC)
+	target_compile_options(telem_lib PRIVATE /bigobj)
+else()
+	target_compile_options(telem_lib PRIVATE -Wa -mbig-obj)
+endif()
 set_property(
 	SOURCE src/TelemetryRunner.cpp
 	PROPERTY COMPILE_DEFINITIONS
@@ -68,4 +75,3 @@ add_executable(telem_cmd_interface
 
 install(TARGETS telem_cmd_interface DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_link_libraries(telem_cmd_interface telem_lib)
-
