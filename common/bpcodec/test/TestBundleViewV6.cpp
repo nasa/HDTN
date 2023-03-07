@@ -22,6 +22,7 @@
 #include "Uri.h"
 #include <boost/next_prior.hpp>
 #include <boost/make_unique.hpp>
+#include "BinaryConversions.h"
 
 static const uint64_t PRIMARY_SRC_NODE = 100;
 static const uint64_t PRIMARY_SRC_SVC = 1;
@@ -903,4 +904,111 @@ BOOST_AUTO_TEST_CASE(BundleViewSecondsSinceCreateTestCase) {
     uint64_t s = primary.GetSecondsSinceCreate();
     // Provide some buffer
     BOOST_REQUIRE(s >= 50 && s <= 51);
+}
+
+BOOST_AUTO_TEST_CASE(BundleViewV6ReadDtnMeRawDataTestCase)
+{
+    { //an rfc5050 admin record with previous hop and an unspecified block type 19
+        static const std::string hexAsString = "0681121882814900828000000000000082dce9d45084ad1d85a3000005100c69706e0033323736382e300013010208ff010819200382dce9d4500082dce9d26c82790969706e3a31312e3634";
+        std::vector<uint8_t> bundleRawData;
+        BOOST_REQUIRE(BinaryConversions::HexStringToBytes(hexAsString, bundleRawData));
+        
+        std::vector<uint8_t> bundleRawDataCopy(bundleRawData);
+        BundleViewV6 bv;
+        BOOST_REQUIRE(bv.SwapInAndLoadBundle(bundleRawDataCopy));
+        
+        { //get previous hop insertion
+            std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+            bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION, blocks);
+            BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+            Bpv6PreviousHopInsertionCanonicalBlock* phibPtr = dynamic_cast<Bpv6PreviousHopInsertionCanonicalBlock*>(blocks[0]->headerPtr.get());
+            BOOST_REQUIRE(phibPtr);
+            BOOST_REQUIRE_EQUAL(phibPtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION);
+            BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::IS_LAST_BLOCK));
+            BOOST_REQUIRE_EQUAL(phibPtr->m_previousNode, cbhe_eid_t(32768, 0));
+            BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), phibPtr->GetSerializationSize());
+        }
+        { //get block 19
+            std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+            bv.GetCanonicalBlocksByType(static_cast<BPV6_BLOCK_TYPE_CODE>(19), blocks);
+            BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+        }
+        { //get admin record (payload block)
+            std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+            bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+            BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+            Bpv6AdministrativeRecord* adminRecordBlockPtr = dynamic_cast<Bpv6AdministrativeRecord*>(blocks[0]->headerPtr.get());
+            BOOST_REQUIRE(adminRecordBlockPtr);
+            const BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE adminRecordType = adminRecordBlockPtr->m_adminRecordTypeCode;
+            BOOST_REQUIRE_EQUAL(adminRecordType, BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::CUSTODY_SIGNAL); //rfc5050 style custody transfer
+            Bpv6AdministrativeRecordContentCustodySignal* csPtr = dynamic_cast<Bpv6AdministrativeRecordContentCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
+            BOOST_REQUIRE(csPtr);
+            Bpv6AdministrativeRecordContentCustodySignal& cs = *(reinterpret_cast<Bpv6AdministrativeRecordContentCustodySignal*>(csPtr));
+            BOOST_REQUIRE(!cs.DidCustodyTransferSucceed());
+            BOOST_REQUIRE(!cs.m_isFragment);
+            BOOST_REQUIRE_EQUAL(cs.m_bundleSourceEid, "ipn:11.64");
+        }
+
+        bv.m_primaryBlockView.SetManuallyModified();
+        bv.Render(bundleRawData.size() + 50);
+        BOOST_REQUIRE(bv.m_frontBuffer == bundleRawData);
+        BOOST_REQUIRE(bv.m_backBuffer == bundleRawData);
+    }
+
+    { //an acs bundle
+        static const std::string hexAsString = "0681121882814900828000000000000082dce9e74688aa2085a3000005100c69706e0033323736382e300013010208ff01080b4080000101817f82018116";
+        std::vector<uint8_t> bundleRawData;
+        BOOST_REQUIRE(BinaryConversions::HexStringToBytes(hexAsString, bundleRawData));
+
+        std::vector<uint8_t> bundleRawDataCopy(bundleRawData);
+        BundleViewV6 bv;
+        BOOST_REQUIRE(bv.SwapInAndLoadBundle(bundleRawDataCopy));
+
+        { //get previous hop insertion
+            std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+            bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION, blocks);
+            BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+            Bpv6PreviousHopInsertionCanonicalBlock* phibPtr = dynamic_cast<Bpv6PreviousHopInsertionCanonicalBlock*>(blocks[0]->headerPtr.get());
+            BOOST_REQUIRE(phibPtr);
+            BOOST_REQUIRE_EQUAL(phibPtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION);
+            BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::IS_LAST_BLOCK));
+            BOOST_REQUIRE_EQUAL(phibPtr->m_previousNode, cbhe_eid_t(32768, 0));
+            BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), phibPtr->GetSerializationSize());
+        }
+        { //get block 19
+            std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+            bv.GetCanonicalBlocksByType(static_cast<BPV6_BLOCK_TYPE_CODE>(19), blocks);
+            BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+        }
+        { //get admin record (payload block)
+            std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+            bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+            BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+            Bpv6AdministrativeRecord* adminRecordBlockPtr = dynamic_cast<Bpv6AdministrativeRecord*>(blocks[0]->headerPtr.get());
+            BOOST_REQUIRE(adminRecordBlockPtr);
+            const BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE adminRecordType = adminRecordBlockPtr->m_adminRecordTypeCode;
+            BOOST_REQUIRE_EQUAL(adminRecordType, BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::AGGREGATE_CUSTODY_SIGNAL);
+            Bpv6AdministrativeRecordContentAggregateCustodySignal* acsPtr = dynamic_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
+            BOOST_REQUIRE(acsPtr);
+            Bpv6AdministrativeRecordContentAggregateCustodySignal& acs = *(reinterpret_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(acsPtr));
+            BOOST_REQUIRE(acs.DidCustodyTransferSucceed());
+            //wireshark says:
+            // start0 end0
+            //start1 end256
+            //start257 end663
+            FragmentSet::data_fragment_set_t expected = { FragmentSet::data_fragment_t(0, 255), FragmentSet::data_fragment_t(512, 661) };
+            BOOST_REQUIRE(acs.m_custodyIdFills == expected);
+            uint64_t numTransfers = 0;
+            for (FragmentSet::data_fragment_set_t::const_iterator it = acs.m_custodyIdFills.cbegin(); it != acs.m_custodyIdFills.cend(); ++it) {
+                //std::cout << "b " << it->beginIndex << " e " << it->endIndex << "\n";
+                numTransfers += (it->endIndex + 1) - it->beginIndex;
+            }
+            BOOST_REQUIRE_EQUAL(numTransfers, 256 + 150);
+        }
+
+        bv.m_primaryBlockView.SetManuallyModified();
+        bv.Render(bundleRawData.size() + 50);
+        BOOST_REQUIRE(bv.m_frontBuffer == bundleRawData);
+        BOOST_REQUIRE(bv.m_backBuffer == bundleRawData);
+    }
 }
