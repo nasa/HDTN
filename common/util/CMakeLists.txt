@@ -22,7 +22,8 @@ set(hdtn_util_SOURCES
 	src/Utf8Paths.cpp
 )
 
-if (${USE_X86_HARDWARE_ACCELERATION})  # only use x86 on non ARM platforms
+# use cmake generator 
+if (${USE_X86_HARDWARE_ACCELERATION})  # only use x86 on non ARM platforms 
 	add_library(hdtn_util ${hdtn_util_SOURCES} src/CpuFlagDetection.cpp) 
 else()
 	add_library(hdtn_util ${hdtn_util_SOURCES}) # do not add cpu flag detection to ARM builds

@@ -18,7 +18,7 @@ if( build_type_lower STREQUAL "debug" )
 endif()
 
 if(DEFINED CMAKE_SYSTEM_PROCESSOR)
-	if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "arm") 
+	if (${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm") 
 		message("CMAKE_SYSTEM_PROCESSOR = ${CMAKE_SYSTEM_PROCESSOR}")
 		message("You are compiling for ARM, shared libraries, x86 hardware accleration features and related unit tests have been disabled")
 		option(BUILD_SHARED_LIBS "Build shared libraries" Off)
