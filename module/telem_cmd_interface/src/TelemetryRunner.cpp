@@ -19,6 +19,7 @@
 #include <boost/program_options.hpp>
 #include <boost/thread.hpp>
 #include <boost/tokenizer.hpp>
+#include <boost/asio.hpp>
 
 #include "TelemetryRunner.h"
 #include "Logger.h"
@@ -128,7 +129,32 @@ bool TelemetryRunner::Impl::Init(const HdtnConfig& hdtnConfig, zmq::context_t *i
     }
     m_hdtnConfig = hdtnConfig;
 #ifdef USE_WEB_INTERFACE
-    m_websocketServerPtr = boost::make_unique<BeastWebsocketServer>();
+    boost::asio::ssl::context sslContext(boost::asio::ssl::context::sslv23_server);
+    if (options.m_sslPaths.m_valid) {
+        try {
+            //tcpclv4 server supports tls 1.2 and 1.3 only
+            sslContext.set_options(
+                boost::asio::ssl::context::default_workarounds
+                | boost::asio::ssl::context::no_sslv2
+                | boost::asio::ssl::context::no_sslv3
+                | boost::asio::ssl::context::no_tlsv1
+                | boost::asio::ssl::context::no_tlsv1_1
+                | boost::asio::ssl::context::single_dh_use);
+            if (options.m_sslPaths.m_certificateChainPemFile.size()) {
+                sslContext.use_certificate_chain_file(options.m_sslPaths.m_certificateChainPemFile.string());
+            }
+            else {
+                sslContext.use_certificate_file(options.m_sslPaths.m_certificatePemFile.string(), boost::asio::ssl::context::pem);
+            }
+            sslContext.use_private_key_file(options.m_sslPaths.m_privateKeyPemFile.string(), boost::asio::ssl::context::pem);
+            sslContext.use_tmp_dh_file(options.m_sslPaths.m_diffieHellmanParametersPemFile.string()); //"C:/hdtn_ssl_certificates/dh4096.pem"
+        }
+        catch (boost::system::system_error& e) {
+            LOG_ERROR(subprocess) << "SSL error in TelemetryRunner Init: " << e.what();
+            return false;
+        }
+    }
+    m_websocketServerPtr = boost::make_unique<BeastWebsocketServer>(std::move(sslContext), options.m_sslPaths.m_valid);
     m_websocketServerPtr->Init(options.m_guiDocumentRoot, options.m_guiPortNumber,
         boost::bind(&TelemetryRunner::Impl::OnNewWebsocketConnectionCallback, this, boost::placeholders::_1),
         boost::bind(&TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback, this,

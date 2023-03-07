@@ -31,7 +31,7 @@
 #include <boost/function.hpp>
 #include "zmq.hpp"
 
-#include "CivetServer.h"
+#include <boost/asio/ssl.hpp>
 #include "telem_lib_export.h"
 
 #ifndef CLASS_VISIBILITY_TELEM_LIB
@@ -58,8 +58,9 @@ typedef boost::function<void(WebsocketSessionBase& conn)> OnNewBeastWebsocketCon
 typedef boost::function<bool(WebsocketSessionBase& conn, std::string& receivedString)> OnNewBeastWebsocketDataReceivedCallback_t;
 
 class CLASS_VISIBILITY_TELEM_LIB BeastWebsocketServer {
+    BeastWebsocketServer() = delete;
 public:
-    TELEM_LIB_EXPORT BeastWebsocketServer();
+    TELEM_LIB_EXPORT BeastWebsocketServer(boost::asio::ssl::context&& sslContext, bool sslContextIsValid);
     TELEM_LIB_EXPORT ~BeastWebsocketServer();
 
     TELEM_LIB_EXPORT bool Init(const boost::filesystem::path& documentRoot, const std::string& portNumberAsString,
