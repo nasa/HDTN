@@ -128,7 +128,7 @@ static boost::beast::string_view MimeType(const boost::beast::string_view& path)
 
 // Append an HTTP rel-path to a local filesystem path.
 // The returned path is normalized for the platform.
-static std::string path_cat(const boost::beast::string_view& base, const boost::beast::string_view& path) {
+static std::string PathCat(const boost::beast::string_view& base, const boost::beast::string_view& path) {
     if (base.empty()) {
         return std::string(path);
     }
@@ -163,51 +163,56 @@ static void HandleHttpRequest(boost::beast::string_view doc_root,
     boost::beast::http::request<Body, boost::beast::http::basic_fields<Allocator> >&& req,
     Send&& send)
 {
-    // Returns a bad request response
-    auto const bad_request = [&req](boost::beast::string_view why) {
-        boost::beast::http::response<boost::beast::http::string_body> res{ boost::beast::http::status::bad_request, req.version() };
-        res.set(boost::beast::http::field::server, BOOST_BEAST_VERSION_STRING);
-        res.set(boost::beast::http::field::content_type, "text/html");
-        res.keep_alive(req.keep_alive());
-        res.body() = std::string(why);
-        res.prepare_payload();
-        return res;
-    };
+    typedef typename boost::beast::http::request<Body, boost::beast::http::basic_fields<Allocator> > http_request_t;
+    typedef boost::beast::http::response<boost::beast::http::string_body> http_response_t;
+    struct Responses {
 
-    // Returns a not found response
-    auto const not_found = [&req](boost::beast::string_view target) {
-        boost::beast::http::response<boost::beast::http::string_body> res{ boost::beast::http::status::not_found, req.version() };
-        res.set(boost::beast::http::field::server, BOOST_BEAST_VERSION_STRING);
-        res.set(boost::beast::http::field::content_type, "text/html");
-        res.keep_alive(req.keep_alive());
-        res.body() = "The resource '" + std::string(target) + "' was not found.";
-        res.prepare_payload();
-        return res;
-    };
+        // Returns a bad request response
+        static http_response_t BadRequest(const http_request_t& req, boost::beast::string_view why) {
+            http_response_t res{ boost::beast::http::status::bad_request, req.version() };
+            res.set(boost::beast::http::field::server, BOOST_BEAST_VERSION_STRING);
+            res.set(boost::beast::http::field::content_type, "text/html");
+            res.keep_alive(req.keep_alive());
+            res.body() = std::string(why);
+            res.prepare_payload();
+            return res;
+        }
 
-    // Returns a server error response
-    auto const server_error = [&req](boost::beast::string_view what) {
-        boost::beast::http::response<boost::beast::http::string_body> res{ boost::beast::http::status::internal_server_error, req.version() };
-        res.set(boost::beast::http::field::server, BOOST_BEAST_VERSION_STRING);
-        res.set(boost::beast::http::field::content_type, "text/html");
-        res.keep_alive(req.keep_alive());
-        res.body() = "An error occurred: '" + std::string(what) + "'";
-        res.prepare_payload();
-        return res;
+        // Returns a not found response
+        static http_response_t NotFound(const http_request_t& req, boost::beast::string_view target) {
+            http_response_t res{ boost::beast::http::status::not_found, req.version() };
+            res.set(boost::beast::http::field::server, BOOST_BEAST_VERSION_STRING);
+            res.set(boost::beast::http::field::content_type, "text/html");
+            res.keep_alive(req.keep_alive());
+            res.body() = "The resource '" + std::string(target) + "' was not found.";
+            res.prepare_payload();
+            return res;
+        }
+
+        // Returns a server error response
+        static http_response_t ServerError(const http_request_t& req, boost::beast::string_view what) {
+            http_response_t res{ boost::beast::http::status::internal_server_error, req.version() };
+            res.set(boost::beast::http::field::server, BOOST_BEAST_VERSION_STRING);
+            res.set(boost::beast::http::field::content_type, "text/html");
+            res.keep_alive(req.keep_alive());
+            res.body() = "An error occurred: '" + std::string(what) + "'";
+            res.prepare_payload();
+            return res;
+        }
     };
 
     // Make sure we can handle the method
     if ((req.method() != boost::beast::http::verb::get) && (req.method() != boost::beast::http::verb::head)) {
-        return send(bad_request("Unknown HTTP-method"));
+        return send(Responses::BadRequest(req, "Unknown HTTP-method"));
     }
 
     // Request path must be absolute and not contain "..".
     if (req.target().empty() || (req.target()[0] != '/') || (req.target().find("..") != boost::beast::string_view::npos)) {
-        return send(bad_request("Illegal request-target"));
+        return send(Responses::BadRequest(req, "Illegal request-target"));
     }
 
     // Build the path to the requested file
-    std::string path = path_cat(doc_root, req.target());
+    std::string path = PathCat(doc_root, req.target());
     if (req.target().back() == '/') {
         path.append("index.html");
     }
@@ -219,12 +224,12 @@ static void HandleHttpRequest(boost::beast::string_view doc_root,
 
     // Handle the case where the file doesn't exist
     if (ec == boost::beast::errc::no_such_file_or_directory) {
-        return send(not_found(req.target()));
+        return send(Responses::NotFound(req, req.target()));
     }
 
     // Handle an unknown error
     if (ec) {
-        return send(server_error(ec.message()));
+        return send(Responses::ServerError(req, ec.message()));
     }
 
     // Cache the size since we need it after the move
@@ -632,7 +637,7 @@ class http_session {
 
     // The parser is stored in an optional container so we can
     // construct it from scratch it at the beginning of each new message.
-    boost::optional<boost::beast::http::request_parser<boost::beast::http::string_body> > parser_;
+    boost::optional<boost::beast::http::request_parser<boost::beast::http::string_body> > m_requestParser;
 
 protected:
     boost::beast::flat_buffer m_flatBuffer;
@@ -646,11 +651,11 @@ public:
 
     void do_read() {
         // Construct a new parser for each message
-        parser_.emplace();
+        m_requestParser.emplace();
 
         // Apply a reasonable limit to the allowed size
         // of the body in bytes to prevent abuse.
-        parser_->body_limit(10000);
+        m_requestParser->body_limit(10000);
 
         // Set the timeout.
         boost::beast::get_lowest_layer(derived().stream()).expires_after(std::chrono::seconds(30));
@@ -659,7 +664,7 @@ public:
         boost::beast::http::async_read(
             derived().stream(),
             m_flatBuffer,
-            *parser_,
+            *m_requestParser,
             boost::bind(
                 &http_session::on_read,
                 derived().shared_from_this(),
@@ -680,18 +685,18 @@ public:
         }
         else {
             // See if it is a WebSocket Upgrade
-            if (boost::beast::websocket::is_upgrade(parser_->get())) {
+            if (boost::beast::websocket::is_upgrade(m_requestParser->get())) {
                 // Disable the timeout.
                 // The boost::beast::websocket::stream uses its own timeout settings.
                 boost::beast::get_lowest_layer(derived().stream()).expires_never();
 
                 // Create a websocket session, transferring ownership
                 // of both the socket and the HTTP request.
-                MakeWebsocketSession(derived().release_stream(), m_serverStatePtr, parser_->release());
+                MakeWebsocketSession(derived().release_stream(), m_serverStatePtr, m_requestParser->release());
             }
             else {
                 // Send the response
-                HandleHttpRequest(m_serverStatePtr->m_docRoot, parser_->release(), m_queue);
+                HandleHttpRequest(m_serverStatePtr->m_docRoot, m_requestParser->release(), m_queue);
 
                 // If we aren't at the queue limit, try to pipeline another request
                 if (!m_queue.is_full()) {
@@ -847,7 +852,7 @@ private:
 // Detects SSL handshakes
 class detect_session : public std::enable_shared_from_this<detect_session>
 {
-    boost::beast::tcp_stream stream_;
+    boost::beast::tcp_stream m_tcpStream;
     boost::asio::ssl::context& m_sslContext;
     const bool m_sslContextIsValid;
     ServerState_ptr m_serverStatePtr;
@@ -857,7 +862,7 @@ public:
     explicit detect_session(boost::asio::ip::tcp::socket&& socket,
         boost::asio::ssl::context& ctx, bool sslContextIsValid,
         ServerState_ptr& serverState) :
-        stream_(std::move(socket)),
+        m_tcpStream(std::move(socket)),
         m_sslContext(ctx),
         m_sslContextIsValid(sslContextIsValid),
         m_serverStatePtr(serverState) {}
@@ -869,7 +874,7 @@ public:
         // for single-threaded contexts, this example code is written to be
         // thread-safe by default.
         boost::asio::dispatch(
-            stream_.get_executor(),
+            m_tcpStream.get_executor(),
             boost::bind(
                 &detect_session::on_run,
                 shared_from_this()));
@@ -877,10 +882,10 @@ public:
 
     void on_run() {
         // Set the timeout.
-        stream_.expires_after(std::chrono::seconds(30));
+        m_tcpStream.expires_after(std::chrono::seconds(30));
 
         boost::beast::async_detect_ssl(
-            stream_,
+            m_tcpStream,
             m_flatBuffer,
             boost::bind(
                 &detect_session::on_detect,
@@ -898,7 +903,7 @@ public:
         if (result) {
             // Launch SSL session
             if (m_sslContextIsValid) {
-                std::shared_ptr<ssl_http_session> session = std::make_shared<ssl_http_session>(std::move(stream_), m_sslContext, std::move(m_flatBuffer), m_serverStatePtr);
+                std::shared_ptr<ssl_http_session> session = std::make_shared<ssl_http_session>(std::move(m_tcpStream), m_sslContext, std::move(m_flatBuffer), m_serverStatePtr);
                 session->run();
             }
             else {
@@ -907,7 +912,7 @@ public:
         }
         else {
             // Launch plain session
-            std::shared_ptr<plain_http_session> session = std::make_shared<plain_http_session>(std::move(stream_), std::move(m_flatBuffer), m_serverStatePtr);
+            std::shared_ptr<plain_http_session> session = std::make_shared<plain_http_session>(std::move(m_tcpStream), std::move(m_flatBuffer), m_serverStatePtr);
             session->run();
         }
     }
