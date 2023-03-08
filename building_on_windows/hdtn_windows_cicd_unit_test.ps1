@@ -129,9 +129,6 @@ $nasm_version = "2.15.05" #required for compiling openssl
 $openssl_version = "1.1.1s"
 $openssl_src_directory = "openssl-${openssl_version}"
 $openssl_install_directory_name = "${openssl_src_directory}_install"
-#------civetweb-----------------
-$civetweb_version = "1.15"
-$civetweb_install_directory_name = "civetweb_v${civetweb_version}_install"
 #------zero mq-----------------
 $zmq_version = "4.3.4"
 $zmq_version_underscore_separated = $zmq_version.replace('.','_')
@@ -179,7 +176,6 @@ push-location ${build_directory}
 $zmq_is_installed = (Test-Path -Path "${build_directory}\${zmq_install_directory_name}\bin")
 $boost_is_installed = (Test-Path -Path "${build_directory}\${boost_install_directory_name}\${boost_library_install_prefix}")
 $openssl_is_installed = (Test-Path -Path "${build_directory}\${openssl_install_directory_name}\bin")
-$civetweb_is_installed = (Test-Path -Path "${build_directory}\${civetweb_install_directory_name}\lib")
 $hdtn_is_installed = (Test-Path -Path "${build_directory}\${hdtn_install_directory_name}\lib")
 
 
@@ -243,20 +239,6 @@ else {
         $openssl_download_link = "https://www.openssl.org/source/${openssl_src_directory}.tar.gz"
         Write-Output "Downloading OpenSSL from ${openssl_download_link}"
         (new-object System.Net.WebClient).DownloadFile($openssl_download_link, "${pwd}\openssl.tar.gz")
-    }
-}
-
-if($civetweb_is_installed) {
-    Write-Output "CivetWeb already installed."
-}
-else {
-    if(Test-Path -Path "${pwd}\v${civetweb_version}.zip") {
-        Write-Output "${pwd}\v${civetweb_version}.zip already exists, not downloading"
-    }
-    else {
-        $civetweb_download_link = "https://github.com/civetweb/civetweb/archive/refs/tags/v${civetweb_version}.zip"
-        Write-Output "Downloading CivetWeb from ${civetweb_download_link}"
-        (new-object System.Net.WebClient).DownloadFile($civetweb_download_link, "${pwd}\v${civetweb_version}.zip")
     }
 }
 
@@ -358,31 +340,6 @@ if(-Not $openssl_is_installed) {
     Remove-Item -Recurse -Force ".\nasm-${nasm_version}"
 }
 
-#build civetweb
-if(-Not $civetweb_is_installed) {
-    if(Test-Path -Path "civetweb-${civetweb_version}") {
-        Remove-Item -Recurse -Force "civetweb-${civetweb_version}"
-    }
-    sz x "v${civetweb_version}.zip" > $null
-    New-Item -ItemType Directory -Force -Path ".\civetweb-${civetweb_version}\mybuild"
-    push-location ".\civetweb-${civetweb_version}\mybuild"
-    $civetweb_cmake_build_options = ("`" " + #literal quote needed to make this one .bat parameter
-        "${cmake_generator_arg} " +
-        "-DCIVETWEB_ENABLE_CXX:BOOL=ON " + 
-        "-DCIVETWEB_ENABLE_WEBSOCKETS:BOOL=ON " + 
-        "-DCIVETWEB_BUILD_TESTING:BOOL=OFF " + 
-        "-DCIVETWEB_INSTALL_EXECUTABLE:BOOL=OFF " +
-        "-DCMAKE_INSTALL_PREFIX:PATH=`"`"${PWD}\myinstall`"`" " + #myinstall is within the mybuild directory, double double quote for .bat quote escape char
-        ".." + # .. indicates location of source directory which is up one level (currently in the mybuild directory)
-        "`"") #ending literal quote needed to make this one .bat parameter
-    cmd.exe /c "$PSScriptRoot\build_generic_cmake_project.bat ${num_cpu_cores} ${civetweb_cmake_build_options} ${vcvars64_path_with_quotes}"
-    if($LastExitCode -ne 0) { throw 'Civetweb failed to build' }
-    Move-Item -Path ".\myinstall" -Destination "..\..\${civetweb_install_directory_name}"
-    Pop-Location
-    Remove-Item -Recurse -Force "civetweb-${civetweb_version}"
-    Remove-Item -Recurse -Force "${civetweb_install_directory_name}\bin" #contains nothing useful, just msvc runtime dll's
-    Remove-Item "v${civetweb_version}.zip"
-}
 
 #locate installed libzmq_LIB
 $libzmq_lib_filepath = $null
@@ -431,9 +388,6 @@ if(-Not $hdtn_is_installed) {
         "-DOPENSSL_USE_STATIC_LIBS:BOOL=OFF " + 
         "-DUSE_WEB_INTERFACE:BOOL=ON " + 
         "-DUSE_X86_HARDWARE_ACCELERATION:BOOL=ON " +
-        "-Dcivetweb_INCLUDE:PATH=`"`"${build_directory}\${civetweb_install_directory_name}\include`"`" " + 
-        "-Dcivetweb_LIB:FILEPATH=`"`"${build_directory}\${civetweb_install_directory_name}\lib\civetweb.lib`"`" " + 
-        "-Dcivetwebcpp_LIB:FILEPATH=`"`"${build_directory}\${civetweb_install_directory_name}\lib\civetweb-cpp.lib`"`" " + 
         "-Dlibzmq_INCLUDE:PATH=`"`"${build_directory}\${zmq_install_directory_name}\include`"`" " + 
         "-Dlibzmq_LIB:FILEPATH=`"`"${libzmq_lib_filepath}`"`" " + 
         "-DCMAKE_INSTALL_PREFIX:PATH=`"`"${build_directory}\${hdtn_install_directory_name}`"`" " + #myinstall is within the mybuild directory, double double quote for .bat quote escape char

@@ -1,6 +1,5 @@
 add_library(telem_lib
-    src/WebsocketServer.cpp
-	src/BeastWebsocketServer.cpp
+	$<$<BOOL:${USE_WEB_INTERFACE}>:src/BeastWebsocketServer.cpp>
 	src/TelemetryRunner.cpp
 	src/Telemetry.cpp
 	src/TelemetryConnection.cpp
@@ -15,8 +14,7 @@ if (target_type STREQUAL SHARED_LIBRARY)
 	set_property(TARGET telem_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
 endif()
 set(MY_PUBLIC_HEADERS
-    include/WebsocketServer.h
-	include/BeastWebsocketServer.h
+	#$<$<BOOL:${USE_WEB_INTERFACE}>:include/BeastWebsocketServer.h> #generator does not work here
 	include/TelemetryRunner.h
 	include/Telemetry.h
 	include/TelemetryConnection.h
@@ -25,11 +23,19 @@ set(MY_PUBLIC_HEADERS
 	include/TelemetryRunnerProgramOptions.h
 	${CMAKE_CURRENT_BINARY_DIR}/telem_lib_export.h
 )
-if (MSVC)
-	target_compile_options(telem_lib PRIVATE /bigobj)
-else()
-	target_compile_options(telem_lib PRIVATE -Wa -mbig-obj)
+if(USE_WEB_INTERFACE)
+	list(APPEND MY_PUBLIC_HEADERS include/BeastWebsocketServer.h)
 endif()
+
+#boost beast creates large object files
+if(USE_WEB_INTERFACE)
+	if (MSVC)
+		target_compile_options(telem_lib PRIVATE /bigobj)
+	else()
+		target_compile_options(telem_lib PRIVATE -Wa -mbig-obj)
+	endif()
+endif()
+
 set_property(
 	SOURCE src/TelemetryRunner.cpp
 	PROPERTY COMPILE_DEFINITIONS
@@ -50,8 +56,6 @@ target_link_libraries(telem_lib
 		stats_lib
 		telemetry_definitions
 		Boost::program_options
-		${civetweb_LIB}
-		${civetwebcpp_LIB}
         ${CMAKE_DL_LIBS}
 )
 target_include_directories(telem_lib
@@ -59,7 +63,6 @@ target_include_directories(telem_lib
 		$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> #project does not have a /include directory
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # for GENERATE_EXPORT_HEADER
-		$<BUILD_INTERFACE:${civetweb_INCLUDE}>
 )
 install(TARGETS telem_lib
 	EXPORT telem_lib-targets

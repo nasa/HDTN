@@ -30,9 +30,11 @@
 #include "TelemetryLogger.h"
 #include "Environment.h"
 #include "DeadlineTimer.h"
-#include "BeastWebsocketServer.h"
 #include "ThreadNamer.h"
 #include <queue>
+#ifdef USE_WEB_INTERFACE
+#include "BeastWebsocketServer.h"
+#endif
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::telem;
 
@@ -73,7 +75,9 @@ class TelemetryRunner::Impl : private boost::noncopyable {
 
         volatile bool m_running;
         std::unique_ptr<boost::thread> m_threadPtr;
+#ifdef USE_WEB_INTERFACE
         std::unique_ptr<BeastWebsocketServer> m_websocketServerPtr;
+#endif
         std::unique_ptr<TelemetryLogger> m_telemetryLoggerPtr;
         DeadlineTimer m_deadlineTimer;
         HdtnConfig m_hdtnConfig;
@@ -321,9 +325,11 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
                         boost::mutex::scoped_lock lock(m_lastSerializedAllOutductCapabilitiesMutex);
                         m_lastJsonSerializedAllOutductCapabilitiesPtr = std::make_shared<std::string>(msg.to_string());
                     }
+#ifdef USE_WEB_INTERFACE
                     if (m_websocketServerPtr) {
                         m_websocketServerPtr->SendTextDataToActiveWebsockets(m_lastJsonSerializedAllOutductCapabilitiesPtr);
                     }
+#endif
                     msg2 = egressConnection->ReadMessage();
                     OnNewJsonTelemetry((const char*)msg2.data(), msg2.size());
                     messageOutductTelemPtr = &msg2;
@@ -363,10 +369,12 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
 
 void TelemetryRunner::Impl::OnNewJsonTelemetry(const char* buffer, uint64_t bufferSize) {
     //printf("%.*s", (int)bufferSize, buffer); //not null terminated
+#ifdef USE_WEB_INTERFACE
     if (m_websocketServerPtr) {
         std::shared_ptr<std::string> strPtr = std::make_shared<std::string>(buffer, bufferSize);
         m_websocketServerPtr->SendTextDataToActiveWebsockets(strPtr);
     }
+#endif
 }
 
 bool TelemetryRunner::Impl::ShouldExit() {
@@ -387,9 +395,11 @@ void TelemetryRunner::Impl::Stop() {
         }
         m_threadPtr.reset(); // delete it
     }
+#ifdef USE_WEB_INTERFACE
     //stop websocket after thread
     if (m_websocketServerPtr) {
         m_websocketServerPtr->Stop();
         m_websocketServerPtr.reset();
     }
+#endif
 }

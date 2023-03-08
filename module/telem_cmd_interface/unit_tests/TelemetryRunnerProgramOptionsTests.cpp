@@ -9,7 +9,7 @@ BOOST_AUTO_TEST_CASE(TelemetryRunnerProgramOptionsAppendToDescTestCase)
     boost::program_options::options_description desc;
     TelemetryRunnerProgramOptions::AppendToDesc(desc);
 
-    BOOST_REQUIRE_EQUAL(2, desc.options().size());
+    BOOST_REQUIRE_EQUAL(6, desc.options().size());
 
     BOOST_REQUIRE_EQUAL("document-root", (desc.options()[0]).get()->long_name());
     BOOST_REQUIRE_EQUAL("port-number", (desc.options()[1]).get()->long_name());
