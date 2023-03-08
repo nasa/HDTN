@@ -508,28 +508,30 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
         BOOST_REQUIRE_EQUAL(blocks.size(), 1);
         Bpv6CustodyTransferEnhancementBlock* ctebBlockPtr = dynamic_cast<Bpv6CustodyTransferEnhancementBlock*>(blocks[0]->headerPtr.get());
         BOOST_REQUIRE(ctebBlockPtr);
-        BOOST_REQUIRE_EQUAL(ctebBlockPtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT);
-        BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::IS_LAST_BLOCK));
-        BOOST_REQUIRE(blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED));
-        BOOST_REQUIRE_EQUAL(ctebBlockPtr->m_custodyId, 150);
-        BOOST_REQUIRE_EQUAL(ctebBlockPtr->m_ctebCreatorCustodianEidString, "ipn:2.3");
-        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), ctebBlockPtr->GetSerializationSize());
+        if (ctebBlockPtr) {
+            BOOST_REQUIRE_EQUAL(ctebBlockPtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT);
+            BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::IS_LAST_BLOCK));
+            BOOST_REQUIRE(blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED));
+            BOOST_REQUIRE_EQUAL(ctebBlockPtr->m_custodyId, 150);
+            BOOST_REQUIRE_EQUAL(ctebBlockPtr->m_ctebCreatorCustodianEidString, "ipn:2.3");
+            BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), ctebBlockPtr->GetSerializationSize());
 
-        //misc
-        {
-            const Bpv6CustodyTransferEnhancementBlock & cteb = *ctebBlockPtr;
-            Bpv6CustodyTransferEnhancementBlock cteb2 = *ctebBlockPtr;
-            BOOST_REQUIRE(!(cteb != cteb2));
-            Bpv6CustodyTransferEnhancementBlock ctebCopy = cteb;
-            Bpv6CustodyTransferEnhancementBlock ctebCopy2(cteb);
-            Bpv6CustodyTransferEnhancementBlock cteb2Moved = std::move(cteb2);
-            BOOST_REQUIRE(cteb != cteb2); //cteb2 moved
-            BOOST_REQUIRE(cteb == cteb2Moved);
-            BOOST_REQUIRE(cteb == ctebCopy);
-            BOOST_REQUIRE(cteb == ctebCopy2);
-            Bpv6CustodyTransferEnhancementBlock cteb2Moved2(std::move(cteb2Moved));
-            BOOST_REQUIRE(cteb != cteb2Moved); //cteb2 moved
-            BOOST_REQUIRE(cteb == cteb2Moved2);
+            //misc
+            {
+                const Bpv6CustodyTransferEnhancementBlock& cteb = *ctebBlockPtr;
+                Bpv6CustodyTransferEnhancementBlock cteb2 = *ctebBlockPtr;
+                BOOST_REQUIRE(!(cteb != cteb2));
+                Bpv6CustodyTransferEnhancementBlock ctebCopy = cteb;
+                Bpv6CustodyTransferEnhancementBlock ctebCopy2(cteb);
+                Bpv6CustodyTransferEnhancementBlock cteb2Moved = std::move(cteb2);
+                BOOST_REQUIRE(cteb != cteb2); //cteb2 moved
+                BOOST_REQUIRE(cteb == cteb2Moved);
+                BOOST_REQUIRE(cteb == ctebCopy);
+                BOOST_REQUIRE(cteb == ctebCopy2);
+                Bpv6CustodyTransferEnhancementBlock cteb2Moved2(std::move(cteb2Moved));
+                BOOST_REQUIRE(cteb != cteb2Moved); //cteb2 moved
+                BOOST_REQUIRE(cteb == cteb2Moved2);
+            }
         }
     }
 
@@ -540,12 +542,14 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
         BOOST_REQUIRE_EQUAL(blocks.size(), 1);
         Bpv6PreviousHopInsertionCanonicalBlock* phibPtr = dynamic_cast<Bpv6PreviousHopInsertionCanonicalBlock*>(blocks[0]->headerPtr.get());
         BOOST_REQUIRE(phibPtr);
-        BOOST_REQUIRE_EQUAL(phibPtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION);
-        BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::IS_LAST_BLOCK));
-        BOOST_REQUIRE(blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED));
-        BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT));
-        BOOST_REQUIRE_EQUAL(phibPtr->m_previousNode, cbhe_eid_t(550, 60000));
-        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), phibPtr->GetSerializationSize());
+        if (phibPtr) {
+            BOOST_REQUIRE_EQUAL(phibPtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION);
+            BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::IS_LAST_BLOCK));
+            BOOST_REQUIRE(blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED));
+            BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT));
+            BOOST_REQUIRE_EQUAL(phibPtr->m_previousNode, cbhe_eid_t(550, 60000));
+            BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), phibPtr->GetSerializationSize());
+        }
     }
 
     //get bundle metadata blocks, first block has 3 uris, second block is generic user-defined
@@ -558,34 +562,42 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
         {
             Bpv6MetadataCanonicalBlock* metaPtr = dynamic_cast<Bpv6MetadataCanonicalBlock*>(blocks[0]->headerPtr.get());
             BOOST_REQUIRE(metaPtr);
-            BOOST_REQUIRE_EQUAL(metaPtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::METADATA_EXTENSION);
-            BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), metaPtr->GetSerializationSize());
-            BOOST_REQUIRE_EQUAL(metaPtr->m_metadataTypeCode, BPV6_METADATA_TYPE_CODE::URI);
-            Bpv6MetadataContentUriList * uriListPtr = dynamic_cast<Bpv6MetadataContentUriList*>(metaPtr->m_metadataContentPtr.get());
-            BOOST_REQUIRE(uriListPtr);
-            Bpv6MetadataContentUriList & uriMeta = *(reinterpret_cast<Bpv6MetadataContentUriList*>(uriListPtr));
+            if (metaPtr) {
+                BOOST_REQUIRE_EQUAL(metaPtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::METADATA_EXTENSION);
+                BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), metaPtr->GetSerializationSize());
+                BOOST_REQUIRE_EQUAL(metaPtr->m_metadataTypeCode, BPV6_METADATA_TYPE_CODE::URI);
+                Bpv6MetadataContentUriList* uriListPtr = dynamic_cast<Bpv6MetadataContentUriList*>(metaPtr->m_metadataContentPtr.get());
+                BOOST_REQUIRE(uriListPtr);
+                if (uriListPtr) {
+                    Bpv6MetadataContentUriList& uriMeta = *(reinterpret_cast<Bpv6MetadataContentUriList*>(uriListPtr));
 
-            BOOST_REQUIRE_EQUAL(uriMeta.GetSerializationSize(), metaUriListSerializationSize);
-            BOOST_REQUIRE_EQUAL(uriMeta.m_uriArray.size(), 3);
-            BOOST_REQUIRE_EQUAL(uriMeta.m_uriArray[0], cbhe_eid_t(525, 60001));
-            BOOST_REQUIRE_EQUAL(uriMeta.m_uriArray[1], cbhe_eid_t(5250, 600010));
-            BOOST_REQUIRE_EQUAL(uriMeta.m_uriArray[2], cbhe_eid_t(52500, 6000100));
+                    BOOST_REQUIRE_EQUAL(uriMeta.GetSerializationSize(), metaUriListSerializationSize);
+                    BOOST_REQUIRE_EQUAL(uriMeta.m_uriArray.size(), 3);
+                    BOOST_REQUIRE_EQUAL(uriMeta.m_uriArray[0], cbhe_eid_t(525, 60001));
+                    BOOST_REQUIRE_EQUAL(uriMeta.m_uriArray[1], cbhe_eid_t(5250, 600010));
+                    BOOST_REQUIRE_EQUAL(uriMeta.m_uriArray[2], cbhe_eid_t(52500, 6000100));
+                }
+            }
         }
 
         //second block with generic data
         {
             Bpv6MetadataCanonicalBlock* metaPtr = dynamic_cast<Bpv6MetadataCanonicalBlock*>(blocks[1]->headerPtr.get());
             BOOST_REQUIRE(metaPtr);
-            BOOST_REQUIRE_EQUAL(metaPtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::METADATA_EXTENSION);
-            BOOST_REQUIRE_EQUAL(blocks[1]->actualSerializedBlockPtr.size(), metaPtr->GetSerializationSize());
-            BOOST_REQUIRE_EQUAL(metaPtr->m_metadataTypeCode, BPV6_METADATA_TYPE_CODE::UNDEFINED_ZERO);
-            Bpv6MetadataContentGeneric * genericPtr = dynamic_cast<Bpv6MetadataContentGeneric*>(metaPtr->m_metadataContentPtr.get());
-            BOOST_REQUIRE(genericPtr);
-            Bpv6MetadataContentGeneric & genericMeta = *(reinterpret_cast<Bpv6MetadataContentGeneric*>(genericPtr));
+            if (metaPtr) {
+                BOOST_REQUIRE_EQUAL(metaPtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::METADATA_EXTENSION);
+                BOOST_REQUIRE_EQUAL(blocks[1]->actualSerializedBlockPtr.size(), metaPtr->GetSerializationSize());
+                BOOST_REQUIRE_EQUAL(metaPtr->m_metadataTypeCode, BPV6_METADATA_TYPE_CODE::UNDEFINED_ZERO);
+                Bpv6MetadataContentGeneric* genericPtr = dynamic_cast<Bpv6MetadataContentGeneric*>(metaPtr->m_metadataContentPtr.get());
+                BOOST_REQUIRE(genericPtr);
+                if (genericPtr) {
+                    Bpv6MetadataContentGeneric& genericMeta = *(reinterpret_cast<Bpv6MetadataContentGeneric*>(genericPtr));
 
-            BOOST_REQUIRE_EQUAL(genericMeta.GetSerializationSize(), metaGenericSerializationSize);
-            BOOST_REQUIRE_EQUAL(metaGenericSerializationSize, 8);
-            BOOST_REQUIRE(genericMeta.m_genericRawMetadata == std::vector<uint8_t>({ 0xd, 0xe, 0xa, 0xd, 0xb, 0xe, 0xe, 0xf }));
+                    BOOST_REQUIRE_EQUAL(genericMeta.GetSerializationSize(), metaGenericSerializationSize);
+                    BOOST_REQUIRE_EQUAL(metaGenericSerializationSize, 8);
+                    BOOST_REQUIRE(genericMeta.m_genericRawMetadata == std::vector<uint8_t>({ 0xd, 0xe, 0xa, 0xd, 0xb, 0xe, 0xe, 0xf }));
+                }
+            }
         }
     }
 
@@ -596,12 +608,14 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
         BOOST_REQUIRE_EQUAL(blocks.size(), 1);
         Bpv6BundleAgeCanonicalBlock* agePtr = dynamic_cast<Bpv6BundleAgeCanonicalBlock*>(blocks[0]->headerPtr.get());
         BOOST_REQUIRE(agePtr);
-        BOOST_REQUIRE_EQUAL(agePtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::BUNDLE_AGE);
-        BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::IS_LAST_BLOCK));
-        BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED));
-        BOOST_REQUIRE(blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT));
-        BOOST_REQUIRE_EQUAL(agePtr->m_bundleAgeMicroseconds, 1000000);
-        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), agePtr->GetSerializationSize());
+        if (agePtr) {
+            BOOST_REQUIRE_EQUAL(agePtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::BUNDLE_AGE);
+            BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::IS_LAST_BLOCK));
+            BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED));
+            BOOST_REQUIRE(blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT));
+            BOOST_REQUIRE_EQUAL(agePtr->m_bundleAgeMicroseconds, 1000000);
+            BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), agePtr->GetSerializationSize());
+        }
     }
     
     //get payload
@@ -759,94 +773,97 @@ BOOST_AUTO_TEST_CASE(Bpv6BundleStatusReportTestCase)
                 BOOST_REQUIRE_EQUAL(blocks.size(), 1);
                 Bpv6AdministrativeRecord* adminRecordBlockPtr = dynamic_cast<Bpv6AdministrativeRecord*>(blocks[0]->headerPtr.get());
                 BOOST_REQUIRE(adminRecordBlockPtr);
-                BOOST_REQUIRE_EQUAL(adminRecordBlockPtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::PAYLOAD);
-                BOOST_REQUIRE_EQUAL(adminRecordBlockPtr->m_adminRecordTypeCode, BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::BUNDLE_STATUS_REPORT);
+                if (adminRecordBlockPtr) {
+                    BOOST_REQUIRE_EQUAL(adminRecordBlockPtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::PAYLOAD);
+                    BOOST_REQUIRE_EQUAL(adminRecordBlockPtr->m_adminRecordTypeCode, BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::BUNDLE_STATUS_REPORT);
 
-                BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), adminRecordBlockPtr->GetSerializationSize());
+                    BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), adminRecordBlockPtr->GetSerializationSize());
 
-                Bpv6AdministrativeRecordContentBundleStatusReport * bsrPtr = dynamic_cast<Bpv6AdministrativeRecordContentBundleStatusReport*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
-                BOOST_REQUIRE(bsrPtr);
+                    Bpv6AdministrativeRecordContentBundleStatusReport* bsrPtr = dynamic_cast<Bpv6AdministrativeRecordContentBundleStatusReport*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
+                    BOOST_REQUIRE(bsrPtr);
+                    if (bsrPtr) {
+                        Bpv6AdministrativeRecordContentBundleStatusReport& bsr = *(reinterpret_cast<Bpv6AdministrativeRecordContentBundleStatusReport*>(bsrPtr));
 
-                Bpv6AdministrativeRecordContentBundleStatusReport & bsr = *(reinterpret_cast<Bpv6AdministrativeRecordContentBundleStatusReport*>(bsrPtr));
+                        BOOST_REQUIRE_EQUAL(bsr.GetSerializationSize(), bsrSerializationSize);
 
-                BOOST_REQUIRE_EQUAL(bsr.GetSerializationSize(), bsrSerializationSize);
+                        //reporting-node-received-bundle
+                        if (assert0) {
+                            BOOST_REQUIRE(bsr.HasBundleStatusReportStatusFlagSet(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_RECEIVED_BUNDLE));
+                            BOOST_REQUIRE_EQUAL(bsr.m_timeOfReceiptOfBundle, t0);
+                        }
+                        else {
+                            BOOST_REQUIRE(!bsr.HasBundleStatusReportStatusFlagSet(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_RECEIVED_BUNDLE));
+                        }
 
-                //reporting-node-received-bundle
-                if (assert0) {
-                    BOOST_REQUIRE(bsr.HasBundleStatusReportStatusFlagSet(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_RECEIVED_BUNDLE));
-                    BOOST_REQUIRE_EQUAL(bsr.m_timeOfReceiptOfBundle, t0);
-                }
-                else {
-                    BOOST_REQUIRE(!bsr.HasBundleStatusReportStatusFlagSet(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_RECEIVED_BUNDLE));
-                }
+                        //reporting-node-accept-custody-of-bundle
+                        if (assert1) {
+                            BOOST_REQUIRE(bsr.HasBundleStatusReportStatusFlagSet(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_ACCEPTED_CUSTODY_OF_BUNDLE));
+                            BOOST_REQUIRE_EQUAL(bsr.m_timeOfCustodyAcceptanceOfBundle, t1);
+                        }
+                        else {
+                            BOOST_REQUIRE(!bsr.HasBundleStatusReportStatusFlagSet(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_ACCEPTED_CUSTODY_OF_BUNDLE));
+                        }
 
-                //reporting-node-accept-custody-of-bundle
-                if (assert1) {
-                    BOOST_REQUIRE(bsr.HasBundleStatusReportStatusFlagSet(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_ACCEPTED_CUSTODY_OF_BUNDLE));
-                    BOOST_REQUIRE_EQUAL(bsr.m_timeOfCustodyAcceptanceOfBundle, t1);
-                }
-                else {
-                    BOOST_REQUIRE(!bsr.HasBundleStatusReportStatusFlagSet(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_ACCEPTED_CUSTODY_OF_BUNDLE));
-                }
+                        //reporting-node-forwarded-bundle
+                        if (assert2) {
+                            BOOST_REQUIRE(bsr.HasBundleStatusReportStatusFlagSet(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_FORWARDED_BUNDLE));
+                            BOOST_REQUIRE_EQUAL(bsr.m_timeOfForwardingOfBundle, t2);
+                        }
+                        else {
+                            BOOST_REQUIRE(!bsr.HasBundleStatusReportStatusFlagSet(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_FORWARDED_BUNDLE));
+                        }
 
-                //reporting-node-forwarded-bundle
-                if (assert2) {
-                    BOOST_REQUIRE(bsr.HasBundleStatusReportStatusFlagSet(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_FORWARDED_BUNDLE));
-                    BOOST_REQUIRE_EQUAL(bsr.m_timeOfForwardingOfBundle, t2);
-                }
-                else {
-                    BOOST_REQUIRE(!bsr.HasBundleStatusReportStatusFlagSet(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_FORWARDED_BUNDLE));
-                }
+                        //reporting-node-delivered-bundle
+                        if (assert3) {
+                            BOOST_REQUIRE(bsr.HasBundleStatusReportStatusFlagSet(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_DELIVERED_BUNDLE));
+                            BOOST_REQUIRE_EQUAL(bsr.m_timeOfDeliveryOfBundle, t3);
+                        }
+                        else {
+                            BOOST_REQUIRE(!bsr.HasBundleStatusReportStatusFlagSet(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_DELIVERED_BUNDLE));
+                        }
 
-                //reporting-node-delivered-bundle
-                if (assert3) {
-                    BOOST_REQUIRE(bsr.HasBundleStatusReportStatusFlagSet(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_DELIVERED_BUNDLE));
-                    BOOST_REQUIRE_EQUAL(bsr.m_timeOfDeliveryOfBundle, t3);
-                }
-                else {
-                    BOOST_REQUIRE(!bsr.HasBundleStatusReportStatusFlagSet(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_DELIVERED_BUNDLE));
-                }
-
-                //reporting-node-deleted-bundle
-                if (assert4) {
-                    BOOST_REQUIRE(bsr.HasBundleStatusReportStatusFlagSet(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_DELETED_BUNDLE));
-                    BOOST_REQUIRE_EQUAL(bsr.m_timeOfDeletionOfBundle, t4);
-                }
-                else {
-                    BOOST_REQUIRE(!bsr.HasBundleStatusReportStatusFlagSet(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_DELETED_BUNDLE));
-                }
+                        //reporting-node-deleted-bundle
+                        if (assert4) {
+                            BOOST_REQUIRE(bsr.HasBundleStatusReportStatusFlagSet(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_DELETED_BUNDLE));
+                            BOOST_REQUIRE_EQUAL(bsr.m_timeOfDeletionOfBundle, t4);
+                        }
+                        else {
+                            BOOST_REQUIRE(!bsr.HasBundleStatusReportStatusFlagSet(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_DELETED_BUNDLE));
+                        }
 
 
-                BOOST_REQUIRE_EQUAL(bsr.m_reasonCode, BPV6_BUNDLE_STATUS_REPORT_REASON_CODES::DEPLETED_STORAGE);
+                        BOOST_REQUIRE_EQUAL(bsr.m_reasonCode, BPV6_BUNDLE_STATUS_REPORT_REASON_CODES::DEPLETED_STORAGE);
 
-                BOOST_REQUIRE_EQUAL(bsr.m_bundleSourceEid, bundleSourceEidStr);
+                        BOOST_REQUIRE_EQUAL(bsr.m_bundleSourceEid, bundleSourceEidStr);
 
-                BOOST_REQUIRE_EQUAL(bsr.m_copyOfBundleCreationTimestamp.secondsSinceStartOfYear2000, 5000);
-                BOOST_REQUIRE_EQUAL(bsr.m_copyOfBundleCreationTimestamp.sequenceNumber, 10);
+                        BOOST_REQUIRE_EQUAL(bsr.m_copyOfBundleCreationTimestamp.secondsSinceStartOfYear2000, 5000);
+                        BOOST_REQUIRE_EQUAL(bsr.m_copyOfBundleCreationTimestamp.sequenceNumber, 10);
 
-                BOOST_REQUIRE_EQUAL(bsr.m_isFragment, useFrag);
-                if (bsr.m_isFragment) {
-                    BOOST_REQUIRE_EQUAL(bsr.m_fragmentOffsetIfPresent, 2000);
-                    BOOST_REQUIRE_EQUAL(bsr.m_fragmentLengthIfPresent, 3000);
-                }
+                        BOOST_REQUIRE_EQUAL(bsr.m_isFragment, useFrag);
+                        if (bsr.m_isFragment) {
+                            BOOST_REQUIRE_EQUAL(bsr.m_fragmentOffsetIfPresent, 2000);
+                            BOOST_REQUIRE_EQUAL(bsr.m_fragmentLengthIfPresent, 3000);
+                        }
 
-                BOOST_REQUIRE(lastBsr == bsr);
+                        BOOST_REQUIRE(lastBsr == bsr);
 
-                {
-                    //misc
-                    Bpv6AdministrativeRecordContentBundleStatusReport rpt = bsr;
-                    Bpv6AdministrativeRecordContentBundleStatusReport rpt2 = bsr;
-                    BOOST_REQUIRE(!(rpt != rpt2));
-                    Bpv6AdministrativeRecordContentBundleStatusReport rptCopy = rpt;
-                    Bpv6AdministrativeRecordContentBundleStatusReport rptCopy2(rpt);
-                    Bpv6AdministrativeRecordContentBundleStatusReport rpt2Moved = std::move(rpt2);
-                    BOOST_REQUIRE(rpt != rpt2); //rpt2 moved
-                    BOOST_REQUIRE(rpt == rpt2Moved);
-                    BOOST_REQUIRE(rpt == rptCopy);
-                    BOOST_REQUIRE(rpt == rptCopy2);
-                    Bpv6AdministrativeRecordContentBundleStatusReport rpt2Moved2(std::move(rpt2Moved));
-                    BOOST_REQUIRE(rpt != rpt2Moved); //rpt2 moved
-                    BOOST_REQUIRE(rpt == rpt2Moved2);
+                        {
+                            //misc
+                            Bpv6AdministrativeRecordContentBundleStatusReport rpt = bsr;
+                            Bpv6AdministrativeRecordContentBundleStatusReport rpt2 = bsr;
+                            BOOST_REQUIRE(!(rpt != rpt2));
+                            Bpv6AdministrativeRecordContentBundleStatusReport rptCopy = rpt;
+                            Bpv6AdministrativeRecordContentBundleStatusReport rptCopy2(rpt);
+                            Bpv6AdministrativeRecordContentBundleStatusReport rpt2Moved = std::move(rpt2);
+                            BOOST_REQUIRE(rpt != rpt2); //rpt2 moved
+                            BOOST_REQUIRE(rpt == rpt2Moved);
+                            BOOST_REQUIRE(rpt == rptCopy);
+                            BOOST_REQUIRE(rpt == rptCopy2);
+                            Bpv6AdministrativeRecordContentBundleStatusReport rpt2Moved2(std::move(rpt2Moved));
+                            BOOST_REQUIRE(rpt != rpt2Moved); //rpt2 moved
+                            BOOST_REQUIRE(rpt == rpt2Moved2);
+                        }
+                    }
                 }
             }
         }
@@ -923,10 +940,12 @@ BOOST_AUTO_TEST_CASE(BundleViewV6ReadDtnMeRawDataTestCase)
             BOOST_REQUIRE_EQUAL(blocks.size(), 1);
             Bpv6PreviousHopInsertionCanonicalBlock* phibPtr = dynamic_cast<Bpv6PreviousHopInsertionCanonicalBlock*>(blocks[0]->headerPtr.get());
             BOOST_REQUIRE(phibPtr);
-            BOOST_REQUIRE_EQUAL(phibPtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION);
-            BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::IS_LAST_BLOCK));
-            BOOST_REQUIRE_EQUAL(phibPtr->m_previousNode, cbhe_eid_t(32768, 0));
-            BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), phibPtr->GetSerializationSize());
+            if (phibPtr) {
+                BOOST_REQUIRE_EQUAL(phibPtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION);
+                BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::IS_LAST_BLOCK));
+                BOOST_REQUIRE_EQUAL(phibPtr->m_previousNode, cbhe_eid_t(32768, 0));
+                BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), phibPtr->GetSerializationSize());
+            }
         }
         { //get block 19
             std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
@@ -939,14 +958,18 @@ BOOST_AUTO_TEST_CASE(BundleViewV6ReadDtnMeRawDataTestCase)
             BOOST_REQUIRE_EQUAL(blocks.size(), 1);
             Bpv6AdministrativeRecord* adminRecordBlockPtr = dynamic_cast<Bpv6AdministrativeRecord*>(blocks[0]->headerPtr.get());
             BOOST_REQUIRE(adminRecordBlockPtr);
-            const BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE adminRecordType = adminRecordBlockPtr->m_adminRecordTypeCode;
-            BOOST_REQUIRE_EQUAL(adminRecordType, BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::CUSTODY_SIGNAL); //rfc5050 style custody transfer
-            Bpv6AdministrativeRecordContentCustodySignal* csPtr = dynamic_cast<Bpv6AdministrativeRecordContentCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
-            BOOST_REQUIRE(csPtr);
-            Bpv6AdministrativeRecordContentCustodySignal& cs = *(reinterpret_cast<Bpv6AdministrativeRecordContentCustodySignal*>(csPtr));
-            BOOST_REQUIRE(!cs.DidCustodyTransferSucceed());
-            BOOST_REQUIRE(!cs.m_isFragment);
-            BOOST_REQUIRE_EQUAL(cs.m_bundleSourceEid, "ipn:11.64");
+            if (adminRecordBlockPtr) {
+                const BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE adminRecordType = adminRecordBlockPtr->m_adminRecordTypeCode;
+                BOOST_REQUIRE_EQUAL(adminRecordType, BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::CUSTODY_SIGNAL); //rfc5050 style custody transfer
+                Bpv6AdministrativeRecordContentCustodySignal* csPtr = dynamic_cast<Bpv6AdministrativeRecordContentCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
+                BOOST_REQUIRE(csPtr);
+                if (csPtr) {
+                    Bpv6AdministrativeRecordContentCustodySignal& cs = *(reinterpret_cast<Bpv6AdministrativeRecordContentCustodySignal*>(csPtr));
+                    BOOST_REQUIRE(!cs.DidCustodyTransferSucceed());
+                    BOOST_REQUIRE(!cs.m_isFragment);
+                    BOOST_REQUIRE_EQUAL(cs.m_bundleSourceEid, "ipn:11.64");
+                }
+            }
         }
 
         bv.m_primaryBlockView.SetManuallyModified();
@@ -970,10 +993,12 @@ BOOST_AUTO_TEST_CASE(BundleViewV6ReadDtnMeRawDataTestCase)
             BOOST_REQUIRE_EQUAL(blocks.size(), 1);
             Bpv6PreviousHopInsertionCanonicalBlock* phibPtr = dynamic_cast<Bpv6PreviousHopInsertionCanonicalBlock*>(blocks[0]->headerPtr.get());
             BOOST_REQUIRE(phibPtr);
-            BOOST_REQUIRE_EQUAL(phibPtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION);
-            BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::IS_LAST_BLOCK));
-            BOOST_REQUIRE_EQUAL(phibPtr->m_previousNode, cbhe_eid_t(32768, 0));
-            BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), phibPtr->GetSerializationSize());
+            if (phibPtr) {
+                BOOST_REQUIRE_EQUAL(phibPtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION);
+                BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::IS_LAST_BLOCK));
+                BOOST_REQUIRE_EQUAL(phibPtr->m_previousNode, cbhe_eid_t(32768, 0));
+                BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), phibPtr->GetSerializationSize());
+            }
         }
         { //get block 19
             std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
@@ -986,24 +1011,28 @@ BOOST_AUTO_TEST_CASE(BundleViewV6ReadDtnMeRawDataTestCase)
             BOOST_REQUIRE_EQUAL(blocks.size(), 1);
             Bpv6AdministrativeRecord* adminRecordBlockPtr = dynamic_cast<Bpv6AdministrativeRecord*>(blocks[0]->headerPtr.get());
             BOOST_REQUIRE(adminRecordBlockPtr);
-            const BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE adminRecordType = adminRecordBlockPtr->m_adminRecordTypeCode;
-            BOOST_REQUIRE_EQUAL(adminRecordType, BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::AGGREGATE_CUSTODY_SIGNAL);
-            Bpv6AdministrativeRecordContentAggregateCustodySignal* acsPtr = dynamic_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
-            BOOST_REQUIRE(acsPtr);
-            Bpv6AdministrativeRecordContentAggregateCustodySignal& acs = *(reinterpret_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(acsPtr));
-            BOOST_REQUIRE(acs.DidCustodyTransferSucceed());
-            //wireshark says:
-            // start0 end0
-            //start1 end256
-            //start257 end663
-            FragmentSet::data_fragment_set_t expected = { FragmentSet::data_fragment_t(0, 255), FragmentSet::data_fragment_t(512, 661) };
-            BOOST_REQUIRE(acs.m_custodyIdFills == expected);
-            uint64_t numTransfers = 0;
-            for (FragmentSet::data_fragment_set_t::const_iterator it = acs.m_custodyIdFills.cbegin(); it != acs.m_custodyIdFills.cend(); ++it) {
-                //std::cout << "b " << it->beginIndex << " e " << it->endIndex << "\n";
-                numTransfers += (it->endIndex + 1) - it->beginIndex;
+            if (adminRecordBlockPtr) {
+                const BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE adminRecordType = adminRecordBlockPtr->m_adminRecordTypeCode;
+                BOOST_REQUIRE_EQUAL(adminRecordType, BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::AGGREGATE_CUSTODY_SIGNAL);
+                Bpv6AdministrativeRecordContentAggregateCustodySignal* acsPtr = dynamic_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
+                BOOST_REQUIRE(acsPtr);
+                if (acsPtr) {
+                    Bpv6AdministrativeRecordContentAggregateCustodySignal& acs = *(reinterpret_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(acsPtr));
+                    BOOST_REQUIRE(acs.DidCustodyTransferSucceed());
+                    //wireshark says:
+                    // start0 end0
+                    //start1 end256
+                    //start257 end663
+                    FragmentSet::data_fragment_set_t expected = { FragmentSet::data_fragment_t(0, 255), FragmentSet::data_fragment_t(512, 661) };
+                    BOOST_REQUIRE(acs.m_custodyIdFills == expected);
+                    uint64_t numTransfers = 0;
+                    for (FragmentSet::data_fragment_set_t::const_iterator it = acs.m_custodyIdFills.cbegin(); it != acs.m_custodyIdFills.cend(); ++it) {
+                        //std::cout << "b " << it->beginIndex << " e " << it->endIndex << "\n";
+                        numTransfers += (it->endIndex + 1) - it->beginIndex;
+                    }
+                    BOOST_REQUIRE_EQUAL(numTransfers, 256 + 150);
+                }
             }
-            BOOST_REQUIRE_EQUAL(numTransfers, 256 + 150);
         }
 
         bv.m_primaryBlockView.SetManuallyModified();
