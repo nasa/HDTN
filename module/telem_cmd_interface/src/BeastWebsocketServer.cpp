@@ -40,7 +40,9 @@ static const hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::gui
 
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
+#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
 #include <boost/beast/ssl.hpp>
+#endif
 #include <boost/beast/websocket.hpp>
 #include <boost/beast/version.hpp>
 #include <boost/asio.hpp>
@@ -505,6 +507,7 @@ public:
 
 //------------------------------------------------------------------------------
 
+#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
 // Handles an SSL WebSocket connection
 class ssl_websocket_session : public websocket_session<ssl_websocket_session>,
     public std::enable_shared_from_this<ssl_websocket_session>
@@ -523,7 +526,7 @@ public:
         return m_sslWebsocketStream;
     }
 };
-
+#endif
 //------------------------------------------------------------------------------
 
 
@@ -537,6 +540,7 @@ void MakeWebsocketSession(boost::asio::ip::tcp::socket tcpSocket, ServerState_pt
     session->run(std::move(req)); //creates shared_ptr copy
 }
 
+#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
 template<class Body, class Allocator>
 void MakeWebsocketSession(boost::beast::ssl_stream<boost::asio::ip::tcp::socket> sslStream, ServerState_ptr& serverStatePtr,
     boost::beast::http::request<Body, boost::beast::http::basic_fields<Allocator> > req)
@@ -547,7 +551,7 @@ void MakeWebsocketSession(boost::beast::ssl_stream<boost::asio::ip::tcp::socket>
         uniqueId, std::move(sslStream), serverStatePtr);
     session->run(std::move(req)); //creates shared_ptr copy
 }
-
+#endif
 //------------------------------------------------------------------------------
 
 // Handles an HTTP server connection.
@@ -644,7 +648,7 @@ protected:
 
 public:
     // Construct the session
-    http_session(boost::beast::flat_buffer buffer, ServerState_ptr& serverStatePtr) :
+    http_session(boost::beast::flat_buffer&& buffer, ServerState_ptr& serverStatePtr) :
         m_serverStatePtr(serverStatePtr),
         m_queue(*this),
         m_flatBuffer(std::move(buffer)) {}
@@ -770,7 +774,7 @@ public:
 };
 
 //------------------------------------------------------------------------------
-
+#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
 // Handles an SSL HTTP connection
 class ssl_http_session : public http_session<ssl_http_session>,
     public std::enable_shared_from_this<ssl_http_session>
@@ -917,24 +921,31 @@ public:
         }
     }
 };
+#endif //BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
 
 // Accepts incoming connections and launches the sessions
 class listener {
     boost::asio::io_service& m_ioServiceRef;
+#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
     boost::asio::ssl::context& m_sslContext;
     const bool m_sslContextIsValid;
+#endif
     boost::asio::ip::tcp::acceptor m_tcpAcceptor;
     ServerState_ptr m_serverStatePtr;
 
 public:
     listener(boost::asio::io_service& ioService,
+#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
         boost::asio::ssl::context& ctx,
         bool sslContextIsValid,
+#endif
         boost::asio::ip::tcp::endpoint endpoint,
         ServerState_ptr& serverStatePtr) :
         m_ioServiceRef(ioService),
+#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
         m_sslContext(ctx),
         m_sslContextIsValid(sslContextIsValid),
+#endif
         m_tcpAcceptor(
 #ifdef BEAST_WEBSOCKET_SERVER_SINGLE_THREADED
             ioService
@@ -1014,10 +1025,17 @@ private:
 
     void on_accept(std::shared_ptr<boost::asio::ip::tcp::socket>& newTcpSocketPtr, boost::beast::error_code ec) {
         if (!ec) {
+#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
             // Create the detector http_session and run it
             std::shared_ptr<detect_session> detectSession = std::make_shared<detect_session>(
                 std::move(*newTcpSocketPtr), m_sslContext, m_sslContextIsValid, m_serverStatePtr);
             detectSession->run();
+#else
+            // Launch plain session
+            std::shared_ptr<plain_http_session> session = std::make_shared<plain_http_session>(
+                std::move(*newTcpSocketPtr), boost::beast::flat_buffer(), m_serverStatePtr);
+            session->run();
+#endif
             // Accept another connection
             do_accept();
         }
@@ -1029,12 +1047,22 @@ private:
 
 struct BeastWebsocketServer::Impl : private boost::noncopyable {
 
-    Impl(boost::asio::ssl::context&& sslContext, bool sslContextIsValid) :
-#ifndef BEAST_WEBSOCKET_SERVER_SINGLE_THREADED
-        m_ioService(BEAST_WEBSOCKET_SERVER_NUM_THREADS), //(1) => concurrency_hint of 1 thread
+    Impl(
+#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL 
+        boost::asio::ssl::context&& sslContext, bool sslContextIsValid
+#endif
+    ) :
+#ifdef BEAST_WEBSOCKET_SERVER_SINGLE_THREADED
+        m_ioService()
+#else
+        m_ioService(BEAST_WEBSOCKET_SERVER_NUM_THREADS) //(1) => concurrency_hint of 1 thread
 #endif // !BEAST_WEBSOCKET_SERVER_SINGLE_THREADED
+#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
+        ,
         m_sslContext(std::move(sslContext)),
-        m_sslContextIsValid(sslContextIsValid) {}
+        m_sslContextIsValid(sslContextIsValid)
+#endif
+    {}
     ~Impl() {
         Stop();
     }
@@ -1078,7 +1106,10 @@ struct BeastWebsocketServer::Impl : private boost::noncopyable {
         const uint16_t port = boost::lexical_cast<uint16_t>(portNumberAsString);
         m_serverStatePtr = std::make_shared<ServerState>(documentRoot.string(), connectionCallback, dataCallback);
         // Create and launch a listening port
-        m_listenerUniquePtr = boost::make_unique<listener>(m_ioService, m_sslContext, m_sslContextIsValid,
+        m_listenerUniquePtr = boost::make_unique<listener>(m_ioService,
+#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
+            m_sslContext, m_sslContextIsValid,
+#endif
             boost::asio::ip::tcp::endpoint(address, port), m_serverStatePtr);
         m_listenerUniquePtr->run();
 
@@ -1111,9 +1142,11 @@ struct BeastWebsocketServer::Impl : private boost::noncopyable {
 
 private:
     boost::asio::io_service m_ioService;
+#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
     // The SSL context is required, and holds certificates
     boost::asio::ssl::context m_sslContext;
     const bool m_sslContextIsValid;
+#endif
 
     //must be shared since listener inherits from enable_shared_from_this
     // (actually not needed, ptr contained within its callbacks)
@@ -1130,8 +1163,16 @@ public:
 ///////////////////////////
 //public facing functions
 ///////////////////////////
-BeastWebsocketServer::BeastWebsocketServer(boost::asio::ssl::context&& sslContext, bool sslContextIsValid) :
-    m_pimpl(boost::make_unique<BeastWebsocketServer::Impl>(std::move(sslContext), sslContextIsValid)) {}
+BeastWebsocketServer::BeastWebsocketServer(
+#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
+    boost::asio::ssl::context&& sslContext, bool sslContextIsValid
+#endif
+) :
+    m_pimpl(boost::make_unique<BeastWebsocketServer::Impl>(
+#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
+        std::move(sslContext), sslContextIsValid
+#endif
+        )) {}
 BeastWebsocketServer::~BeastWebsocketServer() {
     Stop();
 }

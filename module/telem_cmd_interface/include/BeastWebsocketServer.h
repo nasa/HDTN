@@ -21,6 +21,13 @@
 #ifndef BEAST_WEBSOCKET_SERVER_H
 #define BEAST_WEBSOCKET_SERVER_H 1
 
+#include <boost/version.hpp>
+ //https and wss require boost 1.70 minimum
+#if ((BOOST_VERSION >= 107000) && defined(OPENSSL_SUPPORT_ENABLED))
+# define BEAST_WEBSOCKET_SERVER_SUPPORT_SSL 1
+#endif
+
+
 #include <cstring>
 #include <memory>
 #include <set>
@@ -58,9 +65,14 @@ typedef boost::function<void(WebsocketSessionBase& conn)> OnNewBeastWebsocketCon
 typedef boost::function<bool(WebsocketSessionBase& conn, std::string& receivedString)> OnNewBeastWebsocketDataReceivedCallback_t;
 
 class CLASS_VISIBILITY_TELEM_LIB BeastWebsocketServer {
-    BeastWebsocketServer() = delete;
+    
 public:
+#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
     TELEM_LIB_EXPORT BeastWebsocketServer(boost::asio::ssl::context&& sslContext, bool sslContextIsValid);
+    BeastWebsocketServer() = delete;
+#else
+    TELEM_LIB_EXPORT BeastWebsocketServer();
+#endif
     TELEM_LIB_EXPORT ~BeastWebsocketServer();
 
     TELEM_LIB_EXPORT bool Init(const boost::filesystem::path& documentRoot, const std::string& portNumberAsString,

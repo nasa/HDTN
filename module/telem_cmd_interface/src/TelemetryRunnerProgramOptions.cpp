@@ -37,7 +37,9 @@ bool TelemetryRunnerProgramOptions::ParseFromVariableMap(boost::program_options:
     if (m_guiDocumentRoot == "" || m_guiPortNumber == "") {
         return false;
     }
+# ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
     GetSslPathsAndValidate(vm, m_sslPaths);
+# endif
 #endif
     return true;
 }
@@ -48,10 +50,12 @@ void TelemetryRunnerProgramOptions::AppendToDesc(boost::program_options::options
     desc.add_options()
         ("document-root", boost::program_options::value<boost::filesystem::path>()->default_value(Environment::GetPathHdtnSourceRoot() / "module" / "telem_cmd_interface" / "src" / "gui"), "Document Root.")
         ("port-number", boost::program_options::value<uint16_t>()->default_value(8086), "Port number.")
+# ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
         ("gui-certificate-pem-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "GUI Server certificate file in PEM format (not preferred)")
         ("gui-certificate-chain-pem-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "GUI Server certificate chain file in PEM format (preferred)")
         ("gui-private-key-pem-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "GUI Server certificate file in PEM format")
         ("gui-dh-pem-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "GUI Server Diffie Hellman parameters file in PEM format")
+# endif
         ;
 #endif
 }
@@ -104,6 +108,7 @@ HdtnDistributedConfig_ptr TelemetryRunnerProgramOptions::GetHdtnDistributedConfi
     return hdtnDistributedConfig;
 }
 
+#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
 void TelemetryRunnerProgramOptions::GetSslPathsAndValidate(boost::program_options::variables_map& vm, SslPaths& sslPaths) {
     sslPaths.m_valid = false;
     try {
@@ -124,3 +129,4 @@ void TelemetryRunnerProgramOptions::GetSslPathsAndValidate(boost::program_option
         LOG_FATAL(subprocess) << "invalid program option error: " << e.what();
     }
 }
+#endif

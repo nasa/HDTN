@@ -1,5 +1,4 @@
 #include <boost/test/unit_test.hpp>
-
 #include "TelemetryRunnerProgramOptions.h"
 #include "Environment.h"
 
@@ -8,8 +7,11 @@ BOOST_AUTO_TEST_CASE(TelemetryRunnerProgramOptionsAppendToDescTestCase)
 {
     boost::program_options::options_description desc;
     TelemetryRunnerProgramOptions::AppendToDesc(desc);
-
+#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
     BOOST_REQUIRE_EQUAL(6, desc.options().size());
+#else
+    BOOST_REQUIRE_EQUAL(2, desc.options().size());
+#endif
 
     BOOST_REQUIRE_EQUAL("document-root", (desc.options()[0]).get()->long_name());
     BOOST_REQUIRE_EQUAL("port-number", (desc.options()[1]).get()->long_name());

@@ -133,6 +133,7 @@ bool TelemetryRunner::Impl::Init(const HdtnConfig& hdtnConfig, zmq::context_t *i
     }
     m_hdtnConfig = hdtnConfig;
 #ifdef USE_WEB_INTERFACE
+# ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
     boost::asio::ssl::context sslContext(boost::asio::ssl::context::sslv23_server);
     if (options.m_sslPaths.m_valid) {
         try {
@@ -159,11 +160,14 @@ bool TelemetryRunner::Impl::Init(const HdtnConfig& hdtnConfig, zmq::context_t *i
         }
     }
     m_websocketServerPtr = boost::make_unique<BeastWebsocketServer>(std::move(sslContext), options.m_sslPaths.m_valid);
+# else
+    m_websocketServerPtr = boost::make_unique<BeastWebsocketServer>();
+# endif //#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
     m_websocketServerPtr->Init(options.m_guiDocumentRoot, options.m_guiPortNumber,
         boost::bind(&TelemetryRunner::Impl::OnNewWebsocketConnectionCallback, this, boost::placeholders::_1),
         boost::bind(&TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback, this,
             boost::placeholders::_1, boost::placeholders::_2));
-#endif
+#endif //USE_WEB_INTERFACE
 
 #ifdef DO_STATS_LOGGING
     m_telemetryLoggerPtr = boost::make_unique<TelemetryLogger>();
