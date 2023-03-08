@@ -32,7 +32,7 @@ if(USE_WEB_INTERFACE)
 	if (MSVC)
 		target_compile_options(telem_lib PRIVATE /bigobj)
 	else()
-		target_compile_options(telem_lib PRIVATE -Wa -mbig-obj)
+		# target_compile_options(telem_lib PRIVATE -Wa -mbig-obj) #mingw-w64 only
 	endif()
 endif()
 
