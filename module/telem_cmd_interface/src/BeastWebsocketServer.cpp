@@ -324,6 +324,7 @@ private:
     // Start the asynchronous operation
     template<class Body, class Allocator>
     void do_accept(boost::beast::http::request<Body, boost::beast::http::basic_fields<Allocator>> req) {
+#ifdef BEAST_WEBSOCKET_SERVER_HAS_STREAM_BASE
         // Set suggested timeout settings for the websocket
         derived().GetWebsocketStream().set_option(
             boost::beast::websocket::stream_base::timeout::suggested(
@@ -335,7 +336,7 @@ private:
                 [](boost::beast::websocket::response_type& res) {
                     res.set(boost::beast::http::field::server, std::string(BOOST_BEAST_VERSION_STRING));
                 }));
-
+#endif
         // Accept the websocket handshake
         derived().GetWebsocketStream().async_accept(
             req,
@@ -399,7 +400,8 @@ private:
         else {
             if (derived().GetWebsocketStream().got_text()) {
                 if (m_serverStatePtr->m_onNewWebsocketDataReceivedCallback) {
-                    m_serverStatePtr->m_onNewWebsocketDataReceivedCallback(*this, boost::beast::buffers_to_string(m_flatBuffer.data()));
+                    std::string s(boost::beast::buffers_to_string(m_flatBuffer.data()));
+                    m_serverStatePtr->m_onNewWebsocketDataReceivedCallback(*this, s);
                 }
             }
 
@@ -683,9 +685,11 @@ public:
             if (ec == boost::beast::http::error::end_of_stream) { // This means they closed the connection
                 derived().do_eof();
             }
+#ifdef BEAST_WEBSOCKET_SERVER_HAS_STREAM_BASE
             else if(ec != boost::beast::error::timeout) {
                 PrintFail(ec, "http_read");
             }
+#endif
         }
         else {
             // See if it is a WebSocket Upgrade

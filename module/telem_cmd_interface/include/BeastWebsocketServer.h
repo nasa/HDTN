@@ -25,6 +25,7 @@
  //https and wss require boost 1.70 minimum
 #if ((BOOST_VERSION >= 107000) && defined(OPENSSL_SUPPORT_ENABLED))
 # define BEAST_WEBSOCKET_SERVER_SUPPORT_SSL 1
+# define BEAST_WEBSOCKET_SERVER_HAS_STREAM_BASE 1
 #endif
 
 
