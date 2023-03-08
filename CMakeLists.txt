@@ -141,9 +141,10 @@ if(ENABLE_OPENSSL_SUPPORT)
 	endif()
 	find_package(OpenSSL REQUIRED)
 endif()
-if(USE_WEB_INTERFACE AND ENABLE_OPENSSL_SUPPORT AND (${Boost_VERSION_MACRO} LESS 107000))
-	message(WARNING "USE_WEB_INTERFACE and ENABLE_OPENSSL_SUPPORT are set to ON, but boost version is less than v1.70.  HTTPS will be disabled for the web interface gui.")
+if(USE_WEB_INTERFACE AND ENABLE_OPENSSL_SUPPORT AND (${Boost_VERSION} LESS 107000))
+	message(WARNING "USE_WEB_INTERFACE and ENABLE_OPENSSL_SUPPORT are set to ON, but boost version ${Boost_VERSION} is less than 107000 (v1.70).  HTTPS will be disabled for the web interface gui.")
 endif()
+
 
 include(${CMAKE_SOURCE_DIR}/add_hdtn_package_export.cmake)
 
