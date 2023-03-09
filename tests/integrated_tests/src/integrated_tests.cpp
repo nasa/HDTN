@@ -253,7 +253,7 @@ bool TestHDTNCutThroughModeLTPv7() {
     //Bpgen
     static const std::string bpgenConfigArg = 
 	"--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_ltp_port4556_thisengineid200.json").string();
-    static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1","--duration=40", bpgenConfigArg.c_str(), NULL, "--use-bp-version-7"};
+    static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1","--duration=40", "--use-bp-version-7", bpgenConfigArg.c_str(), NULL};
     std::thread threadBpgen(RunBpgenAsync,argsBpgen, 6, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
 
     // Allow time for data to flow
