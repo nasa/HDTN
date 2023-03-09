@@ -88,7 +88,7 @@ struct ServerState : private boost::noncopyable {
     boost::mutex m_activeConnectionsMutex;
     shared_mutex_t m_unclosedConnectionsSharedMutex;
     std::atomic_uint32_t m_nextWebsocketConnectionIdAtomic;
-    typedef std::map<uint32_t, std::shared_ptr<WebsocketSessionBase> > active_connections_map_t;
+    typedef std::map<uint32_t, std::shared_ptr<WebsocketSessionPublicBase> > active_connections_map_t;
     active_connections_map_t m_activeConnections; //allow multiple connections
 };
 typedef std::shared_ptr<ServerState> ServerState_ptr;
@@ -164,11 +164,11 @@ typedef std::unique_ptr<http_emptybody_response_t> http_emptybody_response_ptr_t
 typedef std::unique_ptr<http_filebody_response_t> http_filebody_response_ptr_t;
 struct Response : private boost::noncopyable {
     Response() {}
-    Response(Response&& o) :  //a move constructor: X(X&&)
+    Response(Response&& o) noexcept :  //a move constructor: X(X&&)
         m_stringBodyResponsePtr(std::move(o.m_stringBodyResponsePtr)),
         m_emptyBodyResponsePtr(std::move(o.m_emptyBodyResponsePtr)),
         m_fileBodyResponsePtr(std::move(o.m_fileBodyResponsePtr)) {}
-    Response& operator=(Response&& o) { //a move assignment: operator=(X&&)
+    Response& operator=(Response&& o) noexcept { //a move assignment: operator=(X&&)
         m_stringBodyResponsePtr = std::move(o.m_stringBodyResponsePtr);
         m_emptyBodyResponsePtr = std::move(o.m_emptyBodyResponsePtr);
         m_fileBodyResponsePtr = std::move(o.m_fileBodyResponsePtr);
@@ -325,75 +325,34 @@ void PrintFail(boost::beast::error_code ec, char const* what) {
 
 //------------------------------------------------------------------------------
 
-
-
-// Echoes back all received WebSocket messages.
-// This uses the Curiously Recurring Template Pattern so that
-// the same code works with both SSL streams and regular sockets.
-template<class Derived>
-class websocket_session : public WebsocketSessionBase {
-public:
-    virtual ~websocket_session() override {} //for base shared_ptr
+class WebsocketSessionPrivateBase : public WebsocketSessionPublicBase {
 protected:
-    explicit websocket_session(uint32_t uniqueId, ServerState_ptr& serverStatePtr) :
-        WebsocketSessionBase(uniqueId),
+    WebsocketSessionPrivateBase() = delete;
+    WebsocketSessionPrivateBase(uint32_t uniqueId, ServerState_ptr& serverStatePtr) :
+        WebsocketSessionPublicBase(uniqueId),
         m_serverStatePtr(serverStatePtr),
         m_isOpenSharedLockPtr(boost::make_unique<shared_lock_t>(m_serverStatePtr->m_unclosedConnectionsSharedMutex)),
         m_writeInProgress(false),
         m_sendErrorOccurred(false) {}
-private:
-    // Access the derived class, this is part of
-    // the Curiously Recurring Template Pattern idiom.
-    Derived& derived() {
-        return static_cast<Derived&>(*this);
-    }
+public:
+    virtual ~WebsocketSessionPrivateBase() override {}
+    virtual void StartAsyncWsRead() = 0;
+    virtual void DoSendQueuedElement() = 0;
+    virtual bool WsGotTextData() = 0;
 
-    
-    
-    boost::beast::flat_buffer m_flatBuffer;
-    ServerState_ptr m_serverStatePtr;
-    std::queue<std::shared_ptr<std::string> > m_queueDataToSend;
-    std::unique_ptr<shared_lock_t> m_isOpenSharedLockPtr;
-    volatile bool m_writeInProgress;
-    volatile bool m_sendErrorOccurred;
-
-    // Start the asynchronous operation
-    template<class Body, class Allocator>
-    void do_accept(boost::beast::http::request<Body, boost::beast::http::basic_fields<Allocator>> req) {
-#ifdef BEAST_WEBSOCKET_SERVER_HAS_STREAM_BASE
-        // Set suggested timeout settings for the websocket
-        derived().GetWebsocketStream().set_option(
-            boost::beast::websocket::stream_base::timeout::suggested(
-                boost::beast::role_type::server));
-
-        // Set a decorator to change the Server of the handshake
-        derived().GetWebsocketStream().set_option(
-            boost::beast::websocket::stream_base::decorator(
-                [](boost::beast::websocket::response_type& res) {
-                    res.set(boost::beast::http::field::server, std::string(BOOST_BEAST_VERSION_STRING));
-                }));
-#endif
-        // Accept the websocket handshake
-        derived().GetWebsocketStream().async_accept(
-            req,
-            boost::bind(&websocket_session::on_accept,
-                derived().shared_from_this(),
-                boost::placeholders::_1));
-    }
-
-    void on_accept(boost::beast::error_code ec) {
+    void HandleWsAccept(boost::beast::error_code ec) {
         if (ec) {
             PrintFail(ec, "ws_accept");
             m_isOpenSharedLockPtr.reset();
         }
         else {
             // Read a message
-            do_read();
+            StartAsyncWsRead();
 
             { //add the websocket connection only when fully running
                 boost::mutex::scoped_lock lock(m_serverStatePtr->m_activeConnectionsMutex);
                 std::pair<ServerState::active_connections_map_t::iterator, bool> ret =
-                    m_serverStatePtr->m_activeConnections.emplace(m_uniqueId, derived().shared_from_this());
+                    m_serverStatePtr->m_activeConnections.emplace(m_uniqueId, GetSharedFromThis());
             }
             LOG_INFO(subprocess) << "Websocket connection id " << m_uniqueId << " connected.";
 
@@ -403,22 +362,11 @@ private:
         }
     }
 
-    void do_read() {
-        // Read a message into our buffer
-        derived().GetWebsocketStream().async_read(
-            m_flatBuffer,
-            boost::bind(
-                &websocket_session::on_read,
-                derived().shared_from_this(),
-                boost::placeholders::_1,
-                boost::placeholders::_2));
-    }
-
-    void on_read(boost::beast::error_code ec, std::size_t bytes_transferred) {
+    void HandleWsReadCompleted(boost::beast::error_code ec, std::size_t bytes_transferred) {
         boost::ignore_unused(bytes_transferred);
 
         if (ec) {
-            if ((ec == boost::beast::websocket::error::closed) // This indicates that the websocket_session was closed (by remote)
+            if ((ec == boost::beast::websocket::error::closed) // This indicates that the WebsocketSession was closed (by remote)
                 || (ec == boost::asio::error::connection_reset) // Connection reset by peer.
                 || (ec == boost::asio::error::connection_aborted))
             {
@@ -434,7 +382,7 @@ private:
             m_isOpenSharedLockPtr.reset();
         }
         else {
-            if (derived().GetWebsocketStream().got_text()) {
+            if (WsGotTextData()) {
                 if (m_serverStatePtr->m_onNewWebsocketDataReceivedCallback) {
                     std::string s(boost::beast::buffers_to_string(m_flatBuffer.data()));
                     m_serverStatePtr->m_onNewWebsocketDataReceivedCallback(*this, s);
@@ -445,18 +393,8 @@ private:
             m_flatBuffer.consume(m_flatBuffer.size());
 
             // Do another read
-            do_read();
+            StartAsyncWsRead();
         }
-    }
-
-    void DoSendQueuedElement() {
-        derived().GetWebsocketStream().text(true); //set text mode
-        derived().GetWebsocketStream().async_write(
-            boost::asio::buffer(*m_queueDataToSend.front()),
-            boost::bind(
-                &websocket_session::OnSentStringFromQueuedSharedPtr,
-                derived().shared_from_this(), //copied by value
-                boost::placeholders::_1, boost::placeholders::_2));
     }
 
     void OnSentStringFromQueuedSharedPtr(boost::beast::error_code ec, std::size_t bytes_transferred) {
@@ -487,15 +425,6 @@ private:
         }
     }
 
-    void DoClose_NotThreadSafe() {
-        if (m_isOpenSharedLockPtr) {
-            derived().GetWebsocketStream().async_close(boost::beast::websocket::close_code::none,
-                boost::bind(
-                    &websocket_session::OnClose,
-                    derived().shared_from_this(), //copied by value
-                    boost::placeholders::_1)); 
-        }
-    }
     void OnClose(boost::beast::error_code ec) {
         if (ec) {
             PrintFail(ec, "ws_close");
@@ -503,38 +432,142 @@ private:
         m_isOpenSharedLockPtr.reset();
     }
 public:
-    // Start the asynchronous operation
-    template<class Body, class Allocator>
-    void run(boost::beast::http::request<Body, boost::beast::http::basic_fields<Allocator> > req) {
-        // Accept the WebSocket upgrade request
-        do_accept(std::move(req));
-    }
     virtual void AsyncSendTextData(std::shared_ptr<std::string>&& stringPtr) override {
-        boost::asio::post(derived().GetWebsocketStream().get_executor(),
-            boost::bind(&websocket_session::QueueAndSendTextData_NotThreadSafe,
-                derived().shared_from_this(), std::move(stringPtr)));
+        boost::asio::post(GetWebsocketExecutor(),
+            boost::bind(&WebsocketSessionPrivateBase::QueueAndSendTextData_NotThreadSafe,
+                GetSharedFromThis(), std::move(stringPtr)));
     }
 
     virtual void AsyncClose() override {
-        boost::asio::post(derived().GetWebsocketStream().get_executor(),
-            boost::bind(&websocket_session::DoClose_NotThreadSafe,
-                derived().shared_from_this()));
+        boost::asio::post(GetWebsocketExecutor(),
+            boost::bind(&WebsocketSessionPrivateBase::DoClose_NotThreadSafe,
+                GetSharedFromThis()));
     }
+protected:
+    virtual std::shared_ptr<WebsocketSessionPrivateBase> GetSharedFromThis() = 0;
+    virtual boost::asio::any_io_executor GetWebsocketExecutor() = 0;
+    virtual void DoClose_NotThreadSafe() = 0;
+protected:
+    boost::beast::flat_buffer m_flatBuffer;
+    ServerState_ptr m_serverStatePtr;
+    std::queue<std::shared_ptr<std::string> > m_queueDataToSend;
+    std::unique_ptr<shared_lock_t> m_isOpenSharedLockPtr;
+    volatile bool m_writeInProgress;
+    volatile bool m_sendErrorOccurred;
+};
+
+// Echoes back all received WebSocket messages.
+// This uses the Curiously Recurring Template Pattern so that
+// the same code works with both SSL streams and regular sockets.
+template<class Derived>
+class WebsocketSession : public WebsocketSessionPrivateBase {
+public:
+    virtual ~WebsocketSession() override {} //for base shared_ptr
+protected:
+    explicit WebsocketSession(uint32_t uniqueId, ServerState_ptr& serverStatePtr) :
+        WebsocketSessionPrivateBase(uniqueId, serverStatePtr) {}
+
+    virtual std::shared_ptr<WebsocketSessionPrivateBase> GetSharedFromThis() override {
+        return derived().shared_from_this();
+    }
+private:
+    // Access the derived class, this is part of
+    // the Curiously Recurring Template Pattern idiom.
+    Derived& derived() {
+        return static_cast<Derived&>(*this);
+    }
+
+    virtual bool WsGotTextData() override {
+        return derived().GetWebsocketStream().got_text();
+    }
+    
+    virtual boost::asio::any_io_executor GetWebsocketExecutor() override {
+        return derived().GetWebsocketStream().get_executor();
+    }
+
+    // Start the asynchronous operation
+    template<class Body, class Allocator>
+    void StartAsyncWsAccept(boost::beast::http::request<Body, boost::beast::http::basic_fields<Allocator>> req) {
+#ifdef BEAST_WEBSOCKET_SERVER_HAS_STREAM_BASE
+        // Set suggested timeout settings for the websocket
+        derived().GetWebsocketStream().set_option(
+            boost::beast::websocket::stream_base::timeout::suggested(
+                boost::beast::role_type::server));
+
+        // Set a decorator to change the Server of the handshake
+        derived().GetWebsocketStream().set_option(
+            boost::beast::websocket::stream_base::decorator(
+                [](boost::beast::websocket::response_type& res) {
+                    res.set(boost::beast::http::field::server, std::string(BOOST_BEAST_VERSION_STRING));
+                }));
+#endif
+        // Accept the websocket handshake
+        derived().GetWebsocketStream().async_accept(
+            req,
+            boost::bind(&WebsocketSessionPrivateBase::HandleWsAccept,
+                GetSharedFromThis(),
+                boost::placeholders::_1));
+    }
+
+    
+
+    virtual void StartAsyncWsRead() override {
+        // Read a message into our buffer
+        derived().GetWebsocketStream().async_read(
+            m_flatBuffer,
+            boost::bind(
+                &WebsocketSessionPrivateBase::HandleWsReadCompleted,
+                GetSharedFromThis(),
+                boost::placeholders::_1,
+                boost::placeholders::_2));
+    }
+
+    
+
+    virtual void DoSendQueuedElement() override {
+        derived().GetWebsocketStream().text(true); //set text mode
+        derived().GetWebsocketStream().async_write(
+            boost::asio::buffer(*m_queueDataToSend.front()),
+            boost::bind(
+                &WebsocketSessionPrivateBase::OnSentStringFromQueuedSharedPtr,
+                GetSharedFromThis(), //copied by value
+                boost::placeholders::_1, boost::placeholders::_2));
+    }
+
+    
+
+    virtual void DoClose_NotThreadSafe() override {
+        if (m_isOpenSharedLockPtr) {
+            derived().GetWebsocketStream().async_close(boost::beast::websocket::close_code::none,
+                boost::bind(
+                    &WebsocketSessionPrivateBase::OnClose,
+                    GetSharedFromThis(), //copied by value
+                    boost::placeholders::_1)); 
+        }
+    }
+    
+public:
+    // Start the asynchronous operation
+    void run(http_stringbody_request_t&& req) {
+        // Accept the WebSocket upgrade request
+        StartAsyncWsAccept(std::move(req));
+    }
+    
 };
 
 //------------------------------------------------------------------------------
 
 // Handles a plain WebSocket connection
-class plain_websocket_session : public websocket_session<plain_websocket_session>,
-    public std::enable_shared_from_this<plain_websocket_session>
+class PlainWebsocketSession : public WebsocketSession<PlainWebsocketSession>,
+    public std::enable_shared_from_this<PlainWebsocketSession>
 {
     boost::beast::websocket::stream<boost::asio::ip::tcp::socket> m_websocketStream;
 
 public:
-    virtual ~plain_websocket_session() override {}
+    virtual ~PlainWebsocketSession() override {}
     // Create the session
-    explicit plain_websocket_session(uint32_t uniqueId, boost::asio::ip::tcp::socket&& tcpSocket, ServerState_ptr& serverStatePtr) :
-        websocket_session(uniqueId, serverStatePtr),
+    explicit PlainWebsocketSession(uint32_t uniqueId, boost::asio::ip::tcp::socket&& tcpSocket, ServerState_ptr& serverStatePtr) :
+        WebsocketSession(uniqueId, serverStatePtr),
         m_websocketStream(std::move(tcpSocket)) {}
 
     // Called by the base class
@@ -547,16 +580,16 @@ public:
 
 #ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
 // Handles an SSL WebSocket connection
-class ssl_websocket_session : public websocket_session<ssl_websocket_session>,
-    public std::enable_shared_from_this<ssl_websocket_session>
+class SslWebsocketSession : public WebsocketSession<SslWebsocketSession>,
+    public std::enable_shared_from_this<SslWebsocketSession>
 {
     boost::beast::websocket::stream<boost::beast::ssl_stream<boost::asio::ip::tcp::socket> > m_sslWebsocketStream;
 
 public:
-    virtual ~ssl_websocket_session() override {}
-    // Create the ssl_websocket_session
-    explicit ssl_websocket_session(uint32_t uniqueId, boost::beast::ssl_stream<boost::asio::ip::tcp::socket>&& sslStream, ServerState_ptr& serverStatePtr) :
-        websocket_session(uniqueId, serverStatePtr),
+    virtual ~SslWebsocketSession() override {}
+    // Create the SslWebsocketSession
+    explicit SslWebsocketSession(uint32_t uniqueId, boost::beast::ssl_stream<boost::asio::ip::tcp::socket>&& sslStream, ServerState_ptr& serverStatePtr) :
+        WebsocketSession(uniqueId, serverStatePtr),
         m_sslWebsocketStream(std::move(sslStream)) {}
 
     // Called by the base class
@@ -568,24 +601,22 @@ public:
 //------------------------------------------------------------------------------
 
 
-template<class Body, class Allocator>
 void MakeWebsocketSession(boost::asio::ip::tcp::socket tcpSocket, ServerState_ptr& serverStatePtr,
-    boost::beast::http::request<Body, boost::beast::http::basic_fields<Allocator> > req)
+    http_stringbody_request_t&& req)
 {
     const uint32_t uniqueId = serverStatePtr->m_nextWebsocketConnectionIdAtomic.fetch_add(1);
-    std::shared_ptr<plain_websocket_session> session = std::make_shared<plain_websocket_session>(
+    std::shared_ptr<PlainWebsocketSession> session = std::make_shared<PlainWebsocketSession>(
         uniqueId, std::move(tcpSocket), serverStatePtr);
     session->run(std::move(req)); //creates shared_ptr copy
 }
 
 #ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
-template<class Body, class Allocator>
 void MakeWebsocketSession(boost::beast::ssl_stream<boost::asio::ip::tcp::socket> sslStream, ServerState_ptr& serverStatePtr,
-    boost::beast::http::request<Body, boost::beast::http::basic_fields<Allocator> > req)
+    http_stringbody_request_t&& req)
 {
 
     const uint32_t uniqueId = serverStatePtr->m_nextWebsocketConnectionIdAtomic.fetch_add(1);
-    std::shared_ptr<ssl_websocket_session> session = std::make_shared<ssl_websocket_session>(
+    std::shared_ptr<SslWebsocketSession> session = std::make_shared<SslWebsocketSession>(
         uniqueId, std::move(sslStream), serverStatePtr);
     session->run(std::move(req)); //creates shared_ptr copy
 }
@@ -702,10 +733,10 @@ protected:
 // This uses the Curiously Recurring Template Pattern so that
 // the same code works with both SSL streams and regular sockets.
 template<class Derived>
-class http_session : public HttpSessionBase {
+class HttpSession : public HttpSessionBase {
 
 public:
-    virtual ~http_session() override {}
+    virtual ~HttpSession() override {}
 protected:
     // Access the derived class, this is part of
     // the Curiously Recurring Template Pattern idiom.
@@ -771,7 +802,7 @@ protected:
 
 public:
     // Construct the session
-    http_session(boost::beast::flat_buffer&& buffer, ServerState_ptr& serverStatePtr) :
+    HttpSession(boost::beast::flat_buffer&& buffer, ServerState_ptr& serverStatePtr) :
         HttpSessionBase(std::move(buffer), serverStatePtr) {}
 
     virtual void AsyncReadRequestFromRemoteClient() override {
@@ -806,19 +837,19 @@ protected:
 //------------------------------------------------------------------------------
 
 // Handles a plain HTTP connection
-class plain_http_session : public http_session<plain_http_session>,
-    public std::enable_shared_from_this<plain_http_session>
+class PlainHttpSession : public HttpSession<PlainHttpSession>,
+    public std::enable_shared_from_this<PlainHttpSession>
 {
     boost::asio::ip::tcp::socket m_tcpSocket;
 
 public:
     // Create the session
-    plain_http_session(boost::asio::ip::tcp::socket&& tcpSocket, boost::beast::flat_buffer&& buffer,
+    PlainHttpSession(boost::asio::ip::tcp::socket&& tcpSocket, boost::beast::flat_buffer&& buffer,
         ServerState_ptr& serverStatePtr) :
-        http_session<plain_http_session>(std::move(buffer), serverStatePtr),
+        HttpSession<PlainHttpSession>(std::move(buffer), serverStatePtr),
         m_tcpSocket(std::move(tcpSocket)) {}
 
-    virtual ~plain_http_session() override {}
+    virtual ~PlainHttpSession() override {}
 
     // Start the session
     void run() {
@@ -848,19 +879,19 @@ public:
 //------------------------------------------------------------------------------
 #ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
 // Handles an SSL HTTP connection
-class ssl_http_session : public http_session<ssl_http_session>,
-    public std::enable_shared_from_this<ssl_http_session>
+class SslHttpSession : public HttpSession<SslHttpSession>,
+    public std::enable_shared_from_this<SslHttpSession>
 {
     boost::beast::ssl_stream<boost::asio::ip::tcp::socket> m_sslStream;
 
 public:
-    // Create the http_session
-    ssl_http_session(boost::asio::ip::tcp::socket&& tcpSocket, boost::asio::ssl::context& ctx,
+    // Create the HttpSession
+    SslHttpSession(boost::asio::ip::tcp::socket&& tcpSocket, boost::asio::ssl::context& ctx,
         boost::beast::flat_buffer&& buffer, ServerState_ptr& serverStatePtr) :
-        http_session<ssl_http_session>(std::move(buffer), serverStatePtr),
+        HttpSession<SslHttpSession>(std::move(buffer), serverStatePtr),
         m_sslStream(std::move(tcpSocket), ctx) {}
 
-    virtual ~ssl_http_session() override {}
+    virtual ~SslHttpSession() override {}
 
     // Start the session
     void run() {
@@ -873,7 +904,7 @@ public:
             boost::asio::ssl::stream_base::server,
             m_flatBuffer.data(),
             boost::bind(
-                &ssl_http_session::on_handshake,
+                &SslHttpSession::on_handshake,
                 shared_from_this(),
                 boost::placeholders::_1,
                 boost::placeholders::_2));
@@ -897,7 +928,7 @@ public:
         // Perform the SSL shutdown
         m_sslStream.async_shutdown(
             boost::bind(
-                &ssl_http_session::on_shutdown,
+                &SslHttpSession::on_shutdown,
                 shared_from_this(),
                 boost::placeholders::_1));
     }
@@ -981,7 +1012,7 @@ public:
         if (result) {
             // Launch SSL session
             if (m_sslContextIsValid) {
-                std::shared_ptr<ssl_http_session> session = std::make_shared<ssl_http_session>(std::move(m_tcpSocket), m_sslContext, std::move(m_flatBuffer), m_serverStatePtr);
+                std::shared_ptr<SslHttpSession> session = std::make_shared<SslHttpSession>(std::move(m_tcpSocket), m_sslContext, std::move(m_flatBuffer), m_serverStatePtr);
                 session->run();
             }
             else {
@@ -990,7 +1021,7 @@ public:
         }
         else {
             // Launch plain session
-            std::shared_ptr<plain_http_session> session = std::make_shared<plain_http_session>(std::move(m_tcpSocket), std::move(m_flatBuffer), m_serverStatePtr);
+            std::shared_ptr<PlainHttpSession> session = std::make_shared<PlainHttpSession>(std::move(m_tcpSocket), std::move(m_flatBuffer), m_serverStatePtr);
             session->run();
         }
     }
@@ -1100,13 +1131,13 @@ private:
     void on_accept(std::shared_ptr<boost::asio::ip::tcp::socket>& newTcpSocketPtr, boost::beast::error_code ec) {
         if (!ec) {
 #ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
-            // Create the detector http_session and run it
+            // Create the detector HttpSession and run it
             std::shared_ptr<detect_session> detectSession = std::make_shared<detect_session>(
                 std::move(*newTcpSocketPtr), m_sslContext, m_sslContextIsValid, m_serverStatePtr);
             detectSession->run();
 #else
             // Launch plain session
-            std::shared_ptr<plain_http_session> session = std::make_shared<plain_http_session>(
+            std::shared_ptr<PlainHttpSession> session = std::make_shared<PlainHttpSession>(
                 std::move(*newTcpSocketPtr), boost::beast::flat_buffer(), m_serverStatePtr);
             session->run();
 #endif

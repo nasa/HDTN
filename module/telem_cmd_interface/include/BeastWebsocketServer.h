@@ -50,20 +50,20 @@
 #  endif
 #endif
 
-class WebsocketSessionBase : private boost::noncopyable {
+class WebsocketSessionPublicBase : private boost::noncopyable {
 protected:
-    WebsocketSessionBase() = delete;
-    WebsocketSessionBase(uint32_t uniqueId) : m_uniqueId(uniqueId) {}
+    WebsocketSessionPublicBase() = delete;
+    WebsocketSessionPublicBase(uint32_t uniqueId) : m_uniqueId(uniqueId) {}
 public:
-    virtual ~WebsocketSessionBase() {}
+    virtual ~WebsocketSessionPublicBase() {}
     virtual void AsyncSendTextData(std::shared_ptr<std::string>&& stringPtr) = 0;
     virtual void AsyncClose() = 0;
 protected:
     const uint32_t m_uniqueId;
 };
 
-typedef boost::function<void(WebsocketSessionBase& conn)> OnNewBeastWebsocketConnectionCallback_t;
-typedef boost::function<bool(WebsocketSessionBase& conn, std::string& receivedString)> OnNewBeastWebsocketDataReceivedCallback_t;
+typedef boost::function<void(WebsocketSessionPublicBase& conn)> OnNewBeastWebsocketConnectionCallback_t;
+typedef boost::function<bool(WebsocketSessionPublicBase& conn, std::string& receivedString)> OnNewBeastWebsocketDataReceivedCallback_t;
 
 class CLASS_VISIBILITY_TELEM_LIB BeastWebsocketServer {
     

@@ -70,8 +70,8 @@ class TelemetryRunner::Impl : private boost::noncopyable {
     private:
         void ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDistributedConfigPtr, zmq::context_t * inprocContextPtr);
         void OnNewJsonTelemetry(const char* buffer, uint64_t bufferSize);
-        void OnNewWebsocketConnectionCallback(WebsocketSessionBase& conn);
-        bool OnNewWebsocketDataReceivedCallback(WebsocketSessionBase& conn, std::string& receivedString);
+        void OnNewWebsocketConnectionCallback(WebsocketSessionPublicBase& conn);
+        bool OnNewWebsocketDataReceivedCallback(WebsocketSessionPublicBase& conn, std::string& receivedString);
 
         volatile bool m_running;
         std::unique_ptr<boost::thread> m_threadPtr;
@@ -179,7 +179,7 @@ bool TelemetryRunner::Impl::Init(const HdtnConfig& hdtnConfig, zmq::context_t *i
     return true;
 }
 
-void TelemetryRunner::Impl::OnNewWebsocketConnectionCallback(WebsocketSessionBase& conn) {
+void TelemetryRunner::Impl::OnNewWebsocketConnectionCallback(WebsocketSessionPublicBase& conn) {
     //std::cout << "newconn\n";
     conn.AsyncSendTextData(std::make_shared<std::string>(m_hdtnConfig.ToJson()));
     {
@@ -189,7 +189,7 @@ void TelemetryRunner::Impl::OnNewWebsocketConnectionCallback(WebsocketSessionBas
         }
     }
 }
-bool TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback(WebsocketSessionBase& conn, std::string& receivedString) {
+bool TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback(WebsocketSessionPublicBase& conn, std::string& receivedString) {
     //std::cout << "newdata " << receivedString << "\n";
     boost::property_tree::ptree pt;
     if (JsonSerializable::GetPropertyTreeFromJsonString(receivedString, pt)) {
