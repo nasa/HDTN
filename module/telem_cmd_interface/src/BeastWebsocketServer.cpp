@@ -18,6 +18,9 @@
  * file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  */
 
+//to support old versions of boost which don't have any_io_executor and use executor instead
+#define BOOST_ASIO_USE_TS_EXECUTOR_AS_DEFAULT
+
 #include "BeastWebsocketServer.h"
 #include "Logger.h"
 
@@ -445,7 +448,7 @@ public:
     }
 protected:
     virtual std::shared_ptr<WebsocketSessionPrivateBase> GetSharedFromThis() = 0;
-    virtual boost::asio::any_io_executor GetWebsocketExecutor() = 0;
+    virtual boost::asio::executor GetWebsocketExecutor() = 0;
     virtual void DoClose_NotThreadSafe() = 0;
 protected:
     boost::beast::flat_buffer m_flatBuffer;
@@ -481,7 +484,7 @@ private:
         return derived().GetWebsocketStream().got_text();
     }
     
-    virtual boost::asio::any_io_executor GetWebsocketExecutor() override {
+    virtual boost::asio::executor GetWebsocketExecutor() override {
         return derived().GetWebsocketStream().get_executor();
     }
 
