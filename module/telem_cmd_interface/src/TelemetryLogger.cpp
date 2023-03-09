@@ -86,7 +86,7 @@ double TelemetryLogger::GetEgressMbpsRate(AllOutductTelemetry_t* telem)
 {
     boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();
     static boost::posix_time::ptime lastProcessedTime = nowTime;
-    const uint64_t totalDataBytes = telem->m_totalBundlesGivenToOutducts;
+    const uint64_t totalDataBytes = telem->m_totalBundleBytesGivenToOutducts;
     static uint64_t lastTotalDataBytes = totalDataBytes;
 
     if (nowTime <= lastProcessedTime) {
