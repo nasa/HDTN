@@ -295,6 +295,9 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
 
         // Wait for telemetry from all modules
         unsigned int receiveEventsMask = 0;
+        AllInductTelemetry_t inductTelem;
+        AllOutductTelemetry_t outductTelem;
+        StorageTelemetry_t storageTelem;
         for (unsigned int attempt = 0; attempt < NUM_POLL_ATTEMPTS; ++attempt) {
             if (receiveEventsMask == REC_ALL) {
                 break;
@@ -308,14 +311,8 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
                 receiveEventsMask |= REC_INGRESS;
                 zmq::message_t msgJson = ingressConnection->ReadMessage();
                 OnNewJsonTelemetry((const char*)msgJson.data(), msgJson.size());
-                if (m_telemetryLoggerPtr) {
-                    AllInductTelemetry_t t;
-                    if (t.SetValuesFromJsonCharArray((const char*)msgJson.data(), msgJson.size())) {
-                        m_telemetryLoggerPtr->LogTelemetry(&t);
-                    }
-                    else {
-                        LOG_ERROR(subprocess) << "cannot deserialize AllInductTelemetry_t for TelemetryLogger";
-                    }
+                if (!inductTelem.SetValuesFromJsonCharArray((const char*)msgJson.data(), msgJson.size())) {
+                    LOG_ERROR(subprocess) << "cannot deserialize AllInductTelemetry_t for TelemetryLogger";
                 }
             }
             if (poller.HasNewMessage(*egressConnection)) {
@@ -338,32 +335,25 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
                     OnNewJsonTelemetry((const char*)msg2.data(), msg2.size());
                     messageOutductTelemPtr = &msg2;
                 }
-                if (m_telemetryLoggerPtr) {
-                    AllOutductTelemetry_t t;
-                    if (t.SetValuesFromJsonCharArray((const char*)messageOutductTelemPtr->data(), messageOutductTelemPtr->size())) {
-                        m_telemetryLoggerPtr->LogTelemetry(&t);
-                    }
-                    else {
-                        LOG_ERROR(subprocess) << "cannot deserialize AllOutductTelemetry_t for TelemetryLogger";
-                    }
+                if (!outductTelem.SetValuesFromJsonCharArray((const char*)messageOutductTelemPtr->data(), messageOutductTelemPtr->size())) {
+                    LOG_ERROR(subprocess) << "cannot deserialize AllOutductTelemetry_t for TelemetryLogger";
                 }
             }
             if (poller.HasNewMessage(*storageConnection)) {
                 receiveEventsMask |= REC_STORAGE;
                 zmq::message_t msgJson = storageConnection->ReadMessage();
                 OnNewJsonTelemetry((const char*)msgJson.data(), msgJson.size());
-                if (m_telemetryLoggerPtr) {
-                    StorageTelemetry_t t;
-                    if (t.SetValuesFromJsonCharArray((const char*)msgJson.data(), msgJson.size())) {
-                        m_telemetryLoggerPtr->LogTelemetry(&t);
-                    }
-                    else {
-                        LOG_ERROR(subprocess) << "cannot deserialize StorageTelemetry_t for TelemetryLogger";
-                    }
+                if (!storageTelem.SetValuesFromJsonCharArray((const char*)msgJson.data(), msgJson.size())) {
+                    LOG_ERROR(subprocess) << "cannot deserialize StorageTelemetry_t for TelemetryLogger";
                 }
             }
         }
-        if (receiveEventsMask != REC_ALL) {
+        if (receiveEventsMask == REC_ALL) {
+            if (m_telemetryLoggerPtr) {
+                m_telemetryLoggerPtr->LogTelemetry(&inductTelem, &outductTelem, &storageTelem);
+            }
+        }
+        else {
             LOG_WARNING(subprocess) << "did not get telemetry from all modules";
         }
     }
@@ -372,7 +362,6 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
 
 
 void TelemetryRunner::Impl::OnNewJsonTelemetry(const char* buffer, uint64_t bufferSize) {
-    //printf("%.*s", (int)bufferSize, buffer); //not null terminated
 #ifdef USE_WEB_INTERFACE
     if (m_websocketServerPtr) {
         std::shared_ptr<std::string> strPtr = std::make_shared<std::string>(buffer, bufferSize);

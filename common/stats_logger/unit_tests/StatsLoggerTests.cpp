@@ -2,7 +2,7 @@
  * @file StatsLoggerTests.cpp
  * @author  Ethan Schweinsberg <ethan.e.schweinsberg@nasa.gov>
  *
- * @copyright Copyright � 2021 United States Government as represented by
+ * @copyright Copyright © 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -47,11 +47,12 @@ BOOST_AUTO_TEST_CASE(StatsLoggerLogMetrics)
     // Start with a clean stats directory
     boost::filesystem::remove_all("stats");
 
-    LOG_STAT("foo") << 1;
-    LOG_STAT("foo") << "x";
-    LOG_STAT("bar") << 19.7;
-    LOG_STAT("foo") << 30.5 << ",y";
-    LOG_STAT("foobar") << 2000;
+    std::vector<hdtn::StatsLogger::metric_t> metrics;
+    metrics.push_back(hdtn::StatsLogger::metric_t("foo", double(1)));
+    metrics.push_back(hdtn::StatsLogger::metric_t("bar", 19.50));
+    metrics.push_back(hdtn::StatsLogger::metric_t("foobar", uint64_t(2000)));
+
+    hdtn::StatsLogger::Log("foo", metrics);
 
     // Before asserting, ensure all stats are flushed to disk
     boost::log::core::get()->flush();
@@ -63,33 +64,29 @@ BOOST_AUTO_TEST_CASE(StatsLoggerLogMetrics)
     BOOST_TEST(boost::regex_match(
         file_contents_to_str(fileName),
         boost::regex(
-            header_regex +
-            timestamp_regex + ",1\n" +
-            timestamp_regex + ",x\n" +
-            timestamp_regex + ",30.5,y\n$"
-        ))
-    );
+            "^timestamp\\(ms\\),foo,bar,foobar\n" +
+            timestamp_regex + ",1.00,19.50,2000\n"
+        )
+    ));
 
+
+    hdtn::StatsLogger::Log("bar", metrics);
+    hdtn::StatsLogger::Log("bar", metrics);
+
+    // Before asserting, ensure all stats are flushed to disk
+    boost::log::core::get()->flush();
+
+    BOOST_TEST(boost::filesystem::exists("stats/"));
     BOOST_TEST(boost::filesystem::exists("stats/bar"));
     fileName = findFirstEntry("stats/bar");
     BOOST_TEST(boost::filesystem::exists(fileName));
     BOOST_TEST(boost::regex_match(
         file_contents_to_str(fileName),
         boost::regex(
-            header_regex +
-            timestamp_regex + ",19.7\n$"
-        ))
-    );
-
-    BOOST_TEST(boost::filesystem::exists("stats/foobar"));
-    fileName = findFirstEntry("stats/foobar")    ;
-    BOOST_TEST(boost::filesystem::exists(fileName));
-    BOOST_TEST(boost::regex_match(
-        file_contents_to_str(fileName),
-        boost::regex(
-            header_regex +
-            timestamp_regex + ",2000\n$"
-        ))
-    );
+            "^timestamp\\(ms\\),foo,bar,foobar\n" +
+            timestamp_regex + ",1.00,19.50,2000\n" +
+            timestamp_regex + ",1.00,19.50,2000\n"
+        )
+    ));
 }
 #endif

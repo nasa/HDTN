@@ -917,7 +917,8 @@ void Scheduler::Impl::OnContactPlan_TimerExpired(const boost::system::error_code
                 outductInfo.linkIsUpTimeBased = contactPlan.isLinkUp;
                 NotifyEgressOfTimeBasedLinkChange(contactPlan.outductArrayIndex, contactPlan.rateBps, outductInfo.linkIsUpTimeBased);
                 if (outductInfo.linkIsUpTimeBased) {
-                    uint64_t duration = contactPlan.end - contactPlan.start;
+                    uint64_t now = TimestampUtil::GetSecondsSinceEpochUnix() - m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds;
+                    uint64_t duration = contactPlan.end - std::max(contactPlan.start, now);
                     SendLinkUp(contactPlan.source, contactPlan.dest, contactPlan.outductArrayIndex, contactPlan.start, contactPlan.rateBps, duration, false);
                 }
                 else {
