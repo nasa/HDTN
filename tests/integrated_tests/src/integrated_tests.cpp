@@ -254,7 +254,7 @@ bool TestHDTNCutThroughModeLTPv7() {
     static const std::string bpgenConfigArg = 
 	"--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_ltp_port4556_thisengineid200.json").string();
     static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1","--duration=40", "--use-bp-version-7", bpgenConfigArg.c_str(), NULL};
-    std::thread threadBpgen(RunBpgenAsync,argsBpgen, 6, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
+    std::thread threadBpgen(RunBpgenAsync,argsBpgen, 7, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
 
     // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(8));
@@ -447,8 +447,8 @@ bool TestHDTNStorageModeLTPv7() {
     //Bpgen
     static const std::string bpgenConfigArg =
         "--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_ltp_port4556_thisengineid200.json").string();
-    static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1","--duration=40", bpgenConfigArg.c_str(), NULL, "--use-bp-version-7"};
-    std::thread threadBpgen(RunBpgenAsync,argsBpgen, 6, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
+    static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1","--duration=40","--use-bp-version-7", bpgenConfigArg.c_str(), NULL};
+    std::thread threadBpgen(RunBpgenAsync,argsBpgen, 7, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
 
     // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(8));
@@ -717,13 +717,13 @@ BOOST_AUTO_TEST_CASE(it_TestHDTNStorageModeLTP, * boost::unit_test::enabled()) {
 
 BOOST_AUTO_TEST_CASE(it_TestHDTNCutThroughModeLTPv7, * boost::unit_test::enabled()) {
     std::cout << std::endl << ">>>>>> Running: " << "it_TestHDTNCutThroughModeLTP for version 7" << std::endl << std::flush;
-    bool result = TestHDTNCutThroughModeLTP();
+    bool result = TestHDTNCutThroughModeLTPv7();
     BOOST_CHECK(result == true);
 }
 
 BOOST_AUTO_TEST_CASE(it_TestHDTNStorageModeLTPv7, * boost::unit_test::enabled()) {
     std::cout << std::endl << ">>>>>> Running: " << "it_TestHDTNStorageModeLTP for version 7" << std::endl << std::flush;
-    bool result = TestHDTNStorageModeLTP();
+    bool result = TestHDTNStorageModeLTPv7();
     BOOST_CHECK(result == true);
 }
 
