@@ -53,9 +53,6 @@ Add these lines (change `_vs2022` directory suffix if different):
 * `OPENSSL_ROOT_DIR:PATH=C:\hdtn_build_x64_release_vs2022\openssl-1.1.1s_install`
 * `libzmq_INCLUDE:PATH=C:\hdtn_build_x64_release_vs2022\libzmq_v4.3.4_install\include`
 * `libzmq_LIB:FILEPATH=C:\hdtn_build_x64_release_vs2022\libzmq_v4.3.4_install\lib\libzmq-v143-mt-4_3_4.lib` (note: may be v141 or v142)
-* `civetweb_INCLUDE:PATH=C:\hdtn_build_x64_release_vs2022\civetweb_v1.15_install\include`
-* `civetweb_LIB:FILEPATH=C:\hdtn_build_x64_release_vs2022\civetweb_v1.15_install\lib\civetweb.lib`
-* `civetwebcpp_LIB:FILEPATH=C:\hdtn_build_x64_release_vs2022\civetweb_v1.15_install\lib\civetweb-cpp.lib`
 * `BUILD_SHARED_LIBS:BOOL=ON`
 * `USE_WEB_INTERFACE:BOOL=ON`
 
