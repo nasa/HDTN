@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.12) #using generator $<TARGET_NAME_IF_EXISTS:tg
 
 #
 # Suggestion from https://cmake.org/pipermail/cmake/2008-September/023808.html
-# If the user specifies -DCMAKE_BUILD_TYPE on the command line, take their definition
-# and dump it in the cache along with proper documentation, otherwise set CMAKE_BUILD_TYPE
+# If the user specifies -DCMAKE_TYPE on the command line, take their definition
+# and dump it in the cache along witBUILD_h proper documentation, otherwise set CMAKE_BUILD_TYPE
 # to Release prior to calling PROJECT()
 #
 if(DEFINED CMAKE_BUILD_TYPE)
@@ -21,12 +21,15 @@ if(DEFINED CMAKE_SYSTEM_PROCESSOR)
 	if (${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm") 
 		message("CMAKE_SYSTEM_PROCESSOR = ${CMAKE_SYSTEM_PROCESSOR}")
 		message("You are compiling for ARM, shared libraries, x86 hardware accleration features and related unit tests have been disabled")
+		set(NON_ARM_COMPILATION false)
 		option(BUILD_SHARED_LIBS "Build shared libraries" Off)
 		option(LTP_RNG_USE_RDSEED Off)
 		option(USE_X86_HARDWARE_ACCELERATION Off) 
 		option(Boost_USE_STATIC_LIBS Off)
 		option(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -fPIC")
 	endif()
+else()
+	set(NON_ARM_COMPILATION true) # assume non ARM compilation if not specified
 endif()
 
 include(GenerateExportHeader)

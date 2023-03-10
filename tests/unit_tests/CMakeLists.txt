@@ -19,6 +19,7 @@ add_executable(unit-tests
 	../../common/util/test/TestEnumAsFlagsMacro.cpp
 	../../common/util/test/TestPaddedVectorUint8.cpp
 	../../common/util/test/TestFreeListAllocator.cpp
+	$<$<BOOL:${NON_ARM_COMPILATION}>:../../common/util/test/TestCpuFlagDetection.cpp>
 	../../common/util/test/TestCpuFlagDetection.cpp
 	../../common/util/test/TestTokenRateLimiter.cpp
 	../../common/util/test/TestUdpBatchSender.cpp
@@ -62,8 +63,7 @@ add_executable(unit-tests
 	../../module/scheduler/unit_tests/SchedulerTests.cpp
 )
 
-if (${USE_X86_HARDWARE_ACCELERATION} # only add TestCpuFlagDetection on non-ARM builds
-	target_sources(unit-tests PUBLIC ../../common/util/test/TestCpuFlagDetection.cpp)
+if (${USE_X86_HARDWARE_ACCELERATION}) # only add TestCpuFlagDetection on non-ARM builds
 endif()
 
 install(TARGETS unit-tests DESTINATION ${CMAKE_INSTALL_BINDIR})

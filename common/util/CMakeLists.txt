@@ -1,5 +1,4 @@
-
-set(hdtn_util_SOURCES 
+add_library(hdtn_util
 	src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
 	src/Environment.cpp
 	src/JsonSerializable.cpp
@@ -9,6 +8,7 @@ set(hdtn_util_SOURCES
 	src/TcpAsyncSender.cpp
 	src/Sdnv.cpp
 	src/CborUint.cpp
+	$<$<BOOL:${NON_ARM_COMPILATION}>:src/CpuFlagDetection.cpp>  # only add CpuFlagDetection test to non-ARM builds
 	#src/RateManagerAsync.cpp
 	src/Uri.cpp
 	src/BinaryConversions.cpp
@@ -19,15 +19,8 @@ set(hdtn_util_SOURCES
 	src/MemoryInFiles.cpp
 	src/DeadlineTimer.cpp
 	src/ThreadNamer.cpp
-	src/Utf8Paths.cpp
-)
+	src/Utf8Paths.cpp)
 
-# use cmake generator 
-if (${USE_X86_HARDWARE_ACCELERATION})  # only use x86 on non ARM platforms 
-	add_library(hdtn_util ${hdtn_util_SOURCES} src/CpuFlagDetection.cpp) 
-else()
-	add_library(hdtn_util ${hdtn_util_SOURCES}) # do not add cpu flag detection to ARM builds
-endif()
 
 target_compile_options(hdtn_util PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 GENERATE_EXPORT_HEADER(hdtn_util)
