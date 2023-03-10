@@ -28,13 +28,12 @@ void TelemetryLogger::LogTelemetry(
     StorageTelemetry_t* storageTelem
 )
 {
-    boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();
-    static boost::posix_time::ptime lastProcessedTime = nowTime;
-
     std::vector<hdtn::StatsLogger::metric_t> metrics;
-
     metrics.push_back(hdtn::StatsLogger::metric_t("ingress_data_rate_mbps", GetIngressMbpsRate(inductTelem)));
-    metrics.push_back(hdtn::StatsLogger::metric_t("ingress_total_bytes_sent", inductTelem->m_bundleByteCountEgress + inductTelem->m_bundleByteCountStorage));
+    metrics.push_back(hdtn::StatsLogger::metric_t(
+        "ingress_total_bytes_sent",
+        inductTelem->m_bundleByteCountEgress + inductTelem->m_bundleByteCountStorage
+    ));
     metrics.push_back(hdtn::StatsLogger::metric_t("ingress_bytes_sent_egress", inductTelem->m_bundleByteCountEgress));
     metrics.push_back(hdtn::StatsLogger::metric_t("ingress_bytes_sent_storage", inductTelem->m_bundleByteCountStorage));
     metrics.push_back(hdtn::StatsLogger::metric_t("storage_used_space_bytes", storageTelem->m_usedSpaceBytes));
@@ -57,8 +56,14 @@ void TelemetryLogger::LogTelemetry(
         storageTelem->m_totalBundleBytesSentToEgressFromStorageReadFromDisk
     ));
     metrics.push_back(hdtn::StatsLogger::metric_t("egress_data_rate_mbps", GetEgressMbpsRate(outductTelem)));
-    metrics.push_back(hdtn::StatsLogger::metric_t("egress_total_bytes_sent_success", outductTelem->m_totalBundleBytesSuccessfullySent));
-    metrics.push_back(hdtn::StatsLogger::metric_t("egress_total_bytes_attempted", outductTelem->m_totalBundleBytesGivenToOutducts));
+    metrics.push_back(hdtn::StatsLogger::metric_t(
+        "egress_total_bytes_sent_success",
+        outductTelem->m_totalBundleBytesSuccessfullySent
+    ));
+    metrics.push_back(hdtn::StatsLogger::metric_t(
+        "egress_total_bytes_attempted",
+        outductTelem->m_totalBundleBytesGivenToOutducts
+    ));
     hdtn::StatsLogger::Log("all_sampled_stats", metrics);
 }
 

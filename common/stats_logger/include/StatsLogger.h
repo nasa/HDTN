@@ -33,6 +33,10 @@ namespace hdtn{
 class StatsLogger
 {
 public:
+    /**
+     * Represents a metric name/value pair. Handles storing and logging either
+     * an int or float value
+     */
     struct metric_t {
         public:
             metric_t(std::string name, uint64_t val);
