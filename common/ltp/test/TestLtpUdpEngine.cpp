@@ -29,6 +29,7 @@ static const uint64_t DELAY_SENDING_OF_REPORT_SEGMENTS_TIME_MS(20);
 static const uint64_t DELAY_SENDING_OF_DATA_SEGMENTS_TIME_MS(20);
 static const boost::posix_time::time_duration ACTUAL_DELAY_SRC_TO_DEST(boost::posix_time::milliseconds(10));
 static const boost::posix_time::time_duration ACTUAL_DELAY_DEST_TO_SRC(boost::posix_time::milliseconds(10));
+static const uint64_t TX_UUID = 123;
 
 BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 {
@@ -62,6 +63,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         uint64_t numTransmissionSessionCompletedCallbacks;
         uint64_t numInitialTransmissionCompletedCallbacks;
         uint64_t numTransmissionSessionCancelledCallbacks;
+        uint64_t numOnFailedBundleVecSendCallbacks;
+        uint64_t numOnSuccessfulBundleSendCallbacks;
 
         volatile bool removeCallbackCalled;
 
@@ -103,7 +106,9 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineSrcPtr->SetTransmissionSessionCompletedCallback(boost::bind(&Test::TransmissionSessionCompletedCallback, this, boost::placeholders::_1, boost::placeholders::_2));
             ltpUdpEngineSrcPtr->SetInitialTransmissionCompletedCallback(boost::bind(&Test::InitialTransmissionCompletedCallback, this, boost::placeholders::_1, boost::placeholders::_2));
             ltpUdpEngineSrcPtr->SetTransmissionSessionCancelledCallback(boost::bind(&Test::TransmissionSessionCancelledCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
-
+            ltpUdpEngineSrcPtr->SetUserAssignedUuid(TX_UUID);
+            ltpUdpEngineSrcPtr->SetOnFailedBundleVecSendCallback(boost::bind(&Test::OnFailedBundleVecSendCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4));
+            ltpUdpEngineSrcPtr->SetOnSuccessfulBundleSendCallback(boost::bind(&Test::OnSuccessfulBundleSendCallback, this, boost::placeholders::_1, boost::placeholders::_2));
         }
 
         void RemoveCallback() {
@@ -229,6 +234,26 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             cv.notify_one();
         }
 
+        void OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled) {
+            std::string failedMessage((char*)movableBundle.data(), ((char*)movableBundle.data()) + movableBundle.size());
+            {
+                boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
+                ++numOnFailedBundleVecSendCallbacks;
+                BOOST_REQUIRE_EQUAL(failedMessage, DESIRED_RED_DATA_TO_SEND);
+                BOOST_REQUIRE_EQUAL(outductUuid, TX_UUID);
+            }
+            cv.notify_one();
+            
+        }
+        void OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData, uint64_t outductUuid) {
+            {
+                boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
+                ++numOnSuccessfulBundleSendCallbacks;
+                BOOST_REQUIRE_EQUAL(outductUuid, TX_UUID);
+            }
+            cv.notify_one();
+        }
+
         void Reset() {
             ltpUdpEngineSrcPtr->Reset_ThreadSafe_Blocking();
             ltpUdpEngineDestPtr->Reset_ThreadSafe_Blocking();
@@ -246,6 +271,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             numTransmissionSessionCompletedCallbacks = 0;
             numInitialTransmissionCompletedCallbacks = 0;
             numTransmissionSessionCancelledCallbacks = 0;
+            numOnFailedBundleVecSendCallbacks = 0;
+            numOnSuccessfulBundleSendCallbacks = 0;
             lastSessionId_sessionStartSenderCallback = 0; //sets all fields to 0
         }
         void AssertNoActiveSendersAndReceivers() {
@@ -283,7 +310,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 boost::mutex::scoped_lock cvLock(cvMutex);
-                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) { //lock mutex (above) before checking condition
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks && numOnSuccessfulBundleSendCallbacks) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -294,6 +321,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 
             boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
@@ -332,7 +361,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 boost::mutex::scoped_lock cvLock(cvMutex);
-                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks && (numGreenPartReceptionCallbacks >= 3)) { //lock mutex (above) before checking condition
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks && numOnSuccessfulBundleSendCallbacks && (numGreenPartReceptionCallbacks >= 3)) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -343,6 +372,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 
             boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 3);
@@ -386,6 +417,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 
             boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1); //works in the fully green case
+            BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, DESIRED_FULLY_GREEN_DATA_TO_SEND.size());
@@ -436,7 +469,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 boost::mutex::scoped_lock cvLock(cvMutex);
-                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) { //lock mutex (above) before checking condition
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks && numOnSuccessfulBundleSendCallbacks) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -457,6 +490,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
             
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
@@ -505,7 +540,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 boost::mutex::scoped_lock cvLock(cvMutex);
-                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) { //lock mutex (above) before checking condition
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks && numOnSuccessfulBundleSendCallbacks) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -526,6 +561,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
             
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
@@ -573,7 +610,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 boost::mutex::scoped_lock cvLock(cvMutex);
-                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) { //lock mutex (above) before checking condition
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks && numOnSuccessfulBundleSendCallbacks) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -605,6 +642,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
@@ -655,7 +694,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 50; ++i) {
                 boost::mutex::scoped_lock cvLock(cvMutex);
-                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) { //lock mutex (above) before checking condition
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks && numOnSuccessfulBundleSendCallbacks) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -685,6 +724,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
@@ -733,7 +774,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 50; ++i) {
                 boost::mutex::scoped_lock cvLock(cvMutex);
-                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) { //lock mutex (above) before checking condition
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks && numOnSuccessfulBundleSendCallbacks) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -754,6 +795,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
@@ -806,7 +849,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             for (unsigned int i = 0; i < 50; ++i) {
                 boost::mutex::scoped_lock cvLock(cvMutex);
                 //lock mutex (above) before checking condition (although m_numReportSegmentTimerExpiredCallbacks is not set within the mutex)
-                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks && (ltpUdpEngineDestPtr->m_numReportSegmentTimerExpiredCallbacksRef == 1)) {
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks && numOnSuccessfulBundleSendCallbacks && (ltpUdpEngineDestPtr->m_numReportSegmentTimerExpiredCallbacksRef == 1)) {
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -827,6 +870,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
@@ -939,7 +984,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 100; ++i) {
                 boost::mutex::scoped_lock cvLock(cvMutex);
-                if (numReceptionSessionCancelledCallbacks && numTransmissionSessionCancelledCallbacks) { //lock mutex (above) before checking condition
+                if (numReceptionSessionCancelledCallbacks && numTransmissionSessionCancelledCallbacks && numOnFailedBundleVecSendCallbacks) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(500));
@@ -959,6 +1004,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 1);
@@ -1018,6 +1065,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1); //session won't be found when CS arrives at sender
+            BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0); //session won't be found when CS arrives at sender
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 1);
@@ -1078,6 +1127,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 1); //failed because receiver cancelled session
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
@@ -1108,7 +1159,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             for (unsigned int i = 0; i < 10; ++i) {
                 boost::mutex::scoped_lock cvLock(cvMutex);
                 //lock mutex (above) before checking condition (although m_countUdpPacketsReceived not in mutex)
-                if (numReceptionSessionCancelledCallbacks && numTransmissionSessionCancelledCallbacks) { //lock mutex (above) before checking condition
+                if (numReceptionSessionCancelledCallbacks && numTransmissionSessionCancelledCallbacks && numOnFailedBundleVecSendCallbacks) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(250));
@@ -1126,6 +1177,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 1); //failed because receiver cancelled session
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 1);
@@ -1186,6 +1239,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 1); //failed because sender cancelled session (and gets the data back)
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 1);
@@ -1237,7 +1292,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 boost::mutex::scoped_lock cvLock(cvMutex);
-                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) { //lock mutex (above) before checking condition
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks && numOnSuccessfulBundleSendCallbacks) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -1258,6 +1313,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
@@ -1299,7 +1356,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             for (unsigned int i = 0; i < 60; ++i) {
                 boost::mutex::scoped_lock cvLock(cvMutex);
                 //lock mutex (above) before checking condition
-                if (numTransmissionSessionCompletedCallbacks && numReceptionSessionCancelledCallbacks && (numGreenPartReceptionCallbacks >= (DESIRED_FULLY_GREEN_DATA_TO_SEND.size() - 1))) {
+                if (numTransmissionSessionCompletedCallbacks && numReceptionSessionCancelledCallbacks && numOnSuccessfulBundleSendCallbacks && (numGreenPartReceptionCallbacks >= (DESIRED_FULLY_GREEN_DATA_TO_SEND.size() - 1))) {
                     break;
                 }
                 //std::cout << "delay" << i << "\n";
@@ -1310,6 +1367,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 
             boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1); //is set for fully green case
+            BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, DESIRED_FULLY_GREEN_DATA_TO_SEND.size() - 1);
@@ -1414,7 +1473,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 50; ++i) {
                 boost::mutex::scoped_lock cvLock(cvMutex);
-                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) { //lock mutex (above) before checking condition
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks && numOnSuccessfulBundleSendCallbacks) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -1505,6 +1564,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);

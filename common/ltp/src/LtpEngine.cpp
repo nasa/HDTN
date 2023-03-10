@@ -605,36 +605,8 @@ bool LtpEngine::GetNextPacketToSend(UdpSendPacketInfo& udpSendPacketInfo) {
                 std::shared_ptr<LtpClientServiceDataToSend>& csdRef = txSessionIt->second.m_dataToSendSharedPtr;
                 const bool successCallbackAlreadyCalled = (m_memoryInFilesPtr) ? true : false;
                 if (txSessionIt->second.m_isFailedSession) { //give the bundle back to the user
-                    const bool safeToMove = (csdRef.use_count() == 1); //not also involved in a send operation
                     m_senderLinkIsUpPhysically = false;
-                    if (m_onFailedBundleVecSendCallback) { //if the user wants the data back
-                        std::vector<uint8_t> & vecRef = csdRef->GetVecRef();
-                        if (vecRef.size()) { //this session sender is using vector<uint8_t> client service data
-                            if (safeToMove) {
-                                LOG_INFO(subprocess) << "Ltp engine moving a send-failed vector bundle back to the user";
-                                m_onFailedBundleVecSendCallback(vecRef, csdRef->m_userData, m_userAssignedUuid, successCallbackAlreadyCalled);
-                            }
-                            else {
-                                LOG_INFO(subprocess) << "Ltp engine copying a send-failed vector bundle back to the user";
-                                std::vector<uint8_t> vecCopy(vecRef);
-                                m_onFailedBundleVecSendCallback(vecCopy, csdRef->m_userData, m_userAssignedUuid, successCallbackAlreadyCalled);
-                            }
-                        }
-                    }
-                    if (m_onFailedBundleZmqSendCallback) { //if the user wants the data back
-                        zmq::message_t & zmqRef = csdRef->GetZmqRef();
-                        if (zmqRef.size()) { //this session sender is using zmq client service data
-                            if (safeToMove) {
-                                LOG_INFO(subprocess) << "Ltp engine moving a send-failed zmq bundle back to the user";
-                                m_onFailedBundleZmqSendCallback(zmqRef, csdRef->m_userData, m_userAssignedUuid, successCallbackAlreadyCalled);
-                            }
-                            else {
-                                LOG_INFO(subprocess) << "Ltp engine copying a send-failed zmq bundle back to the user";
-                                zmq::message_t zmqCopy(zmqRef.data(), zmqRef.size());
-                                m_onFailedBundleZmqSendCallback(zmqCopy, csdRef->m_userData, m_userAssignedUuid, successCallbackAlreadyCalled);
-                            }
-                        }
-                    }
+                    TryReturnTxSessionDataToUser(txSessionIt);
                 }
                 else { //successful send
                     if ((!successCallbackAlreadyCalled) && m_onSuccessfulBundleSendCallback) {
@@ -985,6 +957,7 @@ bool LtpEngine::CancellationRequest(const Ltp::session_id_t & sessionId) { //onl
             //reason - code USR_CNCLD MUST be queued for transmission to the
             //destination LTP engine specified in the transmission request
             //that started this session.
+            TryReturnTxSessionDataToUser(txSessionIt); //TODO should this be done here because this would have been cancelled by this Tx user
             EraseTxSession(txSessionIt);
             LOG_INFO(subprocess) << "LtpEngine::CancellationRequest deleted session sender session number " << sessionId.sessionNumber;
 
@@ -1084,6 +1057,7 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
                     m_transmissionSessionCancelledCallback(sessionId, reasonCode, txSessionIt->second.m_userDataPtr);
                 }
             }
+            TryReturnTxSessionDataToUser(txSessionIt); //TODO check reason codes
             EraseTxSession(txSessionIt);
             LOG_INFO(subprocess) << "LtpEngine::CancelSegmentReceivedCallback deleted session sender session number " << sessionId.sessionNumber;
             //Send CAx after outer if-else statement
@@ -1683,6 +1657,40 @@ void LtpEngine::SetDeferDelays(const uint64_t delaySendingOfReportSegmentsTimeMs
     m_delaySendingOfDataSegmentsTime = (delaySendingOfDataSegmentsTimeMsOrZeroToDisable) ?
         boost::posix_time::milliseconds(delaySendingOfDataSegmentsTimeMsOrZeroToDisable) :
         boost::posix_time::time_duration(boost::posix_time::special_values::not_a_date_time);
+}
+
+void LtpEngine::TryReturnTxSessionDataToUser(map_session_number_to_session_sender_t::iterator& txSessionIt) {
+    std::shared_ptr<LtpClientServiceDataToSend>& csdRef = txSessionIt->second.m_dataToSendSharedPtr;
+    const bool safeToMove = (csdRef.use_count() == 1); //not also involved in a send operation
+    const bool successCallbackAlreadyCalled = (m_memoryInFilesPtr) ? true : false;
+    if (m_onFailedBundleVecSendCallback) { //if the user wants the data back
+        std::vector<uint8_t>& vecRef = csdRef->GetVecRef();
+        if (vecRef.size()) { //this session sender is using vector<uint8_t> client service data
+            if (safeToMove) {
+                LOG_INFO(subprocess) << "Ltp engine moving a send-failed vector bundle back to the user";
+                m_onFailedBundleVecSendCallback(vecRef, csdRef->m_userData, m_userAssignedUuid, successCallbackAlreadyCalled);
+            }
+            else {
+                LOG_INFO(subprocess) << "Ltp engine copying a send-failed vector bundle back to the user";
+                std::vector<uint8_t> vecCopy(vecRef);
+                m_onFailedBundleVecSendCallback(vecCopy, csdRef->m_userData, m_userAssignedUuid, successCallbackAlreadyCalled);
+            }
+        }
+    }
+    if (m_onFailedBundleZmqSendCallback) { //if the user wants the data back
+        zmq::message_t& zmqRef = csdRef->GetZmqRef();
+        if (zmqRef.size()) { //this session sender is using zmq client service data
+            if (safeToMove) {
+                LOG_INFO(subprocess) << "Ltp engine moving a send-failed zmq bundle back to the user";
+                m_onFailedBundleZmqSendCallback(zmqRef, csdRef->m_userData, m_userAssignedUuid, successCallbackAlreadyCalled);
+            }
+            else {
+                LOG_INFO(subprocess) << "Ltp engine copying a send-failed zmq bundle back to the user";
+                zmq::message_t zmqCopy(zmqRef.data(), zmqRef.size());
+                m_onFailedBundleZmqSendCallback(zmqCopy, csdRef->m_userData, m_userAssignedUuid, successCallbackAlreadyCalled);
+            }
+        }
+    }
 }
 
 void LtpEngine::EraseTxSession(map_session_number_to_session_sender_t::iterator& txSessionIt) {

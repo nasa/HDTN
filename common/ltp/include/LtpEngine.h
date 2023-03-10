@@ -973,6 +973,11 @@ private:
     map_session_number_to_session_sender_t m_mapSessionNumberToSessionSender;
     /// Active reception sessions, mapped by session ID, hashed by session ID
     map_session_id_to_session_receiver_t m_mapSessionIdToSessionReceiver;
+    /** Give Tx Session Data back to user (e.g. for storage / retry later) if
+     * m_onFailedBundleVecSendCallback and/or m_onFailedBundleZmqSendCallback are set.
+     * @param txSessionIt The transmission session iterator.
+     */
+    LTP_LIB_NO_EXPORT void TryReturnTxSessionDataToUser(map_session_number_to_session_sender_t::iterator& txSessionIt);
     /** Remove given transmission session.
      *
      * Removes transmission session from the active transmission sessions, then if using the disk for intermediate storage
