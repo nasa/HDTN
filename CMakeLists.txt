@@ -26,7 +26,7 @@ if(DEFINED CMAKE_SYSTEM_PROCESSOR)
 		option(LTP_RNG_USE_RDSEED Off)
 		option(USE_X86_HARDWARE_ACCELERATION Off) 
 		option(Boost_USE_STATIC_LIBS Off)
-		set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -fPIC")
+		set(CMAKE_CXX_FLAGS_RELEASE:STRING=-O3 -DNDEBUG -fPIC)
 	endif()
 else()
 	set(NON_ARM_COMPILATION true) # assume non ARM compilation if not specified
