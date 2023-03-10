@@ -63,9 +63,6 @@ add_executable(unit-tests
 	../../module/scheduler/unit_tests/SchedulerTests.cpp
 )
 
-if (${USE_X86_HARDWARE_ACCELERATION}) # only add TestCpuFlagDetection on non-ARM builds
-endif()
-
 install(TARGETS unit-tests DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 target_link_libraries(unit-tests
