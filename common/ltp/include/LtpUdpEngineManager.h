@@ -66,7 +66,7 @@ public:
     /** Add an LtpUdpEngine to the LtpUdpEngineManager.
      * If bidirectionallity is desired (receiving client service data in both directions), call this function twice
      * with isInduct set to True in one call and False in the other call.
-     * A max of 254 engines can be added for one outduct with the same udp port.
+     * A max of 7 engines can be added for one outduct with the same udp port.
      * 
      * @return True if the operation completed successfully (or false otherwise).
      */
