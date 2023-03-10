@@ -26,7 +26,9 @@ std::ostream& operator<< (std::ostream& strm, const StatsLogger::metric_t m)
 {
     if (m.isFloat) {
         const auto default_precision {std::cout.precision()};
-        return strm << std::fixed << std::setprecision(2) << m.floatval << std::setprecision(default_precision);
+        strm << std::fixed << std::setprecision(2) << m.floatval << std::setprecision(default_precision);
+        strm.unsetf(std::ios_base::fixed);
+        return strm;
     }
     return strm << m.intval;
 }
