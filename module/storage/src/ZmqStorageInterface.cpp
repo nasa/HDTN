@@ -430,8 +430,13 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
                     }
                     Bpv6AdministrativeRecordContentAggregateCustodySignal& acs = *(reinterpret_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(acsPtr));
                     if (!acs.DidCustodyTransferSucceed()) {
-                        LOG_ERROR(subprocess) << "custody transfer failed with reason code " << static_cast<unsigned int>(acs.GetReasonCode());
-                        return false;
+                        //a failure with a reason code of redundant reception means that
+                        // the receiver already has that bundle in custody so it can be
+                        // released even though it is a "failure".
+                        if (acs.GetReasonCode() != BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::REDUNDANT_RECEPTION) {
+                            LOG_ERROR(subprocess) << "acs custody transfer failed with reason code " << acs.GetReasonCode();
+                            return false;
+                        }
                     }
 
                     //todo figure out what to do with failed custody from next hop
@@ -464,8 +469,13 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
                     }
                     Bpv6AdministrativeRecordContentCustodySignal& cs = *(reinterpret_cast<Bpv6AdministrativeRecordContentCustodySignal*>(csPtr));
                     if (!cs.DidCustodyTransferSucceed()) {
-                        LOG_ERROR(subprocess) << "custody transfer failed with reason code " << cs.GetReasonCode();
-                        return false;
+                        //a failure with a reason code of redundant reception means that
+                        // the receiver already has that bundle in custody so it can be
+                        // released even though it is a "failure".
+                        if (cs.GetReasonCode() != BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::REDUNDANT_RECEPTION) {
+                            LOG_ERROR(subprocess) << "custody transfer failed with reason code " << cs.GetReasonCode();
+                            return false;
+                        }
                     }
                     uint64_t* custodyIdPtr;
                     if (cs.m_isFragment) {

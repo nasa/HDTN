@@ -966,6 +966,7 @@ BOOST_AUTO_TEST_CASE(BundleViewV6ReadDtnMeRawDataTestCase)
                 if (csPtr) {
                     Bpv6AdministrativeRecordContentCustodySignal& cs = *(reinterpret_cast<Bpv6AdministrativeRecordContentCustodySignal*>(csPtr));
                     BOOST_REQUIRE(!cs.DidCustodyTransferSucceed());
+                    BOOST_REQUIRE_EQUAL(cs.GetReasonCode(), BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::REDUNDANT_RECEPTION);
                     BOOST_REQUIRE(!cs.m_isFragment);
                     BOOST_REQUIRE_EQUAL(cs.m_bundleSourceEid, "ipn:11.64");
                 }
