@@ -34,6 +34,7 @@ public:
     LTP_LIB_EXPORT virtual ~LtpOverIpcBundleSink() override;
     LTP_LIB_EXPORT virtual bool ReadyToBeDeleted() override;
 protected:
+    LTP_LIB_EXPORT virtual void SyncTransportLayerSpecificTelem() override;
     LTP_LIB_EXPORT virtual bool SetLtpEnginePtr() override;
 private:
 

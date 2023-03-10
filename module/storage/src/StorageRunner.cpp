@@ -121,7 +121,7 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
                 sigHandler.PollOnce();
             }
             m_totalBundlesErasedFromStorage = storage.GetCurrentNumberOfBundlesDeletedFromStorage();
-            m_totalBundlesSentToEgressFromStorage = storage.m_totalBundlesSentToEgressFromStorageReadFromDisk;
+            m_totalBundlesSentToEgressFromStorage = storage.m_telemRef.m_totalBundlesSentToEgressFromStorageReadFromDisk;
             //gettimeofday(&tv, NULL);
             //double curr = (tv.tv_sec + (tv.tv_usec / 1000000.0));
             /*if (curr - last > 1) {
@@ -142,7 +142,7 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
 //        m_totalBundlesSentToEgressFromStorage = store.m_totalBundlesSentToEgressFromStorage;
         storage.Stop();
         m_totalBundlesErasedFromStorage = storage.GetCurrentNumberOfBundlesDeletedFromStorage();
-        m_totalBundlesSentToEgressFromStorage = storage.m_totalBundlesSentToEgressFromStorageReadFromDisk;
+        m_totalBundlesSentToEgressFromStorage = storage.m_telemRef.m_totalBundlesSentToEgressFromStorageReadFromDisk;
     }
     LOG_INFO(subprocess) << "StorageRunner: exited cleanly";
     return true;

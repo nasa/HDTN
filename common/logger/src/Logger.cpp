@@ -104,22 +104,23 @@ void Logger::initializeWithProcess(Logger::Process process) {
     ensureInitialized();
 }
 
-void Logger::ensureInitialized()
-{
-    if (!loggerSingletonFullyInitialized_) { //fast way to bypass a mutex lock all the time
-        //first thread that uses the logger gets to create the logger
-        boost::mutex::scoped_lock theLock(mutexSingletonInstance_);
-        if (!loggerSingletonFullyInitialized_) { //check it again now that mutex is locked
-            logger_.reset(new Logger());
-            loggerSingletonFullyInitialized_ = true;
+void Logger::ensureInitialized() noexcept {
+    while (!loggerSingletonFullyInitialized_) { //fast way to bypass a mutex lock all the time
+        try {
+            //first thread that uses the logger gets to create the logger
+            boost::mutex::scoped_lock theLock(mutexSingletonInstance_);
+            if (!loggerSingletonFullyInitialized_) { //check it again now that mutex is locked
+                logger_.reset(new Logger());
+                loggerSingletonFullyInitialized_ = true;
+            }
+        }
+        catch (const boost::lock_error&) {
+            continue;
+        }
+        catch (const std::exception&) {
+            continue;
         }
     }
-}
-
-Logger* Logger::getInstance()
-{
-    ensureInitialized();
-    return logger_.get();
 }
 
 void Logger::init()
@@ -265,16 +266,6 @@ std::string Logger::toString(Logger::SubProcess subprocess)
     return subprocess_strings[subprocess_val];
 }
 
-Logger::SubProcess Logger::fromString(std::string subprocess) {
-    static constexpr uint32_t num_modules = sizeof(subprocess_strings)/sizeof(*subprocess_strings);
-    for (uint32_t i=0; i<num_modules; i++) {
-        if (subprocess.compare(subprocess_strings[i]) == 0) {
-            return Logger::SubProcess(i);
-        }
-    }
-    return Logger::SubProcess::none;
-}
-
 void Logger::createStdoutSink() {
     boost::shared_ptr<sinks::text_ostream_backend> stdout_sink_backend =
         boost::make_shared<sinks::text_ostream_backend>();
@@ -317,51 +308,6 @@ Logger::Process Logger::getProcessAttributeVal()
         return val.get();
     }
     return Logger::Process::none;
-}
-
-void Logger::logInfo(const std::string & subprocess, const std::string & message)
-{
-    BOOST_LOG_STREAM_CHANNEL_SEV(
-        hdtn::Logger::m_severityChannelLogger,
-        fromString(subprocess),
-        boost::log::trivial::severity_level::debug
-    );
-}
-
-void Logger::logNotification(const std::string & subprocess, const std::string & message)
-{
-    BOOST_LOG_STREAM_CHANNEL_SEV(
-        hdtn::Logger::m_severityChannelLogger,
-        fromString(subprocess),
-        boost::log::trivial::severity_level::info
-    );
-}
-
-void Logger::logWarning(const std::string & subprocess, const std::string & message)
-{
-    BOOST_LOG_STREAM_CHANNEL_SEV(
-        hdtn::Logger::m_severityChannelLogger,
-        fromString(subprocess),
-        boost::log::trivial::severity_level::warning
-    );
-}
-
-void Logger::logError(const std::string & subprocess, const std::string & message)
-{
-    BOOST_LOG_STREAM_CHANNEL_SEV(
-        hdtn::Logger::m_severityChannelLogger,
-        fromString(subprocess),
-        boost::log::trivial::severity_level::error
-    );
-}
-
-void Logger::logCritical(const std::string & subprocess, const std::string & message)
-{
-    BOOST_LOG_STREAM_CHANNEL_SEV(
-        hdtn::Logger::m_severityChannelLogger,
-        fromString(subprocess),
-        boost::log::trivial::severity_level::fatal
-    );
 }
 
 

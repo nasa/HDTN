@@ -52,10 +52,9 @@ private:
 
 public:
     uint64_t& m_bundleCountStorage;
-    boost::atomic_uint64_t& m_bundleCountEgress;
-    uint64_t& m_bundleCount;
-    boost::atomic_uint64_t& m_bundleData;
-    double& m_elapsed;
+    uint64_t& m_bundleByteCountStorage;
+    uint64_t& m_bundleCountEgress;
+    uint64_t& m_bundleByteCountEgress;
 };
 
 

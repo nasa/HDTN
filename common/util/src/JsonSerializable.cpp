@@ -217,3 +217,11 @@ bool JsonSerializable::SetValuesFromJson(const std::string & jsonString) {
     }
     return SetValuesFromPropertyTree(pt); //virtual function call
 }
+
+bool JsonSerializable::SetValuesFromJsonCharArray(const char* data, const std::size_t size) {
+    boost::property_tree::ptree pt;
+    if (!GetPropertyTreeFromJsonCharArray((char*)data, size, pt)) {
+        return false; //prints message
+    }
+    return SetValuesFromPropertyTree(pt); //virtual function call
+}

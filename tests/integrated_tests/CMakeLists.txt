@@ -21,6 +21,7 @@ target_link_libraries(integrated-tests
 	stcp_lib
 	udp_lib
 	ltp_lib
+	hdtn_one_process_lib
 	egress_async_lib
 	ingress_async_lib
 	scheduler_lib

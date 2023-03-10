@@ -267,22 +267,18 @@ void Router::Impl::SchedulerEventsHandler() {
     }
     else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY) {
         AllOutductCapabilitiesTelemetry_t aoct;
-        uint64_t numBytesTakenToDecode;
         zmq::message_t zmqMessageOutductTelem;
         //message guaranteed to be there due to the zmq::send_flags::sndmore
         if (!m_zmqSubSock_boundSchedulerToConnectingRouterPtr->recv(zmqMessageOutductTelem, zmq::recv_flags::none)) {
             LOG_ERROR(subprocess) << "error receiving AllOutductCapabilitiesTelemetry";
         }
-        else if (!aoct.DeserializeFromLittleEndian((uint8_t*)zmqMessageOutductTelem.data(),
-            numBytesTakenToDecode, zmqMessageOutductTelem.size()))
-        {
+        else if (!aoct.SetValuesFromJsonCharArray((char*)zmqMessageOutductTelem.data(), zmqMessageOutductTelem.size())) {
             LOG_ERROR(subprocess) << "error deserializing AllOutductCapabilitiesTelemetry of size " << zmqMessageOutductTelem.size();
         }
         else {
             LOG_INFO(subprocess) << "Received and successfully decoded " << ((m_computedInitialOptimalRoutes) ? "UPDATED" : "NEW") 
                 << " AllOutductCapabilitiesTelemetry_t message from Scheduler containing "
                 << aoct.outductCapabilityTelemetryList.size() << " outducts.";
-	    LOG_INFO(subprocess) << "Telemetry message content: " << aoct ;
 
             m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList.clear();
 

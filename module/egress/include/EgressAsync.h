@@ -55,7 +55,7 @@ private:
     
 public:
     //telemetry
-    EgressTelemetry_t& m_telemetry;
+    AllOutductTelemetry_t& m_allOutductTelemRef;
     std::size_t& m_totalCustodyTransfersSentToStorage;
     std::size_t& m_totalCustodyTransfersSentToIngress;
 };

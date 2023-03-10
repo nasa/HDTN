@@ -48,13 +48,25 @@ TcpclInduct::~TcpclInduct() {
     }
     boost::asio::post(m_ioService, boost::bind(&TcpclInduct::DisableRemoveInactiveTcpConnections, this));
     while (m_allowRemoveInactiveTcpConnections) {
-        boost::this_thread::sleep(boost::posix_time::milliseconds(100));
+        try {
+            boost::this_thread::sleep(boost::posix_time::milliseconds(100));
+        }
+        catch (const boost::thread_resource_error&) {}
+        catch (const boost::thread_interrupted&) {}
+        catch (const boost::condition_error&) {}
+        catch (const boost::lock_error&) {}
     }
     m_listTcpclBundleSinks.clear(); //tcp bundle sink destructor is thread safe
     m_workPtr.reset();
+
     if (m_ioServiceThreadPtr) {
-        m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr.reset(); //delete it
+        try {
+            m_ioServiceThreadPtr->join();
+            m_ioServiceThreadPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping TcpclInduct io_service";
+        }
     }
 }
 
@@ -69,20 +81,22 @@ void TcpclInduct::StartTcpAccept() {
 void TcpclInduct::HandleTcpAccept(std::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code& error) {
     if (!error) {
         LOG_INFO(subprocess) << "tcpcl tcp connection: " << newTcpSocketPtr->remote_endpoint().address() << ":" << newTcpSocketPtr->remote_endpoint().port();
-        m_listTcpclBundleSinks.emplace_back(
-            m_inductConfig.keepAliveIntervalSeconds,
-            newTcpSocketPtr,
-            m_ioService,
-            m_inductProcessBundleCallback,
-            m_inductConfig.numRxCircularBufferElements,
-            m_inductConfig.numRxCircularBufferBytesPerElement,
-            M_MY_NODE_ID,
-            M_MAX_BUNDLE_SIZE_BYTES,
-            boost::bind(&TcpclInduct::ConnectionReadyToBeDeletedNotificationReceived, this),
-            boost::bind(&TcpclInduct::OnContactHeaderCallback_FromIoServiceThread, this, boost::placeholders::_1),
-            10, //const unsigned int maxUnacked, (todo)
-            m_inductConfig.tcpclV3MyMaxTxSegmentSizeBytes); //const uint64_t maxFragmentSize = 100000000); (todo)
-
+        {
+            boost::mutex::scoped_lock lock(m_listTcpclBundleSinksMutex);
+            m_listTcpclBundleSinks.emplace_back(
+                m_inductConfig.keepAliveIntervalSeconds,
+                newTcpSocketPtr,
+                m_ioService,
+                m_inductProcessBundleCallback,
+                m_inductConfig.numRxCircularBufferElements,
+                m_inductConfig.numRxCircularBufferBytesPerElement,
+                M_MY_NODE_ID,
+                M_MAX_BUNDLE_SIZE_BYTES,
+                boost::bind(&TcpclInduct::ConnectionReadyToBeDeletedNotificationReceived, this),
+                boost::bind(&TcpclInduct::OnContactHeaderCallback_FromIoServiceThread, this, boost::placeholders::_1),
+                10, //const unsigned int maxUnacked, (todo)
+                m_inductConfig.tcpclV3MyMaxTxSegmentSizeBytes); //const uint64_t maxFragmentSize = 100000000); (todo)
+        }
         StartTcpAccept(); //only accept if there was no error
     }
     else if (error != boost::asio::error::operation_aborted) {
@@ -97,10 +111,11 @@ void TcpclInduct::RemoveInactiveTcpConnections() {
     //std::map<uint64_t, OpportunisticBundleQueue> & mapNodeIdToOpportunisticBundleQueueRef = m_mapNodeIdToOpportunisticBundleQueue;
     //boost::mutex & mapNodeIdToOpportunisticBundleQueueMutexRef = m_mapNodeIdToOpportunisticBundleQueueMutex;
     if (m_allowRemoveInactiveTcpConnections) {
-        m_listTcpclBundleSinks.remove_if([&callbackRef/*, &mapNodeIdToOpportunisticBundleQueueMutexRef, &mapNodeIdToOpportunisticBundleQueueRef*/](TcpclBundleSink & sink) {
+        boost::mutex::scoped_lock lock(m_listTcpclBundleSinksMutex);
+        m_listTcpclBundleSinks.remove_if([&callbackRef, this/*, &mapNodeIdToOpportunisticBundleQueueMutexRef, &mapNodeIdToOpportunisticBundleQueueRef*/](TcpclBundleSink & sink) {
             if (sink.ReadyToBeDeleted()) {
                 if (callbackRef) {
-                    callbackRef(sink.GetRemoteNodeId());
+                    callbackRef(sink.GetRemoteNodeId(), this, &sink);
                 }
                 //mapNodeIdToOpportunisticBundleQueueMutexRef.lock();
                 //mapNodeIdToOpportunisticBundleQueueRef.erase(sink.GetRemoteNodeId());
@@ -137,7 +152,7 @@ void TcpclInduct::OnContactHeaderCallback_FromIoServiceThread(TcpclBundleSink * 
     thisTcpclBundleSinkPtr->SetTryGetOpportunisticDataFunction(boost::bind(&TcpclInduct::BundleSinkTryGetData_FromIoServiceThread, this, boost::ref(opportunisticBundleQueue), boost::placeholders::_1));
     thisTcpclBundleSinkPtr->SetNotifyOpportunisticDataAckedCallback(boost::bind(&TcpclInduct::BundleSinkNotifyOpportunisticDataAcked_FromIoServiceThread, this, boost::ref(opportunisticBundleQueue)));
     if (m_onNewOpportunisticLinkCallback) {
-        m_onNewOpportunisticLinkCallback(thisTcpclBundleSinkPtr->GetRemoteNodeId(), this);
+        m_onNewOpportunisticLinkCallback(thisTcpclBundleSinkPtr->GetRemoteNodeId(), this, thisTcpclBundleSinkPtr);
     }
 }
 
@@ -151,4 +166,21 @@ void TcpclInduct::NotifyBundleReadyToSend_FromIoServiceThread(const uint64_t rem
 
 void TcpclInduct::Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId) {
     boost::asio::post(m_ioService, boost::bind(&TcpclInduct::NotifyBundleReadyToSend_FromIoServiceThread, this, remoteNodeId));
+}
+
+void TcpclInduct::PopulateInductTelemetry(InductTelemetry_t& inductTelem) {
+    inductTelem.m_convergenceLayer = "tcpcl_v3";
+    inductTelem.m_listInductConnections.clear();
+    {
+        boost::mutex::scoped_lock lock(m_listTcpclBundleSinksMutex);
+        for (std::list<TcpclBundleSink>::const_iterator it = m_listTcpclBundleSinks.cbegin(); it != m_listTcpclBundleSinks.cend(); ++it) {
+            inductTelem.m_listInductConnections.emplace_back(boost::make_unique<TcpclV3InductConnectionTelemetry_t>(it->m_base_inductConnectionTelemetry));
+        }
+    }
+    if (inductTelem.m_listInductConnections.empty()) {
+        std::unique_ptr<TcpclV3InductConnectionTelemetry_t> c = boost::make_unique<TcpclV3InductConnectionTelemetry_t>();
+        c->m_connectionName = "null";
+        c->m_inputName = std::string("*:") + boost::lexical_cast<std::string>(m_tcpAcceptor.local_endpoint().port());
+        inductTelem.m_listInductConnections.emplace_back(std::move(c));
+    }
 }

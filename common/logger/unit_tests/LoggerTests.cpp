@@ -122,16 +122,6 @@ BOOST_AUTO_TEST_CASE(LoggerToStringTestCase)
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::SubProcess::none), "");
 }
 
-BOOST_AUTO_TEST_CASE(LoggerFromStringTestCase)
-{
-    BOOST_REQUIRE(hdtn::Logger::fromString("egress") == hdtn::Logger::SubProcess::egress);
-    BOOST_REQUIRE(hdtn::Logger::fromString("ingress") == hdtn::Logger::SubProcess::ingress);
-    BOOST_REQUIRE(hdtn::Logger::fromString("router") == hdtn::Logger::SubProcess::router);
-    BOOST_REQUIRE(hdtn::Logger::fromString("scheduler") == hdtn::Logger::SubProcess::scheduler);
-    BOOST_REQUIRE(hdtn::Logger::fromString("storage") == hdtn::Logger::SubProcess::storage);
-    BOOST_REQUIRE(hdtn::Logger::fromString("foobar") == hdtn::Logger::SubProcess::none);
-}
-
 #ifdef LOG_TO_CONSOLE
 BOOST_AUTO_TEST_CASE(LoggerStdoutTestCase)
 {

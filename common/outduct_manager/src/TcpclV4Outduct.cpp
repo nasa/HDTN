@@ -114,6 +114,10 @@ void TcpclV4Outduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
     finalStats.m_totalDataSegmentsOrPacketsAcked = m_tcpclV4BundleSource.Virtual_GetTotalBundlesAcked();
     finalStats.m_totalDataSegmentsOrPacketsSent = m_tcpclV4BundleSource.Virtual_GetTotalBundlesSent();
 }
+void TcpclV4Outduct::PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& outductTelem) {
+    outductTelem = boost::make_unique<TcpclV4OutductTelemetry_t>(m_tcpclV4BundleSource.m_base_outductTelemetry);
+    outductTelem->m_linkIsUpPerTimeSchedule = m_linkIsUpPerTimeSchedule;
+}
 
 
 #ifdef OPENSSL_SUPPORT_ENABLED

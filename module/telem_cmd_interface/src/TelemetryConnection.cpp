@@ -42,14 +42,30 @@ TelemetryConnection::TelemetryConnection(const std::string& addr, zmq::context_t
     }
 }
 
-bool TelemetryConnection::SendZmqConstBufferMessage(const zmq::const_buffer& buffer) {
+bool TelemetryConnection::SendZmqConstBufferMessage(const zmq::const_buffer& buffer, bool more) {
+    const zmq::send_flags additionalFlags = (more) ? zmq::send_flags::sndmore : zmq::send_flags::none;
     try {
-        if (!m_requestSocket->send(buffer, zmq::send_flags::dontwait)) {
+        if (!m_requestSocket->send(buffer, zmq::send_flags::dontwait | additionalFlags)) {
             LOG_ERROR(subprocess) << "error sending zmq signal";
             return false;
         }
     }
     catch (zmq::error_t &) {
+        LOG_INFO(subprocess) << "request already sent";
+        return false;
+    }
+    return true;
+}
+
+bool TelemetryConnection::SendZmqMessage(zmq::message_t&& zmqMessage, bool more) {
+    const zmq::send_flags additionalFlags = (more) ? zmq::send_flags::sndmore : zmq::send_flags::none;
+    try {
+        if (!m_requestSocket->send(std::move(zmqMessage), zmq::send_flags::dontwait | additionalFlags)) {
+            LOG_ERROR(subprocess) << "error sending zmq message";
+            return false;
+        }
+    }
+    catch (zmq::error_t&) {
         LOG_INFO(subprocess) << "request already sent";
         return false;
     }

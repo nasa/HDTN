@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html>
+<!--
+ * @file index.html
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This is the main file that imports all resources to draw the gui.
+-->
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>HDTN Gui</title>
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link type="text/css" rel="stylesheet" href="modal-websocket-disconnect.css">
+    <link type="text/css" rel="stylesheet" href="styles.css">
+    <link type="text/css" rel="stylesheet" href="styles-light-theme.css" title="light-theme" />
+    <link type="text/css" rel="alternate stylesheet" href="styles-dark-theme.css" title="dark-theme" />
+</head>
+<body>
+
+    <style type="text/css">
+        body {
+            font-family: helvetica, sans-serif;
+        }
+
+
+        .background {
+            color: blue;
+        }
+        div.tooltip {
+            position: absolute;
+            text-align: left;
+            width: 200px;
+            height: 300px;
+            padding: 2px;
+            font: 12px sans-serif;
+            background: lightsteelblue;
+            border: 0px;
+            border-radius: 8px;
+            pointer-events: none;
+        }
+        svg text {
+            pointer-events: none;
+        }
+
+
+
+        .buffer_fill_color {
+            stop-color: green;
+        }
+        .buffer_nonfill_color {
+            stop-color: white;
+        }
+
+        /* must be here (in html body) so modifications allowed by CORS */
+        .wire_stroke_width_attributes {
+            stroke-width: 3;
+        }
+        .wire_stroke_dash_array_attributes {
+            stroke-dasharray: 6 2;
+        }
+
+
+    </style>
+
+    <div id="myModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span id="idModalClose" class="close">&times;</span>
+                <h2>Websocket Connection Lost</h2>
+            </div>
+            <div class="modal-body">
+                <p>Websocket connection lost to the server.  Please refresh your browser.</p>
+            </div>
+            <div class="modal-footer"></div>
+        </div>
+    </div>
+    <!--<button onclick="MyToggleRbi()">Toggle RBI</button>-->
+    <label>Theme: </label>
+    <select id="idThemeSelect" onchange="onThemeChanged(this.value)">
+        <option value="light-theme" selected="">Light Theme</option>
+        <option value="dark-theme">Dark Theme</option>
+    </select>
+    <label>Wire Width: </label>
+    <select id="idWireWidthSelect" onchange="onWireWidthChanged(this.value)">
+        <option value="3" selected="">3px</option>
+        <option value="4">4px</option>
+        <option value="5">5px</option>
+        <option value="6">6px</option>
+    </select>
+    <label>Wire Dashes: </label>
+    <select id="idWireDashArraySelect" onchange="onWireDashArrayChanged(this.value)">
+        <option value="7 1">7-1</option>
+        <option value="6 2" selected="">6-2</option>
+        <option value="5 3">5-3</option>
+        <option value="4 4">4-4</option>
+        <option value="3 5">3-5</option>
+    </select>
+    <select id="idDeclutterSelect">
+        <option value="cluttered" selected="">Cluttered</option>
+        <option value="decluttered_shrink">Decluttered Shrink</option>
+        <option value="decluttered_gaps">Decluttered Gaps</option>
+    </select>
+    <select id="idViewSelect">
+        <option value="full" selected="">Full System (Centered)</option>
+        <option value="native_size">Native Size (Left)</option>
+    </select>
+    <input type="checkbox" id="id_showBitRate" checked /><Label>Show Bit Rate</Label>
+    <input type="checkbox" id="id_showBundleRate" checked /><Label>Show Bundle Rate</Label>
+    <div id="mygui"></div>
+
+
+    <script src="d3.v5.min.js"></script>
+    <script src="d3_context_menu.js"></script>
+    <script src="hdtn.js"></script>
+    <script src="ParseHdtnConfig.js"></script>
+    <script src="RectComponents.js"></script>
+    <script src="WireComponents.js"></script>
+    <script src="StraightWire.js"></script>
+    <script src="Disk.js"></script>
+    <script src="ToolTip.js"></script>
+    <script src="SystemOutline.js"></script>
+
+    <script type="text/javascript">
+        document.getElementById("idModalClose").onclick = function() {
+            document.getElementById('myModal').style.display = "none";
+        }
+
+        var lightThemeLink = document.querySelector("link[title=light-theme]");
+        var darkThemeLink = document.querySelector("link[title=dark-theme]");
+        lightThemeLink.disabled = false;
+        darkThemeLink.disabled = true;
+
+        function SwitchStyle(cssTitle) {
+            if(cssTitle === "light-theme" && lightThemeLink.disabled) {
+                lightThemeLink.disabled = false;
+                darkThemeLink.disabled = true;
+            }
+            else if(cssTitle === "dark-theme" && darkThemeLink.disabled) {
+                darkThemeLink.disabled = false;
+                lightThemeLink.disabled = true;
+            }
+        }
+
+        function onThemeChanged(newTheme) {
+            SwitchStyle(newTheme);
+        }
+
+        function getThisDomStyleSheet() {
+            let sheets = document.styleSheets;
+            for( var i in sheets ) {
+                if( sheets[i].href  == null) {
+                    return sheets[i];
+                }
+            }
+            return null;
+        }
+
+        //https://stackoverflow.com/a/38133146
+        function changeStylesheetRule(stylesheet, selector, property, value) {
+            selector = selector.toLowerCase();
+            property = property.toLowerCase();
+            value = value.toLowerCase();
+
+            for(var i = 0; i < stylesheet.cssRules.length; i++) {
+                var rule = stylesheet.cssRules[i];
+                if(rule.selectorText === selector) {
+                    rule.style[property] = value;
+                    return;
+                }
+            }
+            stylesheet.insertRule(selector + " { " + property + ": " + value + "; }", 0);
+        }
+
+        function onWireWidthChanged(value) {
+            let s = getThisDomStyleSheet();
+            changeStylesheetRule(s, ".wire_stroke_width_attributes", "stroke-width", value);
+        }
+        function onWireDashArrayChanged(value) {
+            let s = getThisDomStyleSheet();
+            changeStylesheetRule(s, ".wire_stroke_dash_array_attributes", "stroke-dasharray", value);
+        }
+
+
+    function HdtnGui(paramParentDiv, paramUniqueId) {
+
+        var d3ContentDiv = paramParentDiv;
+        let hdtnOldDrawHash = {
+            "strVal": null
+        };
+        let hdtnConfig = null;
+        let wireConnectionsOldMap = {};
+
+        //document.getElementById('idDeclutterSelect').addEventListener('change', DeclutterSelectChanged, false);
+        document.getElementById('idViewSelect').addEventListener('change', ViewSelectChanged, false);
+
+
+        var svgDiv = d3.select(d3ContentDiv); //.append("div").attr("class", "guiClass");
+
+        var svg = svgDiv.append("svg:svg")
+            .attr("id","svgId");
+
+        var toolTipObj = ToolTip();
+
+        var defs = svg.append("svg:defs");
+        var arrowMarker = defs.append("svg:marker");
+
+
+
+
+        arrowMarker
+            .attr("id", "arrow")
+            .attr("viewBox", "0 -5 10 10")
+            .attr("refX", 5)
+            .attr("refY", 0)
+            .attr("markerWidth", 1)
+            .attr("markerHeight", 1)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,-5L10,0L0,5")
+            .attr("class", "arrowHead");
+        arrowMarker.attr("markerWidth", 4).attr("markerHeight", 4); //??
+
+
+
+        var guiGroup = svg.append("g");
+        guiGroup.attr("transform", "translate(" + (10) + "," + 10 + ")");
+
+
+        var backgroundRect = guiGroup.append("rect")
+            .attr("class", "background")
+            .attr("width", 1500)
+            .attr("height", 1000)
+            .attr("fill", "none");
+
+
+        var centralGroup = guiGroup.append("g")
+            .attr("transform", "translate(" + 600 + "," + 250 + ")");
+
+        var connectedNodeGroup = centralGroup.append("g");
+
+
+        var wiresGroup = centralGroup.append("g");
+
+        //establish draw order so last append (wires) gets drawn on top
+        var systemOutlineGroup = guiGroup.append("g");
+        var activeInductConnsGroup = guiGroup.append("g");
+        var egressGroup = guiGroup.append("g");
+        var ingressGroup = guiGroup.append("g");
+        var inductsGroup = guiGroup.append("g");
+        var storageGroup = guiGroup.append("g");
+        var diskGroup = guiGroup.append("g");
+        var nextHopsGroup = guiGroup.append("g");
+        var finalDestsGroup = guiGroup.append("g");
+        var internalHdtnWiresGroup = guiGroup.append("g");
+        var wiresComponentGroup = guiGroup.append("g");
+
+
+        var sharedTransition;
+
+        var SVG_WIDTH_PX = 1500;
+        var SVG_HEIGHT_PX = 800;
+
+        var viewsMap = {
+            "full" : {
+                "class" : "svgViewBoxClass",
+                "svgWidth" : null, //auto
+                "svgHeight" : null, //auto
+                "viewBox" : ("0" + " " + "0" + " " + (SVG_WIDTH_PX*1) + " " + (SVG_HEIGHT_PX*1) + ""),
+                "preserveAspectRatio": "xMidYMin meet" //middle top alignment
+                //"preserveAspectRatio": "xMinYMin meet" //left top alignment
+            },
+            "native_size" : {
+                "class" : "svgNativeClass",
+                "svgWidth" : SVG_WIDTH_PX, //auto
+                "svgHeight" : SVG_HEIGHT_PX, //auto
+                "viewBox" : null,
+                "preserveAspectRatio": null
+            }
+        };
+        //svgDiv.style("width", (1500) + "px")
+        //        .style("height", (1000) + "px");
+        //    svg.attr("width", 1500)
+        //        .attr("height", 1000);
+
+        function UpdateViewBox(viewsMapKey) {
+            svg.attr("class", viewsMap[viewsMapKey].class)
+                .attr("width", viewsMap[viewsMapKey].svgWidth)
+                .attr("height", viewsMap[viewsMapKey].svgHeight)
+                .attr("viewBox", viewsMap[viewsMapKey].viewBox)
+                .attr("preserveAspectRatio", viewsMap[viewsMapKey].preserveAspectRatio);
+        }
+        function ViewSelectChanged(event) {
+            UpdateViewBox(event.target.value);
+        }
+        UpdateViewBox(document.getElementById('idViewSelect').options[document.getElementById('idViewSelect').selectedIndex].value);
+
+
+        function GetSwitchRectClass(d) {
+            return (d.linkIsUp) ? "on_switch_rect" : "off_switch_rect";
+        }
+
+        function GetModuleRectClass(d) {
+            return "on_rect";
+        }
+
+        var INGRESS_X = 350;
+        var INGRESS_W = 130;
+        var EGRESS_X = 850;
+        var EGRESS_W = 130;
+        var STORAGE_W = 120;
+        var INGRESS_RIGHT_X = (INGRESS_X + INGRESS_W);
+        var INGRESS_EGRESS_DX = (EGRESS_X - INGRESS_RIGHT_X);
+        var STORAGE_X = INGRESS_RIGHT_X + INGRESS_EGRESS_DX/2 - (STORAGE_W/2);
+        var ABS_POSITION_MAP = {
+            "active_induct_conns" : {"X" : -200, "Y" : 100, "WIDTH": 300, "HEIGHT": 500},
+            "ingress" : {"X" : INGRESS_X, "Y" : 100, "WIDTH": INGRESS_W, "HEIGHT": 500},
+            "egress" : {"X" : EGRESS_X, "Y" : 100, "WIDTH": EGRESS_W, "HEIGHT": 500},
+            "storage" : {"X" : STORAGE_X, "Y" : (220), "WIDTH": STORAGE_W, "HEIGHT": 100},
+            "next_hops" : {"X" : 1100, "Y" : 100, "WIDTH": 100, "HEIGHT": 500},
+            "final_dests" : {"X" : 1400, "Y" : 100, "WIDTH": 100, "HEIGHT": 500}
+        };
+
+        var myActiveInductConnsRectComponent = RectComponents(
+            activeInductConnsGroup, //paramSvgRootGroup, , ,
+            "activeInductConns_group", //paramSvgRootGroupClass
+            "activeInductConn_group", //paramSvgChildGroupClass
+            "", //paramParentRectStyleClass
+            true, //paramHideParent
+            toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
+            ContextMenuEvent, //paramContextMenuEventFunction
+            GetModuleRectClass, //paramGetParentRectClassFunction
+            GetSwitchRectClass //paramGetChildRectClassFunction
+        );
+
+        var myInductsRectComponent = RectComponents(
+            inductsGroup, //paramSvgRootGroup, , ,
+            "loadBank_group", //paramSvgRootGroupClass
+            "load_group", //paramSvgChildGroupClass
+            "induct_body", //paramParentRectStyleClass
+            false, //paramHideParent
+            toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
+            ContextMenuEvent, //paramContextMenuEventFunction
+            GetModuleRectClass, //paramGetParentRectClassFunction
+            GetSwitchRectClass //paramGetChildRectClassFunction
+        );
+
+
+        var myIngressRectComponent = RectComponents(
+            ingressGroup, //paramSvgRootGroup, , ,
+            "ingress_group", //paramSvgRootGroupClass
+            "induct_group", //paramSvgChildGroupClass
+            "module_body", //paramParentRectStyleClass
+            false, //paramHideParent
+            toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
+            ContextMenuEvent, //paramContextMenuEventFunction
+            GetModuleRectClass, //paramGetParentRectClassFunction
+            GetSwitchRectClass //paramGetChildRectClassFunction
+        );
+
+        var myStorageRectComponent = RectComponents(
+            storageGroup, //paramSvgRootGroup, , ,
+            "storage_group", //paramSvgRootGroupClass
+            "", //paramSvgChildGroupClass
+            "module_body", //paramParentRectStyleClass
+            false, //paramHideParent
+            toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
+            ContextMenuEvent, //paramContextMenuEventFunction
+            GetModuleRectClass, //paramGetParentRectClassFunction
+            GetSwitchRectClass //paramGetChildRectClassFunction
+        );
+
+        var myEgressRectComponent = RectComponents(
+            egressGroup, //paramSvgRootGroup, , ,
+            "egress_group", //paramSvgRootGroupClass
+            "outduct_group", //paramSvgChildGroupClass
+            "module_body", //paramParentRectStyleClass
+            false, //paramHideParent
+            toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
+            ContextMenuEvent, //paramContextMenuEventFunction
+            GetModuleRectClass, //paramGetParentRectClassFunction
+            GetSwitchRectClass //paramGetChildRectClassFunction
+        );
+
+        var myNextHopsRectComponent = RectComponents(
+            nextHopsGroup, //paramSvgRootGroup, , ,
+            "loadBank_group", //paramSvgRootGroupClass
+            "load_group", //paramSvgChildGroupClass
+            "module_body", //paramParentRectStyleClass
+            false, //paramHideParent
+            toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
+            ContextMenuEvent, //paramContextMenuEventFunction
+            GetModuleRectClass, //paramGetParentRectClassFunction
+            GetSwitchRectClass //paramGetChildRectClassFunction
+        );
+
+        var myFinalDestsRectComponent = RectComponents(
+            finalDestsGroup, //paramSvgRootGroup, , ,
+            "finalDests_group", //paramSvgRootGroupClass
+            "finalDest_group", //paramSvgChildGroupClass
+            "", //paramParentRectStyleClass
+            true, //paramHideParent
+            toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
+            ContextMenuFinalDest, //paramContextMenuEventFunction
+            GetModuleRectClass, //paramGetParentRectClassFunction
+            GetSwitchRectClass //paramGetChildRectClassFunction
+        );
+        const speedUpperLimitBps = 1000;
+        var wiresComponent = WireComponents(wiresComponentGroup, "wires_group", arrowMarker, speedUpperLimitBps);
+
+        var myDisk = Disk(diskGroup,
+                                ABS_POSITION_MAP.storage.X + ABS_POSITION_MAP.storage.WIDTH/2,
+                                ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT + 250,
+                                80,
+                                10,
+                                100,
+                                "Disk");
+        var SYSTEM_OUTLINE_MARGIN_X = 0;
+        var SYSTEM_OUTLINE_MARGIN_Y = 50;
+        var myOutline = SystemOutline(systemOutlineGroup,
+                                ABS_POSITION_MAP.ingress.X - SYSTEM_OUTLINE_MARGIN_X,
+                                ABS_POSITION_MAP.ingress.Y - SYSTEM_OUTLINE_MARGIN_Y,
+                                (2 * SYSTEM_OUTLINE_MARGIN_X) + ABS_POSITION_MAP.egress.X + ABS_POSITION_MAP.egress.WIDTH - ABS_POSITION_MAP.ingress.X,
+                                (2 * SYSTEM_OUTLINE_MARGIN_Y) + myDisk.GetWirePos("bottom").y - ABS_POSITION_MAP.ingress.Y,
+                                "HDTN");
+
+
+        const diskWireSepFromMiddlePx = 40;
+        var myWireIngressToStorage = StraightWire(internalHdtnWiresGroup, 0, speedUpperLimitBps,
+            ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, ABS_POSITION_MAP.storage.Y + 20,
+            ABS_POSITION_MAP.storage.X, ABS_POSITION_MAP.storage.Y + 20);
+        var myWireStorageToEgress = StraightWire(internalHdtnWiresGroup, 0, speedUpperLimitBps,
+            ABS_POSITION_MAP.storage.X + ABS_POSITION_MAP.storage.WIDTH, ABS_POSITION_MAP.storage.Y + 20,
+            ABS_POSITION_MAP.egress.X, ABS_POSITION_MAP.storage.Y + 20);
+        var myWireIngressToEgress = StraightWire(internalHdtnWiresGroup, 0, speedUpperLimitBps,
+            ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, ABS_POSITION_MAP.ingress.Y + 20,
+            ABS_POSITION_MAP.egress.X, ABS_POSITION_MAP.egress.Y + 20);
+        var myWireEgressToIngress = StraightWire(internalHdtnWiresGroup, 0, speedUpperLimitBps,
+            ABS_POSITION_MAP.egress.X, ABS_POSITION_MAP.ingress.Y + 75,
+            ABS_POSITION_MAP.ingress.X + ABS_POSITION_MAP.ingress.WIDTH, ABS_POSITION_MAP.egress.Y + 75);
+        var myWireStorageToDisk = StraightWire(internalHdtnWiresGroup, 90, speedUpperLimitBps, //don't rotate text -90, easier to read with both directions
+            myDisk.GetWirePos("top").x - diskWireSepFromMiddlePx, ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT,
+            myDisk.GetWirePos("top").x - diskWireSepFromMiddlePx, myDisk.GetWirePos("top").y);
+        var myWireDiskToStorage = StraightWire(internalHdtnWiresGroup, 90, speedUpperLimitBps,
+            myDisk.GetWirePos("top").x + diskWireSepFromMiddlePx, myDisk.GetWirePos("top").y,
+            myDisk.GetWirePos("top").x + diskWireSepFromMiddlePx, ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT);
+
+
+        function GetNodeNumFromIpnString(ipnStr) {
+            const m = ipnStr.match(/ipn:([0-9]+)\./);
+            const nodeId = parseInt(m[1]);
+            return nodeId;
+        }
+        function ContextMenuFinalDest(d) {
+            if(d3.event.type === "contextmenu") {
+                var menu = contextMenu().items(
+                    {
+                        "text" : "Ping ipn:" + GetNodeNumFromIpnString(d.name) + ".2047 BPv7",
+                        "func" : PingMe_Closure(d, 2047, 7)
+                    },
+                    {
+                        "text" : "Ping ipn:" + GetNodeNumFromIpnString(d.name) + ".2047 BPv6",
+                        "func" : PingMe_Closure(d, 2047, 6)
+                    }
+                );
+                d3.event.preventDefault();
+                menu(d3.mouse(svg.node())[0], d3.mouse(svg.node())[1]);
+            }
+        }
+        function PingMe_Closure(paramObj, paramPingServiceNumber, paramBpVersion) {
+            var obj = paramObj;
+            var pingServiceNumber = paramPingServiceNumber;
+            var bpVersion = paramBpVersion;
+            return function () {
+                const nodeId = GetNodeNumFromIpnString(obj.name);
+                //console.log(nodeId);
+                let apiObj = {
+                    "apiCall": "ping",
+                    "nodeId": nodeId,
+                    "serviceId": pingServiceNumber,
+                    "bpVersion": bpVersion
+                };
+                //var oruId = (obj.parent) ? obj.parent.id : obj.id;
+                //var switchId = (obj.parent) ? obj.id : "";
+                //console.log("Setting state of oruId=" + oruId + ", switchId=" + obj.id + " to " + state);
+                WebSocketSend(JSON.stringify(apiObj));
+            };
+        }
+
+
+        function ContextMenuEvent(d) {
+            if(d3.event.type === "contextmenu") {
+                var menu = contextMenu().items(
+                    {
+                        "text" : "Set " + d.id + " On",
+                        "func" : SetState_Closure(d, 1)
+                    },
+                    {
+                        "text" : "Set " + d.id + " Off",
+                        "func" : SetState_Closure(d, 0)
+                    },
+                    {
+                        "text" : "Set Fault on " + d.id,
+                        "func" : SetFault_Closure(d, true)
+                    },
+                    {
+                        "text" : "Remove Fault on " + d.id,
+                        "func" : SetFault_Closure(d, false)
+                    }
+                );
+                d3.event.preventDefault();
+                menu(d3.mouse(svg.node())[0], d3.mouse(svg.node())[1]);
+            }
+        }
+
+        function SetState_Closure(paramObj, paramState) {
+            var obj = paramObj;
+            var state = paramState;
+            return function () {
+                var oruId = (obj.parent) ? obj.parent.id : obj.id;
+                var switchId = (obj.parent) ? obj.id : "";
+                console.log("Setting state of oruId=" + oruId + ", switchId=" + obj.id + " to " + state);
+                WebSocketSend("SET_SWITCH_STATE," + oruId + "," + switchId + "," + state);
+            }
+        }
+
+        function SetFault_Closure(paramObj, paramFault) {
+            var obj = paramObj;
+            var fault = paramFault;
+            return function () {
+                console.log("Setting the fault of " + obj.id + " to " + fault);
+            }
+        }
+
+        var telemQueue = [];
+        var inTransition = false;
+
+        function PostTelemQueuePop() {
+            let nextTelemObj = telemQueue.shift();
+            //console.log("pop");
+            InternalUpdateWithData(nextTelemObj);
+        }
+        function DoTransitionEnd() {
+            if(telemQueue.length) {
+                setTimeout(PostTelemQueuePop, 0);
+            }
+            else {
+                inTransition = false;
+            }
+        }
+        function Update(redrawObj, delayMs) {
+            if (typeof delayMs === 'undefined') delayMs = 2000;
+
+            inTransition = true;
+
+            //ParsePowerSystem(powerSystem, declutter, shrink, d3FaultsMap, MAP_NAMES, SUB_MAP_NAMES, D3_SHAPE_ATTRIBUTES, ABS_POSITION_MAP, FLIP_HORIZONTAL_MAP);
+            wiresComponent.ComputeWires(redrawObj.wireConnections);
+
+
+
+            sharedTransition = d3.transition().duration(delayMs);
+
+            sharedTransition
+                .on("interrupt", function() {
+                    DoTransitionEnd();
+                })
+                .on("end", function() {
+                    DoTransitionEnd();
+                });
+
+            myActiveInductConnsRectComponent.Update(redrawObj.activeInductConnsD3Array, sharedTransition);
+            myIngressRectComponent.Update(redrawObj.ingressD3Array, sharedTransition);
+            myInductsRectComponent.Update(redrawObj.inductsD3Array, sharedTransition);
+            myEgressRectComponent.Update(redrawObj.egressD3Array, sharedTransition);
+            myStorageRectComponent.Update(redrawObj.storageD3Array, sharedTransition);
+            myNextHopsRectComponent.Update(redrawObj.nextHopsD3Array, sharedTransition);
+            myFinalDestsRectComponent.Update(redrawObj.finalDestsD3Array, sharedTransition);
+            wiresComponent.Update(sharedTransition);
+            toolTipObj.Update();
+        }
+
+
+
+        function UpdateLite() {
+            //++updateCounter;
+            //ParsePowerSystem();
+            //batteries.UpdateSoc(D3_SHAPE_ATTRIBUTES.batteryMap.d3Array);
+            wiresComponent.UpdateLite();
+
+            toolTipObj.Update();
+            DoTransitionEnd();
+        }
+
+
+        function HandleReceivedNewHdtnConfig(newHdtnConfig) {
+            hdtnConfig = newHdtnConfig;
+            let redrawObj = ParseHdtnConfig(
+                wireConnectionsOldMap,
+                hdtnOldDrawHash,
+                hdtnConfig,
+                false, // declutter,
+                false, // shrink,
+                null, // d3FaultsMap,
+                null,// MAP_NAMES,
+                null,// SUB_MAP_NAMES,
+                null,// D3_SHAPE_ATTRIBUTES,
+                ABS_POSITION_MAP,
+                null// FLIP_HORIZONTAL_MAP
+            );
+
+            //if(inTransition) {
+            //    console.log("new hdtn config received while in transition.. dropping");
+            //    return;
+            //}
+
+            console.log("new hdtn telem received");
+
+            if(redrawObj != null) {
+                //console.log("redraw");
+                Update(redrawObj/*, declutter ? 1000 : 500*/);
+            }
+            else {
+                //console.log("don't redraw")
+                UpdateLite();
+            }
+
+
+        }
+
+        function InternalUpdateWithData(objJson) {
+            //console.log(objJson);
+            if("hdtnConfigName" in objJson) {
+                myOutline.UpdateName("HDTN Node " + objJson.myNodeId + "");
+                InitActiveInductConnections(objJson);
+                HandleReceivedNewHdtnConfig(objJson);
+            }
+            else if(hdtnConfig == null) {
+                console.log("error, out of order command, hdtnConfig must be received first");
+            }
+            else if("allInducts" in objJson) {
+                UpdateActiveInductConnections(hdtnConfig, objJson);
+                myWireIngressToEgress.SetSpeeds(hdtnConfig["ingressToEgressRateBitsPerSec"],
+                    hdtnConfig["ingressToEgressRateBitsPerSecHumanReadable"],
+                    hdtnConfig["ingressToEgressRateBundlesPerSecHumanReadable"]);
+                myWireIngressToStorage.SetSpeeds(hdtnConfig["ingressToStorageRateBitsPerSec"],
+                    hdtnConfig["ingressToStorageRateBitsPerSecHumanReadable"],
+                    hdtnConfig["ingressToStorageRateBundlesPerSecHumanReadable"]);
+                HandleReceivedNewHdtnConfig(hdtnConfig);
+
+            }
+            else if("allOutducts" in objJson) {
+                UpdateAllOutductTelemetry(hdtnConfig, objJson);
+                myWireEgressToIngress.SetSpeeds(hdtnConfig["egressToIngressRateBitsPerSec"],
+                    hdtnConfig["egressToIngressRateBitsPerSecHumanReadable"],
+                    hdtnConfig["egressToIngressRateBundlesPerSecHumanReadable"]);
+                HandleReceivedNewHdtnConfig(hdtnConfig); //in case linkIsUpPhysically changes
+            }
+            else if("outductCapabilityTelemetryList" in objJson) {
+                UpdateAllOutductCapabilities(hdtnConfig, objJson);
+                HandleReceivedNewHdtnConfig(hdtnConfig);
+            }
+            else if("usedSpaceBytes" in objJson) {
+                UpdateStorageTelemetry(hdtnConfig, objJson);
+                myWireStorageToDisk.SetSpeeds(hdtnConfig["storageToDiskRateBitsPerSec"],
+                    hdtnConfig["storageToDiskRateBitsPerSecHumanReadable"],
+                    hdtnConfig["storageToDiskRateBundlesPerSecHumanReadable"]);
+                myWireDiskToStorage.SetSpeeds(hdtnConfig["diskToStorageRateBitsPerSec"],
+                    hdtnConfig["diskToStorageRateBitsPerSecHumanReadable"],
+                    hdtnConfig["diskToStorageRateBundlesPerSecHumanReadable"]);
+                myWireStorageToEgress.SetSpeeds(hdtnConfig["storageToEgressRateBitsPerSec"],
+                    hdtnConfig["storageToEgressRateBitsPerSecHumanReadable"],
+                    hdtnConfig["storageToEgressRateBundlesPerSecHumanReadable"]);
+                myDisk.SetDiskUsage( objJson.usedSpaceBytes / (objJson.usedSpaceBytes + objJson.freeSpaceBytes) * 100,
+                    ((hdtnConfig["storageToDiskRateBitsPerSec"] > 1) ? 50 : 0)
+                    + ((hdtnConfig["diskToStorageRateBitsPerSec"] > 1) ? 50 : 0),
+                    objJson.usedSpaceBytes
+                );
+                UpdateLite();
+            }
+            else {
+                //HandleReceivedNewHdtnConfig(objJson);
+            }
+        }
+        return {
+            UpdateWithData: function(objJson) {
+                if(inTransition) {
+                    telemQueue.push(objJson);
+                    //console.log("push");
+                }
+                else {
+                    //console.log("nopush");
+                    InternalUpdateWithData(objJson);
+                }
+            }
+        };
+    }
+
+    var app = null;
+    var connection = null;
+    window.addEventListener("load", function(event) {
+        console.log("All resources finished loading!");
+
+
+        app = HdtnGui(document.getElementById("mygui"), "aaa");
+        if(typeof INITIAL_HDTN_CONFIG !== 'undefined'){
+            InitActiveInductConnections(INITIAL_HDTN_CONFIG);
+            app.UpdateWithData(INITIAL_HDTN_CONFIG); //running from filesystem (for testing animation)
+        }
+        else if (!("WebSocket" in window)) {
+            alert("WebSocket is not supported by your Browser!");
+        }
+        else {
+            var wsproto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
+            connection = new WebSocket(wsproto + '//' + window.location.host + '/websocket');
+            connection.binaryType = "arraybuffer";
+
+
+            //This event occurs when socket connection is established.
+            connection.onopen = function() {
+                console.log("ws opened");
+            }
+
+            //This event occurs when connection is closed.
+            connection.onclose = function() {
+                console.log("ws closed");
+                document.getElementById('myModal').style.display = "block";
+            }
+
+            //This event occurs when client receives data from server.
+            connection.onmessage = function(e) {
+                //console.log("rcvd");
+                if(e.data instanceof ArrayBuffer) { //this is binary data
+                    console.log("binary data received.. ignoring");
+                }
+                else { //this is text data such as json
+                    if(e.data === "Hello websocket") {
+                        console.log(e.data);
+                    }
+                    else { //json data
+                        var obj = JSON.parse(e.data); //this could error based on encodings
+                        //console.log(obj);
+                        app.UpdateWithData(obj);
+
+                    }
+                    //console.log(e.data);
+                }
+            }
+
+            //This event occurs when there is any error in communication.
+            connection.onerror = function(error) {
+                //alert('WebSocket error');
+                connection.close();
+            }
+        } //running http(s)
+
+    });
+
+    function WebSocketSend(str) {
+        connection.send(str);
+    }
+
+
+
+
+    </script>
+</body>
+</html>
+

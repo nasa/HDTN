@@ -115,20 +115,18 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
             }
         }
 
-        double rate = 8 * ((ingress.m_bundleData / (double)(1024 * 1024)) / ingress.m_elapsed);
-        LOG_INFO(subprocess) << "Elapsed, Bundle Count (M), Rate (Mbps), Bundles/sec, Bundle Data (MB)";
-        LOG_INFO(subprocess) << ingress.m_elapsed << "," << ingress.m_bundleCount / 1000000.0f << "," << rate << ","
-            << ingress.m_bundleCount / ingress.m_elapsed << ", " << ingress.m_bundleData / (double)(1024 * 1024);
-
-	boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
+        boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
         LOG_INFO(subprocess) << "IngressAsyncRunner currentTime  " << timeLocal;
 
         LOG_INFO(subprocess) << "IngressAsyncRunner: exiting cleanly..";
         ingress.Stop();
         m_bundleCountStorage = ingress.m_bundleCountStorage;
         m_bundleCountEgress = ingress.m_bundleCountEgress;
-        m_bundleCount = ingress.m_bundleCount;
-        m_bundleData = ingress.m_bundleData;
+        m_bundleCount = (ingress.m_bundleCountEgress + ingress.m_bundleCountStorage);
+        m_bundleData = (ingress.m_bundleByteCountEgress + ingress.m_bundleByteCountStorage);
+        LOG_INFO(subprocess) << "Bundle Count (M), Bundle Data (MB)";
+        LOG_INFO(subprocess) << m_bundleCount << "," << (m_bundleData / (1024.0 * 1024.0));
+        
     }
     LOG_INFO(subprocess) << "IngressAsyncRunner: exited cleanly";
     return true;

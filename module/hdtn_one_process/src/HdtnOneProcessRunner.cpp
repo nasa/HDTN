@@ -52,9 +52,8 @@ HdtnOneProcessRunner::HdtnOneProcessRunner() :
     m_ingressBundleData(0),
 
     //egress
-    m_egressBundleCount(0),
-    m_egressBundleData(0),
-    m_egressMessageCount(0),
+    m_egressTotalBundlesGivenToOutducts(0),
+    m_egressTotalBundleBytesGivenToOutducts(0),
 
     //storage
     m_totalBundlesErasedFromStorage(0),
@@ -188,7 +187,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
 #ifdef RUN_TELEMETRY
         LOG_INFO(subprocess) << "Starting telemetry runner...";
         std::unique_ptr<TelemetryRunner> telemetryRunnerPtr = boost::make_unique<TelemetryRunner>();
-        if (!telemetryRunnerPtr->Init(hdtnOneProcessZmqInprocContextPtr.get(), telemetryRunnerOptions)) {
+        if (!telemetryRunnerPtr->Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get(), telemetryRunnerOptions)) {
             return false;
         }
 #endif
@@ -208,11 +207,6 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
             }
         }
 
-        LOG_INFO(subprocess) << "Elapsed, Bundle Count (M), Rate (Mbps), Bundles/sec, Bundle Data (MB) ";
-        //Possibly out of Date
-        double rate = 8 * ((ingressPtr->m_bundleData / (double)(1024 * 1024)) / ingressPtr->m_elapsed);
-        LOG_INFO(subprocess) << ingressPtr->m_elapsed << "," << ingressPtr->m_bundleCount / 1000000.0f << "," << rate << ","
-            << ingressPtr->m_bundleCount / ingressPtr->m_elapsed << ", " << ingressPtr->m_bundleData / (double)(1024 * 1024);
 
 #ifdef RUN_TELEMETRY
         LOG_INFO(subprocess) << "Telemetry: stopping..";
@@ -238,23 +232,24 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         ingressPtr->Stop();
         m_ingressBundleCountStorage = ingressPtr->m_bundleCountStorage;
         m_ingressBundleCountEgress = ingressPtr->m_bundleCountEgress;
-        m_ingressBundleCount = ingressPtr->m_bundleCount;
-        m_ingressBundleData = ingressPtr->m_bundleData;
+        m_ingressBundleCount = (ingressPtr->m_bundleCountEgress + ingressPtr->m_bundleCountStorage);
+        m_ingressBundleData = (ingressPtr->m_bundleByteCountEgress + ingressPtr->m_bundleByteCountStorage);
+        LOG_INFO(subprocess) << "Ingress Bundle Count (M), Bundle Data (MB)";
+        LOG_INFO(subprocess) << m_ingressBundleCount << "," << (m_ingressBundleData / (1024.0 * 1024.0));
         LOG_INFO(subprocess) << "Ingress: deleting..";
         ingressPtr.reset();
 
         LOG_INFO(subprocess) << "Storage: stopping..";
         storagePtr->Stop();
         m_totalBundlesErasedFromStorage = storagePtr->GetCurrentNumberOfBundlesDeletedFromStorage();
-        m_totalBundlesSentToEgressFromStorage = storagePtr->m_totalBundlesSentToEgressFromStorageReadFromDisk;
+        m_totalBundlesSentToEgressFromStorage = storagePtr->m_telemRef.m_totalBundlesSentToEgressFromStorageReadFromDisk;
         LOG_INFO(subprocess) << "Storage: deleting..";
         storagePtr.reset();
 
         LOG_INFO(subprocess) << "Egress: stopping..";
         egressPtr->Stop();
-        m_egressBundleCount = egressPtr->m_telemetry.egressBundleCount;
-        m_egressBundleData = static_cast<uint64_t>(egressPtr->m_telemetry.totalDataBytes);
-        m_egressMessageCount = egressPtr->m_telemetry.egressMessageCount;
+        m_egressTotalBundlesGivenToOutducts = egressPtr->m_allOutductTelemRef.m_totalBundlesGivenToOutducts;
+        m_egressTotalBundleBytesGivenToOutducts = static_cast<uint64_t>(egressPtr->m_allOutductTelemRef.m_totalBundleBytesGivenToOutducts);
         LOG_INFO(subprocess) << "Egress: deleting..";
         egressPtr.reset();
 

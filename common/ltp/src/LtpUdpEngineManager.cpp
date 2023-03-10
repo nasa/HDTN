@@ -250,8 +250,13 @@ LtpUdpEngineManager::~LtpUdpEngineManager() {
 void LtpUdpEngineManager::Stop() {
     if (m_ioServiceUdpThreadPtr) {
         boost::asio::post(m_ioServiceUdp, boost::bind(&LtpUdpEngineManager::DoUdpShutdown, this));
-        m_ioServiceUdpThreadPtr->join();
-        m_ioServiceUdpThreadPtr.reset(); //delete it
+        try {
+            m_ioServiceUdpThreadPtr->join();
+            m_ioServiceUdpThreadPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping LtpUdpEngineManager io_service udp thread";
+        }
     }
 
     //print stats
@@ -392,8 +397,18 @@ void LtpUdpEngineManager::SocketRestored_TimerExpired(const boost::system::error
 void LtpUdpEngineManager::DoUdpShutdown() {
     //final code to shut down tcp sockets
     m_readyToForward = false;
-    m_retryAfterSocketErrorTimer.cancel();
-    m_socketRestoredTimer.cancel();
+    try {
+        m_retryAfterSocketErrorTimer.cancel();
+    }
+    catch (const boost::system::system_error& e) {
+        LOG_WARNING(subprocess) << "LtpUdpEngineManager::DoUdpShutdown calling retryAfterSocketErrorTimer.cancel(): " << e.what();
+    }
+    try {
+        m_socketRestoredTimer.cancel();
+    }
+    catch (const boost::system::system_error& e) {
+        LOG_WARNING(subprocess) << "LtpUdpEngineManager::DoUdpShutdown calling socketRestoredTimer.cancel(): " << e.what();
+    }
     if (m_udpSocket.is_open()) {
         try {
             LOG_INFO(subprocess) << "closing LtpUdpEngineManager UDP socket..";

@@ -1,0 +1,44 @@
+body {
+    color:#fff ;
+    background-color:#303030;
+}
+
+div.tooltip {
+    color: white;
+    background: steelblue;
+}
+
+.modal-body {
+    color: black !important;
+}
+
+.wire_text, .disk_text {
+    fill: white;
+}
+.disk_outline {
+    stroke: white;
+    stroke-width: 2;
+}
+
+
+.arrowHead {
+    stroke: red;
+    fill: limegreen;
+}
+
+.wire_on {
+    stroke: limegreen;
+}
+.wire_off {
+    stroke: red;
+}
+.bus_bar {
+    stroke: green;
+}
+
+.system_outline_group_rect {
+    stroke: Gainsboro;
+}
+.system_outline_group_text {
+    fill: Gainsboro;
+}

@@ -40,19 +40,17 @@ jobs:
           cmake ..
           make -j8
 
-          # - name: Unit Tests
-          #run: |
-          #export HDTN_SOURCE_ROOT=$PWD
-          #cd $HDTN_SOURCE_ROOT
-          #cd build
-          #./tests/unit_tests/unit-tests
+      - name: Unit Tests
+        run: |
+          export HDTN_SOURCE_ROOT=$PWD
+          cd $HDTN_SOURCE_ROOT/build
+          ./tests/unit_tests/unit-tests
 
-      # - name: Integration Tests
-      #  run: |
-      #    export HDTN_SOURCE_ROOT=$PWD
-      #    cd $HDTN_SOURCE_ROOT
-      #    cd build
-      #    ./tests/integrated_tests/integrated-tests
+      - name: Integration Tests
+        run: |
+          export HDTN_SOURCE_ROOT=$PWD
+          cd $HDTN_SOURCE_ROOT/build
+          ./tests/integrated_tests/integrated-tests
 
   debian-x64-test:
     runs-on: [self-hosted, Linux, X64, debian]
@@ -85,12 +83,11 @@ jobs:
           cd $HDTN_SOURCE_ROOT/build
           ./tests/unit_tests/unit-tests
 
-      #- name: Integration Tests
-      #  run: |
-      #    export HDTN_SOURCE_ROOT=$PWD
-      #    cd $HDTN_SOURCE_ROOT
-      #    cd build
-      #    ./tests/integrated_tests/integrated-tests
+      - name: Integration Tests
+        run: |
+          export HDTN_SOURCE_ROOT=/home/hdtn/HDTN_LATEST/HDTN
+          cd $HDTN_SOURCE_ROOT/build
+          ./tests/integrated_tests/integrated-tests
 
   coverity-test:
 
@@ -106,6 +103,7 @@ jobs:
           cd $HDTN_SOURCE_ROOT
           git pull
           cd $HDTN_SOURCE_ROOT/build
+          rm -rf idir
           make clean
           cov-build --dir idir make -j8
           cov-analyze --dir idir --all --enable-constraint-fpp --enable-fnptr --enable-virtual --strip-path $HDTN_SOURCE_ROOT

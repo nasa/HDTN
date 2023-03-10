@@ -28,7 +28,7 @@ class CLASS_VISIBILITY_INDUCT_MANAGER_LIB UdpInduct : public Induct {
 public:
     INDUCT_MANAGER_LIB_EXPORT UdpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig);
     INDUCT_MANAGER_LIB_EXPORT virtual ~UdpInduct() override;
-    
+    INDUCT_MANAGER_LIB_EXPORT virtual void PopulateInductTelemetry(InductTelemetry_t& inductTelem) override;
 private:
     UdpInduct();
     INDUCT_MANAGER_LIB_EXPORT void ConnectionReadyToBeDeletedNotificationReceived();

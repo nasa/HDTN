@@ -12,6 +12,7 @@ BOOST_AUTO_TEST_CASE(TelemetryRunnerInitTestCase)
     options.m_guiDocumentRoot = Environment::GetPathHdtnSourceRoot() / "module" / "telem_cmd_interface" / "src" / "gui";
     options.m_hdtnDistributedConfigPtr = std::make_shared<HdtnDistributedConfig>(); //default config, needed since inprocContextPtr is null
     TelemetryRunner runner;
-    BOOST_REQUIRE_EQUAL(true, runner.Init(NULL, options));
+    HdtnConfig hdtnConfig;
+    BOOST_REQUIRE(runner.Init(hdtnConfig, NULL, options));
     BOOST_REQUIRE_NO_THROW(runner.Stop());
 }

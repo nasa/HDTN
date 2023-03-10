@@ -65,7 +65,7 @@ bool LtpOverIpcBundleSource::ReadyToForward() {
 
 void LtpOverIpcBundleSource::SyncTransportLayerSpecificTelem() {
     if (m_ltpIpcEnginePtr) {
-        m_ltpOutductTelemetry.countUdpPacketsSent = m_ltpIpcEnginePtr->m_countAsyncSendCallbackCalls + m_ltpIpcEnginePtr->m_countBatchUdpPacketsSent;
-        m_ltpOutductTelemetry.countRxUdpCircularBufferOverruns = m_ltpIpcEnginePtr->m_countCircularBufferOverruns;
+        m_ltpOutductTelemetry.m_countUdpPacketsSent = m_ltpIpcEnginePtr->m_countAsyncSendCallbackCalls + m_ltpIpcEnginePtr->m_countBatchUdpPacketsSent;
+        m_ltpOutductTelemetry.m_countRxUdpCircularBufferOverruns = m_ltpIpcEnginePtr->m_countCircularBufferOverruns;
     }
 }

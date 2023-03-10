@@ -68,3 +68,10 @@ LtpOverUdpBundleSink::~LtpOverUdpBundleSink() {
 bool LtpOverUdpBundleSink::ReadyToBeDeleted() {
     return true;
 }
+
+void LtpOverUdpBundleSink::SyncTransportLayerSpecificTelem() {
+    if (m_ltpUdpEnginePtr) {
+        m_telemetry.m_countUdpPacketsSent = m_ltpUdpEnginePtr->m_countAsyncSendCallbackCalls + m_ltpUdpEnginePtr->m_countBatchUdpPacketsSent;
+        m_telemetry.m_countRxUdpCircularBufferOverruns = m_ltpUdpEnginePtr->m_countCircularBufferOverruns;
+    }
+}

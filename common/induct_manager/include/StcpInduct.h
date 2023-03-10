@@ -28,8 +28,12 @@
 
 class CLASS_VISIBILITY_INDUCT_MANAGER_LIB StcpInduct : public Induct {
 public:
-    INDUCT_MANAGER_LIB_EXPORT StcpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig, const uint64_t maxBundleSizeBytes);
+    INDUCT_MANAGER_LIB_EXPORT StcpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback,
+        const induct_element_config_t & inductConfig, const uint64_t maxBundleSizeBytes,
+        const OnNewOpportunisticLinkCallback_t& onNewOpportunisticLinkCallback, //for telemetry (so know when a new connection is made)
+        const OnDeletedOpportunisticLinkCallback_t& onDeletedOpportunisticLinkCallback);
     INDUCT_MANAGER_LIB_EXPORT virtual ~StcpInduct() override;
+    INDUCT_MANAGER_LIB_EXPORT virtual void PopulateInductTelemetry(InductTelemetry_t& inductTelem) override;
     
 private:
     INDUCT_MANAGER_LIB_EXPORT StcpInduct();
@@ -44,6 +48,7 @@ private:
     std::unique_ptr<boost::asio::io_service::work> m_workPtr;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     std::list<StcpBundleSink> m_listStcpBundleSinks;
+    boost::mutex m_listStcpBundleSinksMutex;
     volatile bool m_allowRemoveInactiveTcpConnections;
     const uint64_t M_MAX_BUNDLE_SIZE_BYTES;
 };

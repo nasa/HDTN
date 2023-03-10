@@ -67,6 +67,9 @@ TcpclBundleSink::TcpclBundleSink(
     m_running(false)
 {
     m_base_tcpSocketPtr = tcpSocketPtr;
+    m_base_inductConnectionTelemetry.m_connectionName = tcpSocketPtr->remote_endpoint().address().to_string()
+        + ":" + boost::lexical_cast<std::string>(tcpSocketPtr->remote_endpoint().port());
+    m_base_inductConnectionTelemetry.m_inputName = std::string("*:") + boost::lexical_cast<std::string>(tcpSocketPtr->local_endpoint().port());
 
     for (unsigned int i = 0; i < M_NUM_CIRCULAR_BUFFER_VECTORS; ++i) {
         m_tcpReceiveBuffersCbVec[i].resize(M_CIRCULAR_BUFFER_BYTES_PER_VECTOR);
@@ -91,7 +94,13 @@ TcpclBundleSink::~TcpclBundleSink() {
     if (!m_base_sinkIsSafeToDelete) {
         BaseClass_DoTcpclShutdown(true, false);
         while (!m_base_sinkIsSafeToDelete) {
-            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+            try {
+                boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+            }
+            catch (const boost::thread_resource_error&) {}
+            catch (const boost::thread_interrupted&) {}
+            catch (const boost::condition_error&) {}
+            catch (const boost::lock_error&) {}
         }
     }
 
@@ -101,18 +110,23 @@ TcpclBundleSink::~TcpclBundleSink() {
     m_conditionVariableCb.notify_one();
 
     if (m_threadCbReaderPtr) {
-        m_threadCbReaderPtr->join();
-        m_threadCbReaderPtr.reset(); //delete it
+        try {
+            m_threadCbReaderPtr->join();
+            m_threadCbReaderPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping TcpclBundleSink threadCbReader";
+        }
     }
     m_base_tcpAsyncSenderPtr.reset();
 
     //print stats
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBundlesAcked " << m_base_totalBundlesAcked;
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBytesAcked " << m_base_totalBytesAcked;
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBundlesSent " << m_base_totalBundlesSent;
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalFragmentedAcked " << m_base_totalFragmentedAcked;
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalFragmentedSent " << m_base_totalFragmentedSent;
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBundleBytesSent " << m_base_totalBundleBytesSent;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBundlesAcked " << m_base_outductTelemetry.m_totalBundlesAcked;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBundleBytesAcked " << m_base_outductTelemetry.m_totalBundleBytesAcked;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBundlesSent " << m_base_outductTelemetry.m_totalBundlesSent;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalFragmentsAcked " << m_base_outductTelemetry.m_totalFragmentsAcked;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalFragmentsSent " << m_base_outductTelemetry.m_totalFragmentsSent;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBundleBytesSent " << m_base_outductTelemetry.m_totalBundleBytesSent;
 }
 
 
@@ -228,7 +242,7 @@ void TcpclBundleSink::TrySendOpportunisticBundleIfAvailable_FromIoServiceThread(
         return;
     }
     std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > bundleDataPair;
-    const std::size_t totalBundlesUnacked = m_base_totalBundlesSent - m_base_totalBundlesAcked; //same as Virtual_GetTotalBundlesUnacked
+    const std::size_t totalBundlesUnacked = m_base_outductTelemetry.m_totalBundlesSent - m_base_outductTelemetry.m_totalBundlesAcked; //same as Virtual_GetTotalBundlesUnacked
     if ((totalBundlesUnacked < M_BASE_MAX_UNACKED_BUNDLES_IN_PIPELINE) && m_tryGetOpportunisticDataFunction && m_tryGetOpportunisticDataFunction(bundleDataPair)) {
         BaseClass_Forward(bundleDataPair.first, bundleDataPair.second, static_cast<bool>(bundleDataPair.first), std::vector<uint8_t>());
     }

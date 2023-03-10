@@ -20,7 +20,8 @@
 
 Outduct::Outduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid) :
     m_outductConfig(outductConfig),
-    m_outductUuid(outductUuid)
+    m_outductUuid(outductUuid),
+    m_linkIsUpPerTimeSchedule(false)
 {}
 Outduct::~Outduct() {}
 
@@ -42,9 +43,6 @@ uint64_t Outduct::GetOutductNextHopNodeId() const {
 }
 std::string Outduct::GetConvergenceLayerName() const {
     return m_outductConfig.convergenceLayer;
-}
-uint64_t Outduct::GetOutductTelemetry(uint8_t* data, uint64_t bufferSize) {
-    return 0;
 }
 uint64_t Outduct::GetStartingMaxSendRateBitsPerSec() const noexcept {
     return 0;

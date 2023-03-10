@@ -384,13 +384,21 @@ std::shared_ptr<Outduct> OutductManager::GetOutductSharedPtrByOutductUuid(const 
     return NULL;
 }
 
-uint64_t OutductManager::GetAllOutductTelemetry(uint8_t* serialization, uint64_t bufferSize) const {
-    const uint8_t* const serializationBase = serialization;
+void OutductManager::PopulateAllOutductTelemetry(AllOutductTelemetry_t& allOutductTelem) {
+    allOutductTelem.m_listAllOutducts.clear();
+    allOutductTelem.m_totalBundlesSuccessfullySent = 0;
+    allOutductTelem.m_totalBundleBytesSuccessfullySent = 0;
     for (std::vector<std::shared_ptr<Outduct> >::const_iterator it = m_outductsVec.cbegin(); it != m_outductsVec.cend(); ++it) {
-        const std::shared_ptr<Outduct>& o = (*it);
-        const uint64_t sizeSerialized = o->GetOutductTelemetry(serialization, bufferSize);
-        serialization += sizeSerialized;
-        bufferSize -= sizeSerialized;
+        allOutductTelem.m_listAllOutducts.emplace_back();
+        std::unique_ptr<OutductTelemetry_t>& otPtr = allOutductTelem.m_listAllOutducts.back();
+        (*it)->PopulateOutductTelemetry(otPtr);
+        if (!otPtr) {
+            allOutductTelem.m_listAllOutducts.pop_back();
+        }
+        else {
+            allOutductTelem.m_totalBundlesSuccessfullySent += otPtr->m_totalBundlesAcked;
+            allOutductTelem.m_totalBundleBytesSuccessfullySent += otPtr->m_totalBundleBytesAcked;
+        }
     }
-    return serialization - serializationBase;
+    allOutductTelem.m_timestampMilliseconds = TimestampUtil::GetMillisecondsSinceEpochRfc5050();
 }

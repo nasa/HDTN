@@ -200,7 +200,7 @@ uint64_t Bpv7AbstractSecurityBlock::SerializeBpv7(uint8_t * serialization) {
     //   applicable CBOR representation of the parameter, in
     //   accordance with Section 3.10.
     if (IsSecurityContextParametersPresent()) {
-        thisSerializationSize = SerializeIdValuePairsVecBpv7(blockSpecificDataSerialization, m_securityContextParametersOptional, bufferSize);
+        thisSerializationSize = SerializeIdValuePairsVecBpv7(blockSpecificDataSerialization, m_securityContextParametersOptional, bufferSize, false);
         blockSpecificDataSerialization += thisSerializationSize;
         bufferSize -= thisSerializationSize;
     }
@@ -220,8 +220,13 @@ uint64_t Bpv7AbstractSecurityBlock::SerializeBpv7(uint8_t * serialization) {
     //
     //The set of security results for a target is also represented as
     //a CBOR array of individual results.  An individual result is
-    //represented as a 2-tuple of a result id and a result value,
-    //defined as follows.
+    /////////////BEGIN OLD DRAFT!!!!!/////////////////////////////
+    // represented as a 2-tuple of a result id and a result value,
+    /////////////END OLD DRAFT!!!!!!!
+    /////////////BEGIN CURRENT RFC!!!!/////////////////////////////
+    //  represented as a CBOR array comprising a 2-tuple of a result Id and a result value
+    /////////////END CURRENT RFC!!!!/////////////////////////////
+    //, defined as follows.
     //
     //*  Result Id.  This field identifies which security result is
     //   being specified.  Some security results capture the primary
@@ -235,7 +240,7 @@ uint64_t Bpv7AbstractSecurityBlock::SerializeBpv7(uint8_t * serialization) {
     //   the result.  This field SHALL be represented by the
     //   applicable CBOR representation of the result value, in
     //   accordance with Section 3.10.
-    thisSerializationSize = SerializeIdValuePairsVecBpv7(blockSpecificDataSerialization, m_securityResults, bufferSize);
+    thisSerializationSize = SerializeIdValuePairsVecBpv7(blockSpecificDataSerialization, m_securityResults, bufferSize, true);
     blockSpecificDataSerialization += thisSerializationSize;
     
     RecomputeCrcAfterDataModification(serialization, serializationSizeCanonical);
@@ -247,9 +252,9 @@ uint64_t Bpv7AbstractSecurityBlock::GetCanonicalBlockTypeSpecificDataSerializati
     serializationSize += CborGetEncodingSizeU64(m_securityContextFlags);
     serializationSize += m_securitySource.GetSerializationSizeBpv7();
     if (IsSecurityContextParametersPresent()) {
-        serializationSize += IdValuePairsVecBpv7SerializationSize(m_securityContextParametersOptional);
+        serializationSize += IdValuePairsVecBpv7SerializationSize(m_securityContextParametersOptional, false);
     }
-    serializationSize += IdValuePairsVecBpv7SerializationSize(m_securityResults);
+    serializationSize += IdValuePairsVecBpv7SerializationSize(m_securityResults, true);
     return serializationSize;
 }
 
@@ -296,7 +301,7 @@ bool Bpv7AbstractSecurityBlock::Virtual_DeserializeExtensionBlockDataBpv7() {
 
     if (IsSecurityContextParametersPresent()) {
         if(!DeserializeIdValuePairsVecBpv7(serialization, tmpNumBytesTakenToDecode64, bufferSize, m_securityContextParametersOptional,
-            static_cast<BPSEC_SECURITY_CONTEXT_IDENTIFIERS>(m_securityContextId), true, maxElements))
+            static_cast<BPSEC_SECURITY_CONTEXT_IDENTIFIERS>(m_securityContextId), true, maxElements, false))
         {
             return false; //failure
         }
@@ -305,7 +310,7 @@ bool Bpv7AbstractSecurityBlock::Virtual_DeserializeExtensionBlockDataBpv7() {
     }
 
     if (!DeserializeIdValuePairsVecBpv7(serialization, tmpNumBytesTakenToDecode64, bufferSize, m_securityResults,
-        static_cast<BPSEC_SECURITY_CONTEXT_IDENTIFIERS>(m_securityContextId), false, maxElements))
+        static_cast<BPSEC_SECURITY_CONTEXT_IDENTIFIERS>(m_securityContextId), false, maxElements, true))
     {
         return false; //failure
     }
@@ -320,7 +325,9 @@ bool Bpv7AbstractSecurityBlock::Virtual_DeserializeExtensionBlockDataBpv7() {
 //comprising a 2-tuple of the id and value, as follows.
 //    Id. This field SHALL be represented as a CBOR unsigned integer.
 //    Value. This field SHALL be represented by the applicable CBOR representation (treate as already raw cbor serialization here)
-uint64_t Bpv7AbstractSecurityBlock::SerializeIdValuePairsVecBpv7(uint8_t * serialization, const id_value_pairs_vec_t & idValuePairsVec, uint64_t bufferSize) {
+uint64_t Bpv7AbstractSecurityBlock::SerializeIdValuePairsVecBpv7(uint8_t * serialization,
+    const id_value_pairs_vec_t & idValuePairsVec, uint64_t bufferSize, bool encapsulatePairInArrayOfSizeOne)
+{
     uint8_t * const serializationBase = serialization;
     uint64_t thisSerializationSize;
     uint8_t * const arrayHeaderStartPtr = serialization;
@@ -330,6 +337,12 @@ uint64_t Bpv7AbstractSecurityBlock::SerializeIdValuePairsVecBpv7(uint8_t * seria
     *arrayHeaderStartPtr |= (4U << 5); //change from major type 0 (unsigned integer) to major type 4 (array)
 
     for (std::size_t i = 0; i < idValuePairsVec.size(); ++i) {
+        if (encapsulatePairInArrayOfSizeOne) {
+            ////CURRENT RFC puts the "individual (security) result" in an array of size 1:
+            *serialization++ = (4U << 5) | 1; //major type 4, additional information 1 (add cbor array of size 1)
+            --bufferSize;
+        }
+        //now the 2-tuple of a result Id and a result value
         const id_value_pair_t & idValuePair = idValuePairsVec[i];
         if (bufferSize == 0) {
             return 0;
@@ -347,10 +360,11 @@ uint64_t Bpv7AbstractSecurityBlock::SerializeIdValuePairsVecBpv7(uint8_t * seria
     }
     return serialization - serializationBase;
 }
-uint64_t Bpv7AbstractSecurityBlock::IdValuePairsVecBpv7SerializationSize(const id_value_pairs_vec_t & idValuePairsVec) {
+uint64_t Bpv7AbstractSecurityBlock::IdValuePairsVecBpv7SerializationSize(const id_value_pairs_vec_t & idValuePairsVec, bool encapsulatePairInArrayOfSizeOne) {
     uint64_t serializationSize = CborGetEncodingSizeU64(idValuePairsVec.size());
     serializationSize += idValuePairsVec.size(); //for major type 4, additional information 2 (cbor array of size 2) headers within the following loop
     for (std::size_t i = 0; i < idValuePairsVec.size(); ++i) {
+        serializationSize += encapsulatePairInArrayOfSizeOne; ////CURRENT RFC puts the "individual result" in an array of size 1:
         const id_value_pair_t & idValuePair = idValuePairsVec[i];
         serializationSize += CborGetEncodingSizeU64(idValuePair.first);
         serializationSize += idValuePair.second->GetSerializationSize(); //value
@@ -358,7 +372,9 @@ uint64_t Bpv7AbstractSecurityBlock::IdValuePairsVecBpv7SerializationSize(const i
     return serializationSize;
 }
 bool Bpv7AbstractSecurityBlock::DeserializeIdValuePairsVecBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize,
-    id_value_pairs_vec_t & idValuePairsVec, const BPSEC_SECURITY_CONTEXT_IDENTIFIERS securityContext, const bool isForSecurityParameters, const uint64_t maxElements) {
+    id_value_pairs_vec_t & idValuePairsVec, const BPSEC_SECURITY_CONTEXT_IDENTIFIERS securityContext,
+    const bool isForSecurityParameters, const uint64_t maxElements, bool pairIsEncapsulateInArrayOfSizeOne)
+{
     const uint8_t * const serializationBase = serialization;
 
     if (bufferSize == 0) {
@@ -376,6 +392,14 @@ bool Bpv7AbstractSecurityBlock::DeserializeIdValuePairsVecBpv7(uint8_t * seriali
         idValuePairsVec.resize(0);
         idValuePairsVec.reserve(maxElements);
         for (std::size_t i = 0; i < maxElements; ++i) {
+            if (pairIsEncapsulateInArrayOfSizeOne) {
+                ////CURRENT RFC puts the "individual security result" in an array of size 1:
+                if (*serialization++ != ((4U << 5) | 1)) { //major type 4, additional information 1 (add cbor array of size 1)
+                    return false;
+                }
+                --bufferSize;
+                //now the 2-tuple of a result Id and a result value
+            }
             idValuePairsVec.emplace_back();
             id_value_pair_t & idValuePair = idValuePairsVec.back();
             uint64_t tmpNumBytesTakenToDecode64;
@@ -414,6 +438,14 @@ bool Bpv7AbstractSecurityBlock::DeserializeIdValuePairsVecBpv7(uint8_t * seriali
 
         idValuePairsVec.resize(numElements);
         for (std::size_t i = 0; i < numElements; ++i) {
+            if (pairIsEncapsulateInArrayOfSizeOne) {
+                ////CURRENT RFC puts the "individual security result" in an array of size 1:
+                if (*serialization++ != ((4U << 5) | 1)) { //major type 4, additional information 1 (add cbor array of size 1)
+                    return false;
+                }
+                --bufferSize;
+                //now the 2-tuple of a result Id and a result value
+            }
             id_value_pair_t & idValuePair = idValuePairsVec[i];
             uint64_t tmpNumBytesTakenToDecode64;
             if (!DeserializeIdValuePairBpv7(serialization, tmpNumBytesTakenToDecode64, bufferSize, idValuePair, securityContext, isForSecurityParameters)) {

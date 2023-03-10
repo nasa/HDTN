@@ -19,6 +19,7 @@
 #include <boost/program_options.hpp>
 #include <boost/thread.hpp>
 #include <boost/tokenizer.hpp>
+#include <boost/asio.hpp>
 
 #include "TelemetryRunner.h"
 #include "Logger.h"
@@ -29,8 +30,11 @@
 #include "TelemetryLogger.h"
 #include "Environment.h"
 #include "DeadlineTimer.h"
-#include "WebsocketServer.h"
 #include "ThreadNamer.h"
+#include <queue>
+#ifdef USE_WEB_INTERFACE
+#include "BeastWebsocketServer.h"
+#endif
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::telem;
 
@@ -49,25 +53,46 @@ static const unsigned int REC_INGRESS = 0x01;
 static const unsigned int REC_EGRESS = 0x02;
 static const unsigned int REC_STORAGE = 0x04;
 
+static void CustomCleanupStdString(void* data, void* hint) {
+    delete static_cast<std::string*>(hint);
+}
+
 /**
  * TelemetryRunner implementation class 
  */
 class TelemetryRunner::Impl : private boost::noncopyable {
     public:
         Impl();
-        bool Init(zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions& options);
+        bool Init(const HdtnConfig& hdtnConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions& options);
         bool ShouldExit();
         void Stop();
 
     private:
         void ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDistributedConfigPtr, zmq::context_t * inprocContextPtr);
-        void OnNewTelemetry(uint8_t* buffer, uint64_t bufferSize);
+        void OnNewJsonTelemetry(const char* buffer, uint64_t bufferSize);
+        void OnNewWebsocketConnectionCallback(WebsocketSessionPublicBase& conn);
+        bool OnNewWebsocketDataReceivedCallback(WebsocketSessionPublicBase& conn, std::string& receivedString);
 
         volatile bool m_running;
         std::unique_ptr<boost::thread> m_threadPtr;
-        std::unique_ptr<WebsocketServer> m_websocketServerPtr;
+#ifdef USE_WEB_INTERFACE
+        std::unique_ptr<BeastWebsocketServer> m_websocketServerPtr;
+#endif
         std::unique_ptr<TelemetryLogger> m_telemetryLoggerPtr;
         DeadlineTimer m_deadlineTimer;
+        HdtnConfig m_hdtnConfig;
+
+        boost::mutex m_lastSerializedAllOutductCapabilitiesMutex;
+        std::shared_ptr<std::string> m_lastJsonSerializedAllOutductCapabilitiesPtr;
+
+        std::queue<zmq::message_t> m_apiCallsToIngressQueue;
+        boost::mutex m_apiCallsToIngressQueueMutex;
+
+        std::queue<zmq::message_t> m_apiCallsToEgressQueue;
+        boost::mutex m_apiCallsToEgressQueueMutex;
+
+        std::queue<zmq::message_t> m_apiCallsToStorageQueue;
+        boost::mutex m_apiCallsToStorageQueueMutex;
 };
 
 /**
@@ -77,23 +102,19 @@ TelemetryRunner::TelemetryRunner()
     : m_pimpl(boost::make_unique<TelemetryRunner::Impl>())
 {}
 
-bool TelemetryRunner::Init(zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options)
-{
-    return m_pimpl->Init(inprocContextPtr, options);
+bool TelemetryRunner::Init(const HdtnConfig& hdtnConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options) {
+    return m_pimpl->Init(hdtnConfig, inprocContextPtr, options);
 }
 
-bool TelemetryRunner::ShouldExit()
-{
+bool TelemetryRunner::ShouldExit() {
     return m_pimpl->ShouldExit();
 }
 
-void TelemetryRunner::Stop()
-{
+void TelemetryRunner::Stop() {
     m_pimpl->Stop();
 }
 
-TelemetryRunner::~TelemetryRunner()
-{
+TelemetryRunner::~TelemetryRunner() {
     Stop();
 }
 
@@ -103,19 +124,50 @@ TelemetryRunner::~TelemetryRunner()
 
 TelemetryRunner::Impl::Impl() :
     m_running(false),
-    m_deadlineTimer(THREAD_POLL_INTERVAL_MS)
-    {}
+    m_deadlineTimer(THREAD_POLL_INTERVAL_MS) {}
 
-bool TelemetryRunner::Impl::Init(zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options)
-{
+bool TelemetryRunner::Impl::Init(const HdtnConfig& hdtnConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options) {
     if ((inprocContextPtr == NULL) && (!options.m_hdtnDistributedConfigPtr)) {
         LOG_ERROR(subprocess) << "Error in TelemetryRunner Init: using distributed mode but Hdtn Distributed Config is invalid";
         return false;
     }
+    m_hdtnConfig = hdtnConfig;
 #ifdef USE_WEB_INTERFACE
-    m_websocketServerPtr = boost::make_unique<WebsocketServer>();
-    m_websocketServerPtr->Init(options.m_guiDocumentRoot, options.m_guiPortNumber);
-#endif
+# ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
+    boost::asio::ssl::context sslContext(boost::asio::ssl::context::sslv23_server);
+    if (options.m_sslPaths.m_valid) {
+        try {
+            //tcpclv4 server supports tls 1.2 and 1.3 only
+            sslContext.set_options(
+                boost::asio::ssl::context::default_workarounds
+                | boost::asio::ssl::context::no_sslv2
+                | boost::asio::ssl::context::no_sslv3
+                | boost::asio::ssl::context::no_tlsv1
+                | boost::asio::ssl::context::no_tlsv1_1
+                | boost::asio::ssl::context::single_dh_use);
+            if (options.m_sslPaths.m_certificateChainPemFile.size()) {
+                sslContext.use_certificate_chain_file(options.m_sslPaths.m_certificateChainPemFile.string());
+            }
+            else {
+                sslContext.use_certificate_file(options.m_sslPaths.m_certificatePemFile.string(), boost::asio::ssl::context::pem);
+            }
+            sslContext.use_private_key_file(options.m_sslPaths.m_privateKeyPemFile.string(), boost::asio::ssl::context::pem);
+            sslContext.use_tmp_dh_file(options.m_sslPaths.m_diffieHellmanParametersPemFile.string()); //"C:/hdtn_ssl_certificates/dh4096.pem"
+        }
+        catch (boost::system::system_error& e) {
+            LOG_ERROR(subprocess) << "SSL error in TelemetryRunner Init: " << e.what();
+            return false;
+        }
+    }
+    m_websocketServerPtr = boost::make_unique<BeastWebsocketServer>(std::move(sslContext), options.m_sslPaths.m_valid);
+# else
+    m_websocketServerPtr = boost::make_unique<BeastWebsocketServer>();
+# endif //#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
+    m_websocketServerPtr->Init(options.m_guiDocumentRoot, options.m_guiPortNumber,
+        boost::bind(&TelemetryRunner::Impl::OnNewWebsocketConnectionCallback, this, boost::placeholders::_1),
+        boost::bind(&TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback, this,
+            boost::placeholders::_1, boost::placeholders::_2));
+#endif //USE_WEB_INTERFACE
 
 #ifdef DO_STATS_LOGGING
     m_telemetryLoggerPtr = boost::make_unique<TelemetryLogger>();
@@ -127,15 +179,49 @@ bool TelemetryRunner::Impl::Init(zmq::context_t *inprocContextPtr, TelemetryRunn
     return true;
 }
 
-void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDistributedConfigPtr, zmq::context_t *inprocContextPtr)
-{
+void TelemetryRunner::Impl::OnNewWebsocketConnectionCallback(WebsocketSessionPublicBase& conn) {
+    //std::cout << "newconn\n";
+    conn.AsyncSendTextData(std::make_shared<std::string>(m_hdtnConfig.ToJson()));
+    {
+        boost::mutex::scoped_lock lock(m_lastSerializedAllOutductCapabilitiesMutex);
+        if (m_lastJsonSerializedAllOutductCapabilitiesPtr->size()) {
+            conn.AsyncSendTextData(std::shared_ptr<std::string>(m_lastJsonSerializedAllOutductCapabilitiesPtr)); //create copy of shared ptr and move the copy in
+        }
+    }
+}
+bool TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback(WebsocketSessionPublicBase& conn, std::string& receivedString) {
+    //std::cout << "newdata " << receivedString << "\n";
+    boost::property_tree::ptree pt;
+    if (JsonSerializable::GetPropertyTreeFromJsonString(receivedString, pt)) {
+        std::string apiCall;
+        try {
+            apiCall = pt.get<std::string>("apiCall");
+        }
+        catch (const boost::property_tree::ptree_error& e) {
+            LOG_ERROR(subprocess) << "parsing JSON OnNewWebsocketDataReceivedCallback: " << e.what();
+            return true; //keep open
+        }
+        //LOG_INFO(subprocess) << "got api call " << apiCall;
+        std::string* apiCmdStr = new std::string(std::move(receivedString));
+        std::string& strRef = *apiCmdStr;
+        if (apiCall == "ping") {
+            boost::mutex::scoped_lock lock(m_apiCallsToIngressQueueMutex);
+            m_apiCallsToIngressQueue.emplace(&strRef[0], strRef.size(), CustomCleanupStdString, apiCmdStr);
+        }
+        else {
+            delete apiCmdStr;
+        }
+    }
+    return true;
+}
+
+void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDistributedConfigPtr, zmq::context_t *inprocContextPtr) {
     ThreadNamer::SetThisThreadName("TelemetryRunner");
     // Create and initialize connections
     std::unique_ptr<TelemetryConnection> ingressConnection;
     std::unique_ptr<TelemetryConnection> egressConnection;
     std::unique_ptr<TelemetryConnection> storageConnection;
-    try
-    {
+    try {
         if (inprocContextPtr) {
             ingressConnection = boost::make_unique<TelemetryConnection>(
                 "inproc://connecting_telem_to_from_bound_ingress",
@@ -169,8 +255,7 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
             storageConnection = boost::make_unique<TelemetryConnection>(connect_connectingTelemToFromBoundStoragePath, nullptr);
         }
     }
-    catch (std::exception& e)
-    {
+    catch (std::exception& e) {
         LOG_ERROR(subprocess) << e.what();
         return;
     }
@@ -183,22 +268,34 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
 
     // Start loop to begin polling
     
-    while (m_running)
-    {
+    while (m_running) {
         if (!m_deadlineTimer.SleepUntilNextInterval()) {
             break;
         }
 
         // Send signals to all hdtn modules
         static const zmq::const_buffer byteSignalBuf(&TELEM_REQ_MSG, sizeof(TELEM_REQ_MSG));
-        ingressConnection->SendZmqConstBufferMessage(byteSignalBuf);
-        egressConnection->SendZmqConstBufferMessage(byteSignalBuf);
-        storageConnection->SendZmqConstBufferMessage(byteSignalBuf);
+        static const zmq::const_buffer byteSignalBufPlusApi(&TELEM_REQ_MSG_PLUS_API_CALLS, sizeof(TELEM_REQ_MSG_PLUS_API_CALLS));
+        {
+            boost::mutex::scoped_lock lock(m_apiCallsToIngressQueueMutex);
+            if (m_apiCallsToIngressQueue.empty()) {
+                ingressConnection->SendZmqConstBufferMessage(byteSignalBuf, false);
+            }
+            else {
+                ingressConnection->SendZmqConstBufferMessage(byteSignalBufPlusApi, true);
+            }
+            while (!m_apiCallsToIngressQueue.empty()) {
+                const bool moreFlag = (m_apiCallsToIngressQueue.size() > 1);
+                ingressConnection->SendZmqMessage(std::move(m_apiCallsToIngressQueue.front()), moreFlag);
+                m_apiCallsToIngressQueue.pop();
+            }
+        }
+        egressConnection->SendZmqConstBufferMessage(byteSignalBuf, false);
+        storageConnection->SendZmqConstBufferMessage(byteSignalBuf, false);
 
         // Wait for telemetry from all modules
         unsigned int receiveEventsMask = 0;
-        for (unsigned int attempt = 0; attempt < NUM_POLL_ATTEMPTS; ++attempt)
-        {
+        for (unsigned int attempt = 0; attempt < NUM_POLL_ATTEMPTS; ++attempt) {
             if (receiveEventsMask == REC_ALL) {
                 break;
             }
@@ -209,18 +306,61 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
 
             if (poller.HasNewMessage(*ingressConnection)) {
                 receiveEventsMask |= REC_INGRESS;
-                zmq::message_t msg = ingressConnection->ReadMessage();
-                OnNewTelemetry((uint8_t*)msg.data(), msg.size());
+                zmq::message_t msgJson = ingressConnection->ReadMessage();
+                OnNewJsonTelemetry((const char*)msgJson.data(), msgJson.size());
+                if (m_telemetryLoggerPtr) {
+                    AllInductTelemetry_t t;
+                    if (t.SetValuesFromJsonCharArray((const char*)msgJson.data(), msgJson.size())) {
+                        m_telemetryLoggerPtr->LogTelemetry(&t);
+                    }
+                    else {
+                        LOG_ERROR(subprocess) << "cannot deserialize AllInductTelemetry_t for TelemetryLogger";
+                    }
+                }
             }
             if (poller.HasNewMessage(*egressConnection)) {
                 receiveEventsMask |= REC_EGRESS;
                 zmq::message_t msg = egressConnection->ReadMessage();
-                OnNewTelemetry((uint8_t*)msg.data(), msg.size());
+                zmq::message_t msg2;
+                const zmq::message_t* messageOutductTelemPtr = &msg;
+                OnNewJsonTelemetry((const char*)msg.data(), msg.size());
+                if (msg.more()) { //msg was Aoct type, msg2 is normal ouduct telem
+                    {
+                        boost::mutex::scoped_lock lock(m_lastSerializedAllOutductCapabilitiesMutex);
+                        m_lastJsonSerializedAllOutductCapabilitiesPtr = std::make_shared<std::string>(msg.to_string());
+                    }
+#ifdef USE_WEB_INTERFACE
+                    if (m_websocketServerPtr) {
+                        m_websocketServerPtr->SendTextDataToActiveWebsockets(m_lastJsonSerializedAllOutductCapabilitiesPtr);
+                    }
+#endif
+                    msg2 = egressConnection->ReadMessage();
+                    OnNewJsonTelemetry((const char*)msg2.data(), msg2.size());
+                    messageOutductTelemPtr = &msg2;
+                }
+                if (m_telemetryLoggerPtr) {
+                    AllOutductTelemetry_t t;
+                    if (t.SetValuesFromJsonCharArray((const char*)messageOutductTelemPtr->data(), messageOutductTelemPtr->size())) {
+                        m_telemetryLoggerPtr->LogTelemetry(&t);
+                    }
+                    else {
+                        LOG_ERROR(subprocess) << "cannot deserialize AllOutductTelemetry_t for TelemetryLogger";
+                    }
+                }
             }
             if (poller.HasNewMessage(*storageConnection)) {
                 receiveEventsMask |= REC_STORAGE;
-                zmq::message_t msg = storageConnection->ReadMessage();
-                OnNewTelemetry((uint8_t*)msg.data(), msg.size());
+                zmq::message_t msgJson = storageConnection->ReadMessage();
+                OnNewJsonTelemetry((const char*)msgJson.data(), msgJson.size());
+                if (m_telemetryLoggerPtr) {
+                    StorageTelemetry_t t;
+                    if (t.SetValuesFromJsonCharArray((const char*)msgJson.data(), msgJson.size())) {
+                        m_telemetryLoggerPtr->LogTelemetry(&t);
+                    }
+                    else {
+                        LOG_ERROR(subprocess) << "cannot deserialize StorageTelemetry_t for TelemetryLogger";
+                    }
+                }
             }
         }
         if (receiveEventsMask != REC_ALL) {
@@ -230,31 +370,19 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
     LOG_DEBUG(subprocess) << "ThreadFunc exiting";
 }
 
-void TelemetryRunner::Impl::OnNewTelemetry(uint8_t* buffer, uint64_t bufferSize)
-{
+
+void TelemetryRunner::Impl::OnNewJsonTelemetry(const char* buffer, uint64_t bufferSize) {
+    //printf("%.*s", (int)bufferSize, buffer); //not null terminated
+#ifdef USE_WEB_INTERFACE
     if (m_websocketServerPtr) {
-        m_websocketServerPtr->SendNewBinaryData((const char*)buffer, bufferSize);
+        std::shared_ptr<std::string> strPtr = std::make_shared<std::string>(buffer, bufferSize);
+        m_websocketServerPtr->SendTextDataToActiveWebsockets(strPtr);
     }
-    if (m_telemetryLoggerPtr) {
-        std::vector<std::unique_ptr<Telemetry_t>> telemList;
-        try {
-            telemList = TelemetryFactory::DeserializeFromLittleEndian(buffer, bufferSize);
-        }
-        catch (std::exception& e) {
-            LOG_ERROR(subprocess) << e.what();
-            return;
-        }
-        for (std::unique_ptr<Telemetry_t>& telem : telemList) {
-            m_telemetryLoggerPtr->LogTelemetry(telem.get());
-        }
-    }
+#endif
 }
 
-bool TelemetryRunner::Impl::ShouldExit()
-{
-    if (m_websocketServerPtr) {
-        return m_websocketServerPtr->RequestsExit();
-    }
+bool TelemetryRunner::Impl::ShouldExit() {
+    //websocket server does not support this
     return false;
 }
 
@@ -262,19 +390,20 @@ void TelemetryRunner::Impl::Stop() {
     m_running = false;
     m_deadlineTimer.Disable();
     m_deadlineTimer.Cancel();
-    if (!m_threadPtr) {
-        return;
+    if (m_threadPtr) {
+        try {
+            m_threadPtr->join();
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping TelemetryRunner thread";
+        }
+        m_threadPtr.reset(); // delete it
     }
-    try {
-        m_threadPtr->join();
+#ifdef USE_WEB_INTERFACE
+    //stop websocket after thread
+    if (m_websocketServerPtr) {
+        m_websocketServerPtr->Stop();
+        m_websocketServerPtr.reset();
     }
-    catch (std::exception& e) {
-        LOG_WARNING(subprocess) << e.what();
-    }
-    m_threadPtr.reset(); // delete it
-    
-    //The following is implicitly done at destruction.  If print statements are
-    // added before and after this reset(), you will observe this part takes at least a second.
-    // We may want to optimize this at some point.
-    //m_websocketServerPtr.reset();
+#endif
 }

@@ -43,6 +43,9 @@ StcpBundleSink::StcpBundleSink(std::shared_ptr<boost::asio::ip::tcp::socket> tcp
     m_running(false),
     m_safeToDelete(false)
 {
+    m_telemetry.m_connectionName = tcpSocketPtr->remote_endpoint().address().to_string() 
+        + ":" + boost::lexical_cast<std::string>(tcpSocketPtr->remote_endpoint().port());
+    m_telemetry.m_inputName = std::string("*:") + boost::lexical_cast<std::string>(tcpSocketPtr->local_endpoint().port());
     LOG_INFO(subprocess) << "stcp sink using CB size: " << M_NUM_CIRCULAR_BUFFER_VECTORS;
     m_running = true;
     m_threadCbReaderPtr = boost::make_unique<boost::thread>(
@@ -56,7 +59,13 @@ StcpBundleSink::~StcpBundleSink() {
     if (!m_safeToDelete) {
         DoStcpShutdown();
         while (!m_safeToDelete) {
-            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+            try {
+                boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+            }
+            catch (const boost::thread_resource_error&) {}
+            catch (const boost::thread_interrupted&) {}
+            catch (const boost::condition_error&) {}
+            catch (const boost::lock_error&) {}
         }
     }
     
@@ -66,8 +75,13 @@ StcpBundleSink::~StcpBundleSink() {
     m_conditionVariableCb.notify_one();
 
     if (m_threadCbReaderPtr) {
-        m_threadCbReaderPtr->join();
-        m_threadCbReaderPtr.reset(); //delete it
+        try {
+            m_threadCbReaderPtr->join();
+            m_threadCbReaderPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping StcpBundleSink threadCbReader";
+        }
     }
 }
 
@@ -99,6 +113,7 @@ void StcpBundleSink::TryStartTcpReceive() {
 
 void StcpBundleSink::HandleTcpReceiveIncomingBundleSize(const boost::system::error_code & error, std::size_t bytesTransferred, const unsigned int writeIndex) {
     if (!error) {
+        m_telemetry.m_totalStcpBytesReceived += bytesTransferred;
         if (m_incomingBundleSize == 0) { //keepalive (0 is endian agnostic)
             LOG_INFO(subprocess) << "keepalive packet received";
             //StartTcpReceiveIncomingBundleSize
@@ -144,6 +159,9 @@ void StcpBundleSink::HandleTcpReceiveBundleData(const boost::system::error_code 
             m_circularIndexBuffer.CommitWrite(); //write complete at this point
             m_mutexCb.unlock();
             m_conditionVariableCb.notify_one();
+            m_telemetry.m_totalBundleBytesReceived += bytesTransferred;
+            m_telemetry.m_totalStcpBytesReceived += bytesTransferred;
+            ++(m_telemetry.m_totalBundlesReceived);
             m_stateTcpReadActive = false; //must be false before calling TryStartTcpReceive
             TryStartTcpReceive(); //restart operation only if there was no error
         }

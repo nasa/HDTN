@@ -7,6 +7,8 @@ Delay Tolerant Networking (DTN) has been identified as a key technology to facil
 
 High-rate Delay Tolerant Networking (HDTN) takes advantage of modern hardware platforms to substantially reduce latency and improve throughput compared to today’s DTN operations. HDTN maintains compatibility with existing deployments of DTN that conform to IETF RFC 5050. At the same time, HDTN defines a new data format better suited to higher-rate operation. It defines and adopts a massively parallel pipelined and message-oriented architecture, allowing the system to scale gracefully as its resources increase. HDTN’s architecture also supports hooks to replace various processing pipeline elements with specialized hardware accelerators. This offers improved Size, Weight, and Power (SWaP) characteristics while reducing development complexity and cost.
 
+Also see the [HDTN wiki](https://github.com/nasa/HDTN/wiki) for more information. 
+
 Build Environment
 ==================
 ## Tested Platforms ##
@@ -46,10 +48,6 @@ sudo yum install cmake boost-devel zeromq zeromq-devel
 * Ubuntu distributions may install an older CMake version that is not compatible
 * Some processors may not support hardware acceleration or the RDSEED instruction, both ON by default in the cmake file
 
-
-## Optional CivetWeb Dependencies ## 
-HDTN build environment optionally requires the CivetWeb Embedded C/C++ Web Server Library for displaying real time HDTN data if and only if running in non-distributed mode (using hdtn-one-process executable only).
-* See Web Interface section below for instructions how to install and build.
 
 ## Notes on C++ Standard Version ##
 HDTN build environment sets by default the CMake cache variable `HDTN_TRY_USE_CPP17` to `On`.
@@ -165,21 +163,9 @@ To generate the Diffie-Hellman parameters PEM file (which is installed on an ind
 
 Web User Interface
 =========
-This repository comes equiped with code to launch a web-based user interface to display statistics for the HDTN engine. However it relies on a dependency called CivetWeb which must be installed. 
-CivetWeb can be found here: https://sourceforge.net/projects/civetweb/
-Download and extract the Civetweb repository. Then use the following instructions to create a moveable library on Linux:
-* cd civetweb
-* make build
-* make clean lib WITH_WEBSOCKET=1 WITH_CPP=1
-
-Under the HDTN home directory, follow these commands to create locations for the new dependencies:
-* mkdir external
-* mkdir external/include
-* mkdir external/lib
-
-Now move the following files from civetweb to HDTN:
-* Move the CivetServer.h and civetweb.h (located at civetweb/include/) files from the Civetweb directory to HDTN/external/include/
-* Move the libcivetweb.a file to HDTN/external/lib/
+This repository comes equiped with code to launch a web-based user interface to display statistics for the HDTN engine.
+It relies on a dependency called Boost Beast which is packaged as a header-only library that comes with a standard Boost installation.
+The web interface requires OpenSSL since the web interface supports both http as well as https, and hence both ws (WebSocket) and wss (WebSocket Secure).
 
 From the HDTN directory, compile HDTN, open the CMakeCache file in the build directory and turn on the web interface:
 * mkdir build

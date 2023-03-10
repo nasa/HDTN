@@ -58,30 +58,51 @@ StcpBundleSource::~StcpBundleSource() {
 
 void StcpBundleSource::Stop() {
     //prevent StcpBundleSource from exiting before all bundles sent and acked
-    boost::mutex localMutex;
-    boost::mutex::scoped_lock lock(localMutex);
-    m_useLocalConditionVariableAckReceived = true;
-    std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
-    for (unsigned int attempt = 0; attempt < 20; ++attempt) {
-        const std::size_t numUnacked = GetTotalDataSegmentsUnacked();
-        if (numUnacked) {
-            LOG_INFO(subprocess) << "StcpBundleSource destructor waiting on " << numUnacked << " unacked bundles";
+    try {
+        { //scope for destruction of lock within try block
+            boost::mutex localMutex;
+            boost::mutex::scoped_lock lock(localMutex);
+            m_useLocalConditionVariableAckReceived = true;
+            std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
+            for (unsigned int attempt = 0; attempt < 20; ++attempt) {
+                const std::size_t numUnacked = GetTotalDataSegmentsUnacked();
+                if (numUnacked) {
+                    LOG_INFO(subprocess) << "StcpBundleSource destructor waiting on " << numUnacked << " unacked bundles";
 
 
-            if (previousUnacked > numUnacked) {
-                previousUnacked = numUnacked;
-                attempt = 0;
+                    if (previousUnacked > numUnacked) {
+                        previousUnacked = numUnacked;
+                        attempt = 0;
+                    }
+                    m_localConditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(500)); // call lock.unlock() and blocks the current thread
+                    continue;
+                }
+                break;
             }
-            m_localConditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(500)); // call lock.unlock() and blocks the current thread
-            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
-            continue;
         }
-        break;
+    }
+    catch (const boost::condition_error& e) {
+        LOG_ERROR(subprocess) << "condition_error in StcpBundleSource::Stop: " << e.what();
+    }
+    catch (const boost::thread_resource_error& e) {
+        LOG_ERROR(subprocess) << "thread_resource_error in StcpBundleSource::Stop: " << e.what();
+    }
+    catch (const boost::thread_interrupted&) {
+        LOG_ERROR(subprocess) << "thread_interrupted in StcpBundleSource::Stop";
+    }
+    catch (const boost::lock_error& e) {
+        LOG_ERROR(subprocess) << "lock_error in StcpBundleSource::Stop: " << e.what();
     }
 
     DoStcpShutdown(0);
     while (!m_stcpShutdownComplete) {
-        boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+        try {
+            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+        }
+        catch (const boost::thread_resource_error&) {}
+        catch (const boost::thread_interrupted&) {}
+        catch (const boost::condition_error&) {}
+        catch (const boost::lock_error&) {}
     }
 
     m_tcpAsyncSenderPtr.reset(); //stop this first
@@ -90,17 +111,22 @@ void StcpBundleSource::Stop() {
     //Subsequent calls to run(), run_one(), poll() or poll_one() will return immediately until reset() is called.
     m_ioService.stop(); //ioservice requires stopping before join because of the m_work object
 
-    if(m_ioServiceThreadPtr) {
-        m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr.reset(); //delete it
+    if (m_ioServiceThreadPtr) {
+        try {
+            m_ioServiceThreadPtr->join();
+            m_ioServiceThreadPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping StcpBundleSource io_service";
+        }
     }
 
     //print stats
-    LOG_INFO(subprocess) << "m_stcpOutductTelemetry.totalBundlesSent " << m_stcpOutductTelemetry.totalBundlesSent;
-    LOG_INFO(subprocess) << "m_stcpOutductTelemetry.totalBundlesAcked " << m_stcpOutductTelemetry.totalBundlesAcked;
-    LOG_INFO(subprocess) << "m_stcpOutductTelemetry.totalBundleBytesSent " << m_stcpOutductTelemetry.totalBundleBytesSent;
-    LOG_INFO(subprocess) << "m_stcpOutductTelemetry.totalStcpBytesSent " << m_stcpOutductTelemetry.totalStcpBytesSent;
-    LOG_INFO(subprocess) << "m_stcpOutductTelemetry.totalBundleBytesAcked " << m_stcpOutductTelemetry.totalBundleBytesAcked;
+    LOG_INFO(subprocess) << "m_stcpOutductTelemetry.totalBundlesSent " << m_stcpOutductTelemetry.m_totalBundlesSent;
+    LOG_INFO(subprocess) << "m_stcpOutductTelemetry.totalBundlesAcked " << m_stcpOutductTelemetry.m_totalBundlesAcked;
+    LOG_INFO(subprocess) << "m_stcpOutductTelemetry.totalBundleBytesSent " << m_stcpOutductTelemetry.m_totalBundleBytesSent;
+    LOG_INFO(subprocess) << "m_stcpOutductTelemetry.totalStcpBytesSent " << m_stcpOutductTelemetry.m_totalStcpBytesSent;
+    LOG_INFO(subprocess) << "m_stcpOutductTelemetry.totalBundleBytesAcked " << m_stcpOutductTelemetry.m_totalBundleBytesAcked;
 }
 
 //An STCP protocol data unit (SPDU) is simply a serialized bundle
@@ -146,11 +172,11 @@ bool StcpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& 
     }
 
 
-    ++m_stcpOutductTelemetry.totalBundlesSent;
-    m_stcpOutductTelemetry.totalBundleBytesSent += dataZmq.size();
+    ++m_stcpOutductTelemetry.m_totalBundlesSent;
+    m_stcpOutductTelemetry.m_totalBundleBytesSent += dataZmq.size();
 
     const uint32_t dataUnitSize = static_cast<uint32_t>(dataZmq.size() + sizeof(uint32_t));
-    m_stcpOutductTelemetry.totalStcpBytesSent += dataUnitSize;
+    m_stcpOutductTelemetry.m_totalStcpBytesSent += dataUnitSize;
 
 
     m_bytesToAckByTcpSendCallbackCbVec[writeIndexTcpSendCallback] = dataUnitSize;
@@ -187,11 +213,11 @@ bool StcpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8
 
 
 
-    ++m_stcpOutductTelemetry.totalBundlesSent;
-    m_stcpOutductTelemetry.totalBundleBytesSent += dataVec.size();
+    ++m_stcpOutductTelemetry.m_totalBundlesSent;
+    m_stcpOutductTelemetry.m_totalBundleBytesSent += dataVec.size();
 
     const uint32_t dataUnitSize = static_cast<uint32_t>(dataVec.size() + sizeof(uint32_t));
-    m_stcpOutductTelemetry.totalStcpBytesSent += dataUnitSize;
+    m_stcpOutductTelemetry.m_totalStcpBytesSent += dataUnitSize;
 
     m_bytesToAckByTcpSendCallbackCbVec[writeIndexTcpSendCallback] = dataUnitSize;
     m_bytesToAckByTcpSendCallbackCb.CommitWrite(); //pushed
@@ -221,11 +247,11 @@ bool StcpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size
 
 
 std::size_t StcpBundleSource::GetTotalDataSegmentsAcked() {
-    return m_stcpOutductTelemetry.totalBundlesAcked;
+    return m_stcpOutductTelemetry.m_totalBundlesAcked;
 }
 
 std::size_t StcpBundleSource::GetTotalDataSegmentsSent() {
-    return m_stcpOutductTelemetry.totalBundlesSent;
+    return m_stcpOutductTelemetry.m_totalBundlesSent;
 }
 
 std::size_t StcpBundleSource::GetTotalDataSegmentsUnacked() {
@@ -233,11 +259,11 @@ std::size_t StcpBundleSource::GetTotalDataSegmentsUnacked() {
 }
 
 std::size_t StcpBundleSource::GetTotalBundleBytesAcked() {
-    return m_stcpOutductTelemetry.totalBundleBytesAcked;
+    return m_stcpOutductTelemetry.m_totalBundleBytesAcked;
 }
 
 std::size_t StcpBundleSource::GetTotalBundleBytesSent() {
-    return m_stcpOutductTelemetry.totalBundleBytesSent;
+    return m_stcpOutductTelemetry.m_totalBundleBytesSent;
 }
 
 std::size_t StcpBundleSource::GetTotalBundleBytesUnacked() {
@@ -297,6 +323,7 @@ void StcpBundleSource::OnConnect(const boost::system::error_code & ec) {
         m_tcpAsyncSenderPtr->SetOnFailedBundleZmqSendCallback(m_onFailedBundleZmqSendCallback);
         m_tcpAsyncSenderPtr->SetUserAssignedUuid(m_userAssignedUuid);
         StartTcpReceive();
+        m_stcpOutductTelemetry.m_linkIsUpPhysically = true;
         if (m_onOutductLinkStatusChangedCallback) { //let user know of link up event
             m_onOutductLinkStatusChangedCallback(false, m_userAssignedUuid);
         }
@@ -330,8 +357,8 @@ void StcpBundleSource::HandleTcpSend(const boost::system::error_code& error, std
             LOG_ERROR(subprocess) << "AckCallback called with empty queue";
         }
         else if (m_bytesToAckByTcpSendCallbackCbVec[readIndex] == bytes_transferred) {
-            ++m_stcpOutductTelemetry.totalBundlesAcked;
-            m_stcpOutductTelemetry.totalBundleBytesAcked += m_bytesToAckByTcpSendCallbackCbVec[readIndex] - sizeof(uint32_t);
+            ++m_stcpOutductTelemetry.m_totalBundlesAcked;
+            m_stcpOutductTelemetry.m_totalBundleBytesAcked += m_bytesToAckByTcpSendCallbackCbVec[readIndex] - sizeof(uint32_t);
             m_bytesToAckByTcpSendCallbackCb.CommitRead();
 
             if (m_onSuccessfulBundleSendCallback) {
@@ -417,6 +444,7 @@ void StcpBundleSource::DoStcpShutdown(unsigned int reconnectionDelaySecondsIfNot
 void StcpBundleSource::DoHandleSocketShutdown(unsigned int reconnectionDelaySecondsIfNotZero) {
     //final code to shut down tcp sockets
     m_readyToForward = false;
+    m_stcpOutductTelemetry.m_linkIsUpPhysically = false;
     if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
         m_onOutductLinkStatusChangedCallback(true, m_userAssignedUuid);
     }

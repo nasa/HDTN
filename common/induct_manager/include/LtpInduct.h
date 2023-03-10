@@ -30,6 +30,7 @@ public:
     INDUCT_MANAGER_LIB_EXPORT LtpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig, const uint64_t maxBundleSizeBytes);
     INDUCT_MANAGER_LIB_EXPORT virtual ~LtpInduct() override;
     INDUCT_MANAGER_LIB_EXPORT virtual bool Init() override; //override NOOP base class
+    INDUCT_MANAGER_LIB_EXPORT virtual void PopulateInductTelemetry(InductTelemetry_t& inductTelem) override;
 private:
     LtpInduct() = delete;
 protected:

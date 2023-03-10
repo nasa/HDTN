@@ -20,7 +20,7 @@
 #define TELEMETRY_RUNNER_H 1
 
 #include "zmq.hpp"
-
+#include "HdtnConfig.h"
 #include "telem_lib_export.h"
 #include "TelemetryRunnerProgramOptions.h"
 
@@ -36,7 +36,7 @@ class TelemetryRunner
          * @param inprocContextPtr context to use for the inproc zmq connections
          * @param options program options for the runner
          */
-        TELEM_LIB_EXPORT bool Init(zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions& options);
+        TELEM_LIB_EXPORT bool Init(const HdtnConfig& hdtnConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions& options);
 
         /**
          * Determines whether the runner wants to exits 

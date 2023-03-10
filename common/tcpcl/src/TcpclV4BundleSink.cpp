@@ -76,12 +76,18 @@ TcpclV4BundleSink::TcpclV4BundleSink(
 {
 #ifdef OPENSSL_SUPPORT_ENABLED
     m_base_sslStreamSharedPtr = sslStreamSharedPtr;
+    m_base_inductConnectionTelemetry.m_connectionName = sslStreamSharedPtr->next_layer().remote_endpoint().address().to_string()
+        + ":" + boost::lexical_cast<std::string>(sslStreamSharedPtr->next_layer().remote_endpoint().port());
+    m_base_inductConnectionTelemetry.m_inputName = std::string("*:") + boost::lexical_cast<std::string>(m_base_sslStreamSharedPtr->next_layer().local_endpoint().port());
     m_base_tcpAsyncSenderSslPtr = boost::make_unique<TcpAsyncSenderSsl>(m_base_sslStreamSharedPtr, m_base_ioServiceRef);
     m_base_tcpAsyncSenderSslPtr->SetOnFailedBundleVecSendCallback(m_base_onFailedBundleVecSendCallback);
     m_base_tcpAsyncSenderSslPtr->SetOnFailedBundleZmqSendCallback(m_base_onFailedBundleZmqSendCallback);
     m_base_tcpAsyncSenderSslPtr->SetUserAssignedUuid(m_base_userAssignedUuid);
 #else
     m_base_tcpSocketPtr = tcpSocketPtr;
+    m_base_inductConnectionTelemetry.m_connectionName = tcpSocketPtr->remote_endpoint().address().to_string()
+        + ":" + boost::lexical_cast<std::string>(tcpSocketPtr->remote_endpoint().port());
+    m_base_inductConnectionTelemetry.m_inputName = std::string("*:") + boost::lexical_cast<std::string>(tcpSocketPtr->local_endpoint().port());
     m_base_tcpAsyncSenderPtr = boost::make_unique<TcpAsyncSender>(m_base_tcpSocketPtr, m_tcpSocketIoServiceRef);
     m_base_tcpAsyncSenderPtr->SetOnFailedBundleVecSendCallback(m_base_onFailedBundleVecSendCallback);
     m_base_tcpAsyncSenderPtr->SetOnFailedBundleZmqSendCallback(m_base_onFailedBundleZmqSendCallback);
@@ -107,7 +113,13 @@ TcpclV4BundleSink::~TcpclV4BundleSink() {
     if (!m_base_sinkIsSafeToDelete) {
         BaseClass_DoTcpclShutdown(true, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
         while (!m_base_sinkIsSafeToDelete) {
-            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+            try {
+                boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+            }
+            catch (const boost::thread_resource_error&) {}
+            catch (const boost::thread_interrupted&) {}
+            catch (const boost::condition_error&) {}
+            catch (const boost::lock_error&) {}
         }
     }
 
@@ -117,8 +129,13 @@ TcpclV4BundleSink::~TcpclV4BundleSink() {
     m_conditionVariableCb.notify_one();
 
     if (m_threadCbReaderPtr) {
-        m_threadCbReaderPtr->join();
-        m_threadCbReaderPtr.reset(); //delete it
+        try {
+            m_threadCbReaderPtr->join();
+            m_threadCbReaderPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping TcpclV4BundleSink threadCbReader";
+        }
     }
 #ifdef OPENSSL_SUPPORT_ENABLED
     m_base_tcpAsyncSenderSslPtr.reset();
@@ -324,7 +341,7 @@ void TcpclV4BundleSink::TrySendOpportunisticBundleIfAvailable_FromIoServiceThrea
         return;
     }
     std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > bundleDataPair;
-    const std::size_t totalBundlesUnacked = m_base_totalBundlesSent - m_base_totalBundlesAcked; //same as Virtual_GetTotalBundlesUnacked
+    const std::size_t totalBundlesUnacked = m_base_outductTelemetry.m_totalBundlesSent - m_base_outductTelemetry.m_totalBundlesAcked; //same as Virtual_GetTotalBundlesUnacked
     if ((totalBundlesUnacked < M_BASE_MY_MAX_TX_UNACKED_BUNDLES) && m_tryGetOpportunisticDataFunction && m_tryGetOpportunisticDataFunction(bundleDataPair)) {
         BaseClass_Forward(bundleDataPair.first, bundleDataPair.second, static_cast<bool>(bundleDataPair.first), std::vector<uint8_t>());
     }

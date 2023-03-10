@@ -166,34 +166,28 @@ bool Bpv6CanonicalBlock::DeserializeBpv6(std::unique_ptr<Bpv6CanonicalBlock> & c
     }
     const BPV6_BLOCK_TYPE_CODE blockTypeCode = static_cast<BPV6_BLOCK_TYPE_CODE>(*serialization++);
     --bufferSize;
-    if (isAdminRecord) {
-        if (blockTypeCode != BPV6_BLOCK_TYPE_CODE::PAYLOAD) { //admin records always go into a payload block
-            return false;
-        }
-        canonicalPtr = boost::make_unique<Bpv6AdministrativeRecord>();
-    }
-    else {
-        switch (blockTypeCode) {
-            case BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION:
-                canonicalPtr = boost::make_unique<Bpv6PreviousHopInsertionCanonicalBlock>();
-                break;
-            case BPV6_BLOCK_TYPE_CODE::METADATA_EXTENSION:
-                canonicalPtr = boost::make_unique<Bpv6MetadataCanonicalBlock>();
-                break;
-            case BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT:
-                canonicalPtr = boost::make_unique<Bpv6CustodyTransferEnhancementBlock>();
-                break;
-            case BPV6_BLOCK_TYPE_CODE::BUNDLE_AGE:
-                canonicalPtr = boost::make_unique<Bpv6BundleAgeCanonicalBlock>();
-                break;
-            case BPV6_BLOCK_TYPE_CODE::PAYLOAD:
-            default:
-                canonicalPtr = boost::make_unique<Bpv6CanonicalBlock>();
-                break;
-        }
+    switch (blockTypeCode) {
+        case BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION:
+            canonicalPtr = boost::make_unique<Bpv6PreviousHopInsertionCanonicalBlock>();
+            break;
+        case BPV6_BLOCK_TYPE_CODE::METADATA_EXTENSION:
+            canonicalPtr = boost::make_unique<Bpv6MetadataCanonicalBlock>();
+            break;
+        case BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT:
+            canonicalPtr = boost::make_unique<Bpv6CustodyTransferEnhancementBlock>();
+            break;
+        case BPV6_BLOCK_TYPE_CODE::BUNDLE_AGE:
+            canonicalPtr = boost::make_unique<Bpv6BundleAgeCanonicalBlock>();
+            break;
+        case BPV6_BLOCK_TYPE_CODE::PAYLOAD:
+            //admin records always go into a payload block
+            canonicalPtr = (isAdminRecord) ? boost::make_unique<Bpv6AdministrativeRecord>() : boost::make_unique<Bpv6CanonicalBlock>();
+            break;
+        default:
+            canonicalPtr = boost::make_unique<Bpv6CanonicalBlock>();
+            break;
     }
     canonicalPtr->m_blockTypeCode = blockTypeCode;
-
     //Block processing control flags, an unsigned integer expressed as
     //an SDNV.  The individual bits of this integer are used to invoke
     //selected block processing control features.
