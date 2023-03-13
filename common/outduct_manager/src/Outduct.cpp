@@ -21,7 +21,9 @@
 Outduct::Outduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid) :
     m_outductConfig(outductConfig),
     m_outductUuid(outductUuid),
-    m_linkIsUpPerTimeSchedule(false)
+    m_linkIsUpPerTimeSchedule(false),
+    m_physicalLinkStatusIsKnown(false),
+    m_linkIsUpPhysically(false) //don't care, set properly when m_physicalLinkStatusIsKnown gets set to true
 {}
 Outduct::~Outduct() {}
 

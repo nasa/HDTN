@@ -82,6 +82,8 @@ protected:
     const uint64_t m_outductUuid;
 public:
     bool m_linkIsUpPerTimeSchedule;
+    bool m_physicalLinkStatusIsKnown;
+    bool m_linkIsUpPhysically;
 };
 
 #endif // OUTDUCT_H

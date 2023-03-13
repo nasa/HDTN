@@ -1149,9 +1149,11 @@ void LtpEngine::CancelAcknowledgementSegmentReceivedCallback(const Ltp::session_
         if (isPing) {
             //sender ping is successful
             M_NEXT_PING_START_EXPIRY = boost::posix_time::microsec_clock::universal_time() + M_SENDER_PING_TIME;
-            m_senderLinkIsUpPhysically = true;
-            if (m_onOutductLinkStatusChangedCallback) { //let user know of link up event
-                m_onOutductLinkStatusChangedCallback(false, m_userAssignedUuid);
+            if (!m_senderLinkIsUpPhysically) {
+                m_senderLinkIsUpPhysically = true;
+                if (m_onOutductLinkStatusChangedCallback) { //let user know of link up event
+                    m_onOutductLinkStatusChangedCallback(false, m_userAssignedUuid);
+                }
             }
         }
         else if ((!isToSender)) {
@@ -1192,9 +1194,11 @@ void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmen
             //sender ping failed
             ++m_totalPingsFailedToSend;
             M_NEXT_PING_START_EXPIRY = boost::posix_time::microsec_clock::universal_time() + M_SENDER_PING_TIME;
-            m_senderLinkIsUpPhysically = false;
-            if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
-                m_onOutductLinkStatusChangedCallback(true, m_userAssignedUuid);
+            if (m_senderLinkIsUpPhysically) {
+                m_senderLinkIsUpPhysically = false;
+                if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
+                    m_onOutductLinkStatusChangedCallback(true, m_userAssignedUuid);
+                }
             }
         }
         else {
@@ -1665,9 +1669,11 @@ void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) 
 }
 
 void LtpEngine::DoExternalLinkDownEvent() {
-    m_senderLinkIsUpPhysically = false;
-    if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
-        m_onOutductLinkStatusChangedCallback(true, m_userAssignedUuid);
+    if (m_senderLinkIsUpPhysically) {
+        m_senderLinkIsUpPhysically = false;
+        if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
+            m_onOutductLinkStatusChangedCallback(true, m_userAssignedUuid);
+        }
     }
 }
 void LtpEngine::PostExternalLinkDownEvent_ThreadSafe() {
