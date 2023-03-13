@@ -876,7 +876,8 @@ uint64_t OutductTelemetry_t::GetTotalBundleBytesQueued() const {
 
 StcpOutductTelemetry_t::StcpOutductTelemetry_t() :
     OutductTelemetry_t(),
-    m_totalStcpBytesSent(0)
+    m_totalStcpBytesSent(0),
+    m_numTcpReconnectAttempts(0)
 {
     m_convergenceLayer = "stcp";
 }
@@ -885,7 +886,8 @@ StcpOutductTelemetry_t::~StcpOutductTelemetry_t() {};
 bool StcpOutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
     if (const StcpOutductTelemetry_t* oPtr = dynamic_cast<const StcpOutductTelemetry_t*>(&o)) {
         return OutductTelemetry_t::operator==(o)
-            && (m_totalStcpBytesSent == oPtr->m_totalStcpBytesSent);
+            && (m_totalStcpBytesSent == oPtr->m_totalStcpBytesSent)
+            && (m_numTcpReconnectAttempts == oPtr->m_numTcpReconnectAttempts);
     }
     return false;
 }
@@ -899,6 +901,7 @@ bool StcpOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tre
     }
     try {
         m_totalStcpBytesSent = pt.get<uint64_t>("totalStcpBytesSent");
+        m_numTcpReconnectAttempts = pt.get<uint64_t>("numTcpReconnectAttempts");
     }
     catch (const boost::property_tree::ptree_error& e) {
         LOG_ERROR(subprocess) << "parsing JSON StcpOutductTelemetry_t: " << e.what();
@@ -910,6 +913,7 @@ bool StcpOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tre
 boost::property_tree::ptree StcpOutductTelemetry_t::GetNewPropertyTree() const {
     boost::property_tree::ptree pt = OutductTelemetry_t::GetNewPropertyTree();
     pt.put("totalStcpBytesSent", m_totalStcpBytesSent);
+    pt.put("numTcpReconnectAttempts", m_numTcpReconnectAttempts);
     return pt;
 }
 
@@ -1012,8 +1016,11 @@ boost::property_tree::ptree LtpOutductTelemetry_t::GetNewPropertyTree() const {
 
 TcpclV3OutductTelemetry_t::TcpclV3OutductTelemetry_t() :
     OutductTelemetry_t(),
-    m_totalFragmentsAcked(0), m_totalFragmentsSent(0), m_totalBundlesReceived(0),
-    m_totalBundleBytesReceived(0)
+    m_totalFragmentsAcked(0),
+    m_totalFragmentsSent(0),
+    m_totalBundlesReceived(0),
+    m_totalBundleBytesReceived(0),
+    m_numTcpReconnectAttempts(0)
 {
     m_convergenceLayer = "tcpcl_v3";
 }
@@ -1024,7 +1031,8 @@ bool TcpclV3OutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
             && (m_totalFragmentsAcked == oPtr->m_totalFragmentsAcked)
             && (m_totalFragmentsSent == oPtr->m_totalFragmentsSent)
             && (m_totalBundlesReceived == oPtr->m_totalBundlesReceived)
-            && (m_totalBundleBytesReceived == oPtr->m_totalBundleBytesReceived);
+            && (m_totalBundleBytesReceived == oPtr->m_totalBundleBytesReceived)
+            && (m_numTcpReconnectAttempts == oPtr->m_numTcpReconnectAttempts);
     }
     return false;
 }
@@ -1040,6 +1048,7 @@ bool TcpclV3OutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_
         m_totalFragmentsSent = pt.get<uint64_t>("totalFragmentsSent");
         m_totalBundlesReceived = pt.get<uint64_t>("totalBundlesReceived");
         m_totalBundleBytesReceived = pt.get<uint64_t>("totalBundleBytesReceived");
+        m_numTcpReconnectAttempts = pt.get<uint64_t>("numTcpReconnectAttempts");
     }
     catch (const boost::property_tree::ptree_error& e) {
         LOG_ERROR(subprocess) << "parsing JSON TcpclV3OutductTelemetry_t: " << e.what();
@@ -1053,13 +1062,17 @@ boost::property_tree::ptree TcpclV3OutductTelemetry_t::GetNewPropertyTree() cons
     pt.put("totalFragmentsSent", m_totalFragmentsSent);
     pt.put("totalBundlesReceived", m_totalBundlesReceived);
     pt.put("totalBundleBytesReceived", m_totalBundleBytesReceived);
+    pt.put("numTcpReconnectAttempts", m_numTcpReconnectAttempts);
     return pt;
 }
 
 TcpclV4OutductTelemetry_t::TcpclV4OutductTelemetry_t() :
     OutductTelemetry_t(),
-    m_totalFragmentsAcked(0), m_totalFragmentsSent(0), m_totalBundlesReceived(0),
-    m_totalBundleBytesReceived(0)
+    m_totalFragmentsAcked(0),
+    m_totalFragmentsSent(0),
+    m_totalBundlesReceived(0),
+    m_totalBundleBytesReceived(0),
+    m_numTcpReconnectAttempts(0)
 {
     m_convergenceLayer = "tcpcl_v4";
 }
@@ -1070,7 +1083,8 @@ bool TcpclV4OutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
             && (m_totalFragmentsAcked == oPtr->m_totalFragmentsAcked)
             && (m_totalFragmentsSent == oPtr->m_totalFragmentsSent)
             && (m_totalBundlesReceived == oPtr->m_totalBundlesReceived)
-            && (m_totalBundleBytesReceived == oPtr->m_totalBundleBytesReceived);
+            && (m_totalBundleBytesReceived == oPtr->m_totalBundleBytesReceived)
+            && (m_numTcpReconnectAttempts == oPtr->m_numTcpReconnectAttempts);
     }
     return false;
 }
@@ -1086,6 +1100,7 @@ bool TcpclV4OutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_
         m_totalFragmentsSent = pt.get<uint64_t>("totalFragmentsSent");
         m_totalBundlesReceived = pt.get<uint64_t>("totalBundlesReceived");
         m_totalBundleBytesReceived = pt.get<uint64_t>("totalBundleBytesReceived");
+        m_numTcpReconnectAttempts = pt.get<uint64_t>("numTcpReconnectAttempts");
     }
     catch (const boost::property_tree::ptree_error& e) {
         LOG_ERROR(subprocess) << "parsing JSON TcpclV4OutductTelemetry_t: " << e.what();
@@ -1099,6 +1114,7 @@ boost::property_tree::ptree TcpclV4OutductTelemetry_t::GetNewPropertyTree() cons
     pt.put("totalFragmentsSent", m_totalFragmentsSent);
     pt.put("totalBundlesReceived", m_totalBundlesReceived);
     pt.put("totalBundleBytesReceived", m_totalBundleBytesReceived);
+    pt.put("numTcpReconnectAttempts", m_numTcpReconnectAttempts);
     return pt;
 }
 

@@ -310,6 +310,7 @@ struct StcpOutductTelemetry_t : public OutductTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     uint64_t m_totalStcpBytesSent;
+    uint64_t m_numTcpReconnectAttempts;
 };
 
 struct LtpOutductTelemetry_t : public OutductTelemetry_t {
@@ -356,6 +357,7 @@ struct TcpclV3OutductTelemetry_t : public OutductTelemetry_t {
     //bidirectionality (identical to InductConnectionTelemetry_t)
     uint64_t m_totalBundlesReceived;
     uint64_t m_totalBundleBytesReceived;
+    uint64_t m_numTcpReconnectAttempts;
 };
 
 struct TcpclV4OutductTelemetry_t : public OutductTelemetry_t {
@@ -372,6 +374,7 @@ struct TcpclV4OutductTelemetry_t : public OutductTelemetry_t {
     //bidirectionality (identical to InductConnectionTelemetry_t)
     uint64_t m_totalBundlesReceived;
     uint64_t m_totalBundleBytesReceived;
+    uint64_t m_numTcpReconnectAttempts;
 };
 
 struct UdpOutductTelemetry_t : public OutductTelemetry_t {

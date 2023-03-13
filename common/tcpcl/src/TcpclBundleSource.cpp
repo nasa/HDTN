@@ -126,8 +126,10 @@ void TcpclBundleSource::OnConnect(const boost::system::error_code & ec) {
 
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
-            LOG_ERROR(subprocess) << "OnConnect: " << ec.value() << " " << ec.message();
-            LOG_ERROR(subprocess) << "Will try to reconnect after 2 seconds";
+            if (m_base_outductTelemetry.m_numTcpReconnectAttempts <= 1) {
+                LOG_ERROR(subprocess) << "OnConnect: " << ec.value() << " " << ec.message();
+                LOG_ERROR(subprocess) << "Will continue to try to reconnect every 2 seconds";
+            }
             m_reconnectAfterOnConnectErrorTimer.expires_from_now(boost::posix_time::seconds(2));
             m_reconnectAfterOnConnectErrorTimer.async_wait(boost::bind(&TcpclBundleSource::OnReconnectAfterOnConnectError_TimerExpired, this, boost::asio::placeholders::error));
         }
@@ -158,7 +160,10 @@ void TcpclBundleSource::OnConnect(const boost::system::error_code & ec) {
 void TcpclBundleSource::OnReconnectAfterOnConnectError_TimerExpired(const boost::system::error_code& e) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        LOG_INFO(subprocess) << "TcpclBundleSource Trying to reconnect...";
+        if (m_base_outductTelemetry.m_numTcpReconnectAttempts == 0) {
+            LOG_INFO(subprocess) << "TcpclBundleSource Trying to reconnect...";
+        }
+        ++m_base_outductTelemetry.m_numTcpReconnectAttempts;
         boost::asio::async_connect(
             *m_base_tcpSocketPtr,
             m_resolverResults,
@@ -238,7 +243,10 @@ void TcpclBundleSource::Virtual_WholeBundleReady(padded_vector_uint8_t & wholeBu
 void TcpclBundleSource::OnNeedToReconnectAfterShutdown_TimerExpired(const boost::system::error_code& e) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        LOG_INFO(subprocess) << "Trying to reconnect...";
+        if (m_base_outductTelemetry.m_numTcpReconnectAttempts == 0) {
+            LOG_INFO(subprocess) << "Trying to reconnect...";
+        }
+        ++m_base_outductTelemetry.m_numTcpReconnectAttempts;
         m_base_tcpAsyncSenderPtr.reset();
         m_base_tcpSocketPtr = std::make_shared<boost::asio::ip::tcp::socket>(m_base_ioServiceRef);
         m_base_shutdownCalled = false;

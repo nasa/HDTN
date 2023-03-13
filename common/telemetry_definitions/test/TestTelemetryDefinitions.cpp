@@ -350,6 +350,7 @@ BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
     {
         std::unique_ptr<StcpOutductTelemetry_t> ptr = boost::make_unique<StcpOutductTelemetry_t>();
         ptr->m_totalStcpBytesSent = 20;
+        ptr->m_numTcpReconnectAttempts = 21;
         aot.m_listAllOutducts.emplace_back(std::move(ptr));
     }
     {
@@ -358,6 +359,7 @@ BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
         ptr->m_totalFragmentsSent = 31;
         ptr->m_totalBundlesReceived = 32;
         ptr->m_totalBundleBytesReceived = 33;
+        ptr->m_numTcpReconnectAttempts = 34;
         aot.m_listAllOutducts.emplace_back(std::move(ptr));
     }
     {
@@ -366,6 +368,7 @@ BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
         ptr->m_totalFragmentsSent = 41;
         ptr->m_totalBundlesReceived = 42;
         ptr->m_totalBundleBytesReceived = 43;
+        ptr->m_numTcpReconnectAttempts = 44;
         aot.m_listAllOutducts.emplace_back(std::move(ptr));
     }
     {
