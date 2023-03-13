@@ -79,7 +79,21 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             udpDelaySimReportSegmentProxy(ltpRxCfg.remotePort, "localhost", boost::lexical_cast<std::string>(ltpTxCfg.myBoundUdpPort), 1000, 100, ACTUAL_DELAY_DEST_TO_SRC, true),
             DESIRED_RED_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!"),
             DESIRED_RED_AND_GREEN_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!GGE"), //G=>green data not EOB, E=>green datat EOB
-            DESIRED_FULLY_GREEN_DATA_TO_SEND("GGGGGGGGGGGGGGGGGE")
+            DESIRED_FULLY_GREEN_DATA_TO_SEND("GGGGGGGGGGGGGGGGGE"),
+            numRedPartReceptionCallbacks(0),
+            numSessionStartSenderCallbacks(0),
+            numSessionStartReceiverCallbacks(0),
+            numGreenPartReceptionCallbacks(0),
+            numReceptionSessionCancelledCallbacks(0),
+            numTransmissionSessionCompletedCallbacks(0),
+            numInitialTransmissionCompletedCallbacks(0),
+            numTransmissionSessionCancelledCallbacks(0),
+            numOnFailedBundleVecSendCallbacks(0),
+            numOnSuccessfulBundleSendCallbacks(0),
+            removeCallbackCalled(false),
+            lastReasonCode_receptionSessionCancelledCallback(CANCEL_SEGMENT_REASON_CODES::RESERVED),
+            lastReasonCode_transmissionSessionCancelledCallback(CANCEL_SEGMENT_REASON_CODES::RESERVED),
+            lastSessionId_sessionStartSenderCallback(0, 0)
         {
             BOOST_REQUIRE(ltpUdpEngineManagerSrcPtr->StartIfNotAlreadyRunning()); //already running from constructor so should do nothing and return true 
             BOOST_REQUIRE(ltpUdpEngineManagerSrcPtr->StartIfNotAlreadyRunning()); //still already running so should do nothing and return true 
@@ -120,34 +134,48 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         }
 
         ~Test() {
-            LOG_INFO(subprocess) << "waiting to remove ltp dest (induct) for remote engine id " << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
-            boost::mutex::scoped_lock cvLock(cvMutex);
-            removeCallbackCalled = false;
-            //sessionOriginatorEngineId is the remote engine id in the case of an induct
-            ltpUdpEngineManagerDestPtr->RemoveLtpUdpEngineByRemoteEngineId_ThreadSafe(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true, boost::bind(&Test::RemoveCallback, this));
-            while (!removeCallbackCalled) { //lock mutex (above) before checking condition
-                //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
-                if (!cv.timed_wait(cvLock, boost::posix_time::milliseconds(2000))) {
-                    LOG_ERROR(subprocess) << "timed out waiting (for 2 seconds) to remove ltp dest (induct) for remote engine id "
-                        << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
-                    break;
+            try {
+                LOG_INFO(subprocess) << "waiting to remove ltp dest (induct) for remote engine id " << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
+                boost::mutex::scoped_lock cvLock(cvMutex);
+                removeCallbackCalled = false;
+                //sessionOriginatorEngineId is the remote engine id in the case of an induct
+                ltpUdpEngineManagerDestPtr->RemoveLtpUdpEngineByRemoteEngineId_ThreadSafe(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true, boost::bind(&Test::RemoveCallback, this));
+                while (!removeCallbackCalled) { //lock mutex (above) before checking condition
+                    //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
+                    if (!cv.timed_wait(cvLock, boost::posix_time::milliseconds(2000))) {
+                        LOG_ERROR(subprocess) << "timed out waiting (for 2 seconds) to remove ltp dest (induct) for remote engine id "
+                            << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
+                        break;
+                    }
                 }
-            }
-            BOOST_CHECK(removeCallbackCalled);
-            LOG_INFO(subprocess) << "removed ltp dest (induct) for remote engine id " << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
+                BOOST_CHECK(removeCallbackCalled);
+                LOG_INFO(subprocess) << "removed ltp dest (induct) for remote engine id " << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
 
-            LOG_INFO(subprocess) << "waiting to remove ltp src (outduct) for remote engine id " << ENGINE_ID_DEST;
-            removeCallbackCalled = false;
-            ltpUdpEngineManagerSrcPtr->RemoveLtpUdpEngineByRemoteEngineId_ThreadSafe(ENGINE_ID_DEST, false, boost::bind(&Test::RemoveCallback, this));
-            while (!removeCallbackCalled) { //lock mutex (above) before checking condition
-                //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
-                if (!cv.timed_wait(cvLock, boost::posix_time::milliseconds(2000))) {
-                    LOG_ERROR(subprocess) << "timed out waiting (for 2 seconds) to remove ltp src (outduct) for remote engine id " << ENGINE_ID_DEST;
-                    break;
+                LOG_INFO(subprocess) << "waiting to remove ltp src (outduct) for remote engine id " << ENGINE_ID_DEST;
+                removeCallbackCalled = false;
+                ltpUdpEngineManagerSrcPtr->RemoveLtpUdpEngineByRemoteEngineId_ThreadSafe(ENGINE_ID_DEST, false, boost::bind(&Test::RemoveCallback, this));
+                while (!removeCallbackCalled) { //lock mutex (above) before checking condition
+                    //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
+                    if (!cv.timed_wait(cvLock, boost::posix_time::milliseconds(2000))) {
+                        LOG_ERROR(subprocess) << "timed out waiting (for 2 seconds) to remove ltp src (outduct) for remote engine id " << ENGINE_ID_DEST;
+                        break;
+                    }
                 }
+                BOOST_CHECK(removeCallbackCalled);
+                LOG_INFO(subprocess) << "removed ltp src (outduct) for remote engine id " << ENGINE_ID_DEST;
             }
-            BOOST_CHECK(removeCallbackCalled);
-            LOG_INFO(subprocess) << "removed ltp src (outduct) for remote engine id " << ENGINE_ID_DEST;
+            catch (const boost::condition_error&) {
+                BOOST_FAIL("condition_error in LtpUdpEngineTestCase::~Test");
+            }
+            catch (const boost::thread_resource_error&) {
+                BOOST_FAIL("thread_resource_error in LtpUdpEngineTestCase::~Test");
+            }
+            catch (const boost::thread_interrupted&) {
+                BOOST_FAIL("thread_interrupted in LtpUdpEngineTestCase::~Test");
+            }
+            catch (const boost::lock_error&) {
+                BOOST_FAIL("lock_error in LtpUdpEngineTestCase::~Test");
+            }
         }
 
         void SessionStartSenderCallback(const Ltp::session_id_t & sessionId) {
@@ -263,17 +291,22 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineDestPtr->SetCheckpointEveryNthDataPacketForSenders(0);
             udpDelaySimDataSegmentProxy.SetUdpDropSimulatorFunction_ThreadSafe(UdpDelaySim::UdpDropSimulatorFunction_t());
             udpDelaySimReportSegmentProxy.SetUdpDropSimulatorFunction_ThreadSafe(UdpDelaySim::UdpDropSimulatorFunction_t());
-            numRedPartReceptionCallbacks = 0;
-            numSessionStartSenderCallbacks = 0;
-            numSessionStartReceiverCallbacks = 0;
-            numGreenPartReceptionCallbacks = 0;
-            numReceptionSessionCancelledCallbacks = 0;
-            numTransmissionSessionCompletedCallbacks = 0;
-            numInitialTransmissionCompletedCallbacks = 0;
-            numTransmissionSessionCancelledCallbacks = 0;
-            numOnFailedBundleVecSendCallbacks = 0;
-            numOnSuccessfulBundleSendCallbacks = 0;
-            lastSessionId_sessionStartSenderCallback = 0; //sets all fields to 0
+            {
+                boost::mutex::scoped_lock cvLock(cvMutex);
+                numRedPartReceptionCallbacks = 0;
+                numSessionStartSenderCallbacks = 0;
+                numSessionStartReceiverCallbacks = 0;
+                numGreenPartReceptionCallbacks = 0;
+                numReceptionSessionCancelledCallbacks = 0;
+                numTransmissionSessionCompletedCallbacks = 0;
+                numInitialTransmissionCompletedCallbacks = 0;
+                numTransmissionSessionCancelledCallbacks = 0;
+                numOnFailedBundleVecSendCallbacks = 0;
+                numOnSuccessfulBundleSendCallbacks = 0;
+                lastReasonCode_receptionSessionCancelledCallback = CANCEL_SEGMENT_REASON_CODES::RESERVED;
+                lastReasonCode_transmissionSessionCancelledCallback = CANCEL_SEGMENT_REASON_CODES::RESERVED;
+                lastSessionId_sessionStartSenderCallback = 0; //sets all fields to 0
+            }
         }
         void AssertNoActiveSendersAndReceivers() {
             boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
