@@ -66,7 +66,7 @@ bool Telemetry::Run(int argc, const char *const argv[], volatile bool &running)
     m_runningFromSigHandler = true;
     SignalHandler sigHandler(boost::bind(&Telemetry::MonitorExitKeypressThreadFunc, this));
     sigHandler.Start(false);
-    while (running && m_runningFromSigHandler && !telemetryRunner.ShouldExit())
+    while (running && m_runningFromSigHandler)
     {
         boost::this_thread::sleep(boost::posix_time::millisec(250));
         sigHandler.PollOnce();

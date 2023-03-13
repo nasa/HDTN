@@ -66,7 +66,6 @@ class TelemetryRunner::Impl : private boost::noncopyable {
     public:
         Impl();
         bool Init(const HdtnConfig& hdtnConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions& options);
-        bool ShouldExit();
         void Stop();
 
     private:
@@ -107,10 +106,6 @@ TelemetryRunner::TelemetryRunner()
 
 bool TelemetryRunner::Init(const HdtnConfig& hdtnConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options) {
     return m_pimpl->Init(hdtnConfig, inprocContextPtr, options);
-}
-
-bool TelemetryRunner::ShouldExit() {
-    return m_pimpl->ShouldExit();
 }
 
 void TelemetryRunner::Stop() {
@@ -393,11 +388,6 @@ void TelemetryRunner::Impl::OnNewJsonTelemetry(const char* buffer, uint64_t buff
         m_websocketServerPtr->SendTextDataToActiveWebsockets(strPtr);
     }
 #endif
-}
-
-bool TelemetryRunner::Impl::ShouldExit() {
-    //websocket server does not support this
-    return false;
 }
 
 void TelemetryRunner::Impl::Stop() {
