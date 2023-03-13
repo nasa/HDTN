@@ -1156,7 +1156,7 @@ void LtpEngine::CancelAcknowledgementSegmentReceivedCallback(const Ltp::session_
                 }
             }
         }
-        else if ((!isToSender)) {
+        else if (!isToSender) {
             if (userDataReturned.size() == sizeof(cancel_segment_timer_info_t)) {
                 const cancel_segment_timer_info_t* userDataPtr = reinterpret_cast<cancel_segment_timer_info_t*>(userDataReturned.data());
                 if (userDataPtr->reasonCode == CANCEL_SEGMENT_REASON_CODES::UNREACHABLE) {
