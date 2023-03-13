@@ -265,6 +265,18 @@ void LtpBundleSource::SyncTelemetry() {
         m_ltpOutductTelemetry.m_numCheckpointsExpired = m_ltpEnginePtr->m_numCheckpointTimerExpiredCallbacksRef;
         m_ltpOutductTelemetry.m_numDiscretionaryCheckpointsNotResent = m_ltpEnginePtr->m_numDiscretionaryCheckpointsNotResentRef;
         m_ltpOutductTelemetry.m_numDeletedFullyClaimedPendingReports = m_ltpEnginePtr->m_numDeletedFullyClaimedPendingReportsRef;
+
+        m_ltpOutductTelemetry.m_totalCancelSegmentsStarted = m_ltpEnginePtr->m_totalCancelSegmentsStarted;
+        m_ltpOutductTelemetry.m_totalCancelSegmentSendRetries = m_ltpEnginePtr->m_totalCancelSegmentSendRetries;
+        m_ltpOutductTelemetry.m_totalCancelSegmentsFailedToSend = m_ltpEnginePtr->m_totalCancelSegmentsFailedToSend;
+        m_ltpOutductTelemetry.m_totalCancelSegmentsAcknowledged = m_ltpEnginePtr->m_totalCancelSegmentsAcknowledged;
+        m_ltpOutductTelemetry.m_totalPingsStarted = m_ltpEnginePtr->m_totalPingsStarted;
+        m_ltpOutductTelemetry.m_totalPingRetries = m_ltpEnginePtr->m_totalPingRetries;
+        m_ltpOutductTelemetry.m_totalPingsFailedToSend = m_ltpEnginePtr->m_totalPingsFailedToSend;
+        m_ltpOutductTelemetry.m_totalPingsAcknowledged = m_ltpEnginePtr->m_totalPingsAcknowledged;
+        m_ltpOutductTelemetry.m_numTxSessionsReturnedToStorage = m_ltpEnginePtr->m_numTxSessionsReturnedToStorage;
+        m_ltpOutductTelemetry.m_numTxSessionsCancelledByReceiver = m_ltpEnginePtr->m_numTxSessionsCancelledByReceiver;
+
         m_ltpOutductTelemetry.m_countTxUdpPacketsLimitedByRate = m_ltpEnginePtr->m_countAsyncSendsLimitedByRate;
         m_ltpOutductTelemetry.m_totalBundleBytesAcked = m_ltpEnginePtr->m_totalRedDataBytesSuccessfullySent;
         //m_ltpOutductTelemetry.m_totalBundleBytesFailedToSend = m_ltpEnginePtr->m_totalRedDataBytesFailedToSend;

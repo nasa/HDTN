@@ -205,11 +205,17 @@ BOOST_AUTO_TEST_CASE(AllInductTelemetryTestCase)
             conn.m_numDelayedFullyClaimedSecondaryReportSegmentsSent = 1006 + j * 1000;
             conn.m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent = 1007 + j * 1000;
             conn.m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent = 1008 + j * 1000;
+            conn.m_totalCancelSegmentsStarted = 1009 + j * 1000;
+            conn.m_totalCancelSegmentSendRetries = 1010 + j * 1000;
+            conn.m_totalCancelSegmentsFailedToSend = 1011 + j * 1000;
+            conn.m_totalCancelSegmentsAcknowledged = 1012 + j * 1000;
+            conn.m_numRxSessionsCancelledBySender = 1013 + j * 1000;
+            conn.m_numStagnantRxSessionsDeleted = 1014 + j * 1000;
 
             //ltp udp engine
-            conn.m_countUdpPacketsSent = 1009 + j * 1000;
-            conn.m_countRxUdpCircularBufferOverruns = 1010 + j * 1000;
-            conn.m_countTxUdpPacketsLimitedByRate = 1011 + j * 1000;
+            conn.m_countUdpPacketsSent = 1015 + j * 1000;
+            conn.m_countRxUdpCircularBufferOverruns = 1016 + j * 1000;
+            conn.m_countTxUdpPacketsLimitedByRate = 1017 + j * 1000;
 
             inductTelem.m_listInductConnections.emplace_back(std::move(ptr));
         }
@@ -329,6 +335,16 @@ BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
         ptr->m_numCheckpointsExpired = 13;
         ptr->m_numDiscretionaryCheckpointsNotResent = 14;
         ptr->m_numDeletedFullyClaimedPendingReports = 15;
+        ptr->m_totalCancelSegmentsStarted = 160;
+        ptr->m_totalCancelSegmentSendRetries = 161;
+        ptr->m_totalCancelSegmentsFailedToSend = 162;
+        ptr->m_totalCancelSegmentsAcknowledged = 163;
+        ptr->m_totalPingsStarted = 164;
+        ptr->m_totalPingRetries = 165;
+        ptr->m_totalPingsFailedToSend = 166;
+        ptr->m_totalPingsAcknowledged = 167;
+        ptr->m_numTxSessionsReturnedToStorage = 168;
+        ptr->m_numTxSessionsCancelledByReceiver = 169;
         aot.m_listAllOutducts.emplace_back(std::move(ptr));
     }
     {

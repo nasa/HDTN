@@ -1168,6 +1168,31 @@ public:
     uint64_t m_totalRedDataBytesSuccessfullySent;
     /// Total red data bytes failed to send
     uint64_t m_totalRedDataBytesFailedToSend;
+    /// Total cancel segments that were initiated
+    uint64_t m_totalCancelSegmentsStarted;
+    /// Total cancel segments retry operations because a timer expired
+    uint64_t m_totalCancelSegmentSendRetries;
+    /// Total cancel segments that failed to send because retry limit exceeded (also serves as bool for printing one notice to logger)
+    uint64_t m_totalCancelSegmentsFailedToSend;
+    /// Total cancel segments that were acknowledged by the remote
+    uint64_t m_totalCancelSegmentsAcknowledged;
+    /// Total pings (which are cancel segments) that were initiated
+    uint64_t m_totalPingsStarted;
+    /// Total pings (which are cancel segments) retry operations because a timer expired
+    uint64_t m_totalPingRetries;
+    /// Total pings (which are cancel segments) that failed to send because retry limit exceeded
+    uint64_t m_totalPingsFailedToSend;
+    /// Total pings (which are cancel segments) that were acknowledged by the remote
+    uint64_t m_totalPingsAcknowledged;
+    /// Total Tx sessions which had their data returned to the user 
+    uint64_t m_numTxSessionsReturnedToStorage;
+    /// Total Tx sessions cancelled by the receiver
+    uint64_t m_numTxSessionsCancelledByReceiver;
+    /// Total Rx sessions cancelled by the sender
+    uint64_t m_numRxSessionsCancelledBySender;
+    /// Total Stagnant Rx sessions deleted by the housekeeping
+    uint64_t m_numStagnantRxSessionsDeleted;
+
 
     //session sender stats (references to variables within m_ltpSessionSenderCommonData)
     /// Indicates failed or successful pings or sessions
