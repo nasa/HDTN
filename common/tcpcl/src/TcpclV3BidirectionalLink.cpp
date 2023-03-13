@@ -60,6 +60,9 @@ TcpclV3BidirectionalLink::TcpclV3BidirectionalLink(
     m_base_dataSentServedAsKeepaliveSent(false),
     m_base_reconnectionDelaySecondsIfNotZero(3), //bundle source only, default 3 unless remote says 0 in shutdown message
 
+    m_base_contactHeaderFlags(static_cast<CONTACT_HEADER_FLAGS>(0)),
+    m_base_tcpclRemoteNodeId(0),
+
     M_BASE_MAX_UNACKED_BUNDLES_IN_PIPELINE(maxUnacked), //bundle sink has MAX_UNACKED(maxUnacked + 5),
     M_BASE_UNACKED_BUNDLE_CB_SIZE(maxUnacked + 5),
     m_base_bytesToAckCb(M_BASE_UNACKED_BUNDLE_CB_SIZE),
@@ -409,8 +412,8 @@ void TcpclV3BidirectionalLink::BaseClass_DoHandleSocketShutdown(bool sendShutdow
     }
 }
 
-void TcpclV3BidirectionalLink::BaseClass_OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e) {
-    if (e != boost::asio::error::operation_aborted) {
+void TcpclV3BidirectionalLink::BaseClass_OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& ec) {
+    if (ec != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
         LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " No TCPCL shutdown message was sent (not required).";
     }

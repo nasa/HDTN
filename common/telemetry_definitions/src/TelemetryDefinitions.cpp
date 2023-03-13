@@ -729,7 +729,9 @@ bool InductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::pt
             else {
                 return false;
             }
-            m_listInductConnections.back()->SetValuesFromPropertyTree(inductConnectionPt.second);
+            if (!m_listInductConnections.back()->SetValuesFromPropertyTree(inductConnectionPt.second)) {
+                return false;
+            }
         }
     }
     catch (const boost::property_tree::ptree_error& e) {
@@ -1233,7 +1235,9 @@ bool AllOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree
             else {
                 return false;
             }
-            m_listAllOutducts.back()->SetValuesFromPropertyTree(outductPt.second);
+            if (!m_listAllOutducts.back()->SetValuesFromPropertyTree(outductPt.second)) {
+                return false;
+            }
         }
     }
     catch (const boost::property_tree::ptree_error& e) {

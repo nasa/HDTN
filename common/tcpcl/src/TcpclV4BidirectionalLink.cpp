@@ -71,9 +71,17 @@ TcpclV4BidirectionalLink::TcpclV4BidirectionalLink(
 
     m_base_myNextTransferId(0),
 
+    m_base_tcpclRemoteNodeId(0),
+
     M_BASE_MY_MAX_TX_UNACKED_BUNDLES(myMaxTxUnackedBundles), //bundle sink has MAX_UNACKED(maxUnacked + 5),
     M_BASE_MY_MAX_RX_SEGMENT_SIZE_BYTES(myMaxRxSegmentSizeBytes),
     M_BASE_MY_MAX_RX_BUNDLE_SIZE_BYTES(myMaxRxBundleSizeBytes),
+
+    m_base_remoteMaxRxSegmentSizeBytes(0),
+    m_base_remoteMaxRxBundleSizeBytes(0),
+    m_base_remoteMaxRxSegmentsPerBundle(0),
+    m_base_maxUnackedSegments(0),
+    m_base_ackCbSize(0),
 
     m_base_userAssignedUuid(0)
 {

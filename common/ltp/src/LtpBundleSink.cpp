@@ -24,7 +24,8 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 LtpBundleSink::LtpBundleSink(const LtpWholeBundleReadyCallback_t& ltpWholeBundleReadyCallback, const LtpEngineConfig& ltpRxCfg) :
     m_ltpWholeBundleReadyCallback(ltpWholeBundleReadyCallback),
     m_ltpRxCfg(ltpRxCfg),
-    M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID(ltpRxCfg.remoteEngineId)
+    M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID(ltpRxCfg.remoteEngineId),
+    m_ltpEnginePtr(NULL)
 {
     m_telemetry.m_connectionName = ltpRxCfg.remoteHostname + ":" + boost::lexical_cast<std::string>(ltpRxCfg.remotePort)
         + " Eng:" + boost::lexical_cast<std::string>(ltpRxCfg.remoteEngineId);
