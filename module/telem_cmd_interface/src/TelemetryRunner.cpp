@@ -350,7 +350,7 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
         }
         if (receiveEventsMask == REC_ALL) {
             if (m_telemetryLoggerPtr) {
-                m_telemetryLoggerPtr->LogTelemetry(&inductTelem, &outductTelem, &storageTelem);
+                m_telemetryLoggerPtr->LogTelemetry(inductTelem, outductTelem, storageTelem);
             }
         }
         else {

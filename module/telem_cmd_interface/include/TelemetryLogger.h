@@ -31,9 +31,9 @@ class TelemetryLogger
          * Logs a set of telemetry data to files
          */
         TELEM_LIB_EXPORT void LogTelemetry(
-            AllInductTelemetry_t* inductTelem,
-            AllOutductTelemetry_t* outductTelem,
-            StorageTelemetry_t* storageTelem
+            const AllInductTelemetry_t& inductTelem,
+            const AllOutductTelemetry_t& outductTelem,
+            const StorageTelemetry_t& storageTelem
         );
 
          /**
@@ -49,8 +49,8 @@ class TelemetryLogger
         /**
          * Helper functions to calculate egress and ingress rates 
          */
-        TELEM_LIB_EXPORT double GetEgressMbpsRate(AllOutductTelemetry_t* telem);
-        TELEM_LIB_EXPORT double GetIngressMbpsRate(AllInductTelemetry_t* telem);
+        TELEM_LIB_EXPORT double GetEgressMbpsRate(const AllOutductTelemetry_t& telem);
+        TELEM_LIB_EXPORT double GetIngressMbpsRate(const AllInductTelemetry_t& telem);
 
     private:
         

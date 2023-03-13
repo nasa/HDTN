@@ -50,7 +50,10 @@ public:
             bool isFloat;
     };
 
-    STATS_LIB_EXPORT static void Log(std::string fileName, std::vector<StatsLogger::metric_t> metrics);
+    STATS_LIB_EXPORT static void Log(
+        const std::string& fileName,
+        const std::vector<StatsLogger::metric_t>& metrics
+    );
 
     STATS_LIB_EXPORT ~StatsLogger();
 private:
@@ -67,17 +70,26 @@ private:
      * Creates a file sink for the given file name. Used
      * to split stats into separate files. 
      */
-    STATS_LIB_NO_EXPORT void createFileSink(std::string fileName, std::vector<StatsLogger::metric_t> metrics);
+    STATS_LIB_NO_EXPORT void createFileSink(
+        const std::string &fileName,
+        const std::vector<StatsLogger::metric_t>& metrics
+    );
 
     /**
      * Initializes the StatsLogger if it hasn't been created yet
      */
-    STATS_LIB_NO_EXPORT static void ensureInitialized(std::string fileName,  std::vector<StatsLogger::metric_t> metrics);
+    STATS_LIB_NO_EXPORT static void ensureInitialized(
+        const std::string& fileName,
+        const std::vector<StatsLogger::metric_t>& metrics
+    );
 
     /**
      * Writes the header to a new log file 
      */
-    STATS_LIB_NO_EXPORT static void writeHeader(std::string fileName, std::vector<StatsLogger::metric_t> metrics);
+    STATS_LIB_NO_EXPORT static void writeHeader(
+        const std::string& fileName,
+        const std::vector<StatsLogger::metric_t>& metrics
+    );
 
     /**
      * Underlying log source
