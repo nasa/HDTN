@@ -19,7 +19,7 @@
 
 function RectComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramSvgChildGroupClass,
     paramParentRectStyleClass, paramHideParent, paramMouseEventToolTipFunction, paramContextMenuEventFunction,
-    paramGetParentRectClassFunction, paramGetChildRectClassFunction) {
+    paramGetParentRectClassFunction, paramGetChildRectClassFunction, paramIsTextAnchorEnd) {
 
 
     var svgRootGroup = paramSvgRootGroup;
@@ -31,7 +31,7 @@ function RectComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramSvgChild
     var contextMenuEventFunction = paramContextMenuEventFunction;
     var getParentRectClassFunction = paramGetParentRectClassFunction;
     var getChildRectClassFunction = paramGetChildRectClassFunction;
-
+    var isTextAnchorEnd = paramIsTextAnchorEnd;
 
 
 
@@ -147,9 +147,12 @@ function RectComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramSvgChild
 
                 childEnter.append("svg:text")
                     .attr("dy", ".35em")
-                    //.attr("text-anchor", "end")
+                    .attr("text-anchor", (isTextAnchorEnd) ? "end" : "start")
                     .attr("transform", function(childObj) {
-                        return "translate(" + 5 + "," + childObj.height/2 + ")";
+                        if(isTextAnchorEnd) {
+
+                        }
+                        return "translate(" + (isTextAnchorEnd ? (childObj.width - 5) : 5) + "," + childObj.height/2 + ")";
                     })
                     .text(function(childObj) {
                         return childObj.hasOwnProperty("name") ? childObj.name : childObj.id;
