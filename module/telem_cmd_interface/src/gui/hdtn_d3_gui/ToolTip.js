@@ -26,6 +26,7 @@ function ToolTip() {
         .attr("class", "tooltip")
         .style("opacity", 0);
 
+
     function UpdateActiveToolTip() {
         if(globalToolTipObject != null) {
             UpdateToolTipText(globalToolTipObject, false);
@@ -39,10 +40,25 @@ function ToolTip() {
             textStr = obj.toolTipText;
         }
         divTooltip.html(textStr);
+        divTooltip
+            .style("width", "0px")
+            .style("height", "0px");
+
+        //https://stackoverflow.com/questions/1461059/is-there-an-equivalent-to-getboundingclientrect-for-text-nodes
+        let range = document.createRange();
+        range.selectNode(divTooltip.node());
+        const rect = range.getBoundingClientRect();
+        divTooltip
+            .style("width", rect.width + "px")
+            .style("height", rect.height + "px");
+
+
         if(isMouseEvent) {
             divTooltip.style("left", (d3.event.pageX) + "px");
-            divTooltip.style("top", (d3.event.pageY - 160) + "px");
+            divTooltip.style("top", (d3.event.pageY - (rect.height/2.0)) + "px");
         }
+
+        range.detach(); // frees up memory in older browsers
     }
     function MouseEventToolTip(d) {
         if(d3.event.type === "mouseover") {
