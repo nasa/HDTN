@@ -58,36 +58,50 @@ bool LtpBundleSource::Init() {
 
 
 void LtpBundleSource::Stop() {
-    if (m_ltpEnginePtr) {
-        //prevent TcpclBundleSource from exiting before all bundles sent and acked
-        boost::mutex localMutex;
-        boost::mutex::scoped_lock lock(localMutex);
-        m_useLocalConditionVariableAckReceived = true;
-        std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
-        for (unsigned int attempt = 0; attempt < 10; ++attempt) {
-            const std::size_t numUnacked = GetTotalDataSegmentsUnacked();
-            if (numUnacked) {
-                LOG_WARNING(subprocess) << "LtpBundleSource destructor waiting on " << numUnacked << " unacked bundles";
+    try {
+        if (m_ltpEnginePtr) {
+            //prevent TcpclBundleSource from exiting before all bundles sent and acked
+            boost::mutex localMutex;
+            boost::mutex::scoped_lock lock(localMutex);
+            m_useLocalConditionVariableAckReceived = true;
+            std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
+            for (unsigned int attempt = 0; attempt < 10; ++attempt) {
+                const std::size_t numUnacked = GetTotalDataSegmentsUnacked();
+                if (numUnacked) {
+                    LOG_WARNING(subprocess) << "LtpBundleSource destructor waiting on " << numUnacked << " unacked bundles";
 
-                if (previousUnacked > numUnacked) {
-                    previousUnacked = numUnacked;
-                    attempt = 0;
+                    if (previousUnacked > numUnacked) {
+                        previousUnacked = numUnacked;
+                        attempt = 0;
+                    }
+                    m_localConditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
+                    //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+                    continue;
                 }
-                m_localConditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
-                //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
-                continue;
+                break;
             }
-            break;
         }
-        
-
-        //print stats
-        LOG_INFO(subprocess) << "m_ltpOutductTelemetry.totalBundlesSent " << m_ltpOutductTelemetry.m_totalBundlesSent;
-        LOG_INFO(subprocess) << "m_ltpOutductTelemetry.totalBundlesAcked " << m_ltpOutductTelemetry.m_totalBundlesAcked;
-        LOG_INFO(subprocess) << "m_ltpOutductTelemetry.totalBundleBytesSent " << m_ltpOutductTelemetry.m_totalBundleBytesSent;
-        LOG_INFO(subprocess) << "m_ltpOutductTelemetry.totalBundleBytesAcked " << m_ltpOutductTelemetry.m_totalBundleBytesAcked;
-        LOG_INFO(subprocess) << "m_ltpOutductTelemetry.totalBundlesFailedToSend " << m_ltpOutductTelemetry.m_totalBundlesFailedToSend;
     }
+    catch (const boost::condition_error& e) {
+        LOG_ERROR(subprocess) << "condition_error in LtpBundleSource::Stop: " << e.what();
+    }
+    catch (const boost::thread_resource_error& e) {
+        LOG_ERROR(subprocess) << "thread_resource_error in LtpBundleSource::Stop: " << e.what();
+    }
+    catch (const boost::thread_interrupted&) {
+        LOG_ERROR(subprocess) << "thread_interrupted in LtpBundleSource::Stop";
+    }
+    catch (const boost::lock_error& e) {
+        LOG_ERROR(subprocess) << "lock_error in LtpBundleSource::Stop: " << e.what();
+    }
+
+    //print stats
+    LOG_INFO(subprocess) << "m_ltpOutductTelemetry.totalBundlesSent " << m_ltpOutductTelemetry.m_totalBundlesSent;
+    LOG_INFO(subprocess) << "m_ltpOutductTelemetry.totalBundlesAcked " << m_ltpOutductTelemetry.m_totalBundlesAcked;
+    LOG_INFO(subprocess) << "m_ltpOutductTelemetry.totalBundleBytesSent " << m_ltpOutductTelemetry.m_totalBundleBytesSent;
+    LOG_INFO(subprocess) << "m_ltpOutductTelemetry.totalBundleBytesAcked " << m_ltpOutductTelemetry.m_totalBundleBytesAcked;
+    LOG_INFO(subprocess) << "m_ltpOutductTelemetry.totalBundlesFailedToSend " << m_ltpOutductTelemetry.m_totalBundlesFailedToSend;
+    
 }
 
 std::size_t LtpBundleSource::GetTotalDataSegmentsAcked() {

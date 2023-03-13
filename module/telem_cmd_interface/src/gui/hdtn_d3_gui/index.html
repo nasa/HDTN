@@ -338,7 +338,7 @@
             "", //paramParentRectStyleClass
             true, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
-            ContextMenuEvent, //paramContextMenuEventFunction
+            null, //paramContextMenuEventFunction
             GetModuleRectClass, //paramGetParentRectClassFunction
             GetSwitchRectClass //paramGetChildRectClassFunction
         );
@@ -350,7 +350,7 @@
             "induct_body", //paramParentRectStyleClass
             false, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
-            ContextMenuEvent, //paramContextMenuEventFunction
+            null, //paramContextMenuEventFunction
             GetModuleRectClass, //paramGetParentRectClassFunction
             GetSwitchRectClass //paramGetChildRectClassFunction
         );
@@ -363,7 +363,7 @@
             "module_body", //paramParentRectStyleClass
             false, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
-            ContextMenuEvent, //paramContextMenuEventFunction
+            null, //paramContextMenuEventFunction
             GetModuleRectClass, //paramGetParentRectClassFunction
             GetSwitchRectClass //paramGetChildRectClassFunction
         );
@@ -375,7 +375,7 @@
             "module_body", //paramParentRectStyleClass
             false, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
-            ContextMenuEvent, //paramContextMenuEventFunction
+            null, //paramContextMenuEventFunction
             GetModuleRectClass, //paramGetParentRectClassFunction
             GetSwitchRectClass //paramGetChildRectClassFunction
         );
@@ -387,7 +387,7 @@
             "module_body", //paramParentRectStyleClass
             false, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
-            ContextMenuEvent, //paramContextMenuEventFunction
+            null, //paramContextMenuEventFunction
             GetModuleRectClass, //paramGetParentRectClassFunction
             GetSwitchRectClass //paramGetChildRectClassFunction
         );
@@ -399,7 +399,7 @@
             "module_body", //paramParentRectStyleClass
             false, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
-            ContextMenuEvent, //paramContextMenuEventFunction
+            null, //paramContextMenuEventFunction
             GetModuleRectClass, //paramGetParentRectClassFunction
             GetSwitchRectClass //paramGetChildRectClassFunction
         );
@@ -497,50 +497,6 @@
             };
         }
 
-
-        function ContextMenuEvent(d) {
-            if(d3.event.type === "contextmenu") {
-                var menu = contextMenu().items(
-                    {
-                        "text" : "Set " + d.id + " On",
-                        "func" : SetState_Closure(d, 1)
-                    },
-                    {
-                        "text" : "Set " + d.id + " Off",
-                        "func" : SetState_Closure(d, 0)
-                    },
-                    {
-                        "text" : "Set Fault on " + d.id,
-                        "func" : SetFault_Closure(d, true)
-                    },
-                    {
-                        "text" : "Remove Fault on " + d.id,
-                        "func" : SetFault_Closure(d, false)
-                    }
-                );
-                d3.event.preventDefault();
-                menu(d3.mouse(svg.node())[0], d3.mouse(svg.node())[1]);
-            }
-        }
-
-        function SetState_Closure(paramObj, paramState) {
-            var obj = paramObj;
-            var state = paramState;
-            return function () {
-                var oruId = (obj.parent) ? obj.parent.id : obj.id;
-                var switchId = (obj.parent) ? obj.id : "";
-                console.log("Setting state of oruId=" + oruId + ", switchId=" + obj.id + " to " + state);
-                WebSocketSend("SET_SWITCH_STATE," + oruId + "," + switchId + "," + state);
-            }
-        }
-
-        function SetFault_Closure(paramObj, paramFault) {
-            var obj = paramObj;
-            var fault = paramFault;
-            return function () {
-                console.log("Setting the fault of " + obj.id + " to " + fault);
-            }
-        }
 
         var telemQueue = [];
         var inTransition = false;
@@ -640,7 +596,7 @@
         function InternalUpdateWithData(objJson) {
             //console.log(objJson);
             if("hdtnConfigName" in objJson) {
-                myOutline.UpdateName("HDTN Node " + objJson.myNodeId + "");
+                myOutline.UpdateName("HDTN v" + objJson.hdtnVersionString + " - Node " + objJson.myNodeId + "");
                 InitActiveInductConnections(objJson);
                 HandleReceivedNewHdtnConfig(objJson);
             }

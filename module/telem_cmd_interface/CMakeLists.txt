@@ -63,6 +63,7 @@ target_include_directories(telem_lib
 		$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> #project does not have a /include directory
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # for GENERATE_EXPORT_HEADER
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../common/include> # for HdtnVersion.hpp
 )
 install(TARGETS telem_lib
 	EXPORT telem_lib-targets
