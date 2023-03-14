@@ -160,15 +160,10 @@ bool StorageExpiringBeforeThresholdTelemetry_t::SetValuesFromPropertyTree(const 
         priority = pt.get<uint64_t>("priority");
         thresholdSecondsSinceStartOfYear2000 = pt.get<uint64_t>("thresholdSecondsSinceStartOfYear2000");
         mapNodeIdToExpiringBeforeThresholdCount.clear();
-        const boost::property_tree::ptree& nodeIdMapPt = pt.get_child("mapNodeIdToExpiringBeforeThresholdCount", EMPTY_PTREE); //non-throw version
+        const boost::property_tree::ptree& nodeIdMapPt = pt.get_child("nodesExpiringBeforeThresholdCount", EMPTY_PTREE); //non-throw version
         BOOST_FOREACH(const boost::property_tree::ptree::value_type & nodePt, nodeIdMapPt) {
-            const uint64_t nodeIdKey = boost::lexical_cast<uint64_t>(nodePt.first);
-            bundle_count_plus_bundle_bytes_pair_t& p = mapNodeIdToExpiringBeforeThresholdCount[nodeIdKey];
             const uint64_t nodeId = nodePt.second.get<uint64_t>("nodeId");
-            if (nodeId != nodeIdKey) {
-                LOG_ERROR(subprocess) << "parsing JSON StorageExpiringBeforeThresholdTelemetry_t: nodeId != nodeIdKey";
-                return false;
-            }
+            bundle_count_plus_bundle_bytes_pair_t& p = mapNodeIdToExpiringBeforeThresholdCount[nodeId];
             p.first = nodePt.second.get<uint64_t>("bundleCount");
             p.second = nodePt.second.get<uint64_t>("totalBundleBytes");
         }
@@ -187,17 +182,16 @@ boost::property_tree::ptree StorageExpiringBeforeThresholdTelemetry_t::GetNewPro
     boost::property_tree::ptree pt;
     pt.put("priority", priority);
     pt.put("thresholdSecondsSinceStartOfYear2000", thresholdSecondsSinceStartOfYear2000);
-    boost::property_tree::ptree& mapNodeIdToExpiringBeforeThresholdCountPt = pt.put_child("mapNodeIdToExpiringBeforeThresholdCount",
-        mapNodeIdToExpiringBeforeThresholdCount.empty() ? boost::property_tree::ptree("{}") : boost::property_tree::ptree());
+    boost::property_tree::ptree& nodeIdsExpiringBeforeThresholdCountPt = pt.put_child("nodesExpiringBeforeThresholdCount",
+        mapNodeIdToExpiringBeforeThresholdCount.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
     for (std::map<uint64_t, bundle_count_plus_bundle_bytes_pair_t>::const_iterator it = mapNodeIdToExpiringBeforeThresholdCount.cbegin();
         it != mapNodeIdToExpiringBeforeThresholdCount.cend(); ++it)
     {
         const std::pair<const uint64_t, bundle_count_plus_bundle_bytes_pair_t>& elPair = *it;
-        boost::property_tree::ptree& elPt = mapNodeIdToExpiringBeforeThresholdCountPt.put_child(
-            boost::lexical_cast<std::string>(elPair.first), boost::property_tree::ptree());
-        elPt.put("nodeId", elPair.first);
-        elPt.put("bundleCount", elPair.second.first);
-        elPt.put("totalBundleBytes", elPair.second.second);
+        boost::property_tree::ptree& node = (nodeIdsExpiringBeforeThresholdCountPt.push_back(std::make_pair("", boost::property_tree::ptree())))->second;
+        node.put("nodeId", elPair.first);
+        node.put("bundleCount", elPair.second.first);
+        node.put("totalBundleBytes", elPair.second.second);
     }
     return pt;
 }

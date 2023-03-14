@@ -12,57 +12,99 @@
  *
  */
 
+#include <vector>
 
 #include "TelemetryLogger.h"
 #include "StatsLogger.h"
+
 
 TelemetryLogger::TelemetryLogger()
     : m_startTime(boost::posix_time::microsec_clock::universal_time())
 {}
 
+void TelemetryLogger::LogTelemetry(
+    const AllInductTelemetry_t& inductTelem,
+    const AllOutductTelemetry_t& outductTelem,
+    const StorageTelemetry_t& storageTelem
+)
+{
+    std::vector<hdtn::StatsLogger::metric_t> metrics;
+    metrics.push_back(hdtn::StatsLogger::metric_t("ingress_data_rate_mbps", GetIngressMbpsRate(inductTelem)));
+    metrics.push_back(hdtn::StatsLogger::metric_t(
+        "ingress_total_bytes_sent",
+        inductTelem.m_bundleByteCountEgress + inductTelem.m_bundleByteCountStorage
+    ));
+    metrics.push_back(hdtn::StatsLogger::metric_t("ingress_bytes_sent_egress", inductTelem.m_bundleByteCountEgress));
+    metrics.push_back(hdtn::StatsLogger::metric_t("ingress_bytes_sent_storage", inductTelem.m_bundleByteCountStorage));
+    metrics.push_back(hdtn::StatsLogger::metric_t("storage_used_space_bytes", storageTelem.m_usedSpaceBytes));
+    metrics.push_back(hdtn::StatsLogger::metric_t("storage_free_space_bytes", storageTelem.m_freeSpaceBytes));
+    metrics.push_back(hdtn::StatsLogger::metric_t("storage_bundle_bytes_on_disk", storageTelem.m_numBundleBytesOnDisk));
+    metrics.push_back(hdtn::StatsLogger::metric_t(
+        "storage_bundles_erased",
+        storageTelem.m_totalBundlesErasedFromStorageNoCustodyTransfer + storageTelem.m_totalBundlesErasedFromStorageWithCustodyTransfer
+    ));
+    metrics.push_back(hdtn::StatsLogger::metric_t(
+        "storage_bundles_rewritten_from_failed_egress_send",
+        storageTelem.m_totalBundlesRewrittenToStorageFromFailedEgressSend
+    ));
+    metrics.push_back(hdtn::StatsLogger::metric_t(
+        "storage_bytes_sent_to_egress_cutthrough",
+        storageTelem.m_totalBundleBytesSentToEgressFromStorageForwardCutThrough
+    ));
+    metrics.push_back(hdtn::StatsLogger::metric_t(
+        "storage_bytes_sent_to_egress_from_disk",
+        storageTelem.m_totalBundleBytesSentToEgressFromStorageReadFromDisk
+    ));
+    metrics.push_back(hdtn::StatsLogger::metric_t("egress_data_rate_mbps", GetEgressMbpsRate(outductTelem)));
+    metrics.push_back(hdtn::StatsLogger::metric_t(
+        "egress_total_bytes_sent_success",
+        outductTelem.m_totalBundleBytesSuccessfullySent
+    ));
+    metrics.push_back(hdtn::StatsLogger::metric_t(
+        "egress_total_bytes_attempted",
+        outductTelem.m_totalBundleBytesGivenToOutducts
+    ));
+    hdtn::StatsLogger::Log("all_sampled_stats", metrics);
+}
 
-void TelemetryLogger::LogTelemetry(AllInductTelemetry_t* telem) { //ingress
+double TelemetryLogger::GetIngressMbpsRate(const AllInductTelemetry_t& telem)
+{
     boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();
     static boost::posix_time::ptime lastProcessedTime = nowTime;
-    const uint64_t totalDataBytes = telem->m_bundleByteCountEgress + telem->m_bundleByteCountStorage;
+    const uint64_t totalDataBytes = telem.m_bundleByteCountEgress + telem.m_bundleByteCountStorage;
     static uint64_t lastTotalDataBytes = totalDataBytes;
-    // Skip calculating the bitrate the first time through
-    if (nowTime > lastProcessedTime) {
-        double currentRateMbps = CalculateMbpsRate(
+
+    if (nowTime <= lastProcessedTime) {
+        return 0;
+    }
+
+    double rate = CalculateMbpsRate(
             static_cast<double>(totalDataBytes),
             static_cast<double>(lastTotalDataBytes),
             nowTime,
-            lastProcessedTime);
-        LOG_STAT("ingress_data_rate_mbps") << currentRateMbps;
-    }
-    LOG_STAT("ingress_data_volume_bytes") << totalDataBytes;
-    lastTotalDataBytes = totalDataBytes;
-    lastProcessedTime = nowTime;
+            lastProcessedTime
+    );
+    return rate;
 }
 
-void TelemetryLogger::LogTelemetry(AllOutductTelemetry_t* telem) { //egress
+double TelemetryLogger::GetEgressMbpsRate(const AllOutductTelemetry_t& telem)
+{
     boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();
     static boost::posix_time::ptime lastProcessedTime = nowTime;
-    const uint64_t totalDataBytes = telem->m_totalBundleBytesGivenToOutducts;
+    const uint64_t totalDataBytes = telem.m_totalBundleBytesGivenToOutducts;
     static uint64_t lastTotalDataBytes = totalDataBytes;
 
-    // Skip calculating the bitrate the first time through
-    if (nowTime > lastProcessedTime) {
-        double currentRateMbps = CalculateMbpsRate(
+    if (nowTime <= lastProcessedTime) {
+        return 0;
+    }
+
+    double rate = CalculateMbpsRate(
             static_cast<double>(totalDataBytes),
             static_cast<double>(lastTotalDataBytes),
             nowTime,
-            lastProcessedTime);
-        LOG_STAT("egress_data_rate_mbps") << currentRateMbps;
-    }
-    LOG_STAT("egress_data_volume_bytes") << totalDataBytes;
-
-    lastTotalDataBytes = totalDataBytes;
-    lastProcessedTime = nowTime;
-}
-
-void TelemetryLogger::LogTelemetry(StorageTelemetry_t* telem) {
-    // No-op. Currently, there's no need for logging storage data
+            lastProcessedTime
+    );
+    return rate;
 }
 
 double TelemetryLogger::CalculateMbpsRate(

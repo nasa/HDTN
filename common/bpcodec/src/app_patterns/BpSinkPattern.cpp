@@ -269,7 +269,9 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
         }
 
         #ifdef DO_STATS_LOGGING
-            LOG_STAT("bundle_source_to_sink_latency_s") << primary.GetSecondsSinceCreate();
+            std::vector<hdtn::StatsLogger::metric_t> metrics;
+            metrics.push_back(hdtn::StatsLogger::metric_t("bundle_source_to_sink_latency_s", primary.GetSecondsSinceCreate()));
+            hdtn::StatsLogger::Log("bundle_source_to_sink_latency_s", metrics);
         #endif
     }
     else if (isBpVersion7) {
@@ -420,7 +422,9 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
         }
 
         #ifdef DO_STATS_LOGGING
-            LOG_STAT("bundle_source_to_sink_latency_ms") << primary.GetMillisecondsSinceCreate();
+            std::vector<hdtn::StatsLogger::metric_t> metrics;
+            metrics.push_back(hdtn::StatsLogger::metric_t("bundle_source_to_sink_latency_ms", primary.GetMillisecondsSinceCreate()));
+            hdtn::StatsLogger::Log("bundle_source_to_sink_latency_ms", metrics);
         #endif
     }
 
