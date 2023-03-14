@@ -19,7 +19,7 @@ add_executable(unit-tests
 	../../common/util/test/TestEnumAsFlagsMacro.cpp
 	../../common/util/test/TestPaddedVectorUint8.cpp
 	../../common/util/test/TestFreeListAllocator.cpp
-	../../common/util/test/TestCpuFlagDetection.cpp
+	$<$<BOOL:${NON_ARM_COMPILATION}>:../../common/util/test/TestCpuFlagDetection.cpp>
 	../../common/util/test/TestTokenRateLimiter.cpp
 	../../common/util/test/TestUdpBatchSender.cpp
 	../../common/util/test/TestJsonSerializable.cpp
@@ -61,6 +61,7 @@ add_executable(unit-tests
 	$<$<BOOL:${RUN_TELEMETRY}>:../../module/telem_cmd_interface/unit_tests/TelemetryRunnerProgramOptionsTests.cpp>
 	../../module/scheduler/unit_tests/SchedulerTests.cpp
 )
+
 install(TARGETS unit-tests DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 target_link_libraries(unit-tests

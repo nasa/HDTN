@@ -1,7 +1,6 @@
 add_library(hdtn_util
-	src/CpuFlagDetection.cpp
-    src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
-    src/Environment.cpp
+	src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
+	src/Environment.cpp
 	src/JsonSerializable.cpp
 	src/SignalHandler.cpp
 	src/TimestampUtil.cpp
@@ -9,6 +8,7 @@ add_library(hdtn_util
 	src/TcpAsyncSender.cpp
 	src/Sdnv.cpp
 	src/CborUint.cpp
+	$<$<BOOL:${NON_ARM_COMPILATION}>:src/CpuFlagDetection.cpp>  # only add CpuFlagDetection test to non-ARM builds
 	#src/RateManagerAsync.cpp
 	src/Uri.cpp
 	src/BinaryConversions.cpp
@@ -19,8 +19,9 @@ add_library(hdtn_util
 	src/MemoryInFiles.cpp
 	src/DeadlineTimer.cpp
 	src/ThreadNamer.cpp
-	src/Utf8Paths.cpp
-)
+	src/Utf8Paths.cpp)
+
+
 target_compile_options(hdtn_util PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 GENERATE_EXPORT_HEADER(hdtn_util)
 get_target_property(target_type hdtn_util TYPE)
