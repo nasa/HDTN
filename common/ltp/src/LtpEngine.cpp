@@ -1049,7 +1049,8 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
                 m_queueReceiversNeedingDeletedButUnsafeToDelete.emplace(sessionId); //postpone deletion until safe
             }
             if (m_numRxSessionsCancelledBySender == 0) {
-                LOG_INFO(subprocess) << "First time remote cancelled an Rx session. (session #" << sessionId.sessionNumber
+                LOG_INFO(subprocess) << "First time remote cancelled an Rx session (reason code "
+                    << static_cast<unsigned int>(reasonCode) << ", session #" << sessionId.sessionNumber
                     << ((isSafeToDelete) ? " deleted" : " queued for deletion")
                     << ").  Future cancellation messages will now be suppressed.";
             }
@@ -1079,7 +1080,8 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
             TryReturnTxSessionDataToUser(txSessionIt); //TODO check reason codes
             EraseTxSession(txSessionIt);
             if (m_numTxSessionsCancelledByReceiver == 0) {
-                LOG_INFO(subprocess) << "First time remote cancelled a Tx session. (session #" << sessionId.sessionNumber
+                LOG_INFO(subprocess) << "First time remote cancelled a Tx session (reason code "
+                    << static_cast<unsigned int>(reasonCode) << ", session #" << sessionId.sessionNumber
                     << ").  Future cancellation messages will now be suppressed.";
             }
             ++m_numTxSessionsCancelledByReceiver;
