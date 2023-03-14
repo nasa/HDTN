@@ -188,11 +188,10 @@ boost::property_tree::ptree StorageExpiringBeforeThresholdTelemetry_t::GetNewPro
         it != mapNodeIdToExpiringBeforeThresholdCount.cend(); ++it)
     {
         const std::pair<const uint64_t, bundle_count_plus_bundle_bytes_pair_t>& elPair = *it;
-        boost::property_tree::ptree node;
+        boost::property_tree::ptree& node = (nodeIdsExpiringBeforeThresholdCountPt.push_back(std::make_pair("", boost::property_tree::ptree())))->second;
         node.put("nodeId", elPair.first);
         node.put("bundleCount", elPair.second.first);
         node.put("totalBundleBytes", elPair.second.second);
-        nodeIdsExpiringBeforeThresholdCountPt.push_back(std::make_pair("", node));
     }
     return pt;
 }
