@@ -344,7 +344,7 @@ static void CustomCleanupStdString(void* data, void* hint) {
 }
 static void CustomCleanupSharedPtrStdString(void* data, void* hint) {
     std::shared_ptr<std::string>* serializedRawPtrToSharedPtr = static_cast<std::shared_ptr<std::string>* >(hint);
-    LOG_DEBUG(subprocess) << "cleanup refcnt=" << serializedRawPtrToSharedPtr->use_count();
+    //LOG_DEBUG(subprocess) << "cleanup refcnt=" << serializedRawPtrToSharedPtr->use_count();
     delete serializedRawPtrToSharedPtr; //reduce ref count and delete shared_ptr object
 }
 
@@ -783,18 +783,8 @@ void Egress::Impl::WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleV
 
 void Egress::Impl::OnFailedBundleZmqSendCallback(zmq::message_t& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled) {
 
-    hdtn::LinkStatusHdr linkStatusMsg;
-    memset(&linkStatusMsg, 0, sizeof(hdtn::LinkStatusHdr));
-    linkStatusMsg.base.type = HDTN_MSGTYPE_LINKSTATUS;
-    linkStatusMsg.unixTimeSecondsSince1970 = TimestampUtil::GetSecondsSinceEpochUnix();
-    linkStatusMsg.event = 0; //(isLinkDownEvent) ? 0 : 1; => (true) ? 0 : 1; => 0
-    linkStatusMsg.uuid = outductUuid;
-    {
-        boost::mutex::scoped_lock lock(m_mutexLinkStatusUpdate);
-        if (!m_zmqPairSock_LinkStatusNotifyOnePtr->send(zmq::const_buffer(&linkStatusMsg, sizeof(linkStatusMsg)), zmq::send_flags::dontwait)) {
-            LOG_FATAL(subprocess) << "zmq could not send inproc link status";
-        }
-    }
+    static constexpr bool isLinkDownEvent = true;
+    OnOutductLinkStatusChangedCallback(isLinkDownEvent, outductUuid);
 
     if (successCallbackCalled) { //ltp sender with sessions from disk enabled
         LOG_ERROR(subprocess) << "OnFailedBundleZmqSendCallback called, TODO: send to ingress with needsProcessing set to false, dropping bundle for now";
@@ -854,6 +844,9 @@ void Egress::Impl::OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData
         LOG_ERROR(subprocess) << "HegrManagerAsync::OnSuccessfulBundleSendCallback: userData empty";
         return;
     }
+
+    static constexpr bool isLinkDownEvent = false;
+    OnOutductLinkStatusChangedCallback(isLinkDownEvent, outductUuid);
     
     //this is an optimization because we only have one chunk to send
     //The zmq_msg_init_data() function shall initialise the message object referenced by msg
@@ -880,22 +873,34 @@ void Egress::Impl::OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData
         ++m_totalCustodyTransfersSentToIngress;
     }
 }
+//Inform scheduler only if the physical link status actually changes or the physical link status is initially unknown.
+//Note: LTP "ping" maintains its own physical link status and will also only call this function if the physical link status actually changes
 void Egress::Impl::OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid) {
     
-    hdtn::LinkStatusHdr linkStatusMsg;
-    memset(&linkStatusMsg, 0, sizeof(hdtn::LinkStatusHdr));
-    linkStatusMsg.base.type = HDTN_MSGTYPE_LINKSTATUS;
-    linkStatusMsg.unixTimeSecondsSince1970 = TimestampUtil::GetSecondsSinceEpochUnix();
-    linkStatusMsg.event = (isLinkDownEvent) ? 0 : 1;
-    linkStatusMsg.uuid = outductUuid;
+    Outduct* outduct = m_outductManager.GetOutductByOutductUuid(outductUuid);
+    if (!outduct) {
+        LOG_FATAL(subprocess) << "could not find outduct from OnOutductLinkStatusChangedCallback";
+        return;
+    }
+    const bool linkIsUpPhysically = !isLinkDownEvent;
+    const bool informScheduler = ((!outduct->m_physicalLinkStatusIsKnown) || (outduct->m_linkIsUpPhysically != linkIsUpPhysically));
+    outduct->m_physicalLinkStatusIsKnown = true;
+    outduct->m_linkIsUpPhysically = linkIsUpPhysically;
+    if (informScheduler) {
+        hdtn::LinkStatusHdr linkStatusMsg;
+        memset(&linkStatusMsg, 0, sizeof(hdtn::LinkStatusHdr));
+        linkStatusMsg.base.type = HDTN_MSGTYPE_LINKSTATUS;
+        linkStatusMsg.unixTimeSecondsSince1970 = TimestampUtil::GetSecondsSinceEpochUnix();
+        linkStatusMsg.event = (isLinkDownEvent) ? 0 : 1;
+        linkStatusMsg.uuid = outductUuid;
 
-    {
-        boost::mutex::scoped_lock lock(m_mutexLinkStatusUpdate);
-        if (!m_zmqPairSock_LinkStatusNotifyOnePtr->send(zmq::const_buffer(&linkStatusMsg, sizeof(linkStatusMsg)), zmq::send_flags::dontwait)) {
-            LOG_FATAL(subprocess) << "zmq could not send CV_CONST_BUFFER";
+        {
+            boost::mutex::scoped_lock lock(m_mutexLinkStatusUpdate);
+            if (!m_zmqPairSock_LinkStatusNotifyOnePtr->send(zmq::const_buffer(&linkStatusMsg, sizeof(linkStatusMsg)), zmq::send_flags::dontwait)) {
+                LOG_FATAL(subprocess) << "zmq could not send CV_CONST_BUFFER";
+            }
         }
     }
-    
 }
 
 void Egress::Impl::SchedulerEventHandler(hdtn::IreleaseChangeHdr& releaseChangeHdr) {

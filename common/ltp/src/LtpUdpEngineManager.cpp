@@ -152,20 +152,21 @@ void LtpUdpEngineManager::RemoveLtpUdpEngineByRemoteEngineId_NotThreadSafe(const
     }
 }
 
-//a max of 254 engines can be added for one outduct with the same udp port
+//a max of 7 engines can be added for one outduct with the same udp port (IDs 1,2,3,4,5,6,7)
 bool LtpUdpEngineManager::AddLtpUdpEngine(const LtpEngineConfig& ltpRxOrTxCfg)
 {   
     const bool isInduct = ltpRxOrTxCfg.isInduct;
-    if ((ltpRxOrTxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable != 0) && (!isInduct)) {
+    const bool isOutduct = (!isInduct);
+    if ((ltpRxOrTxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable != 0) && isOutduct) {
         LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: delaySendingOfReportSegmentsTimeMsOrZeroToDisable must be set to 0 for an outduct";
         return false;
     }
-    if ((ltpRxOrTxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable != 0) && (isInduct)) {
+    if ((ltpRxOrTxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable != 0) && isInduct) {
         LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: delaySendingOfDataSegmentsTimeMsOrZeroToDisable must be set to 0 for an induct";
         return false;
     }
-    if ((m_nextEngineIndex > 255) && (!isInduct)) {
-        LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: a max of 254 engines can be added for one outduct with the same udp port";
+    if ((m_nextEngineIndex > 7) && isOutduct) {
+        LOG_ERROR(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: a max of 7 engines can be added for one outduct with the same udp port";
         return false;
     }
     if (ltpRxOrTxCfg.maxUdpPacketsToSendPerSystemCall == 0) {
@@ -234,7 +235,7 @@ bool LtpUdpEngineManager::AddLtpUdpEngine(const LtpEngineConfig& ltpRxOrTxCfg)
         return false;
     }
 
-    if (!isInduct) {
+    if (isOutduct) {
         ++m_nextEngineIndex;
         m_vecEngineIndexToLtpUdpEngineTransmitterPtr[engineIndex] = &(res.first->second);
     }

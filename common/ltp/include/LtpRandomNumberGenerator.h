@@ -60,10 +60,10 @@ public:
     
     /** Generate a hardware-generated random 64-bit session number.
      *
-     * - bits 63..56 (8 bits): Engine index.
-     * - bit  55     (1 bit): Set to 0 to leave room for incrementing without rolling into the engine index.
-     * - bits 54..16 (39 bits): Random part.
-     * - bits 15..0  (16 bits): Birthday paradox prevention part, stays in range [1, std::numeric_limits<std::uint16_t>::max()].
+     * - bits 63..61 (3 bits): Engine index. (never 0, starts at 1)
+     * - bit  60     (1 bit): Set to 0 to leave room for incrementing without rolling into the engine index.
+     * - bits 59..24 (36 bits): Random part.
+     * - bits 23..0  (24 bits): Birthday paradox prevention part, stays in range [1, 16777215] (i.e. [1, 2^24 - 1]).
      * @return The random 64-bit session number.
      */
     LTP_LIB_EXPORT uint64_t GetRandomSession64();
@@ -87,10 +87,10 @@ public:
     
     /** Generate a hardware-generated random 32-bit session number.
      *
-     * - bits 31..24 (8 bits): Engine index.
-     * - bit 23      (1 bit): Set to 0 to leave room for incrementing without rolling into the engine index.
-     * - bits 22..16 (7 bits): Random part.
-     * - bits 15..0  (16 bits): Birthday paradox prevention part, stays in range [1, std::numeric_limits<std::uint16_t>::max()].
+     * - bits 31..29 (3 bits): Engine index.
+     * - bit 28      (1 bit): Set to 0 to leave room for incrementing without rolling into the engine index.
+     * - bits 27..21 (7 bits): Random part.
+     * - bits 20..0  (21 bits): Birthday paradox prevention part, stays in range [1, 2097151] (i.e. [1, 2^21 - 1]).
      * @return The random 32-bit session number.
      */
     LTP_LIB_EXPORT uint32_t GetRandomSession32();
@@ -114,7 +114,7 @@ public:
     
     /** Set the engine index.
      *
-     * @param engineIndex The engine index to set, must be in range [1, 255].
+     * @param engineIndex The engine index to set, must be in range [1, 7].
      */
     LTP_LIB_EXPORT void SetEngineIndex(const uint8_t engineIndex);
     
@@ -129,6 +129,12 @@ public:
      * @return The LTP (hybrid pseudo and hardware) random number generator (containing state info).
      */
     LTP_LIB_EXPORT Rng& GetInternalRngRef();
+
+    /** Get the Circular birthday paradox prevention value for unit testing.
+     *
+     * @return The Circular birthday paradox prevention value by reference.
+     */
+    LTP_LIB_EXPORT uint32_t& GetInternalBirthdayParadoxRef();
     
     /** Parse the engine index part of a random session number.
      *
@@ -148,8 +154,8 @@ public:
 private:
     ///The LTP (hybrid pseudo and hardware) random number generator (containing state info).
     Rng m_rng;
-    /// Circular birthday paradox prevention value, stays in range [1, std::numeric_limits<std::uint16_t>::max()]
-    uint16_t m_birthdayParadoxPreventer_incrementalPart_U16;
+    /// Circular birthday paradox prevention value, stays in range [1, 2^21 - 1] for 32-bit session numbers, and [1, 2^24 - 1] for 64-bit session numbers
+    uint32_t m_birthdayParadoxPreventer_incrementalPart_U32;
     /// Engine index, encoded into the upper portion of a session number
     uint8_t m_engineIndex;
 };

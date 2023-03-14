@@ -59,6 +59,7 @@ add_hdtn_package_export(bpcodec Bpcodec) #exported target will have the name HDT
 install(FILES
 	../include/message.hpp
 	../include/stats.hpp
+	../include/HdtnVersion.hpp
 	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 add_library(bp_app_patterns_lib

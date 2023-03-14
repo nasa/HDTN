@@ -197,7 +197,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         }
 
 #ifdef RUN_TELEMETRY
-        while (running && m_runningFromSigHandler && !telemetryRunnerPtr->ShouldExit()) {
+        while (running && m_runningFromSigHandler) {
 #else
         while (running && m_runningFromSigHandler) {
 #endif // RUN_TELEMETRY

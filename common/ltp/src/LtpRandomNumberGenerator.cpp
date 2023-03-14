@@ -92,7 +92,7 @@ uint64_t LtpRandomNumberGenerator::Rng::GetReseedAdditionalEntropyCount() const 
 }
 
 LtpRandomNumberGenerator::LtpRandomNumberGenerator() :
-    m_birthdayParadoxPreventer_incrementalPart_U16(1),
+    m_birthdayParadoxPreventer_incrementalPart_U32(1),
     m_engineIndex(UINT8_MAX) //manually set later
 {
 
@@ -100,33 +100,35 @@ LtpRandomNumberGenerator::LtpRandomNumberGenerator() :
 
 
 //return a hardware random generated number with:
-//    - bit 63..56 (8 bits of engineIndex)
-//    - bit 55 set to 0 to leave room for incrementing without rolling into the engineIndex
-//    - bit 54..16 a random part (39 bits of randomness)
-//    - bits 15..0 a 16-bit incremental part (never 0) (to prevent a birthday paradox) which rolls around (1,2,..,65534,65535,1,2,..)
+//    - bit 63..61 (3 bits of engineIndex) (never 0, starts at 1)
+//    - bit 60 set to 0 to leave room for incrementing without rolling into the engineIndex
+//    - bit 59..24 a random part (36 bits of randomness)
+//    - bits 23..0 a 24-bit incremental part (never 0) (to prevent a birthday paradox) which rolls around (1,2,..,16777214,16777215,1,2,..)
 uint64_t LtpRandomNumberGenerator::GetRandomSession64() {
-    uint64_t randomNumber = m_rng() << 16; //only shifting 16 so that microsecond time LSB (one of the hardware random components) are fully included in the random part
-    randomNumber &= (static_cast<uint64_t>(0x007fffffffff0000u));
-    randomNumber |= ((static_cast<uint64_t>(m_engineIndex)) << 56);
+    uint64_t randomNumber = m_rng();
+    randomNumber <<= 24; //only shifting 24 so that microsecond time LSB (one of the hardware random components) are fully included in the random part
+    randomNumber &= (static_cast<uint64_t>(0xfffffffff000000u)); //FFF FFFF FF00 0000
+    randomNumber |= ((static_cast<uint64_t>(m_engineIndex)) << 61);
     //randomNumber >>= 16; //zero out 16 lsb for OR'ing with the incremental part 
     //randomNumber <<= (16+1);
     //randomNumber >>= 1; // clear out 1 msb to make room for incrementing these random numbers so that they will never roll back around to zero
-    uint16_t inc = m_birthdayParadoxPreventer_incrementalPart_U16;
+    uint32_t inc = m_birthdayParadoxPreventer_incrementalPart_U32;
 
     randomNumber |= inc;
     ++inc;
-    inc += (inc == 0); //must be non-zero when uint16 rolls back around
-    m_birthdayParadoxPreventer_incrementalPart_U16 = inc;
+    inc &= 0xffffffu; //create the overflow / roll back
+    inc += (inc == 0); //must be non-zero when "uint24" rolls back around
+    m_birthdayParadoxPreventer_incrementalPart_U32 = inc;
     return randomNumber;
 
 }
 
 //return a ping number with:
-//    - bit 63..56 (8 bits of engineIndex)
-//    - bit 55..0 set to 0xffffff for reserved number denoting ping
+//    - bit 63..61 (3 bits of engineIndex) (never 0, starts at 1)
+//    - bit 60..0 set to 0x1fffffffffffffff for reserved number denoting ping
 uint64_t LtpRandomNumberGenerator::GetPingSession64() const {
-    static constexpr uint64_t pingReserved = 0xffffffffffffffu;
-    const uint64_t randomNumber = pingReserved | ((static_cast<uint64_t>(m_engineIndex)) << 56);
+    static constexpr uint64_t pingReserved = 0x1fffffffffffffffu;
+    const uint64_t randomNumber = pingReserved | ((static_cast<uint64_t>(m_engineIndex)) << 61);
     return randomNumber;
 }
 
@@ -144,33 +146,35 @@ uint64_t LtpRandomNumberGenerator::GetRandomSerialNumber64() {
 
 
 //return a hardware random generated number with:
-//    - bit 31..24 (8 bits of engineIndex)
-//    - bit 23 set to 0 to leave room for incrementing without rolling into the engineIndex
-//    - bit 22..16 a random part (7 bits of randomness)
-//    - bits 15..0 a 16-bit incremental part (never 0) (to prevent a birthday paradox) which rolls around (1,2,..,65534,65535,1,2,..)
+//    - bit 31..29 (3 bits of engineIndex) (never 0, starts at 1)
+//    - bit 28 set to 0 to leave room for incrementing without rolling into the engineIndex
+//    - bit 27..21 a random part (7 bits of randomness)
+//    - bits 20..0 a 21-bit incremental part (never 0) (to prevent a birthday paradox) which rolls around (1,2,..,2097150,2097151,1,2,..)
 uint32_t LtpRandomNumberGenerator::GetRandomSession32() {
-    uint64_t randomNumber = m_rng() << 16; //only shifting 16 so that microsecond time LSB (one of the hardware random components) are fully included in the random part
-    randomNumber &= (static_cast<uint64_t>(0x007f0000u));
-    randomNumber |= ((static_cast<uint64_t>(m_engineIndex)) << 24);
-    //randomNumber >>= 16; //zero out 16 lsb for OR'ing with the incremental part 
-    //randomNumber <<= (16+1);
+    uint64_t randomNumber = m_rng();
+    randomNumber <<= 21; //only shifting 21 so that microsecond time LSB (one of the hardware random components) are fully included in the random part
+    randomNumber &= (static_cast<uint64_t>(0xfe00000u)); //7f0000 << 5
+    randomNumber |= ((static_cast<uint64_t>(m_engineIndex)) << 29);
+    //randomNumber >>= 21; //zero out 21 lsb for OR'ing with the incremental part 
+    //randomNumber <<= (21+1);
     //randomNumber >>= 1; // clear out 1 msb to make room for incrementing these random numbers so that they will never roll back around to zero
-    uint16_t inc = m_birthdayParadoxPreventer_incrementalPart_U16;
+    uint32_t inc = m_birthdayParadoxPreventer_incrementalPart_U32;
 
     randomNumber |= inc;
     ++inc;
-    inc += (inc == 0); //must be non-zero when uint16 rolls back around
-    m_birthdayParadoxPreventer_incrementalPart_U16 = inc;
+    inc &= 0x1fffffu; //create the overflow / roll back
+    inc += (inc == 0); //must be non-zero when "uint21" rolls back around
+    m_birthdayParadoxPreventer_incrementalPart_U32 = inc;
     return static_cast<uint32_t>(randomNumber);
 }
 
 
 //return a ping number with:
-//    - bit 31..24 (8 bits of engineIndex)
-//    - bit 23..0 set to 0xffffff for reserved number denoting ping
+//    - bit 31..29 (3 bits of engineIndex) (never 0, starts at 1)
+//    - bit 28..0 set to 0x1fffffff for reserved number denoting ping
 uint32_t LtpRandomNumberGenerator::GetPingSession32() const {
-    static constexpr uint64_t pingReserved = 0x00ffffffu;
-    const uint64_t randomNumber = pingReserved | ((static_cast<uint64_t>(m_engineIndex)) << 24);
+    static constexpr uint64_t pingReserved = 0x1fffffffu;
+    const uint64_t randomNumber = pingReserved | ((static_cast<uint64_t>(m_engineIndex)) << 29);
     return static_cast<uint32_t>(randomNumber);
 }
 
@@ -195,10 +199,13 @@ uint8_t LtpRandomNumberGenerator::GetEngineIndex() const {
 LtpRandomNumberGenerator::Rng& LtpRandomNumberGenerator::GetInternalRngRef() {
     return m_rng;
 }
+uint32_t& LtpRandomNumberGenerator::GetInternalBirthdayParadoxRef() {
+    return m_birthdayParadoxPreventer_incrementalPart_U32;
+}
 uint8_t LtpRandomNumberGenerator::GetEngineIndexFromRandomSessionNumber(uint64_t randomSessionNumber) {
-    const uint8_t engineIndexIf64BitSessionNumber = static_cast<uint8_t>(randomSessionNumber >> 56);
+    const uint8_t engineIndexIf64BitSessionNumber = static_cast<uint8_t>(randomSessionNumber >> 61);
     const bool is32BitSessionNumber = (engineIndexIf64BitSessionNumber == 0);
-    const uint8_t engineIndexIf32BitSessionNumber = static_cast<uint8_t>(randomSessionNumber >> 24);
+    const uint8_t engineIndexIf32BitSessionNumber = static_cast<uint8_t>(randomSessionNumber >> 29);
     return (engineIndexIf32BitSessionNumber * is32BitSessionNumber) + engineIndexIf64BitSessionNumber;
 }
 bool LtpRandomNumberGenerator::IsPingSession(const uint64_t sessionNumber, const bool is32Bit) {

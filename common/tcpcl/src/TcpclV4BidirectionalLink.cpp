@@ -71,9 +71,17 @@ TcpclV4BidirectionalLink::TcpclV4BidirectionalLink(
 
     m_base_myNextTransferId(0),
 
+    m_base_tcpclRemoteNodeId(0),
+
     M_BASE_MY_MAX_TX_UNACKED_BUNDLES(myMaxTxUnackedBundles), //bundle sink has MAX_UNACKED(maxUnacked + 5),
     M_BASE_MY_MAX_RX_SEGMENT_SIZE_BYTES(myMaxRxSegmentSizeBytes),
     M_BASE_MY_MAX_RX_BUNDLE_SIZE_BYTES(myMaxRxBundleSizeBytes),
+
+    m_base_remoteMaxRxSegmentSizeBytes(0),
+    m_base_remoteMaxRxBundleSizeBytes(0),
+    m_base_remoteMaxRxSegmentsPerBundle(0),
+    m_base_maxUnackedSegments(0),
+    m_base_ackCbSize(0),
 
     m_base_userAssignedUuid(0)
 {
@@ -120,29 +128,43 @@ TcpclV4BidirectionalLink::~TcpclV4BidirectionalLink() {
 }
 
 void TcpclV4BidirectionalLink::BaseClass_TryToWaitForAllBundlesToFinishSending() {
-    boost::mutex localMutex;
-    boost::mutex::scoped_lock lock(localMutex);
-    m_base_useLocalConditionVariableAckReceived = true;
-    std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
-    for (unsigned int attempt = 0; attempt < 10; ++attempt) {
-        const std::size_t numUnacked = Virtual_GetTotalBundlesUnacked();
-        if (numUnacked) {
-            LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": destructor waiting on " << numUnacked << " unacked bundles";
+    try {
+        boost::mutex localMutex;
+        boost::mutex::scoped_lock lock(localMutex);
+        m_base_useLocalConditionVariableAckReceived = true;
+        std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
+        for (unsigned int attempt = 0; attempt < 10; ++attempt) {
+            const std::size_t numUnacked = Virtual_GetTotalBundlesUnacked();
+            if (numUnacked) {
+                LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": destructor waiting on " << numUnacked << " unacked bundles";
 
-            LOG_INFO(subprocess) << "   acked: " << m_base_outductTelemetry.m_totalBundlesAcked;
-            LOG_INFO(subprocess) << "   total sent: " << m_base_outductTelemetry.m_totalBundlesSent;
+                LOG_INFO(subprocess) << "   acked: " << m_base_outductTelemetry.m_totalBundlesAcked;
+                LOG_INFO(subprocess) << "   total sent: " << m_base_outductTelemetry.m_totalBundlesSent;
 
-            if (previousUnacked > numUnacked) {
-                previousUnacked = numUnacked;
-                attempt = 0;
+                if (previousUnacked > numUnacked) {
+                    previousUnacked = numUnacked;
+                    attempt = 0;
+                }
+                m_base_localConditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
+                //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+                continue;
             }
-            m_base_localConditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
-            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
-            continue;
+            break;
         }
-        break;
+        m_base_useLocalConditionVariableAckReceived = false;
     }
-    m_base_useLocalConditionVariableAckReceived = false;
+    catch (const boost::condition_error& e) {
+        LOG_ERROR(subprocess) << "condition_error in TcpclV4BidirectionalLink::BaseClass_TryToWaitForAllBundlesToFinishSending: " << e.what();
+    }
+    catch (const boost::thread_resource_error& e) {
+        LOG_ERROR(subprocess) << "thread_resource_error in TcpclV4BidirectionalLink::BaseClass_TryToWaitForAllBundlesToFinishSending: " << e.what();
+    }
+    catch (const boost::thread_interrupted&) {
+        LOG_ERROR(subprocess) << "thread_interrupted in TcpclV4BidirectionalLink::BaseClass_TryToWaitForAllBundlesToFinishSending";
+    }
+    catch (const boost::lock_error& e) {
+        LOG_ERROR(subprocess) << "lock_error in TcpclV4BidirectionalLink::BaseClass_TryToWaitForAllBundlesToFinishSending: " << e.what();
+    }
 }
 
 std::size_t TcpclV4BidirectionalLink::Virtual_GetTotalBundlesAcked() {

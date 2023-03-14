@@ -80,11 +80,7 @@ public:
         const OnNewBeastWebsocketConnectionCallback_t& connectionCallback, const OnNewBeastWebsocketDataReceivedCallback_t& dataCallback);
     TELEM_LIB_EXPORT void Stop();
     TELEM_LIB_EXPORT void SendTextDataToActiveWebsockets(const std::shared_ptr<std::string>& stringPtr);
-    /*
-    TELEM_LIB_EXPORT void SendTextDataToActiveWebsockets(const char* data, std::size_t size);
-    TELEM_LIB_EXPORT void SendBinaryDataToActiveWebsockets(const char* data, std::size_t size);
-*/
-    
+
 
 private:
     // Internal implementation class

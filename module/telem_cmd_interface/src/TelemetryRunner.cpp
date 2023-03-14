@@ -20,6 +20,7 @@
 #include <boost/thread.hpp>
 #include <boost/tokenizer.hpp>
 #include <boost/asio.hpp>
+#include <boost/format.hpp>
 
 #include "TelemetryRunner.h"
 #include "Logger.h"
@@ -32,6 +33,7 @@
 #include "DeadlineTimer.h"
 #include "ThreadNamer.h"
 #include <queue>
+#include "HdtnVersion.hpp"
 #ifdef USE_WEB_INTERFACE
 #include "BeastWebsocketServer.h"
 #endif
@@ -64,7 +66,6 @@ class TelemetryRunner::Impl : private boost::noncopyable {
     public:
         Impl();
         bool Init(const HdtnConfig& hdtnConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions& options);
-        bool ShouldExit();
         void Stop();
 
     private:
@@ -81,6 +82,7 @@ class TelemetryRunner::Impl : private boost::noncopyable {
         std::unique_ptr<TelemetryLogger> m_telemetryLoggerPtr;
         DeadlineTimer m_deadlineTimer;
         HdtnConfig m_hdtnConfig;
+        std::shared_ptr<std::string> m_hdtnConfigJsonPtr;
 
         boost::mutex m_lastSerializedAllOutductCapabilitiesMutex;
         std::shared_ptr<std::string> m_lastJsonSerializedAllOutductCapabilitiesPtr;
@@ -106,10 +108,6 @@ bool TelemetryRunner::Init(const HdtnConfig& hdtnConfig, zmq::context_t *inprocC
     return m_pimpl->Init(hdtnConfig, inprocContextPtr, options);
 }
 
-bool TelemetryRunner::ShouldExit() {
-    return m_pimpl->ShouldExit();
-}
-
 void TelemetryRunner::Stop() {
     m_pimpl->Stop();
 }
@@ -132,6 +130,17 @@ bool TelemetryRunner::Impl::Init(const HdtnConfig& hdtnConfig, zmq::context_t *i
         return false;
     }
     m_hdtnConfig = hdtnConfig;
+    { //add hdtn version to config, and preserialize it to json once for all connecting web GUIs
+        boost::property_tree::ptree pt = hdtnConfig.GetNewPropertyTree();
+        static const boost::format fmtTemplate("%d.%d.%d");
+        boost::format fmt(fmtTemplate);
+        fmt % HDTN_VERSION_MAJOR % HDTN_VERSION_MINOR % HDTN_VERSION_PATCH;
+        const std::string hdtnVersionString = fmt.str();
+        LOG_INFO(subprocess) << "HDTN version is v" << hdtnVersionString;
+        pt.put("hdtnVersionString", hdtnVersionString);
+        m_hdtnConfigJsonPtr = std::make_shared<std::string>(JsonSerializable::PtToJsonString(pt));
+    }
+    
 #ifdef USE_WEB_INTERFACE
 # ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
     boost::asio::ssl::context sslContext(boost::asio::ssl::context::sslv23_server);
@@ -181,10 +190,10 @@ bool TelemetryRunner::Impl::Init(const HdtnConfig& hdtnConfig, zmq::context_t *i
 
 void TelemetryRunner::Impl::OnNewWebsocketConnectionCallback(WebsocketSessionPublicBase& conn) {
     //std::cout << "newconn\n";
-    conn.AsyncSendTextData(std::make_shared<std::string>(m_hdtnConfig.ToJson()));
+    conn.AsyncSendTextData(std::shared_ptr<std::string>(m_hdtnConfigJsonPtr));
     {
         boost::mutex::scoped_lock lock(m_lastSerializedAllOutductCapabilitiesMutex);
-        if (m_lastJsonSerializedAllOutductCapabilitiesPtr->size()) {
+        if (m_lastJsonSerializedAllOutductCapabilitiesPtr && m_lastJsonSerializedAllOutductCapabilitiesPtr->size()) {
             conn.AsyncSendTextData(std::shared_ptr<std::string>(m_lastJsonSerializedAllOutductCapabilitiesPtr)); //create copy of shared ptr and move the copy in
         }
     }
@@ -368,11 +377,6 @@ void TelemetryRunner::Impl::OnNewJsonTelemetry(const char* buffer, uint64_t buff
         m_websocketServerPtr->SendTextDataToActiveWebsockets(strPtr);
     }
 #endif
-}
-
-bool TelemetryRunner::Impl::ShouldExit() {
-    //websocket server does not support this
-    return false;
 }
 
 void TelemetryRunner::Impl::Stop() {

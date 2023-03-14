@@ -39,11 +39,6 @@ class TelemetryRunner
         TELEM_LIB_EXPORT bool Init(const HdtnConfig& hdtnConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions& options);
 
         /**
-         * Determines whether the runner wants to exits 
-         */
-        TELEM_LIB_EXPORT bool ShouldExit();
-
-        /**
          * Stops the runner
          */
         TELEM_LIB_EXPORT void Stop();

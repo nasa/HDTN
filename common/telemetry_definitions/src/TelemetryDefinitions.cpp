@@ -226,7 +226,7 @@ OutductCapabilityTelemetry_t::OutductCapabilityTelemetry_t(const OutductCapabili
     nextHopNodeId(o.nextHopNodeId),
     finalDestinationEidList(o.finalDestinationEidList),
     finalDestinationNodeIdList(o.finalDestinationNodeIdList) { } //a copy constructor: X(const X&)
-OutductCapabilityTelemetry_t::OutductCapabilityTelemetry_t(OutductCapabilityTelemetry_t&& o) :
+OutductCapabilityTelemetry_t::OutductCapabilityTelemetry_t(OutductCapabilityTelemetry_t&& o) noexcept :
     outductArrayIndex(o.outductArrayIndex),
     maxBundlesInPipeline(o.maxBundlesInPipeline),
     maxBundleSizeBytesInPipeline(o.maxBundleSizeBytesInPipeline),
@@ -242,7 +242,7 @@ OutductCapabilityTelemetry_t& OutductCapabilityTelemetry_t::operator=(const Outd
     finalDestinationNodeIdList = o.finalDestinationNodeIdList;
     return *this;
 }
-OutductCapabilityTelemetry_t& OutductCapabilityTelemetry_t::operator=(OutductCapabilityTelemetry_t&& o) { //a move assignment: operator=(X&&)
+OutductCapabilityTelemetry_t& OutductCapabilityTelemetry_t::operator=(OutductCapabilityTelemetry_t&& o) noexcept { //a move assignment: operator=(X&&)
     outductArrayIndex = o.outductArrayIndex;
     maxBundlesInPipeline = o.maxBundlesInPipeline;
     maxBundleSizeBytesInPipeline = o.maxBundleSizeBytesInPipeline;
@@ -341,13 +341,13 @@ bool AllOutductCapabilitiesTelemetry_t::operator!=(const AllOutductCapabilitiesT
 }
 AllOutductCapabilitiesTelemetry_t::AllOutductCapabilitiesTelemetry_t(const AllOutductCapabilitiesTelemetry_t& o) :
     outductCapabilityTelemetryList(o.outductCapabilityTelemetryList) { } //a copy constructor: X(const X&)
-AllOutductCapabilitiesTelemetry_t::AllOutductCapabilitiesTelemetry_t(AllOutductCapabilitiesTelemetry_t&& o) :
+AllOutductCapabilitiesTelemetry_t::AllOutductCapabilitiesTelemetry_t(AllOutductCapabilitiesTelemetry_t&& o) noexcept :
     outductCapabilityTelemetryList(std::move(o.outductCapabilityTelemetryList)) { } //a move constructor: X(X&&)
 AllOutductCapabilitiesTelemetry_t& AllOutductCapabilitiesTelemetry_t::operator=(const AllOutductCapabilitiesTelemetry_t& o) { //a copy assignment: operator=(const X&)
     outductCapabilityTelemetryList = o.outductCapabilityTelemetryList;
     return *this;
 }
-AllOutductCapabilitiesTelemetry_t& AllOutductCapabilitiesTelemetry_t::operator=(AllOutductCapabilitiesTelemetry_t&& o) { //a move assignment: operator=(X&&)
+AllOutductCapabilitiesTelemetry_t& AllOutductCapabilitiesTelemetry_t::operator=(AllOutductCapabilitiesTelemetry_t&& o) noexcept { //a move assignment: operator=(X&&)
     outductCapabilityTelemetryList = std::move(o.outductCapabilityTelemetryList);
     return *this;
 }
@@ -594,6 +594,12 @@ LtpInductConnectionTelemetry_t::LtpInductConnectionTelemetry_t() :
     m_numDelayedFullyClaimedSecondaryReportSegmentsSent(0),
     m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent(0),
     m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent(0),
+    m_totalCancelSegmentsStarted(0),
+    m_totalCancelSegmentSendRetries(0),
+    m_totalCancelSegmentsFailedToSend(0),
+    m_totalCancelSegmentsAcknowledged(0),
+    m_numRxSessionsCancelledBySender(0),
+    m_numStagnantRxSessionsDeleted(0),
     m_countUdpPacketsSent(0),
     m_countRxUdpCircularBufferOverruns(0),
     m_countTxUdpPacketsLimitedByRate(0) {}
@@ -610,6 +616,12 @@ bool LtpInductConnectionTelemetry_t::operator==(const InductConnectionTelemetry_
             && (m_numDelayedFullyClaimedSecondaryReportSegmentsSent == oPtr->m_numDelayedFullyClaimedSecondaryReportSegmentsSent)
             && (m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent == oPtr->m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent)
             && (m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent == oPtr->m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent)
+            && (m_totalCancelSegmentsStarted == oPtr->m_totalCancelSegmentsStarted)
+            && (m_totalCancelSegmentSendRetries == oPtr->m_totalCancelSegmentSendRetries)
+            && (m_totalCancelSegmentsFailedToSend == oPtr->m_totalCancelSegmentsFailedToSend)
+            && (m_totalCancelSegmentsAcknowledged == oPtr->m_totalCancelSegmentsAcknowledged)
+            && (m_numRxSessionsCancelledBySender == oPtr->m_numRxSessionsCancelledBySender)
+            && (m_numStagnantRxSessionsDeleted == oPtr->m_numStagnantRxSessionsDeleted)
             && (m_countUdpPacketsSent == oPtr->m_countUdpPacketsSent)
             && (m_countRxUdpCircularBufferOverruns == oPtr->m_countRxUdpCircularBufferOverruns)
             && (m_countTxUdpPacketsLimitedByRate == oPtr->m_countTxUdpPacketsLimitedByRate);
@@ -633,6 +645,12 @@ bool LtpInductConnectionTelemetry_t::SetValuesFromPropertyTree(const boost::prop
         m_numDelayedFullyClaimedSecondaryReportSegmentsSent = pt.get<uint64_t>("numDelayedFullyClaimedSecondaryReportSegmentsSent");
         m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent = pt.get<uint64_t>("numDelayedPartiallyClaimedPrimaryReportSegmentsSent");
         m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent = pt.get<uint64_t>("numDelayedPartiallyClaimedSecondaryReportSegmentsSent");
+        m_totalCancelSegmentsStarted = pt.get<uint64_t>("totalCancelSegmentsStarted");
+        m_totalCancelSegmentSendRetries = pt.get<uint64_t>("totalCancelSegmentSendRetries");
+        m_totalCancelSegmentsFailedToSend = pt.get<uint64_t>("totalCancelSegmentsFailedToSend");
+        m_totalCancelSegmentsAcknowledged = pt.get<uint64_t>("totalCancelSegmentsAcknowledged");
+        m_numRxSessionsCancelledBySender = pt.get<uint64_t>("numRxSessionsCancelledBySender");
+        m_numStagnantRxSessionsDeleted = pt.get<uint64_t>("numStagnantRxSessionsDeleted");
         m_countUdpPacketsSent = pt.get<uint64_t>("countUdpPacketsSent");
         m_countRxUdpCircularBufferOverruns = pt.get<uint64_t>("countRxUdpCircularBufferOverruns");
         m_countTxUdpPacketsLimitedByRate = pt.get<uint64_t>("countTxUdpPacketsLimitedByRate");
@@ -654,6 +672,12 @@ boost::property_tree::ptree LtpInductConnectionTelemetry_t::GetNewPropertyTree()
     pt.put("numDelayedFullyClaimedSecondaryReportSegmentsSent", m_numDelayedFullyClaimedSecondaryReportSegmentsSent);
     pt.put("numDelayedPartiallyClaimedPrimaryReportSegmentsSent", m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent);
     pt.put("numDelayedPartiallyClaimedSecondaryReportSegmentsSent", m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent);
+    pt.put("totalCancelSegmentsStarted", m_totalCancelSegmentsStarted);
+    pt.put("totalCancelSegmentSendRetries", m_totalCancelSegmentSendRetries);
+    pt.put("totalCancelSegmentsFailedToSend", m_totalCancelSegmentsFailedToSend);
+    pt.put("totalCancelSegmentsAcknowledged", m_totalCancelSegmentsAcknowledged);
+    pt.put("numRxSessionsCancelledBySender", m_numRxSessionsCancelledBySender);
+    pt.put("numStagnantRxSessionsDeleted", m_numStagnantRxSessionsDeleted);
     pt.put("countUdpPacketsSent", m_countUdpPacketsSent);
     pt.put("countRxUdpCircularBufferOverruns", m_countRxUdpCircularBufferOverruns);
     pt.put("countTxUdpPacketsLimitedByRate", m_countTxUdpPacketsLimitedByRate);
@@ -699,7 +723,9 @@ bool InductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::pt
             else {
                 return false;
             }
-            m_listInductConnections.back()->SetValuesFromPropertyTree(inductConnectionPt.second);
+            if (!m_listInductConnections.back()->SetValuesFromPropertyTree(inductConnectionPt.second)) {
+                return false;
+            }
         }
     }
     catch (const boost::property_tree::ptree_error& e) {
@@ -846,7 +872,8 @@ uint64_t OutductTelemetry_t::GetTotalBundleBytesQueued() const {
 
 StcpOutductTelemetry_t::StcpOutductTelemetry_t() :
     OutductTelemetry_t(),
-    m_totalStcpBytesSent(0)
+    m_totalStcpBytesSent(0),
+    m_numTcpReconnectAttempts(0)
 {
     m_convergenceLayer = "stcp";
 }
@@ -855,7 +882,8 @@ StcpOutductTelemetry_t::~StcpOutductTelemetry_t() {};
 bool StcpOutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
     if (const StcpOutductTelemetry_t* oPtr = dynamic_cast<const StcpOutductTelemetry_t*>(&o)) {
         return OutductTelemetry_t::operator==(o)
-            && (m_totalStcpBytesSent == oPtr->m_totalStcpBytesSent);
+            && (m_totalStcpBytesSent == oPtr->m_totalStcpBytesSent)
+            && (m_numTcpReconnectAttempts == oPtr->m_numTcpReconnectAttempts);
     }
     return false;
 }
@@ -869,6 +897,7 @@ bool StcpOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tre
     }
     try {
         m_totalStcpBytesSent = pt.get<uint64_t>("totalStcpBytesSent");
+        m_numTcpReconnectAttempts = pt.get<uint64_t>("numTcpReconnectAttempts");
     }
     catch (const boost::property_tree::ptree_error& e) {
         LOG_ERROR(subprocess) << "parsing JSON StcpOutductTelemetry_t: " << e.what();
@@ -880,6 +909,7 @@ bool StcpOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tre
 boost::property_tree::ptree StcpOutductTelemetry_t::GetNewPropertyTree() const {
     boost::property_tree::ptree pt = OutductTelemetry_t::GetNewPropertyTree();
     pt.put("totalStcpBytesSent", m_totalStcpBytesSent);
+    pt.put("numTcpReconnectAttempts", m_numTcpReconnectAttempts);
     return pt;
 }
 
@@ -888,6 +918,16 @@ LtpOutductTelemetry_t::LtpOutductTelemetry_t() :
     m_numCheckpointsExpired(0),
     m_numDiscretionaryCheckpointsNotResent(0),
     m_numDeletedFullyClaimedPendingReports(0),
+    m_totalCancelSegmentsStarted(0),
+    m_totalCancelSegmentSendRetries(0),
+    m_totalCancelSegmentsFailedToSend(0),
+    m_totalCancelSegmentsAcknowledged(0),
+    m_totalPingsStarted(0),
+    m_totalPingRetries(0),
+    m_totalPingsFailedToSend(0),
+    m_totalPingsAcknowledged(0),
+    m_numTxSessionsReturnedToStorage(0),
+    m_numTxSessionsCancelledByReceiver(0),
     m_countUdpPacketsSent(0),
     m_countRxUdpCircularBufferOverruns(0),
     m_countTxUdpPacketsLimitedByRate(0)
@@ -901,6 +941,16 @@ bool LtpOutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
             && (m_numCheckpointsExpired == oPtr->m_numCheckpointsExpired)
             && (m_numDiscretionaryCheckpointsNotResent == oPtr->m_numDiscretionaryCheckpointsNotResent)
             && (m_numDeletedFullyClaimedPendingReports == oPtr->m_numDeletedFullyClaimedPendingReports)
+            && (m_totalCancelSegmentsStarted == oPtr->m_totalCancelSegmentsStarted)
+            && (m_totalCancelSegmentSendRetries == oPtr->m_totalCancelSegmentSendRetries)
+            && (m_totalCancelSegmentsFailedToSend == oPtr->m_totalCancelSegmentsFailedToSend)
+            && (m_totalCancelSegmentsAcknowledged == oPtr->m_totalCancelSegmentsAcknowledged)
+            && (m_totalPingsStarted == oPtr->m_totalPingsStarted)
+            && (m_totalPingRetries == oPtr->m_totalPingRetries)
+            && (m_totalPingsFailedToSend == oPtr->m_totalPingsFailedToSend)
+            && (m_totalPingsAcknowledged == oPtr->m_totalPingsAcknowledged)
+            && (m_numTxSessionsReturnedToStorage == oPtr->m_numTxSessionsReturnedToStorage)
+            && (m_numTxSessionsCancelledByReceiver == oPtr->m_numTxSessionsCancelledByReceiver)
             && (m_countUdpPacketsSent == oPtr->m_countUdpPacketsSent)
             && (m_countRxUdpCircularBufferOverruns == oPtr->m_countRxUdpCircularBufferOverruns)
             && (m_countTxUdpPacketsLimitedByRate == oPtr->m_countTxUdpPacketsLimitedByRate);
@@ -918,6 +968,16 @@ bool LtpOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree
         m_numCheckpointsExpired = pt.get<uint64_t>("numCheckpointsExpired");
         m_numDiscretionaryCheckpointsNotResent = pt.get<uint64_t>("numDiscretionaryCheckpointsNotResent");
         m_numDeletedFullyClaimedPendingReports = pt.get<uint64_t>("numDeletedFullyClaimedPendingReports");
+        m_totalCancelSegmentsStarted = pt.get<uint64_t>("totalCancelSegmentsStarted");
+        m_totalCancelSegmentSendRetries = pt.get<uint64_t>("totalCancelSegmentSendRetries");
+        m_totalCancelSegmentsFailedToSend = pt.get<uint64_t>("totalCancelSegmentsFailedToSend");
+        m_totalCancelSegmentsAcknowledged = pt.get<uint64_t>("totalCancelSegmentsAcknowledged");
+        m_totalPingsStarted = pt.get<uint64_t>("totalPingsStarted");
+        m_totalPingRetries = pt.get<uint64_t>("totalPingRetries");
+        m_totalPingsFailedToSend = pt.get<uint64_t>("totalPingsFailedToSend");
+        m_totalPingsAcknowledged = pt.get<uint64_t>("totalPingsAcknowledged");
+        m_numTxSessionsReturnedToStorage = pt.get<uint64_t>("numTxSessionsReturnedToStorage");
+        m_numTxSessionsCancelledByReceiver = pt.get<uint64_t>("numTxSessionsCancelledByReceiver");
         m_countUdpPacketsSent = pt.get<uint64_t>("countUdpPacketsSent");
         m_countRxUdpCircularBufferOverruns = pt.get<uint64_t>("countRxUdpCircularBufferOverruns");
         m_countTxUdpPacketsLimitedByRate = pt.get<uint64_t>("countTxUdpPacketsLimitedByRate");
@@ -933,6 +993,16 @@ boost::property_tree::ptree LtpOutductTelemetry_t::GetNewPropertyTree() const {
     pt.put("numCheckpointsExpired", m_numCheckpointsExpired);
     pt.put("numDiscretionaryCheckpointsNotResent", m_numDiscretionaryCheckpointsNotResent);
     pt.put("numDeletedFullyClaimedPendingReports", m_numDeletedFullyClaimedPendingReports);
+    pt.put("totalCancelSegmentsStarted", m_totalCancelSegmentsStarted);
+    pt.put("totalCancelSegmentSendRetries", m_totalCancelSegmentSendRetries);
+    pt.put("totalCancelSegmentsFailedToSend", m_totalCancelSegmentsFailedToSend);
+    pt.put("totalCancelSegmentsAcknowledged", m_totalCancelSegmentsAcknowledged);
+    pt.put("totalPingsStarted", m_totalPingsStarted);
+    pt.put("totalPingRetries", m_totalPingRetries);
+    pt.put("totalPingsFailedToSend", m_totalPingsFailedToSend);
+    pt.put("totalPingsAcknowledged", m_totalPingsAcknowledged);
+    pt.put("numTxSessionsReturnedToStorage", m_numTxSessionsReturnedToStorage);
+    pt.put("numTxSessionsCancelledByReceiver", m_numTxSessionsCancelledByReceiver);
     pt.put("countUdpPacketsSent", m_countUdpPacketsSent);
     pt.put("countRxUdpCircularBufferOverruns", m_countRxUdpCircularBufferOverruns);
     pt.put("countTxUdpPacketsLimitedByRate", m_countTxUdpPacketsLimitedByRate);
@@ -942,8 +1012,11 @@ boost::property_tree::ptree LtpOutductTelemetry_t::GetNewPropertyTree() const {
 
 TcpclV3OutductTelemetry_t::TcpclV3OutductTelemetry_t() :
     OutductTelemetry_t(),
-    m_totalFragmentsAcked(0), m_totalFragmentsSent(0), m_totalBundlesReceived(0),
-    m_totalBundleBytesReceived(0)
+    m_totalFragmentsAcked(0),
+    m_totalFragmentsSent(0),
+    m_totalBundlesReceived(0),
+    m_totalBundleBytesReceived(0),
+    m_numTcpReconnectAttempts(0)
 {
     m_convergenceLayer = "tcpcl_v3";
 }
@@ -954,7 +1027,8 @@ bool TcpclV3OutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
             && (m_totalFragmentsAcked == oPtr->m_totalFragmentsAcked)
             && (m_totalFragmentsSent == oPtr->m_totalFragmentsSent)
             && (m_totalBundlesReceived == oPtr->m_totalBundlesReceived)
-            && (m_totalBundleBytesReceived == oPtr->m_totalBundleBytesReceived);
+            && (m_totalBundleBytesReceived == oPtr->m_totalBundleBytesReceived)
+            && (m_numTcpReconnectAttempts == oPtr->m_numTcpReconnectAttempts);
     }
     return false;
 }
@@ -970,6 +1044,7 @@ bool TcpclV3OutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_
         m_totalFragmentsSent = pt.get<uint64_t>("totalFragmentsSent");
         m_totalBundlesReceived = pt.get<uint64_t>("totalBundlesReceived");
         m_totalBundleBytesReceived = pt.get<uint64_t>("totalBundleBytesReceived");
+        m_numTcpReconnectAttempts = pt.get<uint64_t>("numTcpReconnectAttempts");
     }
     catch (const boost::property_tree::ptree_error& e) {
         LOG_ERROR(subprocess) << "parsing JSON TcpclV3OutductTelemetry_t: " << e.what();
@@ -983,13 +1058,17 @@ boost::property_tree::ptree TcpclV3OutductTelemetry_t::GetNewPropertyTree() cons
     pt.put("totalFragmentsSent", m_totalFragmentsSent);
     pt.put("totalBundlesReceived", m_totalBundlesReceived);
     pt.put("totalBundleBytesReceived", m_totalBundleBytesReceived);
+    pt.put("numTcpReconnectAttempts", m_numTcpReconnectAttempts);
     return pt;
 }
 
 TcpclV4OutductTelemetry_t::TcpclV4OutductTelemetry_t() :
     OutductTelemetry_t(),
-    m_totalFragmentsAcked(0), m_totalFragmentsSent(0), m_totalBundlesReceived(0),
-    m_totalBundleBytesReceived(0)
+    m_totalFragmentsAcked(0),
+    m_totalFragmentsSent(0),
+    m_totalBundlesReceived(0),
+    m_totalBundleBytesReceived(0),
+    m_numTcpReconnectAttempts(0)
 {
     m_convergenceLayer = "tcpcl_v4";
 }
@@ -1000,7 +1079,8 @@ bool TcpclV4OutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
             && (m_totalFragmentsAcked == oPtr->m_totalFragmentsAcked)
             && (m_totalFragmentsSent == oPtr->m_totalFragmentsSent)
             && (m_totalBundlesReceived == oPtr->m_totalBundlesReceived)
-            && (m_totalBundleBytesReceived == oPtr->m_totalBundleBytesReceived);
+            && (m_totalBundleBytesReceived == oPtr->m_totalBundleBytesReceived)
+            && (m_numTcpReconnectAttempts == oPtr->m_numTcpReconnectAttempts);
     }
     return false;
 }
@@ -1016,6 +1096,7 @@ bool TcpclV4OutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_
         m_totalFragmentsSent = pt.get<uint64_t>("totalFragmentsSent");
         m_totalBundlesReceived = pt.get<uint64_t>("totalBundlesReceived");
         m_totalBundleBytesReceived = pt.get<uint64_t>("totalBundleBytesReceived");
+        m_numTcpReconnectAttempts = pt.get<uint64_t>("numTcpReconnectAttempts");
     }
     catch (const boost::property_tree::ptree_error& e) {
         LOG_ERROR(subprocess) << "parsing JSON TcpclV4OutductTelemetry_t: " << e.what();
@@ -1029,6 +1110,7 @@ boost::property_tree::ptree TcpclV4OutductTelemetry_t::GetNewPropertyTree() cons
     pt.put("totalFragmentsSent", m_totalFragmentsSent);
     pt.put("totalBundlesReceived", m_totalBundlesReceived);
     pt.put("totalBundleBytesReceived", m_totalBundleBytesReceived);
+    pt.put("numTcpReconnectAttempts", m_numTcpReconnectAttempts);
     return pt;
 }
 
@@ -1147,7 +1229,9 @@ bool AllOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree
             else {
                 return false;
             }
-            m_listAllOutducts.back()->SetValuesFromPropertyTree(outductPt.second);
+            if (!m_listAllOutducts.back()->SetValuesFromPropertyTree(outductPt.second)) {
+                return false;
+            }
         }
     }
     catch (const boost::property_tree::ptree_error& e) {

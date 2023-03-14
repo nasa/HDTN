@@ -311,6 +311,18 @@ void LtpEngine::Reset() {
     m_numEventsTransmissionRequestDiskWritesTooSlow = 0;
     m_totalRedDataBytesSuccessfullySent = 0;
     m_totalRedDataBytesFailedToSend = 0;
+    m_totalCancelSegmentsStarted = 0;
+    m_totalCancelSegmentSendRetries = 0;
+    m_totalCancelSegmentsFailedToSend = 0;
+    m_totalCancelSegmentsAcknowledged = 0;
+    m_totalPingsStarted = 0;
+    m_totalPingRetries = 0;
+    m_totalPingsFailedToSend = 0;
+    m_totalPingsAcknowledged = 0;
+    m_numTxSessionsReturnedToStorage = 0;
+    m_numTxSessionsCancelledByReceiver = 0;
+    m_numRxSessionsCancelledBySender = 0;
+    m_numStagnantRxSessionsDeleted = 0;
     m_senderLinkIsUpPhysically = true; //assume the link on startup is up physically until ping determines it down (for gui)
 
     m_numCheckpointTimerExpiredCallbacksRef = 0;
@@ -605,36 +617,8 @@ bool LtpEngine::GetNextPacketToSend(UdpSendPacketInfo& udpSendPacketInfo) {
                 std::shared_ptr<LtpClientServiceDataToSend>& csdRef = txSessionIt->second.m_dataToSendSharedPtr;
                 const bool successCallbackAlreadyCalled = (m_memoryInFilesPtr) ? true : false;
                 if (txSessionIt->second.m_isFailedSession) { //give the bundle back to the user
-                    const bool safeToMove = (csdRef.use_count() == 1); //not also involved in a send operation
                     m_senderLinkIsUpPhysically = false;
-                    if (m_onFailedBundleVecSendCallback) { //if the user wants the data back
-                        std::vector<uint8_t> & vecRef = csdRef->GetVecRef();
-                        if (vecRef.size()) { //this session sender is using vector<uint8_t> client service data
-                            if (safeToMove) {
-                                LOG_INFO(subprocess) << "Ltp engine moving a send-failed vector bundle back to the user";
-                                m_onFailedBundleVecSendCallback(vecRef, csdRef->m_userData, m_userAssignedUuid, successCallbackAlreadyCalled);
-                            }
-                            else {
-                                LOG_INFO(subprocess) << "Ltp engine copying a send-failed vector bundle back to the user";
-                                std::vector<uint8_t> vecCopy(vecRef);
-                                m_onFailedBundleVecSendCallback(vecCopy, csdRef->m_userData, m_userAssignedUuid, successCallbackAlreadyCalled);
-                            }
-                        }
-                    }
-                    if (m_onFailedBundleZmqSendCallback) { //if the user wants the data back
-                        zmq::message_t & zmqRef = csdRef->GetZmqRef();
-                        if (zmqRef.size()) { //this session sender is using zmq client service data
-                            if (safeToMove) {
-                                LOG_INFO(subprocess) << "Ltp engine moving a send-failed zmq bundle back to the user";
-                                m_onFailedBundleZmqSendCallback(zmqRef, csdRef->m_userData, m_userAssignedUuid, successCallbackAlreadyCalled);
-                            }
-                            else {
-                                LOG_INFO(subprocess) << "Ltp engine copying a send-failed zmq bundle back to the user";
-                                zmq::message_t zmqCopy(zmqRef.data(), zmqRef.size());
-                                m_onFailedBundleZmqSendCallback(zmqCopy, csdRef->m_userData, m_userAssignedUuid, successCallbackAlreadyCalled);
-                            }
-                        }
-                    }
+                    TryReturnTxSessionDataToUser(txSessionIt);
                 }
                 else { //successful send
                     if ((!successCallbackAlreadyCalled) && m_onSuccessfulBundleSendCallback) {
@@ -985,10 +969,12 @@ bool LtpEngine::CancellationRequest(const Ltp::session_id_t & sessionId) { //onl
             //reason - code USR_CNCLD MUST be queued for transmission to the
             //destination LTP engine specified in the transmission request
             //that started this session.
+            TryReturnTxSessionDataToUser(txSessionIt); //TODO should this be done here because this would have been cancelled by this Tx user
             EraseTxSession(txSessionIt);
             LOG_INFO(subprocess) << "LtpEngine::CancellationRequest deleted session sender session number " << sessionId.sessionNumber;
 
             //send Cancel Segment to receiver (GetNextPacketToSend() will create the packet and start the timer)
+            ++m_totalCancelSegmentsStarted;
             m_queueCancelSegmentTimerInfo.emplace();
             cancel_segment_timer_info_t & info = m_queueCancelSegmentTimerInfo.back();
             info.sessionId = sessionId;
@@ -1024,6 +1010,7 @@ bool LtpEngine::CancellationRequest(const Ltp::session_id_t & sessionId) { //onl
             }
 
             //send Cancel Segment to sender (GetNextPacketToSend() will create the packet and start the timer)
+            ++m_totalCancelSegmentsStarted;
             m_queueCancelSegmentTimerInfo.emplace();
             cancel_segment_timer_info_t & info = m_queueCancelSegmentTimerInfo.back();
             info.sessionId = sessionId;
@@ -1054,14 +1041,20 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
                     m_receptionSessionCancelledCallback(sessionId, reasonCode); //No subsequent delivery notices will be issued for this session.
                 }
             }
-            if (rxSessionIt->second.IsSafeToDelete()) {
+            const bool isSafeToDelete = rxSessionIt->second.IsSafeToDelete();
+            if (isSafeToDelete) {
                 EraseRxSession(rxSessionIt);
-                LOG_INFO(subprocess) << "LtpEngine::CancelSegmentReceivedCallback deleted session receiver session number " << sessionId.sessionNumber;
             }
             else {
-                LOG_INFO(subprocess) << "LtpEngine::CancelSegmentReceivedCallback will delete session receiver session number " << sessionId.sessionNumber << " when safe to do so.";
                 m_queueReceiversNeedingDeletedButUnsafeToDelete.emplace(sessionId); //postpone deletion until safe
             }
+            if (m_numRxSessionsCancelledBySender == 0) {
+                LOG_INFO(subprocess) << "First time remote cancelled an Rx session (reason code "
+                    << static_cast<unsigned int>(reasonCode) << ", session #" << sessionId.sessionNumber
+                    << ((isSafeToDelete) ? " deleted" : " queued for deletion")
+                    << ").  Future cancellation messages will now be suppressed.";
+            }
+            ++m_numRxSessionsCancelledBySender;
             //Send CAx after outer if-else statement
 
         }
@@ -1084,8 +1077,14 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
                     m_transmissionSessionCancelledCallback(sessionId, reasonCode, txSessionIt->second.m_userDataPtr);
                 }
             }
+            TryReturnTxSessionDataToUser(txSessionIt); //TODO check reason codes
             EraseTxSession(txSessionIt);
-            LOG_INFO(subprocess) << "LtpEngine::CancelSegmentReceivedCallback deleted session sender session number " << sessionId.sessionNumber;
+            if (m_numTxSessionsCancelledByReceiver == 0) {
+                LOG_INFO(subprocess) << "First time remote cancelled a Tx session (reason code "
+                    << static_cast<unsigned int>(reasonCode) << ", session #" << sessionId.sessionNumber
+                    << ").  Future cancellation messages will now be suppressed.";
+            }
+            ++m_numTxSessionsCancelledByReceiver;
             //Send CAx after outer if-else statement
         }
         else { //not found
@@ -1134,6 +1133,7 @@ void LtpEngine::CancelAcknowledgementSegmentReceivedCallback(const Ltp::session_
         }
     }
 
+    
     //6.18.  Stop Cancel Timer
     //This procedure is triggered by the reception of a CAx segment.
     //
@@ -1144,25 +1144,31 @@ void LtpEngine::CancelAcknowledgementSegmentReceivedCallback(const Ltp::session_
     if (!m_timeManagerOfCancelSegments.DeleteTimer(sessionId, userDataReturned)) {
         LOG_INFO(subprocess) << "LtpEngine::CancelAcknowledgementSegmentReceivedCallback didn't delete timer";
     }
-
-    if (isToSender && LtpRandomNumberGenerator::IsPingSession(sessionId.sessionNumber, M_FORCE_32_BIT_RANDOM_NUMBERS)) {
-        //sender ping is successful
-        M_NEXT_PING_START_EXPIRY = boost::posix_time::microsec_clock::universal_time() + M_SENDER_PING_TIME;
-        m_senderLinkIsUpPhysically = true;
-        if (m_onOutductLinkStatusChangedCallback) { //let user know of link up event
-            m_onOutductLinkStatusChangedCallback(false, m_userAssignedUuid);
-        }
-    }
-    else if ((!isToSender)) {
-        if (userDataReturned.size() == sizeof(cancel_segment_timer_info_t)) {
-            const cancel_segment_timer_info_t* userDataPtr = reinterpret_cast<cancel_segment_timer_info_t*>(userDataReturned.data());
-            if (userDataPtr->reasonCode == CANCEL_SEGMENT_REASON_CODES::UNREACHABLE) {
-                if (m_ltpSessionsWithWrongClientServiceId.erase(userDataPtr->sessionId)) {
-                    LOG_INFO(subprocess) << "Received CAx for unreachable (due to wrong client service id)";
+    else { //a non-redundant cancel ack was received successfully
+        const bool isPing = (isToSender && LtpRandomNumberGenerator::IsPingSession(sessionId.sessionNumber, M_FORCE_32_BIT_RANDOM_NUMBERS));
+        m_totalCancelSegmentsAcknowledged += (!isPing);
+        m_totalPingsAcknowledged += isPing;
+        if (isPing) {
+            //sender ping is successful
+            M_NEXT_PING_START_EXPIRY = boost::posix_time::microsec_clock::universal_time() + M_SENDER_PING_TIME;
+            if (!m_senderLinkIsUpPhysically) {
+                m_senderLinkIsUpPhysically = true;
+                if (m_onOutductLinkStatusChangedCallback) { //let user know of link up event
+                    m_onOutductLinkStatusChangedCallback(false, m_userAssignedUuid);
                 }
             }
-            //this overload of DeleteTimer does not auto-recycle user data and must be manually invoked
-            m_timeManagerOfCancelSegments.m_userDataRecycler.ReturnUserData(std::move(userDataReturned));
+        }
+        else if (!isToSender) {
+            if (userDataReturned.size() == sizeof(cancel_segment_timer_info_t)) {
+                const cancel_segment_timer_info_t* userDataPtr = reinterpret_cast<cancel_segment_timer_info_t*>(userDataReturned.data());
+                if (userDataPtr->reasonCode == CANCEL_SEGMENT_REASON_CODES::UNREACHABLE) {
+                    if (m_ltpSessionsWithWrongClientServiceId.erase(userDataPtr->sessionId)) {
+                        LOG_INFO(subprocess) << "Received CAx for unreachable (due to wrong client service id)";
+                    }
+                }
+                //this overload of DeleteTimer does not auto-recycle user data and must be manually invoked
+                m_timeManagerOfCancelSegments.m_userDataRecycler.ReturnUserData(std::move(userDataReturned));
+            }
         }
     }
 }
@@ -1174,8 +1180,11 @@ void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmen
         return;
     }
     cancel_segment_timer_info_t info(userData.data());
+    const bool isPing = (info.isFromSender && LtpRandomNumberGenerator::IsPingSession(info.sessionId.sessionNumber, M_FORCE_32_BIT_RANDOM_NUMBERS));
 
     if (info.retryCount <= m_maxRetriesPerSerialNumber) {
+        m_totalCancelSegmentSendRetries += (!isPing);
+        m_totalPingRetries += isPing;
         //resend Cancel Segment to receiver (GetNextPacketToSend() will create the packet and start the timer)
         ++info.retryCount;
         m_queueCancelSegmentTimerInfo.emplace(info);
@@ -1183,16 +1192,22 @@ void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmen
         TrySaturateSendPacketPipeline();
     }
     else {
-        if (info.isFromSender && LtpRandomNumberGenerator::IsPingSession(info.sessionId.sessionNumber, M_FORCE_32_BIT_RANDOM_NUMBERS)) {
+        if (isPing) {
             //sender ping failed
+            ++m_totalPingsFailedToSend;
             M_NEXT_PING_START_EXPIRY = boost::posix_time::microsec_clock::universal_time() + M_SENDER_PING_TIME;
-            m_senderLinkIsUpPhysically = false;
-            if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
-                m_onOutductLinkStatusChangedCallback(true, m_userAssignedUuid);
+            if (m_senderLinkIsUpPhysically) {
+                m_senderLinkIsUpPhysically = false;
+                if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
+                    m_onOutductLinkStatusChangedCallback(true, m_userAssignedUuid);
+                }
             }
         }
         else {
-            LOG_INFO(subprocess) << "Cancel segment unable to send!";
+            if (m_totalCancelSegmentsFailedToSend == 0) {
+                LOG_INFO(subprocess) << "This is the first cancel segment that failed to send!  This message will now be suppressed.";
+            }
+            ++m_totalCancelSegmentsFailedToSend;
         }
     }
     //userData shall be recycled automatically after this callback completes
@@ -1202,6 +1217,7 @@ void LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback(const Ltp::sessio
     map_session_number_to_session_sender_t::iterator txSessionIt = m_mapSessionNumberToSessionSender.find(sessionId.sessionNumber);
     if (wasCancelled) {
         //send Cancel Segment to receiver (GetNextPacketToSend() will create the packet and start the timer)
+        ++m_totalCancelSegmentsStarted;
         m_queueCancelSegmentTimerInfo.emplace();
         cancel_segment_timer_info_t & info = m_queueCancelSegmentTimerInfo.back();
         info.sessionId = sessionId;
@@ -1243,6 +1259,7 @@ void LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback(const Ltp::sess
     bool isSafeToDelete = true;
     if (wasCancelled) {
         //send Cancel Segment to sender (GetNextPacketToSend() will create the packet and start the timer)
+        ++m_totalCancelSegmentsStarted;
         m_queueCancelSegmentTimerInfo.emplace();
         cancel_segment_timer_info_t & info = m_queueCancelSegmentTimerInfo.back();
         info.sessionId = sessionId;
@@ -1378,6 +1395,7 @@ bool LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
     if (dataSegmentMetadata.clientServiceId != m_ltpSessionReceiverCommonData.m_clientServiceId) {
         //send Cancel Segment to sender (GetNextPacketToSend() will create the packet and start the timer)
         if (m_ltpSessionsWithWrongClientServiceId.emplace(sessionId).second) { //only send one per sessionId
+            ++m_totalCancelSegmentsStarted;
             m_queueCancelSegmentTimerInfo.emplace();
             cancel_segment_timer_info_t& info = m_queueCancelSegmentTimerInfo.back();
             info.sessionId = sessionId;
@@ -1592,9 +1610,14 @@ void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) 
                 else {
                     m_queueReceiversNeedingDeletedButUnsafeToDelete.emplace(sessionId);
                 }
-                LOG_INFO(subprocess) << "LtpEngine::OnHousekeeping_TimerExpired deleting stagnant receiver session number " << sessionId.sessionNumber;
+                if (m_numStagnantRxSessionsDeleted == 0) {
+                    LOG_INFO(subprocess) << "First time housekeeping deleted a stagnant Rx session. (session #" << sessionId.sessionNumber
+                        << ").  Future messages like this will now be suppressed.";
+                }
+                ++m_numStagnantRxSessionsDeleted;
 
                 //send Cancel Segment to sender (GetNextPacketToSend() will create the packet and start the timer)
+                ++m_totalCancelSegmentsStarted;
                 m_queueCancelSegmentTimerInfo.emplace();
                 cancel_segment_timer_info_t& info = m_queueCancelSegmentTimerInfo.back();
                 info.sessionId = sessionId;
@@ -1628,6 +1651,7 @@ void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) 
             else {
                 M_NEXT_PING_START_EXPIRY = boost::posix_time::special_values::pos_infin; //will be set after ping succeeds or fails
                 //send Cancel Segment to receiver (GetNextPacketToSend() will create the packet and start the timer)
+                ++m_totalPingsStarted;
                 m_queueCancelSegmentTimerInfo.emplace();
                 cancel_segment_timer_info_t& info = m_queueCancelSegmentTimerInfo.back();
                 info.sessionId.sessionOriginatorEngineId = M_THIS_ENGINE_ID;
@@ -1647,9 +1671,11 @@ void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) 
 }
 
 void LtpEngine::DoExternalLinkDownEvent() {
-    m_senderLinkIsUpPhysically = false;
-    if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
-        m_onOutductLinkStatusChangedCallback(true, m_userAssignedUuid);
+    if (m_senderLinkIsUpPhysically) {
+        m_senderLinkIsUpPhysically = false;
+        if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
+            m_onOutductLinkStatusChangedCallback(true, m_userAssignedUuid);
+        }
     }
 }
 void LtpEngine::PostExternalLinkDownEvent_ThreadSafe() {
@@ -1683,6 +1709,48 @@ void LtpEngine::SetDeferDelays(const uint64_t delaySendingOfReportSegmentsTimeMs
     m_delaySendingOfDataSegmentsTime = (delaySendingOfDataSegmentsTimeMsOrZeroToDisable) ?
         boost::posix_time::milliseconds(delaySendingOfDataSegmentsTimeMsOrZeroToDisable) :
         boost::posix_time::time_duration(boost::posix_time::special_values::not_a_date_time);
+}
+
+void LtpEngine::TryReturnTxSessionDataToUser(map_session_number_to_session_sender_t::iterator& txSessionIt) {
+    std::shared_ptr<LtpClientServiceDataToSend>& csdRef = txSessionIt->second.m_dataToSendSharedPtr;
+    const bool safeToMove = (csdRef.use_count() == 1); //not also involved in a send operation
+    const bool successCallbackAlreadyCalled = (m_memoryInFilesPtr) ? true : false;
+    if (m_onFailedBundleVecSendCallback) { //if the user wants the data back
+        std::vector<uint8_t>& vecRef = csdRef->GetVecRef();
+        if (vecRef.size()) { //this session sender is using vector<uint8_t> client service data
+            if (m_numTxSessionsReturnedToStorage == 0) {
+                LOG_INFO(subprocess) << "First time LTP sender "
+                    << ((safeToMove) ? "moving" : "copying")
+                    << " a send-failed vector bundle back to the user (back to storage).  Future messages like this will now be suppressed.";
+            }
+            ++m_numTxSessionsReturnedToStorage;
+            if (safeToMove) {
+                m_onFailedBundleVecSendCallback(vecRef, csdRef->m_userData, m_userAssignedUuid, successCallbackAlreadyCalled);
+            }
+            else {
+                std::vector<uint8_t> vecCopy(vecRef);
+                m_onFailedBundleVecSendCallback(vecCopy, csdRef->m_userData, m_userAssignedUuid, successCallbackAlreadyCalled);
+            }
+        }
+    }
+    if (m_onFailedBundleZmqSendCallback) { //if the user wants the data back
+        zmq::message_t& zmqRef = csdRef->GetZmqRef();
+        if (zmqRef.size()) { //this session sender is using zmq client service data
+            if (m_numTxSessionsReturnedToStorage == 0) {
+                LOG_INFO(subprocess) << "First time LTP sender "
+                    << ((safeToMove) ? "moving" : "copying")
+                    << " a send-failed zmq bundle back to the user (back to storage).  Future messages like this will now be suppressed.";
+            }
+            ++m_numTxSessionsReturnedToStorage;
+            if (safeToMove) {
+                m_onFailedBundleZmqSendCallback(zmqRef, csdRef->m_userData, m_userAssignedUuid, successCallbackAlreadyCalled);
+            }
+            else {
+                zmq::message_t zmqCopy(zmqRef.data(), zmqRef.size());
+                m_onFailedBundleZmqSendCallback(zmqCopy, csdRef->m_userData, m_userAssignedUuid, successCallbackAlreadyCalled);
+            }
+        }
+    }
 }
 
 void LtpEngine::EraseTxSession(map_session_number_to_session_sender_t::iterator& txSessionIt) {

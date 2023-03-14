@@ -60,6 +60,9 @@ TcpclV3BidirectionalLink::TcpclV3BidirectionalLink(
     m_base_dataSentServedAsKeepaliveSent(false),
     m_base_reconnectionDelaySecondsIfNotZero(3), //bundle source only, default 3 unless remote says 0 in shutdown message
 
+    m_base_contactHeaderFlags(static_cast<CONTACT_HEADER_FLAGS>(0)),
+    m_base_tcpclRemoteNodeId(0),
+
     M_BASE_MAX_UNACKED_BUNDLES_IN_PIPELINE(maxUnacked), //bundle sink has MAX_UNACKED(maxUnacked + 5),
     M_BASE_UNACKED_BUNDLE_CB_SIZE(maxUnacked + 5),
     m_base_bytesToAckCb(M_BASE_UNACKED_BUNDLE_CB_SIZE),
@@ -111,29 +114,43 @@ TcpclV3BidirectionalLink::~TcpclV3BidirectionalLink() {
 }
 
 void TcpclV3BidirectionalLink::BaseClass_TryToWaitForAllBundlesToFinishSending() {
-    boost::mutex localMutex;
-    boost::mutex::scoped_lock lock(localMutex);
-    m_base_useLocalConditionVariableAckReceived = true;
-    std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
-    for (unsigned int attempt = 0; attempt < 10; ++attempt) {
-        const std::size_t numUnacked = Virtual_GetTotalBundlesUnacked();
-        if (numUnacked) {
-            LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": destructor waiting on " << numUnacked << " unacked bundles";
+    try {
+        boost::mutex localMutex;
+        boost::mutex::scoped_lock lock(localMutex);
+        m_base_useLocalConditionVariableAckReceived = true;
+        std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
+        for (unsigned int attempt = 0; attempt < 10; ++attempt) {
+            const std::size_t numUnacked = Virtual_GetTotalBundlesUnacked();
+            if (numUnacked) {
+                LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": destructor waiting on " << numUnacked << " unacked bundles";
 
-            LOG_INFO(subprocess) << "   acked: " << m_base_outductTelemetry.m_totalBundlesAcked;
-            LOG_INFO(subprocess) << "   total sent: " << m_base_outductTelemetry.m_totalBundlesSent;
+                LOG_INFO(subprocess) << "   acked: " << m_base_outductTelemetry.m_totalBundlesAcked;
+                LOG_INFO(subprocess) << "   total sent: " << m_base_outductTelemetry.m_totalBundlesSent;
 
-            if (previousUnacked > numUnacked) {
-                previousUnacked = numUnacked;
-                attempt = 0;
+                if (previousUnacked > numUnacked) {
+                    previousUnacked = numUnacked;
+                    attempt = 0;
+                }
+                m_base_localConditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
+                //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+                continue;
             }
-            m_base_localConditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
-            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
-            continue;
+            break;
         }
-        break;
+        m_base_useLocalConditionVariableAckReceived = false;
     }
-    m_base_useLocalConditionVariableAckReceived = false;
+    catch (const boost::condition_error& e) {
+        LOG_ERROR(subprocess) << "condition_error in TcpclV3BidirectionalLink::BaseClass_TryToWaitForAllBundlesToFinishSending: " << e.what();
+    }
+    catch (const boost::thread_resource_error& e) {
+        LOG_ERROR(subprocess) << "thread_resource_error in TcpclV3BidirectionalLink::BaseClass_TryToWaitForAllBundlesToFinishSending: " << e.what();
+    }
+    catch (const boost::thread_interrupted&) {
+        LOG_ERROR(subprocess) << "thread_interrupted in TcpclV3BidirectionalLink::BaseClass_TryToWaitForAllBundlesToFinishSending";
+    }
+    catch (const boost::lock_error& e) {
+        LOG_ERROR(subprocess) << "lock_error in TcpclV3BidirectionalLink::BaseClass_TryToWaitForAllBundlesToFinishSending: " << e.what();
+    }
 }
 
 std::size_t TcpclV3BidirectionalLink::Virtual_GetTotalBundlesAcked() {
@@ -395,8 +412,8 @@ void TcpclV3BidirectionalLink::BaseClass_DoHandleSocketShutdown(bool sendShutdow
     }
 }
 
-void TcpclV3BidirectionalLink::BaseClass_OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e) {
-    if (e != boost::asio::error::operation_aborted) {
+void TcpclV3BidirectionalLink::BaseClass_OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& ec) {
+    if (ec != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
         LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " No TCPCL shutdown message was sent (not required).";
     }

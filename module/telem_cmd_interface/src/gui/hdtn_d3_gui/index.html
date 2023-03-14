@@ -40,8 +40,6 @@
         div.tooltip {
             position: absolute;
             text-align: left;
-            width: 200px;
-            height: 300px;
             padding: 2px;
             font: 12px sans-serif;
             background: lightsteelblue;
@@ -323,12 +321,12 @@
         var INGRESS_EGRESS_DX = (EGRESS_X - INGRESS_RIGHT_X);
         var STORAGE_X = INGRESS_RIGHT_X + INGRESS_EGRESS_DX/2 - (STORAGE_W/2);
         var ABS_POSITION_MAP = {
-            "active_induct_conns" : {"X" : -200, "Y" : 100, "WIDTH": 300, "HEIGHT": 500},
+            "active_induct_conns" : {"X" : -180, "Y" : 100, "WIDTH": 300, "HEIGHT": 500},
             "ingress" : {"X" : INGRESS_X, "Y" : 100, "WIDTH": INGRESS_W, "HEIGHT": 500},
             "egress" : {"X" : EGRESS_X, "Y" : 100, "WIDTH": EGRESS_W, "HEIGHT": 500},
             "storage" : {"X" : STORAGE_X, "Y" : (220), "WIDTH": STORAGE_W, "HEIGHT": 100},
             "next_hops" : {"X" : 1100, "Y" : 100, "WIDTH": 100, "HEIGHT": 500},
-            "final_dests" : {"X" : 1400, "Y" : 100, "WIDTH": 100, "HEIGHT": 500}
+            "final_dests" : {"X" : 1300, "Y" : 100, "WIDTH": 100, "HEIGHT": 500}
         };
 
         var myActiveInductConnsRectComponent = RectComponents(
@@ -338,9 +336,10 @@
             "", //paramParentRectStyleClass
             true, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
-            ContextMenuEvent, //paramContextMenuEventFunction
+            null, //paramContextMenuEventFunction
             GetModuleRectClass, //paramGetParentRectClassFunction
-            GetSwitchRectClass //paramGetChildRectClassFunction
+            GetSwitchRectClass, //paramGetChildRectClassFunction
+            true //isTextAnchorEnd
         );
 
         var myInductsRectComponent = RectComponents(
@@ -350,9 +349,10 @@
             "induct_body", //paramParentRectStyleClass
             false, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
-            ContextMenuEvent, //paramContextMenuEventFunction
+            null, //paramContextMenuEventFunction
             GetModuleRectClass, //paramGetParentRectClassFunction
-            GetSwitchRectClass //paramGetChildRectClassFunction
+            GetSwitchRectClass, //paramGetChildRectClassFunction
+            false //isTextAnchorEnd
         );
 
 
@@ -363,9 +363,10 @@
             "module_body", //paramParentRectStyleClass
             false, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
-            ContextMenuEvent, //paramContextMenuEventFunction
+            null, //paramContextMenuEventFunction
             GetModuleRectClass, //paramGetParentRectClassFunction
-            GetSwitchRectClass //paramGetChildRectClassFunction
+            GetSwitchRectClass, //paramGetChildRectClassFunction
+            false //isTextAnchorEnd
         );
 
         var myStorageRectComponent = RectComponents(
@@ -375,9 +376,10 @@
             "module_body", //paramParentRectStyleClass
             false, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
-            ContextMenuEvent, //paramContextMenuEventFunction
+            null, //paramContextMenuEventFunction
             GetModuleRectClass, //paramGetParentRectClassFunction
-            GetSwitchRectClass //paramGetChildRectClassFunction
+            GetSwitchRectClass, //paramGetChildRectClassFunction
+            false //isTextAnchorEnd
         );
 
         var myEgressRectComponent = RectComponents(
@@ -387,9 +389,10 @@
             "module_body", //paramParentRectStyleClass
             false, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
-            ContextMenuEvent, //paramContextMenuEventFunction
+            null, //paramContextMenuEventFunction
             GetModuleRectClass, //paramGetParentRectClassFunction
-            GetSwitchRectClass //paramGetChildRectClassFunction
+            GetSwitchRectClass, //paramGetChildRectClassFunction
+            false //isTextAnchorEnd
         );
 
         var myNextHopsRectComponent = RectComponents(
@@ -399,9 +402,10 @@
             "module_body", //paramParentRectStyleClass
             false, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
-            ContextMenuEvent, //paramContextMenuEventFunction
+            null, //paramContextMenuEventFunction
             GetModuleRectClass, //paramGetParentRectClassFunction
-            GetSwitchRectClass //paramGetChildRectClassFunction
+            GetSwitchRectClass, //paramGetChildRectClassFunction
+            false //isTextAnchorEnd
         );
 
         var myFinalDestsRectComponent = RectComponents(
@@ -413,7 +417,8 @@
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
             ContextMenuFinalDest, //paramContextMenuEventFunction
             GetModuleRectClass, //paramGetParentRectClassFunction
-            GetSwitchRectClass //paramGetChildRectClassFunction
+            GetSwitchRectClass, //paramGetChildRectClassFunction
+            false //isTextAnchorEnd
         );
         const speedUpperLimitBps = 1000;
         var wiresComponent = WireComponents(wiresComponentGroup, "wires_group", arrowMarker, speedUpperLimitBps);
@@ -497,50 +502,6 @@
             };
         }
 
-
-        function ContextMenuEvent(d) {
-            if(d3.event.type === "contextmenu") {
-                var menu = contextMenu().items(
-                    {
-                        "text" : "Set " + d.id + " On",
-                        "func" : SetState_Closure(d, 1)
-                    },
-                    {
-                        "text" : "Set " + d.id + " Off",
-                        "func" : SetState_Closure(d, 0)
-                    },
-                    {
-                        "text" : "Set Fault on " + d.id,
-                        "func" : SetFault_Closure(d, true)
-                    },
-                    {
-                        "text" : "Remove Fault on " + d.id,
-                        "func" : SetFault_Closure(d, false)
-                    }
-                );
-                d3.event.preventDefault();
-                menu(d3.mouse(svg.node())[0], d3.mouse(svg.node())[1]);
-            }
-        }
-
-        function SetState_Closure(paramObj, paramState) {
-            var obj = paramObj;
-            var state = paramState;
-            return function () {
-                var oruId = (obj.parent) ? obj.parent.id : obj.id;
-                var switchId = (obj.parent) ? obj.id : "";
-                console.log("Setting state of oruId=" + oruId + ", switchId=" + obj.id + " to " + state);
-                WebSocketSend("SET_SWITCH_STATE," + oruId + "," + switchId + "," + state);
-            }
-        }
-
-        function SetFault_Closure(paramObj, paramFault) {
-            var obj = paramObj;
-            var fault = paramFault;
-            return function () {
-                console.log("Setting the fault of " + obj.id + " to " + fault);
-            }
-        }
 
         var telemQueue = [];
         var inTransition = false;
@@ -640,7 +601,7 @@
         function InternalUpdateWithData(objJson) {
             //console.log(objJson);
             if("hdtnConfigName" in objJson) {
-                myOutline.UpdateName("HDTN Node " + objJson.myNodeId + "");
+                myOutline.UpdateName("HDTN v" + objJson.hdtnVersionString + " - Node " + objJson.myNodeId + "");
                 InitActiveInductConnections(objJson);
                 HandleReceivedNewHdtnConfig(objJson);
             }

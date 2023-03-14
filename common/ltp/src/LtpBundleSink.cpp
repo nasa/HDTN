@@ -24,7 +24,8 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 LtpBundleSink::LtpBundleSink(const LtpWholeBundleReadyCallback_t& ltpWholeBundleReadyCallback, const LtpEngineConfig& ltpRxCfg) :
     m_ltpWholeBundleReadyCallback(ltpWholeBundleReadyCallback),
     m_ltpRxCfg(ltpRxCfg),
-    M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID(ltpRxCfg.remoteEngineId)
+    M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID(ltpRxCfg.remoteEngineId),
+    m_ltpEnginePtr(NULL)
 {
     m_telemetry.m_connectionName = ltpRxCfg.remoteHostname + ":" + boost::lexical_cast<std::string>(ltpRxCfg.remotePort)
         + " Eng:" + boost::lexical_cast<std::string>(ltpRxCfg.remoteEngineId);
@@ -74,6 +75,14 @@ void LtpBundleSink::SyncTelemetry() {
         m_telemetry.m_numDelayedFullyClaimedSecondaryReportSegmentsSent = m_ltpEnginePtr->m_numDelayedFullyClaimedSecondaryReportSegmentsSentRef;
         m_telemetry.m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent = m_ltpEnginePtr->m_numDelayedPartiallyClaimedPrimaryReportSegmentsSentRef;
         m_telemetry.m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent = m_ltpEnginePtr->m_numDelayedPartiallyClaimedSecondaryReportSegmentsSentRef;
+
+        m_telemetry.m_totalCancelSegmentsStarted = m_ltpEnginePtr->m_totalCancelSegmentsStarted;
+        m_telemetry.m_totalCancelSegmentSendRetries = m_ltpEnginePtr->m_totalCancelSegmentSendRetries;
+        m_telemetry.m_totalCancelSegmentsFailedToSend = m_ltpEnginePtr->m_totalCancelSegmentsFailedToSend;
+        m_telemetry.m_totalCancelSegmentsAcknowledged = m_ltpEnginePtr->m_totalCancelSegmentsAcknowledged;
+        m_telemetry.m_numRxSessionsCancelledBySender = m_ltpEnginePtr->m_numRxSessionsCancelledBySender;
+        m_telemetry.m_numStagnantRxSessionsDeleted = m_ltpEnginePtr->m_numStagnantRxSessionsDeleted;
+
         m_telemetry.m_countTxUdpPacketsLimitedByRate = m_ltpEnginePtr->m_countAsyncSendsLimitedByRate;
         SyncTransportLayerSpecificTelem(); //virtual function call
     }

@@ -109,9 +109,9 @@ struct OutductCapabilityTelemetry_t : public JsonSerializable {
     std::list<uint64_t> finalDestinationNodeIdList;
 
     TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t(const OutductCapabilityTelemetry_t& o); //a copy constructor: X(const X&)
-    TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t(OutductCapabilityTelemetry_t&& o); //a move constructor: X(X&&)
+    TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t(OutductCapabilityTelemetry_t&& o) noexcept; //a move constructor: X(X&&)
     TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t& operator=(const OutductCapabilityTelemetry_t& o); //a copy assignment: operator=(const X&)
-    TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t& operator=(OutductCapabilityTelemetry_t&& o); //a move assignment: operator=(X&&)
+    TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t& operator=(OutductCapabilityTelemetry_t&& o) noexcept; //a move assignment: operator=(X&&)
     TELEMETRY_DEFINITIONS_EXPORT bool operator==(const OutductCapabilityTelemetry_t& o) const; //operator ==
     TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const OutductCapabilityTelemetry_t& o) const; //operator !=
 
@@ -125,9 +125,9 @@ struct AllOutductCapabilitiesTelemetry_t : public JsonSerializable {
     std::list<OutductCapabilityTelemetry_t> outductCapabilityTelemetryList;
 
     TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t(const AllOutductCapabilitiesTelemetry_t& o); //a copy constructor: X(const X&)
-    TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t(AllOutductCapabilitiesTelemetry_t&& o); //a move constructor: X(X&&)
+    TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t(AllOutductCapabilitiesTelemetry_t&& o) noexcept; //a move constructor: X(X&&)
     TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t& operator=(const AllOutductCapabilitiesTelemetry_t& o); //a copy assignment: operator=(const X&)
-    TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t& operator=(AllOutductCapabilitiesTelemetry_t&& o); //a move assignment: operator=(X&&)
+    TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t& operator=(AllOutductCapabilitiesTelemetry_t&& o) noexcept; //a move assignment: operator=(X&&)
     TELEMETRY_DEFINITIONS_EXPORT bool operator==(const AllOutductCapabilitiesTelemetry_t& o) const; //operator ==
     TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const AllOutductCapabilitiesTelemetry_t& o) const; //operator !=
 
@@ -232,11 +232,18 @@ struct LtpInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
     uint64_t m_numDelayedFullyClaimedSecondaryReportSegmentsSent;
     uint64_t m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent;
     uint64_t m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent;
+    uint64_t m_totalCancelSegmentsStarted;
+    uint64_t m_totalCancelSegmentSendRetries;
+    uint64_t m_totalCancelSegmentsFailedToSend;
+    uint64_t m_totalCancelSegmentsAcknowledged;
+    uint64_t m_numRxSessionsCancelledBySender;
+    uint64_t m_numStagnantRxSessionsDeleted;
 
     //ltp udp engine
     uint64_t m_countUdpPacketsSent;
     uint64_t m_countRxUdpCircularBufferOverruns;
     uint64_t m_countTxUdpPacketsLimitedByRate;
+    
 };
 
 struct InductTelemetry_t : public JsonSerializable {
@@ -303,6 +310,7 @@ struct StcpOutductTelemetry_t : public OutductTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     uint64_t m_totalStcpBytesSent;
+    uint64_t m_numTcpReconnectAttempts;
 };
 
 struct LtpOutductTelemetry_t : public OutductTelemetry_t {
@@ -318,6 +326,16 @@ struct LtpOutductTelemetry_t : public OutductTelemetry_t {
     uint64_t m_numCheckpointsExpired;
     uint64_t m_numDiscretionaryCheckpointsNotResent;
     uint64_t m_numDeletedFullyClaimedPendingReports;
+    uint64_t m_totalCancelSegmentsStarted;
+    uint64_t m_totalCancelSegmentSendRetries;
+    uint64_t m_totalCancelSegmentsFailedToSend;
+    uint64_t m_totalCancelSegmentsAcknowledged;
+    uint64_t m_totalPingsStarted;
+    uint64_t m_totalPingRetries;
+    uint64_t m_totalPingsFailedToSend;
+    uint64_t m_totalPingsAcknowledged;
+    uint64_t m_numTxSessionsReturnedToStorage;
+    uint64_t m_numTxSessionsCancelledByReceiver;
 
     //ltp udp engine
     uint64_t m_countUdpPacketsSent;
@@ -339,6 +357,7 @@ struct TcpclV3OutductTelemetry_t : public OutductTelemetry_t {
     //bidirectionality (identical to InductConnectionTelemetry_t)
     uint64_t m_totalBundlesReceived;
     uint64_t m_totalBundleBytesReceived;
+    uint64_t m_numTcpReconnectAttempts;
 };
 
 struct TcpclV4OutductTelemetry_t : public OutductTelemetry_t {
@@ -355,6 +374,7 @@ struct TcpclV4OutductTelemetry_t : public OutductTelemetry_t {
     //bidirectionality (identical to InductConnectionTelemetry_t)
     uint64_t m_totalBundlesReceived;
     uint64_t m_totalBundleBytesReceived;
+    uint64_t m_numTcpReconnectAttempts;
 };
 
 struct UdpOutductTelemetry_t : public OutductTelemetry_t {
