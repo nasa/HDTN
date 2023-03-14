@@ -39,9 +39,9 @@ public:
      */
     struct metric_t {
         public:
-            metric_t(std::string name, uint64_t val);
-            metric_t(std::string name, double val);
-            friend std::ostream& operator<< (std::ostream& strm, const StatsLogger::metric_t m);
+            STATS_LIB_EXPORT metric_t(std::string name, uint64_t val);
+            STATS_LIB_EXPORT metric_t(std::string name, double val);
+            STATS_LIB_EXPORT friend std::ostream& operator<< (std::ostream& strm, const StatsLogger::metric_t m);
             std::string name;
 
         private:
