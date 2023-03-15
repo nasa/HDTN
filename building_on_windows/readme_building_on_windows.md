@@ -74,7 +74,7 @@ Relaunch Visual studio so that it get's loaded with updated environmental variab
 * Build >> Build All
 * Build >> Install HDTN
 * Run `unit_tests.bat` located in `HDTN_SOURCE_ROOT\tests\test_scripts_windows`
-* For a Web GUI example, run `test_tcpcl_fast_cutthrough_oneprocess.bat` and then navigate to http://localhost:8086/web_gui.html (note: to exit cleanly, do a ctrl-c in each cmd window before closing)
+* For a Web GUI example, run `test_tcpcl_fast_cutthrough_oneprocess.bat` and then navigate to http://localhost:8086/ (note: to exit cleanly, do a ctrl-c in each cmd window before closing)
 
 Important: Since CMake is currently configured to build HDTN as a shared library (because the CMake cache variable `BUILD_SHARED_LIBS` is set to `ON`), any time you make a source code change to HDTN, for it to be reflected in the binaries, don't forget to `Build >> Install HDTN` after the `Build >> Build All` step.
 

@@ -41,7 +41,6 @@ function contextMenu() {
         };
 
     function menu(x, y) {
-        console.log("x " + x + "  y " + y);
         d3.select('.context-menu').remove();
         scaleItems();
 
@@ -105,7 +104,8 @@ function contextMenu() {
     // Automatically set width, height, and margin;
     function scaleItems() {
         if (rescale) {
-            d3.select('svg').selectAll('tmp')
+            //draw this in a separate svg outside the viewbox so getBoundingClientRect() won't return scaled results
+            d3.select("#hiddenTextMeasurementDiv").append('svg').selectAll('tmp')
                 .data(items, function(d) {
                     return d.text;
                 })
@@ -131,11 +131,9 @@ function contextMenu() {
             margin = margin * width;
             width =  width + 2 * margin;
             height = d3.max(allHeight) + margin / 2;
-            console.log(width);
-            console.log(height);
 
             // cleanup
-            d3.selectAll('.tmp').remove();
+            d3.select("#hiddenTextMeasurementDiv").selectAll('svg').remove();
             rescale = false;
         }
     }

@@ -7,10 +7,10 @@
 
 <body>
     <div class="topnav">
-        <a href="../web_gui.html"> <span class="icon"><img src="../resources/home.svg" alt="Home icon" /></span><span class="title"> HDTN</span></a>
-        <a href="../web_gui.html"><img src="../resources/statistics.svg" alt="Pie chart icon" /> Statistics</a>
-        <a href="../config_page.html"><img src="../resources/config.svg" alt="Wrench icon" /> Config</a>
-        <a onclick="toggleModes()"><img src="../resources/sun.svg" alt="Sun icon" /></a>
+        <a href="./hdtn_d3_gui/"> <span class="icon"><img src="./resources/home.svg" alt="Home icon" /></span><span class="title"> System View GUI</span></a>
+        <a href="."><img src="./resources/statistics.svg" alt="Pie chart icon" /> Statistics</a>
+        <a href="./config_page.html"><img src="./resources/config.svg" alt="Wrench icon" /> Config</a>
+        <a onclick="toggleModes()"><img src="./resources/sun.svg" alt="Sun icon" /></a>
     </div>
 
     <div class="cardBox">
@@ -45,7 +45,7 @@
         <div class="ingressStats" id="ingress_stats">
             <div class="cardTitle">
                 <h2>Ingress Stats</h2>
-                <div class="iconBox"><img src="../resources/arrow-down-circle.svg" alt="Ingress icon" /></div>
+                <div class="iconBox"><img src="./resources/arrow-down-circle.svg" alt="Ingress icon" /></div>
 
             </div>
             <table>
@@ -72,7 +72,7 @@
         <div class="ingressStats">
             <div class="cardTitle">
                 <h2>Egress Stats</h2>
-                <div class="iconBox"><img src="../resources/arrow-up-circle.svg" alt="Egress icon" /></div>
+                <div class="iconBox"><img src="./resources/arrow-up-circle.svg" alt="Egress icon" /></div>
             </div>
             <table>
                 <tbody>
@@ -98,7 +98,7 @@
         <div class="ingressStats">
             <div class="cardTitle">
                 <h2>Storage Stats</h2>
-                <div class="iconBox"><img src="../resources/storage.svg" alt="Storage icon" /></div>
+                <div class="iconBox"><img src="./resources/storage.svg" alt="Storage icon" /></div>
             </div>
             <table>
                 <tbody>
@@ -125,7 +125,7 @@
             <div class="cardTitle">
                 <h2>LTP Engine Stats</h2>
                 <h4 id="cardName"></h4>
-                <!--<div class="iconBox"><img src="../resources/arrow-down-circle.svg" alt="Ingress icon" /></div>-->
+                <!--<div class="iconBox"><img src="./resources/arrow-down-circle.svg" alt="Ingress icon" /></div>-->
 
             </div>
             <table>
@@ -173,7 +173,7 @@
             <div class="cardTitle">
                 <h2>STCP Stats</h2>
                 <h4 id="cardName"></h4>
-                <!--<div class="iconBox"><img src="../resources/arrow-down-circle.svg" alt="Ingress icon" /></div>-->
+                <!--<div class="iconBox"><img src="./resources/arrow-down-circle.svg" alt="Ingress icon" /></div>-->
 
             </div>
             <table>
@@ -209,7 +209,7 @@
         <div class="ingressStats hidden" id="ingress_stats">
             <div class="cardTitle">
                 <h2>TCP Stats</h2>
-                <!--<div class="iconBox"><img src="../resources/arrow-down-circle.svg" alt="Ingress icon" /></div>-->
+                <!--<div class="iconBox"><img src="./resources/arrow-down-circle.svg" alt="Ingress icon" /></div>-->
 
             </div>
             <table>
@@ -231,11 +231,11 @@
 
     </div>
 
-    <script type="text/javascript" src="../Scripts/jquery-3.6.0.slim.min.js"></script>
+    <script type="text/javascript" src="./Scripts/jquery-3.6.0.slim.min.js"></script>
     <!--/<script type="text/javascript" src="../Scripts/goldenlayout.js"></script>-->
-    <script type="text/javascript" src="../Scripts/plotly-2.6.3.min.js"></script>
-    <script type="text/javascript" src="../Scripts/rate_calculator.js"></script>
-    <script type="text/javascript" src="../Scripts/web_gui.js"></script>
+    <script type="text/javascript" src="./Scripts/plotly-2.6.3.min.js"></script>
+    <script type="text/javascript" src="./Scripts/rate_calculator.js"></script>
+    <script type="text/javascript" src="./Scripts/web_gui.js"></script>
     <script>
         function toggleModes() {
             var element = document.body;
@@ -260,9 +260,9 @@
         }
     </script>
 
-    <!--<link type="text/css" rel="stylesheet" href="../css/goldenlayout-base.css" />-->
-    <!--<link type="text/css" rel="stylesheet" href="../css/goldenlayout-dark-theme.css" />-->
-    <link type="text/css" rel="stylesheet" href="../css/style.css" />
+    <!--<link type="text/css" rel="stylesheet" href="./css/goldenlayout-base.css" />-->
+    <!--<link type="text/css" rel="stylesheet" href="./css/goldenlayout-dark-theme.css" />-->
+    <link type="text/css" rel="stylesheet" href="./css/style.css" />
 
 </body>
 </html>

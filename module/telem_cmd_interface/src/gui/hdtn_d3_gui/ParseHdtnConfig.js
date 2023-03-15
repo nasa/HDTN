@@ -645,6 +645,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         nextHopObj.d3ChildArray = [];
         nextHopObj.id = "next_hop_node_id_" + outduct.nextHopNodeId;
         nextHopObj.name = "Node " + outduct.nextHopNodeId;
+        nextHopObj.nodeId = outduct.nextHopNodeId;
         nextHopObj.absX = nextHopsAbsPosition.X;
         nextHopObj.absY = nextHopsAbsPositionY;
         nextHopObj.width = nextHopsAbsPosition.WIDTH;

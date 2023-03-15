@@ -67,10 +67,18 @@
         .wire_stroke_dash_array_attributes {
             stroke-dasharray: 6 2;
         }
+        #hiddenTextMeasurementDiv {
+            position: absolute;
+            visibility: hidden;
+            height: auto;
+            width: auto;
+            white-space: nowrap;
+        }
 
 
     </style>
 
+    <div id="hiddenTextMeasurementDiv"></div>
     <div id="myModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -402,7 +410,7 @@
             "module_body", //paramParentRectStyleClass
             false, //paramHideParent
             toolTipObj.MouseEventToolTip, //paramMouseEventToolTipFunction
-            null, //paramContextMenuEventFunction
+            ContextMenuNextHop, //paramContextMenuEventFunction
             GetModuleRectClass, //paramGetParentRectClassFunction
             GetSwitchRectClass, //paramGetChildRectClassFunction
             false //isTextAnchorEnd
@@ -468,36 +476,51 @@
         }
         function ContextMenuFinalDest(d) {
             if(d3.event.type === "contextmenu") {
-                var menu = contextMenu().items(
-                    {
-                        "text" : "Ping ipn:" + GetNodeNumFromIpnString(d.name) + ".2047 BPv7",
-                        "func" : PingMe_Closure(d, 2047, 7)
-                    },
-                    {
-                        "text" : "Ping ipn:" + GetNodeNumFromIpnString(d.name) + ".2047 BPv6",
-                        "func" : PingMe_Closure(d, 2047, 6)
-                    }
-                );
-                d3.event.preventDefault();
-                menu(d3.mouse(svg.node())[0], d3.mouse(svg.node())[1]);
+                if(d.name) { //only children have this
+                    var menu = contextMenu().items(
+                        {
+                            "text" : "Ping ipn:" + GetNodeNumFromIpnString(d.name) + ".2047 BPv7",
+                            "func" : PingMe_Closure(GetNodeNumFromIpnString(d.name), 2047, 7)
+                        },
+                        {
+                            "text" : "Ping ipn:" + GetNodeNumFromIpnString(d.name) + ".2047 BPv6",
+                            "func" : PingMe_Closure(GetNodeNumFromIpnString(d.name), 2047, 6)
+                        }
+                    );
+                    d3.event.preventDefault();
+                    menu(d3.mouse(svg.node())[0], d3.mouse(svg.node())[1]);
+                }
             }
         }
-        function PingMe_Closure(paramObj, paramPingServiceNumber, paramBpVersion) {
-            var obj = paramObj;
+        function ContextMenuNextHop(d) {
+            if(d3.event.type === "contextmenu") {
+                if(d.nodeId) { //only parent has this
+                    var menu = contextMenu().items(
+                        {
+                            "text" : "Ping ipn:" + d.nodeId + ".2047 BPv7",
+                            "func" : PingMe_Closure(d.nodeId, 2047, 7)
+                        },
+                        {
+                            "text" : "Ping ipn:" + d.nodeId + ".2047 BPv6",
+                            "func" : PingMe_Closure(d.nodeId, 2047, 6)
+                        }
+                    );
+                    d3.event.preventDefault();
+                    menu(d3.mouse(svg.node())[0], d3.mouse(svg.node())[1]);
+                }
+            }
+        }
+        function PingMe_Closure(paramNodeId, paramPingServiceNumber, paramBpVersion) {
+            var nodeId = paramNodeId;
             var pingServiceNumber = paramPingServiceNumber;
             var bpVersion = paramBpVersion;
             return function () {
-                const nodeId = GetNodeNumFromIpnString(obj.name);
-                //console.log(nodeId);
                 let apiObj = {
                     "apiCall": "ping",
                     "nodeId": nodeId,
                     "serviceId": pingServiceNumber,
                     "bpVersion": bpVersion
                 };
-                //var oruId = (obj.parent) ? obj.parent.id : obj.id;
-                //var switchId = (obj.parent) ? obj.id : "";
-                //console.log("Setting state of oruId=" + oruId + ", switchId=" + obj.id + " to " + state);
                 WebSocketSend(JSON.stringify(apiObj));
             };
         }

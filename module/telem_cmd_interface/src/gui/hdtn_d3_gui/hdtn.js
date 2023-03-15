@@ -123,6 +123,7 @@ var INDUCT_ACTIVE_CONNECTIONS = {
     ]
 };
 var INITIAL_HDTN_CONFIG = {
+    "hdtnVersionString": "0.0.0", //not part of config but inserted by HDTN
     "hdtnConfigName": "my hdtn config",
     "userInterfaceOn": true,
     "mySchemeName": "unused_scheme_name",

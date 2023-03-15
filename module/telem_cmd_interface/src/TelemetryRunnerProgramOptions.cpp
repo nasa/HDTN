@@ -20,7 +20,7 @@
 
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::telem;
-static const boost::filesystem::path GUI_HTML_FILE_NAME = "web_gui.html";
+static const boost::filesystem::path GUI_HTML_FILE_NAME = "index.html";
 
 
 TelemetryRunnerProgramOptions::TelemetryRunnerProgramOptions()
