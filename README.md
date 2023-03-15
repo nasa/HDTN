@@ -117,7 +117,7 @@ To use shared libs, edit CMakeCache.txt, set BUILD_SHARED_LIBS:BOOL=ON and add f
 CMAKE_CXX_FLAGS_RELEASE:STRING=-03 -DNDEBUG -fPIC
 
 #### ARM Platforms
-HDTN has been tested on various ARM platforms such as the Raspberry Pi, Nvidia Jetson Nano. To build HDTN in a native ARM environment add the `-DCMAKE_SYSTEM_PROCESSOR` flag to the cmake command. This flag removes x86 optimizations and the x86 unit test. Shared libraries are disabled for ARM builds by default.
+HDTN has been tested on various ARM platforms such as Raspberry Pi, Nvidia Jetson Nano and an Ampere Altra Q64-30 based server. To build HDTN in a native ARM environment add the `-DCMAKE_SYSTEM_PROCESSOR` flag to the cmake command. This flag removes x86 optimizations and the x86 unit test. Shared libraries are disabled for ARM builds by default.
 
 - cmake .. -DCMAKE_SYSTEM_PROCESSOR=arm
 
