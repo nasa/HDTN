@@ -1,0 +1,2 @@
+export HDTN_BUILD_ROOT=$HDTN_SOURCE_ROOT/build
+$HDTN_BUILD_ROOT/common/bpcodec/apps/bpsendfile --max-bundle-size-bytes=500000 --file-or-folder-path=./flightdata --my-uri-eid=ipn:1.1 --dest-uri-eid=ipn:2.1 --outducts-config-file=./nuc_bpgen_stcp.json

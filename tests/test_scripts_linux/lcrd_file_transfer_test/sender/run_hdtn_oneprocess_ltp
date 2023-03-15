@@ -1,0 +1,4 @@
+export HDTN_BUILD_ROOT=$HDTN_SOURCE_ROOT/build
+$HDTN_BUILD_ROOT/module/hdtn_one_process/hdtn-one-process --hdtn-config-file=./sender_hdtn_config_ltp.json --contact-plan-file=contactPlanLcrd.json
+
+
