@@ -105,7 +105,8 @@ function contextMenu() {
     // Automatically set width, height, and margin;
     function scaleItems() {
         if (rescale) {
-            d3.select('svg').selectAll('tmp')
+            //draw this in a separate svg outside the viewbox so getBoundingClientRect() won't return scaled results
+            d3.select("#hiddenTextMeasurementDiv").append('svg').selectAll('tmp')
                 .data(items, function(d) {
                     return d.text;
                 })
@@ -135,7 +136,7 @@ function contextMenu() {
             console.log(height);
 
             // cleanup
-            d3.selectAll('.tmp').remove();
+            d3.select("#hiddenTextMeasurementDiv").selectAll('svg').remove();
             rescale = false;
         }
     }
