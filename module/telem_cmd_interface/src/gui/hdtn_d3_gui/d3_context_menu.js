@@ -41,7 +41,6 @@ function contextMenu() {
         };
 
     function menu(x, y) {
-        console.log("x " + x + "  y " + y);
         d3.select('.context-menu').remove();
         scaleItems();
 
@@ -132,8 +131,6 @@ function contextMenu() {
             margin = margin * width;
             width =  width + 2 * margin;
             height = d3.max(allHeight) + margin / 2;
-            console.log(width);
-            console.log(height);
 
             // cleanup
             d3.select("#hiddenTextMeasurementDiv").selectAll('svg').remove();
