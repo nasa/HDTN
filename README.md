@@ -116,6 +116,11 @@ Note: By Default, BUILD_SHARED_LIBS is OFF and hdtn is built as static
 To use shared libs, edit CMakeCache.txt, set BUILD_SHARED_LIBS:BOOL=ON and add fPIC to the Cmakecache variable:
 CMAKE_CXX_FLAGS_RELEASE:STRING=-03 -DNDEBUG -fPIC
 
+#### ARM Platforms
+HDTN has been tested on various ARM platforms such as the Raspberry Pi, Nvidia Jetson Nano. To build HDTN in a native ARM environment add the `-DCMAKE_SYSTEM_PROCESSOR` flag to the cmake command. This flag removes x86 optimizations and the x86 unit test. Shared libraries are disabled for ARM builds by default.
+
+- cmake .. -DCMAKE_SYSTEM_PROCESSOR=arm
+
 Run HDTN
 =========
 Note: Ensure your config files are correct, e.g., The outduct remotePort is the same as the induct boundPort, a consistant convergenceLayer, and the outducts remoteHostname is pointed to the correct IP adress.
