@@ -45,9 +45,9 @@ build-cpp11:
     paths:
       - build
 
-# Build HDTN with the GUI enabled
+# Build HDTN without the GUI enabled
 # Save the output to use for testing
-build-with-gui:
+build-without-gui:
   stage: build
   tags:
   - docker
@@ -59,10 +59,10 @@ build-with-gui:
     - mkdir -p external/lib
     - cp /home/civetweb/libcivetweb.a external/lib
     - mkdir -p build
-    - cmake -S . -B build -D USE_WEB_INTERFACE:BOOL=ON
+    - cmake -S . -B build -DUSE_WEB_INTERFACE:BOOL=OFF
     - make -C build/ -j8
   cache:
-    key: build-with-gui-$CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
+    key: build-without-gui-$CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
     paths:
       - build
   artifacts:
@@ -96,9 +96,9 @@ unit-test:
   - linux-x86
   image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
   needs:
-    - build-with-gui
+    - build
   dependencies:
-    - build-with-gui
+    - build
   script:
     - ./build/tests/unit_tests/unit-tests --log_format=JUNIT --log_sink=report.xml
   artifacts:
@@ -116,9 +116,9 @@ integrated-test:
   - linux-x86
   image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
   needs:
-    - build-with-gui
+    - build
   dependencies:
-    - build-with-gui
+    - build
   script:
     - ./build/tests/integrated_tests/integrated-tests --log_format=JUNIT --log_sink=report.xml
   artifacts:

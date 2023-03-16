@@ -138,7 +138,7 @@ OPTION(DO_STATS_LOGGING "Should stats be logged to files" Off)
 if (DO_STATS_LOGGING)
 	add_compile_definitions(DO_STATS_LOGGING)
 endif()
-OPTION(USE_WEB_INTERFACE "Use Boost Beast HDTN Web Interface" OFF)
+OPTION(USE_WEB_INTERFACE "Use Boost Beast HDTN Web Interface" ON)
 #add_compile_definitions(USE_WEB_INTERFACE) #not needed globally, rather this is set specifically to HdtnOneProcessRunner.cpp in the one process CMakeLists.txt
 
 
