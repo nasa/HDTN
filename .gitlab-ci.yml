@@ -1,7 +1,7 @@
 # Configure the pipeline stages
 stages:
-  - build
-  - test
+  - build-stage
+  - test-stage
 
 # Set global environment variables
 variables:
@@ -14,8 +14,8 @@ workflow:
 
 # Build HDTN with the default configuration
 # Don't save any artifacts, just confirm the build
-build:
-  stage: build
+build-default:
+  stage: build-stage
   tags:
   - docker
   - linux-x86
@@ -25,13 +25,16 @@ build:
     - cmake -S . -B build
     - make -C build/ -j8
   cache:
-    key: build-$CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
+    key: build-default-$CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
+    paths:
+      - build
+  artifacts:
     paths:
       - build
 
 # Build HDTN with C++11 only
 build-cpp11:
-  stage: build
+  stage: build-stage
   tags:
     - docker
     - linux-x86
@@ -48,7 +51,7 @@ build-cpp11:
 # Build HDTN without the GUI enabled
 # Save the output to use for testing
 build-without-gui:
-  stage: build
+  stage: build-stage
   tags:
   - docker
   - linux-x86
@@ -65,12 +68,10 @@ build-without-gui:
     key: build-without-gui-$CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
     paths:
       - build
-  artifacts:
-    paths:
-      - build
+
 
 build-static-analysis:
-  stage: build
+  stage: build-stage
   tags:
     - cov-analysis
   script:
@@ -90,15 +91,15 @@ build-static-analysis:
 
 # Run unit tests and generate a test report
 unit-test:
-  stage: test
+  stage: test-stage
   tags:
   - docker
   - linux-x86
   image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
   needs:
-    - build
+    - build-default
   dependencies:
-    - build
+    - build-default
   script:
     - ./build/tests/unit_tests/unit-tests --log_format=JUNIT --log_sink=report.xml
   artifacts:
@@ -110,15 +111,15 @@ unit-test:
 
 # Run unit tests and generate a test report
 integrated-test:
-  stage: test
+  stage: test-stage
   tags:
   - docker
   - linux-x86
   image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
   needs:
-    - build
+    - build-default
   dependencies:
-    - build
+    - build-default
   script:
     - ./build/tests/integrated_tests/integrated-tests --log_format=JUNIT --log_sink=report.xml
   artifacts:
@@ -130,7 +131,7 @@ integrated-test:
       
 # Static Analysis Legacy defects  
 static-analysis-legacy:
-  stage: test
+  stage: test-stage
   tags:
   - cov-analysis
   dependencies:
@@ -145,7 +146,7 @@ static-analysis-legacy:
 
 # Static Analysis New defects  
 static-analysis-new:
-  stage: test
+  stage: test-stage
   tags:
   - cov-analysis
   dependencies:

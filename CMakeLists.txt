@@ -156,8 +156,13 @@ if(ENABLE_OPENSSL_SUPPORT)
 	endif()
 	find_package(OpenSSL REQUIRED)
 endif()
-if(USE_WEB_INTERFACE AND ENABLE_OPENSSL_SUPPORT AND (${Boost_VERSION} LESS 107000))
-	message(WARNING "USE_WEB_INTERFACE and ENABLE_OPENSSL_SUPPORT are set to ON, but boost version ${Boost_VERSION} is less than 107000 (v1.70).  HTTPS will be disabled for the web interface gui.")
+if(Boost_VERSION_MACRO) #new in CMake 3.15 (in which Boost_VERSION became a string with dots)
+	set(BOOST_INTEGER_VERSION_FOR_COMPARISION ${Boost_VERSION_MACRO})
+else() #CMake 3.14 or older
+	set(BOOST_INTEGER_VERSION_FOR_COMPARISION ${Boost_VERSION})
+endif()
+if(USE_WEB_INTERFACE AND ENABLE_OPENSSL_SUPPORT AND (${BOOST_INTEGER_VERSION_FOR_COMPARISION} LESS 107000))
+	message(WARNING "USE_WEB_INTERFACE and ENABLE_OPENSSL_SUPPORT are set to ON, but boost version ${BOOST_INTEGER_VERSION_FOR_COMPARISION} is less than 107000 (v1.70).  HTTPS will be disabled for the web interface gui.")
 endif()
 
 
