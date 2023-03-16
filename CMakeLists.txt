@@ -138,7 +138,7 @@ OPTION(DO_STATS_LOGGING "Should stats be logged to files" Off)
 if (DO_STATS_LOGGING)
 	add_compile_definitions(DO_STATS_LOGGING)
 endif()
-OPTION(USE_WEB_INTERFACE "Use Boost Beast HDTN Web Interface" OFF)
+OPTION(USE_WEB_INTERFACE "Use Boost Beast HDTN Web Interface" ON)
 #add_compile_definitions(USE_WEB_INTERFACE) #not needed globally, rather this is set specifically to HdtnOneProcessRunner.cpp in the one process CMakeLists.txt
 
 
@@ -156,8 +156,21 @@ if(ENABLE_OPENSSL_SUPPORT)
 	endif()
 	find_package(OpenSSL REQUIRED)
 endif()
-if(USE_WEB_INTERFACE AND ENABLE_OPENSSL_SUPPORT AND (${Boost_VERSION} LESS 107000))
-	message(WARNING "USE_WEB_INTERFACE and ENABLE_OPENSSL_SUPPORT are set to ON, but boost version ${Boost_VERSION} is less than 107000 (v1.70).  HTTPS will be disabled for the web interface gui.")
+if(Boost_VERSION_MACRO) #new in CMake 3.15 (in which Boost_VERSION became a string with dots)
+	set(BOOST_INTEGER_VERSION_FOR_COMPARISION ${Boost_VERSION_MACRO})
+else() #CMake 3.14 or older
+	set(BOOST_INTEGER_VERSION_FOR_COMPARISION ${Boost_VERSION})
+endif()
+if(USE_WEB_INTERFACE)
+	if(ENABLE_OPENSSL_SUPPORT AND (${BOOST_INTEGER_VERSION_FOR_COMPARISION} LESS 107000))
+		message(WARNING "USE_WEB_INTERFACE and ENABLE_OPENSSL_SUPPORT are set to ON, but boost version ${BOOST_INTEGER_VERSION_FOR_COMPARISION} is less than 107000 (v1.70).  HTTPS will be disabled for the web interface gui.")
+	elseif(ENABLE_OPENSSL_SUPPORT)
+		message("Building Web Interface (with OpenSSL/HTTPS support)")
+	else()
+		message("Building Web Interface (without OpenSSL/HTTPS support)")
+	endif()
+else()
+	message("NOT Building Web Interface!")
 endif()
 
 
