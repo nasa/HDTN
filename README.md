@@ -173,7 +173,7 @@ It relies on a dependency called Boost Beast which is packaged as a header-only 
 The web interface will use OpenSSL (if found by CMake) since the web interface supports both http as well as https, and hence both ws (WebSocket) and wss (WebSocket Secure).  If OpenSSL is not found, the web interface will only support http/ws.  The web user interface is enabled by default at compile time.  If the web user interface is not desired, it can be turned off by setting the CMakeCache.txt variable `USE_WEB_INTERFACE:BOOL` to `OFF`.
 
 
-Now anytime that HDTNOneProcess runs, the web page will be accessible at `http://localhost:8086`
+Now anytime that HDTNOneProcess runs, the web page will be accessible at `http://localhost:8086` and an alternative "system view" gui based on D3.js will be accessible at `http://localhost:8086/hdtn_d3_gui/`
 
 Simulations
 =========
