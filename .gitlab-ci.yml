@@ -48,7 +48,7 @@ build-cpp11:
     paths:
       - build
 
-# Build HDTN without the GUI enabled
+# Build HDTN without the GUI enabled and with stats logging
 # Save the output to use for testing
 build-without-gui:
   stage: build-stage
@@ -62,7 +62,7 @@ build-without-gui:
     - mkdir -p external/lib
     - cp /home/civetweb/libcivetweb.a external/lib
     - mkdir -p build
-    - cmake -S . -B build -DUSE_WEB_INTERFACE:BOOL=OFF
+    - cmake -S . -B build -DUSE_WEB_INTERFACE:BOOL=OFF -DDO_STATS_LOGGING=ON
     - make -C build/ -j8
   cache:
     key: build-without-gui-$CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID

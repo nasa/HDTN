@@ -54,7 +54,7 @@ BOOST_AUTO_TEST_CASE(TelemetryLoggerLogTelemetryTestCase)
     outductTelem.m_totalBundleBytesSuccessfullySent = 13;
     outductTelem.m_totalBundleBytesGivenToOutducts = 180000;
 
-    logger.LogTelemetry(&inductTelem, &outductTelem, &storageTelem);
+    logger.LogTelemetry(inductTelem, outductTelem, storageTelem);
 
     // Ensure stats are flushed
     boost::log::core::get()->flush();
