@@ -170,17 +170,10 @@ Web User Interface
 =========
 This repository comes equiped with code to launch a web-based user interface to display statistics for the HDTN engine.
 It relies on a dependency called Boost Beast which is packaged as a header-only library that comes with a standard Boost installation.
-The web interface requires OpenSSL since the web interface supports both http as well as https, and hence both ws (WebSocket) and wss (WebSocket Secure).
+The web interface will use OpenSSL (if found by CMake) since the web interface supports both http as well as https, and hence both ws (WebSocket) and wss (WebSocket Secure).  If OpenSSL is not found, the web interface will only support http/ws.  The web user interface is enabled by default at compile time.  If the web user interface is not desired, it can be turned off by setting the CMakeCache.txt variable `USE_WEB_INTERFACE:BOOL` to `OFF`.
 
-From the HDTN directory, compile HDTN, open the CMakeCache file in the build directory and turn on the web interface:
-* mkdir build
-* cd build
-* cmake ..
-* nano CMakeCache.txt
-* Set 'USE_WEB_INTERFACE:BOOL' to ON
-* make -j8
 
-Now anytime that HDTNOneProcess runs, the web page will be accessible at http://localhost:8086
+Now anytime that HDTNOneProcess runs, the web page will be accessible at `http://localhost:8086`
 
 Simulations
 =========
