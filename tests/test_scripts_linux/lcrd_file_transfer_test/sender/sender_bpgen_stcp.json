@@ -2,15 +2,17 @@
     "outductConfigName": "myconfig",
     "outductVector": [
         {
-            "name": "to hdtn localhost custody",
+            "name": "to hdtn sender",
             "convergenceLayer": "stcp",
-            "nextHopNodeId": 20,
+            "nextHopNodeId": 10,
             "remoteHostname": "localhost",
-            "remotePort": 4558,
+            "remotePort": 4556,
             "maxNumberOfBundlesInPipeline": 5,
             "maxSumOfBundleBytesInPipeline": 50000000,
             "finalDestinationEidUris": [
-                "ipn:20.0"
+                "ipn:1.*",
+                "ipn:2.*",
+                "ipn:3.*"
             ],
             "keepAliveIntervalSeconds": 17
         }

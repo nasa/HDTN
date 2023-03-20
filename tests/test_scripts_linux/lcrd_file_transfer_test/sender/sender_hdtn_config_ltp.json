@@ -35,7 +35,7 @@
                 "name": "to receiver",
                 "convergenceLayer": "ltp_over_udp",
                 "nextHopNodeId": 20,
-                "remoteHostname": "hdtn_receiver",
+                "remoteHostname": "localhost",
                 "remotePort": 1113,
                 "maxNumberOfBundlesInPipeline": 50,
                 "maxSumOfBundleBytesInPipeline": 50000000,
