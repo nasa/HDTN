@@ -78,10 +78,9 @@ function RectComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramSvgChild
         });
 
         enter.append("svg:text")
-            .attr("dy", ".35em")
+            .attr("dominant-baseline", "central")//.attr("dominant-baseline", "middle")//.attr("dy", ".35em")
             //.attr("text-anchor", "end")
             .attr("transform", function(d) {
-
                 return "translate(" + 5 + "," + (d.hasOwnProperty("d3ChildArray") ? d.topHeaderHeight/2 : d.height/2) + ")";
             })
             .style("opacity", hideParent ? 0 : 1) //hide loadbank orus
@@ -146,12 +145,9 @@ function RectComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramSvgChild
                     .on("contextmenu", contextMenuEventFunction);
 
                 childEnter.append("svg:text")
-                    .attr("dy", ".35em")
+                    .attr("dominant-baseline", "central")//.attr("dominant-baseline", "middle")//.attr("dy", ".35em")
                     .attr("text-anchor", (isTextAnchorEnd) ? "end" : "start")
                     .attr("transform", function(childObj) {
-                        if(isTextAnchorEnd) {
-
-                        }
                         return "translate(" + (isTextAnchorEnd ? (childObj.width - 5) : 5) + "," + childObj.height/2 + ")";
                     })
                     .text(function(childObj) {

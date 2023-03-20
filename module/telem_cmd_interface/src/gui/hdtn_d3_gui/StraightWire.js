@@ -64,15 +64,17 @@ function StraightWire(paramSvgRootGroup, paramTextAngleDegrees, paramSpeedUpperL
     var wireText = svgRootGroup.append("svg:text")
             .attr("class", "wire_text")
             .attr("text-anchor", "middle")
-            .attr("transform", "translate(" + ((srcX + destX) * 0.5) + "," + ((srcY + destY) * 0.5) + ") rotate(" + textAngleDegrees + ") translate(0,-5)");
+            .attr("transform", "translate(" + ((srcX + destX) * 0.5) + "," + ((srcY + destY) * 0.5) + ") rotate(" + textAngleDegrees + ")");// translate(0,-5)");
 
     var wireTspanAbove = wireText.append('tspan')
-        .attr('x', 0)
-        .attr('dy', 0);
+        .attr("class", "wire_tspan_above")
+        .attr('y', 0)
+        .attr('x', 0);
 
     var wireTspanBelow = wireText.append('tspan')
-        .attr('x', 0)
-        .attr('dy', '1.4em');
+        .attr("class", "wire_tspan_below")
+        .attr('y', 0)
+        .attr('x', 0);
 
     WireRepeatFunc();
     function WireRepeatFunc() {

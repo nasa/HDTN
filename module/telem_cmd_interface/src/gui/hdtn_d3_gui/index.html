@@ -64,6 +64,14 @@
         .wire_stroke_width_attributes {
             stroke-width: 3;
         }
+        .wire_tspan_above {
+            dominant-baseline: text-after-edge;
+            baseline-shift: 1.5px;
+        }
+        .wire_tspan_below {
+            dominant-baseline: text-before-edge;
+            baseline-shift: -1.5px;
+        }
         .wire_stroke_dash_array_attributes {
             stroke-dasharray: 6 2;
         }
@@ -188,9 +196,13 @@
             stylesheet.insertRule(selector + " { " + property + ": " + value + "; }", 0);
         }
 
-        function onWireWidthChanged(value) {
+        function onWireWidthChanged(valueStr) {
             let s = getThisDomStyleSheet();
-            changeStylesheetRule(s, ".wire_stroke_width_attributes", "stroke-width", value);
+            let valueInt = parseInt(valueStr);
+            let valueHalf = valueInt / 2.0;
+            changeStylesheetRule(s, ".wire_stroke_width_attributes", "stroke-width", valueInt + "px");
+            changeStylesheetRule(s, ".wire_tspan_above", "baseline-shift", valueHalf + "px");
+            changeStylesheetRule(s, ".wire_tspan_below", "baseline-shift", "-" + valueHalf + "px");
         }
         function onWireDashArrayChanged(value) {
             let s = getThisDomStyleSheet();
