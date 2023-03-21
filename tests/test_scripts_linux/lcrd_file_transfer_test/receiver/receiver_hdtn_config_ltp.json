@@ -33,7 +33,7 @@
                 "preallocatedRedDataBytes": 1000000,
                 "ltpMaxRetriesPerSerialNumber": 500,
                 "ltpRandomNumberSizeBits": 64,
-                "ltpRemoteUdpHostname": "localhost",
+                "ltpRemoteUdpHostname": "hdtn_sender",
                 "ltpRemoteUdpPort": 1113,
                 "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
                 "ltpMaxExpectedSimultaneousSessions": 500,

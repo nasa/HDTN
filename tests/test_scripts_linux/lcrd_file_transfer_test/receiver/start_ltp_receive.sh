@@ -41,6 +41,8 @@ done
 #kill existing HDTN
 ./kill.sh
 
+mkdir received
+mkdir checksums
 
 if (( CUSTODY == 0 )); then
         CL="LTP_NO_CUSTODY"
@@ -55,9 +57,9 @@ if (( CUSTODY == 0 )); then
 	echo "Done"
 	echo "Starting checksums"
 
-	./sha.sh ./received/flightdata $NAME $CL $TIME
+	./sha.sh ./received/ $NAME $CL $TIME
 
-	rm -rf ./received/flightdata/*
+	rm -rf ./received/*
 	echo "Test done"
 
 else
@@ -73,9 +75,9 @@ else
 	echo "Done"
 	echo "Starting checksums"
 	
-	./sha.sh ./received/flightdata $NAME $CL $TIME
+	./sha.sh ./received/ $NAME $CL $TIME
 
-	rm -rf ./received/flightdata/*
+	rm -rf ./received/*
 
 	echo "Test done"
 

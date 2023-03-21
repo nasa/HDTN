@@ -1,6 +1,6 @@
 #!/bin/bash
 
-while [ `du -b received/flightdata | awk '{print $1}'` -lt 36300845631 ]
+while [ `du -b received/ | awk '{print $1}'` -lt 36300845631 ]
 do
 sleep 10
 done
