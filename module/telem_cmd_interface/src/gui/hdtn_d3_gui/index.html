@@ -34,9 +34,6 @@
         }
 
 
-        .background {
-            color: blue;
-        }
         div.tooltip {
             position: absolute;
             text-align: left;
@@ -49,6 +46,7 @@
         }
         svg text {
             pointer-events: none;
+            font-size: 16px;
         }
 
 
@@ -82,7 +80,13 @@
             width: auto;
             white-space: nowrap;
         }
-
+        #hiddenTextMeasurementSvgText {
+            position: absolute;
+            visibility: hidden;
+            height: auto;
+            width: auto;
+            white-space: nowrap;
+        }
 
     </style>
 
@@ -104,6 +108,22 @@
     <select id="idThemeSelect" onchange="onThemeChanged(this.value)">
         <option value="light-theme" selected="">Light Theme</option>
         <option value="dark-theme">Dark Theme</option>
+    </select>
+    <label>Font: </label>
+    <select id="idFontSelect" onchange="onFontChanged(this.value)">
+        <option value="10" >10px</option>
+        <option value="11">11px</option>
+        <option value="12">12px</option>
+        <option value="13">13px</option>
+        <option value="14">14px</option>
+        <option value="15">15px</option>
+        <option value="16" selected="">16px</option>
+        <option value="17">17px</option>
+        <option value="18">18px</option>
+        <option value="19">19px</option>
+        <option value="20">20px</option>
+        <option value="21">21px</option>
+        <option value="22">22px</option>
     </select>
     <label>Wire Width: </label>
     <select id="idWireWidthSelect" onchange="onWireWidthChanged(this.value)">
@@ -208,6 +228,11 @@
             let s = getThisDomStyleSheet();
             changeStylesheetRule(s, ".wire_stroke_dash_array_attributes", "stroke-dasharray", value);
         }
+        function onFontChanged(value) {
+            let s = getThisDomStyleSheet();
+            changeStylesheetRule(s, "svg text", "font-size", value + "px");
+            app.UpdateWithData(null);
+        }
 
 
     function HdtnGui(paramParentDiv, paramUniqueId) {
@@ -255,12 +280,6 @@
         guiGroup.attr("transform", "translate(" + (10) + "," + 10 + ")");
 
 
-        var backgroundRect = guiGroup.append("rect")
-            .attr("class", "background")
-            .attr("width", 1500)
-            .attr("height", 1000)
-            .attr("fill", "none");
-
 
         var centralGroup = guiGroup.append("g")
             .attr("transform", "translate(" + 600 + "," + 250 + ")");
@@ -282,6 +301,12 @@
         var finalDestsGroup = guiGroup.append("g");
         var internalHdtnWiresGroup = guiGroup.append("g");
         var wiresComponentGroup = guiGroup.append("g");
+
+        var svgTextMeasurer = guiGroup.append("svg:text")
+            .style("opacity", 0)
+            .attr("id", "hiddenTextMeasurementSvgText");
+
+
 
 
         var sharedTransition;
@@ -599,6 +624,9 @@
 
 
         function HandleReceivedNewHdtnConfig(newHdtnConfig) {
+            let svgTextMeasurerStyle = window.getComputedStyle(svgTextMeasurer.node(), null).getPropertyValue('font-size');
+            let svgTextMeasurerFontSize = parseFloat(svgTextMeasurerStyle);
+            console.log("Detected default font size: " + svgTextMeasurerFontSize + "px");
             hdtnConfig = newHdtnConfig;
             let redrawObj = ParseHdtnConfig(
                 wireConnectionsOldMap,
@@ -606,12 +634,8 @@
                 hdtnConfig,
                 false, // declutter,
                 false, // shrink,
-                null, // d3FaultsMap,
-                null,// MAP_NAMES,
-                null,// SUB_MAP_NAMES,
-                null,// D3_SHAPE_ATTRIBUTES,
                 ABS_POSITION_MAP,
-                null// FLIP_HORIZONTAL_MAP
+                svgTextMeasurerFontSize
             );
 
             //if(inTransition) {
@@ -635,7 +659,12 @@
 
         function InternalUpdateWithData(objJson) {
             //console.log(objJson);
-            if("hdtnConfigName" in objJson) {
+            if(objJson == null) { //something like a font size update
+                if(hdtnConfig != null) {
+                    HandleReceivedNewHdtnConfig(hdtnConfig);
+                }
+            }
+            else if("hdtnConfigName" in objJson) {
                 myOutline.UpdateName("HDTN v" + objJson.hdtnVersionString + " - Node " + objJson.myNodeId + "");
                 InitActiveInductConnections(objJson);
                 HandleReceivedNewHdtnConfig(objJson);
