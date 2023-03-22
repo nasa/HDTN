@@ -33,15 +33,8 @@
             font-family: helvetica, sans-serif;
         }
 
-
-        div.tooltip {
-            position: absolute;
-            text-align: left;
-            padding: 2px;
-            font: 12px sans-serif;
-            background: lightsteelblue;
-            border: 0px;
-            border-radius: 8px;
+        svg rect.tooltip {
+            fill: lightsteelblue;
             pointer-events: none;
         }
         svg text {
@@ -253,7 +246,7 @@
         var svg = svgDiv.append("svg:svg")
             .attr("id","svgId");
 
-        var toolTipObj = ToolTip();
+
 
         var defs = svg.append("svg:defs");
         var arrowMarker = defs.append("svg:marker");
@@ -301,12 +294,14 @@
         var finalDestsGroup = guiGroup.append("g");
         var internalHdtnWiresGroup = guiGroup.append("g");
         var wiresComponentGroup = guiGroup.append("g");
+        var tooltipGroup = guiGroup.append("g")
+            .attr("id", "tool_tip_group_id");
 
         var svgTextMeasurer = guiGroup.append("svg:text")
             .style("opacity", 0)
             .attr("id", "hiddenTextMeasurementSvgText");
 
-
+        var toolTipObj = ToolTip();
 
 
         var sharedTransition;
@@ -513,6 +508,11 @@
         }
         function ContextMenuFinalDest(d) {
             if(d3.event.type === "contextmenu") {
+
+                //in firefox, requires about:config dom.event.contextmenu.enabled == true to prevent browser menu from covering custom menu
+                d3.event.preventDefault();
+                d3.event.stopPropagation();
+
                 if(d.name) { //only children have this
                     var menu = contextMenu().items(
                         {
@@ -524,13 +524,17 @@
                             "func" : PingMe_Closure(GetNodeNumFromIpnString(d.name), 2047, 6)
                         }
                     );
-                    d3.event.preventDefault();
                     menu(d3.mouse(svg.node())[0], d3.mouse(svg.node())[1]);
                 }
             }
         }
         function ContextMenuNextHop(d) {
             if(d3.event.type === "contextmenu") {
+
+                //in firefox, requires about:config dom.event.contextmenu.enabled == true to prevent browser menu from covering custom menu
+                d3.event.preventDefault();
+                d3.event.stopPropagation();
+
                 if(d.nodeId) { //only parent has this
                     var menu = contextMenu().items(
                         {
@@ -542,7 +546,6 @@
                             "func" : PingMe_Closure(d.nodeId, 2047, 6)
                         }
                     );
-                    d3.event.preventDefault();
                     menu(d3.mouse(svg.node())[0], d3.mouse(svg.node())[1]);
                 }
             }
@@ -626,7 +629,6 @@
         function HandleReceivedNewHdtnConfig(newHdtnConfig) {
             let svgTextMeasurerStyle = window.getComputedStyle(svgTextMeasurer.node(), null).getPropertyValue('font-size');
             let svgTextMeasurerFontSize = parseFloat(svgTextMeasurerStyle);
-            console.log("Detected default font size: " + svgTextMeasurerFontSize + "px");
             hdtnConfig = newHdtnConfig;
             let redrawObj = ParseHdtnConfig(
                 wireConnectionsOldMap,

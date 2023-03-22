@@ -20,11 +20,18 @@
 function ToolTip() {
 
     var globalToolTipObject = null;
+    const MARGIN_PX = 5;
 
-    // Define the div for the tooltip
-    var divTooltip = d3.select("body").append("div")
-        .attr("class", "tooltip")
+    var toolTipGroup = d3.select("#tool_tip_group_id");
+
+    var toolTipTransformGroup = toolTipGroup.append("svg:g")
         .style("opacity", 0);
+    var rectTooltip = toolTipTransformGroup.append("svg:rect")
+        .attr("class", "tooltip");
+    var textTooltip = toolTipTransformGroup.append("svg:text");
+        //.attr("class", "tooltip")
+        //.style("fill", "red")
+        //.style("opacity", 0);
 
 
     function UpdateActiveToolTip() {
@@ -39,31 +46,53 @@ function ToolTip() {
         if(obj.hasOwnProperty("toolTipText")) {
             textStr = obj.toolTipText;
         }
-        divTooltip.html(textStr);
-        divTooltip
-            .style("width", "0px")
-            .style("height", "0px");
 
-        //https://stackoverflow.com/questions/1461059/is-there-an-equivalent-to-getboundingclientrect-for-text-nodes
-        let range = document.createRange();
-        range.selectNode(divTooltip.node());
-        const rect = range.getBoundingClientRect();
-        divTooltip
-            .style("width", rect.width + "px")
-            .style("height", rect.height + "px");
+        textTooltip.selectAll('tspan').remove();
+        const lineArray = textStr.split("<br />");
+        lineArray.forEach(function(line) {
+            textTooltip.append('tspan')
+                //.attr("class", "wire_tspan_above")
+                .attr('dy', "1.1em")
+                .attr('x', MARGIN_PX)
+                .text(line);
+        });
+
+
+
+        //draw this in a separate svg outside the viewbox so getBoundingClientRect() won't return scaled results
+        let svgMeas = d3.select("#hiddenTextMeasurementDiv").append('svg')
+            .attr('x', -1000)
+            .attr('y', -1000);
+
+        svgMeas.append(() => textTooltip.clone(true).node());
+        const rect = svgMeas.select('text').node().getBoundingClientRect();
+        // cleanup
+        svgMeas.remove();
+
+
+        const MARGINX2_PX = 2 * MARGIN_PX;
+        const WIDTH = rect.width + MARGINX2_PX;
+        const HEIGHT = rect.height + MARGINX2_PX;
+        rectTooltip
+            .style("width", WIDTH + "px")
+            .style("height", HEIGHT + "px")
+            .style("rx", MARGINX2_PX + "px");
 
 
         if(isMouseEvent) {
-            divTooltip.style("left", (d3.event.pageX) + "px");
-            divTooltip.style("top", (d3.event.pageY - (rect.height/2.0)) + "px");
+            const mouseX = d3.mouse(toolTipGroup.node())[0];
+            const mouseY = d3.mouse(toolTipGroup.node())[1];
+            let yCalc = Math.max(mouseY - (HEIGHT), 0);
+            toolTipTransformGroup
+                .attr("transform", "translate(" + (mouseX+2) + "," + yCalc + ")");
         }
 
-        range.detach(); // frees up memory in older browsers
+        //range.detach(); // frees up memory in older browsers
     }
     function MouseEventToolTip(d) {
         if(d3.event.type === "mouseover") {
             if(d.hasOwnProperty("toolTipText")) {
-                divTooltip.transition()
+                toolTipTransformGroup.transition()
                     .duration(200)
                     .style("opacity", .9);
                 UpdateToolTipText(d, true);
@@ -74,12 +103,12 @@ function ToolTip() {
         }
         else if(d3.event.type === "mouseout") {
             if(d.hasOwnProperty("toolTipText")) {
-                divTooltip.transition()
+                toolTipTransformGroup.transition()
                     .duration(200)
                     .style("opacity", 0);
             }
             else {
-                divTooltip.style("opacity", 0);
+                toolTipTransformGroup.style("opacity", 0);
             }
         }
     }
