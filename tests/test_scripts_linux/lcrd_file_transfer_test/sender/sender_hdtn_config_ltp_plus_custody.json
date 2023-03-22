@@ -27,7 +27,7 @@
                 "keepAliveIntervalSeconds": 15
             },
             {
-                "name": "custody from tantalus hdtn",
+                "name": "custody from hdtn receiver",
                 "convergenceLayer": "ltp_over_udp",
                 "boundPort": 1113,
                 "numRxCircularBufferElements": 500,
@@ -57,7 +57,7 @@
         "outductConfigName": "myconfig",
         "outductVector": [
             {
-                "name": "to tantalus",
+                "name": "to receiver",
                 "convergenceLayer": "ltp_over_udp",
                 "nextHopNodeId": 20,
                 "remoteHostname": "hdtn_receiver",
