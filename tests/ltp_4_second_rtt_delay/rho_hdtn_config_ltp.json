@@ -16,6 +16,7 @@
     "bufferRxToStorageOnLinkUpSaturation": false,
     "maxLtpReceiveUdpPacketSizeBytes": 1500,
     "zmqBoundSchedulerPubSubPortPath": 10200,
+    "zmqBoundTelemApiPortPath": 10305,
     "inductsConfig": {
         "inductConfigName": "myconfig",
         "inductVector": [
