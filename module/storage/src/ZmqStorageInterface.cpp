@@ -826,6 +826,7 @@ void ZmqStorageInterface::Impl::deleteExpiredBundles() {
 
     for(uint64_t custodyId : expiredIds) {
         deleteBundleById(custodyId);
+        m_telem.m_totalBundlesErasedFromStorageBecauseExpired++;
     }
 
 }

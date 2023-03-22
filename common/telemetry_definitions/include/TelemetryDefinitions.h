@@ -47,6 +47,7 @@ struct StorageTelemetry_t : public JsonSerializable
     //from ZmqStorageInterface
     uint64_t m_totalBundlesErasedFromStorageNoCustodyTransfer;
     uint64_t m_totalBundlesErasedFromStorageWithCustodyTransfer;
+    uint64_t m_totalBundlesErasedFromStorageBecauseExpired;
     uint64_t m_totalBundlesRewrittenToStorageFromFailedEgressSend;
     uint64_t m_totalBundlesSentToEgressFromStorageReadFromDisk;
     uint64_t m_totalBundleBytesSentToEgressFromStorageReadFromDisk;
