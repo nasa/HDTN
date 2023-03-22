@@ -6,11 +6,10 @@
 
 BOOST_AUTO_TEST_CASE(DeadlineTimerTestCase)
 {
-    DeadlineTimer deadlineTimer(100);
-
     // The deadline timer should sleep for the
     // specified amount of time
     boost::timer::cpu_timer cpuTimer;
+    DeadlineTimer deadlineTimer(100);
     bool success = deadlineTimer.SleepUntilNextInterval();
     cpuTimer.stop();
     BOOST_REQUIRE_EQUAL(true, success);

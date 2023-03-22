@@ -18,6 +18,9 @@
 #ifndef TELEMETRY_CONNECTION_H
 #define TELEMETRY_CONNECTION_H 1
 
+#include <queue>
+
+#include <boost/thread.hpp>
 #include "zmq.hpp"
 
 #include "telem_lib_export.h"
@@ -25,7 +28,7 @@
 class TelemetryConnection
 {
     public:
-        TELEM_LIB_EXPORT TelemetryConnection(const std::string& addr, zmq::context_t* inprocContextPtr);
+        TELEM_LIB_EXPORT TelemetryConnection(const std::string& addr, zmq::context_t* inprocContextPtr, bool bind = false);
         TELEM_LIB_EXPORT ~TelemetryConnection();
 
         /**
@@ -46,11 +49,26 @@ class TelemetryConnection
          */
         TELEM_LIB_EXPORT void* GetSocketHandle();
 
+
+        /**
+         * Sends a new request for telemetry. Handles sending queued API calls.
+         * @param alwaysRequest whether to always request data, even if there are no API calls queued
+         */
+        TELEM_LIB_EXPORT void SendRequest(bool alwaysRequest = true);
+
+        /**
+         * Enqueues a new API payload to be sent on the next request 
+         */
+        TELEM_LIB_EXPORT bool EnqueueApiPayload(const std::string& payload);
+
+        bool m_apiAwaitingResponse;
     private:
         TelemetryConnection() = delete;
         std::string m_addr;
         std::unique_ptr<zmq::socket_t> m_requestSocket;
         std::unique_ptr<zmq::context_t> m_contextPtr;
+        std::queue<zmq::message_t> m_apiCallsQueue;
+        boost::mutex m_apiCallsMutex;
 };
 
 #endif //TELEMETRY_CONNECTION_H

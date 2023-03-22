@@ -400,3 +400,75 @@ BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
     aot.m_listAllOutducts.back()->m_totalBundleBytesAcked = 5000;
     BOOST_REQUIRE(aot != aot2);
 }
+
+BOOST_AUTO_TEST_CASE(TelemetryDefinitionsApiCommandTestCase)
+{
+    ApiCommand_t o1;
+    o1.m_apiCall = "my api call";
+    std::string o1Json = o1.ToJson();
+
+    ApiCommand_t o2;
+    BOOST_REQUIRE(o2.SetValuesFromJson(o1Json));
+    BOOST_REQUIRE(o1 == o2);
+    BOOST_REQUIRE(!(o1 != o2));
+    BOOST_REQUIRE_EQUAL(o1Json, o2.ToJson());
+    o2.m_apiCall = "foobar";
+    BOOST_REQUIRE(o1 != o2);
+
+    BOOST_REQUIRE_EQUAL(ApiCommand_t::GetApiCallFromJson(o1Json), "my api call");
+}
+
+BOOST_AUTO_TEST_CASE(TelemetryDefinitionsPingApiCommandTestCase)
+{
+    PingApiCommand_t o1;
+    o1.m_bpVersion = 7;
+    o1.m_nodeId = 10;
+    o1.m_pingServiceNumber = 20;
+    std::string o1Json = o1.ToJson();
+
+    PingApiCommand_t o2;
+    BOOST_REQUIRE_EQUAL(o1.m_apiCall, "ping");
+    BOOST_REQUIRE_EQUAL(o2.m_apiCall, "ping");
+    BOOST_REQUIRE(o2.SetValuesFromJson(o1Json));
+    BOOST_REQUIRE(o1 == o2);
+    BOOST_REQUIRE(!(o1 != o2));
+    BOOST_REQUIRE_EQUAL(o1Json, o2.ToJson());
+    o2.m_nodeId = 17;
+    BOOST_REQUIRE(o1 != o2);
+}
+
+BOOST_AUTO_TEST_CASE(TelemetryDefinitionsUploadContactPlanApiCommandTestCase)
+{
+    UploadContactPlanApiCommand_t o1;
+    o1.m_contactPlanJson = "{'foo': 'bar'}";
+    std::string o1Json = o1.ToJson();
+
+    UploadContactPlanApiCommand_t o2;
+    BOOST_REQUIRE_EQUAL(o1.m_apiCall, "upload_contact_plan");
+    BOOST_REQUIRE_EQUAL(o2.m_apiCall, "upload_contact_plan");
+    BOOST_REQUIRE(o2.SetValuesFromJson(o1Json));
+    BOOST_REQUIRE(o1 == o2);
+    BOOST_REQUIRE(!(o1 != o2));
+    BOOST_REQUIRE_EQUAL(o1Json, o2.ToJson());
+    o2.m_contactPlanJson = "{'foo1': 'bar'}";
+    BOOST_REQUIRE(o1 != o2);
+}
+
+BOOST_AUTO_TEST_CASE(TelemetryDefinitionsGetExpriringStorageApiCommandTestCase)
+{
+    GetExpiringStorageApiCommand_t o1;
+    o1.m_priority = 1;
+    o1.m_thresholdSecondsFromNow = 10;
+    std::string o1Json = o1.ToJson();
+
+    GetExpiringStorageApiCommand_t o2;
+    BOOST_REQUIRE_EQUAL(o1.m_apiCall, "get_expiring_storage");
+    BOOST_REQUIRE_EQUAL(o2.m_apiCall, "get_expiring_storage");
+    BOOST_REQUIRE(o2.SetValuesFromJson(o1Json));
+    BOOST_REQUIRE(o1 == o2);
+    BOOST_REQUIRE(!(o1 != o2));
+    BOOST_REQUIRE_EQUAL(o1Json, o2.ToJson());
+    o2.m_priority = 5;
+    o2.m_thresholdSecondsFromNow = 15;
+    BOOST_REQUIRE(o1 != o2);
+}

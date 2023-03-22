@@ -112,6 +112,7 @@ private:
     void SetLinkDown(OutductInfo_t & info);
     void ThreadFunc();
     void SyncTelemetry();
+    void TelemEventsHandler();
     static std::string SprintCustodyidToSizeMap(const custodyid_to_size_map_t& m);
 
 public:
@@ -127,7 +128,6 @@ private:
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingStorageToBoundIngressPtr;
 
     std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingTelemToFromBoundStoragePtr;
-    std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingUisToFromBoundStoragePtr;
 
     HdtnConfig m_hdtnConfig;
 
@@ -300,18 +300,6 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDi
     }
     catch (const zmq::error_t& ex) {
         LOG_ERROR(subprocess) << "Cannot subscribe to all events from scheduler: " << ex.what();
-        return false;
-    }
-
-    //uis request
-    m_zmqRepSock_connectingUisToFromBoundStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::rep);
-    const std::string bind_connectingUisToFromBoundStoragePath("tcp://*:10304");
-    try {
-        m_zmqRepSock_connectingUisToFromBoundStoragePtr->bind(bind_connectingUisToFromBoundStoragePath);// config.releaseWorker);
-        LOG_INFO(subprocess) << "uis sock bound to " << bind_connectingUisToFromBoundStoragePath;
-    }
-    catch (const zmq::error_t& ex) {
-        LOG_ERROR(subprocess) << "error: cannot bind uis socket: " << ex.what();
         return false;
     }
 
@@ -832,12 +820,11 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
     bool egressFullyInitialized = false;
 
 
-    zmq::pollitem_t pollItems[5] = {
+    zmq::pollitem_t pollItems[4] = {
         {m_zmqPullSock_boundEgressToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqPullSock_boundIngressToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqSubSock_boundReleaseToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqRepSock_connectingTelemToFromBoundStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_zmqRepSock_connectingUisToFromBoundStoragePtr->handle(), 0, ZMQ_POLLIN, 0}
     };
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
     long timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL; //0 => no blocking
@@ -1221,109 +1208,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                 }
             }
             if (pollItems[3].revents & ZMQ_POLLIN) { //telem requests data
-                uint8_t telemMsgByte;
-                const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingTelemToFromBoundStoragePtr->recv(zmq::mutable_buffer(&telemMsgByte, sizeof(telemMsgByte)), zmq::recv_flags::dontwait);
-                if (!res) {
-                    LOG_ERROR(subprocess) << "error in ZmqStorageInterface::ThreadFunc: cannot read telemMsgByte";
-                }
-                else if ((res->truncated()) || (res->size != sizeof(telemMsgByte))) {
-                    LOG_ERROR(subprocess) << "telemMsgByte message mismatch: untruncated = " << res->untruncated_size
-                        << " truncated = " << res->size << " expected = " << sizeof(telemMsgByte);
-                }
-                else if (telemMsgByte == TELEM_REQ_MSG) {                    
-                    //send telemetry
-                    SyncTelemetry();
-                    m_telem.m_timestampMilliseconds = TimestampUtil::GetMillisecondsSinceEpochRfc5050();
-
-                    std::string* storageTelemJsonStringPtr = new std::string(m_telem.ToJson());
-                    std::string& strRef = *storageTelemJsonStringPtr;
-                    zmq::message_t zmqJsonMessage(&strRef[0], storageTelemJsonStringPtr->size(), CustomCleanupStdString, storageTelemJsonStringPtr);
-
-                    if (!m_zmqRepSock_connectingTelemToFromBoundStoragePtr->send(std::move(zmqJsonMessage), zmq::send_flags::dontwait)) {
-                        LOG_ERROR(subprocess) << "can't send json telemetry to telem";
-                    }
-                }
-                /*
-                else if (telemMsgByte == 2) {
-                    //send telemetry
-                    //std::cout << "storage send telem";
-                    StorageExpiringBeforeThresholdTelemetry_t telem;
-                    telem.priority = 2;
-                    telem.thresholdSecondsSinceStartOfYear2000 = TimestampUtil::GetSecondsSinceEpochRfc5050(boost::posix_time::microsec_clock::universal_time() + boost::posix_time::seconds(10000));
-                    if (!bsm.GetStorageExpiringBeforeThresholdTelemetry(telem)) {
-                    }
-                    else {
-                        //send telemetry
-                        std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(1000); //will be 64-bit aligned
-                        uint8_t* telemPtr = vecUint8RawPointer->data();
-                        const uint8_t* const telemSerializationBase = telemPtr;
-                        uint64_t telemBufferSize = vecUint8RawPointer->size();
-
-                        //start zmq message with telemetry
-                        const uint64_t storageTelemSize = telem.SerializeToLittleEndian(telemPtr, telemBufferSize);
-                        telemBufferSize -= storageTelemSize;
-                        telemPtr += storageTelemSize;
-
-                        vecUint8RawPointer->resize(telemPtr - telemSerializationBase);
-
-                        zmq::message_t zmqTelemMessageWithDataStolen(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
-                        if (!m_zmqRepSock_connectingTelemToFromBoundStoragePtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::dontwait)) {
-                        }
-                    }
-                }
-                */
-                else {
-                    LOG_ERROR(subprocess) << "error telemMsgByte not 1 or 2";
-                }
-            }
-            if (pollItems[4].revents & ZMQ_POLLIN) { //uis requests data
-                StorageTelemetryRequest_t telemReq;
-                const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingUisToFromBoundStoragePtr->recv(zmq::mutable_buffer(&telemReq, sizeof(telemReq)), zmq::recv_flags::dontwait);
-                if (!res) {
-                    LOG_ERROR(subprocess) << "error in ZmqStorageInterface::ThreadFunc: cannot read telemReq";
-                }
-                else if ((res->truncated()) || (res->size != sizeof(telemReq))) {
-                    LOG_ERROR(subprocess) << "telemMsgByte message mismatch: untruncated = " << res->untruncated_size
-                        << " truncated = " << res->size << " expected = " << sizeof(telemReq);
-                }
-                else if (telemReq.type == 10) { //((uint64_t)TelemetryType::storageExpiringBeforeThreshold)) {
-                    //send telemetry
-                    SyncTelemetry();
-                    m_telem.m_timestampMilliseconds = TimestampUtil::GetMillisecondsSinceEpochRfc5050();
-
-                    std::string* storageTelemJsonStringPtr = new std::string(m_telem.ToJson());
-                    std::string& strRef = *storageTelemJsonStringPtr;
-                    zmq::message_t zmqJsonMessage(&strRef[0], storageTelemJsonStringPtr->size(),
-                        CustomCleanupStdString, storageTelemJsonStringPtr);
-
-                    
-
-                    StorageExpiringBeforeThresholdTelemetry_t expiringTelem;
-                    expiringTelem.priority = telemReq.priority;
-                    expiringTelem.thresholdSecondsSinceStartOfYear2000 = TimestampUtil::GetSecondsSinceEpochRfc5050(
-                        boost::posix_time::microsec_clock::universal_time() + boost::posix_time::seconds(telemReq.thresholdSecondsFromNow));
-                    if (!m_bsmPtr->GetStorageExpiringBeforeThresholdTelemetry(expiringTelem)) {
-                        LOG_ERROR(subprocess) << "storage can't get StorageExpiringBeforeThresholdTelemetry";
-                    }
-                    else {
-                        //send telemetry
-                        std::string* expiringTelemJsonStringPtr = new std::string(expiringTelem.ToJson());
-                        std::string& strRefExpiring = *expiringTelemJsonStringPtr;
-                        zmq::message_t zmqExpiringTelemJsonMessage(&strRefExpiring[0],
-                            expiringTelemJsonStringPtr->size(), CustomCleanupStdString, expiringTelemJsonStringPtr);
-
-                        LOG_INFO(subprocess) << "send storage multi-part telem to uis";
-                        if (!m_zmqRepSock_connectingUisToFromBoundStoragePtr->send(std::move(zmqJsonMessage), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
-                            LOG_ERROR(subprocess) << "storage can't send json storage telemetry to uis";
-                        }
-                        else if (!m_zmqRepSock_connectingUisToFromBoundStoragePtr->send(std::move(zmqExpiringTelemJsonMessage), zmq::send_flags::dontwait)) {
-                            LOG_ERROR(subprocess) << "storage can't send json StorageExpiringBeforeThresholdTelemetry_t to uis";
-                        }
-                    }
-                }
-                else {
-                    LOG_ERROR(subprocess) << "error telemReq.type not 10";
-                }
+                TelemEventsHandler();
             }
         }
 
@@ -1458,6 +1343,75 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
     LOG_DEBUG(subprocess) << "m_totalBundlesErasedFromStorageWithCustodyTransfer: " << m_telem.m_totalBundlesErasedFromStorageWithCustodyTransfer;
     LOG_DEBUG(subprocess) << "numCustodyTransferTimeouts: " << numCustodyTransferTimeouts;
     LOG_DEBUG(subprocess) << "m_totalBundlesRewrittenToStorageFromFailedEgressSend: " << m_telem.m_totalBundlesRewrittenToStorageFromFailedEgressSend;
+}
+
+void ZmqStorageInterface::Impl::TelemEventsHandler() {
+    bool doSendExpiring = false;
+    GetExpiringStorageApiCommand_t getExpiringStorageApiCommand;
+    uint8_t telemMsgByte;
+    const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingTelemToFromBoundStoragePtr->recv(zmq::mutable_buffer(&telemMsgByte, sizeof(telemMsgByte)), zmq::recv_flags::dontwait);
+    if (!res) {
+        LOG_ERROR(subprocess) << "error in ZmqStorageInterface::ThreadFunc: cannot read telemMsgByte";
+        return;
+    }
+    else if ((res->truncated()) || (res->size != sizeof(telemMsgByte))) {
+        LOG_ERROR(subprocess) << "telemMsgByte message mismatch: untruncated = " << res->untruncated_size
+            << " truncated = " << res->size << " expected = " << sizeof(telemMsgByte);
+        return;
+    }
+
+    bool hasApiCalls = telemMsgByte > TELEM_REQ_MSG;
+    if (hasApiCalls) {
+        zmq::message_t apiMsg;
+        if (!m_zmqRepSock_connectingTelemToFromBoundStoragePtr->recv(apiMsg, zmq::recv_flags::dontwait)) {
+            LOG_ERROR(subprocess) << "error receiving api message";
+            return;
+        }
+        std::string apiCall = ApiCommand_t::GetApiCallFromJson(apiMsg.to_string());
+        LOG_INFO(subprocess) << "got api call " << apiCall;
+        if (apiCall == "get_expiring_storage") {
+            if (!getExpiringStorageApiCommand.SetValuesFromJson(apiMsg.to_string())) {
+                return;
+            };
+            doSendExpiring = true;
+        }
+    }
+
+    //send normal storage telemetry
+    SyncTelemetry();
+    m_telem.m_timestampMilliseconds = TimestampUtil::GetMillisecondsSinceEpochRfc5050();
+
+    std::string* storageTelemJsonStringPtr = new std::string(m_telem.ToJson());
+    std::string& strRef = *storageTelemJsonStringPtr;
+    zmq::message_t zmqJsonMessage(&strRef[0], storageTelemJsonStringPtr->size(), CustomCleanupStdString, storageTelemJsonStringPtr);
+
+    const zmq::send_flags additionalFlags = (doSendExpiring) ? zmq::send_flags::sndmore : zmq::send_flags::none;
+    if (!m_zmqRepSock_connectingTelemToFromBoundStoragePtr->send(std::move(zmqJsonMessage), zmq::send_flags::dontwait | additionalFlags)) {
+        LOG_ERROR(subprocess) << "can't send json telemetry to telem";
+    }
+
+    if (!doSendExpiring) {
+        return;
+    }
+
+    //send storage expiring telemetry
+    StorageExpiringBeforeThresholdTelemetry_t expiringTelem;
+    expiringTelem.priority = getExpiringStorageApiCommand.m_priority;
+    expiringTelem.thresholdSecondsSinceStartOfYear2000 = TimestampUtil::GetSecondsSinceEpochRfc5050(
+        boost::posix_time::microsec_clock::universal_time() + boost::posix_time::seconds(getExpiringStorageApiCommand.m_thresholdSecondsFromNow));
+    if (!m_bsmPtr->GetStorageExpiringBeforeThresholdTelemetry(expiringTelem)) {
+        LOG_ERROR(subprocess) << "storage can't get StorageExpiringBeforeThresholdTelemetry";
+    }
+    else {
+        std::string* expiringTelemJsonStringPtr = new std::string(expiringTelem.ToJson());
+        std::string& strRefExpiring = *expiringTelemJsonStringPtr;
+        zmq::message_t zmqExpiringTelemJsonMessage(&strRefExpiring[0],
+            expiringTelemJsonStringPtr->size(), CustomCleanupStdString, expiringTelemJsonStringPtr);
+
+        if (!m_zmqRepSock_connectingTelemToFromBoundStoragePtr->send(std::move(zmqExpiringTelemJsonMessage), zmq::send_flags::dontwait)) {
+            LOG_ERROR(subprocess) << "storage can't send json StorageExpiringBeforeThresholdTelemetry_t to telem";
+        }
+    }
 }
 
 std::size_t ZmqStorageInterface::Impl::GetCurrentNumberOfBundlesDeletedFromStorage() {
