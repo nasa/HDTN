@@ -1,58 +1,44 @@
 body {
     font-family: helvetica, sans-serif;
 }
-
-div.tooltip {
-    position: absolute;
-    text-align: left;
-    width: 150px;
-    height: 150px;
-    padding: 2px;
-    font: 12px sans-serif;
-    border: 0px;
-    border-radius: 8px;
-    pointer-events: none;
+body, input, button, select, textarea, optgroup, option {
+    font-size: 1vw;
+}
+input {
+    width: 1vw;
+    height: 1vw;
 }
 svg text {
-    pointer-events: none;
     font-weight: bold;
+    pointer-events: none;
+    /*font-size in index.html since it can be changed*/
 }
+svg rect.tooltip {
+    fill: lightsteelblue;
+    pointer-events: none;
+}
+
 svg text.system_outline_group_text {
     font-size: 32px;
 }
-#idPowerSystemState {
-    margin: auto; /*centers the container*/
-    display: flex;
-    align-items : center;
-    justify-content: center;
-    width: 90%;
-    height: 70px;
-    margin-top: 25px;
-    margin-bottom: 15px;
-    font-size: 30px;
-}
+
 svg.svgViewBoxClass {
     display: block;
     /*border: 1px solid #ccc;*/
     position: absolute;
-    top: 140px;
+    top: 50px;
     left: 10px;
     width: calc(100vw - 20px);
-    height: calc(99vh - 140px);
+    height: calc(99vh - 50px);
     overflow-x: hidden;
     overflow-y: hidden;
 }
-div.normalState {
-    color: white;
-    background-color: green;
+
+.buffer_fill_color {
+    stop-color: green;
 }
-div.restorativeState {
-    color: black;
-    background-color: yellow;
-}
-div.emergencyState {
-    color: white;
-    background-color: red;
+.buffer_nonfill_color {
+    stop-color: white;
 }
 
 .off_switch_rect {
@@ -73,4 +59,19 @@ div.emergencyState {
 
 .induct_body {
     fill: yellow;
+}
+
+#hiddenTextMeasurementDiv {
+    position: absolute;
+    visibility: hidden;
+    height: auto;
+    width: auto;
+    white-space: nowrap;
+}
+#hiddenTextMeasurementSvgText {
+    position: absolute;
+    visibility: hidden;
+    height: auto;
+    width: auto;
+    white-space: nowrap;
 }

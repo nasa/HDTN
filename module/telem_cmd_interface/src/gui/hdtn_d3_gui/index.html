@@ -29,38 +29,15 @@
 <body>
 
     <style type="text/css">
-        body {
-            font-family: helvetica, sans-serif;
-        }
-        body, input, button, select, textarea, optgroup, option {
-            font-size: 1vw;
-        }
-        input {
-            width: 1vw;
-            height: 1vw;
-        }
-
-        svg rect.tooltip {
-            fill: lightsteelblue;
-            pointer-events: none;
-        }
+        /* must be here (in html body) so modifications allowed by CORS */
         svg text {
-            pointer-events: none;
             font-size: 16px;
         }
-
-
-
-        .buffer_fill_color {
-            stop-color: green;
-        }
-        .buffer_nonfill_color {
-            stop-color: white;
-        }
-
-        /* must be here (in html body) so modifications allowed by CORS */
         .wire_stroke_width_attributes {
             stroke-width: 3;
+        }
+        .wire_stroke_dash_array_attributes {
+            stroke-dasharray: 6 2;
         }
         .wire_tspan_above {
             dominant-baseline: text-after-edge;
@@ -70,24 +47,6 @@
             dominant-baseline: text-before-edge;
             baseline-shift: -1.5px;
         }
-        .wire_stroke_dash_array_attributes {
-            stroke-dasharray: 6 2;
-        }
-        #hiddenTextMeasurementDiv {
-            position: absolute;
-            visibility: hidden;
-            height: auto;
-            width: auto;
-            white-space: nowrap;
-        }
-        #hiddenTextMeasurementSvgText {
-            position: absolute;
-            visibility: hidden;
-            height: auto;
-            width: auto;
-            white-space: nowrap;
-        }
-
     </style>
 
     <div id="hiddenTextMeasurementDiv"></div>
