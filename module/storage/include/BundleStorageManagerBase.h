@@ -107,6 +107,8 @@ public:
 
     STORAGE_LIB_EXPORT bool GetStorageExpiringBeforeThresholdTelemetry(StorageExpiringBeforeThresholdTelemetry_t& telem);
 
+    std::vector<uint64_t> GetExpiredBundleIds(uint64_t expiry, int64_t numToFind);
+
     STORAGE_LIB_EXPORT bool RestoreFromDisk(uint64_t * totalBundlesRestored, uint64_t * totalBytesRestored, uint64_t * totalSegmentsRestored);
 
     STORAGE_LIB_EXPORT const MemoryManagerTreeArray& GetMemoryManagerConstRef() const;
