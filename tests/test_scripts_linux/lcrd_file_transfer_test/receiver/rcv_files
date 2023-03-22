@@ -1,3 +1,1 @@
-export HDTN_BUILD_ROOT=$HDTN_SOURCE_ROOT/build
-/home/balafuen/hdtn/build/common/bpcodec/apps/bpreceivefile --save-directory=./received --my-uri-eid=ipn:2.1 --inducts-config-file=./receiver_bpsink_stcp.json
-#$HDTN_BUILD_ROOT/common/bpcodec/apps/bpreceivefile --my-uri-eid=ipn:2.1 --inducts-config-file=./receiver_bpsink_stcp.json
+$HDTN_SOURCE_ROOT/build/common/bpcodec/apps/bpreceivefile --save-directory=./received --my-uri-eid=ipn:2.1 --inducts-config-file=./receiver_bpsink_stcp.json
