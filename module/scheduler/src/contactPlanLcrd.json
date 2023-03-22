@@ -6,7 +6,7 @@
             "dest": 10,
             "finalDestination": 2,
             "startTime": 0,
-            "endTime": 2000,
+            "endTime": 100000,
             "rateBitsPerSec": 0,
             "owlt":  1
         },
@@ -16,7 +16,7 @@
             "dest": 20,
             "finalDestination": 2,
             "startTime": 0,
-            "endTime": 2000,
+            "endTime": 100000,
             "rateBitsPerSec": 0,
             "owlt":  1
         },
@@ -26,9 +26,10 @@
             "dest": 2,
             "finalDestination": 2,
             "startTime": 0,
-            "endTime": 2000,
+            "endTime": 100000,
             "rateBitsPerSec": 0,
             "owlt":  1
         }
     ]
 }
+

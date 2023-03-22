@@ -1,0 +1,1 @@
+$HDTN_SOURCE_ROOT/build/common/bpcodec/apps/bpsendfile --max-bundle-size-bytes=500000 --file-or-folder-path=./flightdata --my-uri-eid=ipn:1.1 --dest-uri-eid=ipn:2.1 --outducts-config-file=./sender_bpgen_stcp.json
