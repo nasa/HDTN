@@ -797,7 +797,7 @@ void ZmqStorageInterface::Impl::deleteBundleById(uint64_t custodyId) {
     }
     // TODO Also, maybe free the custody ID?
     // In either case, remove the bundle with RemoveREadBundleFromDisk
-    bool success = m_bsmPtr->RemoveReadBundleFromDisk(entry, custodyId);
+    bool success = m_bsmPtr->RemoveBundleFromDisk(entry, custodyId);
     if(!success) {
         LOG_ERROR(subprocess) << "Failed to remove bundle from disk " << custodyId << " while deleting for expiry";
     }

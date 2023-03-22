@@ -373,6 +373,12 @@ bool BundleStorageManagerBase::ReadAllSegments(BundleStorageManagerSession_ReadF
     }
     return (totalBytesRead == totalBytesToRead);
 }
+bool BundleStorageManagerBase::RemoveBundleFromDisk(const catalog_entry_t *catalogEntryPtr, const uint64_t custodyId) {
+    // "read" the bundle so that we can call RemoveReadBundleFromDisk
+    // don't care if this fails, that just means that it wasn't awaiting send
+    bool err = m_bundleStorageCatalog.RemoveEntryFromAwaitingSend(*catalogEntryPtr, custodyId);
+    return RemoveReadBundleFromDisk(catalogEntryPtr, custodyId);
+}
 bool BundleStorageManagerBase::RemoveReadBundleFromDisk(const uint64_t custodyId) {
     const catalog_entry_t * catalogEntryPtr = m_bundleStorageCatalog.GetEntryFromCustodyId(custodyId);
     if (catalogEntryPtr == NULL) {
