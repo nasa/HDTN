@@ -327,12 +327,12 @@
         var INGRESS_EGRESS_DX = (EGRESS_X - INGRESS_RIGHT_X);
         var STORAGE_X = INGRESS_RIGHT_X + INGRESS_EGRESS_DX/2 - (STORAGE_W/2);
         var ABS_POSITION_MAP = {
-            "active_induct_conns" : {"X" : -180, "Y" : 100, "WIDTH": 300, "HEIGHT": 500},
+            "active_induct_conns" : {"Y" : 100, "WIDTH": 300, "HEIGHT": 500},
             "ingress" : {"X" : INGRESS_X, "Y" : 100, "WIDTH": INGRESS_W, "HEIGHT": 500},
             "egress" : {"X" : EGRESS_X, "Y" : 100, "WIDTH": EGRESS_W, "HEIGHT": 500},
             "storage" : {"X" : STORAGE_X, "Y" : (220), "WIDTH": STORAGE_W, "HEIGHT": 100},
-            "next_hops" : {"X" : 1100, "Y" : 100, "WIDTH": 100, "HEIGHT": 500},
-            "final_dests" : {"X" : 1300, "Y" : 100, "WIDTH": 100, "HEIGHT": 500}
+            "next_hops" : {"Y" : 100, "WIDTH": 100, "HEIGHT": 500},
+            "final_dests" : {"Y" : 100, "WIDTH": 100, "HEIGHT": 500}
         };
 
         var myActiveInductConnsRectComponent = RectComponents(

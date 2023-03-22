@@ -352,6 +352,21 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         paramHdtnOldDrawHash.strVal = newHashStr;
     }
 
+    var TEXT_WIRE_OFFSET_PX = 7; //currently hardcoded in GetWireTextTransform of WireComponents.js
+    //draw this in a separate svg outside the viewbox so getBoundingClientRect() won't return scaled results
+    let svgMeas = d3.select("#hiddenTextMeasurementDiv").append('svg')
+        .attr('x', -1000)
+        .attr('y', -1000);
+
+    let svgMeasText = svgMeas.append("svg:text")
+        .text("300.00 Kbit/s" + "\u00A0\u00A0" + "300.00 KBun/s");
+    const singleLineWidth = svgMeas.select('text').node().getBoundingClientRect().width + (2 * TEXT_WIRE_OFFSET_PX);
+    svgMeasText.text("300.00 KBun/s");
+    const doubleLineWidth = svgMeas.select('text').node().getBoundingClientRect().width + (2 * TEXT_WIRE_OFFSET_PX);
+    const emptyLineWidth = 100;
+    // cleanup
+    svgMeas.remove();
+
     var BUSBAR_WIDTH_PX = 5;
 
     var TEXT_VERTICAL_MARGIN = 2;
@@ -406,7 +421,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
     activeInductConnsObj.parent = null;
     activeInductConnsObj.d3ChildArray = [];
     activeInductConnsObj.id = "final_dests"
-    activeInductConnsObj.absX = activeInductConnsAbsPosition.X;
+    activeInductConnsObj.absX = (ingressAbsPosition.X - singleLineWidth) - activeInductConnsAbsPosition.WIDTH;
     activeInductConnsObj.absY = activeInductConnsAbsPosition.Y;
     activeInductConnsObj.width = activeInductConnsAbsPosition.WIDTH;
     activeInductConnsObj.height = 500;
@@ -561,6 +576,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
 
     var nextHopsAbsPosition = PARAM_ABS_POSITION_MAP["next_hops"];
     var nextHopsAbsPositionY = nextHopsAbsPosition.Y;
+    const nextHopsAbsPositionX = egressAbsPosition.X + egressAbsPosition.WIDTH + doubleLineWidth;
     var nextHopsD3Array = [];
 
 
@@ -572,13 +588,14 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
             "d3ChildArray": [],
             "id": "final_dests",
             "name": "",
-            "absX": finalDestsAbsPosition.X,
+            "absX": 0, //not constant (set below)
             "absY": finalDestsAbsPosition.Y,
             "width": finalDestsAbsPosition.WIDTH,
             "height": 500,
             "topHeaderHeight": PARENT_TOP_HEADER_PX
         };
     }
+    paramHdtnConfig.finalDestsD3Obj.absX = nextHopsAbsPositionX + nextHopsAbsPosition.WIDTH + emptyLineWidth;
     var finalDestsD3Array = [paramHdtnConfig.finalDestsD3Obj];
     paramHdtnConfig.finalDestsD3Obj.d3ChildArray = []; //clear array before repushing objects to it!
 
@@ -647,7 +664,7 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         nextHopObj.id = "next_hop_node_id_" + outduct.nextHopNodeId;
         nextHopObj.name = "Node " + outduct.nextHopNodeId;
         nextHopObj.nodeId = outduct.nextHopNodeId;
-        nextHopObj.absX = nextHopsAbsPosition.X;
+        nextHopObj.absX = nextHopsAbsPositionX;
         nextHopObj.absY = nextHopsAbsPositionY;
         nextHopObj.width = nextHopsAbsPosition.WIDTH;
         nextHopsD3Array.push(nextHopObj);
