@@ -35,8 +35,7 @@ function contextMenu() {
                 }
             },
             'text': {
-                'fill': 'steelblue',
-                'font-size': '13'
+                'fill': 'steelblue'
             }
         };
 
@@ -82,8 +81,7 @@ function contextMenu() {
             .attr('y', function(d, i){ return y + (i * height); })
             .attr('dy', height - margin / 2)
             .attr('dx', margin)
-            .style('fill', 'steelblue')
-            .style('font-size', 13);
+            .style('fill', 'steelblue');
             //.style(style.text);
 
         // Other interactions
@@ -114,8 +112,7 @@ function contextMenu() {
                 .attr('x', -1000)
                 .attr('y', -1000)
                 .attr('class', 'tmp')
-                .text(function(d){ return d.text; })
-                .style('font-size', 13);
+                .text(function(d){ return d.text; });
 
 
             var allWidth = [], allHeight = [];
