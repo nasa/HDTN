@@ -403,7 +403,8 @@ struct AllOutductTelemetry_t : public JsonSerializable {
 struct ApiCommand_t : public JsonSerializable {
     std::string m_apiCall;
 
-    static std::string GetApiCallFromJson(std::string jsonStr);
+    TELEMETRY_DEFINITIONS_EXPORT ApiCommand_t();
+    TELEMETRY_DEFINITIONS_EXPORT static std::string GetApiCallFromJson(std::string jsonStr);
 
     TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
     TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;

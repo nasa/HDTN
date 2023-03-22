@@ -1264,6 +1264,8 @@ boost::property_tree::ptree AllOutductTelemetry_t::GetNewPropertyTree() const {
  * ApiCommand_t 
  */
 
+ApiCommand_t::ApiCommand_t() : m_apiCall("") {}
+
 std::string ApiCommand_t::GetApiCallFromJson(std::string jsonStr) {
     ApiCommand_t apiCmd;
     if (!apiCmd.SetValuesFromJson(jsonStr)) {
@@ -1305,7 +1307,9 @@ boost::property_tree::ptree ApiCommand_t::GetNewPropertyTree() const {
  * PingApiCommand_t 
  */
 
-PingApiCommand_t::PingApiCommand_t() {
+PingApiCommand_t::PingApiCommand_t()
+    : m_nodeId(0), m_pingServiceNumber(0), m_bpVersion(0)
+{
     ApiCommand_t::m_apiCall = "ping";
 }
 
@@ -1349,7 +1353,9 @@ bool PingApiCommand_t::operator!=(const PingApiCommand_t& o) const {
  * UploadContactPlanApiCommand_t 
  */
 
-UploadContactPlanApiCommand_t::UploadContactPlanApiCommand_t() {
+UploadContactPlanApiCommand_t::UploadContactPlanApiCommand_t()
+    : m_contactPlanJson("{}")
+{
     ApiCommand_t::m_apiCall = "upload_contact_plan";
 }
 
@@ -1386,7 +1392,9 @@ bool UploadContactPlanApiCommand_t::operator!=(const UploadContactPlanApiCommand
  * GetExpiringStorageApiCommand_t
  */
 
-GetExpiringStorageApiCommand_t::GetExpiringStorageApiCommand_t() {
+GetExpiringStorageApiCommand_t::GetExpiringStorageApiCommand_t()
+    : m_priority(0), m_thresholdSecondsFromNow(0)
+{
     ApiCommand_t::m_apiCall = "get_expiring_storage";
 }
 
