@@ -3,11 +3,6 @@ body {
     background-color:#303030;
 }
 
-div.tooltip {
-    color: white;
-    background: steelblue;
-}
-
 .modal-body {
     color: black !important;
 }

@@ -29,38 +29,15 @@
 <body>
 
     <style type="text/css">
-        body {
-            font-family: helvetica, sans-serif;
-        }
-        body, input, button, select, textarea, optgroup, option {
-            font-size: 1vw;
-        }
-        input {
-            width: 1vw;
-            height: 1vw;
-        }
-
-        svg rect.tooltip {
-            fill: lightsteelblue;
-            pointer-events: none;
-        }
+        /* must be here (in html body) so modifications allowed by CORS */
         svg text {
-            pointer-events: none;
             font-size: 16px;
         }
-
-
-
-        .buffer_fill_color {
-            stop-color: green;
-        }
-        .buffer_nonfill_color {
-            stop-color: white;
-        }
-
-        /* must be here (in html body) so modifications allowed by CORS */
         .wire_stroke_width_attributes {
             stroke-width: 3;
+        }
+        .wire_stroke_dash_array_attributes {
+            stroke-dasharray: 6 2;
         }
         .wire_tspan_above {
             dominant-baseline: text-after-edge;
@@ -70,24 +47,6 @@
             dominant-baseline: text-before-edge;
             baseline-shift: -1.5px;
         }
-        .wire_stroke_dash_array_attributes {
-            stroke-dasharray: 6 2;
-        }
-        #hiddenTextMeasurementDiv {
-            position: absolute;
-            visibility: hidden;
-            height: auto;
-            width: auto;
-            white-space: nowrap;
-        }
-        #hiddenTextMeasurementSvgText {
-            position: absolute;
-            visibility: hidden;
-            height: auto;
-            width: auto;
-            white-space: nowrap;
-        }
-
     </style>
 
     <div id="hiddenTextMeasurementDiv"></div>
@@ -124,6 +83,12 @@
         <option value="20">20px</option>
         <option value="21">21px</option>
         <option value="22">22px</option>
+    </select>
+    <label>Decimals: </label>
+    <select id="idDecimalsSelect" onchange="onDecimalsChanged(this.value)">
+        <option value="0" >0</option>
+        <option value="1">1</option>
+        <option value="2" selected="">2</option>
     </select>
     <label>Wire Width: </label>
     <select id="idWireWidthSelect" onchange="onWireWidthChanged(this.value)">
@@ -231,6 +196,9 @@
         function onFontChanged(value) {
             let s = getThisDomStyleSheet();
             changeStylesheetRule(s, "svg text", "font-size", value + "px");
+            app.UpdateWithData(null);
+        }
+        function onDecimalsChanged(value) {
             app.UpdateWithData(null);
         }
 
@@ -368,12 +336,12 @@
         var INGRESS_EGRESS_DX = (EGRESS_X - INGRESS_RIGHT_X);
         var STORAGE_X = INGRESS_RIGHT_X + INGRESS_EGRESS_DX/2 - (STORAGE_W/2);
         var ABS_POSITION_MAP = {
-            "active_induct_conns" : {"X" : -180, "Y" : 100, "WIDTH": 300, "HEIGHT": 500},
+            "active_induct_conns" : {"Y" : 100, "WIDTH": 300, "HEIGHT": 500},
             "ingress" : {"X" : INGRESS_X, "Y" : 100, "WIDTH": INGRESS_W, "HEIGHT": 500},
             "egress" : {"X" : EGRESS_X, "Y" : 100, "WIDTH": EGRESS_W, "HEIGHT": 500},
             "storage" : {"X" : STORAGE_X, "Y" : (220), "WIDTH": STORAGE_W, "HEIGHT": 100},
-            "next_hops" : {"X" : 1100, "Y" : 100, "WIDTH": 100, "HEIGHT": 500},
-            "final_dests" : {"X" : 1300, "Y" : 100, "WIDTH": 100, "HEIGHT": 500}
+            "next_hops" : {"Y" : 100, "WIDTH": 100, "HEIGHT": 500},
+            "final_dests" : {"Y" : 100, "WIDTH": 100, "HEIGHT": 500}
         };
 
         var myActiveInductConnsRectComponent = RectComponents(
@@ -636,6 +604,7 @@
         function HandleReceivedNewHdtnConfig(newHdtnConfig) {
             let svgTextMeasurerStyle = window.getComputedStyle(svgTextMeasurer.node(), null).getPropertyValue('font-size');
             let svgTextMeasurerFontSize = parseFloat(svgTextMeasurerStyle);
+            const numDecimals = parseInt(document.getElementById('idDecimalsSelect').options[document.getElementById('idDecimalsSelect').selectedIndex].value);
             hdtnConfig = newHdtnConfig;
             let redrawObj = ParseHdtnConfig(
                 wireConnectionsOldMap,
@@ -644,7 +613,8 @@
                 false, // declutter,
                 false, // shrink,
                 ABS_POSITION_MAP,
-                svgTextMeasurerFontSize
+                svgTextMeasurerFontSize,
+                numDecimals
             );
 
             //if(inTransition) {
