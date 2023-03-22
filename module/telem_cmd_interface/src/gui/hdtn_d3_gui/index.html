@@ -84,6 +84,12 @@
         <option value="21">21px</option>
         <option value="22">22px</option>
     </select>
+    <label>Decimals: </label>
+    <select id="idDecimalsSelect" onchange="onDecimalsChanged(this.value)">
+        <option value="0" >0</option>
+        <option value="1">1</option>
+        <option value="2" selected="">2</option>
+    </select>
     <label>Wire Width: </label>
     <select id="idWireWidthSelect" onchange="onWireWidthChanged(this.value)">
         <option value="3" selected="">3px</option>
@@ -190,6 +196,9 @@
         function onFontChanged(value) {
             let s = getThisDomStyleSheet();
             changeStylesheetRule(s, "svg text", "font-size", value + "px");
+            app.UpdateWithData(null);
+        }
+        function onDecimalsChanged(value) {
             app.UpdateWithData(null);
         }
 
@@ -595,6 +604,7 @@
         function HandleReceivedNewHdtnConfig(newHdtnConfig) {
             let svgTextMeasurerStyle = window.getComputedStyle(svgTextMeasurer.node(), null).getPropertyValue('font-size');
             let svgTextMeasurerFontSize = parseFloat(svgTextMeasurerStyle);
+            const numDecimals = parseInt(document.getElementById('idDecimalsSelect').options[document.getElementById('idDecimalsSelect').selectedIndex].value);
             hdtnConfig = newHdtnConfig;
             let redrawObj = ParseHdtnConfig(
                 wireConnectionsOldMap,
@@ -603,7 +613,8 @@
                 false, // declutter,
                 false, // shrink,
                 ABS_POSITION_MAP,
-                svgTextMeasurerFontSize
+                svgTextMeasurerFontSize,
+                numDecimals
             );
 
             //if(inTransition) {

@@ -91,12 +91,12 @@ function UpdateStorageTelemetry(paramHdtnConfig, paramStorageTelem) {
         paramHdtnConfig["storageToEgressRateBitsPerSec"] = 0;
         paramHdtnConfig["storageToEgressRateBundlesPerSec"] = 0;
     }
-    paramHdtnConfig["storageToDiskRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToDiskRateBitsPerSec"], 2, 'bit/s', 1000);
-    paramHdtnConfig["storageToDiskRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToDiskRateBundlesPerSec"], 2, 'Bun/s', 1000);
-    paramHdtnConfig["diskToStorageRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["diskToStorageRateBitsPerSec"], 2, 'bit/s', 1000);
-    paramHdtnConfig["diskToStorageRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["diskToStorageRateBundlesPerSec"], 2, 'Bun/s', 1000);
-    paramHdtnConfig["storageToEgressRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToEgressRateBitsPerSec"], 2, 'bit/s', 1000);
-    paramHdtnConfig["storageToEgressRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToEgressRateBundlesPerSec"], 2, 'Bun/s', 1000);
+    paramHdtnConfig["storageToDiskRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToDiskRateBitsPerSec"], paramHdtnConfig["numDecimals"], 'bit/s', 1000);
+    paramHdtnConfig["storageToDiskRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToDiskRateBundlesPerSec"], paramHdtnConfig["numDecimals"], 'Bun/s', 1000);
+    paramHdtnConfig["diskToStorageRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["diskToStorageRateBitsPerSec"], paramHdtnConfig["numDecimals"], 'bit/s', 1000);
+    paramHdtnConfig["diskToStorageRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["diskToStorageRateBundlesPerSec"], paramHdtnConfig["numDecimals"], 'Bun/s', 1000);
+    paramHdtnConfig["storageToEgressRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToEgressRateBitsPerSec"], paramHdtnConfig["numDecimals"], 'bit/s', 1000);
+    paramHdtnConfig["storageToEgressRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToEgressRateBundlesPerSec"], paramHdtnConfig["numDecimals"], 'Bun/s', 1000);
 
     paramHdtnConfig["lastStorageTelemetry"] = currT;
 }
@@ -143,10 +143,10 @@ function UpdateActiveInductConnections(paramHdtnConfig, paramActiveInductConnect
         paramHdtnConfig["ingressToEgressRateBitsPerSec"] = 0;
         paramHdtnConfig["ingressToEgressRateBundlesPerSec"] = 0;
     }
-    paramHdtnConfig["ingressToStorageRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["ingressToStorageRateBitsPerSec"], 2, 'bit/s', 1000);
-    paramHdtnConfig["ingressToStorageRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["ingressToStorageRateBundlesPerSec"], 2, 'Bun/s', 1000);
-    paramHdtnConfig["ingressToEgressRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["ingressToEgressRateBitsPerSec"], 2, 'bit/s', 1000);
-    paramHdtnConfig["ingressToEgressRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["ingressToEgressRateBundlesPerSec"], 2, 'Bun/s', 1000);
+    paramHdtnConfig["ingressToStorageRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["ingressToStorageRateBitsPerSec"], paramHdtnConfig["numDecimals"], 'bit/s', 1000);
+    paramHdtnConfig["ingressToStorageRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["ingressToStorageRateBundlesPerSec"], paramHdtnConfig["numDecimals"], 'Bun/s', 1000);
+    paramHdtnConfig["ingressToEgressRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["ingressToEgressRateBitsPerSec"], paramHdtnConfig["numDecimals"], 'bit/s', 1000);
+    paramHdtnConfig["ingressToEgressRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["ingressToEgressRateBundlesPerSec"], paramHdtnConfig["numDecimals"], 'Bun/s', 1000);
 
     paramHdtnConfig["lastIngressTelemetry"] = currIt;
 
@@ -177,8 +177,8 @@ function UpdateActiveInductConnections(paramHdtnConfig, paramActiveInductConnect
                 d3Obj["rateBitsPerSec"] = (d3Obj["totalBundleBytesReceived"] - d3Obj["lastTotalBundleBytesReceived"]) * 8000.0 / deltaTimestampMilliseconds;
                 d3Obj["rateBundlesPerSec"] = (d3Obj["totalBundlesReceived"] - d3Obj["lastTotalBundlesReceived"]) * 1000.0 / deltaTimestampMilliseconds;
             }
-            d3Obj["rateBitsPerSecHumanReadable"] = formatHumanReadable(d3Obj["rateBitsPerSec"], 2, 'bit/s', 1000);
-            d3Obj["rateBundlesPerSecHumanReadable"] = formatHumanReadable(d3Obj["rateBundlesPerSec"], 2, 'Bun/s', 1000);
+            d3Obj["rateBitsPerSecHumanReadable"] = formatHumanReadable(d3Obj["rateBitsPerSec"], paramHdtnConfig["numDecimals"], 'bit/s', 1000);
+            d3Obj["rateBundlesPerSecHumanReadable"] = formatHumanReadable(d3Obj["rateBundlesPerSec"], paramHdtnConfig["numDecimals"], 'Bun/s', 1000);
             d3Obj["name"] = connTelem.inputName;
             d3Obj["remoteConnD3Obj"] = {}
 
@@ -264,8 +264,8 @@ function UpdateAllOutductTelemetry(paramHdtnConfig, paramAot) {
         paramHdtnConfig["egressToIngressRateBitsPerSec"] = 0;
         paramHdtnConfig["egressToIngressRateBundlesPerSec"] = 0;
     }
-    paramHdtnConfig["egressToIngressRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["egressToIngressRateBitsPerSec"], 2, 'bit/s', 1000);
-    paramHdtnConfig["egressToIngressRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["egressToIngressRateBundlesPerSec"], 2, 'Bun/s', 1000);
+    paramHdtnConfig["egressToIngressRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["egressToIngressRateBitsPerSec"], paramHdtnConfig["numDecimals"], 'bit/s', 1000);
+    paramHdtnConfig["egressToIngressRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["egressToIngressRateBundlesPerSec"], paramHdtnConfig["numDecimals"], 'Bun/s', 1000);
 
     paramHdtnConfig["lastEgressTelemetry"] = currIt;
 
@@ -291,17 +291,19 @@ function UpdateAllOutductTelemetry(paramHdtnConfig, paramAot) {
             od["rateBitsPerSec"] = (od.outductTelem["totalBundleBytesAcked"] - od.outductPreviousTelem["totalBundleBytesAcked"]) * 8000.0 / deltaTimestampMilliseconds;
             od["rateBundlesPerSec"] = (od.outductTelem["totalBundlesAcked"] - od.outductPreviousTelem["totalBundlesAcked"]) * 1000.0 / deltaTimestampMilliseconds;
         }
-        od["rateBitsPerSecHumanReadable"] = formatHumanReadable(od["rateBitsPerSec"], 2, 'bit/s', 1000);
-        od["rateBundlesPerSecHumanReadable"] = formatHumanReadable(od["rateBundlesPerSec"], 2, 'Bun/s', 1000);
+        od["rateBitsPerSecHumanReadable"] = formatHumanReadable(od["rateBitsPerSec"], paramHdtnConfig["numDecimals"], 'bit/s', 1000);
+        od["rateBundlesPerSecHumanReadable"] = formatHumanReadable(od["rateBundlesPerSec"], paramHdtnConfig["numDecimals"], 'Bun/s', 1000);
 
 
     });
 }
 
-function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, paramHdtnConfig, paramDeclutter, paramShrink, PARAM_ABS_POSITION_MAP, fontSizePx) {
+function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, paramHdtnConfig, paramDeclutter, paramShrink, PARAM_ABS_POSITION_MAP, fontSizePx, numDecimals) {
+    paramHdtnConfig.numDecimals = numDecimals;
 
     function GetDrawHash(receivedConfig) {
         let hashStr = "fontSizePx=" + fontSizePx + " | ";
+        hashStr += "numDecimals=" + numDecimals + " | ";
         if(receivedConfig != null) {
 
             let inductsConfig = receivedConfig["inductsConfig"];
@@ -358,10 +360,11 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         .attr('x', -1000)
         .attr('y', -1000);
 
+    const decimalToStringArray = ["", ".0", ".00"];
     let svgMeasText = svgMeas.append("svg:text")
-        .text("300.00 Kbit/s" + "\u00A0\u00A0" + "300.00 KBun/s");
+        .text("300" + decimalToStringArray[numDecimals] + " Kbit/s" + "\u00A0\u00A0" + "300" + decimalToStringArray[numDecimals] + " KBun/s");
     const singleLineWidth = svgMeas.select('text').node().getBoundingClientRect().width + (2 * TEXT_WIRE_OFFSET_PX);
-    svgMeasText.text("300.00 KBun/s");
+    svgMeasText.text("300" + decimalToStringArray[numDecimals] + " KBun/s");
     const doubleLineWidth = svgMeas.select('text').node().getBoundingClientRect().width + (2 * TEXT_WIRE_OFFSET_PX);
     const emptyLineWidth = 100;
     // cleanup
