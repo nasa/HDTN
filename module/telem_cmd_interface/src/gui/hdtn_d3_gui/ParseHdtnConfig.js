@@ -298,10 +298,10 @@ function UpdateAllOutductTelemetry(paramHdtnConfig, paramAot) {
     });
 }
 
-function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, paramHdtnConfig, paramDeclutter, paramShrink, paramD3FaultsMap, PARAM_MAP_NAMES, PARAM_SUB_MAP_NAMES, PARAM_D3_SHAPE_ATTRIBUTES, PARAM_ABS_POSITION_MAP, PARAM_FLIP_HORIZONTAL_MAP) {
+function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, paramHdtnConfig, paramDeclutter, paramShrink, PARAM_ABS_POSITION_MAP, fontSizePx) {
 
     function GetDrawHash(receivedConfig) {
-        let hashStr = "";
+        let hashStr = "fontSizePx=" + fontSizePx + " | ";
         if(receivedConfig != null) {
 
             let inductsConfig = receivedConfig["inductsConfig"];
@@ -354,11 +354,12 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
 
     var BUSBAR_WIDTH_PX = 5;
 
-    var CHILD_HEIGHT_PX = 20;
-    var CHILD_BOTTOM_MARGIN_PX = 10;
+    var TEXT_VERTICAL_MARGIN = 2;
+    var CHILD_HEIGHT_PX = fontSizePx + (2 * TEXT_VERTICAL_MARGIN);
+    var CHILD_BOTTOM_MARGIN_PX = fontSizePx/2.0;
     var CHILD_SIDE_MARGIN_PX = 5;
-    var PARENT_TOP_HEADER_PX = 20;
-    var PARENT_GROUP_VERTICAL_SPACING_PX = 20;
+    var PARENT_TOP_HEADER_PX = fontSizePx + (2 * TEXT_VERTICAL_MARGIN);
+    var PARENT_GROUP_VERTICAL_SPACING_PX = fontSizePx + (2 * TEXT_VERTICAL_MARGIN);
 
 
     //Initialization

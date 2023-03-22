@@ -88,14 +88,14 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
             const srcY = wire.src.absWireOutY;
             const destX = wire.dest.absWireInX;
             const destY = wire.dest.absWireInY;
-            return "translate(" + ((srcX + destX) * 0.5) + "," + ((srcY + destY) * 0.5) + ") rotate(" + textAngleDegrees + ") translate(0,-5)";
+            return "translate(" + ((srcX + destX) * 0.5) + "," + ((srcY + destY) * 0.5) + ") rotate(" + textAngleDegrees + ")";// translate(0,-5)";
         }
         else {
             if(wire.src.absWireOutX < wire.dest.absWireInX) {
-                return "translate(" + (7+wire.src.absWireOutX) + "," + (wire.src.absWireOutY-10) + ")";
+                return "translate(" + (7+wire.src.absWireOutX) + "," + (wire.src.absWireOutY) + ")";
             }
             else {
-                return "translate(" + (7+wire.dest.absWireInX) + "," + (wire.dest.absWireInY-10) + ")";
+                return "translate(" + (7+wire.dest.absWireInX) + "," + (wire.dest.absWireInY) + ")";
             }
         }
     }
@@ -219,22 +219,17 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
             })
             .attr("transform", GetWireTextTransform)
             .each(function(wire, i) {
+                d3.select(this)
+                    .append('tspan')
+                    .attr("class", "wire_tspan_above")
+                    .attr('x', 0)
+                    .attr('y', 0);
                 if(wire.isMiddleTextLayout) {
                     d3.select(this)
                         .append('tspan')
-                        .attr("class", "tspanAbove")
+                        .attr("class", "wire_tspan_below")
                         .attr('x', 0)
-                        .attr('dy', 0);
-                    d3.select(this)
-                        .append('tspan')
-                        .attr("class", "tspanBelow")
-                        .attr('x', 0)
-                        .attr('dy', '1.4em');
-                }
-                else {
-                    d3.select(this)
-                        .attr("dy", ".35em")
-                        .text("");
+                        .attr('y', 0);
                 }
             });
 
@@ -277,11 +272,11 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
             .attr("transform", GetWireTextTransform)
             .each(function(wire, i) {
                 if(wire.isMiddleTextLayout) {
-                    d3.select(this).select(".tspanAbove").text(GetWireTextAbove);
-                    d3.select(this).select(".tspanBelow").text(GetWireTextBelow);
+                    d3.select(this).select(".wire_tspan_above").text(GetWireTextAbove);
+                    d3.select(this).select(".wire_tspan_below").text(GetWireTextBelow);
                 }
                 else {
-                    d3.select(this).text(GetWireText);
+                    d3.select(this).select(".wire_tspan_above").text(GetWireText);
                 }
             });
 
@@ -330,11 +325,11 @@ function WireComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramArrowMar
         select.select("text")
             .each(function(wire, i) {
                 if(wire.isMiddleTextLayout) {
-                    d3.select(this).select(".tspanAbove").text(GetWireTextAbove);
-                    d3.select(this).select(".tspanBelow").text(GetWireTextBelow);
+                    d3.select(this).select(".wire_tspan_above").text(GetWireTextAbove);
+                    d3.select(this).select(".wire_tspan_below").text(GetWireTextBelow);
                 }
                 else {
-                    d3.select(this).text(GetWireText);
+                    d3.select(this).select(".wire_tspan_above").text(GetWireText);
                 }
             });
     }

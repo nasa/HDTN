@@ -77,13 +77,14 @@ function RectComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramSvgChild
             }
         });
 
-        enter.append("svg:text")
-            .attr("dy", ".35em")
-            //.attr("text-anchor", "end")
-            .attr("transform", function(d) {
+        function GetParentTransform(d) {
+            return "translate(" + 5 + "," + (d.hasOwnProperty("d3ChildArray") ? d.topHeaderHeight/2 : d.height/2) + ")";
+        }
 
-                return "translate(" + 5 + "," + (d.hasOwnProperty("d3ChildArray") ? d.topHeaderHeight/2 : d.height/2) + ")";
-            })
+        enter.append("svg:text")
+            .attr("dominant-baseline", "central")//.attr("dominant-baseline", "middle")//.attr("dy", ".35em")
+            //.attr("text-anchor", "end")
+            .attr("transform", GetParentTransform)
             .style("opacity", hideParent ? 0 : 1) //hide loadbank orus
             .text(function(d) {
                 return d.hasOwnProperty("name") ? d.name : d.id;
@@ -112,6 +113,9 @@ function RectComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramSvgChild
                 return d.height;
             })
             .attr("class", parentRectStyleClass === "" ? getParentRectClassFunction : parentRectStyleClass);
+
+        update.select("text")
+            .attr("transform", GetParentTransform);
 
         //should not be needed:
         //update.select("text")
@@ -145,15 +149,14 @@ function RectComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramSvgChild
                     .on("mouseover mousemove mouseout", mouseEventToolTipFunction)
                     .on("contextmenu", contextMenuEventFunction);
 
-                childEnter.append("svg:text")
-                    .attr("dy", ".35em")
-                    .attr("text-anchor", (isTextAnchorEnd) ? "end" : "start")
-                    .attr("transform", function(childObj) {
-                        if(isTextAnchorEnd) {
+                function GetChildTextTransform(childObj) {
+                    return "translate(" + (isTextAnchorEnd ? (childObj.width - 5) : 5) + "," + childObj.height/2 + ")";
+                }
 
-                        }
-                        return "translate(" + (isTextAnchorEnd ? (childObj.width - 5) : 5) + "," + childObj.height/2 + ")";
-                    })
+                childEnter.append("svg:text")
+                    .attr("dominant-baseline", "central")//.attr("dominant-baseline", "middle")//.attr("dy", ".35em")
+                    .attr("text-anchor", (isTextAnchorEnd) ? "end" : "start")
+                    .attr("transform", GetChildTextTransform)
                     .text(function(childObj) {
                         return childObj.hasOwnProperty("name") ? childObj.name : childObj.id;
                     });
@@ -172,6 +175,8 @@ function RectComponents(paramSvgRootGroup, paramSvgRootGroupClass, paramSvgChild
                     .attr("height", function(childObj) {
                         return childObj.height;
                     });
+                childUpdate.select("text")
+                    .attr("transform", GetChildTextTransform);
 
                 var childExit = selChild.exit().transition(paramSharedTransition).remove();
 

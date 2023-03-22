@@ -32,23 +32,21 @@
         body {
             font-family: helvetica, sans-serif;
         }
-
-
-        .background {
-            color: blue;
+        body, input, button, select, textarea, optgroup, option {
+            font-size: 1vw;
         }
-        div.tooltip {
-            position: absolute;
-            text-align: left;
-            padding: 2px;
-            font: 12px sans-serif;
-            background: lightsteelblue;
-            border: 0px;
-            border-radius: 8px;
+        input {
+            width: 1vw;
+            height: 1vw;
+        }
+
+        svg rect.tooltip {
+            fill: lightsteelblue;
             pointer-events: none;
         }
         svg text {
             pointer-events: none;
+            font-size: 16px;
         }
 
 
@@ -64,6 +62,14 @@
         .wire_stroke_width_attributes {
             stroke-width: 3;
         }
+        .wire_tspan_above {
+            dominant-baseline: text-after-edge;
+            baseline-shift: 1.5px;
+        }
+        .wire_tspan_below {
+            dominant-baseline: text-before-edge;
+            baseline-shift: -1.5px;
+        }
         .wire_stroke_dash_array_attributes {
             stroke-dasharray: 6 2;
         }
@@ -74,7 +80,13 @@
             width: auto;
             white-space: nowrap;
         }
-
+        #hiddenTextMeasurementSvgText {
+            position: absolute;
+            visibility: hidden;
+            height: auto;
+            width: auto;
+            white-space: nowrap;
+        }
 
     </style>
 
@@ -97,6 +109,22 @@
         <option value="light-theme" selected="">Light Theme</option>
         <option value="dark-theme">Dark Theme</option>
     </select>
+    <label>Font: </label>
+    <select id="idFontSelect" onchange="onFontChanged(this.value)">
+        <option value="10" >10px</option>
+        <option value="11">11px</option>
+        <option value="12">12px</option>
+        <option value="13">13px</option>
+        <option value="14">14px</option>
+        <option value="15">15px</option>
+        <option value="16" selected="">16px</option>
+        <option value="17">17px</option>
+        <option value="18">18px</option>
+        <option value="19">19px</option>
+        <option value="20">20px</option>
+        <option value="21">21px</option>
+        <option value="22">22px</option>
+    </select>
     <label>Wire Width: </label>
     <select id="idWireWidthSelect" onchange="onWireWidthChanged(this.value)">
         <option value="3" selected="">3px</option>
@@ -112,11 +140,11 @@
         <option value="4 4">4-4</option>
         <option value="3 5">3-5</option>
     </select>
-    <select id="idDeclutterSelect">
+    <!--<select id="idDeclutterSelect">
         <option value="cluttered" selected="">Cluttered</option>
         <option value="decluttered_shrink">Decluttered Shrink</option>
         <option value="decluttered_gaps">Decluttered Gaps</option>
-    </select>
+    </select>-->
     <select id="idViewSelect">
         <option value="full" selected="">Full System (Centered)</option>
         <option value="native_size">Native Size (Left)</option>
@@ -188,13 +216,22 @@
             stylesheet.insertRule(selector + " { " + property + ": " + value + "; }", 0);
         }
 
-        function onWireWidthChanged(value) {
+        function onWireWidthChanged(valueStr) {
             let s = getThisDomStyleSheet();
-            changeStylesheetRule(s, ".wire_stroke_width_attributes", "stroke-width", value);
+            let valueInt = parseInt(valueStr);
+            let valueHalf = valueInt / 2.0;
+            changeStylesheetRule(s, ".wire_stroke_width_attributes", "stroke-width", valueInt + "px");
+            changeStylesheetRule(s, ".wire_tspan_above", "baseline-shift", valueHalf + "px");
+            changeStylesheetRule(s, ".wire_tspan_below", "baseline-shift", "-" + valueHalf + "px");
         }
         function onWireDashArrayChanged(value) {
             let s = getThisDomStyleSheet();
             changeStylesheetRule(s, ".wire_stroke_dash_array_attributes", "stroke-dasharray", value);
+        }
+        function onFontChanged(value) {
+            let s = getThisDomStyleSheet();
+            changeStylesheetRule(s, "svg text", "font-size", value + "px");
+            app.UpdateWithData(null);
         }
 
 
@@ -216,7 +253,7 @@
         var svg = svgDiv.append("svg:svg")
             .attr("id","svgId");
 
-        var toolTipObj = ToolTip();
+
 
         var defs = svg.append("svg:defs");
         var arrowMarker = defs.append("svg:marker");
@@ -243,12 +280,6 @@
         guiGroup.attr("transform", "translate(" + (10) + "," + 10 + ")");
 
 
-        var backgroundRect = guiGroup.append("rect")
-            .attr("class", "background")
-            .attr("width", 1500)
-            .attr("height", 1000)
-            .attr("fill", "none");
-
 
         var centralGroup = guiGroup.append("g")
             .attr("transform", "translate(" + 600 + "," + 250 + ")");
@@ -270,6 +301,14 @@
         var finalDestsGroup = guiGroup.append("g");
         var internalHdtnWiresGroup = guiGroup.append("g");
         var wiresComponentGroup = guiGroup.append("g");
+        var tooltipGroup = guiGroup.append("g")
+            .attr("id", "tool_tip_group_id");
+
+        var svgTextMeasurer = guiGroup.append("svg:text")
+            .style("opacity", 0)
+            .attr("id", "hiddenTextMeasurementSvgText");
+
+        var toolTipObj = ToolTip();
 
 
         var sharedTransition;
@@ -476,6 +515,11 @@
         }
         function ContextMenuFinalDest(d) {
             if(d3.event.type === "contextmenu") {
+
+                //in firefox, requires about:config dom.event.contextmenu.enabled == true to prevent browser menu from covering custom menu
+                d3.event.preventDefault();
+                d3.event.stopPropagation();
+
                 if(d.name) { //only children have this
                     var menu = contextMenu().items(
                         {
@@ -487,13 +531,17 @@
                             "func" : PingMe_Closure(GetNodeNumFromIpnString(d.name), 2047, 6)
                         }
                     );
-                    d3.event.preventDefault();
                     menu(d3.mouse(svg.node())[0], d3.mouse(svg.node())[1]);
                 }
             }
         }
         function ContextMenuNextHop(d) {
             if(d3.event.type === "contextmenu") {
+
+                //in firefox, requires about:config dom.event.contextmenu.enabled == true to prevent browser menu from covering custom menu
+                d3.event.preventDefault();
+                d3.event.stopPropagation();
+
                 if(d.nodeId) { //only parent has this
                     var menu = contextMenu().items(
                         {
@@ -505,7 +553,6 @@
                             "func" : PingMe_Closure(d.nodeId, 2047, 6)
                         }
                     );
-                    d3.event.preventDefault();
                     menu(d3.mouse(svg.node())[0], d3.mouse(svg.node())[1]);
                 }
             }
@@ -587,6 +634,8 @@
 
 
         function HandleReceivedNewHdtnConfig(newHdtnConfig) {
+            let svgTextMeasurerStyle = window.getComputedStyle(svgTextMeasurer.node(), null).getPropertyValue('font-size');
+            let svgTextMeasurerFontSize = parseFloat(svgTextMeasurerStyle);
             hdtnConfig = newHdtnConfig;
             let redrawObj = ParseHdtnConfig(
                 wireConnectionsOldMap,
@@ -594,12 +643,8 @@
                 hdtnConfig,
                 false, // declutter,
                 false, // shrink,
-                null, // d3FaultsMap,
-                null,// MAP_NAMES,
-                null,// SUB_MAP_NAMES,
-                null,// D3_SHAPE_ATTRIBUTES,
                 ABS_POSITION_MAP,
-                null// FLIP_HORIZONTAL_MAP
+                svgTextMeasurerFontSize
             );
 
             //if(inTransition) {
@@ -623,7 +668,12 @@
 
         function InternalUpdateWithData(objJson) {
             //console.log(objJson);
-            if("hdtnConfigName" in objJson) {
+            if(objJson == null) { //something like a font size update
+                if(hdtnConfig != null) {
+                    HandleReceivedNewHdtnConfig(hdtnConfig);
+                }
+            }
+            else if("hdtnConfigName" in objJson) {
                 myOutline.UpdateName("HDTN v" + objJson.hdtnVersionString + " - Node " + objJson.myNodeId + "");
                 InitActiveInductConnections(objJson);
                 HandleReceivedNewHdtnConfig(objJson);
