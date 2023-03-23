@@ -297,9 +297,7 @@ bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
         }
         m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::rep);
         const std::string connect_connectingTelemToFromBoundSchedulerPath(
-            std::string("tcp://") +
-            hdtnDistributedConfig.m_zmqSchedulerAddress +
-            std::string(":") +
+            std::string("tcp://*:") +
             boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingTelemToFromBoundSchedulerPortPath));
         try {
             m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr->bind(connect_connectingTelemToFromBoundSchedulerPath);

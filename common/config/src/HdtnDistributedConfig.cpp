@@ -177,7 +177,7 @@ bool HdtnDistributedConfig::SetValuesFromPropertyTree(const boost::property_tree
         m_zmqConnectingTelemToFromBoundIngressPortPath = pt.get<uint16_t>("zmqConnectingTelemToFromBoundIngressPortPath");
         m_zmqConnectingTelemToFromBoundEgressPortPath = pt.get<uint16_t>("zmqConnectingTelemToFromBoundEgressPortPath");
         m_zmqConnectingTelemToFromBoundStoragePortPath = pt.get<uint16_t>("zmqConnectingTelemToFromBoundStoragePortPath");
-        m_zmqConnectingTelemToFromBoundSchedulerPortPath = pt.get<uint16_t>("m_zmqConnectingTelemToFromBoundSchedulerPortPath");
+        m_zmqConnectingTelemToFromBoundSchedulerPortPath = pt.get<uint16_t>("zmqConnectingTelemToFromBoundSchedulerPortPath");
     }
     catch (const boost::property_tree::ptree_error & e) {
         LOG_ERROR(subprocess) << "parsing JSON HDTN config: " << e.what();
@@ -254,7 +254,7 @@ boost::property_tree::ptree HdtnDistributedConfig::GetNewPropertyTree() const {
     pt.put("zmqConnectingTelemToFromBoundIngressPortPath", m_zmqConnectingTelemToFromBoundIngressPortPath);
     pt.put("zmqConnectingTelemToFromBoundEgressPortPath", m_zmqConnectingTelemToFromBoundEgressPortPath);
     pt.put("zmqConnectingTelemToFromBoundStoragePortPath", m_zmqConnectingTelemToFromBoundStoragePortPath);
-    pt.put("m_zmqConnectingTelemToFromBoundSchedulerPortPath", m_zmqConnectingTelemToFromBoundSchedulerPortPath);
+    pt.put("zmqConnectingTelemToFromBoundSchedulerPortPath", m_zmqConnectingTelemToFromBoundSchedulerPortPath);
 
     return pt;
 }
