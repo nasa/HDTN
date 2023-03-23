@@ -108,15 +108,14 @@ private:
         const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize);
     uint64_t PeekOne(const std::vector<eid_plus_isanyserviceid_pair_t>& availableDestLinks);
     bool ReleaseOne_NoBlock(const OutductInfo_t& info, const uint64_t maxBundleSizeToRead, uint64_t& returnedBundleSize);
-    void deleteExpiredBundles();
     void RepopulateUpLinksVec();
     void SetLinkDown(OutductInfo_t & info);
     void ThreadFunc();
     void SyncTelemetry();
     void TelemEventsHandler();
     static std::string SprintCustodyidToSizeMap(const custodyid_to_size_map_t& m);
-    void deleteBundleById(uint64_t custodyId);
-    std::vector<uint64_t> getExpiredIds(int64_t numberToFind);
+    void deleteExpiredBundles();
+    void deleteBundleById(const uint64_t custodyId);
 
 public:
     StorageTelemetry_t m_telem;
@@ -779,24 +778,27 @@ void ZmqStorageInterface::Impl::SyncTelemetry() {
     }
 }
 
-// TODO check error conditions
-void ZmqStorageInterface::Impl::deleteBundleById(uint64_t custodyId) {
-    // Check if bundle has custody.
+/** Delete bundle from disk
+ *
+ * @param custodyId The custody ID of the bundle to delete
+ */
+void ZmqStorageInterface::Impl::deleteBundleById(const uint64_t custodyId) {
     catalog_entry_t *entry = m_bsmPtr->GetCatalogEntryPtrFromCustodyId(custodyId);
     if(!entry) {
         LOG_ERROR(subprocess) << "Failed to get catalog entry for " << custodyId << " while deleting for expiry";
         return;
     }
 
-    // If yes, then we need to dekete the custody transfer timer
     if(entry->HasCustody()) {
         bool success = m_custodyTimersPtr->CancelCustodyTransferTimer(entry->destEid, custodyId);
         if(!success) {
             LOG_ERROR(subprocess) << "Failed to cancel custody timer for " << custodyId << " while deleting for expiry";
         }
+        //TODO RFC5050 (s5.13) wants us to send a bundle deletion status report to the report-to endpoint
     }
-    // TODO Also, maybe free the custody ID?
-    // In either case, remove the bundle with RemoveREadBundleFromDisk
+
+    // TODO free the custody ID?
+
     bool success = m_bsmPtr->RemoveBundleFromDisk(entry, custodyId);
     if(!success) {
         LOG_ERROR(subprocess) << "Failed to remove bundle from disk " << custodyId << " while deleting for expiry";
@@ -805,13 +807,11 @@ void ZmqStorageInterface::Impl::deleteBundleById(uint64_t custodyId) {
 
 /** Delete expired bundles
  *
- * Deletes expired bundles from disk. Behavior depends on how full storage is.
+ * Deletes expired bundles from disk per storage deletion policy.
  *
  * If storage is less full than DELETE_ALL_EXPIRED_THRESHOLD, then at most
  * MAX_DELETE_EXPIRED_PER_ITER bundles are deleted. Otherwise, all expired
- * bundles are deleted.
- *
- * Why? Avoid blocking storage unless it's very full
+ * bundles are deleted. (Avoid blocking event loop unless full).
  *
  */
 void ZmqStorageInterface::Impl::deleteExpiredBundles() {
@@ -840,9 +840,7 @@ void ZmqStorageInterface::Impl::deleteExpiredBundles() {
         deleteBundleById(custodyId);
         m_telem.m_totalBundlesErasedFromStorageBecauseExpired++;
     }
-
 }
-
 
 void ZmqStorageInterface::Impl::ThreadFunc() {
     ThreadNamer::SetThisThreadName("ZmqStorageInterface");

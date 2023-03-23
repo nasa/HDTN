@@ -436,7 +436,7 @@ uint64_t * BundleStorageManagerBase::GetCustodyIdFromUuid(const cbhe_bundle_uuid
 bool BundleStorageManagerBase::GetStorageExpiringBeforeThresholdTelemetry(StorageExpiringBeforeThresholdTelemetry_t& telem) {
     return m_bundleStorageCatalog.GetStorageExpiringBeforeThresholdTelemetry(telem);
 }
-std::vector<uint64_t> BundleStorageManagerBase::GetExpiredBundleIds(uint64_t expiry, int64_t numToDelete) {
+std::vector<uint64_t> BundleStorageManagerBase::GetExpiredBundleIds(const uint64_t expiry, const int64_t numToDelete) {
     return m_bundleStorageCatalog.GetExpiredBundleIds(expiry, numToDelete);
 }
 //uint64_t BundleStorageManagerMT::TopSegmentCount(BundleStorageManagerSession_ReadFromDisk & session) {

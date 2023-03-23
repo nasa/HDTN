@@ -107,8 +107,7 @@ public:
     STORAGE_LIB_EXPORT uint64_t * GetCustodyIdFromUuid(const cbhe_bundle_uuid_nofragment_t & bundleUuid);
 
     STORAGE_LIB_EXPORT bool GetStorageExpiringBeforeThresholdTelemetry(StorageExpiringBeforeThresholdTelemetry_t& telem);
-
-    std::vector<uint64_t> GetExpiredBundleIds(uint64_t expiry, int64_t numToFind);
+    STORAGE_LIB_EXPORT std::vector<uint64_t> GetExpiredBundleIds(const uint64_t expiry, const int64_t numToFind);
 
     STORAGE_LIB_EXPORT bool RestoreFromDisk(uint64_t * totalBundlesRestored, uint64_t * totalBytesRestored, uint64_t * totalSegmentsRestored);
 

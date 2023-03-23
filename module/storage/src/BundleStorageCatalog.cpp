@@ -324,7 +324,7 @@ uint64_t * BundleStorageCatalog::GetCustodyIdFromUuid(const cbhe_bundle_uuid_nof
     return m_uuidNoFragToCustodyIdHashMap.GetValuePtr(bundleUuid);
 }
 
-std::vector<uint64_t> BundleStorageCatalog::GetExpiredBundleIds(uint64_t expiry, int64_t numberToFind) {
+std::vector<uint64_t> BundleStorageCatalog::GetExpiredBundleIds(const uint64_t expiry, const int64_t numberToFind) {
 
     std::vector<uint64_t> ids;
 
