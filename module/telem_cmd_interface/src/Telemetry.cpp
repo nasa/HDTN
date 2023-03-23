@@ -32,30 +32,46 @@ bool Telemetry::Run(int argc, const char *const argv[], volatile bool &running)
     running = true;
 
     boost::program_options::options_description desc("Allowed options");
-    desc.add_options()("help", "Produce help message.");
-    TelemetryRunnerProgramOptions::AppendToDesc(desc);
-    desc.add_options() //TODO should this be added here
-        ("hdtn-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
-        ("hdtn-distributed-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn_distributed.json"), "HDTN Distributed Mode Configuration File.");
-    boost::program_options::variables_map vm;
-    boost::program_options::store(
-        boost::program_options::parse_command_line(argc, argv, desc, boost::program_options::command_line_style::unix_style | boost::program_options::command_line_style::case_insensitive),
-        vm);
-    boost::program_options::notify(vm);
-    if (vm.count("help")) {
-        std::cout << desc << "\n";
-        return false;
-    }
     TelemetryRunnerProgramOptions options;
-    if (!options.ParseFromVariableMap(vm)) {
-        return false;
-    }
+    HdtnConfig_ptr hdtnConfig;
+    try {
+        desc.add_options()("help", "Produce help message.");
+        TelemetryRunnerProgramOptions::AppendToDesc(desc);
+        desc.add_options() //TODO should this be added here
+            ("hdtn-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
+            ("hdtn-distributed-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn_distributed.json"), "HDTN Distributed Mode Configuration File.");
+        boost::program_options::variables_map vm;
+        boost::program_options::store(
+            boost::program_options::parse_command_line(argc, argv, desc, boost::program_options::command_line_style::unix_style | boost::program_options::command_line_style::case_insensitive),
+            vm);
+        boost::program_options::notify(vm);
+        if (vm.count("help")) {
+            std::cout << desc << "\n";
+            return false;
+        }
+        if (!options.ParseFromVariableMap(vm)) {
+            return false;
+        }
 
-    const boost::filesystem::path configFileName = vm["hdtn-config-file"].as<boost::filesystem::path>();
-    HdtnConfig_ptr hdtnConfig = HdtnConfig::CreateFromJsonFilePath(configFileName);
-    if (!hdtnConfig) {
-        LOG_ERROR(subprocess) << "error loading config file: " << configFileName;
-        return false;
+        const boost::filesystem::path configFileName = vm["hdtn-config-file"].as<boost::filesystem::path>();
+        hdtnConfig = HdtnConfig::CreateFromJsonFilePath(configFileName);
+        if (!hdtnConfig) {
+            LOG_ERROR(subprocess) << "error loading config file: " << configFileName;
+            return false;
+        }
+    }
+    catch (boost::bad_any_cast & e) {
+            LOG_ERROR(subprocess) << "invalid data error: " << e.what();
+            LOG_ERROR(subprocess) << desc;
+            return false;
+    }
+    catch (std::exception& e) {
+            LOG_ERROR(subprocess) << "error: " << e.what();
+            return false;
+    }
+    catch (...) {
+            LOG_ERROR(subprocess) << "Exception of unknown type!";
+            return false;
     }
 
     TelemetryRunner telemetryRunner;
