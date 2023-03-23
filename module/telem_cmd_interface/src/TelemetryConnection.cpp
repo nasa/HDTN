@@ -77,7 +77,7 @@ void TelemetryConnection::SendRequest(bool alwaysRequest)
     }
 }
 
-bool TelemetryConnection::EnqueueApiPayload(const std::string& payload, ApiSource_t src)
+bool TelemetryConnection::EnqueueApiPayload(const std::string&& payload, ApiSource_t src)
 {
     std::string* apiCmdStr = new std::string(std::move(payload));
     std::string& strRef = *apiCmdStr;

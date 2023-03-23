@@ -404,7 +404,7 @@ struct ApiCommand_t : public JsonSerializable {
     std::string m_apiCall;
 
     TELEMETRY_DEFINITIONS_EXPORT ApiCommand_t();
-    TELEMETRY_DEFINITIONS_EXPORT static std::string GetApiCallFromJson(std::string jsonStr);
+    TELEMETRY_DEFINITIONS_EXPORT static std::string GetApiCallFromJson(const std::string& jsonStr);
 
     TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
     TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;
@@ -420,8 +420,8 @@ struct PingApiCommand_t : public ApiCommand_t {
 
     TELEMETRY_DEFINITIONS_EXPORT PingApiCommand_t();
 
-    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const PingApiCommand_t& o) const;
-    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const PingApiCommand_t& o) const;
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;
 
     TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
@@ -432,8 +432,8 @@ struct UploadContactPlanApiCommand_t : public ApiCommand_t {
 
     TELEMETRY_DEFINITIONS_EXPORT UploadContactPlanApiCommand_t();
 
-    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const UploadContactPlanApiCommand_t& o) const;
-    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const UploadContactPlanApiCommand_t& o) const;
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;
 
     TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
@@ -445,8 +445,8 @@ struct GetExpiringStorageApiCommand_t : public ApiCommand_t {
 
     TELEMETRY_DEFINITIONS_EXPORT GetExpiringStorageApiCommand_t();
 
-    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const GetExpiringStorageApiCommand_t& o) const;
-    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const GetExpiringStorageApiCommand_t& o) const;
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;
 
     TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;

@@ -65,7 +65,7 @@ class TelemetryConnection
         /**
          * Enqueues a new API payload to be sent on the next request 
          */
-        TELEM_LIB_EXPORT bool EnqueueApiPayload(const std::string& payload, ApiSource_t src);
+        TELEM_LIB_EXPORT bool EnqueueApiPayload(const std::string&& payload, ApiSource_t src);
 
         bool m_apiSocketAwaitingResponse;
     private:

@@ -634,7 +634,7 @@ void Scheduler::Impl::TelemEventsHandler() {
             }
             UploadContactPlanApiCommand_t uploadContactPlanApiCmd;
             uploadContactPlanApiCmd.SetValuesFromJson(apiMsg.to_string());
-            const std::string planJson = uploadContactPlanApiCmd.m_contactPlanJson;
+            std::string planJson = uploadContactPlanApiCmd.m_contactPlanJson;
             boost::asio::post(
                 m_ioService,
                 boost::bind(

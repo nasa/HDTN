@@ -96,7 +96,9 @@ class TelemetryRunner::Impl : private boost::noncopyable {
         std::unique_ptr<TelemetryConnection> m_schedulerConnection;
         std::unique_ptr<TelemetryConnection> m_apiConnection;
 
-        std::unordered_map<std::string, boost::function<bool (const std::string& payload, ApiSource_t src)>> m_apiCmdMap;
+        typedef boost::function<bool (const std::string& payload, ApiSource_t src)> ApiCommandFunction_t;
+        typedef std::unordered_map<std::string, ApiCommandFunction_t> ApiCommandFunctionMap_t;
+        ApiCommandFunctionMap_t m_apiCmdMap;
 };
 
 /**
@@ -214,20 +216,20 @@ bool TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback(WebsocketSessionP
 }
 
 bool TelemetryRunner::Impl::HandlePingCommand(const std::string& payload, ApiSource_t src) {
-    return m_ingressConnection->EnqueueApiPayload(payload, src);
+    return m_ingressConnection->EnqueueApiPayload(std::move(payload), src);
 }
 
 bool TelemetryRunner::Impl::HandleUploadContactPlanCommand(const std::string& payload, ApiSource_t src) {
-    return m_schedulerConnection->EnqueueApiPayload(payload, src);
+    return m_schedulerConnection->EnqueueApiPayload(std::move(payload), src);
 }
 
 bool TelemetryRunner::Impl::HandleGetExpiringStorageCommand(const std::string& payload, ApiSource_t src) {
-    return m_storageConnection->EnqueueApiPayload(payload, src);
+    return m_storageConnection->EnqueueApiPayload(std::move(payload), src);
 }
 
 bool TelemetryRunner::Impl::OnApiRequest(const std::string& msgJson, ApiSource_t src) {
     std::string apiCall = ApiCommand_t::GetApiCallFromJson(msgJson);
-    auto it = m_apiCmdMap.find(apiCall);
+    TelemetryRunner::Impl::ApiCommandFunctionMap_t::iterator it = m_apiCmdMap.find(apiCall);
     if (it == m_apiCmdMap.end()) {
         LOG_ERROR(subprocess) << "Unrecognized API command " << apiCall;
         return false;

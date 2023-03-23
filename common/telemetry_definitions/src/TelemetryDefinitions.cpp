@@ -1266,7 +1266,7 @@ boost::property_tree::ptree AllOutductTelemetry_t::GetNewPropertyTree() const {
 
 ApiCommand_t::ApiCommand_t() : m_apiCall("") {}
 
-std::string ApiCommand_t::GetApiCallFromJson(std::string jsonStr) {
+std::string ApiCommand_t::GetApiCallFromJson(const std::string& jsonStr) {
     ApiCommand_t apiCmd;
     if (!apiCmd.SetValuesFromJson(jsonStr)) {
         return "";
@@ -1281,6 +1281,7 @@ bool ApiCommand_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& 
     }
     catch (const boost::bad_lexical_cast& e) {
         LOG_ERROR(subprocess) << "parsing JSON ApiCommand_t: " << e.what();
+        return false;
     }
     catch (const boost::property_tree::ptree_error& e) {
         LOG_ERROR(subprocess) << "parsing JSON ApiCommand_t: " << e.what();
@@ -1308,12 +1309,15 @@ boost::property_tree::ptree ApiCommand_t::GetNewPropertyTree() const {
  */
 
 PingApiCommand_t::PingApiCommand_t()
-    : m_nodeId(0), m_pingServiceNumber(0), m_bpVersion(0)
+    : ApiCommand_t(), m_nodeId(0), m_pingServiceNumber(0), m_bpVersion(0)
 {
     ApiCommand_t::m_apiCall = "ping";
 }
 
 bool PingApiCommand_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!ApiCommand_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
     try {
         m_bpVersion = pt.get<uint64_t>("bpVersion");
         m_nodeId = pt.get<uint64_t>("nodeId");
@@ -1321,6 +1325,7 @@ bool PingApiCommand_t::SetValuesFromPropertyTree(const boost::property_tree::ptr
     }
     catch (const boost::bad_lexical_cast& e) {
         LOG_ERROR(subprocess) << "parsing JSON PingApiCommand_t: " << e.what();
+        return false;
     }
     catch (const boost::property_tree::ptree_error& e) {
         LOG_ERROR(subprocess) << "parsing JSON PingApiCommand_t: " << e.what();
@@ -1330,22 +1335,24 @@ bool PingApiCommand_t::SetValuesFromPropertyTree(const boost::property_tree::ptr
 }
 
 boost::property_tree::ptree PingApiCommand_t::GetNewPropertyTree() const {
-    boost::property_tree::ptree pt;
-    pt.put("apiCall", "ping");
+    boost::property_tree::ptree pt = ApiCommand_t::GetNewPropertyTree();
     pt.put("nodeId", m_nodeId);
     pt.put("serviceId", m_pingServiceNumber);
     pt.put("bpVersion", m_bpVersion);
     return pt;
 }
 
-bool PingApiCommand_t::operator==(const PingApiCommand_t& o) const {
-    return (m_nodeId == o.m_nodeId &&
-        m_pingServiceNumber == o.m_pingServiceNumber &&
-        m_bpVersion == o.m_bpVersion
-    );
+bool PingApiCommand_t::operator==(const ApiCommand_t& o) const {
+    if (const PingApiCommand_t* oPtr = dynamic_cast<const PingApiCommand_t*>(&o)) {
+        return ApiCommand_t::operator==(o)
+            && (m_nodeId == oPtr->m_nodeId) &&
+            (m_pingServiceNumber == oPtr->m_pingServiceNumber) &&
+            (m_bpVersion == oPtr->m_bpVersion);
+    }
+    return false;
 }
 
-bool PingApiCommand_t::operator!=(const PingApiCommand_t& o) const {
+bool PingApiCommand_t::operator!=(const ApiCommand_t& o) const {
     return !(*this == o);
 }
 
@@ -1354,17 +1361,21 @@ bool PingApiCommand_t::operator!=(const PingApiCommand_t& o) const {
  */
 
 UploadContactPlanApiCommand_t::UploadContactPlanApiCommand_t()
-    : m_contactPlanJson("{}")
+    : ApiCommand_t(), m_contactPlanJson("{}")
 {
     ApiCommand_t::m_apiCall = "upload_contact_plan";
 }
 
 bool UploadContactPlanApiCommand_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!ApiCommand_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
     try {
         m_contactPlanJson = pt.get<std::string>("contactPlanJson");
     }
     catch (const boost::bad_lexical_cast& e) {
         LOG_ERROR(subprocess) << "parsing JSON UploadContactPlanApiCommand_t: " << e.what();
+        return false;
     }
     catch (const boost::property_tree::ptree_error& e) {
         LOG_ERROR(subprocess) << "parsing JSON UploadContactPlanApiCommand_t: " << e.what();
@@ -1374,17 +1385,21 @@ bool UploadContactPlanApiCommand_t::SetValuesFromPropertyTree(const boost::prope
 }
 
 boost::property_tree::ptree UploadContactPlanApiCommand_t::GetNewPropertyTree() const {
-    boost::property_tree::ptree pt;
+    boost::property_tree::ptree pt = ApiCommand_t::GetNewPropertyTree();
     pt.put("apiCall", "upload_contact_plan");
     pt.put("contactPlanJson", m_contactPlanJson);
     return pt;
 }
 
-bool UploadContactPlanApiCommand_t::operator==(const UploadContactPlanApiCommand_t& o) const {
-    return m_contactPlanJson == o.m_contactPlanJson;
+bool UploadContactPlanApiCommand_t::operator==(const ApiCommand_t& o) const {
+    if (const UploadContactPlanApiCommand_t* oPtr = dynamic_cast<const UploadContactPlanApiCommand_t*>(&o)) {
+        return ApiCommand_t::operator==(o)
+            && (m_contactPlanJson == oPtr->m_contactPlanJson);
+    }
+    return false;
 }
 
-bool UploadContactPlanApiCommand_t::operator!=(const UploadContactPlanApiCommand_t& o) const {
+bool UploadContactPlanApiCommand_t::operator!=(const ApiCommand_t& o) const {
     return !(*this == o);
 }
 
@@ -1393,18 +1408,22 @@ bool UploadContactPlanApiCommand_t::operator!=(const UploadContactPlanApiCommand
  */
 
 GetExpiringStorageApiCommand_t::GetExpiringStorageApiCommand_t()
-    : m_priority(0), m_thresholdSecondsFromNow(0)
+    : ApiCommand_t(), m_priority(0), m_thresholdSecondsFromNow(0)
 {
     ApiCommand_t::m_apiCall = "get_expiring_storage";
 }
 
 bool GetExpiringStorageApiCommand_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!ApiCommand_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
     try {
         m_priority = pt.get<uint64_t>("priority");
         m_thresholdSecondsFromNow = pt.get<uint64_t>("thresholdSecondsFromNow");
     }
     catch (const boost::bad_lexical_cast& e) {
         LOG_ERROR(subprocess) << "parsing JSON GetExpiringStorageApiCommand_t: " << e.what();
+        return false;
     }
     catch (const boost::property_tree::ptree_error& e) {
         LOG_ERROR(subprocess) << "parsing JSON GetExpiringStorageApiCommand_t: " << e.what();
@@ -1414,18 +1433,22 @@ bool GetExpiringStorageApiCommand_t::SetValuesFromPropertyTree(const boost::prop
 }
 
 boost::property_tree::ptree GetExpiringStorageApiCommand_t::GetNewPropertyTree() const {
-    boost::property_tree::ptree pt;
+    boost::property_tree::ptree pt = ApiCommand_t::GetNewPropertyTree();
     pt.put("apiCall", "get_expiring_storage");
     pt.put("priority", m_priority);
     pt.put("thresholdSecondsFromNow", m_thresholdSecondsFromNow);
     return pt;
 }
 
-bool GetExpiringStorageApiCommand_t::operator==(const GetExpiringStorageApiCommand_t& o) const {
-    return (m_priority == o.m_priority) &&
-        (m_thresholdSecondsFromNow == o.m_thresholdSecondsFromNow);
+bool GetExpiringStorageApiCommand_t::operator==(const ApiCommand_t& o) const {
+    if (const GetExpiringStorageApiCommand_t* oPtr = dynamic_cast<const GetExpiringStorageApiCommand_t*>(&o)) {
+        return ApiCommand_t::operator==(o)
+            && (m_priority == oPtr->m_priority) &&
+            (m_thresholdSecondsFromNow == oPtr->m_thresholdSecondsFromNow);
+    }
+    return true;
 }
 
-bool GetExpiringStorageApiCommand_t::operator!=(const GetExpiringStorageApiCommand_t& o) const {
+bool GetExpiringStorageApiCommand_t::operator!=(const ApiCommand_t& o) const {
     return !(*this == o);
 }
