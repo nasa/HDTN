@@ -24,6 +24,12 @@
 #include "zmq.hpp"
 
 #include "telem_lib_export.h"
+#include "TelemetryDefinitions.h"
+
+enum class ApiSource_t {
+    webgui,
+    socket
+};
 
 class TelemetryConnection
 {
@@ -59,15 +65,16 @@ class TelemetryConnection
         /**
          * Enqueues a new API payload to be sent on the next request 
          */
-        TELEM_LIB_EXPORT bool EnqueueApiPayload(const std::string& payload);
+        TELEM_LIB_EXPORT bool EnqueueApiPayload(const std::string& payload, ApiSource_t src);
 
-        bool m_apiAwaitingResponse;
+        bool m_apiSocketAwaitingResponse;
     private:
         TelemetryConnection() = delete;
         std::string m_addr;
         std::unique_ptr<zmq::socket_t> m_requestSocket;
         std::unique_ptr<zmq::context_t> m_contextPtr;
         std::queue<zmq::message_t> m_apiCallsQueue;
+        std::queue<ApiSource_t> m_apiSourceQueue;
         boost::mutex m_apiCallsMutex;
 };
 

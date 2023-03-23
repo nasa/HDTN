@@ -72,10 +72,10 @@ class TelemetryRunner::Impl : private boost::noncopyable {
         void OnNewJsonTelemetry(const char* buffer, uint64_t bufferSize);
         void OnNewWebsocketConnectionCallback(WebsocketSessionPublicBase& conn);
         bool OnNewWebsocketDataReceivedCallback(WebsocketSessionPublicBase& conn, std::string& receivedString);
-        bool OnApiRequest(const std::string& msgJson);
-        bool HandlePingCommand(const std::string& payload);
-        bool HandleUploadContactPlanCommand(const std::string& payload);
-        bool HandleGetExpiringStorageCommand(const std::string& payload);
+        bool OnApiRequest(const std::string& msgJson, ApiSource_t src);
+        bool HandlePingCommand(const std::string& payload, ApiSource_t src);
+        bool HandleUploadContactPlanCommand(const std::string& payload, ApiSource_t src);
+        bool HandleGetExpiringStorageCommand(const std::string& payload, ApiSource_t src);
 
         volatile bool m_running;
         std::unique_ptr<boost::thread> m_threadPtr;
@@ -96,7 +96,7 @@ class TelemetryRunner::Impl : private boost::noncopyable {
         std::unique_ptr<TelemetryConnection> m_schedulerConnection;
         std::unique_ptr<TelemetryConnection> m_apiConnection;
 
-        std::unordered_map<std::string, boost::function<bool (const std::string& payload)>> m_apiCmdMap;
+        std::unordered_map<std::string, boost::function<bool (const std::string& payload, ApiSource_t src)>> m_apiCmdMap;
 };
 
 /**
@@ -126,9 +126,9 @@ TelemetryRunner::Impl::Impl() :
     m_running(false),
     m_deadlineTimer(THREAD_POLL_INTERVAL_MS)
 {
-    m_apiCmdMap["ping"] = boost::bind(&TelemetryRunner::Impl::HandlePingCommand, this, boost::placeholders::_1);
-    m_apiCmdMap["upload_contact_plan"] = boost::bind(&TelemetryRunner::Impl::HandleUploadContactPlanCommand, this, boost::placeholders::_1);
-    m_apiCmdMap["get_expiring_storage"] = boost::bind(&TelemetryRunner::Impl::HandleGetExpiringStorageCommand, this, boost::placeholders::_1);
+    m_apiCmdMap["ping"] = boost::bind(&TelemetryRunner::Impl::HandlePingCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap["upload_contact_plan"] = boost::bind(&TelemetryRunner::Impl::HandleUploadContactPlanCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap["get_expiring_storage"] = boost::bind(&TelemetryRunner::Impl::HandleGetExpiringStorageCommand, this, boost::placeholders::_1, boost::placeholders::_2);
 }
 
 bool TelemetryRunner::Impl::Init(const HdtnConfig& hdtnConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options) {
@@ -207,36 +207,32 @@ void TelemetryRunner::Impl::OnNewWebsocketConnectionCallback(WebsocketSessionPub
 }
 
 bool TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback(WebsocketSessionPublicBase& conn, std::string& receivedString) {
-    if (!OnApiRequest(receivedString)) {
+    if (!OnApiRequest(receivedString, ApiSource_t::webgui)) {
         LOG_ERROR(subprocess) << "failed to handle API request from websocket";
-        }
-    return true; // keep open
-        }
-
-bool TelemetryRunner::Impl::HandlePingCommand(const std::string& payload)
-{
-    return m_ingressConnection->EnqueueApiPayload(payload);
-        }
-
-bool TelemetryRunner::Impl::HandleUploadContactPlanCommand(const std::string& payload)
-{
-    return m_schedulerConnection->EnqueueApiPayload(payload);
-        }
-
-bool TelemetryRunner::Impl::HandleGetExpiringStorageCommand(const std::string& payload)
-{
-    return m_storageConnection->EnqueueApiPayload(payload);
     }
+    return true; // keep open
+}
 
-bool TelemetryRunner::Impl::OnApiRequest(const std::string& msgJson)
-{
+bool TelemetryRunner::Impl::HandlePingCommand(const std::string& payload, ApiSource_t src) {
+    return m_ingressConnection->EnqueueApiPayload(payload, src);
+}
+
+bool TelemetryRunner::Impl::HandleUploadContactPlanCommand(const std::string& payload, ApiSource_t src) {
+    return m_schedulerConnection->EnqueueApiPayload(payload, src);
+}
+
+bool TelemetryRunner::Impl::HandleGetExpiringStorageCommand(const std::string& payload, ApiSource_t src) {
+    return m_storageConnection->EnqueueApiPayload(payload, src);
+}
+
+bool TelemetryRunner::Impl::OnApiRequest(const std::string& msgJson, ApiSource_t src) {
     std::string apiCall = ApiCommand_t::GetApiCallFromJson(msgJson);
     auto it = m_apiCmdMap.find(apiCall);
     if (it == m_apiCmdMap.end()) {
         LOG_ERROR(subprocess) << "Unrecognized API command " << apiCall;
         return false;
     }
-    return it->second(msgJson);
+    return it->second(msgJson, src);
 }
 
 void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDistributedConfigPtr, zmq::context_t *inprocContextPtr) {
@@ -342,11 +338,11 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
                 if (!inductTelem.SetValuesFromJsonCharArray((const char*)msgJson.data(), msgJson.size())) {
                     LOG_ERROR(subprocess) << "cannot deserialize AllInductTelemetry_t for TelemetryLogger";
                 }
-                if (m_ingressConnection->m_apiAwaitingResponse) {
-                    m_ingressConnection->m_apiAwaitingResponse = false;
+                if (m_ingressConnection->m_apiSocketAwaitingResponse) {
+                    m_ingressConnection->m_apiSocketAwaitingResponse = false;
                     zmq::message_t msg;
                     m_apiConnection->SendZmqMessage(std::move(msg), false);
-            }
+                }
             }
             if (poller.HasNewMessage(*m_egressConnection)) {
                 receiveEventsMask |= REC_EGRESS;
@@ -380,7 +376,7 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
                 if (!storageTelem.SetValuesFromJsonCharArray((const char*)msgJson.data(), msgJson.size())) {
                     LOG_ERROR(subprocess) << "cannot deserialize StorageTelemetry_t";
                 }
-                bool more = msgJson.more();
+                const bool more = msgJson.more();
                 if (more) {
                     StorageExpiringBeforeThresholdTelemetry_t storageExpiringTelem;
                     msg2 = m_storageConnection->ReadMessage();
@@ -388,8 +384,8 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
                         LOG_ERROR(subprocess) << "cannot deserialize StorageExpiringBeforeThresholdTelemetry_t";
                     }
                 }
-                if (m_storageConnection->m_apiAwaitingResponse) {
-                    m_storageConnection->m_apiAwaitingResponse = false;
+                if (m_storageConnection->m_apiSocketAwaitingResponse) {
+                    m_storageConnection->m_apiSocketAwaitingResponse = false;
                     m_apiConnection->SendZmqMessage(std::move(msgJson), more);
                     if (more) {
                         m_apiConnection->SendZmqMessage(std::move(msg2), false);
@@ -400,15 +396,15 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
                 // We only get this response if we sent an API command to scheduler.
                 // Scheduler does not currently send data, so throw away the message content.
                 m_schedulerConnection->ReadMessage();
-                if (m_schedulerConnection->m_apiAwaitingResponse) {
-                    m_schedulerConnection->m_apiAwaitingResponse = false;
+                if (m_schedulerConnection->m_apiSocketAwaitingResponse) {
+                    m_schedulerConnection->m_apiSocketAwaitingResponse = false;
                     zmq::message_t msg;
                     m_apiConnection->SendZmqMessage(std::move(msg), false);
                 }
-                }
+            }
             if (poller.HasNewMessage(*m_apiConnection)) {
                 zmq::message_t msgJson = m_apiConnection->ReadMessage();
-                OnApiRequest(msgJson.to_string());
+                OnApiRequest(msgJson.to_string(), ApiSource_t::socket);
             }
         }
         if (receiveEventsMask == REC_ALL) {

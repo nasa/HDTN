@@ -1363,18 +1363,20 @@ void ZmqStorageInterface::Impl::TelemEventsHandler() {
     bool hasApiCalls = telemMsgByte > TELEM_REQ_MSG;
     if (hasApiCalls) {
         zmq::message_t apiMsg;
-        if (!m_zmqRepSock_connectingTelemToFromBoundStoragePtr->recv(apiMsg, zmq::recv_flags::dontwait)) {
-            LOG_ERROR(subprocess) << "error receiving api message";
-            return;
-        }
-        std::string apiCall = ApiCommand_t::GetApiCallFromJson(apiMsg.to_string());
-        LOG_INFO(subprocess) << "got api call " << apiCall;
-        if (apiCall == "get_expiring_storage") {
-            if (!getExpiringStorageApiCommand.SetValuesFromJson(apiMsg.to_string())) {
+        do {
+            if (!m_zmqRepSock_connectingTelemToFromBoundStoragePtr->recv(apiMsg, zmq::recv_flags::dontwait)) {
+                LOG_ERROR(subprocess) << "error receiving api message";
                 return;
-            };
-            doSendExpiring = true;
-        }
+            }
+            std::string apiCall = ApiCommand_t::GetApiCallFromJson(apiMsg.to_string());
+            LOG_INFO(subprocess) << "got api call " << apiCall;
+            if (apiCall == "get_expiring_storage") {
+                if (!getExpiringStorageApiCommand.SetValuesFromJson(apiMsg.to_string())) {
+                    return;
+                };
+                doSendExpiring = true;
+            }
+        } while(apiMsg.more());
     }
 
     //send normal storage telemetry

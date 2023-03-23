@@ -25,7 +25,7 @@ static void CustomCleanupStdString(void* data, void* hint) {
 }
 
 TelemetryConnection::TelemetryConnection(const std::string& addr, zmq::context_t* inprocContextPtr, bool bind) :
-    m_apiAwaitingResponse(false)
+    m_apiSocketAwaitingResponse(false)
 {
     try {
         if (inprocContextPtr) {
@@ -67,18 +67,23 @@ void TelemetryConnection::SendRequest(bool alwaysRequest)
         while (!m_apiCallsQueue.empty()) {
             const bool moreFlag = (m_apiCallsQueue.size() > 1);
             SendZmqMessage(std::move(m_apiCallsQueue.front()), moreFlag);
+            ApiSource_t src = m_apiSourceQueue.front();
+            if (src == ApiSource_t::socket) {
+                m_apiSocketAwaitingResponse = true;
+            }
             m_apiCallsQueue.pop();
-            m_apiAwaitingResponse = true;
+            m_apiSourceQueue.pop();
         }
     }
 }
 
-bool TelemetryConnection::EnqueueApiPayload(const std::string& payload)
+bool TelemetryConnection::EnqueueApiPayload(const std::string& payload, ApiSource_t src)
 {
     std::string* apiCmdStr = new std::string(std::move(payload));
     std::string& strRef = *apiCmdStr;
     boost::mutex::scoped_lock lock(m_apiCallsMutex);
     m_apiCallsQueue.emplace(&strRef[0], strRef.size(), CustomCleanupStdString, apiCmdStr);
+    m_apiSourceQueue.push(src);
     return true;
 }
 

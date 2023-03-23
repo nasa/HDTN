@@ -302,7 +302,7 @@ bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
             std::string(":") +
             boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingTelemToFromBoundSchedulerPortPath));
         try {
-            m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr->connect(connect_connectingTelemToFromBoundSchedulerPath);
+            m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr->bind(connect_connectingTelemToFromBoundSchedulerPath);
             LOG_INFO(subprocess) << "Scheduler connected and listening to events from Telem " << connect_connectingTelemToFromBoundSchedulerPath;
         }
         catch (const zmq::error_t& ex) {
@@ -622,27 +622,33 @@ void Scheduler::Impl::TelemEventsHandler() {
             return;
         }
         zmq::message_t apiMsg;
-        if (!m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr->recv(apiMsg, zmq::recv_flags::none)) {
-            LOG_ERROR(subprocess) << "[TelemEventsHandler] message not received";
-            return;
+        do {
+            if (!m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr->recv(apiMsg, zmq::recv_flags::none)) {
+                LOG_ERROR(subprocess) << "[TelemEventsHandler] message not received";
+                return;
+            }
+            std::string apiCall = ApiCommand_t::GetApiCallFromJson(apiMsg.to_string());
+            LOG_INFO(subprocess) << "Got an api call " << apiMsg.to_string();
+            if (apiCall != "upload_contact_plan") {
+                return;
+            }
+            UploadContactPlanApiCommand_t uploadContactPlanApiCmd;
+            uploadContactPlanApiCmd.SetValuesFromJson(apiMsg.to_string());
+            const std::string planJson = uploadContactPlanApiCmd.m_contactPlanJson;
+            boost::asio::post(
+                m_ioService,
+                boost::bind(
+                    static_cast<bool (Scheduler::Impl::*) (const std::string&)>(&Scheduler::Impl::ProcessContactsJsonText),
+                    this,
+                    std::move(planJson)
+                )
+            );
+            LOG_INFO(subprocess) << "received reload contact plan event with data " << uploadContactPlanApiCmd.m_contactPlanJson;
+        } while (apiMsg.more());
+        zmq::message_t msg;
+        if (!m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr->send(std::move(msg), zmq::send_flags::dontwait)) {
+            LOG_ERROR(subprocess) << "error replying to telem module";
         }
-        std::string apiCall = ApiCommand_t::GetApiCallFromJson(apiMsg.to_string());
-        LOG_INFO(subprocess) << "Got an api call " << apiMsg.to_string();
-        if (apiCall != "upload_contact_plan") {
-            return;
-        }
-        UploadContactPlanApiCommand_t uploadContactPlanApiCmd;
-        uploadContactPlanApiCmd.SetValuesFromJson(apiMsg.to_string());
-        const std::string planJson = uploadContactPlanApiCmd.m_contactPlanJson;
-        boost::asio::post(
-            m_ioService,
-            boost::bind(
-                static_cast<bool (Scheduler::Impl::*) (const std::string&)>(&Scheduler::Impl::ProcessContactsJsonText),
-                this,
-                std::move(planJson)
-            )
-        );
-        LOG_INFO(subprocess) << "received reload contact plan event with data " << uploadContactPlanApiCmd.m_contactPlanJson;
     }
 }
 
