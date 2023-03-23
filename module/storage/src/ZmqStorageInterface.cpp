@@ -815,7 +815,19 @@ void ZmqStorageInterface::Impl::deleteBundleById(uint64_t custodyId) {
  *
  */
 void ZmqStorageInterface::Impl::deleteExpiredBundles() {
-    float storageUsagePercentage = m_bsmPtr->GetUsedSpaceBytes()  / m_bsmPtr->GetTotalCapacityBytes();
+
+    const std::string policy = m_hdtnConfig.m_storageConfig.m_storageDeletionPolicy;
+    if(policy == "never") {
+        return;
+    }
+
+    double storageUsagePercentage = m_bsmPtr->GetUsedSpaceBytes()  / (double)m_bsmPtr->GetTotalCapacityBytes();
+
+    if(policy == "on_storage_full" && storageUsagePercentage < DELETE_ALL_EXPIRED_THRESHOLD) {
+        return;
+    }
+
+    // If we reach here then either storage is full or policy == "on_expiration"
 
     int64_t numToDelete = storageUsagePercentage >= DELETE_ALL_EXPIRED_THRESHOLD ?
         0 : MAX_DELETE_EXPIRED_PER_ITER;
