@@ -13,4 +13,4 @@ START "Router" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\module\router\
 timeout /t 4
 START "Storage" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\module\storage\hdtn-storage.exe" "%HDTN_CONFIG_FILE_PARAM%"
 timeout /t 3
-START "Telemetry" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\module\gui\telemetry_command_interface.exe"
+START "Telem" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\module\telem_cmd_interface\telem_cmd_interface.exe" "%HDTN_CONFIG_FILE_PARAM%"
