@@ -66,24 +66,25 @@ void TelemetryConnection::SendRequest(bool alwaysRequest)
         }
         while (!m_apiCallsQueue.empty()) {
             const bool moreFlag = (m_apiCallsQueue.size() > 1);
-            SendZmqMessage(std::move(m_apiCallsQueue.front()), moreFlag);
-            ApiSource_t src = m_apiSourceQueue.front();
+            zmq_api_msg_plus_source_pair_t& p = m_apiCallsQueue.front();
+            SendZmqMessage(std::move(p.first), moreFlag);
+            const ApiSource_t& src = p.second;
             if (src == ApiSource_t::socket) {
                 m_apiSocketAwaitingResponse = true;
             }
             m_apiCallsQueue.pop();
-            m_apiSourceQueue.pop();
         }
     }
 }
 
-bool TelemetryConnection::EnqueueApiPayload(const std::string&& payload, ApiSource_t src)
+bool TelemetryConnection::EnqueueApiPayload(std::string&& payload, ApiSource_t src)
 {
     std::string* apiCmdStr = new std::string(std::move(payload));
     std::string& strRef = *apiCmdStr;
     boost::mutex::scoped_lock lock(m_apiCallsMutex);
-    m_apiCallsQueue.emplace(&strRef[0], strRef.size(), CustomCleanupStdString, apiCmdStr);
-    m_apiSourceQueue.push(src);
+    m_apiCallsQueue.emplace(std::piecewise_construct,
+        std::forward_as_tuple(&strRef[0], strRef.size(), CustomCleanupStdString, apiCmdStr),
+        std::forward_as_tuple(src));
     return true;
 }
 

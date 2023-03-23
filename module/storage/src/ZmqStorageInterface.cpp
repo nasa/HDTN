@@ -839,7 +839,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
     while (m_running) {
         int rc = 0;
         try {
-            rc = zmq::poll(pollItems, 5, timeoutPoll);
+            rc = zmq::poll(pollItems, 4, timeoutPoll);
         }
         catch (zmq::error_t & e) {
             LOG_ERROR(subprocess) << "caught zmq::error_t in hdtn::ZmqStorageInterface::ThreadFunc: " << e.what();

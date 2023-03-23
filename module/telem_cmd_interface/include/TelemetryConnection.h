@@ -65,7 +65,7 @@ class TelemetryConnection
         /**
          * Enqueues a new API payload to be sent on the next request 
          */
-        TELEM_LIB_EXPORT bool EnqueueApiPayload(const std::string&& payload, ApiSource_t src);
+        TELEM_LIB_EXPORT bool EnqueueApiPayload(std::string&& payload, ApiSource_t src);
 
         bool m_apiSocketAwaitingResponse;
     private:
@@ -73,8 +73,8 @@ class TelemetryConnection
         std::string m_addr;
         std::unique_ptr<zmq::socket_t> m_requestSocket;
         std::unique_ptr<zmq::context_t> m_contextPtr;
-        std::queue<zmq::message_t> m_apiCallsQueue;
-        std::queue<ApiSource_t> m_apiSourceQueue;
+        typedef std::pair<zmq::message_t, ApiSource_t> zmq_api_msg_plus_source_pair_t;
+        std::queue<zmq_api_msg_plus_source_pair_t> m_apiCallsQueue;
         boost::mutex m_apiCallsMutex;
 };
 

@@ -72,10 +72,10 @@ class TelemetryRunner::Impl : private boost::noncopyable {
         void OnNewJsonTelemetry(const char* buffer, uint64_t bufferSize);
         void OnNewWebsocketConnectionCallback(WebsocketSessionPublicBase& conn);
         bool OnNewWebsocketDataReceivedCallback(WebsocketSessionPublicBase& conn, std::string& receivedString);
-        bool OnApiRequest(const std::string& msgJson, ApiSource_t src);
-        bool HandlePingCommand(const std::string& payload, ApiSource_t src);
-        bool HandleUploadContactPlanCommand(const std::string& payload, ApiSource_t src);
-        bool HandleGetExpiringStorageCommand(const std::string& payload, ApiSource_t src);
+        bool OnApiRequest(std::string&& msgJson, ApiSource_t src);
+        bool HandlePingCommand(std::string& movablePayload, ApiSource_t src);
+        bool HandleUploadContactPlanCommand(std::string& movablePayload, ApiSource_t src);
+        bool HandleGetExpiringStorageCommand(std::string& movablePayload, ApiSource_t src);
 
         volatile bool m_running;
         std::unique_ptr<boost::thread> m_threadPtr;
@@ -96,7 +96,7 @@ class TelemetryRunner::Impl : private boost::noncopyable {
         std::unique_ptr<TelemetryConnection> m_schedulerConnection;
         std::unique_ptr<TelemetryConnection> m_apiConnection;
 
-        typedef boost::function<bool (const std::string& payload, ApiSource_t src)> ApiCommandFunction_t;
+        typedef boost::function<bool (std::string& movablePayload, ApiSource_t src)> ApiCommandFunction_t;
         typedef std::unordered_map<std::string, ApiCommandFunction_t> ApiCommandFunctionMap_t;
         ApiCommandFunctionMap_t m_apiCmdMap;
 };
@@ -209,32 +209,32 @@ void TelemetryRunner::Impl::OnNewWebsocketConnectionCallback(WebsocketSessionPub
 }
 
 bool TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback(WebsocketSessionPublicBase& conn, std::string& receivedString) {
-    if (!OnApiRequest(receivedString, ApiSource_t::webgui)) {
+    if (!OnApiRequest(std::move(receivedString), ApiSource_t::webgui)) {
         LOG_ERROR(subprocess) << "failed to handle API request from websocket";
     }
     return true; // keep open
 }
 
-bool TelemetryRunner::Impl::HandlePingCommand(const std::string& payload, ApiSource_t src) {
-    return m_ingressConnection->EnqueueApiPayload(std::move(payload), src);
+bool TelemetryRunner::Impl::HandlePingCommand(std::string& movablePayload, ApiSource_t src) {
+    return m_ingressConnection->EnqueueApiPayload(std::move(movablePayload), src);
 }
 
-bool TelemetryRunner::Impl::HandleUploadContactPlanCommand(const std::string& payload, ApiSource_t src) {
-    return m_schedulerConnection->EnqueueApiPayload(std::move(payload), src);
+bool TelemetryRunner::Impl::HandleUploadContactPlanCommand(std::string& movablePayload, ApiSource_t src) {
+    return m_schedulerConnection->EnqueueApiPayload(std::move(movablePayload), src);
 }
 
-bool TelemetryRunner::Impl::HandleGetExpiringStorageCommand(const std::string& payload, ApiSource_t src) {
-    return m_storageConnection->EnqueueApiPayload(std::move(payload), src);
+bool TelemetryRunner::Impl::HandleGetExpiringStorageCommand(std::string& movablePayload, ApiSource_t src) {
+    return m_storageConnection->EnqueueApiPayload(std::move(movablePayload), src);
 }
 
-bool TelemetryRunner::Impl::OnApiRequest(const std::string& msgJson, ApiSource_t src) {
+bool TelemetryRunner::Impl::OnApiRequest(std::string&& msgJson, ApiSource_t src) {
     std::string apiCall = ApiCommand_t::GetApiCallFromJson(msgJson);
     TelemetryRunner::Impl::ApiCommandFunctionMap_t::iterator it = m_apiCmdMap.find(apiCall);
     if (it == m_apiCmdMap.end()) {
         LOG_ERROR(subprocess) << "Unrecognized API command " << apiCall;
         return false;
     }
-    return it->second(msgJson, src);
+    return it->second(msgJson, src); //note: msgJson will still be moved (boost::function doesn't support r-value references as parameters)
 }
 
 void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDistributedConfigPtr, zmq::context_t *inprocContextPtr) {
