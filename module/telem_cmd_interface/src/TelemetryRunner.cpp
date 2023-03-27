@@ -45,17 +45,17 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 /**
  * Polling options
  */
-static const uint8_t NUM_POLL_ATTEMPTS = 6;
+static const uint8_t NUM_POLL_ATTEMPTS = 4;
 static const uint16_t THREAD_POLL_INTERVAL_MS = 1000;
 static const uint16_t DEFAULT_BIG_TIMEOUT_POLL_MS = 250;
 
 /**
  * Bitmask codes for tracking receive events
  */
-static const unsigned int REC_ALL = 0x07;
 static const unsigned int REC_INGRESS = 0x01;
 static const unsigned int REC_EGRESS = 0x02;
 static const unsigned int REC_STORAGE = 0x04;
+static const unsigned int REC_API = 0x08;
 
 
 /**
@@ -237,6 +237,14 @@ bool TelemetryRunner::Impl::OnApiRequest(std::string&& msgJson, ApiSource_t src)
     return it->second(msgJson, src); //note: msgJson will still be moved (boost::function doesn't support r-value references as parameters)
 }
 
+bool ReceivedApi(unsigned int mask) {
+    return (mask & REC_API);
+}
+
+bool ReceivedAllRequired(unsigned int mask) {
+    return (mask & REC_STORAGE) && (mask & REC_INGRESS) && (mask & REC_EGRESS);
+}
+
 void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDistributedConfigPtr, zmq::context_t *inprocContextPtr) {
     ThreadNamer::SetThisThreadName("TelemetryRunner");
     // Create and initialize connections
@@ -325,7 +333,7 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
         AllOutductTelemetry_t outductTelem;
         StorageTelemetry_t storageTelem;
         for (unsigned int attempt = 0; attempt < NUM_POLL_ATTEMPTS; ++attempt) {
-            if (receiveEventsMask == REC_ALL) {
+            if (ReceivedAllRequired(receiveEventsMask)) {
                 break;
             }
 
@@ -404,12 +412,15 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
                     m_apiConnection->SendZmqMessage(std::move(msg), false);
                 }
             }
-            if (poller.HasNewMessage(*m_apiConnection)) {
+            // Ensure only one API message is processed per request loop. This ensures clients
+            // will receive the correct response when there are multiple connections.
+            if (!ReceivedApi(receiveEventsMask) && poller.HasNewMessage(*m_apiConnection)) {
+                receiveEventsMask |= REC_API;
                 zmq::message_t msgJson = m_apiConnection->ReadMessage();
                 OnApiRequest(msgJson.to_string(), ApiSource_t::socket);
             }
         }
-        if (receiveEventsMask == REC_ALL) {
+        if (ReceivedAllRequired(receiveEventsMask)) {
             if (m_telemetryLoggerPtr) {
                 m_telemetryLoggerPtr->LogTelemetry(inductTelem, outductTelem, storageTelem);
             }

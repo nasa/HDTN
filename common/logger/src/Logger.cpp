@@ -143,6 +143,7 @@ void Logger::init()
         createFileSinkForSubProcess(Logger::SubProcess::storage);
         createFileSinkForSubProcess(Logger::SubProcess::router);
         createFileSinkForSubProcess(Logger::SubProcess::scheduler);
+        createFileSinkForSubProcess(Logger::SubProcess::telem);
     #endif
 
     #ifdef LOG_TO_ERROR_FILE
