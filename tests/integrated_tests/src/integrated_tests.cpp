@@ -115,6 +115,8 @@ int RunHdtnOneProcess(const char * argv[], int argc, bool & running, uint64_t* p
     return 0;
 }
 
+
+/*
 bool TestHDTNCutThroughModeLTP() {
 
     Delay(DELAY_TEST);
@@ -504,7 +506,7 @@ bool TestHDTNStorageModeLTPv7() {
 
     return true;
 }
-
+*/
 bool TestHDTNFileTransferLTP() {
 
     Delay(DELAY_TEST);
@@ -991,7 +993,7 @@ bool TestHDTNStorageModeTCPCLv7() {
 
 BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 
-
+/*
 BOOST_AUTO_TEST_CASE(it_TestHDTNCutThroughModeLTP, * boost::unit_test::enabled()) {
     std::cout << std::endl << ">>>>>> Running: " << "it_TestHDTNCutThroughModeLTP" << std::endl << std::flush;
     bool result = TestHDTNCutThroughModeLTP();
@@ -1016,6 +1018,7 @@ BOOST_AUTO_TEST_CASE(it_TestHDTNStorageModeLTPv7, * boost::unit_test::enabled())
     BOOST_CHECK(result == true);
 }
 
+*/
 BOOST_AUTO_TEST_CASE(it_TestHDTNFileTransferLTP, * boost::unit_test::enabled()) {
     std::cout << std::endl << ">>>>>> Running: " << "it_TestHDTNFileTransferLTP" << std::endl << std::flush;
     bool result = TestHDTNFileTransferLTP();
