@@ -526,7 +526,7 @@ bool TestHDTNFileTransferLTP() {
 
     //bpsink
     static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_ltp_port4558.json").string();
-    static const char * argsBpsink[] = { "bpsink",  "--save-directory=received", "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
+    static const char * argsBpsink[] = { "bpreceivefile",  "--save-directory=received", "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
     std::thread threadBpsink(RunBpsinkAsync, argsBpsink, 4, std::ref(runningBpsink), &bundlesReceivedBpsink[0],
         &finalStatsBpSink[0]);
 
@@ -545,7 +545,7 @@ bool TestHDTNFileTransferLTP() {
     //Bpgen
     static const std::string bpgenConfigArg = 
 	"--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_ltp_port4556_thisengineid200.json").string();
-    static const char * argsBpgen[] = { "bpgen",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", "--file-or-folder-path=test.txt", bpgenConfigArg.c_str(), NULL };
+    static const char * argsBpgen[] = { "bpsendfile",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", "--file-or-folder-path=test.txt", bpgenConfigArg.c_str(), NULL };
     std::thread threadBpgen(RunBpgenAsync,argsBpgen, 7, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
 
     // Allow time for data to flow
