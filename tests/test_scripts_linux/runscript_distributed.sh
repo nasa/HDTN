@@ -34,6 +34,10 @@ sleep 4
 ./build/module/router/hdtn-router --hdtn-config-file=$hdtn_config --contact-plan-file=contactPlanCutThroughMode.json --hdtn-distributed-config-file=$hdtn_distributed_config &
 sleep 4
 
+#Telemetry
+./build/module/telem_cmd_interface/telem_cmd_interface --hdtn-config-file=$hdtn_config --hdtn-distributed-config-file=$hdtn_distributed_config &
+sleep 3
+
 #bpgen (configure bundle-rate=0 to send bundles at high rate)
 ./build/common/bpcodec/apps/bpgen-async --bundle-rate=0 --bundle-size=100000 --my-uri-eid=ipn:1.1 --dest-uri-eid=ipn:2.1 --duration=40 --outducts-config-file=$gen_config &
 

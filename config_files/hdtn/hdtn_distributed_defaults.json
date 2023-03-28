@@ -15,5 +15,6 @@
     "zmqConnectingRouterToBoundEgressPortPath": 10210,
     "zmqConnectingTelemToFromBoundIngressPortPath": 10301,
     "zmqConnectingTelemToFromBoundEgressPortPath": 10302,
-    "zmqConnectingTelemToFromBoundStoragePortPath": 10303
+    "zmqConnectingTelemToFromBoundStoragePortPath": 10303,
+    "zmqConnectingTelemToFromBoundSchedulerPortPath": 10304
 }

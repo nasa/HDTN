@@ -153,6 +153,7 @@ var INITIAL_HDTN_CONFIG = {
     "zmqConnectingStorageToBoundEgressPortPath": 10120,
     "zmqBoundEgressToConnectingStoragePortPath": 10130,
     "zmqBoundSchedulerPubSubPortPath": 10200,
+    "zmqBoundTelemApiPortPath": 10305,
     "zmqBoundRouterPubSubPortPath": 10210,
     "inductsConfig": {
         "inductConfigName": "myconfig",

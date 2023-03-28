@@ -2,7 +2,7 @@
  * @file HdtnConfig.h
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -84,6 +84,7 @@ public:
 
     //pub-sub from scheduler to all modules (defined in HdtnConfig as the TCP socket is used by hdtn-one-process)
     uint16_t m_zmqBoundSchedulerPubSubPortPath;
+    uint16_t m_zmqBoundTelemApiPortPath;
 
     InductsConfig m_inductsConfig;
     OutductsConfig m_outductsConfig;

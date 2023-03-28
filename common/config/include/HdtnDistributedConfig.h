@@ -2,7 +2,7 @@
  * @file HdtnDistributedConfig.h
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -99,6 +99,7 @@ public:
     uint16_t m_zmqConnectingTelemToFromBoundIngressPortPath;
     uint16_t m_zmqConnectingTelemToFromBoundEgressPortPath;
     uint16_t m_zmqConnectingTelemToFromBoundStoragePortPath;
+    uint16_t m_zmqConnectingTelemToFromBoundSchedulerPortPath;
 };
 
 #endif // HDTN_DISTRIBUTED_CONFIG_H

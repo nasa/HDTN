@@ -2,7 +2,7 @@
  * @file HdtnDistributedConfig.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -39,7 +39,8 @@ HdtnDistributedConfig::HdtnDistributedConfig() :
     m_zmqConnectingRouterToBoundEgressPortPath(10210),
     m_zmqConnectingTelemToFromBoundIngressPortPath(10301),
     m_zmqConnectingTelemToFromBoundEgressPortPath(10302),
-    m_zmqConnectingTelemToFromBoundStoragePortPath(10303)
+    m_zmqConnectingTelemToFromBoundStoragePortPath(10303),
+    m_zmqConnectingTelemToFromBoundSchedulerPortPath(10304)
 {}
 
 HdtnDistributedConfig::~HdtnDistributedConfig() {
@@ -63,7 +64,8 @@ HdtnDistributedConfig::HdtnDistributedConfig(const HdtnDistributedConfig& o) :
     m_zmqConnectingRouterToBoundEgressPortPath(o.m_zmqConnectingRouterToBoundEgressPortPath),
     m_zmqConnectingTelemToFromBoundIngressPortPath(o.m_zmqConnectingTelemToFromBoundIngressPortPath),
     m_zmqConnectingTelemToFromBoundEgressPortPath(o.m_zmqConnectingTelemToFromBoundEgressPortPath),
-    m_zmqConnectingTelemToFromBoundStoragePortPath(o.m_zmqConnectingTelemToFromBoundStoragePortPath)
+    m_zmqConnectingTelemToFromBoundStoragePortPath(o.m_zmqConnectingTelemToFromBoundStoragePortPath),
+    m_zmqConnectingTelemToFromBoundSchedulerPortPath(o.m_zmqConnectingTelemToFromBoundSchedulerPortPath)
 { }
 
 //a move constructor: X(X&&)
@@ -84,7 +86,8 @@ HdtnDistributedConfig::HdtnDistributedConfig(HdtnDistributedConfig&& o) noexcept
     m_zmqConnectingRouterToBoundEgressPortPath(o.m_zmqConnectingRouterToBoundEgressPortPath),
     m_zmqConnectingTelemToFromBoundIngressPortPath(o.m_zmqConnectingTelemToFromBoundIngressPortPath),
     m_zmqConnectingTelemToFromBoundEgressPortPath(o.m_zmqConnectingTelemToFromBoundEgressPortPath),
-    m_zmqConnectingTelemToFromBoundStoragePortPath(o.m_zmqConnectingTelemToFromBoundStoragePortPath)
+    m_zmqConnectingTelemToFromBoundStoragePortPath(o.m_zmqConnectingTelemToFromBoundStoragePortPath),
+    m_zmqConnectingTelemToFromBoundSchedulerPortPath(o.m_zmqConnectingTelemToFromBoundSchedulerPortPath)
 { }
 
 //a copy assignment: operator=(const X&)
@@ -106,6 +109,7 @@ HdtnDistributedConfig& HdtnDistributedConfig::operator=(const HdtnDistributedCon
     m_zmqConnectingTelemToFromBoundIngressPortPath = o.m_zmqConnectingTelemToFromBoundIngressPortPath;
     m_zmqConnectingTelemToFromBoundEgressPortPath = o.m_zmqConnectingTelemToFromBoundEgressPortPath;
     m_zmqConnectingTelemToFromBoundStoragePortPath = o.m_zmqConnectingTelemToFromBoundStoragePortPath;
+    m_zmqConnectingTelemToFromBoundSchedulerPortPath = o.m_zmqConnectingTelemToFromBoundSchedulerPortPath;
     return *this;
 }
 
@@ -128,6 +132,7 @@ HdtnDistributedConfig& HdtnDistributedConfig::operator=(HdtnDistributedConfig&& 
     m_zmqConnectingTelemToFromBoundIngressPortPath = o.m_zmqConnectingTelemToFromBoundIngressPortPath;
     m_zmqConnectingTelemToFromBoundEgressPortPath = o.m_zmqConnectingTelemToFromBoundEgressPortPath;
     m_zmqConnectingTelemToFromBoundStoragePortPath = o.m_zmqConnectingTelemToFromBoundStoragePortPath;
+    m_zmqConnectingTelemToFromBoundSchedulerPortPath = o.m_zmqConnectingTelemToFromBoundSchedulerPortPath;
     return *this;
 }
 
@@ -149,7 +154,8 @@ bool HdtnDistributedConfig::operator==(const HdtnDistributedConfig& o) const {
         (m_zmqConnectingRouterToBoundEgressPortPath == o.m_zmqConnectingRouterToBoundEgressPortPath) &&
         (m_zmqConnectingTelemToFromBoundIngressPortPath == o.m_zmqConnectingTelemToFromBoundIngressPortPath) &&
         (m_zmqConnectingTelemToFromBoundEgressPortPath == o.m_zmqConnectingTelemToFromBoundEgressPortPath) &&
-        (m_zmqConnectingTelemToFromBoundStoragePortPath == o.m_zmqConnectingTelemToFromBoundStoragePortPath);
+        (m_zmqConnectingTelemToFromBoundStoragePortPath == o.m_zmqConnectingTelemToFromBoundStoragePortPath) &&
+        (m_zmqConnectingTelemToFromBoundSchedulerPortPath == o.m_zmqConnectingTelemToFromBoundSchedulerPortPath);
 }
 
 bool HdtnDistributedConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & pt) {
@@ -171,6 +177,7 @@ bool HdtnDistributedConfig::SetValuesFromPropertyTree(const boost::property_tree
         m_zmqConnectingTelemToFromBoundIngressPortPath = pt.get<uint16_t>("zmqConnectingTelemToFromBoundIngressPortPath");
         m_zmqConnectingTelemToFromBoundEgressPortPath = pt.get<uint16_t>("zmqConnectingTelemToFromBoundEgressPortPath");
         m_zmqConnectingTelemToFromBoundStoragePortPath = pt.get<uint16_t>("zmqConnectingTelemToFromBoundStoragePortPath");
+        m_zmqConnectingTelemToFromBoundSchedulerPortPath = pt.get<uint16_t>("zmqConnectingTelemToFromBoundSchedulerPortPath");
     }
     catch (const boost::property_tree::ptree_error & e) {
         LOG_ERROR(subprocess) << "parsing JSON HDTN config: " << e.what();
@@ -247,6 +254,7 @@ boost::property_tree::ptree HdtnDistributedConfig::GetNewPropertyTree() const {
     pt.put("zmqConnectingTelemToFromBoundIngressPortPath", m_zmqConnectingTelemToFromBoundIngressPortPath);
     pt.put("zmqConnectingTelemToFromBoundEgressPortPath", m_zmqConnectingTelemToFromBoundEgressPortPath);
     pt.put("zmqConnectingTelemToFromBoundStoragePortPath", m_zmqConnectingTelemToFromBoundStoragePortPath);
-    
+    pt.put("zmqConnectingTelemToFromBoundSchedulerPortPath", m_zmqConnectingTelemToFromBoundSchedulerPortPath);
+
     return pt;
 }

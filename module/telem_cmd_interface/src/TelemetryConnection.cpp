@@ -20,17 +20,27 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::telem;
 
+static void CustomCleanupStdString(void* data, void* hint) {
+    delete static_cast<std::string*>(hint);
+}
 
-TelemetryConnection::TelemetryConnection(const std::string& addr, zmq::context_t* inprocContextPtr) {
+TelemetryConnection::TelemetryConnection(const std::string& addr, zmq::context_t* inprocContextPtr, bool bind) :
+    m_apiSocketAwaitingResponse(false)
+{
     try {
         if (inprocContextPtr) {
             m_requestSocket = boost::make_unique<zmq::socket_t>(*inprocContextPtr, zmq::socket_type::pair);
         } else {
             m_contextPtr = boost::make_unique<zmq::context_t>();
-            m_requestSocket = boost::make_unique<zmq::socket_t>(*m_contextPtr, zmq::socket_type::req);
+            zmq::socket_type socketType = bind ? zmq::socket_type::rep : zmq::socket_type::req;
+            m_requestSocket = boost::make_unique<zmq::socket_t>(*m_contextPtr, socketType);
         }
         m_requestSocket->set(zmq::sockopt::linger, 0);
-        m_requestSocket->connect(addr);
+        if (bind) {
+            m_requestSocket->bind(addr);
+        } else {
+            m_requestSocket->connect(addr);
+        }
         m_addr = addr;
     }
     catch (const zmq::error_t & ex) {
@@ -40,6 +50,42 @@ TelemetryConnection::TelemetryConnection(const std::string& addr, zmq::context_t
         }
         throw;
     }
+}
+
+void TelemetryConnection::SendRequest(bool alwaysRequest)
+{
+    static const zmq::const_buffer byteSignalBuf(&TELEM_REQ_MSG, sizeof(TELEM_REQ_MSG));
+    static const zmq::const_buffer byteSignalBufPlusApi(&TELEM_REQ_MSG_PLUS_API_CALLS, sizeof(TELEM_REQ_MSG_PLUS_API_CALLS));        
+    {
+        boost::mutex::scoped_lock lock(m_apiCallsMutex);
+        if (alwaysRequest && m_apiCallsQueue.empty()) {
+            SendZmqConstBufferMessage(byteSignalBuf, false);
+        }
+        else if (!m_apiCallsQueue.empty()) {
+            SendZmqConstBufferMessage(byteSignalBufPlusApi, true);
+        }
+        while (!m_apiCallsQueue.empty()) {
+            const bool moreFlag = (m_apiCallsQueue.size() > 1);
+            zmq_api_msg_plus_source_pair_t& p = m_apiCallsQueue.front();
+            SendZmqMessage(std::move(p.first), moreFlag);
+            const ApiSource_t& src = p.second;
+            if (src == ApiSource_t::socket) {
+                m_apiSocketAwaitingResponse = true;
+            }
+            m_apiCallsQueue.pop();
+        }
+    }
+}
+
+bool TelemetryConnection::EnqueueApiPayload(std::string&& payload, ApiSource_t src)
+{
+    std::string* apiCmdStr = new std::string(std::move(payload));
+    std::string& strRef = *apiCmdStr;
+    boost::mutex::scoped_lock lock(m_apiCallsMutex);
+    m_apiCallsQueue.emplace(std::piecewise_construct,
+        std::forward_as_tuple(&strRef[0], strRef.size(), CustomCleanupStdString, apiCmdStr),
+        std::forward_as_tuple(src));
+    return true;
 }
 
 bool TelemetryConnection::SendZmqConstBufferMessage(const zmq::const_buffer& buffer, bool more) {

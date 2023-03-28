@@ -725,22 +725,14 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                                 LOG_ERROR(subprocess) << "error receiving api message";
                                 continue;
                             }
-                            boost::property_tree::ptree pt;
-                            if (JsonSerializable::GetPropertyTreeFromJsonCharArray((char*)apiMsg.data(), apiMsg.size(), pt)) {
-                                try {
-                                    const std::string apiCall = pt.get<std::string>("apiCall");
-                                    LOG_INFO(subprocess) << "got api call " << apiCall;
-                                    if (apiCall == "ping") {
-                                        const uint64_t nodeId = pt.get<uint64_t>("nodeId");
-                                        const uint64_t pingServiceNumber = pt.get<uint64_t>("serviceId");
-                                        const uint64_t bpVersion = pt.get<uint64_t>("bpVersion");
-                                        SendPing(nodeId, pingServiceNumber, bpVersion);
-                                    }
-                                }
-                                catch (const boost::property_tree::ptree_error& e) {
-                                    LOG_ERROR(subprocess) << "parsing JSON apiCall: " << e.what();
+                            std::string apiCall = ApiCommand_t::GetApiCallFromJson(apiMsg.to_string());
+                            LOG_INFO(subprocess) << "got api call " << apiCall;
+                            if (apiCall == "ping") {
+                                PingApiCommand_t pingCmd;
+                                if (!pingCmd.SetValuesFromJson(apiMsg.to_string())) {
                                     continue;
                                 }
+                                SendPing(pingCmd.m_nodeId, pingCmd.m_pingServiceNumber, pingCmd.m_bpVersion);
                             }
                         } while (apiMsg.more());
                     }

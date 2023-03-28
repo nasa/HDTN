@@ -85,18 +85,6 @@ struct StorageExpiringBeforeThresholdTelemetry_t : public JsonSerializable {
     std::map<uint64_t, bundle_count_plus_bundle_bytes_pair_t> mapNodeIdToExpiringBeforeThresholdCount;
 };
 
-
-struct StorageTelemetryRequest_t {
-    TELEMETRY_DEFINITIONS_EXPORT StorageTelemetryRequest_t();
-
-    uint64_t type; //must be 10
-    uint64_t priority; //0, 1, or 2
-    uint64_t thresholdSecondsFromNow;
-
-
-    TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
-};
-
 struct OutductCapabilityTelemetry_t : public JsonSerializable {
     TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t();
 
@@ -410,6 +398,58 @@ struct AllOutductTelemetry_t : public JsonSerializable {
     uint64_t m_totalBundlesSuccessfullySent;
     uint64_t m_totalBundleBytesSuccessfullySent;
     std::list<std::unique_ptr<OutductTelemetry_t> > m_listAllOutducts;
+};
+
+struct ApiCommand_t : public JsonSerializable {
+    std::string m_apiCall;
+
+    TELEMETRY_DEFINITIONS_EXPORT ApiCommand_t();
+    TELEMETRY_DEFINITIONS_EXPORT static std::string GetApiCallFromJson(const std::string& jsonStr);
+
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+};
+
+struct PingApiCommand_t : public ApiCommand_t {
+    uint64_t m_nodeId;
+    uint64_t m_pingServiceNumber;
+    uint64_t m_bpVersion;
+
+    TELEMETRY_DEFINITIONS_EXPORT PingApiCommand_t();
+
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+};
+
+struct UploadContactPlanApiCommand_t : public ApiCommand_t {
+    std::string m_contactPlanJson;
+
+    TELEMETRY_DEFINITIONS_EXPORT UploadContactPlanApiCommand_t();
+
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+};
+
+struct GetExpiringStorageApiCommand_t : public ApiCommand_t {
+    uint64_t m_priority;
+    uint64_t m_thresholdSecondsFromNow;
+
+    TELEMETRY_DEFINITIONS_EXPORT GetExpiringStorageApiCommand_t();
+
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 };
 
 static const uint8_t TELEM_REQ_MSG = 1;

@@ -75,7 +75,6 @@ public:
         zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
 
 private:
-    bool ProcessContactsPtPtr(std::shared_ptr<boost::property_tree::ptree>& contactsPtPtr);
     bool ProcessContacts(const boost::property_tree::ptree & pt);
     bool ProcessContactsJsonText(char* jsonText);
     bool ProcessContactsJsonText(const std::string& jsonText);
@@ -92,7 +91,7 @@ private:
 
     void EgressEventsHandler();
     bool SendBundle(const uint8_t* payloadData, const uint64_t payloadSizeBytes, const cbhe_eid_t& finalDestEid);
-    void UisEventsHandler();
+    void TelemEventsHandler();
     void ReadZmqAcksThreadFunc();
     void TryRestartContactPlanTimer();
     void OnContactPlan_TimerExpired(const boost::system::error_code& e);
@@ -110,8 +109,8 @@ private:
 
     std::unique_ptr<zmq::context_t> m_zmqCtxPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundEgressToConnectingSchedulerPtr;
-    std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundUisToConnectingSchedulerPtr;
     std::unique_ptr<zmq::socket_t> m_zmqXPubSock_boundSchedulerToConnectingSubsPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr;
     boost::mutex m_mutexZmqPubSock;
 
     //no mutex needed (all run from ioService thread)
@@ -271,8 +270,10 @@ bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
 
     if (hdtnOneProcessZmqInprocContextPtr) {
         m_zmqPullSock_boundEgressToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+        m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         try {
             m_zmqPullSock_boundEgressToConnectingSchedulerPtr->connect(std::string("inproc://bound_egress_to_connecting_scheduler"));
+            m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr->bind(std::string("inproc://connecting_telem_to_from_bound_scheduler"));
         }
         catch (const zmq::error_t& ex) {
             LOG_ERROR(subprocess) << "error in Scheduler::Init: cannot connect inproc socket: " << ex.what();
@@ -294,23 +295,18 @@ bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
             LOG_ERROR(subprocess) << "error: scheduler cannot connect to egress socket: " << ex.what();
             return false;
         }
-    }
-
-    //socket for receiving events from UIS
-    m_zmqSubSock_boundUisToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::sub);
-    const std::string connect_boundUisPubSubPath(
-        std::string("tcp://") +
-        std::string("localhost") +
-        std::string(":") +
-        boost::lexical_cast<std::string>(29001)); //TODO
-    try {
-        m_zmqSubSock_boundUisToConnectingSchedulerPtr->connect(connect_boundUisPubSubPath);
-        m_zmqSubSock_boundUisToConnectingSchedulerPtr->set(zmq::sockopt::subscribe, "");
-        LOG_INFO(subprocess) << "Scheduler connected and listening to events from UIS " << connect_boundUisPubSubPath;
-    }
-    catch (const zmq::error_t& ex) {
-        LOG_ERROR(subprocess) << "error: scheduler cannot connect to UIS socket: " << ex.what();
-        return false;
+        m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::rep);
+        const std::string connect_connectingTelemToFromBoundSchedulerPath(
+            std::string("tcp://*:") +
+            boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingTelemToFromBoundSchedulerPortPath));
+        try {
+            m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr->bind(connect_connectingTelemToFromBoundSchedulerPath);
+            LOG_INFO(subprocess) << "Scheduler connected and listening to events from Telem " << connect_connectingTelemToFromBoundSchedulerPath;
+        }
+        catch (const zmq::error_t& ex) {
+            LOG_ERROR(subprocess) << "error: scheduler cannot connect to telem socket: " << ex.what();
+            return false;
+        }
     }
 
     LOG_INFO(subprocess) << "Scheduler up and running";
@@ -608,35 +604,50 @@ bool Scheduler::Impl::SendBundle(const uint8_t* payloadData, const uint64_t payl
     return true;
 }
 
-void Scheduler::Impl::UisEventsHandler() {
-    hdtn::ContactPlanReloadHdr hdr;
-    const zmq::recv_buffer_result_t res = m_zmqSubSock_boundUisToConnectingSchedulerPtr->recv(zmq::mutable_buffer(&hdr, sizeof(hdr)), zmq::recv_flags::none);
+void Scheduler::Impl::TelemEventsHandler() {
+    uint8_t telemMsgByte;
+    const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr->recv(zmq::mutable_buffer(&telemMsgByte, sizeof(telemMsgByte)), zmq::recv_flags::dontwait);
     if (!res) {
-        LOG_ERROR(subprocess) << "error in Scheduler::UisEventsHandler: cannot read hdr";
+        LOG_ERROR(subprocess) << "error in Scheduler::TelemEventsHandler: cannot read message";
     }
-    else if ((res->truncated()) || (res->size != sizeof(hdr))) {
-        LOG_ERROR(subprocess) << "UisEventsHandler hdr message mismatch: untruncated = " << res->untruncated_size
+    else if ((res->truncated()) || (res->size != sizeof(telemMsgByte))) {
+        LOG_ERROR(subprocess) << "TelemEventsHandler message mismatch: untruncated = " << res->untruncated_size
             << " truncated = " << res->size << " expected = " << sizeof(hdtn::ToEgressHdr);
     }
-    else if (hdr.base.type == CPM_NEW_CONTACT_PLAN) {
-        zmq::message_t message;
-        if (!m_zmqSubSock_boundUisToConnectingSchedulerPtr->recv(message, zmq::recv_flags::none)) {
-            LOG_ERROR(subprocess) << "[UisEventsHandler] message not received";
+    else {
+        const bool hasApiCalls = telemMsgByte > TELEM_REQ_MSG;
+        if (!hasApiCalls) {
             return;
         }
-        boost::property_tree::ptree pt;
-        if (!JsonSerializable::GetPropertyTreeFromJsonCharArray((char*)message.data(), message.size(), pt)) {
-            LOG_ERROR(subprocess) << "[UisEventsHandler] JSON message invalid";
+        zmq::message_t apiMsg;
+        do {
+            if (!m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr->recv(apiMsg, zmq::recv_flags::none)) {
+                LOG_ERROR(subprocess) << "[TelemEventsHandler] message not received";
+                return;
+            }
+            std::string apiCall = ApiCommand_t::GetApiCallFromJson(apiMsg.to_string());
+            LOG_INFO(subprocess) << "Got an api call " << apiMsg.to_string();
+            if (apiCall != "upload_contact_plan") {
+                return;
+            }
+            UploadContactPlanApiCommand_t uploadContactPlanApiCmd;
+            uploadContactPlanApiCmd.SetValuesFromJson(apiMsg.to_string());
+            std::string planJson = uploadContactPlanApiCmd.m_contactPlanJson;
+            boost::asio::post(
+                m_ioService,
+                boost::bind(
+                    static_cast<bool (Scheduler::Impl::*) (const std::string&)>(&Scheduler::Impl::ProcessContactsJsonText),
+                    this,
+                    std::move(planJson)
+                )
+            );
+            LOG_INFO(subprocess) << "received reload contact plan event with data " << uploadContactPlanApiCmd.m_contactPlanJson;
+        } while (apiMsg.more());
+        zmq::message_t msg;
+        if (!m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr->send(std::move(msg), zmq::send_flags::dontwait)) {
+            LOG_ERROR(subprocess) << "error replying to telem module";
         }
-        std::shared_ptr<boost::property_tree::ptree> ptPtr = std::make_shared<boost::property_tree::ptree>(pt);
-        boost::asio::post(m_ioService, boost::bind(&Scheduler::Impl::ProcessContactsPtPtr, this, std::move(ptPtr)));
-        LOG_INFO(subprocess) << "received Reload contact Plan event with data " << (char*)message.data();
     }
-    else {
-        LOG_ERROR(subprocess) << "error in Scheduler::UisEventsHandler: unknown hdr " << hdr.base.type;
-    }
-
-    
 }
 
 void Scheduler::Impl::ReadZmqAcksThreadFunc() {
@@ -646,7 +657,7 @@ void Scheduler::Impl::ReadZmqAcksThreadFunc() {
 
     zmq::pollitem_t items[NUM_SOCKETS] = {
         {m_zmqPullSock_boundEgressToConnectingSchedulerPtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_zmqSubSock_boundUisToConnectingSchedulerPtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
     std::size_t totalAcksFromEgress = 0;
@@ -677,8 +688,8 @@ void Scheduler::Impl::ReadZmqAcksThreadFunc() {
             if (items[0].revents & ZMQ_POLLIN) { //events from Egress
                 EgressEventsHandler();
             }
-            if (items[1].revents & ZMQ_POLLIN) { //events from UIS
-                UisEventsHandler();
+            if (items[1].revents & ZMQ_POLLIN) { //events from Telemetry
+                TelemEventsHandler();
             }
             if (items[2].revents & ZMQ_POLLIN) { //subscriber events from xsub sockets for release messages
                 zmq::message_t zmqSubscriberDataReceived;
@@ -760,9 +771,6 @@ void Scheduler::Impl::ReadZmqAcksThreadFunc() {
     }
 }
 
-bool Scheduler::Impl::ProcessContactsPtPtr(std::shared_ptr<boost::property_tree::ptree>& contactsPtPtr) {
-    return ProcessContacts(*contactsPtPtr);
-}
 bool Scheduler::Impl::ProcessContactsJsonText(char * jsonText) {
     boost::property_tree::ptree pt;
     if (!JsonSerializable::GetPropertyTreeFromJsonCharArray(jsonText, strlen(jsonText), pt)) {

@@ -2,7 +2,7 @@
  * @file HdtnConfig.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -40,6 +40,7 @@ HdtnConfig::HdtnConfig() :
     m_bufferRxToStorageOnLinkUpSaturation(false),
     m_maxLtpReceiveUdpPacketSizeBytes(65536),
     m_zmqBoundSchedulerPubSubPortPath(10200),
+    m_zmqBoundTelemApiPortPath(10305),
     m_inductsConfig(),
     m_outductsConfig(),
     m_storageConfig() 
@@ -67,6 +68,7 @@ HdtnConfig::HdtnConfig(const HdtnConfig& o) :
     m_bufferRxToStorageOnLinkUpSaturation(o.m_bufferRxToStorageOnLinkUpSaturation),
     m_maxLtpReceiveUdpPacketSizeBytes(o.m_maxLtpReceiveUdpPacketSizeBytes),
     m_zmqBoundSchedulerPubSubPortPath(o.m_zmqBoundSchedulerPubSubPortPath),
+    m_zmqBoundTelemApiPortPath(o.m_zmqBoundTelemApiPortPath),
     m_inductsConfig(o.m_inductsConfig),
     m_outductsConfig(o.m_outductsConfig),
     m_storageConfig(o.m_storageConfig)
@@ -91,6 +93,7 @@ HdtnConfig::HdtnConfig(HdtnConfig&& o) noexcept :
     m_bufferRxToStorageOnLinkUpSaturation(o.m_bufferRxToStorageOnLinkUpSaturation),
     m_maxLtpReceiveUdpPacketSizeBytes(o.m_maxLtpReceiveUdpPacketSizeBytes),
     m_zmqBoundSchedulerPubSubPortPath(o.m_zmqBoundSchedulerPubSubPortPath),
+    m_zmqBoundTelemApiPortPath(o.m_zmqBoundTelemApiPortPath),
     m_inductsConfig(std::move(o.m_inductsConfig)),
     m_outductsConfig(std::move(o.m_outductsConfig)),
     m_storageConfig(std::move(o.m_storageConfig))
@@ -115,6 +118,7 @@ HdtnConfig& HdtnConfig::operator=(const HdtnConfig& o) {
     m_bufferRxToStorageOnLinkUpSaturation = o.m_bufferRxToStorageOnLinkUpSaturation;
     m_maxLtpReceiveUdpPacketSizeBytes = o.m_maxLtpReceiveUdpPacketSizeBytes;
     m_zmqBoundSchedulerPubSubPortPath = o.m_zmqBoundSchedulerPubSubPortPath;
+    m_zmqBoundTelemApiPortPath = o.m_zmqBoundTelemApiPortPath;
     m_inductsConfig = o.m_inductsConfig;
     m_outductsConfig = o.m_outductsConfig;
     m_storageConfig = o.m_storageConfig;
@@ -140,6 +144,7 @@ HdtnConfig& HdtnConfig::operator=(HdtnConfig&& o) noexcept {
     m_bufferRxToStorageOnLinkUpSaturation = o.m_bufferRxToStorageOnLinkUpSaturation;
     m_maxLtpReceiveUdpPacketSizeBytes = o.m_maxLtpReceiveUdpPacketSizeBytes;
     m_zmqBoundSchedulerPubSubPortPath = o.m_zmqBoundSchedulerPubSubPortPath;
+    m_zmqBoundTelemApiPortPath = o.m_zmqBoundTelemApiPortPath;
     m_inductsConfig = std::move(o.m_inductsConfig);
     m_outductsConfig = std::move(o.m_outductsConfig);
     m_storageConfig = std::move(o.m_storageConfig);
@@ -164,6 +169,7 @@ bool HdtnConfig::operator==(const HdtnConfig & o) const {
         (m_bufferRxToStorageOnLinkUpSaturation == o.m_bufferRxToStorageOnLinkUpSaturation) &&
         (m_maxLtpReceiveUdpPacketSizeBytes == o.m_maxLtpReceiveUdpPacketSizeBytes) &&
         (m_zmqBoundSchedulerPubSubPortPath == o.m_zmqBoundSchedulerPubSubPortPath) &&
+        (m_zmqBoundTelemApiPortPath == o.m_zmqBoundTelemApiPortPath) &&
         (m_inductsConfig == o.m_inductsConfig) &&
         (m_outductsConfig == o.m_outductsConfig) &&
         (m_storageConfig == o.m_storageConfig);
@@ -197,6 +203,7 @@ bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & p
         m_maxLtpReceiveUdpPacketSizeBytes = pt.get<uint64_t>("maxLtpReceiveUdpPacketSizeBytes");
 
         m_zmqBoundSchedulerPubSubPortPath = pt.get<uint16_t>("zmqBoundSchedulerPubSubPortPath");
+        m_zmqBoundTelemApiPortPath = pt.get<uint16_t>("zmqBoundTelemApiPortPath");
     }
     catch (const boost::property_tree::ptree_error & e) {
         LOG_ERROR(subprocess) << "parsing JSON HDTN config: " << e.what();
@@ -293,6 +300,7 @@ boost::property_tree::ptree HdtnConfig::GetNewPropertyTree() const {
     pt.put("maxLtpReceiveUdpPacketSizeBytes", m_maxLtpReceiveUdpPacketSizeBytes);
 
     pt.put("zmqBoundSchedulerPubSubPortPath", m_zmqBoundSchedulerPubSubPortPath);
+    pt.put("zmqBoundTelemApiPortPath", m_zmqBoundTelemApiPortPath);
 
     pt.put_child("inductsConfig", m_inductsConfig.GetNewPropertyTree());
     pt.put_child("outductsConfig", m_outductsConfig.GetNewPropertyTree());
