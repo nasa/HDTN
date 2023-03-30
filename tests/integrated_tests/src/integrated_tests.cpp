@@ -116,7 +116,7 @@ int RunHdtnOneProcess(const char * argv[], int argc, bool & running, uint64_t* p
 }
 
 
-
+///////////////////////////
 bool TestHDTNCutThroughModeLTP() {
 
     Delay(DELAY_TEST);
@@ -213,6 +213,7 @@ bool TestHDTNCutThroughModeLTP() {
     return true;
 }
 
+//////////////////////
 bool TestHDTNCutThroughModeLTPv7() {
 
     Delay(DELAY_TEST);
@@ -309,8 +310,7 @@ bool TestHDTNCutThroughModeLTPv7() {
     return true;
 }
 
-
-
+//////////////////////////
 bool TestHDTNStorageModeLTP() {
 
     Delay(DELAY_TEST);
@@ -409,6 +409,7 @@ bool TestHDTNStorageModeLTP() {
     return true;
 }
 
+/////////////////////////////////
 bool TestHDTNStorageModeLTPv7() {
 
     Delay(DELAY_TEST);
@@ -507,6 +508,7 @@ bool TestHDTNStorageModeLTPv7() {
     return true;
 }
 
+////////////////////////////
 bool TestHDTNFileTransferLTP() {
 
     Delay(DELAY_TEST);
@@ -547,7 +549,7 @@ bool TestHDTNFileTransferLTP() {
     //Bpgen
     static const std::string bpgenConfigArg = 
 	"--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_ltp_port4556_thisengineid200.json").string();
-    static const char * argsBpgen[] = { "bpsendfile",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", "--file-or-folder-path=test.txt", bpgenConfigArg.c_str(), NULL };
+    static const char * argsBpgen[] = { "bpsendfile",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", "$HDTN_SOURCE_ROOT/tests/integrated_tests/src/text.txt=test.txt", bpgenConfigArg.c_str(), NULL };
     std::thread threadBpgen(RunBpgenAsync,argsBpgen, 7, std::ref(runningBpsend), &bundlesSentBpsend[0], &finalStats[0]);
 
     // Allow time for data to flow
@@ -601,6 +603,7 @@ bool TestHDTNFileTransferLTP() {
     return true;
 }
 
+/////////////////////////////
 bool TestHDTNFileTransferLTPv7() {
 
     Delay(DELAY_TEST);
@@ -696,7 +699,7 @@ bool TestHDTNFileTransferLTPv7() {
 }
 
 
-/*
+//////////////////////////////////
 bool TestHDTNFileTransferTCPCL() {
 
     Delay(DELAY_TEST);
@@ -717,7 +720,7 @@ bool TestHDTNFileTransferTCPCL() {
     Delay(DELAY_THREAD);
 
     //bpsink
-    static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_ltp_port4558.json").string();
+    static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_tcpclv4_port4558.json").string();
     static const char * argsBpsink[] = { "bpreceivefile",  "--save-directory=received", "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
     std::thread threadBpsink(RunBpsinkAsync, argsBpsink, 4, std::ref(runningBpsink), &bundlesReceivedBpsink[0],
         &finalStatsBpSink[0]);
@@ -736,7 +739,7 @@ bool TestHDTNFileTransferTCPCL() {
 
     //Bpgen
     static const std::string bpgenConfigArg = 
-	"--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_ltp_port4556_thisengineid200.json").string();
+	"--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_tcpclv4_port4556_thisengineid200.json").string();
     static const char * argsBpgen[] = { "bpsendfile",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", "--file-or-folder-path=test.txt", bpgenConfigArg.c_str(), NULL };
     std::thread threadBpgen(RunBpgenAsync,argsBpgen, 7, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
 
@@ -790,9 +793,9 @@ bool TestHDTNFileTransferTCPCL() {
     
     return true;
 }
-*/
 
-/*
+
+////////////////////////
 bool TestHDTNCutThroughModeTCPCL() {
 
     Delay(DELAY_TEST);
@@ -888,7 +891,7 @@ bool TestHDTNCutThroughModeTCPCL() {
     return true;
 }
 
-
+/////////////////////////////////
 bool TestHDTNCutThroughModeTCPCLv7() {
 
     Delay(DELAY_TEST);
@@ -985,7 +988,8 @@ bool TestHDTNCutThroughModeTCPCLv7() {
     return true;
 }
 
-
+//////////////////////////////
+/*
 bool TestHDTNStorageModeTCPCL() {
 
     Delay(DELAY_TEST);
@@ -1084,6 +1088,7 @@ bool TestHDTNStorageModeTCPCL() {
     return true;
 }
 
+/////////////////////////
 bool TestHDTNStorageModeTCPCLv7() {
 
     Delay(DELAY_TEST);
@@ -1181,20 +1186,20 @@ bool TestHDTNStorageModeTCPCLv7() {
 
     return true;
 }
-
 */
+//////////////////////////
 
 BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 
-BOOST_AUTO_TEST_CASE(it_TestHDTNFileTransferLTP, * boost::unit_test::enabled()) {
+BOOST_AUTO_TEST_CASE(it_TestHDTNFileTransferTCPCL, * boost::unit_test::enabled()) {
     std::cout << std::endl << ">>>>>> Running: " << "it_TestHDTNFileTransferLTP" << std::endl << std::flush;
-    bool result = TestHDTNFileTransferLTP();
+    bool result = TestHDTNFileTransferTCPCL();
     BOOST_CHECK(result == true);
 }
 
 BOOST_AUTO_TEST_CASE(it_TestHDTNFileTransferLTPv7, * boost::unit_test::enabled()) {
     std::cout << std::endl << ">>>>>> Running: " << "it_TestHDTNFileTransferLTP for version 7" << std::endl << std::flush;
-    bool result = TestHDTNFileTransferLTP();
+    bool result = TestHDTNFileTransferLTPv7();
     BOOST_CHECK(result == true);
 }
 
@@ -1204,6 +1209,14 @@ BOOST_AUTO_TEST_CASE(it_TestHDTNCutThroughModeLTP, * boost::unit_test::enabled()
     BOOST_CHECK(result == true);
 }
 
+BOOST_AUTO_TEST_CASE(it_TestHDTNFileTransferLTP, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestHDTNFileTransferLTP" << std::endl << std::flush;
+    bool result = TestHDTNFileTransferLTP();
+    BOOST_CHECK(result == true);
+}
+
+
+/*
 BOOST_AUTO_TEST_CASE(it_TestHDTNStorageModeLTP, * boost::unit_test::enabled()) {
     std::cout << std::endl << ">>>>>> Running: " << "it_TestHDTNStorageModeLTP" << std::endl << std::flush;
     bool result = TestHDTNStorageModeLTP();
@@ -1221,9 +1234,7 @@ BOOST_AUTO_TEST_CASE(it_TestHDTNStorageModeLTPv7, * boost::unit_test::enabled())
     bool result = TestHDTNStorageModeLTPv7();
     BOOST_CHECK(result == true);
 }
-
-
-
+*/
 /*
 BOOST_AUTO_TEST_CASE(it_TestHDTNCutThroughModeTCPCL, * boost::unit_test::enabled()) {
     std::cout << std::endl << ">>>>>> Running: " << "it_TestHDTNCutThroughModeTCPCL" << std::endl << std::flush;
@@ -1236,7 +1247,7 @@ BOOST_AUTO_TEST_CASE(it_TestHDTNStorageModeTCPCL, * boost::unit_test::enabled())
     bool result = TestHDTNStorageModeTCPCL();
     BOOST_CHECK(result == true);
 }
-
+*/
 /*
 BOOST_AUTO_TEST_CASE(it_TestHDTNCutThroughModeTCPCLv7, * boost::unit_test::enabled()) {
     std::cout << std::endl << ">>>>>> Running: " << "it_TestHDTNCutThroughModeTCPCL for version 7" << std::endl << std::flush;
