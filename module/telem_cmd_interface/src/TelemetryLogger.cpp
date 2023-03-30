@@ -84,6 +84,9 @@ double TelemetryLogger::GetIngressMbpsRate(const AllInductTelemetry_t& telem)
             nowTime,
             lastProcessedTime
     );
+
+    lastTotalDataBytes = totalDataBytes;
+    lastProcessedTime = nowTime;
     return rate;
 }
 
@@ -104,6 +107,9 @@ double TelemetryLogger::GetEgressMbpsRate(const AllOutductTelemetry_t& telem)
             nowTime,
             lastProcessedTime
     );
+
+    lastTotalDataBytes = totalDataBytes;
+    lastProcessedTime = nowTime;
     return rate;
 }
 
