@@ -2,7 +2,7 @@
  * @file TestBundleStorageCatalog.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -170,4 +170,100 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogTestCase)
     }
 
     
+}
+
+BOOST_AUTO_TEST_CASE(BundleStorageCatalogExpiredCase)
+{
+    BundleStorageCatalog bsc;
+
+    const uint64_t bundleSize = 1000;
+    const uint64_t bundleRequiredSegments = 1;
+    const uint64_t startCustodyId = 1;
+    const uint64_t creation = 0;
+
+    for(int i = 0; i < 10; i++) {
+        Bpv6CbhePrimaryBlock primaryV6;
+        CreatePrimaryV6(primaryV6, cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), true, creation, i);
+
+        catalog_entry_t catalogEntryToTake;
+        catalogEntryToTake.Init(primaryV6, bundleSize, bundleRequiredSegments, NULL);
+        catalogEntryToTake.segmentIdChainVec = { static_cast<segment_id_t>(i) };
+
+        bool ret = bsc.CatalogIncomingBundleForStore(
+                catalogEntryToTake,
+                primaryV6,
+                i,
+                BundleStorageCatalog::DUPLICATE_EXPIRY_ORDER::FIFO);
+
+        BOOST_REQUIRE_EQUAL(ret, true);
+    }
+    uint64_t expiry = creation + 2000; // lifetime is 1000
+    std::vector<uint64_t> ids = bsc.GetExpiredBundleIds(expiry, 0);
+    BOOST_REQUIRE_EQUAL(bsc.GetNumBundlesInCatalog(), 10);
+
+    std::sort(ids.begin(), ids.end());
+    BOOST_TEST(ids == std::vector<uint64_t>({0, 1, 2, 3, 4, 5, 6, 7, 8, 9}));
+}
+
+BOOST_AUTO_TEST_CASE(BundleStorageCatalogNoExpiredTestCase)
+{
+    BundleStorageCatalog bsc;
+
+    const uint64_t bundleSize = 1000;
+    const uint64_t bundleRequiredSegments = 1;
+    const uint64_t custodyId = 1;
+    const uint64_t creation = 0;
+
+    Bpv6CbhePrimaryBlock primaryV6;
+    CreatePrimaryV6(primaryV6, cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), true, creation, 1);
+
+    catalog_entry_t catalogEntryToTake;
+    catalogEntryToTake.Init(primaryV6, bundleSize, bundleRequiredSegments, NULL);
+    catalogEntryToTake.segmentIdChainVec = { static_cast<segment_id_t>(0) };
+
+    bool ret = bsc.CatalogIncomingBundleForStore(
+            catalogEntryToTake,
+            primaryV6,
+            custodyId,
+            BundleStorageCatalog::DUPLICATE_EXPIRY_ORDER::FIFO);
+
+    BOOST_REQUIRE_EQUAL(ret, true);
+    uint64_t expiry = creation + 500; // lifetime is 1000, so we check at 500
+    std::vector<uint64_t> ids = bsc.GetExpiredBundleIds(expiry, 0);
+    BOOST_REQUIRE_EQUAL(bsc.GetNumBundlesInCatalog(), 1);
+
+    BOOST_TEST(ids.size() == 0);
+}
+
+BOOST_AUTO_TEST_CASE(BundleStorageCatalogMaxExpiredCase)
+{
+    BundleStorageCatalog bsc;
+
+    const uint64_t bundleSize = 1000;
+    const uint64_t bundleRequiredSegments = 1;
+    const uint64_t startCustodyId = 1;
+    const uint64_t creation = 0;
+
+    for(int i = 0; i < 10; i++) {
+        Bpv6CbhePrimaryBlock primaryV6;
+        CreatePrimaryV6(primaryV6, cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), true, creation, i);
+
+
+        catalog_entry_t catalogEntryToTake;
+        catalogEntryToTake.Init(primaryV6, bundleSize, bundleRequiredSegments, NULL);
+        catalogEntryToTake.segmentIdChainVec = { static_cast<segment_id_t>(i) };
+
+        bool ret = bsc.CatalogIncomingBundleForStore(
+                catalogEntryToTake,
+                primaryV6,
+                i,
+                BundleStorageCatalog::DUPLICATE_EXPIRY_ORDER::FIFO);
+
+        BOOST_REQUIRE_EQUAL(ret, true);
+    }
+    uint64_t expiry = creation + 2000; // lifetime is 1000
+    std::vector<uint64_t> ids = bsc.GetExpiredBundleIds(expiry, 5);
+    BOOST_REQUIRE_EQUAL(bsc.GetNumBundlesInCatalog(), 10);
+
+    BOOST_TEST(ids.size() == 5);
 }
