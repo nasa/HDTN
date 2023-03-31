@@ -20,7 +20,6 @@ Build Environment
     * Windows 10 (64-bit)
     * Windows Server 2022 (64-bit)
     * Windows Server 2019 (64-bit)
-* MacOS
 * Raspbian
 
 ## Dependencies ## 
@@ -278,7 +277,7 @@ To access a container in a pod, enter the following command:
 ```
 microk8s kubectl exec -it container_name -- bash
 ```
-When. your finished working with this deployment, delete it using:
+When you're finished working with this deployment, delete it using:
 ```
 microk8s kubectl delete deployment hdtn-deployment
 ```
