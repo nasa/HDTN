@@ -1,8 +1,5 @@
 #!/bin/bash
 
-#export HDTN_BUILD_ROOT=/home/btomko/hdtn/build
-#export HDTN_SOURCE_ROOT=/home/btomko/hdtn
-
 
 NAME="HDTN_RECEIVER"
 DEST="HDTN_SENDER"
@@ -57,7 +54,7 @@ if (( CUSTODY == 0 )); then
 	echo "Done"
 	echo "Starting checksums"
 
-	./sha.sh ./received/ $NAME $CL $TIME
+	./sha.sh ./received/ 
 
 	rm -rf ./received/*
 	echo "Test done"
@@ -75,7 +72,7 @@ else
 	echo "Done"
 	echo "Starting checksums"
 	
-	./sha.sh ./received/ $NAME $CL $TIME
+	./sha.sh ./received/
 
 	rm -rf ./received/*
 
