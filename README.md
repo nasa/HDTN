@@ -9,6 +9,16 @@ High-rate Delay Tolerant Networking (HDTN) takes advantage of modern hardware pl
 
 Also see the [HDTN wiki](https://github.com/nasa/HDTN/wiki) for more information. 
 
+Architecture
+=============
+HDTN is written in C++, and is designed to be modular. These modules include:
+* Ingress - Processes incoming bundles.
+* Scheduler - Determines if outgoing bundles can be forwarded or must be stored based on the contact plan.
+* Storage - Stores bundles to disk.
+* Router - Calculates the next hop for the bundle.
+* Egress - Forwards bundles to the proper outduct and next hop.
+* Telemetry Command Interface - Web interface that displays the operations and data for HDTN.
+
 Build Environment
 ==================
 ## Tested Platforms ##
@@ -20,8 +30,8 @@ Build Environment
     * Windows 10 (64-bit)
     * Windows Server 2022 (64-bit)
     * Windows Server 2019 (64-bit)
-* MacOS
 * Raspbian
+* ARM on x86
 
 ## Dependencies ## 
 HDTN build environment requires:
@@ -278,7 +288,7 @@ To access a container in a pod, enter the following command:
 ```
 microk8s kubectl exec -it container_name -- bash
 ```
-When. your finished working with this deployment, delete it using:
+When you're finished working with this deployment, delete it using:
 ```
 microk8s kubectl delete deployment hdtn-deployment
 ```
