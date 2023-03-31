@@ -80,7 +80,7 @@ StorageConfig::StorageConfig(StorageConfig&& o) noexcept :
     m_tryToRestoreFromDisk(o.m_tryToRestoreFromDisk),
     m_autoDeleteFilesOnExit(o.m_autoDeleteFilesOnExit),
     m_totalStorageCapacityBytes(o.m_totalStorageCapacityBytes),
-    m_storageDeletionPolicy(o.m_storageDeletionPolicy),
+    m_storageDeletionPolicy(std::move(o.m_storageDeletionPolicy)),
     m_storageDiskConfigVector(std::move(o.m_storageDiskConfigVector)) { }
 
 //a copy assignment: operator=(const X&)
@@ -100,7 +100,7 @@ StorageConfig& StorageConfig::operator=(StorageConfig&& o) noexcept {
     m_tryToRestoreFromDisk = o.m_tryToRestoreFromDisk;
     m_autoDeleteFilesOnExit = o.m_autoDeleteFilesOnExit;
     m_totalStorageCapacityBytes = o.m_totalStorageCapacityBytes;
-    m_storageDeletionPolicy = o.m_storageDeletionPolicy;
+    m_storageDeletionPolicy = std::move(o.m_storageDeletionPolicy);
     m_storageDiskConfigVector = std::move(o.m_storageDiskConfigVector);
     return *this;
 }
