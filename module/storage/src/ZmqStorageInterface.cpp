@@ -114,8 +114,8 @@ private:
     void SyncTelemetry();
     void TelemEventsHandler();
     static std::string SprintCustodyidToSizeMap(const custodyid_to_size_map_t& m);
-    void deleteExpiredBundles();
-    void deleteBundleById(const uint64_t custodyId);
+    void DeleteExpiredBundles();
+    void DeleteBundleById(const uint64_t custodyId);
 
 public:
     StorageTelemetry_t m_telem;
@@ -782,7 +782,7 @@ void ZmqStorageInterface::Impl::SyncTelemetry() {
  *
  * @param custodyId The custody ID of the bundle to delete
  */
-void ZmqStorageInterface::Impl::deleteBundleById(const uint64_t custodyId) {
+void ZmqStorageInterface::Impl::DeleteBundleById(const uint64_t custodyId) {
     catalog_entry_t *entry = m_bsmPtr->GetCatalogEntryPtrFromCustodyId(custodyId);
     if(!entry) {
         LOG_ERROR(subprocess) << "Failed to get catalog entry for " << custodyId << " while deleting for expiry";
@@ -814,7 +814,7 @@ void ZmqStorageInterface::Impl::deleteBundleById(const uint64_t custodyId) {
  * bundles are deleted. (Avoid blocking event loop unless full).
  *
  */
-void ZmqStorageInterface::Impl::deleteExpiredBundles() {
+void ZmqStorageInterface::Impl::DeleteExpiredBundles() {
 
     const std::string policy = m_hdtnConfig.m_storageConfig.m_storageDeletionPolicy;
     if(policy == "never") {
@@ -837,7 +837,7 @@ void ZmqStorageInterface::Impl::deleteExpiredBundles() {
     std::vector<uint64_t> expiredIds = m_bsmPtr->GetExpiredBundleIds(expiry, numToDelete);
 
     for(uint64_t custodyId : expiredIds) {
-        deleteBundleById(custodyId);
+        DeleteBundleById(custodyId);
         m_telem.m_totalBundlesErasedFromStorageBecauseExpired++;
     }
 }
@@ -1334,7 +1334,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
             }
         }
 
-        deleteExpiredBundles();
+        DeleteExpiredBundles();
 
         //For each outduct or opportunistic induct, send to Egress the bundles read from disk or the
         //bundles forwarded over the cut-through path from ingress, alternating/multiplexing between the two.
