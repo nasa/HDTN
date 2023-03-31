@@ -324,7 +324,7 @@ uint64_t * BundleStorageCatalog::GetCustodyIdFromUuid(const cbhe_bundle_uuid_nof
     return m_uuidNoFragToCustodyIdHashMap.GetValuePtr(bundleUuid);
 }
 
-std::vector<uint64_t> BundleStorageCatalog::GetExpiredBundleIds(const uint64_t expiry, const int64_t numberToFind) {
+std::vector<uint64_t> BundleStorageCatalog::GetExpiredBundleIds(const uint64_t expiry, const int64_t maxNumberToFind) {
 
     std::vector<uint64_t> ids;
 
@@ -340,7 +340,7 @@ std::vector<uint64_t> BundleStorageCatalog::GetExpiredBundleIds(const uint64_t e
                     for (custids_flist_queue_t::iterator cidFlistIt = custodyIdFlistQueue.begin(); cidFlistIt != custodyIdFlistQueue.end(); ++cidFlistIt) {
                         const uint64_t custodyId = *cidFlistIt;
                         ids.push_back(custodyId);
-                        if(numberToFind && ids.size() >= numberToFind) {
+                        if(maxNumberToFind && ids.size() >= maxNumberToFind) {
                             goto done;
                         }
                     }

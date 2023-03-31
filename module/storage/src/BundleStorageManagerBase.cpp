@@ -436,8 +436,8 @@ uint64_t * BundleStorageManagerBase::GetCustodyIdFromUuid(const cbhe_bundle_uuid
 bool BundleStorageManagerBase::GetStorageExpiringBeforeThresholdTelemetry(StorageExpiringBeforeThresholdTelemetry_t& telem) {
     return m_bundleStorageCatalog.GetStorageExpiringBeforeThresholdTelemetry(telem);
 }
-std::vector<uint64_t> BundleStorageManagerBase::GetExpiredBundleIds(const uint64_t expiry, const int64_t numToDelete) {
-    return m_bundleStorageCatalog.GetExpiredBundleIds(expiry, numToDelete);
+std::vector<uint64_t> BundleStorageManagerBase::GetExpiredBundleIds(const uint64_t expiry, const int64_t maxNumberToFind) {
+    return m_bundleStorageCatalog.GetExpiredBundleIds(expiry, maxNumberToFind);
 }
 //uint64_t BundleStorageManagerMT::TopSegmentCount(BundleStorageManagerSession_ReadFromDisk & session) {
 //	return session.chainInfoVecPtr->front().second.size(); //use the front as new writes will be pushed back
