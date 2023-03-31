@@ -61,6 +61,7 @@
         "tryToRestoreFromDisk": false,
         "autoDeleteFilesOnExit": true,
         "totalStorageCapacityBytes": 819200000000,
+        "storageDeletionPolicy" : "never",
         "storageDiskConfigVector": [
             {
                 "name": "drive T",
