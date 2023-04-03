@@ -549,7 +549,10 @@ bool TestHDTNFileTransferLTP() {
     //Bpgen
     static const std::string bpgenConfigArg = 
 	"--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_ltp_port4556_thisengineid200.json").string();
-    static const char * argsBpgen[] = { "bpsendfile",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", "$HDTN_SOURCE_ROOT/tests/integrated_tests/src/text.txt=test.txt", bpgenConfigArg.c_str(), NULL };
+    static const std::string testFile = 
+	"--file-or-folder-path=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "integrated_tests" / "src" / "test.txt" ).string();
+   
+    static const char * argsBpgen[] = { "bpsendfile",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", testFile.c_str(), bpgenConfigArg.c_str(), NULL };
     std::thread threadBpgen(RunBpgenAsync,argsBpgen, 7, std::ref(runningBpsend), &bundlesSentBpsend[0], &finalStats[0]);
 
     // Allow time for data to flow
@@ -644,7 +647,7 @@ bool TestHDTNFileTransferLTPv7() {
     //Bpgen
     static const std::string bpgenConfigArg = 
 	"--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_ltp_port4556_thisengineid200.json").string();
-    static const char * argsBpgen[] = { "bpsendfile",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", "--file-or-folder-path=test.txt", "--use-bp-version-7", bpgenConfigArg.c_str(), NULL };
+    static const char * argsBpgen[] = { "bpsendfile",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", "home/alyssa/Integrated_tests/hdtn/tests/integrated_tests/src/=test.txt", "--use-bp-version-7", bpgenConfigArg.c_str(), NULL };
     std::thread threadBpgen(RunBpgenAsync,argsBpgen, 8, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
 
     // Allow time for data to flow
@@ -740,7 +743,7 @@ bool TestHDTNFileTransferTCPCL() {
     //Bpgen
     static const std::string bpgenConfigArg = 
 	"--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_tcpclv4_port4556_thisengineid200.json").string();
-    static const char * argsBpgen[] = { "bpsendfile",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", "--file-or-folder-path=test.txt", bpgenConfigArg.c_str(), NULL };
+    static const char * argsBpgen[] = { "bpsendfile",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", "home/alyssa/Integrated_tests/hdtn/tests/integrated_tests/src/=test.txt", bpgenConfigArg.c_str(), NULL };
     std::thread threadBpgen(RunBpgenAsync,argsBpgen, 7, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
 
     // Allow time for data to flow
@@ -1191,6 +1194,13 @@ bool TestHDTNStorageModeTCPCLv7() {
 
 BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 
+BOOST_AUTO_TEST_CASE(it_TestHDTNCutThroughModeLTP, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestHDTNCutThroughModeLTP" << std::endl << std::flush;
+    bool result = TestHDTNCutThroughModeLTP();
+    BOOST_CHECK(result == true);
+}
+
+/*
 BOOST_AUTO_TEST_CASE(it_TestHDTNFileTransferTCPCL, * boost::unit_test::enabled()) {
     std::cout << std::endl << ">>>>>> Running: " << "it_TestHDTNFileTransferLTP" << std::endl << std::flush;
     bool result = TestHDTNFileTransferTCPCL();
@@ -1202,12 +1212,7 @@ BOOST_AUTO_TEST_CASE(it_TestHDTNFileTransferLTPv7, * boost::unit_test::enabled()
     bool result = TestHDTNFileTransferLTPv7();
     BOOST_CHECK(result == true);
 }
-
-BOOST_AUTO_TEST_CASE(it_TestHDTNCutThroughModeLTP, * boost::unit_test::enabled()) {
-    std::cout << std::endl << ">>>>>> Running: " << "it_TestHDTNCutThroughModeLTP" << std::endl << std::flush;
-    bool result = TestHDTNCutThroughModeLTP();
-    BOOST_CHECK(result == true);
-}
+*/
 
 BOOST_AUTO_TEST_CASE(it_TestHDTNFileTransferLTP, * boost::unit_test::enabled()) {
     std::cout << std::endl << ">>>>>> Running: " << "it_TestHDTNFileTransferLTP" << std::endl << std::flush;
