@@ -75,8 +75,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         Test(const LtpEngineConfig& ltpRxCfg, const LtpEngineConfig& ltpTxCfg) :
             ltpUdpEngineManagerSrcPtr(LtpUdpEngineManager::GetOrCreateInstance(ltpTxCfg.myBoundUdpPort, true)),
             ltpUdpEngineManagerDestPtr(LtpUdpEngineManager::GetOrCreateInstance(ltpRxCfg.myBoundUdpPort, true)),
-            udpDelaySimDataSegmentProxy(ltpTxCfg.remotePort, "localhost", boost::lexical_cast<std::string>(ltpRxCfg.myBoundUdpPort), 1000, 100, ACTUAL_DELAY_SRC_TO_DEST, true),
-            udpDelaySimReportSegmentProxy(ltpRxCfg.remotePort, "localhost", boost::lexical_cast<std::string>(ltpTxCfg.myBoundUdpPort), 1000, 100, ACTUAL_DELAY_DEST_TO_SRC, true),
+            udpDelaySimDataSegmentProxy(ltpTxCfg.remotePort, "localhost", boost::lexical_cast<std::string>(ltpRxCfg.myBoundUdpPort), 1000, 100, ACTUAL_DELAY_SRC_TO_DEST, 0, 0, true),
+            udpDelaySimReportSegmentProxy(ltpRxCfg.remotePort, "localhost", boost::lexical_cast<std::string>(ltpTxCfg.myBoundUdpPort), 1000, 100, ACTUAL_DELAY_DEST_TO_SRC, 0, 0, true),
             DESIRED_RED_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!"),
             DESIRED_RED_AND_GREEN_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!GGE"), //G=>green data not EOB, E=>green datat EOB
             DESIRED_FULLY_GREEN_DATA_TO_SEND("GGGGGGGGGGGGGGGGGE"),
