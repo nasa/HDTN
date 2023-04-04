@@ -232,7 +232,7 @@ void StcpBundleSink::HandleSocketShutdown() {
                 LOG_ERROR(subprocess) << "StcpBundleSink::HandleSocketShutdown: " << e.what();
             }
         }
-        LOG_INFO(subprocess) << "deleting TcpclBundleSink TCP Socket";
+        LOG_INFO(subprocess) << "deleting StcpBundleSink TCP Socket";
         if (m_tcpSocketPtr.use_count() != 1) {
             LOG_ERROR(subprocess) << "m_tcpSocketPtr.use_count() != 1";
         }
