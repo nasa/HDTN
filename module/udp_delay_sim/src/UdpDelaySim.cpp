@@ -227,6 +227,12 @@ void UdpDelaySim::DoUdpShutdown() {
         LOG_WARNING(subprocess) << "UdpDelaySim::DoUdpShutdown calling udpPacketSendDelayTimer.cancel(): " << e.what();
     }
     try {
+        m_timerLossOfSignal.cancel();
+    }
+    catch (const boost::system::system_error& e) {
+        LOG_WARNING(subprocess) << "UdpDelaySim::DoUdpShutdown calling timerLossOfSignal.cancel(): " << e.what();
+    }
+    try {
         m_timerTransferRateStats.cancel();
     }
     catch (const boost::system::system_error& e) {

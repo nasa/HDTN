@@ -737,6 +737,15 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                     ingress_shared_lock_t lockShared(m_sharedMutexFinalDestsToOutductArrayIndexMaps);
                     BundlePipelineAckingSet& bundlePipelineAckingSetObj = (receivedStorageAck.outductIndex == UINT64_MAX) ?
                         m_singleStorageBundlePipelineAckingSet : (*(m_vectorBundlePipelineAckingSet[receivedStorageAck.outductIndex]));
+                    if (receivedStorageAck.error && (receivedStorageAck.outductIndex != UINT64_MAX)) {
+                        //trigger a link down event in ingress more quickly than waiting for scheduler.
+                        //storage shall write the failed bundle to storage.
+                        if (bundlePipelineAckingSetObj.m_linkIsUp) {
+                            bundlePipelineAckingSetObj.m_linkIsUp = false; //no mutex needed as this flag is only set from ReadZmqAcksThreadFunc
+                            LOG_INFO(subprocess) << "Got a link down notification from storage for outductIndex "
+                                << receivedStorageAck.outductIndex;
+                        }
+                    }
                     if (bundlePipelineAckingSetObj.CompareAndPop_ThreadSafe(receivedStorageAck.ingressUniqueId, false)) { //false => is Storage
                         bundlePipelineAckingSetObj.NotifyAll();
                         ++totalAcksFromStorage;
