@@ -144,7 +144,7 @@ function Disk(paramSvgRootGroup, paramX, paramY, paramRadius, paramPerspectiveRa
         .attr("class", "disk_text")
         .attr("dy", ".35em")
         //.attr("text-anchor", "end")
-        .attr("transform", "translate(0," + (30) +")")
+        .attr("transform", "translate(0," + (-height + perspectiveRadius + 10) +")")
         .attr("text-anchor", "middle")
         .text(diskName);
 
