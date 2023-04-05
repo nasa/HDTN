@@ -174,96 +174,127 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogTestCase)
 
 BOOST_AUTO_TEST_CASE(BundleStorageCatalogExpiredCase)
 {
-    BundleStorageCatalog bsc;
-
     const uint64_t bundleSize = 1000;
     const uint64_t bundleRequiredSegments = 1;
     const uint64_t startCustodyId = 1;
     const uint64_t creation = 0;
 
-    for(int i = 0; i < 10; i++) {
-        Bpv6CbhePrimaryBlock primaryV6;
-        CreatePrimaryV6(primaryV6, cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), true, creation, i);
+    for(unsigned int whichBundleVersion = 6; whichBundleVersion <= 7; ++whichBundleVersion) {
+        BundleStorageCatalog bsc;
 
-        catalog_entry_t catalogEntryToTake;
-        catalogEntryToTake.Init(primaryV6, bundleSize, bundleRequiredSegments, NULL);
-        catalogEntryToTake.segmentIdChainVec = { static_cast<segment_id_t>(i) };
+        for(int i = 0; i < 10; i++) {
+            std::unique_ptr<PrimaryBlock> primary;
+            if(whichBundleVersion == 6) {
+                std::unique_ptr<Bpv6CbhePrimaryBlock> p(new Bpv6CbhePrimaryBlock());
+                CreatePrimaryV6(*p, cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), true, creation, i);
+                primary = std::move(p);
+            } else {
+                std::unique_ptr<Bpv7CbhePrimaryBlock> p(new Bpv7CbhePrimaryBlock());
+                CreatePrimaryV7(*p, cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), true, creation, i);
+                primary = std::move(p);
+            }
 
-        bool ret = bsc.CatalogIncomingBundleForStore(
-                catalogEntryToTake,
-                primaryV6,
-                i,
-                BundleStorageCatalog::DUPLICATE_EXPIRY_ORDER::FIFO);
+            catalog_entry_t catalogEntryToTake;
+            catalogEntryToTake.Init(*primary, bundleSize, bundleRequiredSegments, NULL);
+            catalogEntryToTake.segmentIdChainVec = { static_cast<segment_id_t>(i) };
 
-        BOOST_REQUIRE_EQUAL(ret, true);
+            bool ret = bsc.CatalogIncomingBundleForStore(
+                    catalogEntryToTake,
+                    *primary,
+                    i,
+                    BundleStorageCatalog::DUPLICATE_EXPIRY_ORDER::FIFO);
+
+            BOOST_REQUIRE(ret);
+        }
+        uint64_t expiry = creation + 2000; // lifetime is 1000
+        std::vector<uint64_t> ids = bsc.GetExpiredBundleIds(expiry, 0);
+        BOOST_REQUIRE_EQUAL(bsc.GetNumBundlesInCatalog(), 10);
+
+        std::sort(ids.begin(), ids.end());
+        BOOST_REQUIRE(ids == std::vector<uint64_t>({0, 1, 2, 3, 4, 5, 6, 7, 8, 9}));
     }
-    uint64_t expiry = creation + 2000; // lifetime is 1000
-    std::vector<uint64_t> ids = bsc.GetExpiredBundleIds(expiry, 0);
-    BOOST_REQUIRE_EQUAL(bsc.GetNumBundlesInCatalog(), 10);
-
-    std::sort(ids.begin(), ids.end());
-    BOOST_TEST(ids == std::vector<uint64_t>({0, 1, 2, 3, 4, 5, 6, 7, 8, 9}));
 }
 
 BOOST_AUTO_TEST_CASE(BundleStorageCatalogNoExpiredTestCase)
 {
-    BundleStorageCatalog bsc;
 
     const uint64_t bundleSize = 1000;
     const uint64_t bundleRequiredSegments = 1;
     const uint64_t custodyId = 1;
     const uint64_t creation = 0;
 
-    Bpv6CbhePrimaryBlock primaryV6;
-    CreatePrimaryV6(primaryV6, cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), true, creation, 1);
+    for(unsigned int whichBundleVersion = 6; whichBundleVersion <= 7; ++whichBundleVersion) {
+        BundleStorageCatalog bsc;
 
-    catalog_entry_t catalogEntryToTake;
-    catalogEntryToTake.Init(primaryV6, bundleSize, bundleRequiredSegments, NULL);
-    catalogEntryToTake.segmentIdChainVec = { static_cast<segment_id_t>(0) };
+        std::unique_ptr<PrimaryBlock> primary;
+        if(whichBundleVersion == 6) {
+            std::unique_ptr<Bpv6CbhePrimaryBlock> p(new Bpv6CbhePrimaryBlock());
+            CreatePrimaryV6(*p, cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), true, creation, 1);
+            primary = std::move(p);
+        } else {
+            std::unique_ptr<Bpv7CbhePrimaryBlock> p(new Bpv7CbhePrimaryBlock());
+            CreatePrimaryV7(*p, cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), true, creation, 1);
+            primary = std::move(p);
+        }
 
-    bool ret = bsc.CatalogIncomingBundleForStore(
-            catalogEntryToTake,
-            primaryV6,
-            custodyId,
-            BundleStorageCatalog::DUPLICATE_EXPIRY_ORDER::FIFO);
 
-    BOOST_REQUIRE_EQUAL(ret, true);
-    uint64_t expiry = creation + 500; // lifetime is 1000, so we check at 500
-    std::vector<uint64_t> ids = bsc.GetExpiredBundleIds(expiry, 0);
-    BOOST_REQUIRE_EQUAL(bsc.GetNumBundlesInCatalog(), 1);
+        catalog_entry_t catalogEntryToTake;
+        catalogEntryToTake.Init(*primary, bundleSize, bundleRequiredSegments, NULL);
+        catalogEntryToTake.segmentIdChainVec = { static_cast<segment_id_t>(0) };
 
-    BOOST_TEST(ids.size() == 0);
+        bool ret = bsc.CatalogIncomingBundleForStore(
+                catalogEntryToTake,
+                *primary,
+                custodyId,
+                BundleStorageCatalog::DUPLICATE_EXPIRY_ORDER::FIFO);
+
+        BOOST_REQUIRE_EQUAL(ret, true);
+        uint64_t expiry = creation + 500; // lifetime is 1000, so we check at 500
+        std::vector<uint64_t> ids = bsc.GetExpiredBundleIds(expiry, 0);
+        BOOST_REQUIRE_EQUAL(bsc.GetNumBundlesInCatalog(), 1);
+
+        BOOST_REQUIRE_EQUAL(ids.size(), 0);
+    }
 }
 
 BOOST_AUTO_TEST_CASE(BundleStorageCatalogMaxExpiredCase)
 {
-    BundleStorageCatalog bsc;
-
     const uint64_t bundleSize = 1000;
     const uint64_t bundleRequiredSegments = 1;
     const uint64_t startCustodyId = 1;
     const uint64_t creation = 0;
 
-    for(int i = 0; i < 10; i++) {
-        Bpv6CbhePrimaryBlock primaryV6;
-        CreatePrimaryV6(primaryV6, cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), true, creation, i);
+    for(unsigned int whichBundleVersion = 6; whichBundleVersion <= 7; ++whichBundleVersion) {
+        BundleStorageCatalog bsc;
 
+        for(int i = 0; i < 10; i++) {
+            std::unique_ptr<PrimaryBlock> primary;
+            if(whichBundleVersion == 6) {
+                std::unique_ptr<Bpv6CbhePrimaryBlock> p(new Bpv6CbhePrimaryBlock());
+                CreatePrimaryV6(*p, cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), true, creation, i);
+                primary = std::move(p);
+            } else {
+                std::unique_ptr<Bpv7CbhePrimaryBlock> p(new Bpv7CbhePrimaryBlock());
+                CreatePrimaryV7(*p, cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), true, creation, i);
+                primary = std::move(p);
+            }
 
-        catalog_entry_t catalogEntryToTake;
-        catalogEntryToTake.Init(primaryV6, bundleSize, bundleRequiredSegments, NULL);
-        catalogEntryToTake.segmentIdChainVec = { static_cast<segment_id_t>(i) };
+            catalog_entry_t catalogEntryToTake;
+            catalogEntryToTake.Init(*primary, bundleSize, bundleRequiredSegments, NULL);
+            catalogEntryToTake.segmentIdChainVec = { static_cast<segment_id_t>(i) };
 
-        bool ret = bsc.CatalogIncomingBundleForStore(
-                catalogEntryToTake,
-                primaryV6,
-                i,
-                BundleStorageCatalog::DUPLICATE_EXPIRY_ORDER::FIFO);
+            bool ret = bsc.CatalogIncomingBundleForStore(
+                    catalogEntryToTake,
+                    *primary,
+                    i,
+                    BundleStorageCatalog::DUPLICATE_EXPIRY_ORDER::FIFO);
 
-        BOOST_REQUIRE_EQUAL(ret, true);
+            BOOST_REQUIRE_EQUAL(ret, true);
+        }
+        uint64_t expiry = creation + 2000; // lifetime is 1000
+        std::vector<uint64_t> ids = bsc.GetExpiredBundleIds(expiry, 5);
+        BOOST_REQUIRE_EQUAL(bsc.GetNumBundlesInCatalog(), 10);
+
+        BOOST_REQUIRE_EQUAL(ids.size(), 5);
     }
-    uint64_t expiry = creation + 2000; // lifetime is 1000
-    std::vector<uint64_t> ids = bsc.GetExpiredBundleIds(expiry, 5);
-    BOOST_REQUIRE_EQUAL(bsc.GetNumBundlesInCatalog(), 10);
-
-    BOOST_TEST(ids.size() == 5);
 }
