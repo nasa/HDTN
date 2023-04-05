@@ -35,7 +35,9 @@
 #include <boost/test/unit_test_parameters.hpp>
 #include "Environment.h"
 #include "BpGenAsyncRunner.h"
+#include "BpSendFileRunner.h"
 #include "BpSinkAsyncRunner.h"
+#include "BpReceiveFileRunner.h"
 #include "HdtnOneProcessRunner.h"
 #include "EgressAsyncRunner.h"
 #include "StorageRunner.h"
@@ -52,6 +54,8 @@
 
 int RunBpgenAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount, OutductFinalStats * ptrFinalStats);
 int RunBpsinkAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount, FinalStatsBpSink * ptrFinalStatsBpSink);
+int RunBpSendFile(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
+int RunBpReceiveFile(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
 int RunHdtnOneProcess(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCountStorage,
                       uint64_t* ptrBundleCountEgress, uint64_t* ptrBundleCountIngress);
 void Delay(uint64_t seconds);
@@ -102,6 +106,23 @@ int RunBpsinkAsync(const char * argv[], int argc, bool & running, uint64_t* ptrB
     }
     return 0;
 }
+
+int RunBpSendFile(const char * argv[], int argc, bool & running) {
+    {
+        BpSendFileRunner runner;
+        runner.Run(argc, argv, running, false);
+    }
+    return 0;
+}
+
+int RunBpReceiveFile(const char * argv[], int argc, bool & running) {
+    {
+        BpReceiveFileRunner runner;
+        runner.Run(argc, argv, running, false);
+    }
+    return 0;
+}
+
 
 int RunHdtnOneProcess(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCountStorage, 
 		      uint64_t* ptrBundleCountEgress, uint64_t* ptrBundleCountIngress) {
@@ -518,8 +539,8 @@ bool TestHDTNFileTransferLTP() {
     bool runningHdtnOneProcess = true; 
 
     uint64_t bundlesSentBpsend[1] = {0};
-    OutductFinalStats finalStats[1];
-    FinalStatsBpSink finalStatsBpSink[1];
+    //OutductFinalStats finalStats[1];
+    //FinalStatsBpSink finalStatsBpSink[1];
     uint64_t bundlesReceivedBpreceive[1]= {0};
     uint64_t bundleCountStorage = 0;
     uint64_t bundleCountEgress = 0;
@@ -530,9 +551,8 @@ bool TestHDTNFileTransferLTP() {
 
     //bpsink
     static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_ltp_port4558.json").string();
-    static const char * argsBpsink[] = { "bpreceivefile",  "--save-directory=received", "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
-    std::thread threadBpsink(RunBpsinkAsync, argsBpsink, 4, std::ref(runningBpreceive), &bundlesReceivedBpreceive[0],
-        &finalStatsBpSink[0]);
+    static const char * argsBpReceiveFile[] = { "bpreceivefile",  "--save-directory=received", "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
+    std::thread threadBpReceiveFile(RunBpReceiveFile, argsBpReceiveFile, 4, std::ref(runningBpreceive));
 
     Delay(DELAY_THREAD);
 
@@ -552,21 +572,21 @@ bool TestHDTNFileTransferLTP() {
     static const std::string testFile = 
 	"--file-or-folder-path=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "integrated_tests" / "src" / "test.txt" ).string();
    
-    static const char * argsBpgen[] = { "bpsendfile",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", testFile.c_str(), bpgenConfigArg.c_str(), NULL };
-    std::thread threadBpgen(RunBpgenAsync,argsBpgen, 7, std::ref(runningBpsend), &bundlesSentBpsend[0], &finalStats[0]);
+    static const char * argsBpSendFile[] = { "bpsendfile",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", testFile.c_str(), bpgenConfigArg.c_str(), NULL };
+    std::thread threadBpSendFile(RunBpSendFile,argsBpSendFile, 7, std::ref(runningBpsend));
 
     // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(8));
 
     // Stop threads
     runningBpsend = false;
-    threadBpgen.join();
+    threadBpSendFile.join();
 
     runningHdtnOneProcess = false;
     threadHdtn.join();
 
     runningBpreceive = false;
-    threadBpsink.join();
+    threadBpReceiveFile.join();
 
     // Verify results
     uint64_t totalBundlesBpsend = 0;
@@ -1266,3 +1286,5 @@ BOOST_AUTO_TEST_CASE(it_TestHDTNStorageModeTCPCLv7, * boost::unit_test::enabled(
     BOOST_CHECK(result == true);
 }
 */
+
+
