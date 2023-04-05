@@ -241,8 +241,20 @@ bool ReceivedApi(unsigned int mask) {
     return (mask & REC_API);
 }
 
+bool ReceivedIngress(unsigned int mask) {
+    return (mask & REC_INGRESS);
+}
+
+bool ReceivedEgress(unsigned int mask) {
+    return (mask & REC_EGRESS);
+}
+
+bool ReceivedStorage(unsigned int mask) {
+    return (mask & REC_STORAGE);
+}
+
 bool ReceivedAllRequired(unsigned int mask) {
-    return (mask & REC_STORAGE) && (mask & REC_INGRESS) && (mask & REC_EGRESS);
+    return ReceivedStorage(mask) && ReceivedEgress(mask) && ReceivedIngress(mask);
 }
 
 void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDistributedConfigPtr, zmq::context_t *inprocContextPtr) {
@@ -394,12 +406,10 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
                         LOG_ERROR(subprocess) << "cannot deserialize StorageExpiringBeforeThresholdTelemetry_t";
                     }
                 }
-                if (m_storageConnection->m_apiSocketAwaitingResponse) {
+                if (m_storageConnection->m_apiSocketAwaitingResponse && more) {
                     m_storageConnection->m_apiSocketAwaitingResponse = false;
-                    m_apiConnection->SendZmqMessage(std::move(msgJson), more);
-                    if (more) {
-                        m_apiConnection->SendZmqMessage(std::move(msg2), false);
-                    }
+                    m_apiConnection->SendZmqMessage(std::move(msgJson), true);
+                    m_apiConnection->SendZmqMessage(std::move(msg2), false);
                 }
             }
             if (poller.HasNewMessage(*m_schedulerConnection)) {
@@ -426,7 +436,10 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
             }
         }
         else {
-            LOG_WARNING(subprocess) << "did not get telemetry from all modules";
+            LOG_WARNING(subprocess) << "did not get telemetry from all modules. missing: " <<
+                (ReceivedEgress(receiveEventsMask) ? "" : " egress") <<
+                (ReceivedIngress(receiveEventsMask) ? "" : " ingress") <<
+                (ReceivedStorage(receiveEventsMask) ? "" : " storage");
         }
     }
     LOG_DEBUG(subprocess) << "ThreadFunc exiting";
