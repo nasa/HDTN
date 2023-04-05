@@ -5,6 +5,10 @@ add_executable(integrated-tests
         ../../common/bpcodec/apps/bpgen/src/BpGenAsyncRunner.cpp
         ../../common/bpcodec/apps/bpsink/BpSinkAsyncRunner.cpp
         ../../common/bpcodec/apps/bpsink/BpSinkAsync.cpp
+	../../common/bpcodec/apps/bpsendfile/src/BpSendFile.cpp
+        ../../common/bpcodec/apps/bpsendfile/src/BpSendFileRunner.cpp
+        ../../common/bpcodec/apps/bpreceivefile/src/BpReceiveFileRunner.cpp
+        ../../common/bpcodec/apps/bpreceivefile/src/BpReceiveFile.cpp
 )
 install(TARGETS integrated-tests DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_include_directories(integrated-tests PUBLIC
@@ -12,6 +16,8 @@ target_include_directories(integrated-tests PUBLIC
     ../../common/include
     ../../common/bpcodec/apps/bpgen/include
     ../../common/bpcodec/apps/bpsink/include
+    ../../common/bpcodec/apps/bpsendfile/include
+    ../../common/bpcodec/apps/bpreceivefile/include
 )
 
 target_link_libraries(integrated-tests 
