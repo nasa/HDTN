@@ -153,6 +153,9 @@ private:
     boost::mutex m_workerThreadStartupMutex;
     boost::condition_variable m_workerThreadStartupConditionVariable;
 
+    // For deleting bundles
+    std::vector<uint64_t> m_expiredIds;
+
     const float DELETE_ALL_EXPIRED_THRESHOLD = 0.9; /* percent. If storage this full, delete all expired bundles */
     const int64_t MAX_DELETE_EXPIRED_PER_ITER = 100; /* Maximum number of bundles to delete per iteration (no storage pressure) */
 };
@@ -834,9 +837,9 @@ void ZmqStorageInterface::Impl::DeleteExpiredBundles() {
 
     uint64_t expiry = TimestampUtil::GetSecondsSinceEpochRfc5050(boost::posix_time::microsec_clock::universal_time());
 
-    std::vector<uint64_t> expiredIds = m_bsmPtr->GetExpiredBundleIds(expiry, numToDelete);
+    m_bsmPtr->GetExpiredBundleIds(expiry, numToDelete, m_expiredIds);
 
-    for(uint64_t custodyId : expiredIds) {
+    for(uint64_t custodyId : m_expiredIds) {
         DeleteBundleById(custodyId);
         m_telem.m_totalBundlesErasedFromStorageBecauseExpired++;
     }

@@ -207,7 +207,8 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogExpiredCase)
             BOOST_REQUIRE(ret);
         }
         uint64_t expiry = creation + 2000; // lifetime is 1000
-        std::vector<uint64_t> ids = bsc.GetExpiredBundleIds(expiry, 0);
+        std::vector<uint64_t> ids;
+        bsc.GetExpiredBundleIds(expiry, 0, ids);
         BOOST_REQUIRE_EQUAL(bsc.GetNumBundlesInCatalog(), 10);
 
         std::sort(ids.begin(), ids.end());
@@ -250,7 +251,8 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogNoExpiredTestCase)
 
         BOOST_REQUIRE_EQUAL(ret, true);
         uint64_t expiry = creation + 500; // lifetime is 1000, so we check at 500
-        std::vector<uint64_t> ids = bsc.GetExpiredBundleIds(expiry, 0);
+        std::vector<uint64_t> ids;
+        bsc.GetExpiredBundleIds(expiry, 0, ids);
         BOOST_REQUIRE_EQUAL(bsc.GetNumBundlesInCatalog(), 1);
 
         BOOST_REQUIRE_EQUAL(ids.size(), 0);
@@ -292,7 +294,8 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogMaxExpiredCase)
             BOOST_REQUIRE_EQUAL(ret, true);
         }
         uint64_t expiry = creation + 2000; // lifetime is 1000
-        std::vector<uint64_t> ids = bsc.GetExpiredBundleIds(expiry, 5);
+        std::vector<uint64_t> ids;
+        bsc.GetExpiredBundleIds(expiry, 5, ids);
         BOOST_REQUIRE_EQUAL(bsc.GetNumBundlesInCatalog(), 10);
 
         BOOST_REQUIRE_EQUAL(ids.size(), 5);
