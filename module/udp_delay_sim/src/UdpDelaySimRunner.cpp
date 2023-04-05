@@ -31,7 +31,7 @@ void UdpDelaySimRunner::MonitorExitKeypressThreadFunction() {
 }
 
 
-UdpDelaySimRunner::UdpDelaySimRunner() {}
+UdpDelaySimRunner::UdpDelaySimRunner() : m_runningFromSigHandler(false) {}
 UdpDelaySimRunner::~UdpDelaySimRunner() {}
 
 
