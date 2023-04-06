@@ -179,6 +179,14 @@ enum class BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS {
     WRAPPED_KEY = 2,
     INTEGRITY_SCOPE_FLAGS = 3
 };
+
+enum class BPSEC_SHA2_VARIANT {
+    HMAC256 = 1,
+    HMAC512 = 2,
+    HMAC384 = 3
+};
+
+
 /*
 //https://datatracker.ietf.org/doc/draft-ietf-dtn-bpsec-default-sc/
 3.4.  Results

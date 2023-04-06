@@ -147,6 +147,7 @@ if (DO_STATS_LOGGING OR USE_WEB_INTERFACE)
 endif()
 
 OPTION(ENABLE_OPENSSL_SUPPORT "TcpclV4 and GUI Web Server can use OpenSSL" ON)
+OPTION(ENABLE_BPSEC "Enable BPSec" ON)
 if(ENABLE_OPENSSL_SUPPORT)
     add_compile_definitions(OPENSSL_SUPPORT_ENABLED)
 	list(APPEND COMPILE_DEFINITIONS_TO_EXPORT OPENSSL_SUPPORT_ENABLED) #used by TcpAsyncSender.h and various TcpclV4 includes
@@ -155,7 +156,10 @@ if(ENABLE_OPENSSL_SUPPORT)
 		set(OPENSSL_ROOT_DIR "C:/openssl-1.1.1e_msvc2017" CACHE PATH "Folder to the root directory of an OpenSSL installation")
 	endif()
 	find_package(OpenSSL REQUIRED)
+else()
+OPTION(ENABLE_BPSEC Off)
 endif()
+
 if(Boost_VERSION_MACRO) #new in CMake 3.15 (in which Boost_VERSION became a string with dots)
 	set(BOOST_INTEGER_VERSION_FOR_COMPARISION ${Boost_VERSION_MACRO})
 else() #CMake 3.14 or older
@@ -177,6 +181,9 @@ endif()
 include(${CMAKE_SOURCE_DIR}/add_hdtn_package_export.cmake)
 
 add_subdirectory(common/bpcodec)
+if(ENABLE_BPSEC)
+    add_subdirectory(common/bpsec)
+endif()
 add_subdirectory(common/telemetry_definitions)
 add_subdirectory(common/logger)
 add_subdirectory(common/util)
