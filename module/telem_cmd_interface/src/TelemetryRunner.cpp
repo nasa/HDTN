@@ -237,23 +237,23 @@ bool TelemetryRunner::Impl::OnApiRequest(std::string&& msgJson, ApiSource_t src)
     return it->second(msgJson, src); //note: msgJson will still be moved (boost::function doesn't support r-value references as parameters)
 }
 
-bool ReceivedApi(unsigned int mask) {
+static bool ReceivedApi(unsigned int mask) {
     return (mask & REC_API);
 }
 
-bool ReceivedIngress(unsigned int mask) {
+static bool ReceivedIngress(unsigned int mask) {
     return (mask & REC_INGRESS);
 }
 
-bool ReceivedEgress(unsigned int mask) {
+static bool ReceivedEgress(unsigned int mask) {
     return (mask & REC_EGRESS);
 }
 
-bool ReceivedStorage(unsigned int mask) {
+static bool ReceivedStorage(unsigned int mask) {
     return (mask & REC_STORAGE);
 }
 
-bool ReceivedAllRequired(unsigned int mask) {
+static bool ReceivedAllRequired(unsigned int mask) {
     return ReceivedStorage(mask) && ReceivedEgress(mask) && ReceivedIngress(mask);
 }
 
