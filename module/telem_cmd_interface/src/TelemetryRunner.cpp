@@ -436,7 +436,7 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
             }
         }
         else {
-            LOG_WARNING(subprocess) << "did not get telemetry from all modules. missing: " <<
+            LOG_WARNING(subprocess) << "did not get telemetry from all modules. missing:" <<
                 (ReceivedEgress(receiveEventsMask) ? "" : " egress") <<
                 (ReceivedIngress(receiveEventsMask) ? "" : " ingress") <<
                 (ReceivedStorage(receiveEventsMask) ? "" : " storage");

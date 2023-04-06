@@ -95,12 +95,12 @@ bool TelemetryConnection::SendZmqConstBufferMessage(const zmq::const_buffer& buf
     const zmq::send_flags additionalFlags = (more) ? zmq::send_flags::sndmore : zmq::send_flags::none;
     try {
         if (!m_requestSocket->send(buffer, zmq::send_flags::dontwait | additionalFlags)) {
-            LOG_ERROR(subprocess) << "error sending zmq signal";
+            LOG_ERROR(subprocess) << "error sending zmq signal to socket " << m_addr;
             return false;
         }
     }
     catch (zmq::error_t &) {
-        LOG_INFO(subprocess) << "request already sent";
+        LOG_INFO(subprocess) << "request already sent to socket " << m_addr;
         return false;
     }
     return true;
