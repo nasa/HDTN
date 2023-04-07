@@ -37,6 +37,7 @@ target_include_directories(log_lib
 		$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # for GENERATE_EXPORT_HEADER
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include> # for HdtnVersion.hpp
 )
 install(TARGETS log_lib
 	EXPORT log_lib-targets

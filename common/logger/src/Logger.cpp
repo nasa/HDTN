@@ -8,6 +8,30 @@
 
 #include "Logger.h"
 
+#include "HdtnVersion.hpp"
+#include <boost/preprocessor/slot/slot.hpp>
+#include <boost/preprocessor/stringize.hpp>
+#define BOOST_PP_VALUE HDTN_VERSION_MAJOR
+#include BOOST_PP_ASSIGN_SLOT(1)
+#undef BOOST_PP_VALUE
+
+#define BOOST_PP_VALUE HDTN_VERSION_MINOR
+#include BOOST_PP_ASSIGN_SLOT(2)
+#undef BOOST_PP_VALUE
+
+#define BOOST_PP_VALUE HDTN_VERSION_PATCH
+#include BOOST_PP_ASSIGN_SLOT(3)
+#undef BOOST_PP_VALUE
+
+
+#define HDTN_VERSION_STRING BOOST_PP_STRINGIZE( \
+    BOOST_PP_CAT(BOOST_PP_SLOT(1), \
+    BOOST_PP_CAT(., \
+    BOOST_PP_CAT(BOOST_PP_SLOT(2), \
+    BOOST_PP_CAT(., BOOST_PP_SLOT(3))))))
+
+
+
 /**
  * Contains string values that correspond to the "Process" enum
  * in Logger.h. If a new process is added, a string representation
@@ -99,9 +123,15 @@ volatile bool Logger::loggerSingletonFullyInitialized_ = false;
 Logger::process_attr_t Logger::process_attr(Logger::Process::none);
 Logger::severity_channel_logger_t Logger::m_severityChannelLogger;
 
+const std::string& Logger::GetHdtnVersionAsString() {
+    static const std::string hdtnVersionString = HDTN_VERSION_STRING;
+    return hdtnVersionString;
+}
+
 void Logger::initializeWithProcess(Logger::Process process) {
     Logger::process_attr = process_attr_t(process);
     ensureInitialized();
+    LOG_INFO(Logger::SubProcess::none) << "This is HDTN version " << GetHdtnVersionAsString();
 }
 
 void Logger::ensureInitialized() noexcept {
