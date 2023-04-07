@@ -861,8 +861,12 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                         if (egressAckHdr.IsOpportunisticLink()) { //isOpportunisticFromStorage
                             std::map<uint64_t, OutductInfoPtr_t>::iterator it = m_mapOpportunisticNextHopNodeIdToOutductInfo.find(egressAckHdr.nextHopNodeId);
                             if (it == m_mapOpportunisticNextHopNodeIdToOutductInfo.end()) {
-                                LOG_ERROR(subprocess) << "Got an HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE but could not find opportunistic link nextHopNodeId "
-                                    << egressAckHdr.nextHopNodeId;
+                                static thread_local bool printedMsg = false;
+                                if (!printedMsg) {
+                                    LOG_ERROR(subprocess) << "Got an HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE but could not find opportunistic link nextHopNodeId "
+                                        << egressAckHdr.nextHopNodeId << ".  (This message type will now be suppressed.)";
+                                    printedMsg = true;
+                                }
                             }
                             else {
                                 outductInfoRawPtr = it->second.get();
@@ -882,12 +886,25 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                         //A bundle that was forwarded without store from storage to egress gets an ack back from egress with the
                                         //error flag set because egress could not send the bundle.
                                         //This will allow storage to trigger a link down event more quickly than waiting for scheduler.
-                                        //Since ingress holds the bundle, the error flag will let ingress determine the action for the bundle.
-                                        LOG_WARNING(subprocess) << "Got a link down notification from egress on cut-through path for outduct index "
-                                            << egressAckHdr.outductIndex << " for final dest "
-                                            << egressAckHdr.finalDestEid
-                                            << " because storage forwarding cut-through bundles to egress failed";
-
+                                        //Since ingress NO LONGER holds the bundle, the error flag will let ingress set a link down event more quickly than scheduler.
+                                        //Since isResponseToStorageCutThrough is set, then storage needs the bundle back in a multipart message because storage has not yet written this cut-through bundle to disk.
+                                        static thread_local bool printedMsg = false;
+                                        if (!printedMsg) {
+                                            LOG_WARNING(subprocess) << "Got a link down notification from egress on cut-through path for outduct index "
+                                                << egressAckHdr.outductIndex << " for final dest "
+                                                << egressAckHdr.finalDestEid
+                                                << " because storage forwarding cut-through bundles to egress failed.  (This message type will now be suppressed.)";
+                                            printedMsg = true;
+                                        }
+                                        zmq::message_t zmqBundleDataReceived;
+                                        if (!m_zmqPullSock_boundEgressToConnectingStoragePtr->recv(zmqBundleDataReceived, zmq::recv_flags::none)) {
+                                            LOG_ERROR(subprocess) << "error in hdtn::ZmqStorageInterface::ThreadFunc (from storage cut-through bundle data) message not received";
+                                        }
+                                        else {
+                                            cbhe_eid_t finalDestEidReturnedFromWrite;
+                                            Write(&zmqBundleDataReceived, finalDestEidReturnedFromWrite, true, true); //last true because if cut through then definitely no custody or not admin record
+                                            ++m_telem.m_totalBundlesRewrittenToStorageFromFailedEgressSend;
+                                        }
                                         SetLinkDown(info);
                                         hdtn::StorageAckHdr* storageAckHdr = (hdtn::StorageAckHdr*)it->second.ackToIngress.data();
                                         storageAckHdr->error = 1;
@@ -911,10 +928,14 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                         //This will allow storage to trigger a link down event more quickly than waiting for scheduler.
                                         //Since storage already has the bundle, the error flag will prevent deletion and move the bundle back to the "awaiting send" state,
                                         //but the bundle won't be immediately released again from storage because of the immediate link down event.
-                                        LOG_WARNING(subprocess) << "Got a link down notification from egress for outduct index "
-                                            << egressAckHdr.outductIndex << " for final dest "
-                                            << egressAckHdr.finalDestEid
-                                            << " because storage to egress failed";
+                                        static thread_local bool printedMsg = false;
+                                        if (!printedMsg) {
+                                            LOG_WARNING(subprocess) << "Got a link down notification from egress for outduct index "
+                                                << egressAckHdr.outductIndex << " for final dest "
+                                                << egressAckHdr.finalDestEid
+                                                << " because storage to egress failed.  (This message type will now be suppressed.)";
+                                            printedMsg = true;
+                                        }
 
                                         SetLinkDown(info);
                                         if (!m_bsmPtr->ReturnCustodyIdToAwaitingSend(egressAckHdr.custodyId)) {
@@ -936,13 +957,18 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                 }
                                 else {
                                     //std::string message = egressAckHdr.custodyId
-                                    LOG_ERROR(subprocess) << "Storage got a HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE for outductIndex=" 
-                                        << egressAckHdr.outductIndex << " but could not find custody id " << egressAckHdr.custodyId
-                                        << " .. error=" << (int)egressAckHdr.error 
-                                        << " isResponseToStorageCutThrough=" << (int)egressAckHdr.isResponseToStorageCutThrough
-                                        << " isOpportunisticFromStorage=" << egressAckHdr.IsOpportunisticLink()
-                                        << " nextHopNodeId=" << egressAckHdr.nextHopNodeId;
-                                    LOG_ERROR(subprocess) << SprintCustodyidToSizeMap(mapCustodyIdToSize);
+                                    static thread_local bool printedMsg = false;
+                                    if (!printedMsg) {
+                                        LOG_ERROR(subprocess) << "Storage got a HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE for outductIndex="
+                                            << egressAckHdr.outductIndex << " but could not find custody id " << egressAckHdr.custodyId
+                                            << " .. error=" << (int)egressAckHdr.error
+                                            << " isResponseToStorageCutThrough=" << (int)egressAckHdr.isResponseToStorageCutThrough
+                                            << " isOpportunisticFromStorage=" << egressAckHdr.IsOpportunisticLink()
+                                            << " nextHopNodeId=" << egressAckHdr.nextHopNodeId
+                                            << ".  (This message type will now be suppressed.)";
+                                        //LOG_DEBUG(subprocess) << SprintCustodyidToSizeMap(mapCustodyIdToSize);
+                                        printedMsg = true;
+                                    }
                                 }
                             }
                         }
@@ -962,8 +988,13 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                         ++m_telem.m_totalBundlesRewrittenToStorageFromFailedEgressSend;
                         finalDestEidReturnedFromWrite.serviceId = 0;
                         if (egressFullyInitialized) {
-                            LOG_WARNING(subprocess) << "Storage got a link down notification from egress (with the failed bundle) for final dest "
-                                << Uri::GetIpnUriStringAnyServiceNumber(finalDestEidReturnedFromWrite.nodeId) << " because cut through from ingress failed";
+                            static thread_local bool printedMsg = false;
+                            if (!printedMsg) {
+                                LOG_WARNING(subprocess) << "Storage got a link down notification from egress (with the failed bundle) for final dest "
+                                    << Uri::GetIpnUriStringAnyServiceNumber(finalDestEidReturnedFromWrite.nodeId)
+                                    << " because cut through from ingress failed.  (This message type will now be suppressed.)";
+                                printedMsg = true;
+                            }
                             OutductInfo_t& info = *(m_vectorOutductInfo[egressAckHdr.outductIndex]);
                             SetLinkDown(info);
                         }

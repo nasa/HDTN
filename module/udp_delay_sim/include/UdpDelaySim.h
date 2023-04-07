@@ -61,6 +61,8 @@ public:
         const unsigned int numCircularBufferVectors,
         const unsigned int maxUdpPacketSizeBytes,
         const boost::posix_time::time_duration & sendDelay,
+        uint64_t lossOfSignalStartMs,
+        uint64_t lossOfSignalDurationMs,
         const bool autoStart);
     
     /// Call UdpDelaySim::Stop() to release managed resources
@@ -176,6 +178,14 @@ private:
      * Else, updates tracked stats and starts the stat tracking timer asynchronously with itself as a completion handler to achieve a stat tracking loop.
      */
     UDP_DELAY_SIM_LIB_NO_EXPORT void TransferRate_TimerExpired(const boost::system::error_code& e);
+
+    /** Handle LOS simulation.
+     *
+     * If the expiry occurred due to the timer being manually cancelled, returns immediately.
+     * Else, updates boolean m_isStateLossOfSignal to determine if packets are being dropped to simulate an LOS.
+     */
+    UDP_DELAY_SIM_LIB_NO_EXPORT void LossOfSignal_TimerExpired(const boost::system::error_code& e,
+        bool isStartOfLos);
 public:
     
 
@@ -189,6 +199,8 @@ private:
     boost::asio::deadline_timer m_udpPacketSendDelayTimer;
     /// Stat tracking timer, on expiry update stats and restart interval
     boost::asio::deadline_timer m_timerTransferRateStats;
+    /// Loss of signal timer, sets bool m_isStateLossOfSignal
+    boost::asio::deadline_timer m_timerLossOfSignal;
     /// UDP server socket
     boost::asio::ip::udp::socket m_udpSocket;
 
@@ -227,8 +239,16 @@ private:
     bool m_printedCbTooSmallNotice;
     /// Whether m_udpPacketSendDelayTimer is currently active
     bool m_sendDelayTimerIsRunning;
+    /// Whether currently simulating LOS
+    bool m_isStateLossOfSignal;
     /// Packet drop simulation state update flag, whether a state update operation is currently active
     volatile bool m_setUdpDropSimulatorFunctionInProgress;
+    /// Start of LOS
+    const uint64_t m_lossOfSignalStartMs;
+    /// Duration of LOS
+    const boost::posix_time::time_duration m_lossOfSignalDuration;
+    /// count of LOS timer starts (for making sure LOS only occurs once)
+    unsigned int m_countLossOfSignalTimerStarts;
     /// Packet drop simulation state update condition variable
     boost::condition_variable m_cvSetUdpDropSimulatorFunction;
     /// Packet drop simulation state update mutex

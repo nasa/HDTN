@@ -1,0 +1,44 @@
+{
+    "contacts": [
+       {
+            "contact": 0,
+            "source": 1,
+            "dest": 10,
+            "finalDestination": 2,
+            "startTime": 0,
+            "endTime": 2000,
+            "rateBitsPerSec": 50000000,
+            "owlt":  1
+        },
+        {
+            "contact": 1,
+            "source": 10,
+            "dest": 2,
+            "finalDestination": 2,
+            "startTime": 0,
+            "endTime": 2000,
+            "rateBitsPerSec": 50000000,
+            "owlt":  1
+        }, 
+	{
+            "contact": 2,
+            "source": 2,
+            "dest": 10,
+            "finalDestination": 1,
+            "startTime": 0,
+            "endTime": 2000,
+            "rateBitsPerSec": 50000000,
+            "owlt":  1
+        }, 
+	{
+            "contact": 3,
+            "source": 10,
+            "dest": 1,
+            "finalDestination": 1,
+            "startTime": 0,
+            "endTime": 2000,
+            "rateBitsPerSec": 50000000,
+            "owlt":  1
+        }
+    ]
+}

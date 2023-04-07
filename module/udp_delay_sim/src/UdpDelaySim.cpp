@@ -27,10 +27,13 @@ UdpDelaySim::UdpDelaySim(uint16_t myBoundUdpPort,
     const unsigned int numCircularBufferVectors,
     const unsigned int maxUdpPacketSizeBytes,
     const boost::posix_time::time_duration & sendDelay,
+    uint64_t lossOfSignalStartMs,
+    uint64_t lossOfSignalDurationMs,
     const bool autoStart) :
     m_resolver(m_ioService),
     m_udpPacketSendDelayTimer(m_ioService),
     m_timerTransferRateStats(m_ioService),
+    m_timerLossOfSignal(m_ioService),
     m_udpSocket(m_ioService),
     M_MY_BOUND_UDP_PORT(myBoundUdpPort),
     M_REMOTE_HOSTNAME_TO_FORWARD_PACKETS_TO(remoteHostnameToForwardPacketsTo),
@@ -45,6 +48,11 @@ UdpDelaySim::UdpDelaySim(uint16_t myBoundUdpPort,
     m_expiriesCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_printedCbTooSmallNotice(false),
     m_sendDelayTimerIsRunning(false),
+    m_isStateLossOfSignal(false),
+    m_setUdpDropSimulatorFunctionInProgress(false),
+    m_lossOfSignalStartMs(lossOfSignalStartMs),
+    m_lossOfSignalDuration(boost::posix_time::milliseconds(lossOfSignalDurationMs)),
+    m_countLossOfSignalTimerStarts(0),
     //stats
     m_lastTotalUdpPacketsReceived(0),
     m_lastTotalUdpBytesReceived(0),
@@ -87,6 +95,7 @@ bool UdpDelaySim::StartIfNotAlreadyRunning() {
             m_timerTransferRateStats.expires_from_now(boost::posix_time::seconds(5));
             m_timerTransferRateStats.async_wait(boost::bind(&UdpDelaySim::TransferRate_TimerExpired, this, boost::asio::placeholders::error));
         }
+
 
         {
             //connect
@@ -160,8 +169,20 @@ void UdpDelaySim::StartUdpReceive() {
 
 void UdpDelaySim::HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred) {
     if (!error) {
+        if (m_lossOfSignalStartMs && (m_countLossOfSignalTimerStarts == 0)) {
+            //start timer for start of LOS (after first udp packet received)
+            LOG_INFO(subprocess) << "LOS starting in " << m_lossOfSignalStartMs << "ms";
+            ++m_countLossOfSignalTimerStarts;
+            m_timerLossOfSignal.expires_from_now(boost::posix_time::milliseconds(m_lossOfSignalStartMs));
+            m_timerLossOfSignal.async_wait(boost::bind(&UdpDelaySim::LossOfSignal_TimerExpired, this,
+                boost::asio::placeholders::error, true));
+        }
+
         if (m_udpDropSimulatorFunction && m_udpDropSimulatorFunction(m_udpReceiveBuffer, bytesTransferred)) {
             //dropped
+        }
+        else if (m_isStateLossOfSignal) {
+            //dropped because in LOS
         }
         else {
             QueuePacketForDelayedSend_NotThreadSafe(m_udpReceiveBuffer, bytesTransferred);
@@ -204,6 +225,12 @@ void UdpDelaySim::DoUdpShutdown() {
     }
     catch (const boost::system::system_error& e) {
         LOG_WARNING(subprocess) << "UdpDelaySim::DoUdpShutdown calling udpPacketSendDelayTimer.cancel(): " << e.what();
+    }
+    try {
+        m_timerLossOfSignal.cancel();
+    }
+    catch (const boost::system::system_error& e) {
+        LOG_WARNING(subprocess) << "UdpDelaySim::DoUdpShutdown calling timerLossOfSignal.cancel(): " << e.what();
     }
     try {
         m_timerTransferRateStats.cancel();
@@ -295,6 +322,27 @@ void UdpDelaySim::TransferRate_TimerExpired(const boost::system::error_code& e) 
     }
     else {
         LOG_INFO(subprocess) << "transfer rate timer stopped";
+    }
+}
+
+void UdpDelaySim::LossOfSignal_TimerExpired(const boost::system::error_code& e, bool isStartOfLos) {
+    if (e != boost::asio::error::operation_aborted) {
+        // Timer was not cancelled, take necessary action.
+        m_isStateLossOfSignal = isStartOfLos;
+        if (isStartOfLos) {
+            LOG_INFO(subprocess) << "Entering LOS for " << m_lossOfSignalDuration.total_milliseconds() << "ms";
+
+            //start timer for end of LOS
+            m_timerLossOfSignal.expires_from_now(m_lossOfSignalDuration);
+            m_timerLossOfSignal.async_wait(boost::bind(&UdpDelaySim::LossOfSignal_TimerExpired, this,
+                boost::asio::placeholders::error, false));
+        }
+        else {
+            LOG_INFO(subprocess) << "Entering AOS";
+        }
+    }
+    else {
+        LOG_INFO(subprocess) << "loss of signal timer cancelled";
     }
 }
 

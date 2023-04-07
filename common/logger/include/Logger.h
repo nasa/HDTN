@@ -113,6 +113,14 @@ class Logger
 {
 public:
     /**
+     * Allows the user to get
+     * the HDTN version from HdtnVersion.hpp's HDTN_VERSION as a formatted string,
+     * in the format of "HDTN_VERSION_MAJOR.HDTN_VERSION_MINOR.HDTN_VERSION_MAJOR" (example: "1.0.0")
+     * preventing the need to use boost/format and preventing the need
+     * to define a separate version string macro apart from just the single HDTN_VERSION macro.
+     */
+    LOG_LIB_EXPORT static const std::string& GetHdtnVersionAsString();
+    /**
      * Initializes the logger if it hasn't been created yet. This is intended to be called from
      * the LOG_* macros.
      */

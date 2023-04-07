@@ -22,7 +22,6 @@
 #include <boost/thread.hpp>
 #include <boost/tokenizer.hpp>
 #include <boost/asio.hpp>
-#include <boost/format.hpp>
 
 #include "TelemetryRunner.h"
 #include "Logger.h"
@@ -35,7 +34,6 @@
 #include "DeadlineTimer.h"
 #include "ThreadNamer.h"
 #include <queue>
-#include "HdtnVersion.hpp"
 #ifdef USE_WEB_INTERFACE
 #include "BeastWebsocketServer.h"
 #endif
@@ -141,12 +139,7 @@ bool TelemetryRunner::Impl::Init(const HdtnConfig& hdtnConfig, zmq::context_t *i
     m_hdtnConfig = hdtnConfig;
     { //add hdtn version to config, and preserialize it to json once for all connecting web GUIs
         boost::property_tree::ptree pt = hdtnConfig.GetNewPropertyTree();
-        static const boost::format fmtTemplate("%d.%d.%d");
-        boost::format fmt(fmtTemplate);
-        fmt % HDTN_VERSION_MAJOR % HDTN_VERSION_MINOR % HDTN_VERSION_PATCH;
-        const std::string hdtnVersionString = fmt.str();
-        LOG_INFO(subprocess) << "HDTN version is v" << hdtnVersionString;
-        pt.put("hdtnVersionString", hdtnVersionString);
+        pt.put("hdtnVersionString", hdtn::Logger::GetHdtnVersionAsString());
         m_hdtnConfigJsonPtr = std::make_shared<std::string>(JsonSerializable::PtToJsonString(pt));
     }
     
