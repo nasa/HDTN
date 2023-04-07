@@ -1194,7 +1194,7 @@ struct BeastWebsocketServer::Impl : private boost::noncopyable {
                 { //wait for websockets to gracefully close
                     exclusive_lock_t lockExclusive(m_serverStatePtr->m_unclosedConnectionsSharedMutex);
                 }
-            } catch (const boost::thread_resource_error&) {
+            } catch (const boost::lock_error&) {
                 LOG_ERROR(subprocess) << "error closing BeastWebsocketServer connections";
             }
             m_serverStatePtr.reset();
