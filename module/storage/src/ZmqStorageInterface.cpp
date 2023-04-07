@@ -155,15 +155,26 @@ private:
 
     // For deleting bundles
     std::vector<uint64_t> m_expiredIds;
+    enum class DeletionPolicy { never, onExpiration, onStorageFull };
+    static const std::unordered_map<std::string, DeletionPolicy> m_configToDeletionPolicy;
+    DeletionPolicy m_deletionPolicy;
 
     const float DELETE_ALL_EXPIRED_THRESHOLD = 0.9; /* percent. If storage this full, delete all expired bundles */
     const int64_t MAX_DELETE_EXPIRED_PER_ITER = 100; /* Maximum number of bundles to delete per iteration (no storage pressure) */
 };
 
+const std::unordered_map<std::string, ZmqStorageInterface::Impl::DeletionPolicy>
+    ZmqStorageInterface::Impl::m_configToDeletionPolicy = {
+        {"never", ZmqStorageInterface::Impl::DeletionPolicy::never},
+        {"on_expiration", ZmqStorageInterface::Impl::DeletionPolicy::onExpiration},
+        {"on_storage_full", ZmqStorageInterface::Impl::DeletionPolicy::onStorageFull}
+        };
+
 ZmqStorageInterface::Impl::Impl() :
     m_running(false),
     m_workerThreadStartupInProgress(false),
-    m_hdtnOneProcessZmqInprocContextPtr(nullptr) {}
+    m_hdtnOneProcessZmqInprocContextPtr(nullptr),
+    m_deletionPolicy(DeletionPolicy::never) {}
 
 ZmqStorageInterface::Impl::~Impl() {
     Stop();
@@ -211,6 +222,8 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDi
     //HDTN shall default m_myCustodialServiceId to 0 although it is changeable in the hdtn config json file
     M_HDTN_EID_CUSTODY.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_myCustodialServiceId);
     m_hdtnOneProcessZmqInprocContextPtr = hdtnOneProcessZmqInprocContextPtr;
+
+    m_deletionPolicy = m_configToDeletionPolicy.at(m_hdtnConfig.m_storageConfig.m_storageDeletionPolicy);
 
     //{
 
@@ -819,14 +832,13 @@ void ZmqStorageInterface::Impl::DeleteBundleById(const uint64_t custodyId) {
  */
 void ZmqStorageInterface::Impl::DeleteExpiredBundles() {
 
-    const std::string policy = m_hdtnConfig.m_storageConfig.m_storageDeletionPolicy;
-    if(policy == "never") {
+    if(m_deletionPolicy == DeletionPolicy::never) {
         return;
     }
 
     double storageUsagePercentage = m_bsmPtr->GetUsedSpaceBytes()  / (double)m_bsmPtr->GetTotalCapacityBytes();
 
-    if(policy == "on_storage_full" && storageUsagePercentage < DELETE_ALL_EXPIRED_THRESHOLD) {
+    if(m_deletionPolicy == DeletionPolicy::onStorageFull && storageUsagePercentage < DELETE_ALL_EXPIRED_THRESHOLD) {
         return;
     }
 
