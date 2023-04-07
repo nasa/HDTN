@@ -452,7 +452,7 @@
             myDisk.GetWirePos("bottom").y + 140,
             ABS_POSITION_MAP.storage.WIDTH,
             ABS_POSITION_MAP.storage.WIDTH,
-            "trashcan.svg");
+            "garbage_can.svg");
 
         ABS_POSITION_MAP.ingress.HEIGHT = myTrashCan.GetWirePos("bottom").y - ABS_POSITION_MAP.ingress.Y;
         ABS_POSITION_MAP.egress.HEIGHT = myTrashCan.GetWirePos("bottom").y - ABS_POSITION_MAP.egress.Y;
@@ -488,8 +488,8 @@
             myDisk.GetWirePos("top").x + diskWireSepFromMiddlePx, myDisk.GetWirePos("top").y,
             myDisk.GetWirePos("top").x + diskWireSepFromMiddlePx, ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT);
         var myWireDiskToTrash = StraightWire(internalHdtnWiresGroup, 90, speedUpperLimitBps,
-            myDisk.GetWirePos("bottom").x, myDisk.GetWirePos("bottom").y + 5,
-            myTrashCan.GetWirePos("top").x, myTrashCan.GetWirePos("top").y - 5);
+            myDisk.GetWirePos("bottom").x, myDisk.GetWirePos("bottom").y + 10,
+            myTrashCan.GetWirePos("top").x, myTrashCan.GetWirePos("top").y);
 
 
         function GetNodeNumFromIpnString(ipnStr) {
