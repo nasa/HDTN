@@ -813,7 +813,7 @@ void ZmqStorageInterface::Impl::DeleteBundleById(const uint64_t custodyId) {
         //TODO RFC5050 (s5.13) wants us to send a bundle deletion status report to the report-to endpoint
     }
 
-    // TODO free the custody ID?
+    uint64_t numFreed = m_custodyIdAllocatorPtr->FreeCustodyId(custodyId);
 
     bool success = m_bsmPtr->RemoveBundleFromDisk(entry, custodyId);
     if(!success) {
