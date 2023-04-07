@@ -319,9 +319,11 @@ void PrintFail(boost::beast::error_code ec, char const* what) {
     // Therefore, if we see a short read here, it has occurred
     // after the message has been completed, so it is safe to ignore it.
 
+#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
     if (ec == boost::asio::ssl::error::stream_truncated) {
         return;
     }
+#endif
 
     LOG_ERROR(subprocess) << what << " (code=" << ec.value() << ") : " << ec.message() << "\n";
 }
