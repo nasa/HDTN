@@ -9,17 +9,8 @@
 // }
 
 BpSendPacket::BpSendPacket()
+    : BpSourcePattern()
 {
-}
-
-BpSendPacket::BpSendPacket(std::string host)
-    : BpSourcePattern(),
-      m_host(host)
-{
-    // TODO: initialize UdpSink
-    // m_udpSink(???, port, );
-    // m_inductPtr = boost::make_unique<UdpInduct>(ProcessPacketCallback, thisInductConfig);
-    
 }
 
 bool BpSendPacket::Init(InductsConfig_ptr & inductsConfigPtr, const cbhe_eid_t & myEid, const uint64_t maxBundleSizeBytes) {
