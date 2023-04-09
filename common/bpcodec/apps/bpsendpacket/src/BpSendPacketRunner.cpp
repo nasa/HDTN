@@ -157,7 +157,7 @@ bool BpSendPacketRunner::Run(int argc, const char* const argv[], volatile bool &
 
         LOG_INFO(subprocess) << "starting..";
 
-        BpSendPacket bpSendPacket("localhost");
+        BpSendPacket bpSendPacket = BpSendPacket();
         bpSendPacket.Init(packetInductsConfigPtr, myEid, maxBundleSizeBytes);
 
         bpSendPacket.Start(

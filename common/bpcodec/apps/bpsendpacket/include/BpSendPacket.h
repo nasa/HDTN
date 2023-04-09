@@ -29,16 +29,8 @@
 #include "app_patterns/BpSourcePattern.h"
 
 
-typedef struct Payload {
-    uint64_t length;
-    uint8_t *data;
-} payload_t;
-
-typedef boost::function<void(padded_vector_uint8_t & packet)> ProcessPacketCallback_t;
 
 class BpSendPacket : public BpSourcePattern {
-// private:
-    
 public:
     BpSendPacket();
     BpSendPacket(std::string host);
@@ -51,13 +43,10 @@ protected:
 private:
     void ProcessPacketCallback(padded_vector_uint8_t & packet);
     void NullCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtr);
-    const ProcessPacketCallback_t m_processPacketCallback;
     InductManager m_packetInductManager;
     // m_inductPtr std::unique_ptr<Induct>;
     // UdpBundleSink m_udpSink;
     std::queue<padded_vector_uint8_t> m_queue;
-    std::string m_host;
-    // uint16_t m_port;
 };
 #endif //_BP_SEND_PACKET_H
     
