@@ -324,6 +324,32 @@ uint64_t * BundleStorageCatalog::GetCustodyIdFromUuid(const cbhe_bundle_uuid_nof
     return m_uuidNoFragToCustodyIdHashMap.GetValuePtr(bundleUuid);
 }
 
+void BundleStorageCatalog::GetExpiredBundleIds(const uint64_t expiry, const uint64_t maxNumberToFind, std::vector<uint64_t> & returnedIds) {
+
+    returnedIds.clear();
+
+    for(uint64_t priorityIndex = 0; priorityIndex < NUMBER_OF_PRIORITIES; priorityIndex++) {
+        for (dest_eid_to_priorities_map_t::iterator dmIt = m_destEidToPrioritiesMap.begin(); dmIt != m_destEidToPrioritiesMap.end(); ++dmIt) {
+            const cbhe_eid_t& eid = dmIt->first;
+            priorities_to_expirations_array_t & priorityArray = dmIt->second;
+            expirations_to_custids_map_t& expirationsMap = priorityArray[priorityIndex];
+            for (expirations_to_custids_map_t::iterator expirationsIt = expirationsMap.begin(); expirationsIt != expirationsMap.end(); ++expirationsIt) {
+                const uint64_t thisExpiration = expirationsIt->first;
+                if (thisExpiration <= expiry) {
+                    custids_flist_queue_t& custodyIdFlistQueue = expirationsIt->second;
+                    for (custids_flist_queue_t::iterator cidFlistIt = custodyIdFlistQueue.begin(); cidFlistIt != custodyIdFlistQueue.end(); ++cidFlistIt) {
+                        const uint64_t custodyId = *cidFlistIt;
+                        returnedIds.push_back(custodyId);
+                        if(maxNumberToFind && returnedIds.size() >= maxNumberToFind) {
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 bool BundleStorageCatalog::GetStorageExpiringBeforeThresholdTelemetry(StorageExpiringBeforeThresholdTelemetry_t & telem) {
     const uint64_t priorityIndex = telem.priority;
     if (priorityIndex >= NUMBER_OF_PRIORITIES) {

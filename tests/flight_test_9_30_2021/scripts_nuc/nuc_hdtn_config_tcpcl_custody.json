@@ -58,6 +58,7 @@
         "tryToRestoreFromDisk": false,
         "autoDeleteFilesOnExit": true,
         "totalStorageCapacityBytes": 81920000000,
+        "storageDeletionPolicy" : "never",
         "storageDiskConfigVector": [
             {
                 "name": "d1",

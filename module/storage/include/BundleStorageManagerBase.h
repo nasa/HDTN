@@ -99,6 +99,7 @@ public:
     STORAGE_LIB_EXPORT catalog_entry_t * GetCatalogEntryPtrFromCustodyId(const uint64_t custodyId); //for deletion of custody timer
     STORAGE_LIB_EXPORT std::size_t TopSegment(BundleStorageManagerSession_ReadFromDisk & session, void * buf);
     STORAGE_LIB_EXPORT bool ReadAllSegments(BundleStorageManagerSession_ReadFromDisk & session, std::vector<uint8_t> & buf);
+    STORAGE_LIB_EXPORT bool RemoveBundleFromDisk(const catalog_entry_t * catalogEntryPtr,const uint64_t custodyId);
     STORAGE_LIB_EXPORT bool RemoveReadBundleFromDisk(const uint64_t custodyId);
     STORAGE_LIB_EXPORT bool RemoveReadBundleFromDisk(BundleStorageManagerSession_ReadFromDisk & sessionRead);
     STORAGE_LIB_EXPORT bool RemoveReadBundleFromDisk(const catalog_entry_t * catalogEntryPtr, const uint64_t custodyId);
@@ -106,6 +107,7 @@ public:
     STORAGE_LIB_EXPORT uint64_t * GetCustodyIdFromUuid(const cbhe_bundle_uuid_nofragment_t & bundleUuid);
 
     STORAGE_LIB_EXPORT bool GetStorageExpiringBeforeThresholdTelemetry(StorageExpiringBeforeThresholdTelemetry_t& telem);
+    STORAGE_LIB_EXPORT void GetExpiredBundleIds(const uint64_t expiry, const uint64_t maxNumberToFind, std::vector<uint64_t> & returnedIds);
 
     STORAGE_LIB_EXPORT bool RestoreFromDisk(uint64_t * totalBundlesRestored, uint64_t * totalBytesRestored, uint64_t * totalSegmentsRestored);
 

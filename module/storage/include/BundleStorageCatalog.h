@@ -70,6 +70,7 @@ public:
     STORAGE_LIB_EXPORT catalog_entry_t * GetEntryFromCustodyId(const uint64_t custodyId);
     STORAGE_LIB_EXPORT uint64_t * GetCustodyIdFromUuid(const cbhe_bundle_uuid_t & bundleUuid);
     STORAGE_LIB_EXPORT uint64_t * GetCustodyIdFromUuid(const cbhe_bundle_uuid_nofragment_t & bundleUuid);
+    STORAGE_LIB_EXPORT void GetExpiredBundleIds(const uint64_t expiry, const uint64_t maxNumberToFind, std::vector<uint64_t> & returnedIds);
     STORAGE_LIB_EXPORT bool GetStorageExpiringBeforeThresholdTelemetry(StorageExpiringBeforeThresholdTelemetry_t & telem);
 
     STORAGE_LIB_EXPORT uint64_t GetNumBundlesInCatalog() const noexcept;

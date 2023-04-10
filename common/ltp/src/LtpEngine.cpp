@@ -621,6 +621,7 @@ bool LtpEngine::GetNextPacketToSend(UdpSendPacketInfo& udpSendPacketInfo) {
                     TryReturnTxSessionDataToUser(txSessionIt);
                 }
                 else { //successful send
+                    m_senderLinkIsUpPhysically = true;
                     if ((!successCallbackAlreadyCalled) && m_onSuccessfulBundleSendCallback) {
                         m_onSuccessfulBundleSendCallback(csdRef->m_userData, m_userAssignedUuid);
                     }

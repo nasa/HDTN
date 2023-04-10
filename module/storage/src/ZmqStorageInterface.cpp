@@ -114,6 +114,8 @@ private:
     void SyncTelemetry();
     void TelemEventsHandler();
     static std::string SprintCustodyidToSizeMap(const custodyid_to_size_map_t& m);
+    void DeleteExpiredBundles();
+    void DeleteBundleById(const uint64_t custodyId);
 
 public:
     StorageTelemetry_t m_telem;
@@ -150,12 +152,21 @@ private:
     volatile bool m_workerThreadStartupInProgress;
     boost::mutex m_workerThreadStartupMutex;
     boost::condition_variable m_workerThreadStartupConditionVariable;
+
+    // For deleting bundles
+    std::vector<uint64_t> m_expiredIds;
+    enum class DeletionPolicy { never, onExpiration, onStorageFull };
+    DeletionPolicy m_deletionPolicy;
+
+    const float DELETE_ALL_EXPIRED_THRESHOLD = 0.9f; /* percent. If storage this full, delete all expired bundles */
+    const uint64_t MAX_DELETE_EXPIRED_PER_ITER = 100; /* Maximum number of bundles to delete per iteration (no storage pressure) */
 };
 
 ZmqStorageInterface::Impl::Impl() :
     m_running(false),
     m_workerThreadStartupInProgress(false),
-    m_hdtnOneProcessZmqInprocContextPtr(nullptr) {}
+    m_hdtnOneProcessZmqInprocContextPtr(nullptr),
+    m_deletionPolicy(DeletionPolicy::never) {}
 
 ZmqStorageInterface::Impl::~Impl() {
     Stop();
@@ -203,6 +214,14 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDi
     //HDTN shall default m_myCustodialServiceId to 0 although it is changeable in the hdtn config json file
     M_HDTN_EID_CUSTODY.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_myCustodialServiceId);
     m_hdtnOneProcessZmqInprocContextPtr = hdtnOneProcessZmqInprocContextPtr;
+
+    if(m_hdtnConfig.m_storageConfig.m_storageDeletionPolicy == "never") {
+        m_deletionPolicy = DeletionPolicy::never;
+    } else if(m_hdtnConfig.m_storageConfig.m_storageDeletionPolicy == "on_expiration") {
+        m_deletionPolicy = DeletionPolicy::onExpiration;
+    } else if(m_hdtnConfig.m_storageConfig.m_storageDeletionPolicy == "on_storage_full") {
+        m_deletionPolicy = DeletionPolicy::onStorageFull;
+    }
 
     //{
 
@@ -773,6 +792,69 @@ void ZmqStorageInterface::Impl::SyncTelemetry() {
     }
 }
 
+/** Delete bundle from disk
+ *
+ * @param custodyId The custody ID of the bundle to delete
+ */
+void ZmqStorageInterface::Impl::DeleteBundleById(const uint64_t custodyId) {
+    catalog_entry_t *entry = m_bsmPtr->GetCatalogEntryPtrFromCustodyId(custodyId);
+    if(!entry) {
+        LOG_ERROR(subprocess) << "Failed to get catalog entry for " << custodyId << " while deleting for expiry";
+        return;
+    }
+
+    if(entry->HasCustody()) {
+        bool success = m_custodyTimersPtr->CancelCustodyTransferTimer(entry->destEid, custodyId);
+        if(!success) {
+            LOG_ERROR(subprocess) << "Failed to cancel custody timer for " << custodyId << " while deleting for expiry";
+        }
+        //TODO RFC5050 (s5.13) wants us to send a bundle deletion status report to the report-to endpoint
+    }
+
+    m_custodyIdAllocatorPtr->FreeCustodyId(custodyId);
+
+    bool success = m_bsmPtr->RemoveBundleFromDisk(entry, custodyId);
+    if(!success) {
+        LOG_ERROR(subprocess) << "Failed to remove bundle from disk " << custodyId << " while deleting for expiry";
+    }
+}
+
+/** Delete expired bundles
+ *
+ * Deletes expired bundles from disk per storage deletion policy.
+ *
+ * If storage is less full than DELETE_ALL_EXPIRED_THRESHOLD, then at most
+ * MAX_DELETE_EXPIRED_PER_ITER bundles are deleted. Otherwise, all expired
+ * bundles are deleted. (Avoid blocking event loop unless full).
+ *
+ */
+void ZmqStorageInterface::Impl::DeleteExpiredBundles() {
+
+    if(m_deletionPolicy == DeletionPolicy::never) {
+        return;
+    }
+
+    float storageUsagePercentage = m_bsmPtr->GetUsedSpaceBytes()  / (float)m_bsmPtr->GetTotalCapacityBytes();
+
+    if(m_deletionPolicy == DeletionPolicy::onStorageFull && storageUsagePercentage < DELETE_ALL_EXPIRED_THRESHOLD) {
+        return;
+    }
+
+    // If we reach here then either storage is full or policy == "on_expiration"
+
+    uint64_t numToDelete = storageUsagePercentage >= DELETE_ALL_EXPIRED_THRESHOLD ?
+        0 : MAX_DELETE_EXPIRED_PER_ITER;
+
+    uint64_t expiry = TimestampUtil::GetSecondsSinceEpochRfc5050(boost::posix_time::microsec_clock::universal_time());
+
+    m_bsmPtr->GetExpiredBundleIds(expiry, numToDelete, m_expiredIds);
+
+    for(uint64_t custodyId : m_expiredIds) {
+        DeleteBundleById(custodyId);
+        m_telem.m_totalBundlesErasedFromStorageBecauseExpired++;
+    }
+}
+
 void ZmqStorageInterface::Impl::ThreadFunc() {
     ThreadNamer::SetThisThreadName("ZmqStorageInterface");
     
@@ -944,6 +1026,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                         m_custodyTimersPtr->CancelCustodyTransferTimer(egressAckHdr.finalDestEid, egressAckHdr.custodyId);
                                     }
                                     else if (egressAckHdr.deleteNow) { //custody not requested, so don't wait on a custody signal to delete the bundle
+                                        m_custodyIdAllocatorPtr->FreeCustodyId(egressAckHdr.custodyId);
                                         bool successRemoveBundle = m_bsmPtr->RemoveReadBundleFromDisk(egressAckHdr.custodyId);
                                         if (!successRemoveBundle) {
                                             LOG_ERROR(subprocess) << "error freeing bundle from disk";
@@ -1264,6 +1347,8 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                 LOG_ERROR(subprocess) << "error unable to return expired custody id " << custodyIdExpiredAndNeedingResent << " to the awaiting send";
             }
         }
+
+        DeleteExpiredBundles();
 
         //For each outduct or opportunistic induct, send to Egress the bundles read from disk or the
         //bundles forwarded over the cut-through path from ingress, alternating/multiplexing between the two.

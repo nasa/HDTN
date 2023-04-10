@@ -97,6 +97,7 @@ public:
     bool m_tryToRestoreFromDisk;
     bool m_autoDeleteFilesOnExit;
     uint64_t m_totalStorageCapacityBytes;
+    std::string m_storageDeletionPolicy;
     storage_disk_config_vector_t m_storageDiskConfigVector;
 };
 

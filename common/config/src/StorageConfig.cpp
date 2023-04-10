@@ -20,6 +20,7 @@
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 static const std::vector<std::string> VALID_STORAGE_IMPLEMENTATION_NAMES = { "stdio_multi_threaded", "asio_single_threaded" };
+static const std::vector<std::string> VALID_STORAGE_DELETION_POLICIES = { "never", "on_expiration", "on_storage_full" };
 
 storage_disk_config_t::storage_disk_config_t() : name(""), storeFilePath("") {}
 storage_disk_config_t::~storage_disk_config_t() {}
@@ -58,6 +59,7 @@ StorageConfig::StorageConfig() :
     m_tryToRestoreFromDisk(false),
     m_autoDeleteFilesOnExit(true),
     m_totalStorageCapacityBytes(1),
+    m_storageDeletionPolicy("never"),
     m_storageDiskConfigVector() { }
 
 StorageConfig::~StorageConfig() {
@@ -69,6 +71,7 @@ StorageConfig::StorageConfig(const StorageConfig& o) :
     m_tryToRestoreFromDisk(o.m_tryToRestoreFromDisk),
     m_autoDeleteFilesOnExit(o.m_autoDeleteFilesOnExit),
     m_totalStorageCapacityBytes(o.m_totalStorageCapacityBytes),
+    m_storageDeletionPolicy(o.m_storageDeletionPolicy),
     m_storageDiskConfigVector(o.m_storageDiskConfigVector) { }
 
 //a move constructor: X(X&&)
@@ -77,6 +80,7 @@ StorageConfig::StorageConfig(StorageConfig&& o) noexcept :
     m_tryToRestoreFromDisk(o.m_tryToRestoreFromDisk),
     m_autoDeleteFilesOnExit(o.m_autoDeleteFilesOnExit),
     m_totalStorageCapacityBytes(o.m_totalStorageCapacityBytes),
+    m_storageDeletionPolicy(std::move(o.m_storageDeletionPolicy)),
     m_storageDiskConfigVector(std::move(o.m_storageDiskConfigVector)) { }
 
 //a copy assignment: operator=(const X&)
@@ -85,6 +89,7 @@ StorageConfig& StorageConfig::operator=(const StorageConfig& o) {
     m_tryToRestoreFromDisk = o.m_tryToRestoreFromDisk;
     m_autoDeleteFilesOnExit = o.m_autoDeleteFilesOnExit;
     m_totalStorageCapacityBytes = o.m_totalStorageCapacityBytes;
+    m_storageDeletionPolicy = o.m_storageDeletionPolicy;
     m_storageDiskConfigVector = o.m_storageDiskConfigVector;
     return *this;
 }
@@ -95,6 +100,7 @@ StorageConfig& StorageConfig::operator=(StorageConfig&& o) noexcept {
     m_tryToRestoreFromDisk = o.m_tryToRestoreFromDisk;
     m_autoDeleteFilesOnExit = o.m_autoDeleteFilesOnExit;
     m_totalStorageCapacityBytes = o.m_totalStorageCapacityBytes;
+    m_storageDeletionPolicy = std::move(o.m_storageDeletionPolicy);
     m_storageDiskConfigVector = std::move(o.m_storageDiskConfigVector);
     return *this;
 }
@@ -105,6 +111,7 @@ bool StorageConfig::operator==(const StorageConfig & other) const {
         (m_tryToRestoreFromDisk == other.m_tryToRestoreFromDisk) &&
         (m_autoDeleteFilesOnExit == other.m_autoDeleteFilesOnExit) &&
         (m_totalStorageCapacityBytes == other.m_totalStorageCapacityBytes) &&
+        (m_storageDeletionPolicy == other.m_storageDeletionPolicy) &&
         (m_storageDiskConfigVector == other.m_storageDiskConfigVector);
 }
 
@@ -121,6 +128,20 @@ bool StorageConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
             }
             if (!found) {
                 LOG_ERROR(subprocess) << "error parsing JSON Storage config:: invalid storage implementation " << m_storageImplementation;
+                return false;
+            }
+        }
+        m_storageDeletionPolicy = pt.get<std::string>("storageDeletionPolicy");
+        {
+            bool found = false;
+            for (std::vector<std::string>::const_iterator it = VALID_STORAGE_DELETION_POLICIES.cbegin(); it != VALID_STORAGE_DELETION_POLICIES.cend(); ++it) {
+                if (m_storageDeletionPolicy == *it) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                LOG_ERROR(subprocess) << "error parsing JSON Storage config:: invalid storage deletion policy" << m_storageDeletionPolicy;
                 return false;
             }
         }
@@ -212,6 +233,7 @@ boost::property_tree::ptree StorageConfig::GetNewPropertyTree() const {
     pt.put("tryToRestoreFromDisk", m_tryToRestoreFromDisk);
     pt.put("autoDeleteFilesOnExit", m_autoDeleteFilesOnExit);
     pt.put("totalStorageCapacityBytes", m_totalStorageCapacityBytes);
+    pt.put("storageDeletionPolicy", m_storageDeletionPolicy);
     boost::property_tree::ptree & storageDiskConfigVectorPt = pt.put_child("storageDiskConfigVector", m_storageDiskConfigVector.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
     for (storage_disk_config_vector_t::const_iterator storageDiskConfigVectorIt = m_storageDiskConfigVector.cbegin(); storageDiskConfigVectorIt != m_storageDiskConfigVector.cend(); ++storageDiskConfigVectorIt) {
         const storage_disk_config_t & storageDiskConfig = *storageDiskConfigVectorIt;

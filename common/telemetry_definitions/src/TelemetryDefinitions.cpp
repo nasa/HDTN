@@ -35,6 +35,7 @@ StorageTelemetry_t::StorageTelemetry_t() :
     //from ZmqStorageInterface
     m_totalBundlesErasedFromStorageNoCustodyTransfer(0),
     m_totalBundlesErasedFromStorageWithCustodyTransfer(0),
+    m_totalBundlesErasedFromStorageBecauseExpired(0),
     m_totalBundlesRewrittenToStorageFromFailedEgressSend(0),
     m_totalBundlesSentToEgressFromStorageReadFromDisk(0),
     m_totalBundleBytesSentToEgressFromStorageReadFromDisk(0),
@@ -58,6 +59,7 @@ bool StorageTelemetry_t::operator==(const StorageTelemetry_t& o) const {
     return (m_timestampMilliseconds == o.m_timestampMilliseconds)
         && (m_totalBundlesErasedFromStorageNoCustodyTransfer == o.m_totalBundlesErasedFromStorageNoCustodyTransfer)
         && (m_totalBundlesErasedFromStorageWithCustodyTransfer == o.m_totalBundlesErasedFromStorageWithCustodyTransfer)
+        && (m_totalBundlesErasedFromStorageBecauseExpired == o.m_totalBundlesErasedFromStorageBecauseExpired)
         && (m_totalBundlesRewrittenToStorageFromFailedEgressSend == o.m_totalBundlesRewrittenToStorageFromFailedEgressSend)
         && (m_totalBundlesSentToEgressFromStorageReadFromDisk == o.m_totalBundlesSentToEgressFromStorageReadFromDisk)
         && (m_totalBundleBytesSentToEgressFromStorageReadFromDisk == o.m_totalBundleBytesSentToEgressFromStorageReadFromDisk)
@@ -84,6 +86,7 @@ bool StorageTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::p
         m_timestampMilliseconds = pt.get<uint64_t>("timestampMilliseconds");
         m_totalBundlesErasedFromStorageNoCustodyTransfer = pt.get<uint64_t>("totalBundlesErasedFromStorageNoCustodyTransfer");
         m_totalBundlesErasedFromStorageWithCustodyTransfer = pt.get<uint64_t>("totalBundlesErasedFromStorageWithCustodyTransfer");
+        m_totalBundlesErasedFromStorageBecauseExpired = pt.get<uint64_t>("totalBundlesErasedFromStorageBecauseExpired");
         m_totalBundlesRewrittenToStorageFromFailedEgressSend = pt.get<uint64_t>("totalBundlesRewrittenToStorageFromFailedEgressSend");
         m_totalBundlesSentToEgressFromStorageReadFromDisk = pt.get<uint64_t>("totalBundlesSentToEgressFromStorageReadFromDisk");
         m_totalBundleBytesSentToEgressFromStorageReadFromDisk = pt.get<uint64_t>("totalBundleBytesSentToEgressFromStorageReadFromDisk");
@@ -113,6 +116,7 @@ boost::property_tree::ptree StorageTelemetry_t::GetNewPropertyTree() const {
     pt.put("timestampMilliseconds", m_timestampMilliseconds);
     pt.put("totalBundlesErasedFromStorageNoCustodyTransfer", m_totalBundlesErasedFromStorageNoCustodyTransfer);
     pt.put("totalBundlesErasedFromStorageWithCustodyTransfer", m_totalBundlesErasedFromStorageWithCustodyTransfer);
+    pt.put("totalBundlesErasedFromStorageBecauseExpired", m_totalBundlesErasedFromStorageBecauseExpired);
     pt.put("totalBundlesRewrittenToStorageFromFailedEgressSend", m_totalBundlesRewrittenToStorageFromFailedEgressSend);
     pt.put("totalBundlesSentToEgressFromStorageReadFromDisk", m_totalBundlesSentToEgressFromStorageReadFromDisk);
     pt.put("totalBundleBytesSentToEgressFromStorageReadFromDisk", m_totalBundleBytesSentToEgressFromStorageReadFromDisk);
