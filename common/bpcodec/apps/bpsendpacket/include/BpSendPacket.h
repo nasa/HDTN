@@ -33,7 +33,6 @@
 class BpSendPacket : public BpSourcePattern {
 public:
     BpSendPacket();
-    BpSendPacket(std::string host);
     bool Init(InductsConfig_ptr & inductsConfigPtr, const cbhe_eid_t & myEid, const uint64_t maxBundleSizeBytes);
     virtual ~BpSendPacket() override;
 protected:
