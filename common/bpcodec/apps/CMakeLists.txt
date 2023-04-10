@@ -80,3 +80,15 @@ target_include_directories(bpsendpacket
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/bpsendpacket/include>
 )
 target_link_libraries(bpsendpacket PUBLIC outduct_manager_lib induct_manager_lib bpcodec hdtn_util bp_app_patterns_lib Boost::program_options)
+
+add_executable(bpreceivepacket
+    bpreceivepacket/src/BpReceivePacket.cpp
+    bpreceivepacket/src/BpReceivePacketMain.cpp
+    bpreceivepacket/src/BpReceivePacketRunner.cpp
+)
+install(TARGETS bpreceivepacket DESTINATION ${CMAKE_INSTALL_BINDIR})
+target_include_directories(bpreceivepacket
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/bpreceivepacket/include>
+)
+target_link_libraries(bpreceivepacket PUBLIC outduct_manager_lib induct_manager_lib bpcodec hdtn_util bp_app_patterns_lib Boost::program_options)
