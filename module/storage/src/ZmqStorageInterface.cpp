@@ -834,7 +834,7 @@ void ZmqStorageInterface::Impl::DeleteExpiredBundles() {
         return;
     }
 
-    double storageUsagePercentage = m_bsmPtr->GetUsedSpaceBytes()  / (double)m_bsmPtr->GetTotalCapacityBytes();
+    float storageUsagePercentage = m_bsmPtr->GetUsedSpaceBytes()  / (float)m_bsmPtr->GetTotalCapacityBytes();
 
     if(m_deletionPolicy == DeletionPolicy::onStorageFull && storageUsagePercentage < DELETE_ALL_EXPIRED_THRESHOLD) {
         return;
