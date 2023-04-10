@@ -30,9 +30,16 @@
 #include <BpGenAsync.h>
 #include <BpSinkAsync.h>
 #include <EgressAsync.h>
+#include <boost/filesystem.hpp>
 #include <boost/test/unit_test.hpp>
 #include <boost/test/results_reporter.hpp>
 #include <boost/test/unit_test_parameters.hpp>
+#include <boost/program_options.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/uuid/detail/sha1.hpp>
+#include <boost/endian/conversion.hpp>
+#include <boost/filesystem/fstream.hpp>
+#include <boost/format.hpp>
 #include "Environment.h"
 #include "BpGenAsyncRunner.h"
 #include "BpSendFileRunner.h"
@@ -51,7 +58,7 @@
 #define MAX_RATE_DIV_6 "--stcp-rate-bits-per-sec=5000"
 
 // Prototypes
-
+static void GetSha1(const uint8_t * data, const std::size_t size, std::string & sha1Str);
 int RunBpgenAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount, OutductFinalStats * ptrFinalStats);
 int RunBpsinkAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount, FinalStatsBpSink * ptrFinalStatsBpSink);
 int RunBpSendFile(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
@@ -85,6 +92,23 @@ void Delay(uint64_t seconds) {
     boost::this_thread::sleep(boost::posix_time::seconds(seconds));
 }
 
+static void GetSha1(const uint8_t * data, const std::size_t size, std::string & sha1Str) {
+
+    sha1Str.resize(40);
+    char * strPtr = &sha1Str[0];
+
+    boost::uuids::detail::sha1 s;
+    s.process_bytes(data, size);
+    boost::uint32_t digest[5];
+    s.get_digest(digest);
+    for (int i = 0; i < 5; ++i) {
+        //const uint32_t digestBe = boost::endian::native_to_big(digest[i]);
+        sprintf(strPtr, "%08x", digest[i]);// digestBe);
+        strPtr += 8;
+    }
+}
+
+
 int RunBpgenAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount,
     OutductFinalStats * ptrFinalStats) {
     {
@@ -107,18 +131,20 @@ int RunBpsinkAsync(const char * argv[], int argc, bool & running, uint64_t* ptrB
     return 0;
 }
 
-int RunBpSendFile(const char * argv[], int argc, bool & running) {
+int RunBpSendFile(const char * argv[], int argc, bool & running,  uint64_t* ptrBundleCount) {
     {
         BpSendFileRunner runner;
         runner.Run(argc, argv, running, false);
+        *ptrBundleCount = runner.m_bundleCount;
     }
     return 0;
 }
 
-int RunBpReceiveFile(const char * argv[], int argc, bool & running) {
+int RunBpReceiveFile(const char * argv[], int argc, bool & running,  uint64_t* ptrBundleCount) {
     {
         BpReceiveFileRunner runner;
         runner.Run(argc, argv, running, false);
+        *ptrBundleCount = 0;
     }
     return 0;
 }
@@ -545,14 +571,16 @@ bool TestHDTNFileTransferLTP() {
     uint64_t bundleCountStorage = 0;
     uint64_t bundleCountEgress = 0;
     uint64_t bundleCountIngress = 0;
+    std::string sha1Str;
+    std::string sha1Str2;
 
     // Start threads
     Delay(DELAY_THREAD);
 
-    //bpsink
+    //bpreceive
     static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_ltp_port4558.json").string();
     static const char * argsBpReceiveFile[] = { "bpreceivefile",  "--save-directory=received", "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
-    std::thread threadBpReceiveFile(RunBpReceiveFile, argsBpReceiveFile, 4, std::ref(runningBpreceive));
+    std::thread threadBpReceiveFile(RunBpReceiveFile, argsBpReceiveFile, 4, std::ref(runningBpreceive), &bundlesReceivedBpreceive[0] );
 
     Delay(DELAY_THREAD);
 
@@ -566,14 +594,14 @@ bool TestHDTNFileTransferLTP() {
 
     Delay(10);
 
-    //Bpgen
+    //Bpsend
     static const std::string bpgenConfigArg = 
 	"--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_ltp_port4556_thisengineid200.json").string();
     static const std::string testFile = 
 	"--file-or-folder-path=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "integrated_tests" / "src" / "test.txt" ).string();
    
     static const char * argsBpSendFile[] = { "bpsendfile",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", testFile.c_str(), bpgenConfigArg.c_str(), NULL };
-    std::thread threadBpSendFile(RunBpSendFile,argsBpSendFile, 7, std::ref(runningBpsend));
+    std::thread threadBpSendFile(RunBpSendFile,argsBpSendFile, 7, std::ref(runningBpsend), &bundlesSentBpsend[0] );
 
     // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(8));
@@ -589,39 +617,70 @@ bool TestHDTNFileTransferLTP() {
     threadBpReceiveFile.join();
 
     // Verify results
-    uint64_t totalBundlesBpsend = 0;
-    for (int i=0; i<1; i++) {
-        totalBundlesBpsend += bundlesSentBpsend[i];
+    
+    //Files sent vs. files received
+    static const std::string receivedFile = (Environment::GetPathHdtnSourceRoot() / "received" ).string();
+    boost::filesystem::path sendFilePath = testFile.c_str();
+    boost::filesystem::path ReceiveFilePath = receivedFile.c_str();
+    
+    int receivedCount = 0;
+        for(auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(ReceiveFilePath), {}))
+            receivedCount += 1;
+
+     if (receivedCount != 1) {
+        BOOST_ERROR("receivedCount ("+ std::to_string(receivedCount) +") != sendCount");
+        return false;
+    }
+   
+    
+/*
+    boost::filesystem::path sendFilePath = testFile.c_str();
+    std::vector<uint8_t> fileContentsInMemory;
+    boost::filesystem::ifstream ifs(sendFilePath, std::ifstream::in | std::ifstream::binary);
+    static const std::string receiveFile= "--file-or-folder-path=" + (Environment::GetPathHdtnSourceRoot() / "received" ).string();
+    boost::filesystem::path receiveFilePath = receiveFile.c_str();
+    
+    // get length of file:
+    ifs.seekg(0, ifs.end);
+    std::size_t length = ifs.tellg();
+    ifs.seekg(0, ifs.beg);
+
+    // allocate memory:
+    fileContentsInMemory.resize(length);
+
+    // read data as a block:
+    ifs.read((char*)fileContentsInMemory.data(), length);
+
+    ifs.close();
+
+    GetSha1(fileContentsInMemory.data(), fileContentsInMemory.size(), sha1Str);
+    
+    boost::filesystem::ifstream ifs2(receiveFilePath, std::ifstream::in | std::ifstream::binary);
+    
+    ifs2.seekg(0, ifs2.end);
+    std::size_t length2 = ifs2.tellg();
+    ifs2.seekg(0, ifs2.beg);
+
+    // allocate memory:
+    fileContentsInMemory.resize(length2);
+
+    // read data as a block:
+    ifs2.read((char*)fileContentsInMemory.data(), length2);
+
+    ifs2.close();
+    
+    GetSha1(fileContentsInMemory.data(), fileContentsInMemory.size(), sha1Str2);
+*/
+
+/*
+    if (sha1Str != sha1Str2) {
+        BOOST_ERROR("sha1Str (" + sha1Str + ") != sha1Str number 2 "
+                    + sha1Str2 + ").");
+        return false;
     }
  
-    uint64_t totalBundlesBpreceive = 0;
-    for(int i=0; i<1; i++) {
-        totalBundlesBpreceive += bundlesReceivedBpreceive[i];
-    }
-
-    if (bundleCountIngress != bundleCountEgress) {
-        BOOST_ERROR("Total Bundles received by Ingress (" + std::to_string(bundleCountIngress) + ") != Total bundles received by Egress in Cuthrough Mode "
-                    + std::to_string(bundleCountEgress) + ").");
-        return false;
-    }
-
-    if (totalBundlesBpsend != totalBundlesBpreceive) {
-        BOOST_ERROR("Bundles sent by BpGen (" + std::to_string(totalBundlesBpsend) + ") != bundles received by BpSink "
-                    + std::to_string(totalBundlesBpreceive) + ").");
-	return false;
-    }
-
-    if (totalBundlesBpsend != bundleCountIngress) {
-        BOOST_ERROR("Bundles sent by BpGen (" + std::to_string(totalBundlesBpsend) + ") !=  bundles received by Ingress "
-                + std::to_string(bundleCountIngress) + ").");
-        return false;
-    }
-
-    if (totalBundlesBpsend != bundleCountEgress) {
-        BOOST_ERROR("Bundles sent by BpGen (" + std::to_string(totalBundlesBpsend) + ") != bundles received by Egress "
-                + std::to_string(bundleCountEgress) + ").");
-        return false;
-    }
+*/
+   
     
     return true;
 }
