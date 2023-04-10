@@ -116,6 +116,7 @@ private:
     static std::string SprintCustodyidToSizeMap(const custodyid_to_size_map_t& m);
     void DeleteExpiredBundles();
     void DeleteBundleById(const uint64_t custodyId);
+    bool SendDeletionStatusReport(const catalog_entry_t * entry);
 
 public:
     StorageTelemetry_t m_telem;
@@ -792,6 +793,123 @@ void ZmqStorageInterface::Impl::SyncTelemetry() {
     }
 }
 
+bool ZmqStorageInterface::Impl::SendDeletionStatusReport(const catalog_entry_t * entry) {
+    /*************************************************************
+     * Original Bundle
+     *************************************************************/
+    BundleViewV6 bundleToDelete;
+    // TODO we need to read the original bundle
+    Bpv6CbhePrimaryBlock & origPrimary = bundleToDelete.m_primaryBlockView.header;
+    const bool isFragment = static_cast<bool>(origPrimary.m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::ISFRAGMENT);
+    const BPV6_BUNDLEFLAG priority = origPrimary.m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::PRIORITY_BIT_MASK;
+    const cbhe_eid_t reportToEid = origPrimary.m_reportToEid;
+    const cbhe_eid_t sourceEid = origPrimary.m_sourceNodeId;
+    uint64_t fragmentOffset = 0, fragmentLength = 0;
+    if(isFragment) {
+        fragmentOffset = origPrimary.m_fragmentOffset;
+        fragmentLength = origPrimary.m_totalApplicationDataUnitLength;
+    }
+    TimestampUtil::bpv6_creation_timestamp_t copyOfCreationTime = origPrimary.m_creationTimestamp;
+
+    /*************************************************************
+     * To be moved to member variable
+     *************************************************************/
+    BundleViewV6 bv;
+    bv.m_frontBuffer.reserve(2000);
+    bv.m_backBuffer.reserve(2000);
+
+    /*************************************************************
+     * Set up status report bundle primary block
+     *************************************************************/
+    bv.Reset();
+
+    // Set primary block processing control flags
+    Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+    primary.SetZero();
+    primary.m_bundleProcessingControlFlags = (
+        priority |  
+        BPV6_BUNDLEFLAG::SINGLETON  | /* Destination endpoint is singleton */
+        BPV6_BUNDLEFLAG::ADMINRECORD | /* This is an admin record */
+        BPV6_BUNDLEFLAG::NOFRAGMENT /* Don't fragment our  admin record please */
+    );
+
+    //TODO set the current custodian to the NULL endpoint?
+
+    // Source and dest
+    primary.m_sourceNodeId = M_HDTN_EID_CUSTODY;
+    primary.m_destinationEid = reportToEid;
+    
+    // Time stamp
+    uint64_t currentTime;
+    uint64_t sequenceNumber;
+    m_ctmPtr->SetCreationAndSequence(currentTime, sequenceNumber);
+    primary.m_creationTimestamp = {currentTime, sequenceNumber};
+    // Life time
+    primary.m_lifetimeSeconds = 1000; //todo
+    
+    // We've modified the header
+    bv.m_primaryBlockView.SetManuallyModified();
+
+    /*************************************************************
+     * Set up status report part
+     *************************************************************/
+
+    std::unique_ptr<Bpv6CanonicalBlock> blockPtr = boost::make_unique<Bpv6AdministrativeRecord>();
+    Bpv6AdministrativeRecord & block = *(reinterpret_cast<Bpv6AdministrativeRecord*>(blockPtr.get()));
+    block.SetZero();
+
+    block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET;
+    block.m_adminRecordTypeCode = BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::BUNDLE_STATUS_REPORT;
+    block.m_isFragment = isFragment;
+
+    block.m_adminRecordContentPtr = boost::make_unique<Bpv6AdministrativeRecordContentBundleStatusReport>();
+    Bpv6AdministrativeRecordContentBundleStatusReport & report = *(reinterpret_cast<Bpv6AdministrativeRecordContentBundleStatusReport*>(block.m_adminRecordContentPtr.get()));
+    report.Reset();
+    
+    // TODO there's a function that does this, call it (just sets the deleted part)
+    report.m_statusFlags = BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_DELETED_BUNDLE;
+    report.m_reasonCode = BPV6_BUNDLE_STATUS_REPORT_REASON_CODES::LIFETIME_EXPIRED;
+    if(isFragment) {
+        report.m_isFragment = true;
+        report.m_fragmentOffsetIfPresent = fragmentOffset;
+        report.m_fragmentLengthIfPresent = fragmentLength;
+    }
+    report.m_timeOfDeletionOfBundle = TimestampUtil::GenerateDtnTimeNow();
+    report.m_copyOfBundleCreationTimestamp = copyOfCreationTime;
+    report.m_bundleSourceEid = Uri::GetIpnUriString(sourceEid.nodeId, sourceEid.serviceId);
+    
+    /*************************************************************
+     * Render it
+     *************************************************************/
+    bv.AppendMoveCanonicalBlock(blockPtr);
+    bool success = bv.Render(CBHE_BPV6_MINIMUM_SAFE_PRIMARY_HEADER_ENCODE_SIZE + Bpv6AdministrativeRecordContentBundleStatusReport::CBHE_MAX_SERIALIZATION_SIZE);
+    if(!success) {
+        LOG_ERROR(subprocess) << "Failed to render status code bundle";
+    }
+    
+    /*************************************************************
+     * Write to disk
+     *************************************************************/
+    const cbhe_eid_t& src = bv.m_primaryBlockView.header.m_sourceNodeId;
+    const uint64_t id = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(src);
+
+    BundleStorageManagerSession_WriteToDisk session;
+    const uint64_t numSegments = m_bsmPtr->Push(
+        session, bv.m_primaryBlockView.header, bv.m_renderedBundle.size());
+    if(numSegments == 0) {
+        LOG_ERROR(subprocess) << "Failed to allocate space for bundle deletion status report";
+        return false;
+    }
+
+    const uint64_t size = m_bsmPtr->PushAllSegments(
+        session, bv.m_primaryBlockView.header, id, static_cast<const uint8_t*>(bv.m_renderedBundle.data()), bv.m_renderedBundle.size());
+    if(size != bv.m_renderedBundle.size()) {
+        LOG_ERROR(subprocess) << "Failed to write all bytes of bundle deletion status report to disk";
+    }
+    
+    return true;
+}
+
 /** Delete bundle from disk
  *
  * @param custodyId The custody ID of the bundle to delete
@@ -808,7 +926,10 @@ void ZmqStorageInterface::Impl::DeleteBundleById(const uint64_t custodyId) {
         if(!success) {
             LOG_ERROR(subprocess) << "Failed to cancel custody timer for " << custodyId << " while deleting for expiry";
         }
-        //TODO RFC5050 (s5.13) wants us to send a bundle deletion status report to the report-to endpoint
+        bool sent = SendDeletionStatusReport(entry);
+        if(!sent) {
+            LOG_ERROR(subprocess) << "Failed to send bundle deletion status report for bundle with custody ID " << custodyId;
+        }
     }
 
     m_custodyIdAllocatorPtr->FreeCustodyId(custodyId);
