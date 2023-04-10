@@ -811,7 +811,7 @@ void ZmqStorageInterface::Impl::DeleteBundleById(const uint64_t custodyId) {
         //TODO RFC5050 (s5.13) wants us to send a bundle deletion status report to the report-to endpoint
     }
 
-    uint64_t numFreed = m_custodyIdAllocatorPtr->FreeCustodyId(custodyId);
+    m_custodyIdAllocatorPtr->FreeCustodyId(custodyId);
 
     bool success = m_bsmPtr->RemoveBundleFromDisk(entry, custodyId);
     if(!success) {
@@ -1026,6 +1026,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                         m_custodyTimersPtr->CancelCustodyTransferTimer(egressAckHdr.finalDestEid, egressAckHdr.custodyId);
                                     }
                                     else if (egressAckHdr.deleteNow) { //custody not requested, so don't wait on a custody signal to delete the bundle
+                                        m_custodyIdAllocatorPtr->FreeCustodyId(egressAckHdr.custodyId);
                                         bool successRemoveBundle = m_bsmPtr->RemoveReadBundleFromDisk(egressAckHdr.custodyId);
                                         if (!successRemoveBundle) {
                                             LOG_ERROR(subprocess) << "error freeing bundle from disk";
