@@ -73,7 +73,7 @@ public:
     */
   //  BPSEC_EXPORT bool bpSecVerify(BundleViewV7 & bv);
     
-    BPSEC_EXPORT const bool m_isSecEnabled;
+    const bool m_isSecEnabled;
     
 
     BPSEC_EXPORT int aes_gcm_encrypt(std::string gcm_pt, std::string gcm_key,

@@ -28,7 +28,6 @@ target_link_libraries(bpcodec
 		hdtn_util
 		log_lib
 		stats_lib
-		$<$<BOOL:${ENABLE_BPSEC}>:bpsec>
 )
 target_include_directories(bpcodec
 	PUBLIC

@@ -147,8 +147,8 @@ if (DO_STATS_LOGGING OR USE_WEB_INTERFACE)
 endif()
 
 OPTION(ENABLE_OPENSSL_SUPPORT "TcpclV4 and GUI Web Server can use OpenSSL" ON)
-OPTION(ENABLE_BPSEC "Enable BPSec" ON)
 if(ENABLE_OPENSSL_SUPPORT)
+	OPTION(ENABLE_BPSEC "Enable BPSec" ON)
     add_compile_definitions(OPENSSL_SUPPORT_ENABLED)
 	list(APPEND COMPILE_DEFINITIONS_TO_EXPORT OPENSSL_SUPPORT_ENABLED) #used by TcpAsyncSender.h and various TcpclV4 includes
 	OPTION(OPENSSL_USE_STATIC_LIBS Off)
@@ -157,7 +157,7 @@ if(ENABLE_OPENSSL_SUPPORT)
 	endif()
 	find_package(OpenSSL REQUIRED)
 else()
-OPTION(ENABLE_BPSEC Off)
+	OPTION(ENABLE_BPSEC "Enable BPSec" OFF)
 endif()
 
 if(Boost_VERSION_MACRO) #new in CMake 3.15 (in which Boost_VERSION became a string with dots)

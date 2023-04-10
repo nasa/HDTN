@@ -10,23 +10,21 @@ if (target_type STREQUAL SHARED_LIBRARY)
 	set_property(TARGET bpsec PROPERTY VISIBILITY_INLINES_HIDDEN ON)
 endif()
 target_link_libraries(bpsec
-	              PUBLIC
-		      hdtn_util
-                      bpcodec
-		      log_lib
+	PUBLIC
+		hdtn_util
+		bpcodec
+		log_lib
 )
 
 target_include_directories(bpsec 
-	                   PUBLIC 
-	                   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-       		           $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-			   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../common/include> # for message.hpp
-			   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # for GENERATE_EXPORT_HEADER
+	PUBLIC 
+		$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # for GENERATE_EXPORT_HEADER
 )	
 
 set(MY_PUBLIC_HEADERS
-	../bpcodec/include/codec/bpv7.h
-	include/bpsec/BPSecManager.h
+	include/BPSecManager.h
 	${CMAKE_CURRENT_BINARY_DIR}/bpsec_export.h
 )
 
@@ -34,13 +32,11 @@ set_target_properties(bpsec PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # t
 install(TARGETS bpsec
 	EXPORT bpsec-targets
 	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/bpsec"
+	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 
 add_hdtn_package_export(bpsec Bpsec) #exported target will have the name HDTN::Bpcodec and not bpcodec.  Also requires install to EXPORT bpcodec-targets
 install(FILES
-	../include/message.hpp
-	../include/stats.hpp
 	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
