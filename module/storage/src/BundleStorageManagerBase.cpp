@@ -233,6 +233,19 @@ uint64_t BundleStorageManagerBase::PushAllSegments(BundleStorageManagerSession_W
     return totalBytesCopied;
 }
 
+uint64_t BundleStorageManagerBase::ReadBundleByCatalogEntry(BundleStorageManagerSession_ReadFromDisk & session, catalog_entry_t * entry) {
+    if(entry == NULL) {
+        return 0;
+    }
+    session.catalogEntryPtr = entry;
+    session.nextLogicalSegment = 0;
+    session.nextLogicalSegmentToCache = 0;
+    session.cacheReadIndex = 0;
+    session.cacheWriteIndex = 0;
+
+    return session.catalogEntryPtr->bundleSizeBytes;
+}
+
 
 uint64_t BundleStorageManagerBase::PopTop(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<cbhe_eid_t> & availableDestinationEids) { //0 if empty, size if entry
 

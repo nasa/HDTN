@@ -372,3 +372,79 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
 const Bpv6AdministrativeRecordContentAggregateCustodySignal & CustodyTransferManager::GetAcsConstRef(const cbhe_eid_t & custodianEid, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) {
     return m_mapCustodianToAcsArray[custodianEid][static_cast<uint8_t>(statusReasonIndex)];
 }
+
+bool CustodyTransferManager::GenerateBundleDeletionStatusReport(const Bpv6CbhePrimaryBlock & primaryOfDeleted, BundleViewV6 & bv) {
+
+    // Get values need for report from orginal bundle primary block
+
+    const BPV6_BUNDLEFLAG priority = primaryOfDeleted.m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::PRIORITY_BIT_MASK;
+    const cbhe_eid_t reportToEid = primaryOfDeleted.m_reportToEid;
+    const cbhe_eid_t sourceEid = primaryOfDeleted.m_sourceNodeId;
+    const bool isFragment = static_cast<bool>(primaryOfDeleted.m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::ISFRAGMENT);
+    uint64_t fragmentOffset = 0, fragmentLength = 0;
+    if(isFragment) {
+        fragmentOffset = primaryOfDeleted.m_fragmentOffset;
+        fragmentLength = primaryOfDeleted.m_totalApplicationDataUnitLength;
+    }
+    TimestampUtil::bpv6_creation_timestamp_t copyOfCreationTime = primaryOfDeleted.m_creationTimestamp;
+
+    // Make sure there's no stale data here
+    bv.Reset();
+
+    // Set up primary block
+
+    Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+    primary.SetZero();
+
+    primary.m_bundleProcessingControlFlags = (
+        priority |
+        BPV6_BUNDLEFLAG::SINGLETON  |  /* Destination endpoint is singleton */
+        BPV6_BUNDLEFLAG::ADMINRECORD | /* This is an admin record */
+        BPV6_BUNDLEFLAG::NOFRAGMENT    /* Don't fragment our  admin record please */
+    );
+
+    // TODO do we need to set the custodian?
+    primary.m_sourceNodeId = {m_myCustodianNodeId, m_myCustodianServiceId};
+    primary.m_destinationEid = reportToEid;
+
+    SetCreationAndSequence(primary.m_creationTimestamp.secondsSinceStartOfYear2000, primary.m_creationTimestamp.sequenceNumber);
+
+    primary.m_lifetimeSeconds = 1000; //todo
+
+    // We've modified the header
+    bv.m_primaryBlockView.SetManuallyModified();
+
+    // Set up Status Report
+
+    std::unique_ptr<Bpv6CanonicalBlock> blockPtr = boost::make_unique<Bpv6AdministrativeRecord>();
+    Bpv6AdministrativeRecord & block = *(reinterpret_cast<Bpv6AdministrativeRecord*>(blockPtr.get()));
+    block.SetZero();
+
+    block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET;
+    block.m_adminRecordTypeCode = BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::BUNDLE_STATUS_REPORT;
+    block.m_isFragment = isFragment;
+
+    block.m_adminRecordContentPtr = boost::make_unique<Bpv6AdministrativeRecordContentBundleStatusReport>();
+    Bpv6AdministrativeRecordContentBundleStatusReport & report = *(reinterpret_cast<Bpv6AdministrativeRecordContentBundleStatusReport*>(block.m_adminRecordContentPtr.get()));
+    report.Reset();
+
+    TimestampUtil::dtn_time_t deletionTime = TimestampUtil::GenerateDtnTimeNow();
+    report.SetTimeOfDeletionOfBundleAndStatusFlag(deletionTime);
+
+    report.m_reasonCode = BPV6_BUNDLE_STATUS_REPORT_REASON_CODES::LIFETIME_EXPIRED;
+
+    if(isFragment) {
+        report.m_isFragment = true;
+        report.m_fragmentOffsetIfPresent = fragmentOffset;
+        report.m_fragmentLengthIfPresent = fragmentLength;
+    }
+
+    report.m_copyOfBundleCreationTimestamp = copyOfCreationTime;
+    report.m_bundleSourceEid = Uri::GetIpnUriString(sourceEid.nodeId, sourceEid.serviceId);
+
+    bv.AppendMoveCanonicalBlock(blockPtr);
+    bool success = bv.Render(CBHE_BPV6_MINIMUM_SAFE_PRIMARY_HEADER_ENCODE_SIZE + Bpv6AdministrativeRecordContentBundleStatusReport::CBHE_MAX_SERIALIZATION_SIZE);
+
+    return success;
+
+}
