@@ -625,12 +625,12 @@ bool TestHDTNFileTransferLTP() {
     int receivedCount = 0;
         for(auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(ReceiveFilePath), {}))
             receivedCount += 1;
- /*
+ 
      if (receivedCount != 1) {
         BOOST_ERROR("receivedCount ("+ std::to_string(receivedCount) +") != sendCount");
         return false;
     }
- */
+ 
    
    
    /*
