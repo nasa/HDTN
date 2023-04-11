@@ -88,6 +88,7 @@ static void GenerateBundleWithCteb(uint64_t primaryCustodianNode, uint64_t prima
     
 }
 
+
 static void GenerateBundleWithoutCteb(uint64_t primaryCustodianNode, uint64_t primaryCustodianService,
     const std::string & bundleDataStr, BundleViewV6 & bundleViewWithoutCteb)
 {
@@ -122,6 +123,16 @@ static void GenerateBundleWithoutCteb(uint64_t primaryCustodianNode, uint64_t pr
 
     BOOST_REQUIRE(bv.Render(5000));
 }
+
+
+static void GenerateBundleForStatusReport(cbhe_eid_t custodianEid, cbhe_eid_t reportToEid,
+    const std::string & data, BundleViewV6 & bv) {
+        GenerateBundleWithoutCteb(custodianEid.nodeId, custodianEid.serviceId, data, bv);
+
+        bv.m_primaryBlockView.header.m_reportToEid = reportToEid;
+        bv.m_primaryBlockView.SetManuallyModified();
+        BOOST_REQUIRE(bv.Render(5000));
+    }
 
 BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
 {
@@ -724,5 +735,71 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         }
     }
 
+}
+
+BOOST_AUTO_TEST_CASE(DeletionStatusReportTestCase)
+{
+    // Create a bundle to-be-deleted (will have custody transfer)
+    BundleViewV6 deletedBundle;
+    const std::string bundleDataStr = "bundle data!!!";
+    const cbhe_eid_t deletedReportToEid = {12, 13};
+    const cbhe_eid_t deletedSrcEid = {PRIMARY_SRC_NODE, PRIMARY_SRC_SVC};
+
+    GenerateBundleForStatusReport(
+        {PRIMARY_SRC_NODE, PRIMARY_SRC_SVC},
+        deletedReportToEid,
+        bundleDataStr, deletedBundle);
+    BOOST_REQUIRE_GT(deletedBundle.m_frontBuffer.size(), 0);
+
+    {
+        const Bpv6CbhePrimaryBlock deletedPrimary = deletedBundle.m_primaryBlockView.header;
+
+        BundleViewV6 bv;
+
+        bv.m_frontBuffer.reserve(2000);
+        bv.m_backBuffer.reserve(2000);
+
+        const bool isAcsAware = false;
+        CustodyTransferManager ctmHdtn(false, PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC);
+
+        TimestampUtil::dtn_time_t timeBefore = TimestampUtil::GenerateDtnTimeNow();
+        bool success = ctmHdtn.GenerateBundleDeletionStatusReport(deletedPrimary, bv);
+        TimestampUtil::dtn_time_t timeAfter = TimestampUtil::GenerateDtnTimeNow();
+
+        BOOST_REQUIRE(success);
+        BOOST_REQUIRE_GT(bv.m_renderedBundle.size(), 0);
+
+        const Bpv6CbhePrimaryBlock primary = bv.m_primaryBlockView.header;
+        const BPV6_BUNDLEFLAG requiredPrimaryFlags = BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::NOFRAGMENT | BPV6_BUNDLEFLAG::ADMINRECORD;
+        BOOST_REQUIRE_EQUAL(primary.m_bundleProcessingControlFlags & requiredPrimaryFlags, requiredPrimaryFlags);
+
+        BOOST_REQUIRE_EQUAL(primary.m_destinationEid, deletedReportToEid);
+        BOOST_REQUIRE_EQUAL(primary.m_sourceNodeId, cbhe_eid_t(PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC));
+        BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(0, 0));
+
+        std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+
+        bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+        BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+
+        Bpv6AdministrativeRecord * adminRecordBlockPtr = dynamic_cast<Bpv6AdministrativeRecord*>(blocks[0]->headerPtr.get());
+        BOOST_REQUIRE(adminRecordBlockPtr);
+        BOOST_REQUIRE_EQUAL(adminRecordBlockPtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::PAYLOAD);
+        BOOST_REQUIRE_EQUAL(adminRecordBlockPtr->m_adminRecordTypeCode, BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::BUNDLE_STATUS_REPORT);
+        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), adminRecordBlockPtr->GetSerializationSize());
+
+        Bpv6AdministrativeRecordContentBundleStatusReport * srPtr = dynamic_cast<Bpv6AdministrativeRecordContentBundleStatusReport*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
+        BOOST_REQUIRE(srPtr);
+        Bpv6AdministrativeRecordContentBundleStatusReport & sr = *(reinterpret_cast<Bpv6AdministrativeRecordContentBundleStatusReport*>(srPtr));
+
+        BOOST_REQUIRE(timeBefore < sr.m_timeOfDeletionOfBundle || timeBefore == sr.m_timeOfDeletionOfBundle);
+        BOOST_REQUIRE(sr.m_timeOfDeletionOfBundle < timeAfter || sr.m_timeOfDeletionOfBundle == timeAfter);
+
+        BOOST_REQUIRE_EQUAL(sr.m_bundleSourceEid, PRIMARY_SRC_URI);
+        BOOST_REQUIRE_EQUAL(sr.m_copyOfBundleCreationTimestamp, deletedPrimary.m_creationTimestamp);
+        BOOST_REQUIRE(!sr.m_isFragment);
+        BOOST_REQUIRE_EQUAL(sr.m_reasonCode, BPV6_BUNDLE_STATUS_REPORT_REASON_CODES::LIFETIME_EXPIRED);
+        BOOST_REQUIRE_EQUAL(sr.m_statusFlags, BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_DELETED_BUNDLE);
+    }
 }
 
