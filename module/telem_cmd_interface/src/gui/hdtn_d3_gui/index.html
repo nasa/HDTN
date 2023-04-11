@@ -114,6 +114,17 @@
         <option value="full" selected="">Full System (Centered)</option>
         <option value="native_size">Native Size (Left)</option>
     </select>
+    <label>Animation: </label>
+    <select id="idAnimationSelect">
+        <option value="250">0.25sec</option>
+        <option value="500">0.50sec</option>
+        <option value="750">0.75sec</option>
+        <option value="1000">1.00sec</option>
+        <option value="1250">1.25sec</option>
+        <option value="1500" selected="">1.50sec</option>
+        <option value="1750">1.75sec</option>
+        <option value="2000">2.00sec</option>
+    </select>
     <input type="checkbox" id="id_showBitRate" checked /><Label>Show Bit Rate</Label>
     <input type="checkbox" id="id_showBundleRate" checked /><Label>Show Bundle Rate</Label>
     <div id="mygui"></div>
@@ -574,7 +585,10 @@
             }
         }
         function Update(redrawObj, delayMs) {
-            if (typeof delayMs === 'undefined') delayMs = 2000;
+            if (typeof delayMs === 'undefined') {
+                delayMs = parseInt(document.getElementById('idAnimationSelect')
+                    .options[document.getElementById('idAnimationSelect').selectedIndex].value); //2000;
+            }
 
             inTransition = true;
 
