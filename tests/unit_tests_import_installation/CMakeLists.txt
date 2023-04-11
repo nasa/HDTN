@@ -49,11 +49,6 @@ if(WIN32)
     add_compile_definitions(_WIN32_WINNT=0x0A00)
 endif()
 
-#logging link type
-if(NOT Boost_USE_STATIC_LIBS)
-	add_compile_definitions(BOOST_ALL_DYN_LINK)
-endif()
-
 add_executable(unit-tests-from-install
     src/test_main.cpp
     ../../common/tcpcl/test/TestTcpcl.cpp

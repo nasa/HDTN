@@ -59,11 +59,7 @@ if(WIN32)
 	list(APPEND COMPILE_DEFINITIONS_TO_EXPORT _WIN32_WINNT=0x0A00)
 endif()
 
-#logging link type
-if(NOT Boost_USE_STATIC_LIBS)
-	#add_compile_definitions(BOOST_LOG_DYN_LINK)
-	add_compile_definitions(BOOST_ALL_DYN_LINK) 
-endif()
+include(${CMAKE_SOURCE_DIR}/boost_test_link_type.cmake) # Determine whether to compile HDTN with BOOST_ALL_DYN_LINK for logger and unit-tests
 
 #Log level options
 SET(LOG_LEVEL_TYPE INFO CACHE STRING "Choose the log level. Options are: TRACE, DEBUG, INFO, WARNING, ERROR, FATAL, NONE")
