@@ -571,9 +571,7 @@ bool TestHDTNFileTransferLTP() {
     uint64_t bundleCountStorage = 0;
     uint64_t bundleCountEgress = 0;
     uint64_t bundleCountIngress = 0;
-    std::string sha1Str;
-    std::string sha1Str2;
-
+  
     // Start threads
     Delay(DELAY_THREAD);
 
@@ -620,67 +618,66 @@ bool TestHDTNFileTransferLTP() {
     
     //Files sent vs. files received
     static const std::string receivedFile = (Environment::GetPathHdtnSourceRoot() / "received" ).string();
-    boost::filesystem::path sendFilePath = testFile.c_str();
+    static const std::string testFilePath = (Environment::GetPathHdtnSourceRoot() / "tests" / "integrated_tests" / "src" / "test.txt" ).string();
+    boost::filesystem::path sendFilePath = testFilePath.c_str();
     boost::filesystem::path ReceiveFilePath = receivedFile.c_str();
     
     int receivedCount = 0;
         for(auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(ReceiveFilePath), {}))
             receivedCount += 1;
-
+ /*
      if (receivedCount != 1) {
         BOOST_ERROR("receivedCount ("+ std::to_string(receivedCount) +") != sendCount");
         return false;
     }
+ */
    
-    
-/*
-    boost::filesystem::path sendFilePath = testFile.c_str();
-    std::vector<uint8_t> fileContentsInMemory;
-    boost::filesystem::ifstream ifs(sendFilePath, std::ifstream::in | std::ifstream::binary);
-    static const std::string receiveFile= "--file-or-folder-path=" + (Environment::GetPathHdtnSourceRoot() / "received" ).string();
-    boost::filesystem::path receiveFilePath = receiveFile.c_str();
-    
-    // get length of file:
-    ifs.seekg(0, ifs.end);
-    std::size_t length = ifs.tellg();
-    ifs.seekg(0, ifs.beg);
+   //Sha1_1 vs Sha1_2
+   
+   std::vector<uint8_t> fileContents;
+   boost::filesystem::ifstream ifs(sendFilePath, std::ifstream::in | std::ifstream::binary);
+   
+   //get file length
+   ifs.seekg(0, ifs.end);
+   std::size_t length = ifs.tellg();
+   ifs.seekg(0, ifs.beg);
 
-    // allocate memory:
-    fileContentsInMemory.resize(length);
+   // allocate memory:
+   fileContents.resize(length);
 
-    // read data as a block:
-    ifs.read((char*)fileContentsInMemory.data(), length);
+   // read data as a block:
+   ifs.read((char*)fileContents.data(), length);
 
-    ifs.close();
+   ifs.close();
+   
+   std::string sha1Str;
+   GetSha1(fileContents.data(), fileContents.size(), sha1Str);
+   
+   //Sha1_2
+   std::vector<uint8_t> fileContents2;
+   boost::filesystem::ifstream ifs2(ReceiveFilePath, std::ifstream::in | std::ifstream::binary);
+   
+   //get file length
+   ifs2.seekg(0, ifs2.end);
+   std::size_t length2 = ifs2.tellg();
+   ifs2.seekg(0, ifs2.beg);
 
-    GetSha1(fileContentsInMemory.data(), fileContentsInMemory.size(), sha1Str);
-    
-    boost::filesystem::ifstream ifs2(receiveFilePath, std::ifstream::in | std::ifstream::binary);
-    
-    ifs2.seekg(0, ifs2.end);
-    std::size_t length2 = ifs2.tellg();
-    ifs2.seekg(0, ifs2.beg);
+   // allocate memory:
+   fileContents2.resize(length2);
 
-    // allocate memory:
-    fileContentsInMemory.resize(length2);
+   // read data as a block:
+   ifs2.read((char*)fileContents2.data(), length);
 
-    // read data as a block:
-    ifs2.read((char*)fileContentsInMemory.data(), length2);
+   ifs2.close();
+   
+   std::string sha1Str_2;
+   GetSha1(fileContents2.data(), fileContents2.size(), sha1Str_2);
 
-    ifs2.close();
-    
-    GetSha1(fileContentsInMemory.data(), fileContentsInMemory.size(), sha1Str2);
-*/
-
-/*
-    if (sha1Str != sha1Str2) {
+   if (sha1Str != sha1Str_2) {
         BOOST_ERROR("sha1Str (" + sha1Str + ") != sha1Str number 2 "
-                    + sha1Str2 + ").");
+                    + sha1Str_2 + ").");
         return false;
     }
- 
-*/
-   
     
     return true;
 }
