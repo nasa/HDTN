@@ -114,7 +114,7 @@ private:
     void SyncTelemetry();
     void TelemEventsHandler();
     static std::string SprintCustodyidToSizeMap(const custodyid_to_size_map_t& m);
-    void DeleteExpiredBundles();
+    void DeleteExpiredBundles(boost::posix_time::ptime nowPtime, float storageUsagePercentage);
     void DeleteBundleById(const uint64_t custodyId);
     bool SendDeletionStatusReport(catalog_entry_t * entry);
 
@@ -159,6 +159,7 @@ private:
     enum class DeletionPolicy { never, onExpiration, onStorageFull };
     DeletionPolicy m_deletionPolicy;
     BundleViewV6 m_bundleDeletionStatusReport;
+    const boost::posix_time::time_duration DELETE_EXPIRED_PERIOD = boost::posix_time::milliseconds(2000);
 
     const float DELETE_ALL_EXPIRED_THRESHOLD = 0.9f; /* percent. If storage this full, delete all expired bundles */
     const uint64_t MAX_DELETE_EXPIRED_PER_ITER = 100; /* Maximum number of bundles to delete per iteration (no storage pressure) */
@@ -887,13 +888,11 @@ void ZmqStorageInterface::Impl::DeleteBundleById(const uint64_t custodyId) {
  * bundles are deleted. (Avoid blocking event loop unless full).
  *
  */
-void ZmqStorageInterface::Impl::DeleteExpiredBundles() {
+void ZmqStorageInterface::Impl::DeleteExpiredBundles(boost::posix_time::ptime nowPtime, float storageUsagePercentage) {
 
     if(m_deletionPolicy == DeletionPolicy::never) {
         return;
     }
-
-    float storageUsagePercentage = m_bsmPtr->GetUsedSpaceBytes()  / (float)m_bsmPtr->GetTotalCapacityBytes();
 
     if(m_deletionPolicy == DeletionPolicy::onStorageFull && storageUsagePercentage < DELETE_ALL_EXPIRED_THRESHOLD) {
         return;
@@ -904,7 +903,7 @@ void ZmqStorageInterface::Impl::DeleteExpiredBundles() {
     uint64_t numToDelete = storageUsagePercentage >= DELETE_ALL_EXPIRED_THRESHOLD ?
         0 : MAX_DELETE_EXPIRED_PER_ITER;
 
-    uint64_t expiry = TimestampUtil::GetSecondsSinceEpochRfc5050(boost::posix_time::microsec_clock::universal_time());
+    uint64_t expiry = TimestampUtil::GetSecondsSinceEpochRfc5050(nowPtime);
 
     m_bsmPtr->GetExpiredBundleIds(expiry, numToDelete, m_expiredIds);
 
@@ -974,6 +973,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
     long timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL; //0 => no blocking
     boost::posix_time::ptime acsSendNowExpiry = boost::posix_time::microsec_clock::universal_time() + ACS_SEND_PERIOD;
+    boost::posix_time::ptime tryDeleteTime = boost::posix_time::microsec_clock::universal_time();
 
     //notify Init function that worker thread startup is complete
     m_workerThreadStartupMutex.lock();
@@ -1411,7 +1411,12 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
             }
         }
 
-        DeleteExpiredBundles();
+        float storageUsagePercentage = m_bsmPtr->GetUsedSpaceBytes()  / (float)m_bsmPtr->GetTotalCapacityBytes();
+
+        if(storageUsagePercentage > DELETE_ALL_EXPIRED_THRESHOLD || tryDeleteTime < nowPtime) {
+            DeleteExpiredBundles(nowPtime, storageUsagePercentage);
+            tryDeleteTime = nowPtime + DELETE_EXPIRED_PERIOD;
+        }
 
         //For each outduct or opportunistic induct, send to Egress the bundles read from disk or the
         //bundles forwarded over the cut-through path from ingress, alternating/multiplexing between the two.
