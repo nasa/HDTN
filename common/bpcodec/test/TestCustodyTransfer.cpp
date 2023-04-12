@@ -88,7 +88,6 @@ static void GenerateBundleWithCteb(uint64_t primaryCustodianNode, uint64_t prima
     
 }
 
-
 static void GenerateBundleWithoutCteb(uint64_t primaryCustodianNode, uint64_t primaryCustodianService,
     const std::string & bundleDataStr, BundleViewV6 & bundleViewWithoutCteb)
 {
@@ -124,15 +123,14 @@ static void GenerateBundleWithoutCteb(uint64_t primaryCustodianNode, uint64_t pr
     BOOST_REQUIRE(bv.Render(5000));
 }
 
-
 static void GenerateBundleForStatusReport(cbhe_eid_t custodianEid, cbhe_eid_t reportToEid,
     const std::string & data, BundleViewV6 & bv) {
-        GenerateBundleWithoutCteb(custodianEid.nodeId, custodianEid.serviceId, data, bv);
+    GenerateBundleWithoutCteb(custodianEid.nodeId, custodianEid.serviceId, data, bv);
 
-        bv.m_primaryBlockView.header.m_reportToEid = reportToEid;
-        bv.m_primaryBlockView.SetManuallyModified();
-        BOOST_REQUIRE(bv.Render(5000));
-    }
+    bv.m_primaryBlockView.header.m_reportToEid = reportToEid;
+    bv.m_primaryBlockView.SetManuallyModified();
+    BOOST_REQUIRE(bv.Render(5000));
+}
 
 BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
 {

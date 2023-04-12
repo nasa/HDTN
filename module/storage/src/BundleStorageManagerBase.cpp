@@ -246,7 +246,6 @@ uint64_t BundleStorageManagerBase::ReadBundleByCatalogEntry(BundleStorageManager
     return session.catalogEntryPtr->bundleSizeBytes;
 }
 
-
 uint64_t BundleStorageManagerBase::PopTop(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<cbhe_eid_t> & availableDestinationEids) { //0 if empty, size if entry
 
     session.catalogEntryPtr = m_bundleStorageCatalog.PopEntryFromAwaitingSend(session.custodyId, availableDestinationEids);

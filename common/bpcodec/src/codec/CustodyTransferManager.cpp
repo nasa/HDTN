@@ -375,7 +375,7 @@ const Bpv6AdministrativeRecordContentAggregateCustodySignal & CustodyTransferMan
 
 bool CustodyTransferManager::GenerateBundleDeletionStatusReport(const Bpv6CbhePrimaryBlock & primaryOfDeleted, BundleViewV6 & bv) {
 
-    // Get values need for report from orginal bundle primary block
+    // Get values needed for report from orginal bundle primary block
 
     const BPV6_BUNDLEFLAG priority = primaryOfDeleted.m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::PRIORITY_BIT_MASK;
     const cbhe_eid_t reportToEid = primaryOfDeleted.m_reportToEid;
@@ -397,19 +397,14 @@ bool CustodyTransferManager::GenerateBundleDeletionStatusReport(const Bpv6CbhePr
     primary.SetZero();
 
     primary.m_bundleProcessingControlFlags = (
-        priority |
-        BPV6_BUNDLEFLAG::SINGLETON  |  /* Destination endpoint is singleton */
-        BPV6_BUNDLEFLAG::ADMINRECORD | /* This is an admin record */
-        BPV6_BUNDLEFLAG::NOFRAGMENT    /* Don't fragment our  admin record please */
-    );
+        priority | BPV6_BUNDLEFLAG::SINGLETON  | BPV6_BUNDLEFLAG::ADMINRECORD | BPV6_BUNDLEFLAG::NOFRAGMENT);
 
-    // TODO do we need to set the custodian?
     primary.m_sourceNodeId = {m_myCustodianNodeId, m_myCustodianServiceId};
     primary.m_destinationEid = reportToEid;
 
     SetCreationAndSequence(primary.m_creationTimestamp.secondsSinceStartOfYear2000, primary.m_creationTimestamp.sequenceNumber);
 
-    primary.m_lifetimeSeconds = 1000; //todo
+    primary.m_lifetimeSeconds = 1000; //todo; same as custody signals
 
     // We've modified the header
     bv.m_primaryBlockView.SetManuallyModified();
@@ -446,5 +441,4 @@ bool CustodyTransferManager::GenerateBundleDeletionStatusReport(const Bpv6CbhePr
     bool success = bv.Render(CBHE_BPV6_MINIMUM_SAFE_PRIMARY_HEADER_ENCODE_SIZE + Bpv6AdministrativeRecordContentBundleStatusReport::CBHE_MAX_SERIALIZATION_SIZE);
 
     return success;
-
 }

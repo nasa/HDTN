@@ -160,7 +160,6 @@ private:
     DeletionPolicy m_deletionPolicy;
     BundleViewV6 m_bundleDeletionStatusReport;
 
-
     const float DELETE_ALL_EXPIRED_THRESHOLD = 0.9f; /* percent. If storage this full, delete all expired bundles */
     const uint64_t MAX_DELETE_EXPIRED_PER_ITER = 100; /* Maximum number of bundles to delete per iteration (no storage pressure) */
 };
@@ -796,7 +795,7 @@ void ZmqStorageInterface::Impl::SyncTelemetry() {
 }
 
 bool ZmqStorageInterface::Impl::SendDeletionStatusReport(catalog_entry_t * entry) {
-    // Read bundle-to-delete bundle to get primary block
+    // Read bundle-to-delete to get primary block
     const uint64_t toDeleteSize = m_bsmPtr->ReadBundleByCatalogEntry(m_sessionRead, entry);
     if(!toDeleteSize) {
         LOG_ERROR(subprocess) << "Failed to get read size for bundle to delete";
