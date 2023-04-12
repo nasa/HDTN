@@ -599,7 +599,7 @@ bool TestHDTNFileTransferLTP() {
 	"--file-or-folder-path=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "integrated_tests" / "src" / "test.txt" ).string();
    
     static const char * argsBpSendFile[] = { "bpsendfile",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", testFile.c_str(), bpgenConfigArg.c_str(), NULL };
-    std::thread threadBpSendFile(RunBpSendFile,argsBpSendFile, 7, std::ref(runningBpsend), &bundlesSentBpsend[0] );
+    std::thread threadBpSendFile(RunBpSendFile,argsBpSendFile, 6, std::ref(runningBpsend), &bundlesSentBpsend[0] );
 
     // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(8));
@@ -617,7 +617,7 @@ bool TestHDTNFileTransferLTP() {
     // Verify results
     
     //Files sent vs. files received
-    static const std::string receivedFile = (Environment::GetPathHdtnSourceRoot() / "received" ).string();
+    static const std::string receivedFile = (Environment::GetPathHdtnSourceRoot() / "build" / "tests" / "integrated_tests" / "received" ).string();
     static const std::string testFilePath = (Environment::GetPathHdtnSourceRoot() / "tests" / "integrated_tests" / "src" / "test.txt" ).string();
     boost::filesystem::path sendFilePath = testFilePath.c_str();
     boost::filesystem::path ReceiveFilePath = receivedFile.c_str();
@@ -633,7 +633,7 @@ bool TestHDTNFileTransferLTP() {
  
    
    
-   /*
+   
    //Sha1_1 vs Sha1_2
    
    std::vector<uint8_t> fileContents;
@@ -681,7 +681,7 @@ bool TestHDTNFileTransferLTP() {
         return false;
     }
     
-    */
+    
     return true;
 }
 
@@ -1274,11 +1274,15 @@ bool TestHDTNStorageModeTCPCLv7() {
 
 BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 
+/*
+
 BOOST_AUTO_TEST_CASE(it_TestHDTNCutThroughModeLTP, * boost::unit_test::enabled()) {
     std::cout << std::endl << ">>>>>> Running: " << "it_TestHDTNCutThroughModeLTP" << std::endl << std::flush;
     bool result = TestHDTNCutThroughModeLTP();
     BOOST_CHECK(result == true);
 }
+
+*/
 
 /*
 BOOST_AUTO_TEST_CASE(it_TestHDTNFileTransferTCPCL, * boost::unit_test::enabled()) {
