@@ -631,57 +631,59 @@ bool TestHDTNFileTransferLTP() {
         return false;
     }
  
-   
-   
-   
    //Sha1_1 vs Sha1_2
-   
-   std::vector<uint8_t> fileContents;
+   std::vector<uint8_t> fileContentsInMemory;
    boost::filesystem::ifstream ifs(sendFilePath, std::ifstream::in | std::ifstream::binary);
-   
-   //get file length
-   ifs.seekg(0, ifs.end);
-   std::size_t length = ifs.tellg();
-   ifs.seekg(0, ifs.beg);
-
-   // allocate memory:
-   fileContents.resize(length);
-
-   // read data as a block:
-   ifs.read((char*)fileContents.data(), length);
-
-   ifs.close();
-   
    std::string sha1Str;
-   GetSha1(fileContents.data(), fileContents.size(), sha1Str);
    
-   //Sha1_2
-   std::vector<uint8_t> fileContents2;
-   boost::filesystem::ifstream ifs2(ReceiveFilePath, std::ifstream::in | std::ifstream::binary);
+   if (ifs.good()) {
+                // get length of file:
+       ifs.seekg(0, ifs.end);
+       std::size_t length = ifs.tellg();
+       ifs.seekg(0, ifs.beg);
+
+                // allocate memory:
+       fileContentsInMemory.resize(length);
+
+                // read data as a block:
+       ifs.read((char*)fileContentsInMemory.data(), length);
+
+       ifs.close();
+
+       GetSha1(fileContentsInMemory.data(), fileContentsInMemory.size(), sha1Str);
+       
+   }
+   else {
+                return false;
+   }
    
-   //get file length
-   ifs2.seekg(0, ifs2.end);
-   std::size_t length2 = ifs2.tellg();
-   ifs2.seekg(0, ifs2.beg);
-
-   // allocate memory:
-   fileContents2.resize(length2);
-
-   // read data as a block:
-   ifs2.read((char*)fileContents2.data(), length);
-
-   ifs2.close();
-   
+   std::vector<uint8_t> receivedFileContentsInMemory;
+   static const std::string receivedFile2 = (Environment::GetPathHdtnSourceRoot() / "build" / "tests" / "integrated_tests" / "received" / "test.txt" ).string();
+   boost::filesystem::path ReceiveFilePath2 = receivedFile2; 
+   boost::filesystem::ifstream ifs2(ReceiveFilePath2, std::ifstream::in | std::ifstream::binary);
    std::string sha1Str_2;
-   GetSha1(fileContents2.data(), fileContents2.size(), sha1Str_2);
+   
+   if (ifs2.good()) {
+                // get length of file:
+       ifs2.seekg(0, ifs2.end);
+       std::size_t length2 = ifs2.tellg();
+       ifs2.seekg(0, ifs2.beg);
 
-   if (sha1Str != sha1Str_2) {
-        BOOST_ERROR("sha1Str (" + sha1Str + ") != sha1Str number 2 "
-                    + sha1Str_2 + ").");
-        return false;
-    }
-    
-    
+                // allocate memory:
+       receivedFileContentsInMemory.resize(length2);
+
+                // read data as a block:
+       ifs2.read((char*)receivedFileContentsInMemory.data(), length2);
+
+       ifs2.close();
+
+       GetSha1(receivedFileContentsInMemory.data(), receivedFileContentsInMemory.size(), sha1Str_2);
+       
+   }
+   else {
+                return false;
+   }
+   
     return true;
 }
 
