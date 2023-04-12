@@ -3,11 +3,6 @@
 #include "app_patterns/BpSinkPattern.h"
 #include "BpSendPacket.h"
 
-// BpSendPacket::BpSendPacket() :
-//     BpSendPacket("localhost", 7132)
-// {
-// }
-
 BpSendPacket::BpSendPacket()
     : BpSourcePattern()
 {
@@ -33,21 +28,28 @@ uint64_t BpSendPacket::GetNextPayloadLength_Step1() {
         return UINT64_MAX;
     } else {
         uint64_t len = m_queue.front().size();
-        // std::cout << "got size " << len << std::endl;
         return len;
     }
 }
 
 bool BpSendPacket::CopyPayload_Step2(uint8_t * destinationBuffer) {
-    memcpy(destinationBuffer, &m_queue.front(), m_queue.front().size());
+    size_t len = m_queue.front().size();
+    padded_vector_uint8_t data = m_queue.front();
+
+    std::copy(data.begin(), data.end(), destinationBuffer);
     m_queue.pop();
-    // std::cout << "copied payload" << std::endl;
+    
+    std::cout <<"[Send app] ";
+    for (int i = 0; i <  len; i++) {
+        std::cout << destinationBuffer[i];
+    }
+    std::cout << " (" << len << " bytes)" << std::endl;
+    
     return true;
 }
 
 bool BpSendPacket::TryWaitForDataAvailable(const boost::posix_time::time_duration& timeout) {
     if (m_queue.empty()) {
-        // std::cout << "waiting..." << std::endl;
         boost::this_thread::sleep(timeout);
         return false;
     }
