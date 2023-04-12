@@ -211,7 +211,18 @@ body {
 
 /*config page*/
 
-.styled-table {
+.configBox {
+    position:relative;
+    padding-top:100px;
+    padding:20px;
+    background-color: #404040;
+    color: white;
+    font-size: 20px;
+    text-align: left;
+    border-top: none;
+}
+
+`.styled-table {
     border-collapse: collapse;
     margin: 25px 0;
     color: white;
