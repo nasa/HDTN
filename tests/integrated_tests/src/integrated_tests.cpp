@@ -688,6 +688,8 @@ bool TestHDTNFileTransferLTP() {
 }
 
 
+
+/*
 /////////////////////////////
 bool TestHDTNFileTransferLTPv7() {
 
@@ -1074,7 +1076,7 @@ bool TestHDTNCutThroughModeTCPCLv7() {
 }
 
 //////////////////////////////
-/*
+
 bool TestHDTNStorageModeTCPCL() {
 
     Delay(DELAY_TEST);
