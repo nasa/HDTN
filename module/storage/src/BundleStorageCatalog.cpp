@@ -344,6 +344,9 @@ void BundleStorageCatalog::GetExpiredBundleIds(const uint64_t expiry, const uint
                             return;
                         }
                     }
+                } else {
+                    // Expires in the future. Sorted map, so all following will expire in the future
+                    break;
                 }
             }
         }
