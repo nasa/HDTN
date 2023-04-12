@@ -29,13 +29,9 @@ BpReceivePacket::BpReceivePacket()
 BpReceivePacket::~BpReceivePacket() {}
 
 bool BpReceivePacket::ProcessPayload(const uint8_t * data, const uint64_t size) {
-    std::cout << "RECEIVED BUNDLE" << std::endl;
-    // LOG_INFO(subprocess) << "Received bundle";
+    // LOG_INFO(subprocess) << "[Receive app] received bundle";
     std::vector<uint8_t> userdata(sizeof(bundleid_payloadsize_pair_t));
-    // bundleid_payloadsize_pair_t* bundleToSendUserDataPairPtr = (bundleid_payloadsize_pair_t*)bundleToSendUserData.data();
-    // std::vector<uint8_t> bundleToSend;
     Outduct* outduct = m_packetOutductManager.GetOutductByOutductUuid(0);
-    // uint64_t outductMaxBundlesInPipeline = 0;
     
     if (outduct) {
         // if (outduct != m_packetOutductManager.GetOutductByFinalDestinationEid_ThreadSafe(m_finalDestinationEid)) {
@@ -49,14 +45,14 @@ bool BpReceivePacket::ProcessPayload(const uint8_t * data, const uint64_t size) 
     }
 
     if (!outduct->Forward(data, size, std::move(userdata))) {
-        LOG_ERROR(subprocess) << "BpSourcePattern unable to send bundle on the outduct.. retrying in 1 second";
+        LOG_ERROR(subprocess) << "[Receive app] unable to send bundle on the outduct.";
         return false;
         // boost::this_thread::sleep(boost::posix_time::seconds(1));
     }
     else {
-        LOG_INFO(subprocess) << "Transferred bundle to UDP";
+        // LOG_INFO(subprocess) << "[ReceivePacket app] Transferred bundle to UDP";
         // std::cout << std::string(data, size) << std::endl;
-        std::cout << data << std::endl;
+        // std::cout << data << " (" << size << " bytes" << std::endl;
     }
     return true;
 }

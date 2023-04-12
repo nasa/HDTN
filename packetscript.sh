@@ -31,7 +31,7 @@ bpgen_PID=$!
 sleep 8
 
 # cleanup
-sleep 30
+sleep 120
 echo "\nkilling bpgen1..." && kill -2 $bpgen_PID
 sleep 2
 echo "\nkilling egress..." && kill -2 $oneprocess_PID
