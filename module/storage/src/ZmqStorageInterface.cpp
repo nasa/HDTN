@@ -861,10 +861,9 @@ void ZmqStorageInterface::Impl::DeleteBundleById(const uint64_t custodyId) {
     }
 
     if(entry->HasCustody()) {
-        bool success = m_custodyTimersPtr->CancelCustodyTransferTimer(entry->destEid, custodyId);
-        if(!success) {
-            LOG_ERROR(subprocess) << "Failed to cancel custody timer for " << custodyId << " while deleting for expiry";
-        }
+        // Bundle may not have a custody transfer timer, so it's fine if this fails
+        m_custodyTimersPtr->CancelCustodyTransferTimer(entry->destEid, custodyId);
+
         bool sent = SendDeletionStatusReport(entry);
         if(!sent) {
             LOG_ERROR(subprocess) << "Failed to send bundle deletion status report for bundle with custody ID " << custodyId;
