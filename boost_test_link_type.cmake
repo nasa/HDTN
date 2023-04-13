@@ -16,6 +16,8 @@
 # If it's needed, add BOOST_ALL_DYN_LINK as a global compile definition for both the unit-tests and the logger.
 # This script should be more reliable than trying to determine based on whether the user set Boost_USE_STATIC_LIBS.
 
+unset(COMPILER_DOES_NOT_NEED_BOOST_ALL_DYN_LINK CACHE) #remove cache variable so it will always rerun this check
+unset(COMPILER_NEEDS_BOOST_ALL_DYN_LINK CACHE) #remove cache variable so it will always rerun this check
 SET(CMAKE_REQUIRED_LIBRARIES Boost::unit_test_framework)
 check_cxx_source_compiles("
 	#define BOOST_TEST_MODULE HtdnUnitTestsModule
