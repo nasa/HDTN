@@ -232,20 +232,6 @@ uint64_t BundleStorageManagerBase::PushAllSegments(BundleStorageManagerSession_W
     }
     return totalBytesCopied;
 }
-
-uint64_t BundleStorageManagerBase::ReadBundleByCatalogEntry(BundleStorageManagerSession_ReadFromDisk & session, catalog_entry_t * entry) {
-    if(entry == NULL) {
-        return 0;
-    }
-    session.catalogEntryPtr = entry;
-    session.nextLogicalSegment = 0;
-    session.nextLogicalSegmentToCache = 0;
-    session.cacheReadIndex = 0;
-    session.cacheWriteIndex = 0;
-
-    return session.catalogEntryPtr->bundleSizeBytes;
-}
-
 uint64_t BundleStorageManagerBase::PopTop(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<cbhe_eid_t> & availableDestinationEids) { //0 if empty, size if entry
 
     session.catalogEntryPtr = m_bundleStorageCatalog.PopEntryFromAwaitingSend(session.custodyId, availableDestinationEids);
@@ -374,6 +360,27 @@ std::size_t BundleStorageManagerBase::TopSegment(BundleStorageManagerSession_Rea
 
 
     return size;
+}
+bool BundleStorageManagerBase::ReadFirstSegment(BundleStorageManagerSession_ReadFromDisk & session, catalog_entry_t * entry, std::vector<uint8_t> & buf) {
+    if(entry == NULL) {
+        return 0;
+    }
+
+    session.catalogEntryPtr = entry;
+    session.nextLogicalSegment = 0;
+    session.nextLogicalSegmentToCache = 0;
+    session.cacheReadIndex = 0;
+    session.cacheWriteIndex = 0;
+
+    // Sanity check
+    if(session.catalogEntryPtr->segmentIdChainVec.size() == 0) {
+        return false;
+    }
+
+    const uint64_t totalBytesToRead = std::min(session.catalogEntryPtr->bundleSizeBytes, BUNDLE_STORAGE_PER_SEGMENT_SIZE);
+    buf.resize(totalBytesToRead);
+    std::size_t totalBytesRead = TopSegment(session, buf.data());
+    return (totalBytesRead == totalBytesToRead);
 }
 bool BundleStorageManagerBase::ReadAllSegments(BundleStorageManagerSession_ReadFromDisk & session, std::vector<uint8_t> & buf) {
     const std::size_t numSegmentsToRead = session.catalogEntryPtr->segmentIdChainVec.size();

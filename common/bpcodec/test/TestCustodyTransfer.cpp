@@ -37,6 +37,8 @@ static const uint64_t PRIMARY_SEQ = 1;
 static const uint64_t INVALID_CTEB_SRC_NODE = 400;
 static const uint64_t INVALID_CTEB_SRC_SVC = 4;
 static const std::string INVALID_CTEB_SRC_URI = "ipn:400.4";
+static const uint64_t REPORT_TO_NODE = 12;
+static const uint64_t REPORT_TO_SVC = 13;
 #define BP_MSG_BUFSZ 2000 //don't care, not used
 
 static void GenerateBundleWithCteb(uint64_t primaryCustodianNode, uint64_t primaryCustodianService,
@@ -740,17 +742,17 @@ BOOST_AUTO_TEST_CASE(DeletionStatusReportTestCase)
     // Create a bundle to-be-deleted (will have custody transfer)
     BundleViewV6 deletedBundle;
     const std::string bundleDataStr = "bundle data!!!";
-    const cbhe_eid_t deletedReportToEid = {12, 13};
-    const cbhe_eid_t deletedSrcEid = {PRIMARY_SRC_NODE, PRIMARY_SRC_SVC};
+    const cbhe_eid_t deletedReportToEid(REPORT_TO_NODE, REPORT_TO_SVC);
+    const cbhe_eid_t deletedSrcEid(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
 
     GenerateBundleForStatusReport(
-        {PRIMARY_SRC_NODE, PRIMARY_SRC_SVC},
+        cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC),
         deletedReportToEid,
         bundleDataStr, deletedBundle);
     BOOST_REQUIRE_GT(deletedBundle.m_frontBuffer.size(), 0);
 
     {
-        const Bpv6CbhePrimaryBlock deletedPrimary = deletedBundle.m_primaryBlockView.header;
+        const Bpv6CbhePrimaryBlock & deletedPrimary = deletedBundle.m_primaryBlockView.header;
 
         BundleViewV6 bv;
 
@@ -790,8 +792,8 @@ BOOST_AUTO_TEST_CASE(DeletionStatusReportTestCase)
         BOOST_REQUIRE(srPtr);
         Bpv6AdministrativeRecordContentBundleStatusReport & sr = *(reinterpret_cast<Bpv6AdministrativeRecordContentBundleStatusReport*>(srPtr));
 
-        BOOST_REQUIRE(timeBefore < sr.m_timeOfDeletionOfBundle || timeBefore == sr.m_timeOfDeletionOfBundle);
-        BOOST_REQUIRE(sr.m_timeOfDeletionOfBundle < timeAfter || sr.m_timeOfDeletionOfBundle == timeAfter);
+        BOOST_REQUIRE((timeBefore < sr.m_timeOfDeletionOfBundle) || (timeBefore == sr.m_timeOfDeletionOfBundle));
+        BOOST_REQUIRE((sr.m_timeOfDeletionOfBundle < timeAfter) || (sr.m_timeOfDeletionOfBundle == timeAfter));
 
         BOOST_REQUIRE_EQUAL(sr.m_bundleSourceEid, PRIMARY_SRC_URI);
         BOOST_REQUIRE_EQUAL(sr.m_copyOfBundleCreationTimestamp, deletedPrimary.m_creationTimestamp);

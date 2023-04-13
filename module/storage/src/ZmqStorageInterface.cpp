@@ -40,6 +40,13 @@
 typedef std::pair<cbhe_eid_t, bool> eid_plus_isanyserviceid_pair_t;
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
 
+/** Time between passes for deleting expired bundles, unless threshold reached */
+static const boost::posix_time::time_duration DELETE_EXPIRED_PERIOD = boost::posix_time::milliseconds(2000);
+/** Threshold for deleting expired bundles dependent on policy (0.9 is 90%) */
+static const float DELETE_ALL_EXPIRED_THRESHOLD = 0.9f;
+/** Maximum number of expired bundles to delete per iteration unless threshold reached */
+static const uint64_t MAX_DELETE_EXPIRED_PER_ITER = 100;
+
 struct ZmqStorageInterface::Impl : private boost::noncopyable {
     struct CutThroughQueueData : private boost::noncopyable {
         CutThroughQueueData() = delete;
@@ -114,7 +121,7 @@ private:
     void SyncTelemetry();
     void TelemEventsHandler();
     static std::string SprintCustodyidToSizeMap(const custodyid_to_size_map_t& m);
-    void DeleteExpiredBundles(boost::posix_time::ptime nowPtime, float storageUsagePercentage);
+    void DeleteExpiredBundles(const boost::posix_time::ptime& nowPtime, float storageUsagePercentage);
     void DeleteBundleById(const uint64_t custodyId);
     bool SendDeletionStatusReport(catalog_entry_t * entry);
 
@@ -159,10 +166,6 @@ private:
     enum class DeletionPolicy { never, onExpiration, onStorageFull };
     DeletionPolicy m_deletionPolicy;
     BundleViewV6 m_bundleDeletionStatusReport;
-    const boost::posix_time::time_duration DELETE_EXPIRED_PERIOD = boost::posix_time::milliseconds(2000);
-
-    const float DELETE_ALL_EXPIRED_THRESHOLD = 0.9f; /* percent. If storage this full, delete all expired bundles */
-    const uint64_t MAX_DELETE_EXPIRED_PER_ITER = 100; /* Maximum number of bundles to delete per iteration (no storage pressure) */
 };
 
 ZmqStorageInterface::Impl::Impl() :
@@ -220,9 +223,11 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDi
 
     if(m_hdtnConfig.m_storageConfig.m_storageDeletionPolicy == "never") {
         m_deletionPolicy = DeletionPolicy::never;
-    } else if(m_hdtnConfig.m_storageConfig.m_storageDeletionPolicy == "on_expiration") {
+    }
+    else if(m_hdtnConfig.m_storageConfig.m_storageDeletionPolicy == "on_expiration") {
         m_deletionPolicy = DeletionPolicy::onExpiration;
-    } else if(m_hdtnConfig.m_storageConfig.m_storageDeletionPolicy == "on_storage_full") {
+    }
+    else if(m_hdtnConfig.m_storageConfig.m_storageDeletionPolicy == "on_storage_full") {
         m_deletionPolicy = DeletionPolicy::onStorageFull;
     }
 
@@ -796,14 +801,9 @@ void ZmqStorageInterface::Impl::SyncTelemetry() {
 }
 
 bool ZmqStorageInterface::Impl::SendDeletionStatusReport(catalog_entry_t * entry) {
-    // Read bundle-to-delete to get primary block
-    const uint64_t toDeleteSize = m_bsmPtr->ReadBundleByCatalogEntry(m_sessionRead, entry);
-    if(!toDeleteSize) {
-        LOG_ERROR(subprocess) << "Failed to get read size for bundle to delete";
-        return false;
-    }
+
     std::vector<uint8_t> bundle;
-    const bool successRead = m_bsmPtr->ReadAllSegments(m_sessionRead, bundle);
+    const bool successRead = m_bsmPtr->ReadFirstSegment(m_sessionRead, entry, bundle);
     if(!successRead) {
         LOG_ERROR(subprocess) << "Failed to read bundle to delete";
         return false;
@@ -887,7 +887,7 @@ void ZmqStorageInterface::Impl::DeleteBundleById(const uint64_t custodyId) {
  * bundles are deleted. (Avoid blocking event loop unless full).
  *
  */
-void ZmqStorageInterface::Impl::DeleteExpiredBundles(boost::posix_time::ptime nowPtime, float storageUsagePercentage) {
+void ZmqStorageInterface::Impl::DeleteExpiredBundles(const boost::posix_time::ptime& nowPtime, float storageUsagePercentage) {
 
     if(m_deletionPolicy == DeletionPolicy::never) {
         return;
@@ -1412,7 +1412,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
 
         float storageUsagePercentage = m_bsmPtr->GetUsedSpaceBytes()  / (float)m_bsmPtr->GetTotalCapacityBytes();
 
-        if(storageUsagePercentage > DELETE_ALL_EXPIRED_THRESHOLD || tryDeleteTime < nowPtime) {
+        if((storageUsagePercentage > DELETE_ALL_EXPIRED_THRESHOLD) || (tryDeleteTime < nowPtime)) {
             DeleteExpiredBundles(nowPtime, storageUsagePercentage);
             tryDeleteTime = nowPtime + DELETE_EXPIRED_PERIOD;
         }

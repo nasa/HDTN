@@ -378,8 +378,8 @@ bool CustodyTransferManager::GenerateBundleDeletionStatusReport(const Bpv6CbhePr
     // Get values needed for report from orginal bundle primary block
 
     const BPV6_BUNDLEFLAG priority = primaryOfDeleted.m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::PRIORITY_BIT_MASK;
-    const cbhe_eid_t reportToEid = primaryOfDeleted.m_reportToEid;
-    const cbhe_eid_t sourceEid = primaryOfDeleted.m_sourceNodeId;
+    const cbhe_eid_t & reportToEid = primaryOfDeleted.m_reportToEid;
+    const cbhe_eid_t & sourceEid = primaryOfDeleted.m_sourceNodeId;
     const bool isFragment = static_cast<bool>(primaryOfDeleted.m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::ISFRAGMENT);
     uint64_t fragmentOffset = 0, fragmentLength = 0;
     if(isFragment) {
@@ -399,7 +399,7 @@ bool CustodyTransferManager::GenerateBundleDeletionStatusReport(const Bpv6CbhePr
     primary.m_bundleProcessingControlFlags = (
         priority | BPV6_BUNDLEFLAG::SINGLETON  | BPV6_BUNDLEFLAG::ADMINRECORD | BPV6_BUNDLEFLAG::NOFRAGMENT);
 
-    primary.m_sourceNodeId = {m_myCustodianNodeId, m_myCustodianServiceId};
+    primary.m_sourceNodeId.Set(m_myCustodianNodeId, m_myCustodianServiceId);
     primary.m_destinationEid = reportToEid;
 
     SetCreationAndSequence(primary.m_creationTimestamp.secondsSinceStartOfYear2000, primary.m_creationTimestamp.sequenceNumber);
@@ -438,7 +438,7 @@ bool CustodyTransferManager::GenerateBundleDeletionStatusReport(const Bpv6CbhePr
     report.m_bundleSourceEid = Uri::GetIpnUriString(sourceEid.nodeId, sourceEid.serviceId);
 
     bv.AppendMoveCanonicalBlock(blockPtr);
-    bool success = bv.Render(CBHE_BPV6_MINIMUM_SAFE_PRIMARY_HEADER_ENCODE_SIZE + Bpv6AdministrativeRecordContentBundleStatusReport::CBHE_MAX_SERIALIZATION_SIZE);
+    bool success = bv.Render(CBHE_BPV6_MINIMUM_SAFE_PRIMARY_HEADER_ENCODE_SIZE + Bpv6AdministrativeRecordContentBundleStatusReport::CBHE_MAX_SERIALIZATION_SIZE + 100);
 
     return success;
 }
