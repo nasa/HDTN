@@ -396,9 +396,16 @@ if(-Not $hdtn_is_installed) {
     cmd.exe /c "$PSScriptRoot\build_generic_cmake_project.bat ${num_cpu_cores} ${hdtn_cmake_build_options} ${vcvars64_path_with_quotes}"
     if($LastExitCode -ne 0) {
         Start-Sleep -Seconds 2
-        Get-ChildItem -Recurse
-        Write-Output "here is the content of .\CMakeFiles\CMakeError.log:"
-        get-content ".\CMakeFiles\CMakeError.log"
+        # Get-ChildItem -Recurse
+        if(Test-Path -Path ".\CMakeFiles\CMakeError.log") {
+            Write-Output "here is the content of .\CMakeFiles\CMakeError.log:"
+            get-content ".\CMakeFiles\CMakeError.log"
+        }
+        if(Test-Path -Path ".\CMakeFiles\CMakeConfigureLog.yaml") {
+            Write-Output "here is the content of .\CMakeFiles\CMakeConfigureLog.yaml:"
+            get-content ".\CMakeFiles\CMakeConfigureLog.yaml"
+        }
+
         throw 'HDTN failed to build'
     }
     Pop-Location
