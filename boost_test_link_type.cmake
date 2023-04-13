@@ -29,7 +29,9 @@ check_cxx_source_compiles("
 #add compile definitions for x86 hardware acceleration
 if(COMPILER_DOES_NOT_NEED_BOOST_ALL_DYN_LINK)
 	message("Compiler does not need BOOST_ALL_DYN_LINK")
+	unset(COMPILER_DOES_NOT_NEED_BOOST_ALL_DYN_LINK CACHE) #remove cache variable so it will always rerun this check
 else()
+	unset(COMPILER_DOES_NOT_NEED_BOOST_ALL_DYN_LINK CACHE) #remove cache variable so it will always rerun this check
 	message("Compiler might need BOOST_ALL_DYN_LINK.. testing")
 	check_cxx_source_compiles("
 		#define BOOST_TEST_MODULE HtdnUnitTestsModule
@@ -40,8 +42,10 @@ else()
 		}" COMPILER_NEEDS_BOOST_ALL_DYN_LINK)
 	if(COMPILER_NEEDS_BOOST_ALL_DYN_LINK)
 		message("Compiler needs BOOST_ALL_DYN_LINK.. adding compile definition BOOST_ALL_DYN_LINK")
-		add_compile_definitions(BOOST_ALL_DYN_LINK) 
+		add_compile_definitions(BOOST_ALL_DYN_LINK)
+		unset(COMPILER_NEEDS_BOOST_ALL_DYN_LINK CACHE) #remove cache variable so it will always rerun this check
 	else()
+		unset(COMPILER_NEEDS_BOOST_ALL_DYN_LINK CACHE) #remove cache variable so it will always rerun this check
 		message(FATAL_ERROR "Cannot compile boost test program.")
 	endif()
 endif()
