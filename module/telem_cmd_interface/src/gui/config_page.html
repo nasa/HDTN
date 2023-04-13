@@ -15,28 +15,21 @@
         <div class="cardTitle">
             <h2>System</h2>
         </div>
-    <div id="systemTable"></div>
     </div>
-    <div class="configBox" id="inductConfig">
+    <div class="configBox" id="inductsConfig">
         <div class="cardTitle">
             <h2>Induct</h2>
         </div>
-        <div id="inductTable">
-        </div>
     </div>
-    <div class="configBox">
+    <div class="configBox" id="outductsConfig">
         <div class="cardTitle">
             <h2>Outduct</h2>
         </div>
-        <div id="outductTable">
-        </div>
     </div>
-    <div class="configBox">
+    <div class="configBox" id="storageConfig">
         <div class="cardTitle">
             <h2>Storage</h2>
         </div> 
-        <div id="storageTable">
-        </div>
     </div>
 </div>
     <link type="text/css" rel="stylesheet" href="./css/style.css" />
@@ -58,10 +51,37 @@
             delete hdtnConfig.outductsConfig;
             delete hdtnConfig.storageConfig;
 
-            document.getElementById('systemTable').innerHTML = JSON.stringify(hdtnConfig, null, '\t');
-            document.getElementById('inductTable').innerHTML = JSON.stringify(inductsConfig, null, '\t');
-            document.getElementById('outductTable').innerHTML = JSON.stringify(outductsConfig, null, '\t');
-            document.getElementById('storageTable').innerHTML = JSON.stringify(storageConfig, null, '\t');                     
+            createTable(hdtnConfig, 'systemConfig');
+            createTable(inductsConfig, 'inductsConfig');
+            createTable(outductsConfig, 'outductsConfig');
+            createTable(storageConfig, 'storageConfig');
+        }
+
+        function createTable(json, tag) {
+            var div = document.getElementById(tag);
+            newTable = "<table>"
+            for (var key in json) {
+                if(Array.isArray(json[key])){
+                    console.log(json[key]);
+                    for(var i = 0; i < json[key].length; ++i){
+                        var newSubTable = "<table>";
+                        for (var subKey in json[key][i]){
+                            console.log(subKey);
+                            console.log(json[key][i]);
+                            newSubTable += "<tr>" + "<td>" + subKey + "</td>";
+                            newSubTable += "<td>" + json[key][i][subKey] + "</td>" + "</tr>";
+                        }
+                        newSubTable += "</table>";
+                        newTable += newSubTable;
+                    }
+                }
+                else{
+                    var newRow ="<tr>" + "<td>" + key + "</td>" + "<td>" + json[key] + "</td>" + "</tr>";
+                    newTable += newRow;
+                }
+            }
+            newTable += "</table>";
+            div.innerHTML += newTable;
         }
 
         function UpdateWithData(objJson) {
