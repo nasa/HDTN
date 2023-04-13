@@ -394,7 +394,11 @@ if(-Not $hdtn_is_installed) {
         "`"`"${Env:HDTN_SOURCE_ROOT}`"`"" + 
         "`"") #ending literal quote needed to make this one .bat parameter
     cmd.exe /c "$PSScriptRoot\build_generic_cmake_project.bat ${num_cpu_cores} ${hdtn_cmake_build_options} ${vcvars64_path_with_quotes}"
-    if($LastExitCode -ne 0) { throw 'HDTN failed to build' }
+    if($LastExitCode -ne 0) {
+        Write-Output "here is the content of .\CMakeFiles\CMakeError.log:"
+        get-content ".\CMakeFiles\CMakeError.log"
+        throw 'HDTN failed to build'
+    }
     Pop-Location
     Remove-Item -Recurse -Force "hdtn-build-tmp"
 }
