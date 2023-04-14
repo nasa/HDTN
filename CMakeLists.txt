@@ -17,6 +17,10 @@ if( build_type_lower STREQUAL "debug" )
 	message(WARNING "You are building in Debug mode!  HDTN can run order(s) of magnitude slower!")
 endif()
 
+# Suggestion from https://gitlab.kitware.com/cmake/cmake/-/issues/19512
+# try_compile (check_cxx_source_compiles ) is Debug by default, change to be the build type
+set (CMAKE_TRY_COMPILE_CONFIGURATION ${CMAKE_BUILD_TYPE})
+
 if(DEFINED CMAKE_SYSTEM_PROCESSOR)
 	if (${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm") 
 		message("CMAKE_SYSTEM_PROCESSOR = ${CMAKE_SYSTEM_PROCESSOR}")
