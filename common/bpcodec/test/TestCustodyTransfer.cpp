@@ -784,22 +784,26 @@ BOOST_AUTO_TEST_CASE(DeletionStatusReportTestCase)
 
         Bpv6AdministrativeRecord * adminRecordBlockPtr = dynamic_cast<Bpv6AdministrativeRecord*>(blocks[0]->headerPtr.get());
         BOOST_REQUIRE(adminRecordBlockPtr);
-        BOOST_REQUIRE_EQUAL(adminRecordBlockPtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::PAYLOAD);
-        BOOST_REQUIRE_EQUAL(adminRecordBlockPtr->m_adminRecordTypeCode, BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::BUNDLE_STATUS_REPORT);
-        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), adminRecordBlockPtr->GetSerializationSize());
+        if(adminRecordBlockPtr) {
+            BOOST_REQUIRE_EQUAL(adminRecordBlockPtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::PAYLOAD);
+            BOOST_REQUIRE_EQUAL(adminRecordBlockPtr->m_adminRecordTypeCode, BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::BUNDLE_STATUS_REPORT);
+            BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), adminRecordBlockPtr->GetSerializationSize());
 
-        Bpv6AdministrativeRecordContentBundleStatusReport * srPtr = dynamic_cast<Bpv6AdministrativeRecordContentBundleStatusReport*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
-        BOOST_REQUIRE(srPtr);
-        Bpv6AdministrativeRecordContentBundleStatusReport & sr = *(reinterpret_cast<Bpv6AdministrativeRecordContentBundleStatusReport*>(srPtr));
+            Bpv6AdministrativeRecordContentBundleStatusReport * srPtr = dynamic_cast<Bpv6AdministrativeRecordContentBundleStatusReport*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
+            BOOST_REQUIRE(srPtr);
+            if(srPtr) {
+                Bpv6AdministrativeRecordContentBundleStatusReport & sr = *(reinterpret_cast<Bpv6AdministrativeRecordContentBundleStatusReport*>(srPtr));
 
-        BOOST_REQUIRE((timeBefore < sr.m_timeOfDeletionOfBundle) || (timeBefore == sr.m_timeOfDeletionOfBundle));
-        BOOST_REQUIRE((sr.m_timeOfDeletionOfBundle < timeAfter) || (sr.m_timeOfDeletionOfBundle == timeAfter));
+                BOOST_REQUIRE((timeBefore < sr.m_timeOfDeletionOfBundle) || (timeBefore == sr.m_timeOfDeletionOfBundle));
+                BOOST_REQUIRE((sr.m_timeOfDeletionOfBundle < timeAfter) || (sr.m_timeOfDeletionOfBundle == timeAfter));
 
-        BOOST_REQUIRE_EQUAL(sr.m_bundleSourceEid, PRIMARY_SRC_URI);
-        BOOST_REQUIRE_EQUAL(sr.m_copyOfBundleCreationTimestamp, deletedPrimary.m_creationTimestamp);
-        BOOST_REQUIRE(!sr.m_isFragment);
-        BOOST_REQUIRE_EQUAL(sr.m_reasonCode, BPV6_BUNDLE_STATUS_REPORT_REASON_CODES::LIFETIME_EXPIRED);
-        BOOST_REQUIRE_EQUAL(sr.m_statusFlags, BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_DELETED_BUNDLE);
+                BOOST_REQUIRE_EQUAL(sr.m_bundleSourceEid, PRIMARY_SRC_URI);
+                BOOST_REQUIRE_EQUAL(sr.m_copyOfBundleCreationTimestamp, deletedPrimary.m_creationTimestamp);
+                BOOST_REQUIRE(!sr.m_isFragment);
+                BOOST_REQUIRE_EQUAL(sr.m_reasonCode, BPV6_BUNDLE_STATUS_REPORT_REASON_CODES::LIFETIME_EXPIRED);
+                BOOST_REQUIRE_EQUAL(sr.m_statusFlags, BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_DELETED_BUNDLE);
+            }
+        }
     }
 }
 
