@@ -213,7 +213,6 @@ body {
 
 .configBox {
     position:relative;
-    padding-top:100px;
     padding:20px;
     background-color: #404040;
     color: white;
@@ -222,13 +221,15 @@ body {
     border-top: none;
 }
 
-`.styled-table {
+.configBox table {
     border-collapse: collapse;
     margin: 25px 0;
     color: white;
     font-size: 1.2em;
     font-family: sans-serif;
-    min-width: 400px;
+    width: 1000px;
+    border: 1px solid;
+    table-layout:fixed;
 }
 
     .styled-table thead tr {
@@ -242,4 +243,5 @@ body {
     }
     .styled-table td {
         padding: 20px 15px;
+        border: 1px solid;
     }

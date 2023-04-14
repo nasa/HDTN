@@ -18,12 +18,12 @@
     </div>
     <div class="configBox" id="inductsConfig">
         <div class="cardTitle">
-            <h2>Induct</h2>
+            <h2>Inducts</h2>
         </div>
     </div>
     <div class="configBox" id="outductsConfig">
         <div class="cardTitle">
-            <h2>Outduct</h2>
+            <h2>Outducts</h2>
         </div>
     </div>
     <div class="configBox" id="storageConfig">
@@ -43,7 +43,6 @@
         }
 
         function HandleReceivedNewHdtnConfig(hdtnConfig) {
-            console.log(hdtnConfig);
             var inductsConfig = hdtnConfig.inductsConfig;
             var outductsConfig = hdtnConfig.outductsConfig;
             var storageConfig = hdtnConfig.storageConfig;
@@ -59,15 +58,12 @@
 
         function createTable(json, tag) {
             var div = document.getElementById(tag);
-            newTable = "<table>"
+            newTable = "<table class=\"styled-table\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>"
             for (var key in json) {
                 if(Array.isArray(json[key])){
-                    console.log(json[key]);
                     for(var i = 0; i < json[key].length; ++i){
-                        var newSubTable = "<table>";
+                        var newSubTable = "<table class=\"styled-table\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>";
                         for (var subKey in json[key][i]){
-                            console.log(subKey);
-                            console.log(json[key][i]);
                             newSubTable += "<tr>" + "<td>" + subKey + "</td>";
                             newSubTable += "<td>" + json[key][i][subKey] + "</td>" + "</tr>";
                         }
@@ -85,7 +81,6 @@
         }
 
         function UpdateWithData(objJson) {
-            //console.log(objJson);
             if("hdtnConfigName" in objJson) {
                 HandleReceivedNewHdtnConfig(objJson);
             }
@@ -93,17 +88,11 @@
                 console.log("error, out of order command, hdtnConfig must be received first");
             }
             else {
-                //HandleReceivedNewHdtnConfig(objJson);
             }
         }
     var connection = null;
     window.addEventListener("load", function(event) {
         console.log("All resources finished loading!");
-
-        //if(typeof INITIAL_HDTN_CONFIG !== 'undefined'){
-        //    UpdateWithData(INITIAL_HDTN_CONFIG);
-        //}
-        //else 
         if (!("WebSocket" in window)) {
             alert("WebSocket is not supported by your Browser!");
         }
@@ -125,7 +114,6 @@
 
             //This event occurs when client receives data from server.
             connection.onmessage = function(e) {
-                //console.log("rcvd");
                 if(e.data instanceof ArrayBuffer) { //this is binary data
                     console.log("binary data received.. ignoring");
                 }
@@ -135,17 +123,14 @@
                     }
                     else { //json data
                         var obj = JSON.parse(e.data); //this could error based on encodings
-                        //console.log(obj);
                         UpdateWithData(obj);
 
                     }
-                    //console.log(e.data);
                 }
             }
 
             //This event occurs when there is any error in communication.
             connection.onerror = function(error) {
-                //alert('WebSocket error');
                 connection.close();
             }
         } //running http(s)
