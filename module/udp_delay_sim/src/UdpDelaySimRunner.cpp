@@ -21,7 +21,8 @@
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/date_time.hpp>
-
+#include <boost/random.hpp>
+#include "TimestampUtil.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -30,6 +31,15 @@ void UdpDelaySimRunner::MonitorExitKeypressThreadFunction() {
     m_runningFromSigHandler = false;
 }
 
+static bool DropPacket(const std::vector<uint8_t>& udpPacketReceived, boost::mt19937& prng, uint32_t dropIfBelowThisRandomNumber, bool neverDropLtpPing) {
+    if (neverDropLtpPing) {
+        const uint8_t ltpHeaderByte = udpPacketReceived[0];
+        if (ltpHeaderByte == 12) { //CANCEL_SEGMENT_FROM_BLOCK_SENDER = 12
+            return false; //don't drop pings ever
+        }
+    }
+    return prng() < dropIfBelowThisRandomNumber;
+}
 
 UdpDelaySimRunner::UdpDelaySimRunner() : m_runningFromSigHandler(false) {}
 UdpDelaySimRunner::~UdpDelaySimRunner() {}
@@ -51,6 +61,9 @@ bool UdpDelaySimRunner::Run(int argc, const char* const argv[], volatile bool & 
         uint64_t lossOfSignalDurationMs;
         unsigned int numUdpRxPacketsCircularBufferSize;
         unsigned int maxRxUdpPacketSizeBytes;
+        double packetDropRatePercentage;
+        bool neverDropLtpPing = false;
+        boost::mt19937 prng(static_cast<uint32_t>(TimestampUtil::GetSecondsSinceEpochRfc5050()));
 
         boost::program_options::options_description desc("Allowed options");
         try {
@@ -64,6 +77,8 @@ bool UdpDelaySimRunner::Run(int argc, const char* const argv[], volatile bool & 
                 ("send-delay-ms", boost::program_options::value<uint64_t>()->default_value(1), "Delay in milliseconds before forwarding received udp packets.")
                 ("los-start-ms", boost::program_options::value<uint64_t>()->default_value(0), "Delay in milliseconds after first RX udp packet before entering Loss of Signal (LOS) (0=disabled).")
                 ("los-duration-ms", boost::program_options::value<uint64_t>()->default_value(0), "Duration of Loss of Signal (LOS).")
+                ("packet-drop-rate-percentage", boost::program_options::value<double>()->default_value(0.), "Percentage of packets dropped.")
+                ("never-drop-ltp-ping", "Never drop the ltp ping packets if packet drop rate is enabled. (default disabled)")
                 ;
 
             boost::program_options::variables_map vm;
@@ -84,6 +99,11 @@ bool UdpDelaySimRunner::Run(int argc, const char* const argv[], volatile bool & 
             lossOfSignalDurationMs = vm["los-duration-ms"].as<uint64_t>();
             numUdpRxPacketsCircularBufferSize = vm["num-rx-udp-packets-buffer-size"].as<unsigned int>();
             maxRxUdpPacketSizeBytes = vm["max-rx-udp-packet-size-bytes"].as<unsigned int>();
+            packetDropRatePercentage = vm["packet-drop-rate-percentage"].as<double>();
+
+            if (vm.count("never-drop-ltp-ping")) {
+                neverDropLtpPing = true;
+            }
         }
         catch (boost::bad_any_cast & e) {
             LOG_ERROR(subprocess) << "invalid data error: " << e.what() << "\n";
@@ -107,6 +127,13 @@ bool UdpDelaySimRunner::Run(int argc, const char* const argv[], volatile bool & 
         
         if (useSignalHandler) {
             sigHandler.Start(false);
+        }
+        if ((packetDropRatePercentage > 0.001) && (packetDropRatePercentage < 100.0)) {
+            //prng.max() is 4294967295 or UINT32_MAX
+            uint32_t threshold = static_cast<uint32_t>(packetDropRatePercentage * 0.01 * UINT32_MAX);
+            LOG_DEBUG(subprocess) << "Dropping packets with loss rate of " << packetDropRatePercentage
+                << " that fall below threshold " << threshold;
+            udpDelaySim.SetUdpDropSimulatorFunction_ThreadSafe(boost::bind(&DropPacket, boost::placeholders::_1, boost::ref(prng), threshold, neverDropLtpPing));
         }
         LOG_INFO(subprocess) << "UdpDelaySim up and running";
         while (running && m_runningFromSigHandler) {
