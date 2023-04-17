@@ -232,16 +232,21 @@ body {
     table-layout:fixed;
 }
 
-    .styled-table thead tr {
-        background-color: #009879;
-        color: #ffffff;
-        text-align: left;
-    }
+.styled-table thead tr {
+    background-color: #009879;
+    color: #ffffff;
+    text-align: left;
+}
 
-    .styled-table th {
-        padding: 20px 15px;
-    }
-    .styled-table td {
-        padding: 20px 15px;
-        border: 1px solid;
-    }
+.styled-table th {
+    padding: 20px 15px;
+}
+.styled-table td {
+    padding: 20px 15px;
+    border: 1px solid;
+}
+
+caption {
+    font-size: 40px;
+    font-weight: bold;
+}
