@@ -24,6 +24,7 @@ function formatHumanReadable(num, decimals, unitStr, thousand) {
        dm = decimals <= 0 ? 0 : decimals || 2,
        sizes = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'],
        i = Math.floor(Math.log(num) / Math.log(k));
+   i = Math.max(i, 0); //prevent i from going negative
    return ((num / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i] + unitStr;
 }
 function ObjToTooltipText(obj) {
