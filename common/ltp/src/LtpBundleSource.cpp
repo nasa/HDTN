@@ -294,7 +294,6 @@ void LtpBundleSource::SyncTelemetry() {
         m_ltpOutductTelemetry.m_countTxUdpPacketsLimitedByRate = m_ltpEnginePtr->m_countAsyncSendsLimitedByRate;
         m_ltpOutductTelemetry.m_totalBundleBytesAcked = m_ltpEnginePtr->m_totalRedDataBytesSuccessfullySent;
         //m_ltpOutductTelemetry.m_totalBundleBytesFailedToSend = m_ltpEnginePtr->m_totalRedDataBytesFailedToSend;
-        m_ltpOutductTelemetry.m_linkIsUpPhysically = m_ltpEnginePtr->m_senderLinkIsUpPhysically;
         SyncTransportLayerSpecificTelem(); //virtual function call
     }
 }
