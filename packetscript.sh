@@ -6,6 +6,7 @@ hdtn_config=$config_files/hdtn/hdtn_ingress1tcpclv4_port4556_egress1tcpclv4_port
 sink_config=$config_files/inducts/bpsink_one_tcpclv4_port4558.json
 gen_config=$config_files/outducts/bpgen_one_tcpclv4_port4556.json
 send_config=$config_files/inducts/bpgen_one_stcp_port4560.json
+# send_config=$config_files/inducts/bpgen_one_udp_port4560.json
 receive_config=$config_files/outducts/udp7132.json
 
 cd $HDTN_SOURCE_ROOT
