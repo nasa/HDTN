@@ -76,7 +76,7 @@ updateElementWithCommonOutductData = (htmlElement, outductTelem) => {
     htmlElement.querySelector("#totalBundlesFailedToSend").innerHTML = totalBundlesFailedToSend.toFixed();
 }
 
-
+//Creates data card printing out the data from outducts
 function createOutductCard(outductTelem, outductPos) {
     switch(outductTelem.convergenceLayer){
         case "ltp_over_udp":{
@@ -96,8 +96,8 @@ function createOutductCard(outductTelem, outductPos) {
             break;}
     }
     const uniqueId = convergenceLayer + outductPos;
-    var card = document.getElementById(uniqueId);
-    if (!card) {                                    
+    var card = document.getElementById(uniqueId);//searches if stats card from that outduct already exists
+    if (!card) { //Creates new card                                    
         const template = document.getElementById("outductTemplate"); 
         card = template.cloneNode(true);
         card.id = uniqueId;
@@ -109,8 +109,7 @@ function createOutductCard(outductTelem, outductPos) {
     }
 
     var newTableData="";
-
-    for (var key in outductTelem) {
+    for (var key in outductTelem) { //Loop through json printing new data
         var newRow;
         if (isNaN(outductTelem[key])) {
             newRow ="<tr>" + "<td>" + key + "</td>" + "<td>" + (outductTelem[key]).toLocaleString('en') + "</td>" + "</tr>";

@@ -39,9 +39,12 @@
         }
 
         function HandleReceivedNewHdtnConfig(hdtnConfig) {
+            //Separate data for each module
             var inductsConfig = hdtnConfig.inductsConfig;
             var outductsConfig = hdtnConfig.outductsConfig;
             var storageConfig = hdtnConfig.storageConfig;
+
+            //Delete module data from overall config
             delete hdtnConfig.inductsConfig;
             delete hdtnConfig.outductsConfig;
             delete hdtnConfig.storageConfig;
@@ -57,7 +60,8 @@
             newTable = "<table class=\"styled-table\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>"
             newTable += "<caption>" + tag + "</caption>";
             for (var key in json) {
-                if(Array.isArray(json[key])){
+                if(Array.isArray(json[key])){ 
+                    //Creates subtables for each induct, outduct, and storage object
                     for(var i = 0; i < json[key].length; ++i){
                         var newSubTable = "<table class=\"styled-table\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>";
                         for (var subKey in json[key][i]){
@@ -77,7 +81,8 @@
                     if (isNaN(json[key])) {
                         var newRow ="<tr>" + "<td>" + key + "</td>" + "<td>" + json[key] + "</td>" + "</tr>";
                     }
-                    else {
+                    else { 
+                        //if data is a number, adds commas
                         var newRow ="<tr>" + "<td>" + key + "</td>" + "<td>" + (json[key]).toLocaleString('en') + "</td>" + "</tr>";
                     }
                     newTable += newRow;
