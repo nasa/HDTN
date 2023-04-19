@@ -423,6 +423,8 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                 if (m_useCustodyTransfer) {
                     primary.m_bundleProcessingControlFlags |= BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
                     primary.m_custodianEid.Set(m_myEid.nodeId, m_myCustodianServiceId);
+                    primary.m_reportToEid.Set(m_myEid.nodeId, m_myCustodianServiceId);
+
                 }
                 primary.m_sourceNodeId = m_myEid;
                 primary.m_destinationEid = m_finalDestinationEid;
@@ -790,6 +792,28 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
                     return;
                 }
                 ++m_numRfc5050CustodyTransfers;
+            }
+            else if(adminRecordType == BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::BUNDLE_STATUS_REPORT) {
+                Bpv6AdministrativeRecordContentBundleStatusReport * srPtr = dynamic_cast<Bpv6AdministrativeRecordContentBundleStatusReport*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
+                if(srPtr == NULL) {
+                    LOG_ERROR(subprocess) << "BpSourcePattern cannot cast admin record content to Bpv6AdministrativeRecordContentBundleStatusReport";
+                    return;
+                }
+                Bpv6AdministrativeRecordContentBundleStatusReport & sr = *(reinterpret_cast<Bpv6AdministrativeRecordContentBundleStatusReport*>(srPtr));
+
+                if(static_cast<bool>(sr.m_statusFlags & BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_DELETED_BUNDLE) && sr.m_reasonCode == BPV6_BUNDLE_STATUS_REPORT_REASON_CODES::LIFETIME_EXPIRED) {
+
+                    static const boost::format fmtTemplate("Received bundle deleted due to lifetime expired for { %s t: %d n: %d }");
+                    boost::format fmt(fmtTemplate);
+                    fmt % sr.m_bundleSourceEid.c_str()
+                        % sr.m_copyOfBundleCreationTimestamp.secondsSinceStartOfYear2000
+                        % sr.m_copyOfBundleCreationTimestamp.sequenceNumber;
+                    LOG_INFO(subprocess) << fmt.str();
+                }
+                else {
+                    LOG_ERROR(subprocess) << "Received unknown status report";
+                }
+
             }
             else {
                 LOG_ERROR(subprocess) << "unknown admin record type";
