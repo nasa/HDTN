@@ -152,7 +152,11 @@ bool BundleStorageCatalog::RemoveEntryFromAwaitingSend(const catalog_entry_t & c
         expirations_to_custids_map_t::iterator expirationsIt = expirationMap.find(catalogEntry.GetAbsExpiration());
         if (expirationsIt != expirationMap.end()) {
             custids_flist_queue_t& custodyIdFlistQueue = expirationsIt->second;
-            return Remove(custodyIdFlistQueue, custodyId);
+            bool removed = Remove(custodyIdFlistQueue, custodyId);
+            if(custodyIdFlistQueue.empty()) {
+                expirationMap.erase(expirationsIt);
+            }
+            return removed;
         }
     }
     return false;
