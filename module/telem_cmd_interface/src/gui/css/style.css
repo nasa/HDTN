@@ -100,15 +100,14 @@ body {
 
 
 .visualizations {
+    max-width:100%;
     position: relative;
     padding:20px;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     grid-gap: 20px;
-    justify-items: center;
+    justify-items: left;
 }
-
-  
 
 .onOffIndicator {
     position: relative;
@@ -143,11 +142,6 @@ body {
         background: #404040;
         padding: 20px;
     }
-
-        .details .statsCard table tbody tr:hover {
-            background-color: #ddd;
-            color: black;
-        }
 
         .details .statsCard table tr td {
             padding: 7px 3px;
