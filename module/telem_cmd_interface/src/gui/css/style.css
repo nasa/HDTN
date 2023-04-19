@@ -98,6 +98,7 @@ body {
         font-weight: 500;
     }
 
+
 .visualizations {
     position: relative;
     padding:20px;
@@ -137,34 +138,22 @@ body {
     }
 
 
-    .details .ingressStats {
+    .details .statsCard {
         position: relative;
         background: #404040;
         padding: 20px;
     }
 
-        .details .ingressStats table tbody tr:hover {
+        .details .statsCard table tbody tr:hover {
             background-color: #ddd;
             color: black;
         }
 
-        .details .ingressStats table tr td {
+        .details .statsCard table tr td {
             padding: 7px 3px;
             color: white;
         }
 
-    .details .egressStats {
-        position: relative;
-        background: #404040;
-        padding: 20px;
-        
-    }
-
-    .details .storageStats {
-        position: relative;
-        background: #404040;
-        padding: 20px;
-    }
 
     .details .configParamStats {
         position: relative;
@@ -173,12 +162,12 @@ body {
         border-spacing: 0 20px;
     }
 
-        .cardTitle {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            color: white;
-        }
+.cardTitle {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    color: white;
+}
 
 .engine_table {
     table-layout: fixed;
