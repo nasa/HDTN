@@ -323,7 +323,6 @@ void LtpEngine::Reset() {
     m_numTxSessionsCancelledByReceiver = 0;
     m_numRxSessionsCancelledBySender = 0;
     m_numStagnantRxSessionsDeleted = 0;
-    m_senderLinkIsUpPhysically = true; //assume the link on startup is up physically until ping determines it down (for gui)
 
     m_numCheckpointTimerExpiredCallbacksRef = 0;
     m_numDiscretionaryCheckpointsNotResentRef = 0;
@@ -617,11 +616,11 @@ bool LtpEngine::GetNextPacketToSend(UdpSendPacketInfo& udpSendPacketInfo) {
                 std::shared_ptr<LtpClientServiceDataToSend>& csdRef = txSessionIt->second.m_dataToSendSharedPtr;
                 const bool successCallbackAlreadyCalled = (m_memoryInFilesPtr) ? true : false;
                 if (txSessionIt->second.m_isFailedSession) { //give the bundle back to the user
-                    m_senderLinkIsUpPhysically = false;
+                    //note: it is up to the user (such as egress) to track physical link status (e.g. m_senderLinkIsUpPhysically = false;)
                     TryReturnTxSessionDataToUser(txSessionIt);
                 }
                 else { //successful send
-                    m_senderLinkIsUpPhysically = true;
+                    //note: it is up to the user (such as egress) to track physical link status (e.g. m_senderLinkIsUpPhysically = true;)
                     if ((!successCallbackAlreadyCalled) && m_onSuccessfulBundleSendCallback) {
                         m_onSuccessfulBundleSendCallback(csdRef->m_userData, m_userAssignedUuid);
                     }
@@ -1152,11 +1151,10 @@ void LtpEngine::CancelAcknowledgementSegmentReceivedCallback(const Ltp::session_
         if (isPing) {
             //sender ping is successful
             M_NEXT_PING_START_EXPIRY = boost::posix_time::microsec_clock::universal_time() + M_SENDER_PING_TIME;
-            if (!m_senderLinkIsUpPhysically) {
-                m_senderLinkIsUpPhysically = true;
-                if (m_onOutductLinkStatusChangedCallback) { //let user know of link up event
-                    m_onOutductLinkStatusChangedCallback(false, m_userAssignedUuid);
-                }
+            //note: it is up to the user (such as egress) to prevent redundant link up events.. e.g. if (!m_senderLinkIsUpPhysically) {
+            //note: it is up to the user (such as egress) to track physical link status (e.g. m_senderLinkIsUpPhysically = true;)
+            if (m_onOutductLinkStatusChangedCallback) { //let user know of link up event
+                m_onOutductLinkStatusChangedCallback(false, m_userAssignedUuid);
             }
         }
         else if (!isToSender) {
@@ -1197,11 +1195,10 @@ void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmen
             //sender ping failed
             ++m_totalPingsFailedToSend;
             M_NEXT_PING_START_EXPIRY = boost::posix_time::microsec_clock::universal_time() + M_SENDER_PING_TIME;
-            if (m_senderLinkIsUpPhysically) {
-                m_senderLinkIsUpPhysically = false;
-                if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
-                    m_onOutductLinkStatusChangedCallback(true, m_userAssignedUuid);
-                }
+            //note: it is up to the user (such as egress) to prevent redundant link down events.. e.g. if (m_senderLinkIsUpPhysically) {
+            //note: it is up to the user (such as egress) to track physical link status (e.g. m_senderLinkIsUpPhysically = false;)
+            if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
+                m_onOutductLinkStatusChangedCallback(true, m_userAssignedUuid);
             }
         }
         else {
@@ -1672,11 +1669,10 @@ void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) 
 }
 
 void LtpEngine::DoExternalLinkDownEvent() {
-    if (m_senderLinkIsUpPhysically) {
-        m_senderLinkIsUpPhysically = false;
-        if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
-            m_onOutductLinkStatusChangedCallback(true, m_userAssignedUuid);
-        }
+    //note: it is up to the user (such as egress) to prevent redundant link down events.. e.g. if (m_senderLinkIsUpPhysically) {
+    //note: it is up to the user (such as egress) to track physical link status (e.g. m_senderLinkIsUpPhysically = false;)
+    if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
+        m_onOutductLinkStatusChangedCallback(true, m_userAssignedUuid);
     }
 }
 void LtpEngine::PostExternalLinkDownEvent_ThreadSafe() {
