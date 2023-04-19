@@ -128,6 +128,50 @@ updateLtpOutduct = (outductTelem, outductPos) => {
     card.querySelector("#countTxUdpPacketsLimitedByRate").innerHTML = countTxUdpPacketsLimitedByRate.toFixed();
 }
 
+function createOutductCard(outductTelem, outductPos) {
+    switch(outductTelem.convergenceLayer){
+        case "ltp_over_udp":
+            var uniqueId = "LTP-" + (outductPos+1);
+            break;
+        case "stcp":
+            var uniqueId = "STCP-" + (outductPos+1);
+            break;
+        case "tcpcl_v4":
+            var uniqueId = "TCPCLv4-" + (outductPos+1);
+            break;
+        case "tcpcl_v3":
+            var uniqueId = "TCPCLv3-" + (outductPos+1);
+            break;
+        case "udp":
+            var uniqueId = "UDP-" + (outductPos+1);
+            break;
+    }        
+    var card = document.getElementById(uniqueId);
+    if (!card) {                                    
+        const template = document.getElementById("outductTemplate"); 
+        card = template.cloneNode(true);
+        card.id = uniqueId;
+        card.classList.remove("hidden");
+        template.parentNode.append(card);
+        card.querySelector("#cardTitle").innerHTML = uniqueId;
+        var displayName = "Outduct " + (outductPos + 1).toFixed();
+        //card.querySelector("#cardNumber").innerHTML = displayName;
+    }
+    var newTableData="";
+
+    for (var key in outductTelem) {
+        var newRow;
+        if (isNaN(outductTelem[key])) {
+            newRow ="<tr>" + "<td>" + key + "</td>" + "<td>" + outductTelem[key] + "</td>" + "</tr>";
+        }
+        else {
+            newRow ="<tr>" + "<td>" + key + "</td>" + "<td>" + (outductTelem[key]).toLocaleString('en') + "</td>" + "</tr>";
+        }
+        newTableData += newRow;
+    }
+    card.querySelector("#cardTableBody").innerHTML = newTableData;
+}
+
 //Launch Data Graphs
 Plotly.newPlot("ingress_rate_graph", rate_data_ingress, ingressLayout, { displaylogo: false });
 Plotly.newPlot("egress_rate_graph", rate_data_egress, egressLayout, { displaylogo: false });
@@ -218,12 +262,14 @@ function InternalUpdateWithData(objJson) {
 
         // Handle any outduct data
         objJson.allOutducts.forEach(function(outductTelem, i) {
-            if(outductTelem.convergenceLayer == "stcp") {
-                updateStcpOutduct(outductTelem, i);
-            }
-            else if(outductTelem.convergenceLayer == "ltp_over_udp") {
-                updateLtpOutduct(outductTelem, i);
-            }
+            console.log(outductTelem);
+            createOutductCard(outductTelem, i);
+//            if(outductTelem.convergenceLayer == "stcp") {
+//                updateStcpOutduct(outductTelem, i);
+//            }
+//            else if(outductTelem.convergenceLayer == "ltp_over_udp") {
+//                updateLtpOutduct(outductTelem, i);
+//            }
         });
     }
     else if("outductCapabilityTelemetryList" in objJson) {

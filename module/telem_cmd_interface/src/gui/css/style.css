@@ -50,6 +50,7 @@ body {
     display:grid;
     grid-template-columns:repeat(5,1fr);
     grid-gap: 20px;
+    word-wrap: break-word;
 }
 
     .cardBox .tab {
@@ -227,7 +228,7 @@ body {
     color: white;
     font-size: 1.2em;
     font-family: sans-serif;
-    width: 1000px;
+    width: 1250px;
     border: 1px solid;
     table-layout:fixed;
 }
@@ -244,6 +245,7 @@ body {
 .styled-table td {
     padding: 20px 15px;
     border: 1px solid;
+    word-wrap: break-word;
 }
 
 caption {
