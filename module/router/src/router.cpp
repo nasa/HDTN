@@ -259,11 +259,11 @@ void Router::Impl::SchedulerEventsHandler() {
         }
 
         ComputeOptimalRoutesForOutductIndex(releaseChangeHdr.prevHopNodeId, releaseChangeHdr.outductArrayIndex);
-        LOG_INFO(subprocess) << "Updated time to " << m_latestTime;
+        LOG_DEBUG(subprocess) << "Updated time to " << m_latestTime;
     }
     else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKUP) {
-        LOG_INFO(subprocess) << "Contact up ";
-        LOG_INFO(subprocess) << "Updated time to " << m_latestTime;
+        LOG_DEBUG(subprocess) << "Contact up ";
+        LOG_DEBUG(subprocess) << "Updated time to " << m_latestTime;
     }
     else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY) {
         AllOutductCapabilitiesTelemetry_t aoct;
@@ -390,7 +390,7 @@ bool Router::Impl::ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint
         it != finalDestNodeIdList.cend(); ++it)
     {
         const uint64_t finalDestNodeId = *it;
-        LOG_INFO(subprocess) << "FinalDest nodeId found is:  " << finalDestNodeId;
+        LOG_DEBUG(subprocess) << "FinalDest nodeId found is:  " << finalDestNodeId;
         if (!ComputeOptimalRoute(sourceNode, originalNextHopNodeId, finalDestNodeId)) {
             noErrors = false;
         }
@@ -402,7 +402,7 @@ bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNex
 
     cgr::Route bestRoute;
 
-    LOG_INFO(subprocess) << "[Router] Reading contact plan and computing next hop";
+    LOG_DEBUG(subprocess) << "Reading contact plan and computing next hop";
     std::vector<cgr::Contact> contactPlan = cgr::cp_load(m_contactPlanFilePath);
 
     cgr::Contact rootContact = cgr::Contact(sourceNode,
@@ -411,8 +411,7 @@ bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNex
     if (!m_usingMGR) {
         LOG_INFO(subprocess) << "Computing Optimal Route using CGR dijkstra for final Destination "
             << finalDestNodeId << " at latest time " << rootContact.arrival_time;
-        bestRoute = cgr::dijkstra(&rootContact,
-            finalDestNodeId, contactPlan);
+        bestRoute = cgr::dijkstra(&rootContact, finalDestNodeId, contactPlan);
     }
     else {
         bestRoute = cgr::cmr_dijkstra(&rootContact,
@@ -422,9 +421,7 @@ bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNex
     }
 
     if (bestRoute.valid()) { // successfully computed a route
-
         const uint64_t nextHopNodeId = bestRoute.next_node;
-        
 	if (originalNextHopNodeId != nextHopNodeId) {
             LOG_INFO(subprocess) << "Successfully Computed next hop: "
                 << nextHopNodeId << " for final Destination " << finalDestNodeId
@@ -432,7 +429,7 @@ bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNex
 
             boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
             // Timer was not cancelled, take necessary action.
-            LOG_INFO(subprocess) << timeLocal << ": [Router] Sending RouteUpdate event to Egress ";
+            LOG_INFO(subprocess) << timeLocal << ": Sending RouteUpdate event to Egress ";
 
             hdtn::RouteUpdateHdr routingMsg;
             memset(&routingMsg, 0, sizeof(hdtn::RouteUpdateHdr));
@@ -445,7 +442,7 @@ bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNex
                 zmq::send_flags::dontwait))
             {
                 //send returns false if(!res.has_value() AND zmq_errno()=EAGAIN)
-                LOG_INFO(subprocess) << "waiting for egress to become available to send route update";
+                LOG_DEBUG(subprocess) << "waiting for egress to become available to send route update";
                 boost::this_thread::sleep(boost::posix_time::seconds(1));
             }
             
@@ -455,8 +452,7 @@ bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNex
                 << nextHopNodeId << " for final Destination " << finalDestNodeId
                 << " because the next hops didn't change.";
         }
-   }
-    else {
+   } else {
         // what should we do if no route is found?
         LOG_ERROR(subprocess) << "No route is found!!";
         return false;
