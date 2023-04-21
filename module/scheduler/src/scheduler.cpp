@@ -144,7 +144,7 @@ private:
 };
 
 boost::filesystem::path Scheduler::GetFullyQualifiedFilename(const boost::filesystem::path& filename) {
-    return (Environment::GetPathHdtnSourceRoot() / "module/scheduler/src/") / filename;
+    return (Environment::GetPathHdtnSourceRoot() / "module/scheduler/contact_plans/") / filename;
 }
 
 bool contactPlan_t::operator<(const contactPlan_t& o) const {
