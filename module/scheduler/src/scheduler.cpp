@@ -143,8 +143,6 @@ private:
     uint64_t m_bundleSequence;
 };
 
-
-
 boost::filesystem::path Scheduler::GetFullyQualifiedFilename(const boost::filesystem::path& filename) {
     return (Environment::GetPathHdtnSourceRoot() / "module/scheduler/src/") / filename;
 }
