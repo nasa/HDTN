@@ -30,7 +30,7 @@ target_link_libraries(integrated-tests
 	hdtn_one_process_lib
 	egress_async_lib
 	ingress_async_lib
-	scheduler_lib
+	router_lib
 	induct_manager_lib
 	outduct_manager_lib
 	bpcodec

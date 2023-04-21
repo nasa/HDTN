@@ -1,5 +1,6 @@
 add_library(router_lib
 	src/router.cpp
+	src/scheduler.cpp
 	src/RouterRunner.cpp
 )
 GENERATE_EXPORT_HEADER(router_lib)
@@ -10,6 +11,7 @@ if (target_type STREQUAL SHARED_LIBRARY)
 endif()
 set(MY_PUBLIC_HEADERS
     include/router.h
+    include/scheduler.h
 	include/RouterRunner.h
 	${CMAKE_CURRENT_BINARY_DIR}/router_lib_export.h
 )

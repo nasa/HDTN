@@ -77,7 +77,7 @@ private:
 };
 
 boost::filesystem::path Router::GetFullyQualifiedFilename(const boost::filesystem::path& filename) {
-    return (Environment::GetPathHdtnSourceRoot() / "module/scheduler/src/") / filename;
+    return (Environment::GetPathHdtnSourceRoot() / "module/router/contact_plans/") / filename;
 }
 
 Router::Impl::Impl() : 

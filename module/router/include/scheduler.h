@@ -33,22 +33,22 @@
 #include <boost/core/noncopyable.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/property_tree/ptree.hpp>
-#include "scheduler_lib_export.h"
+#include "router_lib_export.h"
 
 
 class Scheduler : private boost::noncopyable {
 public:
-    SCHEDULER_LIB_EXPORT Scheduler();
-    SCHEDULER_LIB_EXPORT ~Scheduler();
-    SCHEDULER_LIB_EXPORT void Stop();
-    SCHEDULER_LIB_EXPORT bool Init(const HdtnConfig& hdtnConfig,
+    ROUTER_LIB_EXPORT Scheduler();
+    ROUTER_LIB_EXPORT ~Scheduler();
+    ROUTER_LIB_EXPORT void Stop();
+    ROUTER_LIB_EXPORT bool Init(const HdtnConfig& hdtnConfig,
         const HdtnDistributedConfig& hdtnDistributedConfig,
         const boost::filesystem::path& contactPlanFilePath,
         bool usingUnixTimestamp,
         zmq::context_t* hdtnOneProcessZmqInprocContextPtr = NULL);
 
-    SCHEDULER_LIB_EXPORT static boost::filesystem::path GetFullyQualifiedFilename(const boost::filesystem::path& filename);
-    SCHEDULER_LIB_EXPORT static uint64_t GetRateBpsFromPtree(const boost::property_tree::ptree::value_type& eventPtr);
+    ROUTER_LIB_EXPORT static boost::filesystem::path GetFullyQualifiedFilename(const boost::filesystem::path& filename);
+    ROUTER_LIB_EXPORT static uint64_t GetRateBpsFromPtree(const boost::property_tree::ptree::value_type& eventPtr);
 
     // Internal implementation class
     class Impl; //public for ostream operators

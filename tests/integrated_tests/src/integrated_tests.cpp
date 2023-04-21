@@ -49,7 +49,6 @@
 #include "EgressAsyncRunner.h"
 #include "StorageRunner.h"
 #include "SignalHandler.h"
-#include "SchedulerRunner.h"
 
 #define DELAY_THREAD 3
 #define DELAY_TEST 3

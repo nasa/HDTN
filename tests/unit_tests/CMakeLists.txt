@@ -64,7 +64,7 @@ add_executable(unit-tests
 	$<$<BOOL:${RUN_TELEMETRY}>:../../module/telem_cmd_interface/unit_tests/TelemetryConnectionPollerTests.cpp>
 	$<$<BOOL:${RUN_TELEMETRY}>:../../module/telem_cmd_interface/unit_tests/TelemetryLoggerTests.cpp>
 	$<$<BOOL:${RUN_TELEMETRY}>:../../module/telem_cmd_interface/unit_tests/TelemetryRunnerProgramOptionsTests.cpp>
-	../../module/scheduler/unit_tests/SchedulerTests.cpp
+	../../module/router/unit_tests/SchedulerTests.cpp
 )
 
 install(TARGETS unit-tests DESTINATION ${CMAKE_INSTALL_BINDIR})
@@ -83,7 +83,7 @@ target_link_libraries(unit-tests
 	log_lib
 	stats_lib
 	$<$<BOOL:${RUN_TELEMETRY}>:telem_lib>
-	scheduler_lib
+	router_lib
 	outduct_manager_lib
 	bp_app_patterns_lib
 	Boost::unit_test_framework
