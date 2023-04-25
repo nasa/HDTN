@@ -15,8 +15,7 @@
 #include "ingress.h"
 #include "ZmqStorageInterface.h"
 #include "EgressAsync.h"
-#include "scheduler.h"
-#include "router.h"
+#include "RouterWrapper.h"
 #include "HdtnOneProcessRunner.h"
 #include "SignalHandler.h"
 #include "Environment.h"
@@ -130,7 +129,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
             }
 
             if (!boost::filesystem::exists(contactPlanFilePath)) { //first see if the user specified an already valid path name not dependent on HDTN's source root
-                contactPlanFilePath = Scheduler::GetFullyQualifiedFilename(contactPlanFilePath);
+                contactPlanFilePath = RouterWrapper::GetFullyQualifiedFilename(contactPlanFilePath);
                 if (!boost::filesystem::exists(contactPlanFilePath)) {
                     LOG_ERROR(subprocess) << "ContactPlan File not found: " << contactPlanFilePath;
                     return false;
@@ -157,15 +156,9 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         //If your application is using only the inproc transport for messaging you may set this to zero, otherwise set it to at least one.
         std::unique_ptr<zmq::context_t> hdtnOneProcessZmqInprocContextPtr = boost::make_unique<zmq::context_t>(0);// 0 Threads
 
-        LOG_INFO(subprocess) << "starting Scheduler..";
-        std::unique_ptr<Scheduler> schedulerPtr = boost::make_unique<Scheduler>();
-        if (!schedulerPtr->Init(*hdtnConfig, unusedHdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp, hdtnOneProcessZmqInprocContextPtr.get())) {
-            return false;
-        }
-
-        LOG_INFO(subprocess) << "starting Router..";
-        std::unique_ptr<Router> routerPtr = boost::make_unique<Router>();
-        if (!routerPtr->Init(*hdtnConfig, unusedHdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp, useMgr, hdtnOneProcessZmqInprocContextPtr.get())) {
+        LOG_INFO(subprocess) << "starting RouterWrapper..";
+        std::unique_ptr<RouterWrapper> routerWrapperPtr = boost::make_unique<RouterWrapper>();
+        if (!routerWrapperPtr->Init(*hdtnConfig, unusedHdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp, useMgr, hdtnOneProcessZmqInprocContextPtr.get())) {
             return false;
         }
 
@@ -225,15 +218,11 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         telemetryRunnerPtr.reset();
 #endif
 
-        LOG_INFO(subprocess) << "Scheduler: stopping..";
-        schedulerPtr->Stop();
-        LOG_INFO(subprocess) << "Scheduler: deleting..";
-        schedulerPtr.reset();
 
-        LOG_INFO(subprocess) << "Router: stopping..";
-        routerPtr->Stop();
-        LOG_INFO(subprocess) << "Router: deleting..";
-        routerPtr.reset();
+        LOG_INFO(subprocess) << "RouterWrapper: stopping..";
+        routerWrapperPtr->Stop();
+        LOG_INFO(subprocess) << "RouterWrapper: deleting..";
+        routerWrapperPtr.reset();
 
         boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
         
