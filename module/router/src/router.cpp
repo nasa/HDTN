@@ -58,6 +58,8 @@ private:
     void HandleOutductCapabilitiesTelemetry(const hdtn::IreleaseChangeHdr &releaseChangeHdr, const AllOutductCapabilitiesTelemetry_t & aoct);
     void HandleBundleFromScheduler();
 
+    void SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNodeId);
+
     HdtnConfig m_hdtnConfig;
     volatile bool m_running;
     bool m_usingUnixTimestamp;
@@ -423,6 +425,27 @@ bool Router::Impl::ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint
     return noErrors;
 }
 
+void Router::Impl::SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNodeId) {
+    boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
+    // Timer was not cancelled, take necessary action.
+    LOG_INFO(subprocess) << timeLocal << ": Sending RouteUpdate event to Egress ";
+
+    hdtn::RouteUpdateHdr routingMsg;
+    memset(&routingMsg, 0, sizeof(hdtn::RouteUpdateHdr));
+    routingMsg.base.type = HDTN_MSGTYPE_ROUTEUPDATE;
+    routingMsg.nextHopNodeId = nextHopNodeId;
+    routingMsg.finalDestNodeId = finalDestNodeId;
+
+    while (m_running && !m_zmqPushSock_connectingRouterToBoundEgressPtr->send(
+        zmq::const_buffer(&routingMsg, sizeof(hdtn::RouteUpdateHdr)),
+        zmq::send_flags::dontwait))
+    {
+        //send returns false if(!res.has_value() AND zmq_errno()=EAGAIN)
+        LOG_DEBUG(subprocess) << "waiting for egress to become available to send route update";
+        boost::this_thread::sleep(boost::posix_time::seconds(1));
+    }
+}
+
 bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNextHopNodeId, uint64_t finalDestNodeId) {
 
     cgr::Route bestRoute;
@@ -451,26 +474,8 @@ bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNex
             LOG_INFO(subprocess) << "Successfully Computed next hop: "
                 << nextHopNodeId << " for final Destination " << finalDestNodeId
                 << "Best route is " << bestRoute;
+            SendRouteUpdate(nextHopNodeId, finalDestNodeId);
 
-            boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-            // Timer was not cancelled, take necessary action.
-            LOG_INFO(subprocess) << timeLocal << ": Sending RouteUpdate event to Egress ";
-
-            hdtn::RouteUpdateHdr routingMsg;
-            memset(&routingMsg, 0, sizeof(hdtn::RouteUpdateHdr));
-            routingMsg.base.type = HDTN_MSGTYPE_ROUTEUPDATE;
-            routingMsg.nextHopNodeId = nextHopNodeId;
-            routingMsg.finalDestNodeId = finalDestNodeId;
-
-            while (m_running && !m_zmqPushSock_connectingRouterToBoundEgressPtr->send(
-                zmq::const_buffer(&routingMsg, sizeof(hdtn::RouteUpdateHdr)),
-                zmq::send_flags::dontwait))
-            {
-                //send returns false if(!res.has_value() AND zmq_errno()=EAGAIN)
-                LOG_DEBUG(subprocess) << "waiting for egress to become available to send route update";
-                boost::this_thread::sleep(boost::posix_time::seconds(1));
-            }
-            
         }
         else {
             LOG_DEBUG(subprocess) << "Skipping Computed next hop: "
