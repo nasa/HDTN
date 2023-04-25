@@ -50,6 +50,7 @@ body {
     display:grid;
     grid-template-columns:repeat(5,1fr);
     grid-gap: 20px;
+    word-wrap: break-word;
 }
 
     .cardBox .tab {
@@ -97,16 +98,24 @@ body {
         font-weight: 500;
     }
 
+
 .visualizations {
-    position: relative;
+    position:relative;
     padding:20px;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
     grid-gap: 20px;
-    justify-items: center;
 }
 
-  
+.rateGraph {
+    position: relative;
+    background: #404040;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: none;
+}
 
 .onOffIndicator {
     position: relative;
@@ -136,34 +145,17 @@ body {
     }
 
 
-    .details .ingressStats {
+    .details .statsCard {
         position: relative;
         background: #404040;
         padding: 20px;
     }
 
-        .details .ingressStats table tbody tr:hover {
-            background-color: #ddd;
-            color: black;
-        }
-
-        .details .ingressStats table tr td {
+        .details .statsCard table tr td {
             padding: 7px 3px;
             color: white;
         }
 
-    .details .egressStats {
-        position: relative;
-        background: #404040;
-        padding: 20px;
-        
-    }
-
-    .details .storageStats {
-        position: relative;
-        background: #404040;
-        padding: 20px;
-    }
 
     .details .configParamStats {
         position: relative;
@@ -172,12 +164,12 @@ body {
         border-spacing: 0 20px;
     }
 
-        .cardTitle {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            color: white;
-        }
+.cardTitle {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    color: white;
+}
 
 .engine_table {
     table-layout: fixed;
@@ -211,24 +203,43 @@ body {
 
 /*config page*/
 
-.styled-table {
+.configBox {
+    position:relative;
+    padding:20px;
+    background-color: #404040;
+    color: white;
+    font-size: 20px;
+    text-align: left;
+    border-top: none;
+}
+
+.configBox table {
     border-collapse: collapse;
     margin: 25px 0;
     color: white;
     font-size: 1.2em;
     font-family: sans-serif;
-    min-width: 400px;
+    width: 1000px;
+    border: 1px solid;
+    table-layout:fixed;
 }
 
-    .styled-table thead tr {
-        background-color: #009879;
-        color: #ffffff;
-        text-align: left;
-    }
+.styled-table thead tr {
+    background-color: #009879;
+    color: #ffffff;
+    text-align: left;
+}
 
-    .styled-table th {
-        padding: 20px 15px;
-    }
-    .styled-table td {
-        padding: 20px 15px;
-    }
+.styled-table th {
+    padding: 20px 15px;
+}
+.styled-table td {
+    padding: 20px 15px;
+    border: 1px solid;
+    word-wrap: break-word;
+}
+
+caption {
+    font-size: 40px;
+    font-weight: bold;
+}

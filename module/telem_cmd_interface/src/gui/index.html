@@ -36,13 +36,13 @@
     </div>
 
     <div class="visualizations">
-        <div class="ingressRateGraph" id="ingress_rate_graph"></div>
-	<div class="egressRateGraph" id="egress_rate_graph"></div>
-        <div class="dataStorageChart" id="storage_egress_chart"></div>
+        <div class="rateGraph" id="ingress_rate_graph"></div>
+    	<div class="rateGraph" id="egress_rate_graph"></div>
+        <div class="rateGraph" id="storage_egress_chart"></div>
     </div>
 
     <div class="details">
-        <div class="ingressStats" id="ingress_stats">
+        <div class="statsCard" id="ingress_stats">
             <div class="cardTitle">
                 <h2>Ingress Stats</h2>
                 <div class="iconBox"><img src="./resources/arrow-down-circle.svg" alt="Ingress icon" /></div>
@@ -69,7 +69,7 @@
                 </tbody>
             </table>
         </div>
-        <div class="ingressStats">
+        <div class="statsCard">
             <div class="cardTitle">
                 <h2>Egress Stats</h2>
                 <div class="iconBox"><img src="./resources/arrow-up-circle.svg" alt="Egress icon" /></div>
@@ -95,7 +95,7 @@
                 </tbody>
             </table>
         </div>
-        <div class="ingressStats">
+        <div class="statsCard">
             <div class="cardTitle">
                 <h2>Storage Stats</h2>
                 <div class="iconBox"><img src="./resources/storage.svg" alt="Storage icon" /></div>
@@ -121,118 +121,28 @@
                 </tbody>
             </table>
         </div>
-        <div class="ingressStats hidden" id="ltpTemplate">
+
+        <div class="statsCard hidden" id="outductTemplate">
             <div class="cardTitle">
-                <h2>LTP Engine Stats</h2>
+                <h2 id="convergenceLayer">Outduct Information</h2>
                 <h4 id="cardName"></h4>
                 <!--<div class="iconBox"><img src="./resources/arrow-down-circle.svg" alt="Ingress icon" /></div>-->
 
             </div>
-            <table>
-                <colgroup>
-                    <col span="1" style="width:40%;"></col>
-                    <col span="1" style="width:10%;"></col>
-                    <col span="1" style="width:40%;"></col>
-                    <col span="1" style="width:10%;"></col>
-                </colgroup>
-                <tbody>
-                    <tr>
-                        <td>Total Bundles Sent</td>
-                        <td id="totalBundlesSent"></td>
-                        <td>Total Bundles Acknowledged</td>
-                        <td id="totalBundlesAcked"></td>
-                    </tr>
-                    <tr>
-                        <td>Total Bytes Sent</td>
-                        <td id="totalBytesSent"></td>
-                        <td>Total Bytes Acknowledged</td>
-                        <td id="totalBytesAcked"></td>
-                    </tr>
-                    <tr>
-                        <td>Total Bundles Failed to Send</td>
-                        <td id="totalBundlesFailedToSend"></td>
-                        <td>RX Buffer Overruns</td>
-                        <td id="countRxUdpBufferOverruns"></td>
-                    </tr>
-                    <tr>
-                        <td>Checkpoint Timer Expired Callbacks</td>
-                        <td id="numCheckpointsExpired"></td>
-                        <td>Discretionary Checkpoints Not Resent</td>
-                        <td id="numDiscretionaryCheckpointsNotResent"></td>
-                    </tr>
-                    <tr>
-                        <td>UDP Packets Sent</td>
-                        <td id="countUdpPacketsSent"></td>
-                        <td>UDP Packets Limited By Rate</td>
-                        <td id="countTxUdpPacketsLimitedByRate"></td>
-                    </tr>
-                </tbody>
+            <table id="cardTable">
+		        <colgroup>
+			        <col span="1" style="width:80%;"></col>                               
+	        	    <col span="1" style="width:20%;"></col>
+		        </colgroup>
+	            <tbody id="cardTableBody">
+	            </tbody>
             </table>
         </div>
-        <div class="ingressStats hidden" id="stcpTemplate">
-            <div class="cardTitle">
-                <h2>STCP Stats</h2>
-                <h4 id="cardName"></h4>
-                <!--<div class="iconBox"><img src="./resources/arrow-down-circle.svg" alt="Ingress icon" /></div>-->
-
-            </div>
-            <table>
-                <colgroup>
-                    <col span="1" style="width:40%;"></col>
-                    <col span="1" style="width:10%;"></col>
-                    <col span="1" style="width:40%;"></col>
-                    <col span="1" style="width:10%;"></col>
-                </colgroup>
-                <tbody>
-                    <tr>
-                        <td>Total Bundles Sent</td>
-                        <td id="totalBundlesSent"></td>
-                        <td>Total Bundles Acknowledged</td>
-                        <td id="totalBundlesAcked"></td>
-                    </tr>
-                    <tr>
-                        <td>Total Bytes Sent</td>
-                        <td id="totalBytesSent"></td>
-                        <td>Total Bytes Acknowledged</td>
-                        <td id="totalBytesAcked"></td>
-                    </tr>
-                    <tr>
-                        <td>Total Bundles Failed to Send</td>
-                        <td id="totalBundlesFailedToSend"></td>
-                        <td>Total STCP Bytes Sent</td>
-                        <td id="totalStcpBytesSent"></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="ingressStats hidden" id="ingress_stats">
-            <div class="cardTitle">
-                <h2>TCP Stats</h2>
-                <!--<div class="iconBox"><img src="./resources/arrow-down-circle.svg" alt="Ingress icon" /></div>-->
-
-            </div>
-            <table>
-                <tbody>
-                    <tr>
-                        <td>Total Data Segments Acked By TCP Send Callback</td>
-                        <td id="totalDataSegmentsAckedByTcpSendCallback"></td>
-                    </tr>
-                    <tr>
-                        <td>Total Bytes Acked By TCP Send Callback</td>
-                        <td id="totalBytesAckedByTcpSendCallback"></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-      
 
 
     </div>
 
     <script type="text/javascript" src="./Scripts/jquery-3.6.0.slim.min.js"></script>
-    <!--/<script type="text/javascript" src="../Scripts/goldenlayout.js"></script>-->
     <script type="text/javascript" src="./Scripts/plotly-2.6.3.min.js"></script>
     <script type="text/javascript" src="./Scripts/rate_calculator.js"></script>
     <script type="text/javascript" src="./Scripts/web_gui.js"></script>
@@ -260,8 +170,6 @@
         }
     </script>
 
-    <!--<link type="text/css" rel="stylesheet" href="./css/goldenlayout-base.css" />-->
-    <!--<link type="text/css" rel="stylesheet" href="./css/goldenlayout-dark-theme.css" />-->
     <link type="text/css" rel="stylesheet" href="./css/style.css" />
 
 </body>
