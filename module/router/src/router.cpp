@@ -53,6 +53,11 @@ private:
     void ReadZmqThreadFunc();
     void SchedulerEventsHandler();
 
+    void HandleLinkDownEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr);
+    void HandleLinkUpEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr);
+    void HandleOutductCapabilitiesTelemetry(const hdtn::IreleaseChangeHdr &releaseChangeHdr, const AllOutductCapabilitiesTelemetry_t & aoct);
+    void HandleBundleFromScheduler();
+
     HdtnConfig m_hdtnConfig;
     volatile bool m_running;
     bool m_usingUnixTimestamp;
@@ -228,9 +233,70 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
     return true;
 }
 
-void Router::Impl::SchedulerEventsHandler() {
+void Router::Impl::HandleLinkDownEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr) {
+    LOG_INFO(subprocess) << "Received Link Down for contact: src = "
+        << releaseChangeHdr.prevHopNodeId
+        << "  dest = " << releaseChangeHdr.nextHopNodeId
+        << "  outductIndex = " << releaseChangeHdr.outductArrayIndex;
+
+    if (!m_computedInitialOptimalRoutes) {
+        LOG_ERROR(subprocess) << "out of order command, received link down before receiving outduct capabilities";
+        return;
+    }
+
+    ComputeOptimalRoutesForOutductIndex(releaseChangeHdr.prevHopNodeId, releaseChangeHdr.outductArrayIndex);
+    LOG_DEBUG(subprocess) << "Updated time to " << m_latestTime;
+}
+
+void Router::Impl::HandleLinkUpEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr) {
+        LOG_DEBUG(subprocess) << "Contact up ";
+        LOG_DEBUG(subprocess) << "Updated time to " << m_latestTime;
+}
+
+void Router::Impl::HandleOutductCapabilitiesTelemetry(const hdtn::IreleaseChangeHdr &releaseChangeHdr, const AllOutductCapabilitiesTelemetry_t & aoct) {
+    LOG_INFO(subprocess) << "Received and successfully decoded " << ((m_computedInitialOptimalRoutes) ? "UPDATED" : "NEW")
+        << " AllOutductCapabilitiesTelemetry_t message from Scheduler containing "
+        << aoct.outductCapabilityTelemetryList.size() << " outducts.";
 
     const uint64_t srcNode = m_hdtnConfig.m_myNodeId;
+
+    m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList.clear();
+
+    for (std::list<OutductCapabilityTelemetry_t>::const_iterator itAoct = aoct.outductCapabilityTelemetryList.cbegin();
+        itAoct != aoct.outductCapabilityTelemetryList.cend(); ++itAoct)
+    {
+        const OutductCapabilityTelemetry_t& oct = *itAoct;
+        nexthop_finaldestlist_pair_t& nhFdPair = m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList[oct.outductArrayIndex];
+        nhFdPair.first = oct.nextHopNodeId;
+        std::list<uint64_t>& finalDestNodeIdList = nhFdPair.second;
+        for (std::list<uint64_t>::const_iterator it = oct.finalDestinationNodeIdList.cbegin();
+            it != oct.finalDestinationNodeIdList.cend(); ++it)
+        {
+            const uint64_t nodeId = *it;
+            finalDestNodeIdList.emplace_back(nodeId);
+            LOG_INFO(subprocess) << "Compute Optimal Route for finalDestination node " << nodeId;
+        }
+        std::set<uint64_t> usedNodeIds;
+        for (std::list<cbhe_eid_t>::const_iterator it = oct.finalDestinationEidList.cbegin();
+            it != oct.finalDestinationEidList.cend(); ++it)
+        {
+            const uint64_t nodeId = it->nodeId;
+            if (usedNodeIds.emplace(nodeId).second) { //was inserted
+                finalDestNodeIdList.emplace_back(nodeId);
+                LOG_INFO(subprocess) << "Compute Optimal Route for finalDestination node " << nodeId;
+            }
+        }
+        if (!m_computedInitialOptimalRoutes) {
+            ComputeOptimalRoutesForOutductIndex(srcNode, oct.outductArrayIndex);
+        }
+    }
+    m_computedInitialOptimalRoutes = true;
+
+}
+
+void Router::Impl::HandleBundleFromScheduler() { /* TO BE IMPLEMENTED */ }
+
+void Router::Impl::SchedulerEventsHandler() {
 
     hdtn::IreleaseChangeHdr releaseChangeHdr;
 
@@ -239,31 +305,21 @@ void Router::Impl::SchedulerEventsHandler() {
             sizeof(releaseChangeHdr)), zmq::recv_flags::none);
     if (!res) {
         LOG_ERROR(subprocess) << "unable to receive message";
+        return;
     }
     else if (res->size != sizeof(releaseChangeHdr)) {
         LOG_ERROR(subprocess) << "res->size != sizeof(releaseChangeHdr)";
+        return;
         return;
     }
 
     m_latestTime = releaseChangeHdr.time;
 
     if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKDOWN) {
-        LOG_INFO(subprocess) << "Received Link Down for contact: src = " 
-            << releaseChangeHdr.prevHopNodeId
-            << "  dest = " << releaseChangeHdr.nextHopNodeId
-            << "  outductIndex = " << releaseChangeHdr.outductArrayIndex;
-        
-        if (!m_computedInitialOptimalRoutes) {
-            LOG_ERROR(subprocess) << "out of order command, received link down before receiving outduct capabilities";
-            return;
-        }
-
-        ComputeOptimalRoutesForOutductIndex(releaseChangeHdr.prevHopNodeId, releaseChangeHdr.outductArrayIndex);
-        LOG_DEBUG(subprocess) << "Updated time to " << m_latestTime;
+        HandleLinkDownEvent(releaseChangeHdr);
     }
     else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKUP) {
-        LOG_DEBUG(subprocess) << "Contact up ";
-        LOG_DEBUG(subprocess) << "Updated time to " << m_latestTime;
+        HandleLinkUpEvent(releaseChangeHdr);
     }
     else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY) {
         AllOutductCapabilitiesTelemetry_t aoct;
@@ -271,58 +327,27 @@ void Router::Impl::SchedulerEventsHandler() {
         //message guaranteed to be there due to the zmq::send_flags::sndmore
         if (!m_zmqSubSock_boundSchedulerToConnectingRouterPtr->recv(zmqMessageOutductTelem, zmq::recv_flags::none)) {
             LOG_ERROR(subprocess) << "error receiving AllOutductCapabilitiesTelemetry";
+            return;
         }
         else if (!aoct.SetValuesFromJsonCharArray((char*)zmqMessageOutductTelem.data(), zmqMessageOutductTelem.size())) {
             LOG_ERROR(subprocess) << "error deserializing AllOutductCapabilitiesTelemetry of size " << zmqMessageOutductTelem.size();
+            return;
         }
-        else {
-            LOG_INFO(subprocess) << "Received and successfully decoded " << ((m_computedInitialOptimalRoutes) ? "UPDATED" : "NEW") 
-                << " AllOutductCapabilitiesTelemetry_t message from Scheduler containing "
-                << aoct.outductCapabilityTelemetryList.size() << " outducts.";
 
-            m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList.clear();
-
-            for (std::list<OutductCapabilityTelemetry_t>::const_iterator itAoct = aoct.outductCapabilityTelemetryList.cbegin();
-                itAoct != aoct.outductCapabilityTelemetryList.cend(); ++itAoct)
-            {
-                const OutductCapabilityTelemetry_t& oct = *itAoct;
-                nexthop_finaldestlist_pair_t& nhFdPair = m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList[oct.outductArrayIndex];
-                nhFdPair.first = oct.nextHopNodeId;
-                std::list<uint64_t>& finalDestNodeIdList = nhFdPair.second;
-                for (std::list<uint64_t>::const_iterator it = oct.finalDestinationNodeIdList.cbegin();
-                    it != oct.finalDestinationNodeIdList.cend(); ++it)
-                {
-                    const uint64_t nodeId = *it;
-                    finalDestNodeIdList.emplace_back(nodeId);
-                    LOG_INFO(subprocess) << "Compute Optimal Route for finalDestination node " << nodeId;
-                }
-                std::set<uint64_t> usedNodeIds;
-                for (std::list<cbhe_eid_t>::const_iterator it = oct.finalDestinationEidList.cbegin();
-                    it != oct.finalDestinationEidList.cend(); ++it)
-                {
-                    const uint64_t nodeId = it->nodeId;
-                    if (usedNodeIds.emplace(nodeId).second) { //was inserted
-                        finalDestNodeIdList.emplace_back(nodeId);
-                        LOG_INFO(subprocess) << "Compute Optimal Route for finalDestination node " << nodeId;
-                    }
-                }
-                if (!m_computedInitialOptimalRoutes) {
-                    ComputeOptimalRoutesForOutductIndex(srcNode, oct.outductArrayIndex);
-                }
-            }
-            m_computedInitialOptimalRoutes = true;
-            
-        }
+        HandleOutductCapabilitiesTelemetry(releaseChangeHdr, aoct);
     }
     else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_BUNDLES_FROM_SCHEDULER) {
         //ignore but must discard multi-part message
         zmq::message_t zmqMessageDiscard;
         if (!m_zmqSubSock_boundSchedulerToConnectingRouterPtr->recv(zmqMessageDiscard, zmq::recv_flags::none)) {
             LOG_ERROR(subprocess) << "Error discarding Bundle From Scheduler Message";
+            return;
         }
+        HandleBundleFromScheduler();
     }
     else {
         LOG_ERROR(subprocess) << "[Router] unknown message type " << releaseChangeHdr.base.type;
+        return;
     }
 }
 
