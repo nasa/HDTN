@@ -573,7 +573,7 @@ bool TestHDTNFileTransferLTP() {
 
     //bpreceive
     static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_ltp_port4558.json").string();
-    static const char * argsBpReceiveFile[] = { "bpreceivefile",  "--save-directory=received", "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
+    static const char * argsBpReceiveFile[] = { "bpreceivefile",  "--save-directory=/build/tests/integrated_tests/received)", "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
     std::thread threadBpReceiveFile(RunBpReceiveFile, argsBpReceiveFile, 4, std::ref(runningBpreceive), &bundlesReceivedBpreceive[0] );
 
     Delay(DELAY_THREAD);
@@ -704,7 +704,7 @@ bool TestHDTNFileTransferLTPv7() {
 
     //bpreceive
     static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_ltp_port4558.json").string();
-    static const char * argsBpReceiveFile[] = { "bpreceivefile",  "--save-directory=received", "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
+    static const char * argsBpReceiveFile[] = { "bpreceivefile",  "--save-directory=/build/tests/integrated_tests/received)", "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
     std::thread threadBpReceiveFile(RunBpReceiveFile, argsBpReceiveFile, 4, std::ref(runningBpreceive), &bundlesReceivedBpreceive[0] );
 
 
@@ -834,7 +834,7 @@ bool TestHDTNFileTransferTCPCL() {
 	
     //bpreceive
     static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_tcpclv4_port4558.json").string();
-    static const char * argsBpReceiveFile[] = { "bpreceivefile",  "--save-directory=received", "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
+    static const char * argsBpReceiveFile[] = { "bpreceivefile",  "--save-directory=/build/tests/integrated_tests/received)", "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
     std::thread threadBpReceiveFile(RunBpReceiveFile, argsBpReceiveFile, 4, std::ref(runningBpreceive), &bundlesReceivedBpreceive[0] );
 
     Delay(DELAY_THREAD);
