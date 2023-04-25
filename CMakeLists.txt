@@ -17,6 +17,10 @@ if( build_type_lower STREQUAL "debug" )
 	message(WARNING "You are building in Debug mode!  HDTN can run order(s) of magnitude slower!")
 endif()
 
+# Suggestion from https://gitlab.kitware.com/cmake/cmake/-/issues/19512
+# try_compile (check_cxx_source_compiles ) is Debug by default, change to be the build type
+set (CMAKE_TRY_COMPILE_CONFIGURATION ${CMAKE_BUILD_TYPE})
+
 if(DEFINED CMAKE_SYSTEM_PROCESSOR)
 	if (${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm") 
 		message("CMAKE_SYSTEM_PROCESSOR = ${CMAKE_SYSTEM_PROCESSOR}")
@@ -59,11 +63,7 @@ if(WIN32)
 	list(APPEND COMPILE_DEFINITIONS_TO_EXPORT _WIN32_WINNT=0x0A00)
 endif()
 
-#logging link type
-if(NOT Boost_USE_STATIC_LIBS)
-	#add_compile_definitions(BOOST_LOG_DYN_LINK)
-	add_compile_definitions(BOOST_ALL_DYN_LINK) 
-endif()
+include(${CMAKE_SOURCE_DIR}/boost_test_link_type.cmake) # Determine whether to compile HDTN with BOOST_ALL_DYN_LINK for logger and unit-tests
 
 #Log level options
 SET(LOG_LEVEL_TYPE INFO CACHE STRING "Choose the log level. Options are: TRACE, DEBUG, INFO, WARNING, ERROR, FATAL, NONE")

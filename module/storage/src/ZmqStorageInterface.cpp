@@ -40,6 +40,13 @@
 typedef std::pair<cbhe_eid_t, bool> eid_plus_isanyserviceid_pair_t;
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
 
+/** Time between passes for deleting expired bundles, unless threshold reached */
+static const boost::posix_time::time_duration DELETE_EXPIRED_PERIOD = boost::posix_time::milliseconds(2000);
+/** Threshold for deleting expired bundles dependent on policy (0.9 is 90%) */
+static const float DELETE_ALL_EXPIRED_THRESHOLD = 0.9f;
+/** Maximum number of expired bundles to delete per iteration unless threshold reached */
+static const uint64_t MAX_DELETE_EXPIRED_PER_ITER = 100;
+
 struct ZmqStorageInterface::Impl : private boost::noncopyable {
     struct CutThroughQueueData : private boost::noncopyable {
         CutThroughQueueData() = delete;
@@ -114,6 +121,9 @@ private:
     void SyncTelemetry();
     void TelemEventsHandler();
     static std::string SprintCustodyidToSizeMap(const custodyid_to_size_map_t& m);
+    void DeleteExpiredBundles(const boost::posix_time::ptime& nowPtime, float storageUsagePercentage);
+    void DeleteBundleById(const uint64_t custodyId);
+    bool SendDeletionStatusReport(catalog_entry_t * entry);
 
 public:
     StorageTelemetry_t m_telem;
@@ -150,12 +160,19 @@ private:
     volatile bool m_workerThreadStartupInProgress;
     boost::mutex m_workerThreadStartupMutex;
     boost::condition_variable m_workerThreadStartupConditionVariable;
+
+    // For deleting bundles
+    std::vector<uint64_t> m_expiredIds;
+    enum class DeletionPolicy { never, onExpiration, onStorageFull };
+    DeletionPolicy m_deletionPolicy;
+    BundleViewV6 m_bundleDeletionStatusReport;
 };
 
 ZmqStorageInterface::Impl::Impl() :
     m_running(false),
     m_workerThreadStartupInProgress(false),
-    m_hdtnOneProcessZmqInprocContextPtr(nullptr) {}
+    m_hdtnOneProcessZmqInprocContextPtr(nullptr),
+    m_deletionPolicy(DeletionPolicy::never) {}
 
 ZmqStorageInterface::Impl::~Impl() {
     Stop();
@@ -203,6 +220,16 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDi
     //HDTN shall default m_myCustodialServiceId to 0 although it is changeable in the hdtn config json file
     M_HDTN_EID_CUSTODY.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_myCustodialServiceId);
     m_hdtnOneProcessZmqInprocContextPtr = hdtnOneProcessZmqInprocContextPtr;
+
+    if(m_hdtnConfig.m_storageConfig.m_storageDeletionPolicy == "never") {
+        m_deletionPolicy = DeletionPolicy::never;
+    }
+    else if(m_hdtnConfig.m_storageConfig.m_storageDeletionPolicy == "on_expiration") {
+        m_deletionPolicy = DeletionPolicy::onExpiration;
+    }
+    else if(m_hdtnConfig.m_storageConfig.m_storageDeletionPolicy == "on_storage_full") {
+        m_deletionPolicy = DeletionPolicy::onStorageFull;
+    }
 
     //{
 
@@ -773,11 +800,127 @@ void ZmqStorageInterface::Impl::SyncTelemetry() {
     }
 }
 
+bool ZmqStorageInterface::Impl::SendDeletionStatusReport(catalog_entry_t * entry) {
+
+    std::vector<uint8_t> bundle;
+    const bool successRead = m_bsmPtr->ReadFirstSegment(m_sessionRead, entry, bundle);
+    if(!successRead) {
+        LOG_ERROR(subprocess) << "Failed to read bundle to delete";
+        return false;
+    }
+
+    BundleViewV6 bundleToDelete;
+    bundleToDelete.LoadBundle(bundle.data(), bundle.size(), true); // only need primary
+    Bpv6CbhePrimaryBlock & origPrimary = bundleToDelete.m_primaryBlockView.header;
+
+    // Create report
+    bool success = m_ctmPtr->GenerateBundleDeletionStatusReport(origPrimary, m_bundleDeletionStatusReport);
+    if(!success) {
+        LOG_ERROR(subprocess) << "Failed to generate bundle deletion status report";
+        return false;
+    }
+
+    // Write to disk
+    const cbhe_eid_t& src = m_bundleDeletionStatusReport.m_primaryBlockView.header.m_sourceNodeId;
+    const uint64_t custodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(src);
+
+    BundleStorageManagerSession_WriteToDisk session;
+    const uint64_t numSegments = m_bsmPtr->Push(
+        session,
+        m_bundleDeletionStatusReport.m_primaryBlockView.header,
+        m_bundleDeletionStatusReport.m_renderedBundle.size());
+    if(numSegments == 0) {
+        LOG_ERROR(subprocess) << "Failed to allocate space for bundle deletion status report";
+        return false;
+    }
+
+    const uint64_t size = m_bsmPtr->PushAllSegments(
+        session,
+        m_bundleDeletionStatusReport.m_primaryBlockView.header,
+        custodyId,
+        static_cast<const uint8_t*>(m_bundleDeletionStatusReport.m_renderedBundle.data()),
+        m_bundleDeletionStatusReport.m_renderedBundle.size());
+
+    if(size != m_bundleDeletionStatusReport.m_renderedBundle.size()) {
+        LOG_ERROR(subprocess) << "Failed to write all bytes of bundle deletion status report to disk";
+        return false;
+    }
+
+    return true;
+}
+
+/** Delete bundle from disk
+ *
+ * @param custodyId The custody ID of the bundle to delete
+ */
+void ZmqStorageInterface::Impl::DeleteBundleById(const uint64_t custodyId) {
+    catalog_entry_t *entry = m_bsmPtr->GetCatalogEntryPtrFromCustodyId(custodyId);
+    if(!entry) {
+        LOG_ERROR(subprocess) << "Failed to get catalog entry for " << custodyId << " while deleting for expiry";
+        return;
+    }
+
+    if(entry->HasCustody()) {
+        // Bundle may not have a custody transfer timer, so it's fine if this fails
+        m_custodyTimersPtr->CancelCustodyTransferTimer(entry->destEid, custodyId);
+
+        bool sent = SendDeletionStatusReport(entry);
+        if(!sent) {
+            LOG_ERROR(subprocess) << "Failed to send bundle deletion status report for bundle with custody ID " << custodyId;
+        }
+    }
+
+    m_custodyIdAllocatorPtr->FreeCustodyId(custodyId);
+
+    bool success = m_bsmPtr->RemoveBundleFromDisk(entry, custodyId);
+    if(!success) {
+        LOG_ERROR(subprocess) << "Failed to remove bundle from disk " << custodyId << " while deleting for expiry";
+    }
+}
+
+/** Delete expired bundles
+ *
+ * Deletes expired bundles from disk per storage deletion policy.
+ *
+ * If storage is less full than DELETE_ALL_EXPIRED_THRESHOLD, then at most
+ * MAX_DELETE_EXPIRED_PER_ITER bundles are deleted. Otherwise, all expired
+ * bundles are deleted. (Avoid blocking event loop unless full).
+ *
+ */
+void ZmqStorageInterface::Impl::DeleteExpiredBundles(const boost::posix_time::ptime& nowPtime, float storageUsagePercentage) {
+
+    if(m_deletionPolicy == DeletionPolicy::never) {
+        return;
+    }
+
+    if(m_deletionPolicy == DeletionPolicy::onStorageFull && storageUsagePercentage < DELETE_ALL_EXPIRED_THRESHOLD) {
+        return;
+    }
+
+    // If we reach here then either storage is full or policy == "on_expiration"
+
+    uint64_t numToDelete = storageUsagePercentage >= DELETE_ALL_EXPIRED_THRESHOLD ?
+        0 : MAX_DELETE_EXPIRED_PER_ITER;
+
+    uint64_t expiry = TimestampUtil::GetSecondsSinceEpochRfc5050(nowPtime);
+
+    m_bsmPtr->GetExpiredBundleIds(expiry, numToDelete, m_expiredIds);
+
+    for(uint64_t custodyId : m_expiredIds) {
+        DeleteBundleById(custodyId);
+        m_telem.m_totalBundlesErasedFromStorageBecauseExpired++;
+    }
+}
+
 void ZmqStorageInterface::Impl::ThreadFunc() {
     ThreadNamer::SetThisThreadName("ZmqStorageInterface");
     
     m_custodySignalRfc5050RenderedBundleView.m_frontBuffer.reserve(2000);
     m_custodySignalRfc5050RenderedBundleView.m_backBuffer.reserve(2000);
+
+    m_bundleDeletionStatusReport.m_frontBuffer.reserve(2000);
+    m_bundleDeletionStatusReport.m_backBuffer.reserve(2000);
+
     m_custodyIdAllocatorPtr = boost::make_unique<CustodyIdAllocator>();
     m_custodyTimersPtr = boost::make_unique<CustodyTimers>(boost::posix_time::milliseconds(m_hdtnConfig.m_retransmitBundleAfterNoCustodySignalMilliseconds));
     const bool IS_HDTN_ACS_AWARE = m_hdtnConfig.m_isAcsAware;
@@ -829,6 +972,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
     long timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL; //0 => no blocking
     boost::posix_time::ptime acsSendNowExpiry = boost::posix_time::microsec_clock::universal_time() + ACS_SEND_PERIOD;
+    boost::posix_time::ptime tryDeleteTime = boost::posix_time::microsec_clock::universal_time();
 
     //notify Init function that worker thread startup is complete
     m_workerThreadStartupMutex.lock();
@@ -861,8 +1005,12 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                         if (egressAckHdr.IsOpportunisticLink()) { //isOpportunisticFromStorage
                             std::map<uint64_t, OutductInfoPtr_t>::iterator it = m_mapOpportunisticNextHopNodeIdToOutductInfo.find(egressAckHdr.nextHopNodeId);
                             if (it == m_mapOpportunisticNextHopNodeIdToOutductInfo.end()) {
-                                LOG_ERROR(subprocess) << "Got an HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE but could not find opportunistic link nextHopNodeId "
-                                    << egressAckHdr.nextHopNodeId;
+                                static thread_local bool printedMsg = false;
+                                if (!printedMsg) {
+                                    LOG_ERROR(subprocess) << "Got an HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE but could not find opportunistic link nextHopNodeId "
+                                        << egressAckHdr.nextHopNodeId << ".  (This message type will now be suppressed.)";
+                                    printedMsg = true;
+                                }
                             }
                             else {
                                 outductInfoRawPtr = it->second.get();
@@ -882,12 +1030,25 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                         //A bundle that was forwarded without store from storage to egress gets an ack back from egress with the
                                         //error flag set because egress could not send the bundle.
                                         //This will allow storage to trigger a link down event more quickly than waiting for scheduler.
-                                        //Since ingress holds the bundle, the error flag will let ingress determine the action for the bundle.
-                                        LOG_WARNING(subprocess) << "Got a link down notification from egress on cut-through path for outduct index "
-                                            << egressAckHdr.outductIndex << " for final dest "
-                                            << egressAckHdr.finalDestEid
-                                            << " because storage forwarding cut-through bundles to egress failed";
-
+                                        //Since ingress NO LONGER holds the bundle, the error flag will let ingress set a link down event more quickly than scheduler.
+                                        //Since isResponseToStorageCutThrough is set, then storage needs the bundle back in a multipart message because storage has not yet written this cut-through bundle to disk.
+                                        static thread_local bool printedMsg = false;
+                                        if (!printedMsg) {
+                                            LOG_WARNING(subprocess) << "Got a link down notification from egress on cut-through path for outduct index "
+                                                << egressAckHdr.outductIndex << " for final dest "
+                                                << egressAckHdr.finalDestEid
+                                                << " because storage forwarding cut-through bundles to egress failed.  (This message type will now be suppressed.)";
+                                            printedMsg = true;
+                                        }
+                                        zmq::message_t zmqBundleDataReceived;
+                                        if (!m_zmqPullSock_boundEgressToConnectingStoragePtr->recv(zmqBundleDataReceived, zmq::recv_flags::none)) {
+                                            LOG_ERROR(subprocess) << "error in hdtn::ZmqStorageInterface::ThreadFunc (from storage cut-through bundle data) message not received";
+                                        }
+                                        else {
+                                            cbhe_eid_t finalDestEidReturnedFromWrite;
+                                            Write(&zmqBundleDataReceived, finalDestEidReturnedFromWrite, true, true); //last true because if cut through then definitely no custody or not admin record
+                                            ++m_telem.m_totalBundlesRewrittenToStorageFromFailedEgressSend;
+                                        }
                                         SetLinkDown(info);
                                         hdtn::StorageAckHdr* storageAckHdr = (hdtn::StorageAckHdr*)it->second.ackToIngress.data();
                                         storageAckHdr->error = 1;
@@ -911,10 +1072,14 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                         //This will allow storage to trigger a link down event more quickly than waiting for scheduler.
                                         //Since storage already has the bundle, the error flag will prevent deletion and move the bundle back to the "awaiting send" state,
                                         //but the bundle won't be immediately released again from storage because of the immediate link down event.
-                                        LOG_WARNING(subprocess) << "Got a link down notification from egress for outduct index "
-                                            << egressAckHdr.outductIndex << " for final dest "
-                                            << egressAckHdr.finalDestEid
-                                            << " because storage to egress failed";
+                                        static thread_local bool printedMsg = false;
+                                        if (!printedMsg) {
+                                            LOG_WARNING(subprocess) << "Got a link down notification from egress for outduct index "
+                                                << egressAckHdr.outductIndex << " for final dest "
+                                                << egressAckHdr.finalDestEid
+                                                << " because storage to egress failed.  (This message type will now be suppressed.)";
+                                            printedMsg = true;
+                                        }
 
                                         SetLinkDown(info);
                                         if (!m_bsmPtr->ReturnCustodyIdToAwaitingSend(egressAckHdr.custodyId)) {
@@ -923,6 +1088,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                         m_custodyTimersPtr->CancelCustodyTransferTimer(egressAckHdr.finalDestEid, egressAckHdr.custodyId);
                                     }
                                     else if (egressAckHdr.deleteNow) { //custody not requested, so don't wait on a custody signal to delete the bundle
+                                        m_custodyIdAllocatorPtr->FreeCustodyId(egressAckHdr.custodyId);
                                         bool successRemoveBundle = m_bsmPtr->RemoveReadBundleFromDisk(egressAckHdr.custodyId);
                                         if (!successRemoveBundle) {
                                             LOG_ERROR(subprocess) << "error freeing bundle from disk";
@@ -936,13 +1102,18 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                 }
                                 else {
                                     //std::string message = egressAckHdr.custodyId
-                                    LOG_ERROR(subprocess) << "Storage got a HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE for outductIndex=" 
-                                        << egressAckHdr.outductIndex << " but could not find custody id " << egressAckHdr.custodyId
-                                        << " .. error=" << (int)egressAckHdr.error 
-                                        << " isResponseToStorageCutThrough=" << (int)egressAckHdr.isResponseToStorageCutThrough
-                                        << " isOpportunisticFromStorage=" << egressAckHdr.IsOpportunisticLink()
-                                        << " nextHopNodeId=" << egressAckHdr.nextHopNodeId;
-                                    LOG_ERROR(subprocess) << SprintCustodyidToSizeMap(mapCustodyIdToSize);
+                                    static thread_local bool printedMsg = false;
+                                    if (!printedMsg) {
+                                        LOG_ERROR(subprocess) << "Storage got a HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE for outductIndex="
+                                            << egressAckHdr.outductIndex << " but could not find custody id " << egressAckHdr.custodyId
+                                            << " .. error=" << (int)egressAckHdr.error
+                                            << " isResponseToStorageCutThrough=" << (int)egressAckHdr.isResponseToStorageCutThrough
+                                            << " isOpportunisticFromStorage=" << egressAckHdr.IsOpportunisticLink()
+                                            << " nextHopNodeId=" << egressAckHdr.nextHopNodeId
+                                            << ".  (This message type will now be suppressed.)";
+                                        //LOG_DEBUG(subprocess) << SprintCustodyidToSizeMap(mapCustodyIdToSize);
+                                        printedMsg = true;
+                                    }
                                 }
                             }
                         }
@@ -962,8 +1133,13 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                         ++m_telem.m_totalBundlesRewrittenToStorageFromFailedEgressSend;
                         finalDestEidReturnedFromWrite.serviceId = 0;
                         if (egressFullyInitialized) {
-                            LOG_WARNING(subprocess) << "Storage got a link down notification from egress (with the failed bundle) for final dest "
-                                << Uri::GetIpnUriStringAnyServiceNumber(finalDestEidReturnedFromWrite.nodeId) << " because cut through from ingress failed";
+                            static thread_local bool printedMsg = false;
+                            if (!printedMsg) {
+                                LOG_WARNING(subprocess) << "Storage got a link down notification from egress (with the failed bundle) for final dest "
+                                    << Uri::GetIpnUriStringAnyServiceNumber(finalDestEidReturnedFromWrite.nodeId)
+                                    << " because cut through from ingress failed.  (This message type will now be suppressed.)";
+                                printedMsg = true;
+                            }
                             OutductInfo_t& info = *(m_vectorOutductInfo[egressAckHdr.outductIndex]);
                             SetLinkDown(info);
                         }
@@ -1232,6 +1408,13 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
             else {
                 LOG_ERROR(subprocess) << "error unable to return expired custody id " << custodyIdExpiredAndNeedingResent << " to the awaiting send";
             }
+        }
+
+        float storageUsagePercentage = m_bsmPtr->GetUsedSpaceBytes()  / (float)m_bsmPtr->GetTotalCapacityBytes();
+
+        if((storageUsagePercentage > DELETE_ALL_EXPIRED_THRESHOLD) || (tryDeleteTime < nowPtime)) {
+            DeleteExpiredBundles(nowPtime, storageUsagePercentage);
+            tryDeleteTime = nowPtime + DELETE_EXPIRED_PERIOD;
         }
 
         //For each outduct or opportunistic induct, send to Egress the bundles read from disk or the

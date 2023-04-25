@@ -22,7 +22,6 @@
 #include <boost/thread.hpp>
 #include <boost/tokenizer.hpp>
 #include <boost/asio.hpp>
-#include <boost/format.hpp>
 
 #include "TelemetryRunner.h"
 #include "Logger.h"
@@ -35,7 +34,6 @@
 #include "DeadlineTimer.h"
 #include "ThreadNamer.h"
 #include <queue>
-#include "HdtnVersion.hpp"
 #ifdef USE_WEB_INTERFACE
 #include "BeastWebsocketServer.h"
 #endif
@@ -141,12 +139,7 @@ bool TelemetryRunner::Impl::Init(const HdtnConfig& hdtnConfig, zmq::context_t *i
     m_hdtnConfig = hdtnConfig;
     { //add hdtn version to config, and preserialize it to json once for all connecting web GUIs
         boost::property_tree::ptree pt = hdtnConfig.GetNewPropertyTree();
-        static const boost::format fmtTemplate("%d.%d.%d");
-        boost::format fmt(fmtTemplate);
-        fmt % HDTN_VERSION_MAJOR % HDTN_VERSION_MINOR % HDTN_VERSION_PATCH;
-        const std::string hdtnVersionString = fmt.str();
-        LOG_INFO(subprocess) << "HDTN version is v" << hdtnVersionString;
-        pt.put("hdtnVersionString", hdtnVersionString);
+        pt.put("hdtnVersionString", hdtn::Logger::GetHdtnVersionAsString());
         m_hdtnConfigJsonPtr = std::make_shared<std::string>(JsonSerializable::PtToJsonString(pt));
     }
     
@@ -237,12 +230,24 @@ bool TelemetryRunner::Impl::OnApiRequest(std::string&& msgJson, ApiSource_t src)
     return it->second(msgJson, src); //note: msgJson will still be moved (boost::function doesn't support r-value references as parameters)
 }
 
-bool ReceivedApi(unsigned int mask) {
+static bool ReceivedApi(unsigned int mask) {
     return (mask & REC_API);
 }
 
-bool ReceivedAllRequired(unsigned int mask) {
-    return (mask & REC_STORAGE) && (mask & REC_INGRESS) && (mask & REC_EGRESS);
+static bool ReceivedIngress(unsigned int mask) {
+    return (mask & REC_INGRESS);
+}
+
+static bool ReceivedEgress(unsigned int mask) {
+    return (mask & REC_EGRESS);
+}
+
+static bool ReceivedStorage(unsigned int mask) {
+    return (mask & REC_STORAGE);
+}
+
+static bool ReceivedAllRequired(unsigned int mask) {
+    return ReceivedStorage(mask) && ReceivedEgress(mask) && ReceivedIngress(mask);
 }
 
 void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDistributedConfigPtr, zmq::context_t *inprocContextPtr) {
@@ -394,12 +399,10 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
                         LOG_ERROR(subprocess) << "cannot deserialize StorageExpiringBeforeThresholdTelemetry_t";
                     }
                 }
-                if (m_storageConnection->m_apiSocketAwaitingResponse) {
+                if (m_storageConnection->m_apiSocketAwaitingResponse && more) {
                     m_storageConnection->m_apiSocketAwaitingResponse = false;
-                    m_apiConnection->SendZmqMessage(std::move(msgJson), more);
-                    if (more) {
-                        m_apiConnection->SendZmqMessage(std::move(msg2), false);
-                    }
+                    m_apiConnection->SendZmqMessage(std::move(msgJson), true);
+                    m_apiConnection->SendZmqMessage(std::move(msg2), false);
                 }
             }
             if (poller.HasNewMessage(*m_schedulerConnection)) {
@@ -426,7 +429,10 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
             }
         }
         else {
-            LOG_WARNING(subprocess) << "did not get telemetry from all modules";
+            LOG_WARNING(subprocess) << "did not get telemetry from all modules. missing:" <<
+                (ReceivedEgress(receiveEventsMask) ? "" : " egress") <<
+                (ReceivedIngress(receiveEventsMask) ? "" : " ingress") <<
+                (ReceivedStorage(receiveEventsMask) ? "" : " storage");
         }
     }
     LOG_DEBUG(subprocess) << "ThreadFunc exiting";

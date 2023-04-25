@@ -60,6 +60,7 @@ public:
     BPCODEC_EXPORT bool GenerateAcsBundle(BundleViewV6 & newAcsRenderedBundleView, const cbhe_eid_t & custodianEid, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex, const bool copyAcsOnly = false);
     BPCODEC_EXPORT const Bpv6AdministrativeRecordContentAggregateCustodySignal & GetAcsConstRef(const cbhe_eid_t & custodianEid, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
     BPCODEC_EXPORT uint64_t GetLargestNumberOfFills() const;
+    BPCODEC_EXPORT bool GenerateBundleDeletionStatusReport(const Bpv6CbhePrimaryBlock & primaryOfDeleted, BundleViewV6 & statusReport);
 private:
     const bool m_isAcsAware;
     const uint64_t m_myCustodianNodeId;

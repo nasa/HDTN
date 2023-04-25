@@ -319,9 +319,11 @@ void PrintFail(boost::beast::error_code ec, char const* what) {
     // Therefore, if we see a short read here, it has occurred
     // after the message has been completed, so it is safe to ignore it.
 
+#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
     if (ec == boost::asio::ssl::error::stream_truncated) {
         return;
     }
+#endif
 
     LOG_ERROR(subprocess) << what << " (code=" << ec.value() << ") : " << ec.message() << "\n";
 }
@@ -1177,19 +1179,23 @@ struct BeastWebsocketServer::Impl : private boost::noncopyable {
     void Stop() {
         m_listenerUniquePtr.reset(); //stop future connections
         if (m_serverStatePtr) {
-            boost::mutex::scoped_lock lock(m_serverStatePtr->m_activeConnectionsMutex);
-            for (ServerState::active_connections_map_t::iterator it = m_serverStatePtr->m_activeConnections.begin();
-                it != m_serverStatePtr->m_activeConnections.end(); ++it)
-            {
-                it->second->AsyncClose();
-            }
+            try {
+                boost::mutex::scoped_lock lock(m_serverStatePtr->m_activeConnectionsMutex);
+                for (ServerState::active_connections_map_t::iterator it = m_serverStatePtr->m_activeConnections.begin();
+                    it != m_serverStatePtr->m_activeConnections.end(); ++it)
+                {
+                    it->second->AsyncClose();
+                }
 
-            //Clear this map's collection of shared_ptrs.
-            //The websocket connections themselves however contain their own copy of these shared_ptrs.
-            m_serverStatePtr->m_activeConnections.clear(); 
+                //Clear this map's collection of shared_ptrs.
+                //The websocket connections themselves however contain their own copy of these shared_ptrs.
+                m_serverStatePtr->m_activeConnections.clear(); 
 
-            { //wait for websockets to gracefully close
-                exclusive_lock_t lockExclusive(m_serverStatePtr->m_unclosedConnectionsSharedMutex);
+                { //wait for websockets to gracefully close
+                    exclusive_lock_t lockExclusive(m_serverStatePtr->m_unclosedConnectionsSharedMutex);
+                }
+            } catch (const boost::lock_error&) {
+                LOG_ERROR(subprocess) << "error closing BeastWebsocketServer connections";
             }
             m_serverStatePtr.reset();
         }

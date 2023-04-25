@@ -13,7 +13,7 @@ workflow:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
 
 # Build HDTN with the default configuration
-# Don't save any artifacts, just confirm the build
+# Use this for unit and integrated tests
 build-default:
   stage: build-stage
   tags:
@@ -48,9 +48,8 @@ build-cpp11:
     paths:
       - build
 
-# Build HDTN without the GUI enabled and with stats logging
-# Save the output to use for testing
-build-without-gui:
+# Build HDTN with extra compile options
+build-extra-options:
   stage: build-stage
   tags:
   - docker
@@ -62,7 +61,7 @@ build-without-gui:
     - mkdir -p external/lib
     - cp /home/civetweb/libcivetweb.a external/lib
     - mkdir -p build
-    - cmake -S . -B build -DUSE_WEB_INTERFACE:BOOL=OFF -DDO_STATS_LOGGING=ON
+    - cmake -S . -B build -DUSE_WEB_INTERFACE:BOOL=OFF -DDO_STATS_LOGGING=ON -DENABLE_OPENSSL_SUPPORT=OFF
     - make -C build/ -j8
   cache:
     key: build-without-gui-$CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID

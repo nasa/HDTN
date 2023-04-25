@@ -13,16 +13,13 @@
  * @section DESCRIPTION
  *
  * This file launches all HDTN unit tests (using Boost Test) into a process.
+ * The unit test framework will provide its own main() function.
  */
 
 
 #define BOOST_TEST_MODULE HtdnUnitTestsModule
 
-//todo: better cmake solution to detect if we are using boost static or shared libs... assume for now
-//      that shared libs will be used on linux and static libs will be used on windows.
-#ifndef _WIN32
-#define BOOST_TEST_DYN_LINK
-#endif
+//note: BOOST_TEST_DYN_LINK may be set as global compile definition by CMake script
 
 #include <boost/test/unit_test.hpp>
 #include <boost/test/results_reporter.hpp>

@@ -1,18 +1,25 @@
-/***************************************************************************
- * NASA Glenn Research Center, Cleveland, OH
+/**
+ * @file it_test_main.cpp
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
  * Released under the NASA Open Source Agreement (NOSA)
- * May  2021
-****************************************************************************
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This file launches all HDTN integrated tests (using Boost Test) into a process.
+ * The unit test framework will provide its own main() function.
  */
 
 
 #define BOOST_TEST_MODULE HtdnTestsModule
 
-//todo: better cmake solution to detect if we are using boost static or shared libs... assume for now
-//      that shared libs will be used on linux and static libs will be used on windows.
-#ifndef _WIN32
-#define BOOST_TEST_DYN_LINK
-#endif
+//note: BOOST_TEST_DYN_LINK may be set as global compile definition by CMake script
 
 //#define BOOST_TEST_NO_MAIN 1
 
