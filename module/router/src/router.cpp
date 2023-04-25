@@ -35,59 +35,11 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::router;
 
-class Router::Impl {
-public:
-    Impl();
-    ~Impl();
-    void Stop();
-    bool Init(const HdtnConfig& hdtnConfig,
-        const HdtnDistributedConfig& hdtnDistributedConfig,
-        const boost::filesystem::path& contactPlanFilePath,
-        bool usingUnixTimestamp,
-        bool useMgr,
-        zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
-
-private:
-    bool ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNextHopNodeId, uint64_t finalDestNodeId);
-    bool ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint64_t outductIndex);
-    void ReadZmqThreadFunc();
-    void SchedulerEventsHandler();
-
-    void HandleLinkDownEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr);
-    void HandleLinkUpEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr);
-    void HandleOutductCapabilitiesTelemetry(const hdtn::IreleaseChangeHdr &releaseChangeHdr, const AllOutductCapabilitiesTelemetry_t & aoct);
-    void HandleBundleFromScheduler();
-
-    void SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNodeId);
-
-    HdtnConfig m_hdtnConfig;
-    volatile bool m_running;
-    bool m_usingUnixTimestamp;
-    bool m_usingMGR;
-    bool m_computedInitialOptimalRoutes;
-    uint64_t m_latestTime;
-    boost::filesystem::path m_contactPlanFilePath;
-
-    std::unique_ptr<zmq::context_t> m_zmqContextPtr;
-    std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundSchedulerToConnectingRouterPtr;
-    std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingRouterToBoundEgressPtr;
-
-    typedef std::pair<uint64_t, std::list<uint64_t> > nexthop_finaldestlist_pair_t;
-    std::map<uint64_t, nexthop_finaldestlist_pair_t> m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList;
-    std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
-
-    
-    //for blocking until worker-thread startup
-    volatile bool m_workerThreadStartupInProgress;
-    boost::mutex m_workerThreadStartupMutex;
-    boost::condition_variable m_workerThreadStartupConditionVariable;
-};
-
 boost::filesystem::path Router::GetFullyQualifiedFilename(const boost::filesystem::path& filename) {
     return (Environment::GetPathHdtnSourceRoot() / "module/router/contact_plans/") / filename;
 }
 
-Router::Impl::Impl() : 
+Router::Router() : 
     m_running(false), 
     m_computedInitialOptimalRoutes(false), 
     m_latestTime(0), 
@@ -95,30 +47,11 @@ Router::Impl::Impl() :
     m_usingUnixTimestamp(false), 
     m_usingMGR(false) {}
 
-Router::Router() : m_pimpl(boost::make_unique<Router::Impl>()) {}
-    
-Router::Impl::~Impl() {
-    Stop();
-}
-
 Router::~Router() {
     Stop();
 }
 
-bool Router::Init(const HdtnConfig& hdtnConfig,
-    const HdtnDistributedConfig& hdtnDistributedConfig,
-    const boost::filesystem::path& contactPlanFilePath,
-    bool usingUnixTimestamp,
-    bool useMgr,
-    zmq::context_t* hdtnOneProcessZmqInprocContextPtr)
-{
-    return m_pimpl->Init(hdtnConfig, hdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp, useMgr, hdtnOneProcessZmqInprocContextPtr);
-}
-
 void Router::Stop() {
-    m_pimpl->Stop();
-}
-void Router::Impl::Stop() {
     m_running = false; //thread stopping criteria
     
     if (m_threadZmqAckReaderPtr) { 
@@ -131,7 +64,7 @@ void Router::Impl::Stop() {
     }
 }
 
-bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
+bool Router::Init(const HdtnConfig& hdtnConfig,
     const HdtnDistributedConfig& hdtnDistributedConfig,
     const boost::filesystem::path& contactPlanFilePath,
     bool usingUnixTimestamp,
@@ -211,7 +144,7 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
         m_workerThreadStartupInProgress = true;
 
         m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
-            boost::bind(&Router::Impl::ReadZmqThreadFunc, this)); //create and start the worker thread
+            boost::bind(&Router::ReadZmqThreadFunc, this)); //create and start the worker thread
 
         while (m_workerThreadStartupInProgress) { //lock mutex (above) before checking condition
             //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
@@ -235,7 +168,7 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
     return true;
 }
 
-void Router::Impl::HandleLinkDownEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr) {
+void Router::HandleLinkDownEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr) {
     LOG_INFO(subprocess) << "Received Link Down for contact: src = "
         << releaseChangeHdr.prevHopNodeId
         << "  dest = " << releaseChangeHdr.nextHopNodeId
@@ -250,12 +183,12 @@ void Router::Impl::HandleLinkDownEvent(const hdtn::IreleaseChangeHdr &releaseCha
     LOG_DEBUG(subprocess) << "Updated time to " << m_latestTime;
 }
 
-void Router::Impl::HandleLinkUpEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr) {
+void Router::HandleLinkUpEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr) {
         LOG_DEBUG(subprocess) << "Contact up ";
         LOG_DEBUG(subprocess) << "Updated time to " << m_latestTime;
 }
 
-void Router::Impl::HandleOutductCapabilitiesTelemetry(const hdtn::IreleaseChangeHdr &releaseChangeHdr, const AllOutductCapabilitiesTelemetry_t & aoct) {
+void Router::HandleOutductCapabilitiesTelemetry(const hdtn::IreleaseChangeHdr &releaseChangeHdr, const AllOutductCapabilitiesTelemetry_t & aoct) {
     LOG_INFO(subprocess) << "Received and successfully decoded " << ((m_computedInitialOptimalRoutes) ? "UPDATED" : "NEW")
         << " AllOutductCapabilitiesTelemetry_t message from Scheduler containing "
         << aoct.outductCapabilityTelemetryList.size() << " outducts.";
@@ -296,9 +229,9 @@ void Router::Impl::HandleOutductCapabilitiesTelemetry(const hdtn::IreleaseChange
 
 }
 
-void Router::Impl::HandleBundleFromScheduler() { /* TO BE IMPLEMENTED */ }
+void Router::HandleBundleFromScheduler() { /* TO BE IMPLEMENTED */ }
 
-void Router::Impl::SchedulerEventsHandler() {
+void Router::SchedulerEventsHandler() {
 
     hdtn::IreleaseChangeHdr releaseChangeHdr;
 
@@ -353,7 +286,7 @@ void Router::Impl::SchedulerEventsHandler() {
     }
 }
 
-void Router::Impl::ReadZmqThreadFunc() {
+void Router::ReadZmqThreadFunc() {
 
     ThreadNamer::SetThisThreadName("routerZmqReader");
 
@@ -402,7 +335,7 @@ void Router::Impl::ReadZmqThreadFunc() {
     }
 }
 
-bool Router::Impl::ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint64_t outductIndex) {
+bool Router::ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint64_t outductIndex) {
     std::map<uint64_t, nexthop_finaldestlist_pair_t>::const_iterator mapIt = m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList.find(outductIndex);
     if (mapIt == m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList.cend()) {
         LOG_ERROR(subprocess) << "ComputeOptimalRoutesForOutductIndex cannot find outductIndex " << outductIndex;
@@ -425,7 +358,7 @@ bool Router::Impl::ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint
     return noErrors;
 }
 
-void Router::Impl::SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNodeId) {
+void Router::SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNodeId) {
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
     // Timer was not cancelled, take necessary action.
     LOG_INFO(subprocess) << timeLocal << ": Sending RouteUpdate event to Egress ";
@@ -446,7 +379,7 @@ void Router::Impl::SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNod
     }
 }
 
-bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNextHopNodeId, uint64_t finalDestNodeId) {
+bool Router::ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNextHopNodeId, uint64_t finalDestNodeId) {
 
     cgr::Route bestRoute;
 

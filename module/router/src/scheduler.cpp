@@ -38,111 +38,6 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::scheduler;
 
-struct contactPlan_t {
-    uint64_t contact;
-    uint64_t source;
-    uint64_t dest;
-    uint64_t finalDest;//deprecated and not in operator <
-    uint64_t start;
-    uint64_t end;
-    uint64_t rateBps;
-
-    uint64_t outductArrayIndex; //not in operator <
-    bool isLinkUp; 
-
-    bool operator<(const contactPlan_t& o) const; //operator < so it can be used as a map key
-};
-
-struct OutductInfo_t {
-    OutductInfo_t() : outductIndex(UINT64_MAX), nextHopNodeId(UINT64_MAX), linkIsUpTimeBased(false) {}
-    OutductInfo_t(uint64_t paramOutductIndex, uint64_t paramNextHopNodeId, bool paramLinkIsUpTimeBased) :
-        outductIndex(paramOutductIndex), nextHopNodeId(paramNextHopNodeId), linkIsUpTimeBased(paramLinkIsUpTimeBased) {}
-    uint64_t outductIndex;
-    uint64_t nextHopNodeId;
-    bool linkIsUpTimeBased;
-    
-};
-
-class Scheduler::Impl {
-public:
-    Impl();
-    ~Impl();
-    void Stop();
-    bool Init(const HdtnConfig& hdtnConfig,
-        const HdtnDistributedConfig& hdtnDistributedConfig,
-        const boost::filesystem::path& contactPlanFilePath,
-        bool usingUnixTimestamp,
-        zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
-
-private:
-    bool ProcessContacts(const boost::property_tree::ptree & pt);
-    bool ProcessContactsJsonText(char* jsonText);
-    bool ProcessContactsJsonText(const std::string& jsonText);
-    bool ProcessContactsFile(const boost::filesystem::path& jsonEventFilePath);
-
-    void PopulateMapsFromAllOutductCapabilitiesTelemetry(AllOutductCapabilitiesTelemetry_t& aoct);
-    void HandlePhysicalLinkStatusChange(const hdtn::LinkStatusHdr& linkStatusHdr);
-
-    void NotifyEgressOfTimeBasedLinkChange(uint64_t outductArrayIndex, uint64_t rateBps, bool linkIsUpTimeBased);
-    void SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
-        uint64_t time, uint64_t rateBps, uint64_t duration, bool isPhysical);
-    void SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
-        uint64_t time, bool isPhysical);
-
-    void EgressEventsHandler();
-    bool SendBundle(const uint8_t* payloadData, const uint64_t payloadSizeBytes, const cbhe_eid_t& finalDestEid);
-    void TelemEventsHandler();
-    void ReadZmqAcksThreadFunc();
-    void TryRestartContactPlanTimer();
-    void OnContactPlan_TimerExpired(const boost::system::error_code& e);
-    bool AddContact_NotThreadSafe(contactPlan_t& contact);
-    
-
-private:
-    typedef std::pair<boost::posix_time::ptime, uint64_t> ptime_index_pair_t; //used in case of identical ptimes for starting events
-    typedef boost::bimap<ptime_index_pair_t, contactPlan_t> ptime_to_contactplan_bimap_t;
-
-
-    volatile bool m_running;
-    HdtnConfig m_hdtnConfig;
-    std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
-
-    std::unique_ptr<zmq::context_t> m_zmqCtxPtr;
-    std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundEgressToConnectingSchedulerPtr;
-    std::unique_ptr<zmq::socket_t> m_zmqXPubSock_boundSchedulerToConnectingSubsPtr;
-    std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr;
-    boost::mutex m_mutexZmqPubSock;
-
-    //no mutex needed (all run from ioService thread)
-    std::map<uint64_t, OutductInfo_t> m_mapOutductArrayIndexToOutductInfo;
-    std::map<uint64_t, uint64_t> m_mapNextHopNodeIdToOutductArrayIndex;
-
-    boost::filesystem::path m_contactPlanFilePath;
-    bool m_usingUnixTimestamp;
-
-    ptime_to_contactplan_bimap_t m_ptimeToContactPlanBimap;
-    boost::asio::io_service m_ioService;
-    boost::asio::deadline_timer m_contactPlanTimer;
-    std::unique_ptr<boost::asio::io_service::work> m_workPtr;
-    std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
-    bool m_contactPlanTimerIsRunning;
-    boost::posix_time::ptime m_epoch;
-    uint64_t m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds;
-    uint64_t m_numOutductCapabilityTelemetriesReceived;
-
-    std::unique_ptr<zmq::message_t> m_zmqMessageOutductCapabilitiesTelemPtr;
-
-    //for blocking until worker-thread startup
-    volatile bool m_workerThreadStartupInProgress;
-    boost::mutex m_workerThreadStartupMutex;
-    boost::condition_variable m_workerThreadStartupConditionVariable;
-
-    //send bundle stuff
-    boost::mutex m_bundleCreationMutex;
-    uint64_t m_lastMillisecondsSinceStartOfYear2000;
-    uint64_t m_bundleSequence;
-};
-
 boost::filesystem::path Scheduler::GetFullyQualifiedFilename(const boost::filesystem::path& filename) {
     return (Environment::GetPathHdtnSourceRoot() / "module/scheduler/contact_plans/") / filename;
 }
@@ -164,7 +59,7 @@ bool contactPlan_t::operator<(const contactPlan_t& o) const {
 }
 
 
-Scheduler::Impl::Impl() : 
+Scheduler::Scheduler() : 
     m_running(false), 
     m_usingUnixTimestamp(false),
     m_contactPlanTimerIsRunning(false),
@@ -175,29 +70,12 @@ Scheduler::Impl::Impl() :
     m_bundleSequence(0),	
     m_contactPlanTimer(m_ioService) {}
 
-Scheduler::Impl::~Impl() {
-    Stop();
-}
-
-Scheduler::Scheduler() : m_pimpl(boost::make_unique<Scheduler::Impl>()) {}
-
 Scheduler::~Scheduler() {
     Stop();
 }
 
-bool Scheduler::Init(const HdtnConfig& hdtnConfig,
-    const HdtnDistributedConfig& hdtnDistributedConfig,
-    const boost::filesystem::path& contactPlanFilePath,
-    bool usingUnixTimestamp,
-    zmq::context_t* hdtnOneProcessZmqInprocContextPtr)
-{
-    return m_pimpl->Init(hdtnConfig, hdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp, hdtnOneProcessZmqInprocContextPtr);
-}
 
 void Scheduler::Stop() {
-    m_pimpl->Stop();
-}
-void Scheduler::Impl::Stop() {
     m_running = false; //thread stopping criteria
 
     if (m_threadZmqAckReaderPtr) {
@@ -236,7 +114,7 @@ void Scheduler::Impl::Stop() {
     }
 }
 
-bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
+bool Scheduler::Init(const HdtnConfig& hdtnConfig,
     const HdtnDistributedConfig& hdtnDistributedConfig,
     const boost::filesystem::path& contactPlanFilePath,
     bool usingUnixTimestamp,
@@ -331,7 +209,7 @@ bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
         m_workerThreadStartupInProgress = true;
 
         m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
-            boost::bind(&Scheduler::Impl::ReadZmqAcksThreadFunc, this)); //create and start the worker thread
+            boost::bind(&Scheduler::ReadZmqAcksThreadFunc, this)); //create and start the worker thread
 
         while (m_workerThreadStartupInProgress) { //lock mutex (above) before checking condition
             //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
@@ -352,7 +230,7 @@ bool Scheduler::Impl::Init(const HdtnConfig& hdtnConfig,
     return true;
 }
 
-void Scheduler::Impl::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
+void Scheduler::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
 		             uint64_t time, bool isPhysical) {
     hdtn::IreleaseChangeHdr stopMsg;
     
@@ -378,7 +256,7 @@ void Scheduler::Impl::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outduct
         << "  src(" << src << ") == = > dest(" << dest << ") at time " << timeLocal;
 }
 
-void Scheduler::Impl::NotifyEgressOfTimeBasedLinkChange(uint64_t outductArrayIndex, uint64_t rateBps, bool linkIsUpTimeBased) {
+void Scheduler::NotifyEgressOfTimeBasedLinkChange(uint64_t outductArrayIndex, uint64_t rateBps, bool linkIsUpTimeBased) {
     // First, send rate update message to egress, so it has time to
     // update the rate before receiving date.
     // This message also serves for Egress to update telemetry of linkIsUpTimeBased for an outduct
@@ -398,7 +276,7 @@ void Scheduler::Impl::NotifyEgressOfTimeBasedLinkChange(uint64_t outductArrayInd
     }
 }
 
-void Scheduler::Impl::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex, uint64_t time, uint64_t rateBps, uint64_t duration, bool isPhysical) {
+void Scheduler::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex, uint64_t time, uint64_t rateBps, uint64_t duration, bool isPhysical) {
     // Send event to Ingress, Storage, and Router modules (not egress)
     hdtn::IreleaseChangeHdr releaseMsg;
     memset(&releaseMsg, 0, sizeof(releaseMsg));
@@ -425,7 +303,7 @@ void Scheduler::Impl::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductAr
         << "  src(" << src << ") == = > dest(" << dest << ") at time " << timeLocal;
 }
 
-void Scheduler::Impl::EgressEventsHandler() {
+void Scheduler::EgressEventsHandler() {
     //force this hdtn message struct to be aligned on a 64-byte boundary using zmq::mutable_buffer
     hdtn::LinkStatusHdr linkStatusHdr;
     const zmq::recv_buffer_result_t res = m_zmqPullSock_boundEgressToConnectingSchedulerPtr->recv(zmq::mutable_buffer(&linkStatusHdr, sizeof(linkStatusHdr)), zmq::recv_flags::none);
@@ -440,7 +318,7 @@ void Scheduler::Impl::EgressEventsHandler() {
 
     
     if (linkStatusHdr.base.type == HDTN_MSGTYPE_LINKSTATUS) {
-        boost::asio::post(m_ioService, boost::bind(&Scheduler::Impl::HandlePhysicalLinkStatusChange, this, linkStatusHdr));
+        boost::asio::post(m_ioService, boost::bind(&Scheduler::HandlePhysicalLinkStatusChange, this, linkStatusHdr));
         
     }
     else if (linkStatusHdr.base.type == HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY) {
@@ -456,7 +334,7 @@ void Scheduler::Impl::EgressEventsHandler() {
         else {
             LOG_INFO(subprocess) << "Scheduler received initial " << aoct.outductCapabilityTelemetryList.size() << " outduct telemetries from egress";
 
-            boost::asio::post(m_ioService, boost::bind(&Scheduler::Impl::PopulateMapsFromAllOutductCapabilitiesTelemetry, this, std::move(aoct)));
+            boost::asio::post(m_ioService, boost::bind(&Scheduler::PopulateMapsFromAllOutductCapabilitiesTelemetry, this, std::move(aoct)));
     	    
             ++m_numOutductCapabilityTelemetriesReceived;
         }
@@ -522,7 +400,7 @@ static void CustomCleanupPaddedVecUint8(void* data, void* hint) {
     delete static_cast<padded_vector_uint8_t*>(hint);
 }
 
-bool Scheduler::Impl::SendBundle(const uint8_t* payloadData, const uint64_t payloadSizeBytes, const cbhe_eid_t& finalDestEid) {
+bool Scheduler::SendBundle(const uint8_t* payloadData, const uint64_t payloadSizeBytes, const cbhe_eid_t& finalDestEid) {
     // Next, send event to the rest of the modules
     hdtn::IreleaseChangeHdr releaseMsg;
     memset(&releaseMsg, 0, sizeof(releaseMsg));
@@ -602,7 +480,7 @@ bool Scheduler::Impl::SendBundle(const uint8_t* payloadData, const uint64_t payl
     return true;
 }
 
-void Scheduler::Impl::TelemEventsHandler() {
+void Scheduler::TelemEventsHandler() {
     uint8_t telemMsgByte;
     const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr->recv(zmq::mutable_buffer(&telemMsgByte, sizeof(telemMsgByte)), zmq::recv_flags::dontwait);
     if (!res) {
@@ -634,7 +512,7 @@ void Scheduler::Impl::TelemEventsHandler() {
             boost::asio::post(
                 m_ioService,
                 boost::bind(
-                    static_cast<bool (Scheduler::Impl::*) (const std::string&)>(&Scheduler::Impl::ProcessContactsJsonText),
+                    static_cast<bool (Scheduler::*) (const std::string&)>(&Scheduler::ProcessContactsJsonText),
                     this,
                     std::move(planJson)
                 )
@@ -648,7 +526,7 @@ void Scheduler::Impl::TelemEventsHandler() {
     }
 }
 
-void Scheduler::Impl::ReadZmqAcksThreadFunc() {
+void Scheduler::ReadZmqAcksThreadFunc() {
     ThreadNamer::SetThisThreadName("schedulerZmqReader");
 
     static constexpr unsigned int NUM_SOCKETS = 3;
@@ -761,7 +639,7 @@ void Scheduler::Impl::ReadZmqAcksThreadFunc() {
                     //first time this outduct capabilities telemetry received, start remaining scheduler threads
                     schedulerFullyInitialized = true;
                     LOG_INFO(subprocess) << "Now running and fully initialized and connected to egress.. reading contact file " << m_contactPlanFilePath;
-                    boost::asio::post(m_ioService, boost::bind(&Scheduler::Impl::ProcessContactsFile, this, m_contactPlanFilePath));
+                    boost::asio::post(m_ioService, boost::bind(&Scheduler::ProcessContactsFile, this, m_contactPlanFilePath));
                 }
                 
             }
@@ -769,21 +647,21 @@ void Scheduler::Impl::ReadZmqAcksThreadFunc() {
     }
 }
 
-bool Scheduler::Impl::ProcessContactsJsonText(char * jsonText) {
+bool Scheduler::ProcessContactsJsonText(char * jsonText) {
     boost::property_tree::ptree pt;
     if (!JsonSerializable::GetPropertyTreeFromJsonCharArray(jsonText, strlen(jsonText), pt)) {
         return false;
     }
     return ProcessContacts(pt);
 }
-bool Scheduler::Impl::ProcessContactsJsonText(const std::string& jsonText) {
+bool Scheduler::ProcessContactsJsonText(const std::string& jsonText) {
     boost::property_tree::ptree pt;
     if (!JsonSerializable::GetPropertyTreeFromJsonString(jsonText, pt)) {
         return false;
     }
     return ProcessContacts(pt);
 }
-bool Scheduler::Impl::ProcessContactsFile(const boost::filesystem::path& jsonEventFilePath) {
+bool Scheduler::ProcessContactsFile(const boost::filesystem::path& jsonEventFilePath) {
     boost::property_tree::ptree pt;
     if (!JsonSerializable::GetPropertyTreeFromJsonFilePath(jsonEventFilePath, pt)) {
         return false;
@@ -814,7 +692,7 @@ uint64_t Scheduler::GetRateBpsFromPtree(const boost::property_tree::ptree::value
 }
 
 //must only be run from ioService thread because maps unprotected (no mutex)
-bool Scheduler::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
+bool Scheduler::ProcessContacts(const boost::property_tree::ptree& pt) {
     
 
     m_contactPlanTimer.cancel(); //cancel any running contacts in the timer
@@ -887,13 +765,13 @@ bool Scheduler::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
 
 
 //restarts the timer if it is not running
-void Scheduler::Impl::TryRestartContactPlanTimer() {
+void Scheduler::TryRestartContactPlanTimer() {
     if (!m_contactPlanTimerIsRunning) {
         ptime_to_contactplan_bimap_t::left_iterator it = m_ptimeToContactPlanBimap.left.begin(); //get first event expiring
         if (it != m_ptimeToContactPlanBimap.left.end()) {
             const boost::posix_time::ptime& expiry = it->first.first;
             m_contactPlanTimer.expires_at(expiry);
-            m_contactPlanTimer.async_wait(boost::bind(&Scheduler::Impl::OnContactPlan_TimerExpired, this, boost::asio::placeholders::error));
+            m_contactPlanTimer.async_wait(boost::bind(&Scheduler::OnContactPlan_TimerExpired, this, boost::asio::placeholders::error));
             m_contactPlanTimerIsRunning = true;
         }
         else {
@@ -902,7 +780,7 @@ void Scheduler::Impl::TryRestartContactPlanTimer() {
     }
 }
 
-void Scheduler::Impl::OnContactPlan_TimerExpired(const boost::system::error_code& e) {
+void Scheduler::OnContactPlan_TimerExpired(const boost::system::error_code& e) {
     m_contactPlanTimerIsRunning = false;
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
@@ -939,7 +817,7 @@ void Scheduler::Impl::OnContactPlan_TimerExpired(const boost::system::error_code
     }
 }
 
-bool Scheduler::Impl::AddContact_NotThreadSafe(contactPlan_t& contact) {
+bool Scheduler::AddContact_NotThreadSafe(contactPlan_t& contact) {
     {
         ptime_index_pair_t pipStart(m_epoch + boost::posix_time::seconds(contact.start), 0);
         while (m_ptimeToContactPlanBimap.left.count(pipStart)) {
@@ -963,7 +841,7 @@ bool Scheduler::Impl::AddContact_NotThreadSafe(contactPlan_t& contact) {
     return true;
 }
 
-void Scheduler::Impl::PopulateMapsFromAllOutductCapabilitiesTelemetry(AllOutductCapabilitiesTelemetry_t& aoct) {
+void Scheduler::PopulateMapsFromAllOutductCapabilitiesTelemetry(AllOutductCapabilitiesTelemetry_t& aoct) {
     m_mapOutductArrayIndexToOutductInfo.clear();
     m_mapNextHopNodeIdToOutductArrayIndex.clear();
 
@@ -979,7 +857,7 @@ void Scheduler::Impl::PopulateMapsFromAllOutductCapabilitiesTelemetry(AllOutduct
     }
 }
 
-void Scheduler::Impl::HandlePhysicalLinkStatusChange(const hdtn::LinkStatusHdr& linkStatusHdr) {
+void Scheduler::HandlePhysicalLinkStatusChange(const hdtn::LinkStatusHdr& linkStatusHdr) {
     const bool eventLinkIsUpPhysically = (linkStatusHdr.event == 1);
     const uint64_t outductArrayIndex = linkStatusHdr.uuid;
     const uint64_t timeSecondsSinceSchedulerEpoch = (linkStatusHdr.unixTimeSecondsSince1970 > m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds) ?

@@ -27,6 +27,8 @@
 #include <boost/core/noncopyable.hpp>
 #include <boost/filesystem.hpp>
 #include "router_lib_export.h"
+#include "message.hpp"
+#include "TelemetryDefinitions.h"
 
 
 class Router : private boost::noncopyable {
@@ -43,13 +45,40 @@ public:
 
     ROUTER_LIB_EXPORT static boost::filesystem::path GetFullyQualifiedFilename(const boost::filesystem::path& filename);
 
-
-    // Internal implementation class
-    class Impl; //public for ostream operators
 private:
-    // Pointer to the internal implementation
-    std::unique_ptr<Impl> m_pimpl;
+    bool ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNextHopNodeId, uint64_t finalDestNodeId);
+    bool ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint64_t outductIndex);
+    void ReadZmqThreadFunc();
+    void SchedulerEventsHandler();
 
+    void HandleLinkDownEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr);
+    void HandleLinkUpEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr);
+    void HandleOutductCapabilitiesTelemetry(const hdtn::IreleaseChangeHdr &releaseChangeHdr, const AllOutductCapabilitiesTelemetry_t & aoct);
+    void HandleBundleFromScheduler();
+
+    void SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNodeId);
+
+    HdtnConfig m_hdtnConfig;
+    volatile bool m_running;
+    bool m_usingUnixTimestamp;
+    bool m_usingMGR;
+    bool m_computedInitialOptimalRoutes;
+    uint64_t m_latestTime;
+    boost::filesystem::path m_contactPlanFilePath;
+
+    std::unique_ptr<zmq::context_t> m_zmqContextPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundSchedulerToConnectingRouterPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingRouterToBoundEgressPtr;
+
+    typedef std::pair<uint64_t, std::list<uint64_t> > nexthop_finaldestlist_pair_t;
+    std::map<uint64_t, nexthop_finaldestlist_pair_t> m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList;
+    std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
+
+    
+    //for blocking until worker-thread startup
+    volatile bool m_workerThreadStartupInProgress;
+    boost::mutex m_workerThreadStartupMutex;
+    boost::condition_variable m_workerThreadStartupConditionVariable;
 
 };
 
