@@ -43,7 +43,6 @@ Router::Router() :
     m_running(false), 
     m_computedInitialOptimalRoutes(false), 
     m_latestTime(0), 
-    m_workerThreadStartupInProgress(false), 
     m_usingUnixTimestamp(false), 
     m_usingMGR(false) {}
 
@@ -52,16 +51,7 @@ Router::~Router() {
 }
 
 void Router::Stop() {
-    m_running = false; //thread stopping criteria
-    
-    if (m_threadZmqAckReaderPtr) { 
-        try {
-            m_threadZmqAckReaderPtr->join();
-            m_threadZmqAckReaderPtr.reset(); //delete it
-        } catch (const boost::thread_resource_error&) {
-            LOG_ERROR(subprocess) << "error stopping Router thread";
-        }
-    }
+    m_running = false;
 }
 
 bool Router::Init(const HdtnConfig& hdtnConfig,
@@ -80,6 +70,8 @@ bool Router::Init(const HdtnConfig& hdtnConfig,
     m_contactPlanFilePath = contactPlanFilePath;
     m_usingUnixTimestamp = usingUnixTimestamp;
     m_usingMGR = useMgr;
+
+    m_computedInitialOptimalRoutes = false;
     
     // socket for receiving events from scheduler
     m_zmqContextPtr = boost::make_unique<zmq::context_t>();
@@ -110,65 +102,15 @@ bool Router::Init(const HdtnConfig& hdtnConfig,
         return false;
     }
 
+    m_running = true;
 
-    m_zmqSubSock_boundSchedulerToConnectingRouterPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::sub);
-    const std::string connect_boundSchedulerPubSubPath(
-        std::string("tcp://") +
-        ((hdtnOneProcessZmqInprocContextPtr == NULL) ? hdtnDistributedConfig.m_zmqSchedulerAddress : std::string("localhost")) +
-        std::string(":") +
-        boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
-    try {
-        m_zmqSubSock_boundSchedulerToConnectingRouterPtr->connect(connect_boundSchedulerPubSubPath);
-        m_zmqSubSock_boundSchedulerToConnectingRouterPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
-        LOG_INFO(subprocess) << "Connected to scheduler at " << connect_boundSchedulerPubSubPath << " , subscribing...";
-    }
-    catch (const zmq::error_t& ex) {
-        LOG_ERROR(subprocess) << "Cannot connect to scheduler socket at " << connect_boundSchedulerPubSubPath << " : " << ex.what();
-        return false;
-    }
-
-
-    try {
-        static const int timeout = 250;  // milliseconds
-        m_zmqSubSock_boundSchedulerToConnectingRouterPtr->set(zmq::sockopt::rcvtimeo, timeout);
-    }
-    catch (const zmq::error_t& ex) {
-        LOG_ERROR(subprocess) << "error: cannot set timeout on receive sockets: " << ex.what();
-        return false;
-    }
-
-    { //launch worker thread
-        m_running = true;
-
-        boost::mutex::scoped_lock workerThreadStartupLock(m_workerThreadStartupMutex);
-        m_workerThreadStartupInProgress = true;
-
-        m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
-            boost::bind(&Router::ReadZmqThreadFunc, this)); //create and start the worker thread
-
-        while (m_workerThreadStartupInProgress) { //lock mutex (above) before checking condition
-            //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
-            if (!m_workerThreadStartupConditionVariable.timed_wait(workerThreadStartupLock, boost::posix_time::seconds(3))) {
-                LOG_ERROR(subprocess) << "timed out waiting (for 3 seconds) for worker thread to start up";
-                break;
-            }
-        }
-        if (m_workerThreadStartupInProgress) {
-            LOG_ERROR(subprocess) << "error: worker thread took too long to start up.. exiting";
-            return false;
-        }
-        else {
-            LOG_INFO(subprocess) << "worker thread started";
-        }
-    }
-
-    LOG_INFO(subprocess) << "Router up and running";
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-    LOG_INFO(subprocess) << "Router currentTime  " << timeLocal;
+    LOG_INFO(subprocess) << "Router up and running at " << timeLocal;
     return true;
 }
 
 void Router::HandleLinkDownEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr) {
+    m_latestTime = releaseChangeHdr.time;
     LOG_INFO(subprocess) << "Received Link Down for contact: src = "
         << releaseChangeHdr.prevHopNodeId
         << "  dest = " << releaseChangeHdr.nextHopNodeId
@@ -184,11 +126,13 @@ void Router::HandleLinkDownEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr
 }
 
 void Router::HandleLinkUpEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr) {
-        LOG_DEBUG(subprocess) << "Contact up ";
-        LOG_DEBUG(subprocess) << "Updated time to " << m_latestTime;
+    m_latestTime = releaseChangeHdr.time;
+    LOG_DEBUG(subprocess) << "Contact up ";
+    LOG_DEBUG(subprocess) << "Updated time to " << m_latestTime;
 }
 
 void Router::HandleOutductCapabilitiesTelemetry(const hdtn::IreleaseChangeHdr &releaseChangeHdr, const AllOutductCapabilitiesTelemetry_t & aoct) {
+    m_latestTime = releaseChangeHdr.time;
     LOG_INFO(subprocess) << "Received and successfully decoded " << ((m_computedInitialOptimalRoutes) ? "UPDATED" : "NEW")
         << " AllOutductCapabilitiesTelemetry_t message from Scheduler containing "
         << aoct.outductCapabilityTelemetryList.size() << " outducts.";
@@ -229,110 +173,8 @@ void Router::HandleOutductCapabilitiesTelemetry(const hdtn::IreleaseChangeHdr &r
 
 }
 
-void Router::HandleBundleFromScheduler() { /* TO BE IMPLEMENTED */ }
-
-void Router::SchedulerEventsHandler() {
-
-    hdtn::IreleaseChangeHdr releaseChangeHdr;
-
-    const zmq::recv_buffer_result_t res =
-        m_zmqSubSock_boundSchedulerToConnectingRouterPtr->recv(zmq::mutable_buffer(&releaseChangeHdr,
-            sizeof(releaseChangeHdr)), zmq::recv_flags::none);
-    if (!res) {
-        LOG_ERROR(subprocess) << "unable to receive message";
-        return;
-    }
-    else if (res->size != sizeof(releaseChangeHdr)) {
-        LOG_ERROR(subprocess) << "res->size != sizeof(releaseChangeHdr)";
-        return;
-        return;
-    }
-
+void Router::HandleBundleFromScheduler(const hdtn::IreleaseChangeHdr &releaseChangeHdr) {
     m_latestTime = releaseChangeHdr.time;
-
-    if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKDOWN) {
-        HandleLinkDownEvent(releaseChangeHdr);
-    }
-    else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKUP) {
-        HandleLinkUpEvent(releaseChangeHdr);
-    }
-    else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY) {
-        AllOutductCapabilitiesTelemetry_t aoct;
-        zmq::message_t zmqMessageOutductTelem;
-        //message guaranteed to be there due to the zmq::send_flags::sndmore
-        if (!m_zmqSubSock_boundSchedulerToConnectingRouterPtr->recv(zmqMessageOutductTelem, zmq::recv_flags::none)) {
-            LOG_ERROR(subprocess) << "error receiving AllOutductCapabilitiesTelemetry";
-            return;
-        }
-        else if (!aoct.SetValuesFromJsonCharArray((char*)zmqMessageOutductTelem.data(), zmqMessageOutductTelem.size())) {
-            LOG_ERROR(subprocess) << "error deserializing AllOutductCapabilitiesTelemetry of size " << zmqMessageOutductTelem.size();
-            return;
-        }
-
-        HandleOutductCapabilitiesTelemetry(releaseChangeHdr, aoct);
-    }
-    else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_BUNDLES_FROM_SCHEDULER) {
-        //ignore but must discard multi-part message
-        zmq::message_t zmqMessageDiscard;
-        if (!m_zmqSubSock_boundSchedulerToConnectingRouterPtr->recv(zmqMessageDiscard, zmq::recv_flags::none)) {
-            LOG_ERROR(subprocess) << "Error discarding Bundle From Scheduler Message";
-            return;
-        }
-        HandleBundleFromScheduler();
-    }
-    else {
-        LOG_ERROR(subprocess) << "[Router] unknown message type " << releaseChangeHdr.base.type;
-        return;
-    }
-}
-
-void Router::ReadZmqThreadFunc() {
-
-    ThreadNamer::SetThisThreadName("routerZmqReader");
-
-    static constexpr unsigned int NUM_SOCKETS = 1;
-    zmq::pollitem_t items[NUM_SOCKETS] = {
-        {m_zmqSubSock_boundSchedulerToConnectingRouterPtr->handle(), 0, ZMQ_POLLIN, 0}
-    };
-    static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
-
-    m_computedInitialOptimalRoutes = false;
-
-    //notify Init function that worker thread startup is complete
-    m_workerThreadStartupMutex.lock();
-    m_workerThreadStartupInProgress = false;
-    m_workerThreadStartupMutex.unlock();
-    m_workerThreadStartupConditionVariable.notify_one();
-
-    try {
-        //Sends one-byte 0x1 message to scheduler XPub socket plus strlen of subscription
-        //All release messages shall be prefixed by "aaaaaaaa" before the common header
-        //Router unique subscription shall be "a" (gets all messages that start with "a") (e.g "aaa", "ab", etc.)
-        //Ingress unique subscription shall be "aa"
-        //Storage unique subscription shall be "aaa"
-        m_zmqSubSock_boundSchedulerToConnectingRouterPtr->set(zmq::sockopt::subscribe, "a");
-        LOG_INFO(subprocess) << "Subscribed to all events from scheduler";
-    }
-    catch (const zmq::error_t& ex) {
-        LOG_ERROR(subprocess) << "Cannot subscribe to all events from scheduler: " << ex.what();
-        //return false;
-    }
-
-    while (m_running) {
-        int rc = 0;
-        try {
-            rc = zmq::poll(&items[0], NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL);
-        }
-        catch (zmq::error_t& e) {
-            LOG_ERROR(subprocess) << "zmq::poll threw zmq::error_t in hdtn::Router::Run: " << e.what();
-            continue;
-        }
-        if (rc > 0) {
-            if (items[0].revents & ZMQ_POLLIN) { //events from scheduler
-                SchedulerEventsHandler();
-            }
-        }
-    }
 }
 
 bool Router::ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint64_t outductIndex) {

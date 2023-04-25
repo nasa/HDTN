@@ -242,6 +242,12 @@ void Scheduler::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayI
     stopMsg.outductArrayIndex = outductArrayIndex;
     stopMsg.time = time;
     stopMsg.isPhysical = (isPhysical ? 1 : 0);
+
+    if(m_router)
+    {
+        m_router->HandleLinkDownEvent(stopMsg);
+    }
+
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
         if(!m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(
@@ -289,6 +295,12 @@ void Scheduler::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayInd
     releaseMsg.rateBps = rateBps;
     releaseMsg.duration = duration;
     releaseMsg.isPhysical = (isPhysical ? 1 : 0);
+
+    if(m_router)
+    {
+        m_router->HandleLinkUpEvent(releaseMsg);
+    }
+
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
         if (!m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(
@@ -466,6 +478,11 @@ bool Scheduler::SendBundle(const uint8_t* payloadData, const uint64_t payloadSiz
     zmq::message_t zmqSchedulerGeneratedBundle(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupPaddedVecUint8, vecUint8RawPointer);
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
+
+        if(m_router)
+        {
+            m_router->HandleBundleFromScheduler(releaseMsg);
+        }
         if (!m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(
             zmq::const_buffer(&releaseMsg, sizeof(releaseMsg)), zmq::send_flags::sndmore | zmq::send_flags::dontwait))
         {
@@ -541,7 +558,6 @@ void Scheduler::ReadZmqAcksThreadFunc() {
     bool egressSubscribed = false;
     bool ingressSubscribed = false;
     bool storageSubscribed = false;
-    bool routerSubscribed = false;
 
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
 
@@ -584,10 +600,6 @@ void Scheduler::ReadZmqAcksThreadFunc() {
                         egressSubscribed = (dataSubscriber[0] == 0x1);
                         LOG_INFO(subprocess) << "Egress " << ((egressSubscribed) ? "subscribed" : "desubscribed");
                     }
-                    else if ((zmqSubscriberDataReceived.size() == 2) && (dataSubscriber[1] == 'a')) {
-                        routerSubscribed = (dataSubscriber[0] == 0x1);
-                        LOG_INFO(subprocess) << "Router " << ((routerSubscribed) ? "subscribed" : "desubscribed");
-                    }
                     else if ((zmqSubscriberDataReceived.size() == 3) && (dataSubscriber[1] == 'a') && (dataSubscriber[2] == 'a')) {
                         ingressSubscribed = (dataSubscriber[0] == 0x1);
                         LOG_INFO(subprocess) << "Ingress " << ((ingressSubscribed) ? "subscribed" : "desubscribed");
@@ -614,26 +626,25 @@ void Scheduler::ReadZmqAcksThreadFunc() {
                 }
             }
 
-            if ((egressSubscribed) && (ingressSubscribed) && (storageSubscribed) && (routerSubscribed) && (m_zmqMessageOutductCapabilitiesTelemPtr)) {
+            if ((egressSubscribed) && (ingressSubscribed) && (storageSubscribed) && (m_zmqMessageOutductCapabilitiesTelemPtr)) {
 
                 LOG_INFO(subprocess) << "Forwarding outduct capabilities telemetry to Router";
                 hdtn::IreleaseChangeHdr releaseMsgHdr;
                 releaseMsgHdr.SetSubscribeRouterOnly();
                 releaseMsgHdr.base.type = HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY;
 
+                if(m_router)
                 {
-                    boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
-                    while (m_running && !m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(
-                        zmq::const_buffer(&releaseMsgHdr, sizeof(releaseMsgHdr)), zmq::send_flags::sndmore | zmq::send_flags::dontwait))
-                    {
-                        LOG_INFO(subprocess) << "waiting for router to become available to send outduct capabilities header";
-                        boost::this_thread::sleep(boost::posix_time::seconds(1));
+                    //boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
+                    AllOutductCapabilitiesTelemetry_t aoct;
+                    if (!aoct.SetValuesFromJsonCharArray((char*)m_zmqMessageOutductCapabilitiesTelemPtr->data(), m_zmqMessageOutductCapabilitiesTelemPtr->size())) {
+                        m_router->HandleOutductCapabilitiesTelemetry(releaseMsgHdr, aoct);
+                    } else {
+                        LOG_ERROR(subprocess) << "error deserializing AllOutductCapabilitiesTelemetry";
                     }
-                    if (!m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(std::move(*m_zmqMessageOutductCapabilitiesTelemPtr), zmq::send_flags::dontwait)) {
-                        LOG_FATAL(subprocess) << "m_zmqXPubSock_boundSchedulerToConnectingSubsPtr could not send outduct capabilities";
-                    }
-                    m_zmqMessageOutductCapabilitiesTelemPtr.reset();
                 }
+
+                m_zmqMessageOutductCapabilitiesTelemPtr.reset();
 
                 if (!schedulerFullyInitialized) {
                     //first time this outduct capabilities telemetry received, start remaining scheduler threads

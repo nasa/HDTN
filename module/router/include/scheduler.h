@@ -36,6 +36,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include "router_lib_export.h"
+#include "router.h"
 
 #include "TimestampUtil.h"
 #include "Logger.h"
@@ -97,6 +98,9 @@ public:
     ROUTER_LIB_EXPORT static boost::filesystem::path GetFullyQualifiedFilename(const boost::filesystem::path& filename);
     ROUTER_LIB_EXPORT static uint64_t GetRateBpsFromPtree(const boost::property_tree::ptree::value_type& eventPtr);
 
+    Router * m_router;
+
+
 private:
     bool ProcessContacts(const boost::property_tree::ptree & pt);
     bool ProcessContactsJsonText(char* jsonText);
@@ -120,8 +124,8 @@ private:
     void OnContactPlan_TimerExpired(const boost::system::error_code& e);
     bool AddContact_NotThreadSafe(contactPlan_t& contact);
     
-
 private:
+
     typedef std::pair<boost::posix_time::ptime, uint64_t> ptime_index_pair_t; //used in case of identical ptimes for starting events
     typedef boost::bimap<ptime_index_pair_t, contactPlan_t> ptime_to_contactplan_bimap_t;
 

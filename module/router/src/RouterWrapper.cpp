@@ -40,6 +40,7 @@ bool RouterWrapper::Init(const HdtnConfig& hdtnConfig,
         LOG_ERROR(subprocess) << "Failed to start m_router";
         return false;
     }
+    m_scheduler.m_router = &m_router;
     if(!m_scheduler.Init(hdtnConfig, hdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp, hdtnOneProcessZmqInprocContextPtr)) {
         LOG_ERROR(subprocess) << "Failed to start m_router";
         return false;
