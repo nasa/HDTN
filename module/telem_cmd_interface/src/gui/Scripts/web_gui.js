@@ -24,7 +24,7 @@ var ingressLayout = {
     title: 'Ingress Data Rate',
     paper_bgcolor: "#404040",
     plot_bgcolor: "#404040",
-    width: 500,
+    width: 450,
     height: 450,
     xaxis: {
         title: "Timestamp (s)",
@@ -43,7 +43,7 @@ var egressLayout = {
     title: 'Egress Data Rate',
     paper_bgcolor: "#404040",
     plot_bgcolor: "#404040",
-    width: 500,
+    width: 450,
     height: 450,
     xaxis: {
         title: "Timestamp (s)",
@@ -139,7 +139,7 @@ var pie_data = [{
 var pie_layout = {
     title: 'Bundle Destinations',
     height: 450,
-    width:450,
+    width: 450,
     paper_bgcolor: "#404040",
     font:{
         family: "Arial",

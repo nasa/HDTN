@@ -100,13 +100,21 @@ body {
 
 
 .visualizations {
-    max-width:100%;
-    position: relative;
+    position:relative;
     padding:20px;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
     grid-gap: 20px;
-    justify-items: left;
+}
+
+.rateGraph {
+    position: relative;
+    background: #404040;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: none;
 }
 
 .onOffIndicator {
@@ -211,7 +219,7 @@ body {
     color: white;
     font-size: 1.2em;
     font-family: sans-serif;
-    width: 1250px;
+    width: 1000px;
     border: 1px solid;
     table-layout:fixed;
 }
