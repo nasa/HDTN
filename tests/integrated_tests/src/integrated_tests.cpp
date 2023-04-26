@@ -1474,8 +1474,6 @@ bool TestHDTNStorageModeTCPCL() {
 
 BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 
-
-
 BOOST_AUTO_TEST_CASE(it_TestHDTNCutThroughModeLTP, * boost::unit_test::enabled()) {
     std::cout << std::endl << ">>>>>> Running: " << "it_TestHDTNCutThroughModeLTP" << std::endl << std::flush;
     bool result = TestHDTNCutThroughModeLTP();
