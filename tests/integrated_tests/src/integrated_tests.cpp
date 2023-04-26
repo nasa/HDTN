@@ -1141,6 +1141,239 @@ bool TestHDTNCutThroughModeUDP() {
     return true;
 }
 
+bool TestHDTNStorageModeUDP() {
+
+    Delay(DELAY_TEST);
+
+    bool runningBpgen = true;
+    bool runningBpsink = true;
+    bool runningHdtnOneProcess = true;
+
+    uint64_t bundlesSentBpgen[1] = {0};
+    OutductFinalStats finalStats[1];
+    FinalStatsBpSink finalStatsBpSink[1];
+    uint64_t bundlesReceivedBpsink[1]= {0};
+    uint64_t bundleCountStorage = 0;
+    uint64_t bundleCountEgress = 0;
+    uint64_t bundleCountIngress = 0;
+
+    // Start threads
+    Delay(DELAY_THREAD);
+
+    //bpsink
+    static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_udp_port4558.json").string();
+    static const char * argsBpsink[] = { "bpsink",  "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
+    std::thread threadBpsink(RunBpsinkAsync, argsBpsink, 3, std::ref(runningBpsink), &bundlesReceivedBpsink[0],
+        &finalStatsBpSink[0]);
+
+    Delay(DELAY_THREAD);
+
+    //HDTN One Process
+    //HdtnOneProcessRunner hdtn;
+    static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "hdtn" / "hdtn_ingress1udp_port4556_egress1udp_port4558flowid2_0.8Mbps.json").string();
+    const boost::filesystem::path contactsFile = "contactPlanStorageMode.json";
+    const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
+    const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
+    //std::thread threadHdtn(&HdtnOneProcessRunner::Run, &hdtn, 3,  argsHdtnOneProcess, std::ref(runningHdtnOneProcess), true);
+    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, 3, std::ref(runningHdtnOneProcess), &bundleCountStorage,
+                           &bundleCountEgress, &bundleCountIngress);
+
+    Delay(10);
+
+    //Bpgen
+    static const std::string bpgenConfigArg = 
+	"--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_udp_port4556_0.05Mbps.json").string();
+
+    static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1","--duration=40", bpgenConfigArg.c_str(), NULL };
+    std::thread threadBpgen(RunBpgenAsync,argsBpgen, 6, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
+
+    // Allow time for data to flow
+    boost::this_thread::sleep(boost::posix_time::seconds(8));
+
+    // Stop threads
+    runningBpgen = false;
+    threadBpgen.join();
+
+    runningHdtnOneProcess = false;
+    threadHdtn.join();
+
+    runningBpsink = false;
+    threadBpsink.join();
+
+    // Verify results
+    uint64_t totalBundlesBpgen = 0;
+    for (int i=0; i<1; i++) {
+        totalBundlesBpgen += bundlesSentBpgen[i];
+    }
+
+    uint64_t totalBundlesBpsink = 0;
+    for(int i=0; i<1; i++) {
+        totalBundlesBpsink += bundlesReceivedBpsink[i];
+    }
+
+
+    uint64_t totalBundlesCount = bundleCountEgress + bundleCountStorage;
+
+    if (bundleCountIngress != (totalBundlesCount)) {
+        BOOST_ERROR("Total Bundles received by Ingress (" + std::to_string(bundleCountIngress) + 
+	            ") != Total bundles received by Egress and Storage in Storage Mode ("
+                    + std::to_string(totalBundlesCount) + ").");
+        return false;
+    }
+
+    if (totalBundlesBpgen != totalBundlesBpsink) {
+        BOOST_ERROR("Bundles sent by BpGen (" + std::to_string(totalBundlesBpgen) + ") != bundles received by BpSink "
+                    + std::to_string(totalBundlesBpsink) + ").");
+        return false;
+    }
+
+    if (totalBundlesBpgen != bundleCountIngress) {
+        BOOST_ERROR("Bundles sent by BpGen (" + std::to_string(totalBundlesBpgen) + ") !=  bundles received by Ingress "
+                + std::to_string(bundleCountIngress) + ").");
+        return false;
+    }
+
+    if (totalBundlesBpgen != bundleCountEgress) {
+        BOOST_ERROR("Bundles sent by BpGen (" + std::to_string(totalBundlesBpgen) + ") != bundles received by Egress "
+                + std::to_string(bundleCountEgress) + ").");
+        return false;
+    }
+
+    return true;
+}
+
+bool TestHDTNFileTransferUDP() {
+
+    Delay(DELAY_TEST);
+
+    bool runningBpsend = true;
+    bool runningBpreceive = true;
+    bool runningHdtnOneProcess = true; 
+
+    uint64_t bundlesSentBpsend[1] = {0};
+    //OutductFinalStats finalStats[1];
+    //FinalStatsBpSink finalStatsBpSink[1];
+    uint64_t bundlesReceivedBpreceive[1]= {0};
+    uint64_t bundleCountStorage = 0;
+    uint64_t bundleCountEgress = 0;
+    uint64_t bundleCountIngress = 0;
+  
+    // Start threads
+    Delay(DELAY_THREAD);
+
+    //bpreceive
+    static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_udp_port4558.json").string();
+    static const std::string bpsinkSaveDir = "--save-directory=" + (Environment::GetPathHdtnSourceRoot() / "build" / "tests" / "integrated_tests" / "received").string();
+    static const char * argsBpReceiveFile[] = { "bpreceivefile",  bpsinkSaveDir.c_str(), "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
+    std::thread threadBpReceiveFile(RunBpReceiveFile, argsBpReceiveFile, 4, std::ref(runningBpreceive), &bundlesReceivedBpreceive[0] );
+
+    Delay(DELAY_THREAD);
+
+    //HDTN One Process
+    static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "hdtn" / "hdtn_ingress1udp_port4556_egress1udp_port4558flowid2_0.8Mbps.json").string();
+    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode.json";
+    const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
+    const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
+    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, 3, std::ref(runningHdtnOneProcess), &bundleCountStorage,
+		             &bundleCountEgress, &bundleCountIngress);
+
+    Delay(10);
+
+    //Bpsend
+    static const std::string bpgenConfigArg = 
+	"--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_udp_port4556_0.05Mbps.json").string();
+    static const std::string testFile = 
+	"--file-or-folder-path=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "integrated_tests" / "src" / "test.txt" ).string();
+   
+    static const char * argsBpSendFile[] = { "bpsendfile",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", testFile.c_str(), bpgenConfigArg.c_str(), NULL };
+    std::thread threadBpSendFile(RunBpSendFile,argsBpSendFile, 6, std::ref(runningBpsend), &bundlesSentBpsend[0] );
+
+    // Allow time for data to flow
+    boost::this_thread::sleep(boost::posix_time::seconds(8));
+
+    // Stop threads
+    runningBpsend = false;
+    threadBpSendFile.join();
+
+    runningHdtnOneProcess = false;
+    threadHdtn.join();
+
+    runningBpreceive = false;
+    threadBpReceiveFile.join();
+
+    // Verify results
+    
+    //Files sent vs. files received
+    static const std::string receivedFile = (Environment::GetPathHdtnSourceRoot() / "build" / "tests" / "integrated_tests" / "received" ).string();
+    static const std::string testFilePath = (Environment::GetPathHdtnSourceRoot() / "tests" / "integrated_tests" / "src" / "test.txt" ).string();
+    boost::filesystem::path sendFilePath = testFilePath.c_str();
+    boost::filesystem::path ReceiveFilePath = receivedFile.c_str();
+    
+    int receivedCount = 0;
+        for(auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(ReceiveFilePath), {}))
+            receivedCount += 1;
+ 
+     if (receivedCount != 1) {
+        BOOST_ERROR("receivedCount ("+ std::to_string(receivedCount) +") != sendCount");
+        return false;
+    }
+ 
+   //Sha1_1 vs Sha1_2
+   std::vector<uint8_t> fileContentsInMemory;
+   boost::filesystem::ifstream ifs(sendFilePath, std::ifstream::in | std::ifstream::binary);
+   std::string sha1Str;
+   
+   if (ifs.good()) {
+                // get length of file:
+       ifs.seekg(0, ifs.end);
+       std::size_t length = ifs.tellg();
+       ifs.seekg(0, ifs.beg);
+
+                // allocate memory:
+       fileContentsInMemory.resize(length);
+
+                // read data as a block:
+       ifs.read((char*)fileContentsInMemory.data(), length);
+
+       ifs.close();
+
+       GetSha1(fileContentsInMemory.data(), fileContentsInMemory.size(), sha1Str);
+       
+   }
+   else {
+                return false;
+   }
+   
+   std::vector<uint8_t> receivedFileContentsInMemory;
+   static const std::string receivedFile2 = (Environment::GetPathHdtnSourceRoot() / "build" / "tests" / "integrated_tests" / "received" / "test.txt" ).string();
+   boost::filesystem::path ReceiveFilePath2 = receivedFile2; 
+   boost::filesystem::ifstream ifs2(ReceiveFilePath2, std::ifstream::in | std::ifstream::binary);
+   std::string sha1Str_2;
+   
+   if (ifs2.good()) {
+                // get length of file:
+       ifs2.seekg(0, ifs2.end);
+       std::size_t length2 = ifs2.tellg();
+       ifs2.seekg(0, ifs2.beg);
+
+                // allocate memory:
+       receivedFileContentsInMemory.resize(length2);
+
+                // read data as a block:
+       ifs2.read((char*)receivedFileContentsInMemory.data(), length2);
+
+       ifs2.close();
+
+       GetSha1(receivedFileContentsInMemory.data(), receivedFileContentsInMemory.size(), sha1Str_2);
+       
+   }
+   else {
+                return false;
+   }
+   
+    return true;
+}
+
 bool TestHDTNStorageModeTCPCL() {
 
     Delay(DELAY_TEST);
@@ -1288,6 +1521,18 @@ BOOST_AUTO_TEST_CASE(it_TestHDTNStorageModeLTPv7, * boost::unit_test::enabled())
 BOOST_AUTO_TEST_CASE(it_TestHDTNCutThroughModeUDP, * boost::unit_test::enabled()) {
     std::cout << std::endl << ">>>>>> Running: " << "it_TestHDTNCutThroughModeUDP" << std::endl << std::flush;
     bool result = TestHDTNCutThroughModeUDP();
+    BOOST_CHECK(result == true);
+}
+
+BOOST_AUTO_TEST_CASE(it_TestHDTNStorageModeUDP, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestHDTNStorageModeUDP" << std::endl << std::flush;
+    bool result = TestHDTNStorageModeUDP();
+    BOOST_CHECK(result == true);
+}
+
+BOOST_AUTO_TEST_CASE(it_TestHDTNFileTransferUDP, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestHDTNFileTransferUDP" << std::endl << std::flush;
+    bool result = TestHDTNFileTransferUDP();
     BOOST_CHECK(result == true);
 }
 
