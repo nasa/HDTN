@@ -1,6 +1,5 @@
 add_library(router_lib
     src/RouterWrapper.cpp
-	src/router.cpp
 	src/scheduler.cpp
 	src/RouterRunner.cpp
 )

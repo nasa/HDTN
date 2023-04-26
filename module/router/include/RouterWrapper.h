@@ -28,7 +28,6 @@
 #include <boost/filesystem.hpp>
 #include "router_lib_export.h"
 
-#include "router.h"
 #include "scheduler.h"
 
 
@@ -48,7 +47,6 @@ public:
 
 
 private:
-    Router m_router;
     Scheduler m_scheduler;
 };
 

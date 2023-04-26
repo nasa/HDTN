@@ -35,11 +35,12 @@
 #include "ThreadNamer.h"
 #include "codec/BundleViewV6.h"
 #include "codec/BundleViewV7.h"
+#include "libcgr.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::scheduler;
 
 boost::filesystem::path Scheduler::GetFullyQualifiedFilename(const boost::filesystem::path& filename) {
-    return (Environment::GetPathHdtnSourceRoot() / "module/scheduler/contact_plans/") / filename;
+    return (Environment::GetPathHdtnSourceRoot() / "module/router/contact_plans/") / filename;
 }
 
 bool contactPlan_t::operator<(const contactPlan_t& o) const {
@@ -118,6 +119,7 @@ bool Scheduler::Init(const HdtnConfig& hdtnConfig,
     const HdtnDistributedConfig& hdtnDistributedConfig,
     const boost::filesystem::path& contactPlanFilePath,
     bool usingUnixTimestamp,
+    bool useMgr,
     zmq::context_t* hdtnOneProcessZmqInprocContextPtr)
 {
     if (m_running) {
@@ -128,6 +130,8 @@ bool Scheduler::Init(const HdtnConfig& hdtnConfig,
     m_hdtnConfig = hdtnConfig;
     m_contactPlanFilePath = contactPlanFilePath;
     m_usingUnixTimestamp = usingUnixTimestamp;
+    m_usingMGR = useMgr;
+    m_computedInitialOptimalRoutes = false;
 
     m_lastMillisecondsSinceStartOfYear2000 = 0;
     m_bundleSequence = 0;
@@ -265,10 +269,7 @@ void Scheduler::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayI
     stopMsg.time = time;
     stopMsg.isPhysical = (isPhysical ? 1 : 0);
 
-    if(m_router)
-    {
-        m_router->HandleLinkDownEvent(stopMsg);
-    }
+    HandleLinkDownEvent(stopMsg);
 
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
@@ -318,10 +319,7 @@ void Scheduler::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayInd
     releaseMsg.duration = duration;
     releaseMsg.isPhysical = (isPhysical ? 1 : 0);
 
-    if(m_router)
-    {
-        m_router->HandleLinkUpEvent(releaseMsg);
-    }
+    HandleLinkUpEvent(releaseMsg);
 
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
@@ -501,10 +499,8 @@ bool Scheduler::SendBundle(const uint8_t* payloadData, const uint64_t payloadSiz
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
 
-        if(m_router)
-        {
-            m_router->HandleBundleFromScheduler(releaseMsg);
-        }
+        HandleBundleFromScheduler(releaseMsg);
+
         if (!m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(
             zmq::const_buffer(&releaseMsg, sizeof(releaseMsg)), zmq::send_flags::sndmore | zmq::send_flags::dontwait))
         {
@@ -655,15 +651,12 @@ void Scheduler::ReadZmqAcksThreadFunc() {
                 releaseMsgHdr.SetSubscribeRouterOnly();
                 releaseMsgHdr.base.type = HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY;
 
-                if(m_router)
-                {
-                    //boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
-                    AllOutductCapabilitiesTelemetry_t aoct;
-                    if (!aoct.SetValuesFromJsonCharArray((char*)m_zmqMessageOutductCapabilitiesTelemPtr->data(), m_zmqMessageOutductCapabilitiesTelemPtr->size())) {
-                        m_router->HandleOutductCapabilitiesTelemetry(releaseMsgHdr, aoct);
-                    } else {
-                        LOG_ERROR(subprocess) << "error deserializing AllOutductCapabilitiesTelemetry";
-                    }
+                //boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
+                AllOutductCapabilitiesTelemetry_t aoct;
+                if (!aoct.SetValuesFromJsonCharArray((char*)m_zmqMessageOutductCapabilitiesTelemPtr->data(), m_zmqMessageOutductCapabilitiesTelemPtr->size())) {
+                    HandleOutductCapabilitiesTelemetry(releaseMsgHdr, aoct);
+                } else {
+                    LOG_ERROR(subprocess) << "error deserializing AllOutductCapabilitiesTelemetry";
                 }
 
                 m_zmqMessageOutductCapabilitiesTelemPtr.reset();
@@ -941,3 +934,138 @@ void Scheduler::SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNodeId
     }
 }
 
+/* From Router */
+
+void Scheduler::HandleLinkDownEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr) {
+    m_latestTime = releaseChangeHdr.time;
+    LOG_INFO(subprocess) << "Received Link Down for contact: src = "
+        << releaseChangeHdr.prevHopNodeId
+        << "  dest = " << releaseChangeHdr.nextHopNodeId
+        << "  outductIndex = " << releaseChangeHdr.outductArrayIndex;
+
+    if (!m_computedInitialOptimalRoutes) {
+        LOG_ERROR(subprocess) << "out of order command, received link down before receiving outduct capabilities";
+        return;
+    }
+
+    ComputeOptimalRoutesForOutductIndex(releaseChangeHdr.prevHopNodeId, releaseChangeHdr.outductArrayIndex);
+    LOG_DEBUG(subprocess) << "Updated time to " << m_latestTime;
+}
+
+void Scheduler::HandleLinkUpEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr) {
+    m_latestTime = releaseChangeHdr.time;
+    LOG_DEBUG(subprocess) << "Contact up ";
+    LOG_DEBUG(subprocess) << "Updated time to " << m_latestTime;
+}
+
+void Scheduler::HandleOutductCapabilitiesTelemetry(const hdtn::IreleaseChangeHdr &releaseChangeHdr, const AllOutductCapabilitiesTelemetry_t & aoct) {
+    m_latestTime = releaseChangeHdr.time;
+    LOG_INFO(subprocess) << "Received and successfully decoded " << ((m_computedInitialOptimalRoutes) ? "UPDATED" : "NEW")
+        << " AllOutductCapabilitiesTelemetry_t message from Scheduler containing "
+        << aoct.outductCapabilityTelemetryList.size() << " outducts.";
+
+    m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList.clear();
+
+    for (std::list<OutductCapabilityTelemetry_t>::const_iterator itAoct = aoct.outductCapabilityTelemetryList.cbegin();
+        itAoct != aoct.outductCapabilityTelemetryList.cend(); ++itAoct)
+    {
+        const OutductCapabilityTelemetry_t& oct = *itAoct;
+        nexthop_finaldestlist_pair_t& nhFdPair = m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList[oct.outductArrayIndex];
+        nhFdPair.first = oct.nextHopNodeId;
+        std::list<uint64_t>& finalDestNodeIdList = nhFdPair.second;
+        for (std::list<uint64_t>::const_iterator it = oct.finalDestinationNodeIdList.cbegin();
+            it != oct.finalDestinationNodeIdList.cend(); ++it)
+        {
+            const uint64_t nodeId = *it;
+            finalDestNodeIdList.emplace_back(nodeId);
+            LOG_INFO(subprocess) << "Compute Optimal Route for finalDestination node " << nodeId;
+        }
+        std::set<uint64_t> usedNodeIds;
+        for (std::list<cbhe_eid_t>::const_iterator it = oct.finalDestinationEidList.cbegin();
+            it != oct.finalDestinationEidList.cend(); ++it)
+        {
+            const uint64_t nodeId = it->nodeId;
+            if (usedNodeIds.emplace(nodeId).second) { //was inserted
+                finalDestNodeIdList.emplace_back(nodeId);
+                LOG_INFO(subprocess) << "Compute Optimal Route for finalDestination node " << nodeId;
+            }
+        }
+        if (!m_computedInitialOptimalRoutes) {
+            ComputeOptimalRoutesForOutductIndex(m_hdtnConfig.m_myNodeId, oct.outductArrayIndex);
+        }
+    }
+    m_computedInitialOptimalRoutes = true;
+
+}
+
+void Scheduler::HandleBundleFromScheduler(const hdtn::IreleaseChangeHdr &releaseChangeHdr) {
+    m_latestTime = releaseChangeHdr.time;
+}
+
+bool Scheduler::ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint64_t outductIndex) {
+    std::map<uint64_t, nexthop_finaldestlist_pair_t>::const_iterator mapIt = m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList.find(outductIndex);
+    if (mapIt == m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList.cend()) {
+        LOG_ERROR(subprocess) << "ComputeOptimalRoutesForOutductIndex cannot find outductIndex " << outductIndex;
+        return false;
+    }
+
+    const nexthop_finaldestlist_pair_t& nhFdPair = mapIt->second;
+    const uint64_t originalNextHopNodeId = nhFdPair.first;
+    const std::list<uint64_t>& finalDestNodeIdList = nhFdPair.second;
+    bool noErrors = true;
+    for (std::list<uint64_t>::const_iterator it = finalDestNodeIdList.cbegin();
+        it != finalDestNodeIdList.cend(); ++it)
+    {
+        const uint64_t finalDestNodeId = *it;
+        LOG_DEBUG(subprocess) << "FinalDest nodeId found is:  " << finalDestNodeId;
+        if (!ComputeOptimalRoute(sourceNode, originalNextHopNodeId, finalDestNodeId)) {
+            noErrors = false;
+        }
+    }
+    return noErrors;
+}
+
+bool Scheduler::ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNextHopNodeId, uint64_t finalDestNodeId) {
+
+    cgr::Route bestRoute;
+
+    LOG_DEBUG(subprocess) << "Reading contact plan and computing next hop";
+    std::vector<cgr::Contact> contactPlan = cgr::cp_load(m_contactPlanFilePath);
+
+    cgr::Contact rootContact = cgr::Contact(sourceNode,
+        sourceNode, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
+    rootContact.arrival_time = m_latestTime;
+    if (!m_usingMGR) {
+        LOG_INFO(subprocess) << "Computing Optimal Route using CGR dijkstra for final Destination "
+            << finalDestNodeId << " at latest time " << rootContact.arrival_time;
+        bestRoute = cgr::dijkstra(&rootContact, finalDestNodeId, contactPlan);
+    }
+    else {
+        bestRoute = cgr::cmr_dijkstra(&rootContact,
+            finalDestNodeId, contactPlan);
+        LOG_INFO(subprocess) << "Computing Optimal Route using CMR algorithm for final Destination "
+            << finalDestNodeId << " at latest time " << rootContact.arrival_time;
+    }
+
+    if (bestRoute.valid()) { // successfully computed a route
+        const uint64_t nextHopNodeId = bestRoute.next_node;
+	if (originalNextHopNodeId != nextHopNodeId) {
+            LOG_INFO(subprocess) << "Successfully Computed next hop: "
+                << nextHopNodeId << " for final Destination " << finalDestNodeId
+                << "Best route is " << bestRoute;
+            SendRouteUpdate(nextHopNodeId, finalDestNodeId);
+
+        }
+        else {
+            LOG_DEBUG(subprocess) << "Skipping Computed next hop: "
+                << nextHopNodeId << " for final Destination " << finalDestNodeId
+                << " because the next hops didn't change.";
+        }
+   } else {
+        // what should we do if no route is found?
+        LOG_ERROR(subprocess) << "No route is found!!";
+        return false;
+    }
+
+    return true;
+}

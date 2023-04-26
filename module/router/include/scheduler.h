@@ -36,7 +36,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include "router_lib_export.h"
-#include "router.h"
 
 #include "TimestampUtil.h"
 #include "Logger.h"
@@ -93,14 +92,11 @@ public:
         const HdtnDistributedConfig& hdtnDistributedConfig,
         const boost::filesystem::path& contactPlanFilePath,
         bool usingUnixTimestamp,
+        bool useMgr,
         zmq::context_t* hdtnOneProcessZmqInprocContextPtr = NULL);
 
     ROUTER_LIB_EXPORT static boost::filesystem::path GetFullyQualifiedFilename(const boost::filesystem::path& filename);
     ROUTER_LIB_EXPORT static uint64_t GetRateBpsFromPtree(const boost::property_tree::ptree::value_type& eventPtr);
-
-    Router * m_router;
-
-    void SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNodeId);
 
 private:
     bool ProcessContacts(const boost::property_tree::ptree & pt);
@@ -124,6 +120,17 @@ private:
     void TryRestartContactPlanTimer();
     void OnContactPlan_TimerExpired(const boost::system::error_code& e);
     bool AddContact_NotThreadSafe(contactPlan_t& contact);
+
+    /* From router */
+    void HandleLinkDownEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr);
+    void HandleLinkUpEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr);
+    void HandleOutductCapabilitiesTelemetry(const hdtn::IreleaseChangeHdr &releaseChangeHdr, const AllOutductCapabilitiesTelemetry_t & aoct);
+    void HandleBundleFromScheduler(const hdtn::IreleaseChangeHdr &releaseChangeHdr);
+
+    void SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNodeId);
+
+    bool ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNextHopNodeId, uint64_t finalDestNodeId);
+    bool ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint64_t outductIndex);
 
 private:
 
@@ -170,7 +177,16 @@ private:
     boost::mutex m_bundleCreationMutex;
     uint64_t m_lastMillisecondsSinceStartOfYear2000;
     uint64_t m_bundleSequence;
-};
 
+    /* From Router (non-duplicates) */
+    
+    bool m_usingMGR;
+    bool m_computedInitialOptimalRoutes;
+    uint64_t m_latestTime;
+
+    typedef std::pair<uint64_t, std::list<uint64_t> > nexthop_finaldestlist_pair_t;
+    std::map<uint64_t, nexthop_finaldestlist_pair_t> m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList;
+
+};
 
 #endif // SCHEDULER_H
