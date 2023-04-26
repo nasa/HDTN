@@ -40,6 +40,12 @@ class BPSecManager {
 private:
       BPSecManager();
 public:
+    struct EvpCipherCtxWrapper {
+        BPSEC_EXPORT EvpCipherCtxWrapper();
+        BPSEC_EXPORT ~EvpCipherCtxWrapper();
+        EVP_CIPHER_CTX* m_ctx;
+    };
+
     BPSEC_EXPORT BPSecManager(const bool isSecEnabled);
     BPSEC_EXPORT ~BPSecManager();
 
@@ -52,7 +58,7 @@ public:
     * to generate the hash
     * @return the computed HMAC digest
     */
-    BPSEC_EXPORT unsigned char* hmac_sha(const EVP_MD *evp_md,
+    BPSEC_EXPORT static unsigned char* hmac_sha(const EVP_MD *evp_md,
                                          std::string key,
                                          std::string data, unsigned char *md,
                                          unsigned int *md_len);
@@ -76,16 +82,30 @@ public:
     const bool m_isSecEnabled;
     
 
-    BPSEC_EXPORT int aes_gcm_encrypt(std::string gcm_pt, std::string gcm_key,
+    BPSEC_EXPORT static int aes_gcm_encrypt(std::string gcm_pt, std::string gcm_key,
                                   std::string gcm_iv, std::string gcm_aad,
                                   unsigned char* ciphertext, unsigned char* tag,      
                                   int *outlen);
 
-    BPSEC_EXPORT int aes_gcm_decrypt(std::string gcm_ct, std::string gcm_tag,
+    BPSEC_EXPORT static int aes_gcm_decrypt(std::string gcm_ct, std::string gcm_tag,
                                      std::string gcm_key, std::string gcm_iv,
                                      std::string gcm_aad, unsigned char* pt, int *outlen);
 
-    
+    BPSEC_EXPORT static bool AesGcmEncrypt(EvpCipherCtxWrapper& ctxWrapper,
+        const uint8_t* unencryptedData, const uint64_t unencryptedDataLength,
+        const uint8_t* key, const uint64_t keyLength,
+        const uint8_t* iv, const uint64_t ivLength,
+        const uint8_t* aad, const uint64_t aadLength,
+        uint8_t* cipherTextOut, uint64_t& cipherTextOutSize, uint8_t* tagOut);
+
+    BPSEC_EXPORT static bool AesGcmDecrypt(EvpCipherCtxWrapper& ctxWrapper,
+        const uint8_t* encryptedData, const uint64_t encryptedDataLength,
+        const uint8_t* key, const uint64_t keyLength,
+        const uint8_t* iv, const uint64_t ivLength,
+        const uint8_t* aad, const uint64_t aadLength,
+        const uint8_t* tag,
+        uint8_t* decryptedDataOut, uint64_t& decryptedDataOutSize);
+
    /**
     * Adds BCB confidentiality block to the bundle
     *

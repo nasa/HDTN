@@ -555,3 +555,130 @@ BOOST_AUTO_TEST_CASE(TestBpsecDefaultSecurityContextsSimpleConfidentialityTestCa
         }
     }
 }
+
+BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
+{
+    static const std::string payloadString("Ready to generate a 32-byte payload");
+    
+
+    //Security operations
+    std::vector<uint8_t> initializationVectorBytes;
+    static const std::string initializationVectorString(
+        "5477656c7665313231323132"
+    );
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(initializationVectorString, initializationVectorBytes));
+
+    std::vector<uint8_t> aesWrappedKeyBytes;
+    static const std::string aesWrappedKeyString(
+        "71776572747975696f70617364666768"
+    );
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(aesWrappedKeyString, aesWrappedKeyBytes));
+
+    std::vector<uint8_t> gcmAadBytes;
+    static const std::string gcmAadString("00");
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(gcmAadString, gcmAadBytes));
+    
+
+    //Encrypt payload data (not in place)  
+    std::vector<uint8_t> cipherTextBytes(payloadString.size() + EVP_MAX_BLOCK_LENGTH, 0);
+    std::vector<uint8_t> tagBytes(EVP_GCM_TLS_TAG_LEN + 10, 'a'); //add 10 extra bytes to make sure they are unmodified
+    BPSecManager::EvpCipherCtxWrapper ctxWrapper;
+    uint64_t cipherTextOutSize = 0;
+    //not inplace test (separate in and out buffers)
+    BOOST_REQUIRE(BPSecManager::AesGcmEncrypt(ctxWrapper,
+        (const uint8_t *)payloadString.data(), payloadString.size(),
+        aesWrappedKeyBytes.data(), aesWrappedKeyBytes.size(),
+        initializationVectorBytes.data(), initializationVectorBytes.size(),
+        gcmAadBytes.data(), gcmAadBytes.size(), //affects tag only
+        cipherTextBytes.data(), cipherTextOutSize, tagBytes.data()));
+
+    cipherTextBytes.resize(cipherTextOutSize);
+    std::string cipherTextHexString;
+    BinaryConversions::BytesToHexString(cipherTextBytes, cipherTextHexString);
+    boost::to_lower(cipherTextHexString);
+
+    BOOST_REQUIRE_EQUAL(memcmp(&tagBytes[EVP_GCM_TLS_TAG_LEN], "aaaaaaaaaa", 10), 0); //tag should not have overrun
+    tagBytes.resize(EVP_GCM_TLS_TAG_LEN);
+    std::string tagHexString;
+    BinaryConversions::BytesToHexString(tagBytes, tagHexString);
+    boost::to_lower(tagHexString);
+
+    //https://gchq.github.io/CyberChef/#recipe=AES_Encrypt(%7B'option':'Hex','string':'71776572747975696f70617364666768'%7D,%7B'option':'Hex','string':'5477656c7665313231323132'%7D,'GCM','Hex','Hex',%7B'option':'Hex','string':'00'%7D)&input=NTI2NTYxNjQ3OTIwNzQ2ZjIwNjc2NTZlNjU3MjYxNzQ2NTIwNjEyMDMzMzIyZDYyNzk3NDY1MjA3MDYxNzk2YzZmNjE2NA
+    static const std::string expectedCipherTextHexString("3a09c1e63fe23a7f66a59c7303837241e070b02619fc59c5214a22f08cd70795e73e9a");
+    static const std::string expectedTagHexString("efa4b5ac0108e3816c5606479801bc04");
+    BOOST_REQUIRE_EQUAL(expectedCipherTextHexString, cipherTextHexString);
+    BOOST_REQUIRE_EQUAL(expectedTagHexString, tagHexString);
+
+    //Encrypt payload data (in place) (also reuse context)
+    padded_vector_uint8_t inplaceData( //PADDING_ELEMENTS_AFTER should be more than EVP_MAX_BLOCK_LENGTH
+        reinterpret_cast<const uint8_t*>(payloadString.data()),
+        (reinterpret_cast<const uint8_t*>(payloadString.data())) + payloadString.size()
+    );
+    tagBytes.assign(EVP_GCM_TLS_TAG_LEN + 10, 'a'); //add 10 extra bytes to make sure they are unmodified
+    cipherTextOutSize = 0;
+    //inplace test (same in and out buffers)
+    BOOST_REQUIRE(BPSecManager::AesGcmEncrypt(ctxWrapper,
+        inplaceData.data(), inplaceData.size(),
+        aesWrappedKeyBytes.data(), aesWrappedKeyBytes.size(),
+        initializationVectorBytes.data(), initializationVectorBytes.size(),
+        gcmAadBytes.data(), gcmAadBytes.size(),
+        inplaceData.data(), cipherTextOutSize, tagBytes.data()));
+
+    std::vector<uint8_t> inplaceDataEncryptedCopy(inplaceData.data(), inplaceData.data() + cipherTextOutSize); //safely go out of bounds
+    std::string inplaceDataEncryptedHexString;
+    BinaryConversions::BytesToHexString(inplaceDataEncryptedCopy, inplaceDataEncryptedHexString);
+    boost::to_lower(inplaceDataEncryptedHexString);
+    BOOST_REQUIRE_EQUAL(expectedCipherTextHexString, inplaceDataEncryptedHexString);
+
+    BOOST_REQUIRE_EQUAL(memcmp(&tagBytes[EVP_GCM_TLS_TAG_LEN], "aaaaaaaaaa", 10), 0); //tag should not have overrun
+    tagBytes.resize(EVP_GCM_TLS_TAG_LEN);
+    tagHexString.clear();
+    BinaryConversions::BytesToHexString(tagBytes, tagHexString);
+    boost::to_lower(tagHexString);
+    BOOST_REQUIRE_EQUAL(expectedTagHexString, tagHexString);
+
+
+    //Decrypt payload data (not in place) (reuse context)
+    {
+        std::vector<uint8_t> decryptedBytes(payloadString.size() + EVP_MAX_BLOCK_LENGTH, 0);
+        uint64_t decryptedDataOutSize = 0;
+        //not inplace test (separate in and out buffers)
+        BOOST_REQUIRE(BPSecManager::AesGcmDecrypt(ctxWrapper,
+            cipherTextBytes.data(), cipherTextBytes.size(),
+            aesWrappedKeyBytes.data(), aesWrappedKeyBytes.size(),
+            initializationVectorBytes.data(), initializationVectorBytes.size(),
+            gcmAadBytes.data(), gcmAadBytes.size(), //affects tag only
+            tagBytes.data(),
+            decryptedBytes.data(), decryptedDataOutSize));
+
+        decryptedBytes.resize(decryptedDataOutSize);
+        std::string decryptedString( //make a copy into a string object for comparisons
+            reinterpret_cast<const char*>(decryptedBytes.data()),
+            (reinterpret_cast<const char*>(decryptedBytes.data())) + decryptedBytes.size()
+        );
+        BOOST_REQUIRE_EQUAL(decryptedString, payloadString);
+    }
+
+    //Decrypt payload data (in place) (reuse context)
+    {
+        padded_vector_uint8_t inplaceDataToDecrypt( //PADDING_ELEMENTS_AFTER should be more than EVP_MAX_BLOCK_LENGTH
+            cipherTextBytes.data(),
+            cipherTextBytes.data() + cipherTextBytes.size()
+        );
+        uint64_t decryptedDataOutSize = 0;
+        //not inplace test (separate in and out buffers)
+        BOOST_REQUIRE(BPSecManager::AesGcmDecrypt(ctxWrapper,
+            inplaceDataToDecrypt.data(), inplaceDataToDecrypt.size(),
+            aesWrappedKeyBytes.data(), aesWrappedKeyBytes.size(),
+            initializationVectorBytes.data(), initializationVectorBytes.size(),
+            gcmAadBytes.data(), gcmAadBytes.size(), //affects tag only
+            tagBytes.data(),
+            inplaceDataToDecrypt.data(), decryptedDataOutSize));
+
+        std::string decryptedStringFromInplace( //make a copy into a string object for comparisons
+            reinterpret_cast<const char*>(inplaceDataToDecrypt.data()),
+            (reinterpret_cast<const char*>(inplaceDataToDecrypt.data())) + decryptedDataOutSize //safely go out of bounds
+        );
+        BOOST_REQUIRE_EQUAL(decryptedStringFromInplace, payloadString);
+    }
+}
