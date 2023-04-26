@@ -100,6 +100,7 @@ public:
 
     Router * m_router;
 
+    void SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNodeId);
 
 private:
     bool ProcessContacts(const boost::property_tree::ptree & pt);
@@ -123,7 +124,7 @@ private:
     void TryRestartContactPlanTimer();
     void OnContactPlan_TimerExpired(const boost::system::error_code& e);
     bool AddContact_NotThreadSafe(contactPlan_t& contact);
-    
+
 private:
 
     typedef std::pair<boost::posix_time::ptime, uint64_t> ptime_index_pair_t; //used in case of identical ptimes for starting events
@@ -136,6 +137,7 @@ private:
 
     std::unique_ptr<zmq::context_t> m_zmqCtxPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundEgressToConnectingSchedulerPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingRouterToBoundEgressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqXPubSock_boundSchedulerToConnectingSubsPtr;
     std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr;
     boost::mutex m_mutexZmqPubSock;

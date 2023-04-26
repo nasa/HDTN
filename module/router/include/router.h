@@ -29,18 +29,19 @@
 #include "router_lib_export.h"
 #include "message.hpp"
 #include "TelemetryDefinitions.h"
+#include <boost/function.hpp>
+
+typedef boost::function<void(uint64_t, uint64_t)> SendRouteUpdateCallback_t;
 
 class Router : private boost::noncopyable {
 public:
     ROUTER_LIB_EXPORT Router();
     ROUTER_LIB_EXPORT ~Router();
     ROUTER_LIB_EXPORT void Stop();
-    ROUTER_LIB_EXPORT bool Init(const HdtnConfig& hdtnConfig,
-        const HdtnDistributedConfig& hdtnDistributedConfig,
+    ROUTER_LIB_EXPORT bool Init(uint64_t sourceNodeId,
         const boost::filesystem::path& contactPlanFilePath,
         bool usingUnixTimestamp,
-        bool useMgr,
-        zmq::context_t* hdtnOneProcessZmqInprocContextPtr = NULL);
+        bool useMgr);
 
     ROUTER_LIB_EXPORT static boost::filesystem::path GetFullyQualifiedFilename(const boost::filesystem::path& filename);
 
@@ -49,22 +50,19 @@ public:
     void HandleOutductCapabilitiesTelemetry(const hdtn::IreleaseChangeHdr &releaseChangeHdr, const AllOutductCapabilitiesTelemetry_t & aoct);
     void HandleBundleFromScheduler(const hdtn::IreleaseChangeHdr &releaseChangeHdr);
 
+    SendRouteUpdateCallback_t m_sendRouteUpdate;
+
 private:
     bool ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNextHopNodeId, uint64_t finalDestNodeId);
     bool ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint64_t outductIndex);
 
-    void SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNodeId);
-
-    HdtnConfig m_hdtnConfig;
+    uint64_t m_sourceNodeId;
     volatile bool m_running;
     bool m_usingUnixTimestamp;
     bool m_usingMGR;
     bool m_computedInitialOptimalRoutes;
     uint64_t m_latestTime;
     boost::filesystem::path m_contactPlanFilePath;
-
-    std::unique_ptr<zmq::context_t> m_zmqContextPtr;
-    std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingRouterToBoundEgressPtr;
 
     typedef std::pair<uint64_t, std::list<uint64_t> > nexthop_finaldestlist_pair_t;
     std::map<uint64_t, nexthop_finaldestlist_pair_t> m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList;

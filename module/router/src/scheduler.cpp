@@ -146,9 +146,11 @@ bool Scheduler::Init(const HdtnConfig& hdtnConfig,
 
     if (hdtnOneProcessZmqInprocContextPtr) {
         m_zmqPullSock_boundEgressToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+        m_zmqPushSock_connectingRouterToBoundEgressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         try {
             m_zmqPullSock_boundEgressToConnectingSchedulerPtr->connect(std::string("inproc://bound_egress_to_connecting_scheduler"));
+            m_zmqPushSock_connectingRouterToBoundEgressPtr->connect(std::string("inproc://connecting_router_to_bound_egress"));
             m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr->bind(std::string("inproc://connecting_telem_to_from_bound_scheduler"));
         }
         catch (const zmq::error_t& ex) {
@@ -171,6 +173,22 @@ bool Scheduler::Init(const HdtnConfig& hdtnConfig,
             LOG_ERROR(subprocess) << "error: scheduler cannot connect to egress socket: " << ex.what();
             return false;
         }
+
+        m_zmqPushSock_connectingRouterToBoundEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::push);
+        const std::string connect_connectingRouterToBoundEgressPath(
+            std::string("tcp://") +
+            hdtnDistributedConfig.m_zmqEgressAddress +
+            std::string(":") +
+            boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingRouterToBoundEgressPortPath));
+        try {
+            m_zmqPushSock_connectingRouterToBoundEgressPtr->connect(connect_connectingRouterToBoundEgressPath);
+            LOG_INFO(subprocess) << "Router connected to Egress for sending events " << connect_connectingRouterToBoundEgressPath;
+        }
+        catch (const zmq::error_t& ex) {
+            LOG_ERROR(subprocess) << "error: Router cannot connect to egress socket: " << connect_connectingRouterToBoundEgressPath;
+            return false;
+        }
+
         m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::rep);
         const std::string connect_connectingTelemToFromBoundSchedulerPath(
             std::string("tcp://*:") +
@@ -184,6 +202,10 @@ bool Scheduler::Init(const HdtnConfig& hdtnConfig,
             return false;
         }
     }
+
+    //Caution: All options, with the exception of ZMQ_SUBSCRIBE, ZMQ_UNSUBSCRIBE and ZMQ_LINGER, only take effect for subsequent socket bind/connects.
+    //The value of 0 specifies no linger period. Pending messages shall be discarded immediately when the socket is closed with zmq_close().
+    m_zmqPushSock_connectingRouterToBoundEgressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
 
     LOG_INFO(subprocess) << "Scheduler up and running";
 
@@ -897,3 +919,25 @@ void Scheduler::HandlePhysicalLinkStatusChange(const hdtn::LinkStatusHdr& linkSt
         SendLinkDown(m_hdtnConfig.m_myNodeId, outductInfo.nextHopNodeId, outductArrayIndex, timeSecondsSinceSchedulerEpoch, true);
     }
 }
+
+void Scheduler::SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNodeId) {
+    boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
+
+    LOG_INFO(subprocess) << timeLocal << ": Sending RouteUpdate event to Egress ";
+
+    hdtn::RouteUpdateHdr routingMsg;
+    memset(&routingMsg, 0, sizeof(hdtn::RouteUpdateHdr));
+    routingMsg.base.type = HDTN_MSGTYPE_ROUTEUPDATE;
+    routingMsg.nextHopNodeId = nextHopNodeId;
+    routingMsg.finalDestNodeId = finalDestNodeId;
+
+    while (m_running && !m_zmqPushSock_connectingRouterToBoundEgressPtr->send(
+        zmq::const_buffer(&routingMsg, sizeof(hdtn::RouteUpdateHdr)),
+        zmq::send_flags::dontwait))
+    {
+        //send returns false if(!res.has_value() AND zmq_errno()=EAGAIN)
+        LOG_DEBUG(subprocess) << "waiting for egress to become available to send route update";
+        boost::this_thread::sleep(boost::posix_time::seconds(1));
+    }
+}
+

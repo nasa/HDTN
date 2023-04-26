@@ -36,11 +36,13 @@ bool RouterWrapper::Init(const HdtnConfig& hdtnConfig,
     bool useMgr,
     zmq::context_t* hdtnOneProcessZmqInprocContextPtr)
 {
-    if(!m_router.Init(hdtnConfig, hdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp, useMgr, hdtnOneProcessZmqInprocContextPtr)) {
+    const uint64_t srcNode = hdtnConfig.m_myNodeId;
+    if(!m_router.Init(srcNode, contactPlanFilePath, usingUnixTimestamp, useMgr)) {
         LOG_ERROR(subprocess) << "Failed to start m_router";
         return false;
     }
     m_scheduler.m_router = &m_router;
+    m_router.m_sendRouteUpdate = boost::bind(&Scheduler::SendRouteUpdate, &m_scheduler, boost::placeholders::_1, boost::placeholders::_2);
     if(!m_scheduler.Init(hdtnConfig, hdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp, hdtnOneProcessZmqInprocContextPtr)) {
         LOG_ERROR(subprocess) << "Failed to start m_router";
         return false;
