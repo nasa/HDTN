@@ -693,8 +693,6 @@ bool TestHDTNFileTransferLTPv7() {
     bool runningHdtnOneProcess = true; 
 
     uint64_t bundlesSentBpsend[1] = {0};
-    //OutductFinalStats finalStats[1];
-    //FinalStatsBpSink finalStatsBpSink[1];
     uint64_t bundlesReceivedBpreceive[1]= {0};
     uint64_t bundleCountStorage = 0;
     uint64_t bundleCountEgress = 0;
