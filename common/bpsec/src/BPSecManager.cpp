@@ -50,6 +50,7 @@
 #include <stdio.h>
 #include <boost/algorithm/hex.hpp>
 #include <boost/algorithm/string.hpp>
+#include "CborUint.h"
 
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
@@ -491,6 +492,11 @@ bool BPSecManager::AesGcmDecrypt(EvpCipherCtxWrapper& ctxWrapper,
         printf("Error Incorrect Key length!!\n");
         return false;
     }
+    //EVP_EncryptInit_ex(), EVP_EncryptUpdate() and EVP_EncryptFinal_ex() return 1 for success and 0 for failure.
+    if (!EVP_DecryptInit_ex(ctx, cipherPtr, NULL, NULL, NULL)) {
+        ERR_print_errors_fp(stderr);
+        return false;
+    }
 
     //Set IV length, omit for 96 bits
     // return value unclear in docs
@@ -505,7 +511,7 @@ bool BPSecManager::AesGcmDecrypt(EvpCipherCtxWrapper& ctxWrapper,
         ERR_print_errors_fp(stderr);
         return false;
     }
-    
+
     // Zero or more calls to specify any AAD
     //AEAD Interface
     //The EVP interface for Authenticated Encryption with Associated Data (AEAD) modes are subtly
@@ -591,14 +597,128 @@ bool BPSecManager::AesUnwrapKey(
     unwrappedKeyOutSize = static_cast<unsigned int>(unwrappedKeyLength);
     return unwrappedKeyLength == keyEncryptionKeyLength;
 }
-/*
-bool BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
-    BundleViewV7& bv,
-    const uint8_t* key, const uint64_t keyLength,
-    const uint8_t* iv, const uint64_t ivLength,
-    const uint8_t* aad, const uint64_t aadLength,
-    const uint8_t* tag)
-{
 
+//User of this function provided KEK (key encryption key) and AAD.
+//Bundle provides AES wrapped key, AES variant, IV, tag, and cipherText.
+//This function must unwrap key with KEK to get the DEK (data encryption key), then decrypt cipherText.
+void BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
+    BundleViewV7& bv,
+    const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
+    const uint8_t* aad, const uint64_t aadLength,
+    bool& hadError, bool& decryptionSuccessful)
+{
+    hadError = false;
+    decryptionSuccessful = false;
+    std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+    bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, blocks);
+    for (std::size_t i = 0; i < blocks.size(); ++i) {
+        BundleViewV7::Bpv7CanonicalBlockView& blockView = *(blocks[i]);
+        Bpv7BlockConfidentialityBlock* bcbPtr = dynamic_cast<Bpv7BlockConfidentialityBlock*>(blockView.headerPtr.get());
+        if (!bcbPtr) {
+            hadError = true;
+            return;
+        }
+        std::vector<std::vector<uint8_t>*> patPtrs = bcbPtr->GetAllPayloadAuthenticationTagPtrs();
+        if (patPtrs.size() != 1) {
+            hadError = true;
+            return;
+        }
+        const std::vector<uint8_t>& tag = *(patPtrs[0]);
+        
+        bool success;
+        COSE_ALGORITHMS variant = bcbPtr->GetSecurityParameterAesVariant(success);
+        if (!success) {
+            hadError = true;
+            return;
+        }
+        if ((variant == COSE_ALGORITHMS::A128GCM) || (variant == COSE_ALGORITHMS::A256GCM)) {
+            //ok to continue
+        }
+        else {
+            hadError = true;
+            return;
+        }
+        const std::vector<uint8_t>* ivPtr = bcbPtr->GetInitializationVectorPtr();
+        if (!ivPtr) {
+            hadError = true;
+            return;
+        }
+        
+        const std::vector<uint8_t>* wrappedKeyPtr = bcbPtr->GetAesWrappedKeyPtr();
+        if (!wrappedKeyPtr) {
+            hadError = true;
+            return;
+        }
+
+        //unwrap key: 
+        uint8_t unwrappedKeyBytes[32 + 10]; //32 worse case for 32*8=256bit
+        unsigned int unwrappedKeyOutSize;
+        if (!BPSecManager::AesUnwrapKey(
+            keyEncryptionKey, keyEncryptionKeyLength,
+            wrappedKeyPtr->data(), static_cast<const unsigned int>(wrappedKeyPtr->size()),
+            unwrappedKeyBytes, unwrappedKeyOutSize))
+        {
+            hadError = true;
+            return;
+        }
+        const Bpv7AbstractSecurityBlock::security_targets_t& targets = bcbPtr->m_securityTargets;
+        for (Bpv7AbstractSecurityBlock::security_targets_t::const_iterator stIt = targets.cbegin(); stIt != targets.cend(); ++stIt) {
+            const uint64_t target = *stIt;
+            BundleViewV7::Bpv7CanonicalBlockView* targetCanonicalBlockPtr = bv.GetCanonicalBlockByBlockNumber(target);
+            if (!targetCanonicalBlockPtr) {
+                hadError = true;
+                return;
+            }
+            Bpv7CanonicalBlock& canonicalHeader = *(targetCanonicalBlockPtr->headerPtr);
+            if (canonicalHeader.m_blockTypeCode == BPV7_BLOCK_TYPE_CODE::PAYLOAD) { //this blockView type will never be marked "dirty" and modifications will be done manually
+                //overwrite cyphertext with plaintext in-place and compute crc
+                uint64_t decryptedDataOutSize;
+                //not inplace test (separate in and out buffers)
+                if (!BPSecManager::AesGcmDecrypt(ctxWrapper,
+                    canonicalHeader.m_dataPtr, canonicalHeader.m_dataLength,
+                    unwrappedKeyBytes, unwrappedKeyOutSize,
+                    ivPtr->data(), ivPtr->size(),
+                    aad, aadLength, //affects tag only
+                    tag.data(),
+                    canonicalHeader.m_dataPtr, decryptedDataOutSize))
+                {
+                    hadError = true;
+                    return;
+                }
+                int cborLengthFieldEncodedSizeIncrease = 0;
+                const unsigned int cborLengthFieldEncodedSizeBefore = CborGetNumBytesRequiredToEncode(canonicalHeader.m_dataLength);
+                const unsigned int cborLengthFieldEncodedSizeAfter = CborGetNumBytesRequiredToEncode(decryptedDataOutSize);
+                const int64_t decryptSizeIncrease = (static_cast<int64_t>(decryptedDataOutSize)) - (static_cast<int64_t>(canonicalHeader.m_dataLength));
+                if (cborLengthFieldEncodedSizeBefore == cborLengthFieldEncodedSizeAfter) { //in place will work
+                    //this should be the most common case
+                }
+                else { //need to shift the payload data left or right by 1 byte because the cbor encoded length field grew or shrank by 1 byte
+                    cborLengthFieldEncodedSizeIncrease = (static_cast<const int>(cborLengthFieldEncodedSizeAfter)) - (static_cast<const int>(cborLengthFieldEncodedSizeBefore));
+                    //move decrypted data by one byte
+                    std::memmove(canonicalHeader.m_dataPtr + cborLengthFieldEncodedSizeIncrease, canonicalHeader.m_dataPtr, canonicalHeader.m_dataLength);
+                    //encode length field which is immediately before the "byte string"
+                    CborEncodeU64(canonicalHeader.m_dataPtr - cborLengthFieldEncodedSizeBefore, decryptedDataOutSize, cborLengthFieldEncodedSizeAfter);
+                }
+                //change block serialization size
+                const uint8_t* const blockSerializedBegin = (const uint8_t*)targetCanonicalBlockPtr->actualSerializedBlockPtr.data(); //won't change
+                const std::size_t blockSerializedSize = targetCanonicalBlockPtr->actualSerializedBlockPtr.size() + cborLengthFieldEncodedSizeIncrease + decryptSizeIncrease;
+                targetCanonicalBlockPtr->actualSerializedBlockPtr = boost::asio::buffer(blockSerializedBegin, blockSerializedSize);
+
+                //recompute crc at end
+                canonicalHeader.RecomputeCrcAfterDataModification(
+                    (uint8_t*)targetCanonicalBlockPtr->actualSerializedBlockPtr.data(),
+                    targetCanonicalBlockPtr->actualSerializedBlockPtr.size()); //recompute crc
+
+                decryptionSuccessful = true;
+            }
+        }
+        blockView.markedForDeletion = true;
+    }
+    if (decryptionSuccessful) { //at least one bcb was marked for deletion, so rerender
+        if (!bv.RenderInPlace(128)) { //todo make PADDING_ELEMENTS_BEFORE
+            hadError = true;
+            return;
+        }
+    }
 }
-*/
+

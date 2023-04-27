@@ -599,7 +599,7 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
     aesWrappedKeyBytes.resize(wrappedKeyOutSize);
     BOOST_REQUIRE(aesWrappedKeyBytes == expectedAesWrappedKeyBytes);
 
-    //unwrap key
+    //unwrap key: https://gchq.github.io/CyberChef/#recipe=AES_Key_Unwrap(%7B'option':'Hex','string':'6162636465666768696a6b6c6d6e6f70'%7D,%7B'option':'Hex','string':'a6a6a6a6a6a6a6a6'%7D,'Hex','Hex')&input=NjljNDExMjc2ZmVjZGRjNDc4MGRmNDJjOGEyYWY4OTI5NmZhYmYzNGQ3ZmFlNzAw
     std::vector<uint8_t> unwrappedKeyBytes(keyBytes.size() + 100);
     unsigned int unwrappedKeyOutSize;
     BOOST_REQUIRE(BPSecManager::AesUnwrapKey(
@@ -739,4 +739,38 @@ BOOST_AUTO_TEST_CASE(DecryptBundleTestCase)
 
     //decrypt
 
+    std::vector<uint8_t> keyEncryptionKeyBytes; //KEK
+    static const std::string keyEncryptionKeyString(
+        "6162636465666768696a6b6c6d6e6f70"
+    );
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(keyEncryptionKeyString, keyEncryptionKeyBytes));
+
+    std::vector<uint8_t> gcmAadBytes;
+    static const std::string gcmAadString("00");
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(gcmAadString, gcmAadBytes));
+
+    BPSecManager::EvpCipherCtxWrapper ctxWrapper;
+    bool hadError;
+    bool decryptionSuccessful;
+    BPSecManager::TryDecryptBundle(ctxWrapper,
+        bv,
+        keyEncryptionKeyBytes.data(), static_cast<const unsigned int>(keyEncryptionKeyBytes.size()),
+        gcmAadBytes.data(), gcmAadBytes.size(),
+        hadError, decryptionSuccessful);
+    BOOST_REQUIRE(!hadError);
+    BOOST_REQUIRE(decryptionSuccessful);
+    std::vector<uint8_t> decryptedBundleCopy(
+        (uint8_t*)bv.m_renderedBundle.data(),
+        ((uint8_t*)bv.m_renderedBundle.data()) + bv.m_renderedBundle.size()
+    );
+    std::string decryptedBundleHexString;
+    BinaryConversions::BytesToHexString(decryptedBundleCopy, decryptedBundleHexString);
+    boost::to_lower(decryptedBundleHexString);
+    //std::cout << "decrypted bundle: " << decryptedBundleHexString << "\n";
+    static const std::string expectedSerializedBundleString(
+        "9f88070000820282010282028202018202820201820018281a000f424085010100"
+        "005823526561647920746f2067656e657261746520612033322d6279746520706179"
+        "6c6f6164ff"
+    );
+    BOOST_REQUIRE_EQUAL(expectedSerializedBundleString, decryptedBundleHexString);
 }

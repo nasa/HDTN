@@ -588,11 +588,14 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7BlockConfidentialityBlock : public Bpv7Abstr
     BPCODEC_EXPORT bool AddSecurityParameterScope(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS scope);
     BPCODEC_EXPORT bool IsSecurityParameterScopePresentAndSet(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS scope) const;
     BPCODEC_EXPORT std::vector<uint8_t> * AddAndGetAesWrappedKeyPtr();
+    BPCODEC_EXPORT std::vector<uint8_t> * GetAesWrappedKeyPtr();
     BPCODEC_EXPORT std::vector<uint8_t> * AddAndGetInitializationVectorPtr();
+    BPCODEC_EXPORT std::vector<uint8_t> * GetInitializationVectorPtr();
     BPCODEC_EXPORT std::vector<uint8_t> * AppendAndGetPayloadAuthenticationTagPtr();
     BPCODEC_EXPORT std::vector<std::vector<uint8_t>*> GetAllPayloadAuthenticationTagPtrs();
 private:
     BPCODEC_NO_EXPORT std::vector<uint8_t> * Private_AddAndGetByteStringParamPtr(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS parameter);
+    BPCODEC_NO_EXPORT std::vector<uint8_t> * Private_GetByteStringParamPtr(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS parameter);
 };
 
 struct CLASS_VISIBILITY_BPCODEC Bpv7AdministrativeRecordContentBase {

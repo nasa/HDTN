@@ -367,6 +367,14 @@ void BundleViewV7::GetCanonicalBlocksByType(const BPV7_BLOCK_TYPE_CODE canonical
         }
     }
 }
+BundleViewV7::Bpv7CanonicalBlockView* BundleViewV7::GetCanonicalBlockByBlockNumber(const uint64_t blockNumber) {
+    for (std::list<Bpv7CanonicalBlockView>::iterator it = m_listCanonicalBlockView.begin(); it != m_listCanonicalBlockView.end(); ++it) {
+        if (it->headerPtr->m_blockNumber == blockNumber) {
+            return (&(*it));
+        }
+    }
+    return NULL;
+}
 uint64_t BundleViewV7::GetNextFreeCanonicalBlockNumber() const {
     uint64_t largestCanonicalBlockNumber = 1;
     for (std::list<Bpv7CanonicalBlockView>::const_iterator it = m_listCanonicalBlockView.cbegin(); it != m_listCanonicalBlockView.cend(); ++it) {

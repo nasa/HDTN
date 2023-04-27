@@ -116,6 +116,12 @@ public:
         const uint8_t* keyToUnwrap, const unsigned int keyToUnwrapLength,
         uint8_t* unwrappedKeyOut, unsigned int& unwrappedKeyOutSize);
 
+    BPSEC_EXPORT static void TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
+        BundleViewV7& bv,
+        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
+        const uint8_t* aad, const uint64_t aadLength,
+        bool& hadError, bool& decryptionSuccessful);
+
    /**
     * Adds BCB confidentiality block to the bundle
     *

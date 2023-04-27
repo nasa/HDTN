@@ -839,6 +839,9 @@ bool Bpv7BlockConfidentialityBlock::IsSecurityParameterScopePresentAndSet(BPSEC_
 std::vector<uint8_t> * Bpv7BlockConfidentialityBlock::AddAndGetAesWrappedKeyPtr() {
     return Private_AddAndGetByteStringParamPtr(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS::WRAPPED_KEY);
 }
+std::vector<uint8_t>* Bpv7BlockConfidentialityBlock::GetAesWrappedKeyPtr() {
+    return Private_GetByteStringParamPtr(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS::WRAPPED_KEY);
+}
 std::vector<uint8_t> * Bpv7BlockConfidentialityBlock::Private_AddAndGetByteStringParamPtr(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS parameter) {
     for (std::size_t i = 0; i < m_securityContextParametersOptional.size(); ++i) {
         security_context_parameter_t & param = m_securityContextParametersOptional[i];
@@ -859,8 +862,26 @@ std::vector<uint8_t> * Bpv7BlockConfidentialityBlock::Private_AddAndGetByteStrin
     m_securityContextParametersOptional.back().second = std::move(v);
     return retVal;
 }
+std::vector<uint8_t>* Bpv7BlockConfidentialityBlock::Private_GetByteStringParamPtr(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS parameter) {
+    for (std::size_t i = 0; i < m_securityContextParametersOptional.size(); ++i) {
+        security_context_parameter_t& param = m_securityContextParametersOptional[i];
+        if (static_cast<BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS>(param.first) == parameter) {
+            if (Bpv7AbstractSecurityBlockValueByteString* valueByteString = dynamic_cast<Bpv7AbstractSecurityBlockValueByteString*>(param.second.get())) {
+                return &(valueByteString->m_byteString);
+            }
+            else {
+                return NULL;
+            }
+        }
+    }
+    //doesn't exist
+    return NULL;
+}
 std::vector<uint8_t> * Bpv7BlockConfidentialityBlock::AddAndGetInitializationVectorPtr() {
     return Private_AddAndGetByteStringParamPtr(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS::INITIALIZATION_VECTOR);
+}
+std::vector<uint8_t>* Bpv7BlockConfidentialityBlock::GetInitializationVectorPtr() {
+    return Private_GetByteStringParamPtr(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS::INITIALIZATION_VECTOR);
 }
 std::vector<uint8_t> * Bpv7BlockConfidentialityBlock::AppendAndGetPayloadAuthenticationTagPtr() {
     return Protected_AppendAndGetSecurityResultByteStringPtr(static_cast<uint64_t>(BPSEC_BCB_AES_GCM_AAD_SECURITY_RESULTS::AUTHENTICATION_TAG));

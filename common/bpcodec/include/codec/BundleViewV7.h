@@ -107,6 +107,7 @@ public:
     BPCODEC_EXPORT std::size_t GetCanonicalBlockCountByType(const BPV7_BLOCK_TYPE_CODE canonicalBlockTypeCode) const;
     BPCODEC_EXPORT std::size_t GetNumCanonicalBlocks() const;
     BPCODEC_EXPORT void GetCanonicalBlocksByType(const BPV7_BLOCK_TYPE_CODE canonicalBlockTypeCode, std::vector<Bpv7CanonicalBlockView*> & blocks);
+    BPCODEC_EXPORT Bpv7CanonicalBlockView* GetCanonicalBlockByBlockNumber(const uint64_t blockNumber);
     BPCODEC_EXPORT uint64_t GetNextFreeCanonicalBlockNumber() const;
     BPCODEC_EXPORT std::size_t DeleteAllCanonicalBlocksByType(const BPV7_BLOCK_TYPE_CODE canonicalBlockTypeCode);
     BPCODEC_EXPORT bool LoadBundle(uint8_t * bundleData, const std::size_t size, const bool skipCrcVerifyInCanonicalBlocks = false, const bool loadPrimaryBlockOnly = false);
