@@ -568,11 +568,47 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
     );
     BOOST_REQUIRE(BinaryConversions::HexStringToBytes(initializationVectorString, initializationVectorBytes));
 
-    std::vector<uint8_t> aesWrappedKeyBytes;
-    static const std::string aesWrappedKeyString(
+    std::vector<uint8_t> keyBytes;
+    static const std::string keyString(
         "71776572747975696f70617364666768"
     );
-    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(aesWrappedKeyString, aesWrappedKeyBytes));
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(keyString, keyBytes));
+
+    std::vector<uint8_t> keyEncryptionKeyBytes; //KEK
+    static const std::string keyEncryptionKeyString(
+        "6162636465666768696a6b6c6d6e6f70"
+    );
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(keyEncryptionKeyString, keyEncryptionKeyBytes));
+
+    std::vector<uint8_t> expectedAesWrappedKeyBytes;
+    static const std::string expectedAesWrappedKeyString(
+        "69c411276fecddc4780df42c8a2af89296fabf34d7fae700"
+    );
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(expectedAesWrappedKeyString, expectedAesWrappedKeyBytes));
+
+    BOOST_REQUIRE_EQUAL(expectedAesWrappedKeyBytes.size(), keyEncryptionKeyBytes.size() + 8);
+
+    //wrap key
+    std::vector<uint8_t> aesWrappedKeyBytes(expectedAesWrappedKeyBytes.size() + 100);
+    unsigned int wrappedKeyOutSize;
+    BOOST_REQUIRE(BPSecManager::AesWrapKey(
+        keyEncryptionKeyBytes.data(), static_cast<const unsigned int>(keyEncryptionKeyBytes.size()),
+        keyBytes.data(), static_cast<const unsigned int>(keyBytes.size()),
+        aesWrappedKeyBytes.data(), wrappedKeyOutSize));
+    BOOST_REQUIRE_EQUAL(wrappedKeyOutSize, expectedAesWrappedKeyBytes.size());
+    aesWrappedKeyBytes.resize(wrappedKeyOutSize);
+    BOOST_REQUIRE(aesWrappedKeyBytes == expectedAesWrappedKeyBytes);
+
+    //unwrap key
+    std::vector<uint8_t> unwrappedKeyBytes(keyBytes.size() + 100);
+    unsigned int unwrappedKeyOutSize;
+    BOOST_REQUIRE(BPSecManager::AesUnwrapKey(
+        keyEncryptionKeyBytes.data(), static_cast<const unsigned int>(keyEncryptionKeyBytes.size()),
+        aesWrappedKeyBytes.data(), static_cast<const unsigned int>(aesWrappedKeyBytes.size()),
+        unwrappedKeyBytes.data(), unwrappedKeyOutSize));
+    BOOST_REQUIRE_EQUAL(unwrappedKeyOutSize, keyBytes.size());
+    unwrappedKeyBytes.resize(unwrappedKeyOutSize);
+    BOOST_REQUIRE(unwrappedKeyBytes == keyBytes);
 
     std::vector<uint8_t> gcmAadBytes;
     static const std::string gcmAadString("00");
@@ -587,7 +623,7 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
     //not inplace test (separate in and out buffers)
     BOOST_REQUIRE(BPSecManager::AesGcmEncrypt(ctxWrapper,
         (const uint8_t *)payloadString.data(), payloadString.size(),
-        aesWrappedKeyBytes.data(), aesWrappedKeyBytes.size(),
+        keyBytes.data(), keyBytes.size(),
         initializationVectorBytes.data(), initializationVectorBytes.size(),
         gcmAadBytes.data(), gcmAadBytes.size(), //affects tag only
         cipherTextBytes.data(), cipherTextOutSize, tagBytes.data()));
@@ -619,7 +655,7 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
     //inplace test (same in and out buffers)
     BOOST_REQUIRE(BPSecManager::AesGcmEncrypt(ctxWrapper,
         inplaceData.data(), inplaceData.size(),
-        aesWrappedKeyBytes.data(), aesWrappedKeyBytes.size(),
+        keyBytes.data(), keyBytes.size(),
         initializationVectorBytes.data(), initializationVectorBytes.size(),
         gcmAadBytes.data(), gcmAadBytes.size(),
         inplaceData.data(), cipherTextOutSize, tagBytes.data()));
@@ -645,7 +681,7 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
         //not inplace test (separate in and out buffers)
         BOOST_REQUIRE(BPSecManager::AesGcmDecrypt(ctxWrapper,
             cipherTextBytes.data(), cipherTextBytes.size(),
-            aesWrappedKeyBytes.data(), aesWrappedKeyBytes.size(),
+            keyBytes.data(), keyBytes.size(),
             initializationVectorBytes.data(), initializationVectorBytes.size(),
             gcmAadBytes.data(), gcmAadBytes.size(), //affects tag only
             tagBytes.data(),
@@ -669,7 +705,7 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
         //not inplace test (separate in and out buffers)
         BOOST_REQUIRE(BPSecManager::AesGcmDecrypt(ctxWrapper,
             inplaceDataToDecrypt.data(), inplaceDataToDecrypt.size(),
-            aesWrappedKeyBytes.data(), aesWrappedKeyBytes.size(),
+            keyBytes.data(), keyBytes.size(),
             initializationVectorBytes.data(), initializationVectorBytes.size(),
             gcmAadBytes.data(), gcmAadBytes.size(), //affects tag only
             tagBytes.data(),
@@ -681,4 +717,26 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
         );
         BOOST_REQUIRE_EQUAL(decryptedStringFromInplace, payloadString);
     }
+}
+
+BOOST_AUTO_TEST_CASE(DecryptBundleTestCase)
+{
+    std::vector<uint8_t> encryptedSerializedBundle;
+    static const std::string encryptedSerializedBundleString(
+        "9f88070000820282010282028202018202820201820018281a000f4240850c0201"
+        "0058508101020182028202018482014c5477656c7665313231323132820201820358"
+        "1869c411276fecddc4780df42c8a2af89296fabf34d7fae7008204008181820150ef"
+        "a4b5ac0108e3816c5606479801bc04850101000058233a09c1e63fe23a7f66a59c73"
+        "03837241e070b02619fc59c5214a22f08cd70795e73e9aff"
+    );
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(encryptedSerializedBundleString, encryptedSerializedBundle));
+    padded_vector_uint8_t encryptedSerializedBundlePadded(
+        encryptedSerializedBundle.data(),
+        encryptedSerializedBundle.data() + encryptedSerializedBundle.size()
+    );
+    BundleViewV7 bv;
+    BOOST_REQUIRE(bv.LoadBundle(encryptedSerializedBundlePadded.data(), encryptedSerializedBundlePadded.size(), false));
+
+    //decrypt
+
 }

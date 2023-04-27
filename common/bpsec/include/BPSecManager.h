@@ -106,6 +106,16 @@ public:
         const uint8_t* tag,
         uint8_t* decryptedDataOut, uint64_t& decryptedDataOutSize);
 
+    BPSEC_EXPORT static bool AesWrapKey(
+        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
+        const uint8_t* keyToWrap, const unsigned int keyToWrapLength,
+        uint8_t* wrappedKeyOut, unsigned int& wrappedKeyOutSize);
+
+    BPSEC_EXPORT static bool AesUnwrapKey(
+        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
+        const uint8_t* keyToUnwrap, const unsigned int keyToUnwrapLength,
+        uint8_t* unwrappedKeyOut, unsigned int& unwrappedKeyOutSize);
+
    /**
     * Adds BCB confidentiality block to the bundle
     *

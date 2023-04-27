@@ -551,3 +551,54 @@ bool BPSecManager::AesGcmDecrypt(EvpCipherCtxWrapper& ctxWrapper,
 
     return true;
 }
+
+bool BPSecManager::AesWrapKey(
+    const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
+    const uint8_t* keyToWrap, const unsigned int keyToWrapLength,
+    uint8_t* wrappedKeyOut, unsigned int& wrappedKeyOutSize)
+{
+    AES_KEY aesKey;
+
+    //AES_set_encrypt_key() and AES_set_decrypt_key() return 0 for success, -1 if userKey or key is NULL, or -2 if the number of bits is unsupported.
+    if (AES_set_encrypt_key(keyEncryptionKey, static_cast<int>(keyEncryptionKeyLength << 3), &aesKey)) {
+        return false;
+    }
+
+    //definition https://docs.huihoo.com/doxygen/openssl/1.0.1c/aes__wrap_8c_source.html
+    //2nd parameter of NULL uses default iv of 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6
+    //success should return keyEncryptionKeyLength + 8, or -1 if failure
+    const int wrappedKeyLength = AES_wrap_key(&aesKey, NULL, wrappedKeyOut, keyToWrap, keyToWrapLength);
+    wrappedKeyOutSize = static_cast<unsigned int>(wrappedKeyLength);
+    return wrappedKeyLength == (keyEncryptionKeyLength + 8);
+}
+
+bool BPSecManager::AesUnwrapKey(
+    const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
+    const uint8_t* keyToUnwrap, const unsigned int keyToUnwrapLength,
+    uint8_t* unwrappedKeyOut, unsigned int& unwrappedKeyOutSize)
+{
+    AES_KEY aesKey;
+
+    //AES_set_encrypt_key() and AES_set_decrypt_key() return 0 for success, -1 if userKey or key is NULL, or -2 if the number of bits is unsupported.
+    if (AES_set_decrypt_key(keyEncryptionKey, static_cast<int>(keyEncryptionKeyLength << 3), &aesKey)) {
+        return false;
+    }
+
+    //definition https://docs.huihoo.com/doxygen/openssl/1.0.1c/aes__wrap_8c_source.html
+    //2nd parameter of NULL uses default iv of 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6
+    //success should return keyEncryptionKeyLength, or -1 if failure
+    const int unwrappedKeyLength = AES_unwrap_key(&aesKey, NULL, unwrappedKeyOut, keyToUnwrap, keyToUnwrapLength);
+    unwrappedKeyOutSize = static_cast<unsigned int>(unwrappedKeyLength);
+    return unwrappedKeyLength == keyEncryptionKeyLength;
+}
+/*
+bool BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
+    BundleViewV7& bv,
+    const uint8_t* key, const uint64_t keyLength,
+    const uint8_t* iv, const uint64_t ivLength,
+    const uint8_t* aad, const uint64_t aadLength,
+    const uint8_t* tag)
+{
+
+}
+*/
