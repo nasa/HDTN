@@ -36,7 +36,7 @@ bool RouterWrapper::Init(const HdtnConfig& hdtnConfig,
     bool useMgr,
     zmq::context_t* hdtnOneProcessZmqInprocContextPtr)
 {
-    if(!m_scheduler.Init(hdtnConfig, hdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp, useMgr, hdtnOneProcessZmqInprocContextPtr)) {
+    if(!m_router.Init(hdtnConfig, hdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp, useMgr, hdtnOneProcessZmqInprocContextPtr)) {
         LOG_ERROR(subprocess) << "Failed to start m_router";
         return false;
     }
@@ -44,5 +44,5 @@ bool RouterWrapper::Init(const HdtnConfig& hdtnConfig,
 }
 
 void RouterWrapper::Stop() {
-    m_scheduler.Stop();
+    m_router.Stop();
 }

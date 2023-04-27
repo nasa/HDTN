@@ -1,5 +1,5 @@
 /**
- * @file scheduler.h
+ * @file router.h
  * @author Nadia Kortas <nadia.kortas@nasa.gov>
  *
  * @copyright Copyright © 2021 United States Government as represented by
@@ -13,15 +13,15 @@
  *
  * @section DESCRIPTION
  *
- * This Scheduler class is a process which sends LINKUP or LINKDOWN events to Ingress and Storage modules to determine if a given bundle 
+ * This Router class is a process which sends LINKUP or LINKDOWN events to Ingress and Storage modules to determine if a given bundle 
  * should be forwarded immediately to Egress or should be stored. 
- * To determine a given link availability, i.e. when a contact to a particular neighbor node exists, the scheduler reads a contact plan 
+ * To determine a given link availability, i.e. when a contact to a particular neighbor node exists, the router reads a contact plan 
  * which is a JSON file that defines all the connections between all the nodes in the network.
  */
 
 
-#ifndef SCHEDULER_H
-#define SCHEDULER_H 1
+#ifndef ROUTER_H 
+#define ROUTER_H 1
 
 
 
@@ -83,10 +83,10 @@ struct OutductInfo_t {
     
 };
 
-class Scheduler : private boost::noncopyable {
+class Router : private boost::noncopyable {
 public:
-    ROUTER_LIB_EXPORT Scheduler();
-    ROUTER_LIB_EXPORT ~Scheduler();
+    ROUTER_LIB_EXPORT Router();
+    ROUTER_LIB_EXPORT ~Router();
     ROUTER_LIB_EXPORT void Stop();
     ROUTER_LIB_EXPORT bool Init(const HdtnConfig& hdtnConfig,
         const HdtnDistributedConfig& hdtnDistributedConfig,
@@ -125,7 +125,7 @@ private:
     void HandleLinkDownEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr);
     void HandleLinkUpEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr);
     void HandleOutductCapabilitiesTelemetry(const hdtn::IreleaseChangeHdr &releaseChangeHdr, const AllOutductCapabilitiesTelemetry_t & aoct);
-    void HandleBundleFromScheduler(const hdtn::IreleaseChangeHdr &releaseChangeHdr);
+    void HandleBundle(const hdtn::IreleaseChangeHdr &releaseChangeHdr);
 
     void SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNodeId);
 
@@ -143,10 +143,10 @@ private:
     std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
 
     std::unique_ptr<zmq::context_t> m_zmqCtxPtr;
-    std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundEgressToConnectingSchedulerPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundEgressToConnectingRouterPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingRouterToBoundEgressPtr;
-    std::unique_ptr<zmq::socket_t> m_zmqXPubSock_boundSchedulerToConnectingSubsPtr;
-    std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingTelemToFromBoundSchedulerPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqXPubSock_boundRouterToConnectingSubsPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingTelemToFromBoundRouterPtr;
     boost::mutex m_mutexZmqPubSock;
 
     //no mutex needed (all run from ioService thread)
@@ -163,7 +163,7 @@ private:
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     bool m_contactPlanTimerIsRunning;
     boost::posix_time::ptime m_epoch;
-    uint64_t m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds;
+    uint64_t m_subtractMeFromUnixTimeSecondsToConvertToRouterTimeSeconds;
     uint64_t m_numOutductCapabilityTelemetriesReceived;
 
     std::unique_ptr<zmq::message_t> m_zmqMessageOutductCapabilitiesTelemPtr;
@@ -189,4 +189,4 @@ private:
 
 };
 
-#endif // SCHEDULER_H
+#endif // ROUTER_H

@@ -37,8 +37,8 @@
 #define HDTN_MSGTYPE_EGRESS_REMOVE_OPPORTUNISTIC_LINK (0x0007)
 #define HDTN_MSGTYPE_STORAGE_ADD_OPPORTUNISTIC_LINK (0x0008)
 #define HDTN_MSGTYPE_STORAGE_REMOVE_OPPORTUNISTIC_LINK (0x0009)
-#define HDTN_MSGTYPE_BUNDLES_TO_SCHEDULER (0x000A)
-#define HDTN_MSGTYPE_BUNDLES_FROM_SCHEDULER (0x000B)
+#define HDTN_MSGTYPE_BUNDLES_TO_ROUTER (0x000A)
+#define HDTN_MSGTYPE_BUNDLES_FROM_ROUTER (0x000B)
 
 // Egress Messages range is 0xE000 to 0xEAFF
 #define HDTN_MSGTYPE_ENOTIMPL (0xE000)  // convergence layer type not  // implemented
@@ -58,8 +58,8 @@
 #define HDTN_MSGTYPE_IABORT \
     (0xFC01)  // indicates that the worker encountered a critical failure and will // immediately terminate
 #define HDTN_MSGTYPE_ISHUTDOWN (0xFC02)   // tells the worker to shut down
-#define HDTN_MSGTYPE_ILINKUP (0xFC03)     // Link available event from scheduler
-#define HDTN_MSGTYPE_ILINKDOWN (0xFC04)    // Link unavailable event from scheduler
+#define HDTN_MSGTYPE_ILINKUP (0xFC03)     // Link available event from router
+#define HDTN_MSGTYPE_ILINKDOWN (0xFC04)    // Link unavailable event from router
 #define HDTN_MSGTYPE_IPRELOAD (0xFC05)    // preloads data because an event is scheduled to begin soon
 #define HDTN_MSGTYPE_IWORKSTATS (0xFC06)  // update on worker stats sent from worker to parent
 

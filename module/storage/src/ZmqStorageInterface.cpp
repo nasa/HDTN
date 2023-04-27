@@ -302,31 +302,31 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDi
     }
 
     m_zmqSubSock_boundReleaseToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::sub);
-    const std::string connect_boundSchedulerPubSubPath(
+    const std::string connect_boundRouterPubSubPath(
         std::string("tcp://") +
-        ((hdtnOneProcessZmqInprocContextPtr == NULL) ? hdtnDistributedConfig.m_zmqSchedulerAddress : std::string("localhost")) +
+        ((hdtnOneProcessZmqInprocContextPtr == NULL) ? hdtnDistributedConfig.m_zmqRouterAddress : std::string("localhost")) +
         std::string(":") +
-        boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
+        boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundRouterPubSubPortPath));
     try {
-        m_zmqSubSock_boundReleaseToConnectingStoragePtr->connect(connect_boundSchedulerPubSubPath);
+        m_zmqSubSock_boundReleaseToConnectingStoragePtr->connect(connect_boundRouterPubSubPath);
         m_zmqSubSock_boundReleaseToConnectingStoragePtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
-        LOG_INFO(subprocess) << "Connected to scheduler at " << connect_boundSchedulerPubSubPath << " , subscribing...";
+        LOG_INFO(subprocess) << "Connected to router at " << connect_boundRouterPubSubPath << " , subscribing...";
     }
     catch (const zmq::error_t& ex) {
-        LOG_ERROR(subprocess) << "Cannot connect to scheduler socket at " << connect_boundSchedulerPubSubPath << " : " << ex.what();
+        LOG_ERROR(subprocess) << "Cannot connect to router socket at " << connect_boundRouterPubSubPath << " : " << ex.what();
         return false;
     }
     try {
-        //Sends one-byte 0x1 message to scheduler XPub socket plus strlen of subscription
+        //Sends one-byte 0x1 message to router XPub socket plus strlen of subscription
         //All release messages shall be prefixed by "aaaaaaaa" before the common header
         //Router unique subscription shall be "a" (gets all messages that start with "a") (e.g "aaa", "ab", etc.)
         //Ingress unique subscription shall be "aa"
         //Storage unique subscription shall be "aaa"
         m_zmqSubSock_boundReleaseToConnectingStoragePtr->set(zmq::sockopt::subscribe, "aaa"); 
-            LOG_INFO(subprocess) << "Subscribed to all events from scheduler";
+            LOG_INFO(subprocess) << "Subscribed to all events from router";
     }
     catch (const zmq::error_t& ex) {
-        LOG_ERROR(subprocess) << "Cannot subscribe to all events from scheduler: " << ex.what();
+        LOG_ERROR(subprocess) << "Cannot subscribe to all events from router: " << ex.what();
         return false;
     }
 
@@ -959,7 +959,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
 
     
 
-    std::map<uint64_t, bool> mapOuductArrayIndexToPendingLinkChangeEvent; //in case scheduler sends events before egress fully initialized
+    std::map<uint64_t, bool> mapOuductArrayIndexToPendingLinkChangeEvent; //in case router sends events before egress fully initialized
     bool egressFullyInitialized = false;
 
 
@@ -1029,8 +1029,8 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                     if (egressAckHdr.error) {
                                         //A bundle that was forwarded without store from storage to egress gets an ack back from egress with the
                                         //error flag set because egress could not send the bundle.
-                                        //This will allow storage to trigger a link down event more quickly than waiting for scheduler.
-                                        //Since ingress NO LONGER holds the bundle, the error flag will let ingress set a link down event more quickly than scheduler.
+                                        //This will allow storage to trigger a link down event more quickly than waiting for router.
+                                        //Since ingress NO LONGER holds the bundle, the error flag will let ingress set a link down event more quickly than router.
                                         //Since isResponseToStorageCutThrough is set, then storage needs the bundle back in a multipart message because storage has not yet written this cut-through bundle to disk.
                                         static thread_local bool printedMsg = false;
                                         if (!printedMsg) {
@@ -1069,7 +1069,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                 if (it != mapCustodyIdToSize.end()) {
                                     if (egressAckHdr.error) {
                                         //A bundle that was sent from storage to egress gets an ack back from egress with the error flag set because egress could not send the bundle.
-                                        //This will allow storage to trigger a link down event more quickly than waiting for scheduler.
+                                        //This will allow storage to trigger a link down event more quickly than waiting for router.
                                         //Since storage already has the bundle, the error flag will prevent deletion and move the bundle back to the "awaiting send" state,
                                         //but the bundle won't be immediately released again from storage because of the immediate link down event.
                                         static thread_local bool printedMsg = false;
@@ -1202,7 +1202,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                             }
                             
 
-                            //in case scheduler sent release messages first
+                            //in case router sent release messages first
                             for (std::map<uint64_t, bool>::const_iterator it = mapOuductArrayIndexToPendingLinkChangeEvent.cbegin();
                                 it != mapOuductArrayIndexToPendingLinkChangeEvent.cend(); ++it)
                             {

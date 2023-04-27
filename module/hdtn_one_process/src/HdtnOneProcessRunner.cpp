@@ -89,7 +89,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
                 ("help", "Produce help message.")
                 ("hdtn-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
                 ("bpsec-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "BpSec Configuration File.")
-                ("contact-plan-file", boost::program_options::value<boost::filesystem::path>()->default_value(DEFAULT_CONTACT_FILE), "Contact Plan file that scheduler relies on for link availability.")
+                ("contact-plan-file", boost::program_options::value<boost::filesystem::path>()->default_value(DEFAULT_CONTACT_FILE), "Contact Plan file that router relies on for link availability.")
                 ("use-unix-timestamp", "Use unix timestamp in contact plan.")
                 ("use-mgr", "Use Multigraph Routing Algorithm")
     	        ;

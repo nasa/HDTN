@@ -28,7 +28,7 @@
 #include <boost/filesystem.hpp>
 #include "router_lib_export.h"
 
-#include "scheduler.h"
+#include "router.h"
 
 
 class RouterWrapper : private boost::noncopyable {
@@ -47,7 +47,7 @@ public:
 
 
 private:
-    Scheduler m_scheduler;
+    Router m_router;
 };
 
 

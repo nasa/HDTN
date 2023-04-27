@@ -64,7 +64,7 @@ add_executable(unit-tests
 	$<$<BOOL:${RUN_TELEMETRY}>:../../module/telem_cmd_interface/unit_tests/TelemetryConnectionPollerTests.cpp>
 	$<$<BOOL:${RUN_TELEMETRY}>:../../module/telem_cmd_interface/unit_tests/TelemetryLoggerTests.cpp>
 	$<$<BOOL:${RUN_TELEMETRY}>:../../module/telem_cmd_interface/unit_tests/TelemetryRunnerProgramOptionsTests.cpp>
-	../../module/router/unit_tests/SchedulerTests.cpp
+    ../../module/router/unit_tests/RouterTests.cpp
 )
 
 install(TARGETS unit-tests DESTINATION ${CMAKE_INSTALL_BINDIR})

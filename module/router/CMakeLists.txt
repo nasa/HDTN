@@ -1,6 +1,6 @@
 add_library(router_lib
     src/RouterWrapper.cpp
-	src/scheduler.cpp
+	src/router.cpp
 	src/RouterRunner.cpp
 )
 GENERATE_EXPORT_HEADER(router_lib)
