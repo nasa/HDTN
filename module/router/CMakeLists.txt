@@ -1,5 +1,4 @@
 add_library(router_lib
-    src/RouterWrapper.cpp
 	src/router.cpp
 	src/RouterRunner.cpp
 )
@@ -10,7 +9,7 @@ if (target_type STREQUAL SHARED_LIBRARY)
 	set_property(TARGET router_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
 endif()
 set(MY_PUBLIC_HEADERS
-    include/RouterWrapper.h
+    include/router.h
 	include/RouterRunner.h
 	${CMAKE_CURRENT_BINARY_DIR}/router_lib_export.h
 )

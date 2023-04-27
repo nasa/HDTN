@@ -12,7 +12,7 @@
  * See LICENSE.md in the source root directory for more information.
  */
 
-#include "RouterWrapper.h"
+#include "router.h"
 #include "Logger.h"
 #include "RouterRunner.h"
 #include "SignalHandler.h"
@@ -92,7 +92,7 @@ bool RouterRunner::Run(int argc, const char* const argv[], volatile bool & runni
             }
 
             if (!boost::filesystem::exists(contactPlanFilePath)) { //first see if the user specified an already valid path name not dependent on HDTN's source root
-                contactPlanFilePath = RouterWrapper::GetFullyQualifiedFilename(contactPlanFilePath);
+                contactPlanFilePath = Router::GetFullyQualifiedFilename(contactPlanFilePath);
                 if (!boost::filesystem::exists(contactPlanFilePath)) {
                     LOG_ERROR(subprocess) << "ContactPlan File not found: " << contactPlanFilePath;
                     return false;
@@ -116,17 +116,17 @@ bool RouterRunner::Run(int argc, const char* const argv[], volatile bool & runni
         }
 
 
-        LOG_INFO(subprocess) << "Starting RouterWrapper..";
+        LOG_INFO(subprocess) << "Starting router..";
         
-        RouterWrapper routerWrapper;
-        if (!routerWrapper.Init(*hdtnConfig, *hdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp, useMgr)) {
+        Router router;
+        if (!router.Init(*hdtnConfig, *hdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp, useMgr)) {
             return false;
         }
 
         if (useSignalHandler) {
             sigHandler.Start(false);
         }
-        LOG_INFO(subprocess) << "RouterWrapper up and running";
+        LOG_INFO(subprocess) << "router up and running";
         while (running && m_runningFromSigHandler) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
             if (useSignalHandler) {
@@ -135,7 +135,7 @@ bool RouterRunner::Run(int argc, const char* const argv[], volatile bool & runni
         }
 
         LOG_INFO(subprocess) << "RouterRunner: exiting cleanly..";
-        routerWrapper.Stop();
+        router.Stop();
     }
     LOG_INFO(subprocess) << "RouterRunner: exited cleanly";
     return true;

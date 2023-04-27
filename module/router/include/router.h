@@ -27,36 +27,12 @@
 
 #include <cstdint>
 #include "zmq.hpp"
-#include <memory>
-#include <boost/bimap.hpp>
-#include <boost/asio.hpp>
 #include "HdtnConfig.h"
 #include "HdtnDistributedConfig.h"
 #include <boost/core/noncopyable.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include "router_lib_export.h"
-
-#include "TimestampUtil.h"
-#include "Logger.h"
-#include <fstream>
-#include "message.hpp"
-#include <boost/filesystem.hpp>
-#include <boost/lexical_cast.hpp>
-#include <boost/date_time.hpp>
-#include <boost/make_unique.hpp>
-#include <memory>
-#include <fstream>
-#include "TelemetryDefinitions.h"
-#include <boost/asio.hpp>
-#include <boost/algorithm/string.hpp>
-#include <boost/foreach.hpp>
-#include <boost/bimap.hpp>
-#include <cstdlib>
-#include "Environment.h"
-#include "JsonSerializable.h"
-#include "codec/BundleViewV6.h"
-#include "codec/BundleViewV7.h"
 
 class Router : private boost::noncopyable {
 public:
