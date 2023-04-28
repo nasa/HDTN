@@ -228,6 +228,7 @@ enum class BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS : uint64_t {
     INCLUDE_PRIMARY_BLOCK = 1 << (static_cast<uint8_t>(BPSEC_BCB_AES_GCM_AAD_SCOPE_FLAGS::INCLUDE_PRIMARY_BLOCK_FLAG)),
     INCLUDE_TARGET_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BCB_AES_GCM_AAD_SCOPE_FLAGS::INCLUDE_TARGET_HEADER_FLAG)),
     INCLUDE_SECURITY_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BCB_AES_GCM_AAD_SCOPE_FLAGS::INCLUDE_SECURITY_HEADER_FLAG)),
+    ALL_FLAGS_SET = 7
 };
 MAKE_ENUM_SUPPORT_FLAG_OPERATORS(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS);
 MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS);
@@ -311,6 +312,19 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7CbhePrimaryBlock : public PrimaryBlock {
         3 + //reportToEid
         3 + //creation timestamp
         1; //lifetime;
+    static constexpr uint64_t largestSerializedPrimarySize = //uint64_t bufferSize
+        1 + //cbor initial byte denoting cbor array
+        1 + //bundle version 7 byte
+        9 + //m_bundleProcessingControlFlags
+        1 + //crc type code byte
+        1 + 9 + 9 + //destEid
+        1 + 9 + 9 + //srcNodeId
+        1 + 9 + 9 + //reportToEid
+        1 + 9 + 9 + //creation timestamp
+        9 + //lifetime;
+        9 + //fragment offset
+        9 + //Total Application Data Unit Length (for fragments)
+        5; //crc32
 
     BPV7_BUNDLEFLAG m_bundleProcessingControlFlags;
     cbhe_eid_t m_destinationEid;
@@ -393,6 +407,7 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7CanonicalBlock {
     BPCODEC_EXPORT virtual void SetZero();
     BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
     BPCODEC_EXPORT uint64_t GetSerializationSize() const;
+    BPCODEC_EXPORT uint64_t GetSerializationSizeOfAadPart() const;
     BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
     BPCODEC_EXPORT void RecomputeCrcAfterDataModification(uint8_t * serializationBase, const uint64_t sizeSerialized);
     BPCODEC_EXPORT static bool DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & canonicalPtr, uint8_t * serialization,
@@ -587,6 +602,7 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7BlockConfidentialityBlock : public Bpv7Abstr
     BPCODEC_EXPORT COSE_ALGORITHMS GetSecurityParameterAesVariant(bool & success) const;
     BPCODEC_EXPORT bool AddSecurityParameterScope(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS scope);
     BPCODEC_EXPORT bool IsSecurityParameterScopePresentAndSet(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS scope) const;
+    BPCODEC_EXPORT BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS GetSecurityParameterScope() const;
     BPCODEC_EXPORT std::vector<uint8_t> * AddAndGetAesWrappedKeyPtr();
     BPCODEC_EXPORT std::vector<uint8_t> * GetAesWrappedKeyPtr();
     BPCODEC_EXPORT std::vector<uint8_t> * AddAndGetInitializationVectorPtr();

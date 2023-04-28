@@ -836,6 +836,30 @@ bool Bpv7BlockConfidentialityBlock::IsSecurityParameterScopePresentAndSet(BPSEC_
     }
     return false;
 }
+BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS Bpv7BlockConfidentialityBlock::GetSecurityParameterScope() const {
+    for (std::size_t i = 0; i < m_securityContextParametersOptional.size(); ++i) {
+        const security_context_parameter_t& param = m_securityContextParametersOptional[i];
+        if (static_cast<BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS>(param.first) == BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS::AAD_SCOPE_FLAGS) {
+            if (const Bpv7AbstractSecurityBlockValueUint* valueUint = dynamic_cast<const Bpv7AbstractSecurityBlockValueUint*>(param.second.get())) {
+                return static_cast<BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS>(valueUint->m_uintValue);
+            }
+            else {
+                //4.3.4.  AAD Scope Flags
+                //When not provided, implementations SHOULD assume a value of 7
+                //(indicating all assigned fields), unless an alternate default is
+                //established by local security policy at the security source,
+                //verifier, or acceptor of this integrity service.
+                return BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET;
+            }
+        }
+    }
+    //4.3.4.  AAD Scope Flags
+    //When not provided, implementations SHOULD assume a value of 7
+    //(indicating all assigned fields), unless an alternate default is
+    //established by local security policy at the security source,
+    //verifier, or acceptor of this integrity service.
+    return BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET;
+}
 std::vector<uint8_t> * Bpv7BlockConfidentialityBlock::AddAndGetAesWrappedKeyPtr() {
     return Private_AddAndGetByteStringParamPtr(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS::WRAPPED_KEY);
 }

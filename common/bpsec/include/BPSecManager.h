@@ -1,6 +1,7 @@
 /**
  * @file BPSecManager.h
  * @author  Nadia Kortas <nadia.kortas@nasa.gov>
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
  * @copyright Copyright  2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
@@ -34,7 +35,7 @@
 #include <openssl/bio.h>
 #include <openssl/err.h>
 #include "BPSecManager.h"
-
+#include <forward_list>
 
 class BPSecManager { 
 private:
@@ -102,7 +103,7 @@ public:
         const uint8_t* encryptedData, const uint64_t encryptedDataLength,
         const uint8_t* key, const uint64_t keyLength,
         const uint8_t* iv, const uint64_t ivLength,
-        const uint8_t* aad, const uint64_t aadLength,
+        const std::vector<boost::asio::const_buffer>& aadParts,
         const uint8_t* tag,
         uint8_t* decryptedDataOut, uint64_t& decryptedDataOutSize);
 
@@ -117,9 +118,10 @@ public:
         uint8_t* unwrappedKeyOut, unsigned int& unwrappedKeyOutSize);
 
     BPSEC_EXPORT static void TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
-        BundleViewV7& bv,
-        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
-        const uint8_t* aad, const uint64_t aadLength,
+        BundleViewV7& bv, std::forward_list<std::vector<uint8_t> >& decryptionTemporaryMemoryList,
+        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping DEK only)
+        const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength, //NULL if not present (when no wrapped key is present)
+        std::vector<boost::asio::const_buffer>& aadPartsTemporaryMemory,
         bool& hadError, bool& decryptionSuccessful);
 
    /**

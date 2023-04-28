@@ -1,6 +1,7 @@
 /**
  * @file BPSecManager.cpp
  * @author  Nadia Kortas <nadia.kortas@nasa.gov>
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
  * @copyright Copyright  2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
@@ -51,6 +52,7 @@
 #include <boost/algorithm/hex.hpp>
 #include <boost/algorithm/string.hpp>
 #include "CborUint.h"
+#include <boost/next_prior.hpp>
 
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
@@ -461,7 +463,7 @@ bool BPSecManager::AesGcmDecrypt(EvpCipherCtxWrapper& ctxWrapper,
     const uint8_t* encryptedData, const uint64_t encryptedDataLength,
     const uint8_t* key, const uint64_t keyLength,
     const uint8_t* iv, const uint64_t ivLength,
-    const uint8_t* aad, const uint64_t aadLength,
+    const std::vector<boost::asio::const_buffer>& aadParts,
     const uint8_t* tag,
     uint8_t* decryptedDataOut, uint64_t& decryptedDataOutSize)
 {
@@ -520,9 +522,12 @@ bool BPSecManager::AesGcmDecrypt(EvpCipherCtxWrapper& ctxWrapper,
     // should be made with the output parameter out set to NULL.
     int tmpOutLength;
     //EVP_DecryptInit_ex() and EVP_DecryptUpdate() return 1 for success and 0 for failure.
-    if (!EVP_DecryptUpdate(ctx, NULL, &tmpOutLength, aad, (int)aadLength)) {
-        ERR_print_errors_fp(stderr);
-        return false;
+    for (std::size_t i = 0; i < aadParts.size(); ++i) {
+        const boost::asio::const_buffer& cb = aadParts[i];
+        if (!EVP_DecryptUpdate(ctx, NULL, &tmpOutLength, reinterpret_cast<const uint8_t*>(cb.data()), (int)cb.size())) {
+            ERR_print_errors_fp(stderr);
+            return false;
+        }
     }
 
     //inplace encryption (perhaps decryption) should work per: https://github.com/openssl/openssl/issues/6498#issuecomment-397865986
@@ -598,32 +603,32 @@ bool BPSecManager::AesUnwrapKey(
     return unwrappedKeyLength == keyEncryptionKeyLength;
 }
 
+
 //User of this function provided KEK (key encryption key) and AAD.
 //Bundle provides AES wrapped key, AES variant, IV, tag, and cipherText.
 //This function must unwrap key with KEK to get the DEK (data encryption key), then decrypt cipherText.
 void BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
-    BundleViewV7& bv,
-    const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
-    const uint8_t* aad, const uint64_t aadLength,
+    BundleViewV7& bv, std::forward_list<std::vector<uint8_t> >& decryptionTemporaryMemoryList,
+    const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping DEK only)
+    const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength, //NULL if not present (when no wrapped key is present)
+    std::vector<boost::asio::const_buffer>& aadPartsTemporaryMemory,
     bool& hadError, bool& decryptionSuccessful)
 {
+    
+    std::forward_list<std::vector<uint8_t> >::iterator decryptionTemporaryMemoryListIt = decryptionTemporaryMemoryList.before_begin();
     hadError = false;
     decryptionSuccessful = false;
     std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
     bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, blocks);
     for (std::size_t i = 0; i < blocks.size(); ++i) {
-        BundleViewV7::Bpv7CanonicalBlockView& blockView = *(blocks[i]);
-        Bpv7BlockConfidentialityBlock* bcbPtr = dynamic_cast<Bpv7BlockConfidentialityBlock*>(blockView.headerPtr.get());
+        BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView = *(blocks[i]);
+        Bpv7BlockConfidentialityBlock* bcbPtr = dynamic_cast<Bpv7BlockConfidentialityBlock*>(bcbBlockView.headerPtr.get());
         if (!bcbPtr) {
             hadError = true;
             return;
         }
         std::vector<std::vector<uint8_t>*> patPtrs = bcbPtr->GetAllPayloadAuthenticationTagPtrs();
-        if (patPtrs.size() != 1) {
-            hadError = true;
-            return;
-        }
-        const std::vector<uint8_t>& tag = *(patPtrs[0]);
+        
         
         bool success;
         COSE_ALGORITHMS variant = bcbPtr->GetSecurityParameterAesVariant(success);
@@ -643,76 +648,172 @@ void BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
             hadError = true;
             return;
         }
-        
-        const std::vector<uint8_t>* wrappedKeyPtr = bcbPtr->GetAesWrappedKeyPtr();
-        if (!wrappedKeyPtr) {
-            hadError = true;
-            return;
-        }
 
-        //unwrap key: 
+        std::vector<boost::asio::const_buffer>& aadParts = aadPartsTemporaryMemory;
+        aadParts.reserve(4);
+        const BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS scopeMask = bcbPtr->GetSecurityParameterScope();
+        const uint8_t scopeMaskAsU8 = static_cast<uint8_t>(scopeMask);
+        aadParts.emplace_back(&scopeMaskAsU8, sizeof(scopeMaskAsU8));
+        if ((scopeMask & BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::INCLUDE_PRIMARY_BLOCK) != BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
+            aadParts.emplace_back(bv.m_primaryBlockView.actualSerializedPrimaryBlockPtr);
+        }
+        boost::asio::const_buffer* targetHeaderAadPiece = NULL;
+        if ((scopeMask & BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::INCLUDE_TARGET_HEADER) != BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
+            aadParts.emplace_back(); //placeholder
+            targetHeaderAadPiece = &aadParts.back();
+        }
+        if ((scopeMask & BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::INCLUDE_SECURITY_HEADER) != BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
+            const uint8_t * const startPtr = (reinterpret_cast<const uint8_t*>(bcbBlockView.actualSerializedBlockPtr.data())) + 1;
+            const Bpv7CanonicalBlock& blk = *bcbBlockView.headerPtr;
+            const std::size_t len = blk.GetSerializationSizeOfAadPart();
+            aadParts.emplace_back(startPtr, len);
+        }
+        
+        const uint8_t* dataEncryptionKeyToUse;
+        unsigned int dataEncryptionKeySizeToUse;
         uint8_t unwrappedKeyBytes[32 + 10]; //32 worse case for 32*8=256bit
         unsigned int unwrappedKeyOutSize;
-        if (!BPSecManager::AesUnwrapKey(
-            keyEncryptionKey, keyEncryptionKeyLength,
-            wrappedKeyPtr->data(), static_cast<const unsigned int>(wrappedKeyPtr->size()),
-            unwrappedKeyBytes, unwrappedKeyOutSize))
-        {
-            hadError = true;
-            return;
-        }
-        const Bpv7AbstractSecurityBlock::security_targets_t& targets = bcbPtr->m_securityTargets;
-        for (Bpv7AbstractSecurityBlock::security_targets_t::const_iterator stIt = targets.cbegin(); stIt != targets.cend(); ++stIt) {
-            const uint64_t target = *stIt;
-            BundleViewV7::Bpv7CanonicalBlockView* targetCanonicalBlockPtr = bv.GetCanonicalBlockByBlockNumber(target);
-            if (!targetCanonicalBlockPtr) {
+        const std::vector<uint8_t>* wrappedKeyPtr = bcbPtr->GetAesWrappedKeyPtr();
+        if (wrappedKeyPtr) {
+            //When an AES-KW wrapped key is present in a security block, it is
+            //assumed that security verifiers and security acceptors can
+            //independently determine the KEK used in the wrapping of the symmetric
+            //AES content-encrypting key.
+            if (!keyEncryptionKey) {
+                //no KEK present, can't unwrap key
                 hadError = true;
                 return;
             }
-            Bpv7CanonicalBlock& canonicalHeader = *(targetCanonicalBlockPtr->headerPtr);
-            if (canonicalHeader.m_blockTypeCode == BPV7_BLOCK_TYPE_CODE::PAYLOAD) { //this blockView type will never be marked "dirty" and modifications will be done manually
+            //unwrap key:
+            if (!BPSecManager::AesUnwrapKey(
+                keyEncryptionKey, keyEncryptionKeyLength,
+                wrappedKeyPtr->data(), static_cast<const unsigned int>(wrappedKeyPtr->size()),
+                unwrappedKeyBytes, unwrappedKeyOutSize))
+            {
+                hadError = true;
+                return;
+            }
+            dataEncryptionKeyToUse = unwrappedKeyBytes;
+            dataEncryptionKeySizeToUse = unwrappedKeyOutSize;
+        }
+        else {
+            if (!dataEncryptionKey) {
+                //no DEK present, can't decrypt anything
+                hadError = true;
+                return;
+            }
+            dataEncryptionKeyToUse = dataEncryptionKey;
+            dataEncryptionKeySizeToUse = dataEncryptionKeyLength;
+        }
+
+        
+        const Bpv7AbstractSecurityBlock::security_targets_t& targets = bcbPtr->m_securityTargets;
+
+        
+        //The target results MUST be ordered
+        //identically to the Security Targets field of the security
+        //block.  This means that the first set of target results in this
+        //array corresponds to the first entry in the Security Targets
+        //field of the security block, and so on.  There MUST be one
+        //entry in this array for each entry in the Security Targets
+        //field of the security block.
+        //(payload authentication tag is the only result)
+        if (patPtrs.size() != targets.size()) {
+            hadError = true;
+            return;
+        }
+        
+        for (std::size_t stI = 0; stI < targets.size(); ++stI) {
+            const uint64_t target = targets[stI];
+            const std::vector<uint8_t>& tag = *(patPtrs[stI]);
+            BundleViewV7::Bpv7CanonicalBlockView* targetCanonicalBlockViewPtr = bv.GetCanonicalBlockByBlockNumber(target);
+            if (!targetCanonicalBlockViewPtr) {
+                hadError = true;
+                return;
+            }
+            Bpv7CanonicalBlock& targetCanonicalHeader = *(targetCanonicalBlockViewPtr->headerPtr);
+            if (targetHeaderAadPiece) {
+                const uint8_t* const startPtr = (reinterpret_cast<const uint8_t*>(targetCanonicalBlockViewPtr->actualSerializedBlockPtr.data())) + 1;
+                const Bpv7CanonicalBlock& blk = *targetCanonicalBlockViewPtr->headerPtr;
+                const std::size_t len = blk.GetSerializationSizeOfAadPart();
+                *targetHeaderAadPiece = boost::asio::const_buffer(startPtr, len);
+            }
+#if 0
+            {
+                std::string aadHexString;
+                BinaryConversions::BytesToHexString(aadParts, aadHexString);
+                boost::to_lower(aadHexString);
+                std::cout << "aad: " << aadHexString << "\n";
+            }
+#endif
+            if (targetCanonicalHeader.m_blockTypeCode == BPV7_BLOCK_TYPE_CODE::PAYLOAD) { //this blockView type will never be marked "dirty" and modifications will be done manually
                 //overwrite cyphertext with plaintext in-place and compute crc
                 uint64_t decryptedDataOutSize;
                 //not inplace test (separate in and out buffers)
                 if (!BPSecManager::AesGcmDecrypt(ctxWrapper,
-                    canonicalHeader.m_dataPtr, canonicalHeader.m_dataLength,
-                    unwrappedKeyBytes, unwrappedKeyOutSize,
+                    targetCanonicalHeader.m_dataPtr, targetCanonicalHeader.m_dataLength,
+                    dataEncryptionKeyToUse, dataEncryptionKeySizeToUse,
                     ivPtr->data(), ivPtr->size(),
-                    aad, aadLength, //affects tag only
+                    aadParts, //affects tag only
                     tag.data(),
-                    canonicalHeader.m_dataPtr, decryptedDataOutSize))
+                    targetCanonicalHeader.m_dataPtr, decryptedDataOutSize))
                 {
                     hadError = true;
                     return;
                 }
                 int cborLengthFieldEncodedSizeIncrease = 0;
-                const unsigned int cborLengthFieldEncodedSizeBefore = CborGetNumBytesRequiredToEncode(canonicalHeader.m_dataLength);
+                const unsigned int cborLengthFieldEncodedSizeBefore = CborGetNumBytesRequiredToEncode(targetCanonicalHeader.m_dataLength);
                 const unsigned int cborLengthFieldEncodedSizeAfter = CborGetNumBytesRequiredToEncode(decryptedDataOutSize);
-                const int64_t decryptSizeIncrease = (static_cast<int64_t>(decryptedDataOutSize)) - (static_cast<int64_t>(canonicalHeader.m_dataLength));
+                const int64_t decryptSizeIncrease = (static_cast<int64_t>(decryptedDataOutSize)) - (static_cast<int64_t>(targetCanonicalHeader.m_dataLength));
                 if (cborLengthFieldEncodedSizeBefore == cborLengthFieldEncodedSizeAfter) { //in place will work
                     //this should be the most common case
                 }
                 else { //need to shift the payload data left or right by 1 byte because the cbor encoded length field grew or shrank by 1 byte
                     cborLengthFieldEncodedSizeIncrease = (static_cast<const int>(cborLengthFieldEncodedSizeAfter)) - (static_cast<const int>(cborLengthFieldEncodedSizeBefore));
                     //move decrypted data by one byte
-                    std::memmove(canonicalHeader.m_dataPtr + cborLengthFieldEncodedSizeIncrease, canonicalHeader.m_dataPtr, canonicalHeader.m_dataLength);
+                    std::memmove(targetCanonicalHeader.m_dataPtr + cborLengthFieldEncodedSizeIncrease, targetCanonicalHeader.m_dataPtr, targetCanonicalHeader.m_dataLength);
                     //encode length field which is immediately before the "byte string"
-                    CborEncodeU64(canonicalHeader.m_dataPtr - cborLengthFieldEncodedSizeBefore, decryptedDataOutSize, cborLengthFieldEncodedSizeAfter);
+                    CborEncodeU64(targetCanonicalHeader.m_dataPtr - cborLengthFieldEncodedSizeBefore, decryptedDataOutSize, cborLengthFieldEncodedSizeAfter);
                 }
                 //change block serialization size
-                const uint8_t* const blockSerializedBegin = (const uint8_t*)targetCanonicalBlockPtr->actualSerializedBlockPtr.data(); //won't change
-                const std::size_t blockSerializedSize = targetCanonicalBlockPtr->actualSerializedBlockPtr.size() + cborLengthFieldEncodedSizeIncrease + decryptSizeIncrease;
-                targetCanonicalBlockPtr->actualSerializedBlockPtr = boost::asio::buffer(blockSerializedBegin, blockSerializedSize);
+                const uint8_t* const blockSerializedBegin = (const uint8_t*)targetCanonicalBlockViewPtr->actualSerializedBlockPtr.data(); //won't change
+                const std::size_t blockSerializedSize = targetCanonicalBlockViewPtr->actualSerializedBlockPtr.size() + cborLengthFieldEncodedSizeIncrease + decryptSizeIncrease;
+                targetCanonicalBlockViewPtr->actualSerializedBlockPtr = boost::asio::buffer(blockSerializedBegin, blockSerializedSize);
 
                 //recompute crc at end
-                canonicalHeader.RecomputeCrcAfterDataModification(
-                    (uint8_t*)targetCanonicalBlockPtr->actualSerializedBlockPtr.data(),
-                    targetCanonicalBlockPtr->actualSerializedBlockPtr.size()); //recompute crc
+                targetCanonicalHeader.RecomputeCrcAfterDataModification(
+                    (uint8_t*)targetCanonicalBlockViewPtr->actualSerializedBlockPtr.data(),
+                    targetCanonicalBlockViewPtr->actualSerializedBlockPtr.size()); //recompute crc
 
                 decryptionSuccessful = true;
             }
+            else { //decrypt other extension blocks to temporary memory then copy in
+                uint64_t decryptedDataOutSize;
+                if (boost::next(decryptionTemporaryMemoryListIt) == decryptionTemporaryMemoryList.end()) {
+                    decryptionTemporaryMemoryList.emplace_after(decryptionTemporaryMemoryListIt);
+                }
+                ++decryptionTemporaryMemoryListIt;
+                std::vector<uint8_t>& decryptionTemporaryMemory = *decryptionTemporaryMemoryListIt;
+                decryptionTemporaryMemory.resize(targetCanonicalHeader.m_dataLength + EVP_MAX_BLOCK_LENGTH); //technically the +EVP_MAX_BLOCK_LENGTH should be only for encrypting
+                //not inplace test (separate in and out buffers)
+                if (!BPSecManager::AesGcmDecrypt(ctxWrapper,
+                    targetCanonicalHeader.m_dataPtr, targetCanonicalHeader.m_dataLength,
+                    dataEncryptionKeyToUse, dataEncryptionKeySizeToUse,
+                    ivPtr->data(), ivPtr->size(),
+                    aadParts, //affects tag only
+                    tag.data(),
+                    decryptionTemporaryMemory.data(), decryptedDataOutSize))
+                {
+                    hadError = true;
+                    return;
+                }
+                //Replace payload with the plain text
+                targetCanonicalHeader.m_dataPtr = decryptionTemporaryMemory.data();
+                targetCanonicalHeader.m_dataLength = decryptedDataOutSize;
+                targetCanonicalBlockViewPtr->SetManuallyModified();
+            }
         }
-        blockView.markedForDeletion = true;
+        bcbBlockView.markedForDeletion = true;
     }
     if (decryptionSuccessful) { //at least one bcb was marked for deletion, so rerender
         if (!bv.RenderInPlace(128)) { //todo make PADDING_ELEMENTS_BEFORE

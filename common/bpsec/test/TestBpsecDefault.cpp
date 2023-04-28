@@ -1,5 +1,6 @@
 /**
- * @file TestBpsecDefaultSecurityContexts.cpp
+ * @file TestBpsecDefault.cpp
+ * @author  Nadia Kortas <nadia.kortas@nasa.gov>
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
  * @copyright Copyright © 2021 United States Government as represented by
@@ -678,12 +679,14 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
     {
         std::vector<uint8_t> decryptedBytes(payloadString.size() + EVP_MAX_BLOCK_LENGTH, 0);
         uint64_t decryptedDataOutSize = 0;
+        std::vector<boost::asio::const_buffer> aadParts;
+        aadParts.emplace_back(boost::asio::buffer(gcmAadBytes));
         //not inplace test (separate in and out buffers)
         BOOST_REQUIRE(BPSecManager::AesGcmDecrypt(ctxWrapper,
             cipherTextBytes.data(), cipherTextBytes.size(),
             keyBytes.data(), keyBytes.size(),
             initializationVectorBytes.data(), initializationVectorBytes.size(),
-            gcmAadBytes.data(), gcmAadBytes.size(), //affects tag only
+            aadParts, //affects tag only
             tagBytes.data(),
             decryptedBytes.data(), decryptedDataOutSize));
 
@@ -702,12 +705,14 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
             cipherTextBytes.data() + cipherTextBytes.size()
         );
         uint64_t decryptedDataOutSize = 0;
+        std::vector<boost::asio::const_buffer> aadParts;
+        aadParts.emplace_back(boost::asio::buffer(gcmAadBytes));
         //not inplace test (separate in and out buffers)
         BOOST_REQUIRE(BPSecManager::AesGcmDecrypt(ctxWrapper,
             inplaceDataToDecrypt.data(), inplaceDataToDecrypt.size(),
             keyBytes.data(), keyBytes.size(),
             initializationVectorBytes.data(), initializationVectorBytes.size(),
-            gcmAadBytes.data(), gcmAadBytes.size(), //affects tag only
+            aadParts, //affects tag only
             tagBytes.data(),
             inplaceDataToDecrypt.data(), decryptedDataOutSize));
 
@@ -745,17 +750,17 @@ BOOST_AUTO_TEST_CASE(DecryptBundleTestCase)
     );
     BOOST_REQUIRE(BinaryConversions::HexStringToBytes(keyEncryptionKeyString, keyEncryptionKeyBytes));
 
-    std::vector<uint8_t> gcmAadBytes;
-    static const std::string gcmAadString("00");
-    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(gcmAadString, gcmAadBytes));
+    std::vector<boost::asio::const_buffer> aadPartsTemporaryMemory;
 
     BPSecManager::EvpCipherCtxWrapper ctxWrapper;
     bool hadError;
     bool decryptionSuccessful;
+    std::forward_list<std::vector<uint8_t> > decryptionTemporaryMemoryList;
     BPSecManager::TryDecryptBundle(ctxWrapper,
-        bv,
+        bv, decryptionTemporaryMemoryList,
         keyEncryptionKeyBytes.data(), static_cast<const unsigned int>(keyEncryptionKeyBytes.size()),
-        gcmAadBytes.data(), gcmAadBytes.size(),
+        NULL, 0, //no DEK (using KEK instead)
+        aadPartsTemporaryMemory,
         hadError, decryptionSuccessful);
     BOOST_REQUIRE(!hadError);
     BOOST_REQUIRE(decryptionSuccessful);
@@ -773,4 +778,65 @@ BOOST_AUTO_TEST_CASE(DecryptBundleTestCase)
         "6c6f6164ff"
     );
     BOOST_REQUIRE_EQUAL(expectedSerializedBundleString, decryptedBundleHexString);
+}
+
+//from TestBpsecDefaultSecurityContextsSecurityBlocksWithFullScopeTestCase
+BOOST_AUTO_TEST_CASE(DecryptBundleFullScopeTestCase)
+{
+    std::vector<uint8_t> encryptedSerializedBundle;
+    static const std::string encryptedSerializedBundleString(
+        "9f88070000820282010282028202018202820201820018281a000f4240850b0300"
+        "005846438ed6208eb1c1ffb94d952175167df0902902064a2983910c4fb2340790bf"
+        "420a7d1921d5bf7c4721e02ab87a93ab1e0b75cf62e4948727c8b5dae46ed2af0543"
+        "9b88029191850c0201005849820301020182028202018382014c5477656c76653132"
+        "313231328202038204078281820150220ffc45c8a901999ecc60991dd78b29818201"
+        "50d2c51cb2481792dae8b21d848cede99b8501010000582390eab6457593379298a8"
+        "724e16e61f837488e127212b59ac91f8a86287b7d07630a122ff"
+    );
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(encryptedSerializedBundleString, encryptedSerializedBundle));
+    padded_vector_uint8_t encryptedSerializedBundlePadded(
+        encryptedSerializedBundle.data(),
+        encryptedSerializedBundle.data() + encryptedSerializedBundle.size()
+    );
+    BundleViewV7 bv;
+    BOOST_REQUIRE(bv.LoadBundle(encryptedSerializedBundlePadded.data(), encryptedSerializedBundlePadded.size(), false));
+
+    //decrypt
+
+    std::vector<uint8_t> dataEncryptionKeyBytes; //DEK
+    static const std::string dataEncryptionKeyString(
+        "71776572747975696f70617364666768"
+        "71776572747975696f70617364666768"
+    );
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(dataEncryptionKeyString, dataEncryptionKeyBytes));
+
+    std::vector<boost::asio::const_buffer> aadPartsTemporaryMemory;
+
+    BPSecManager::EvpCipherCtxWrapper ctxWrapper;
+    bool hadError;
+    bool decryptionSuccessful;
+    std::forward_list<std::vector<uint8_t> > decryptionTemporaryMemoryList;
+    BPSecManager::TryDecryptBundle(ctxWrapper,
+        bv, decryptionTemporaryMemoryList,
+        NULL, 0, //not using KEK
+        dataEncryptionKeyBytes.data(), static_cast<const unsigned int>(dataEncryptionKeyBytes.size()),
+        aadPartsTemporaryMemory,
+        hadError, decryptionSuccessful);
+    BOOST_REQUIRE(!hadError);
+    BOOST_REQUIRE(decryptionSuccessful);
+    /*
+    std::vector<uint8_t> decryptedBundleCopy(
+        (uint8_t*)bv.m_renderedBundle.data(),
+        ((uint8_t*)bv.m_renderedBundle.data()) + bv.m_renderedBundle.size()
+    );
+    std::string decryptedBundleHexString;
+    BinaryConversions::BytesToHexString(decryptedBundleCopy, decryptedBundleHexString);
+    boost::to_lower(decryptedBundleHexString);
+    //std::cout << "decrypted bundle: " << decryptedBundleHexString << "\n";
+    static const std::string expectedSerializedBundleString(
+        "9f88070000820282010282028202018202820201820018281a000f424085010100"
+        "005823526561647920746f2067656e657261746520612033322d6279746520706179"
+        "6c6f6164ff"
+    );
+    BOOST_REQUIRE_EQUAL(expectedSerializedBundleString, decryptedBundleHexString);*/
 }

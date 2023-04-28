@@ -42,6 +42,19 @@ void BinaryConversions::BytesToHexString(const std::vector<uint8_t> & bytes, std
     hexString.reserve((bytes.size() * 2) + 2);
     boost::algorithm::hex(bytes, std::back_inserter(hexString));
 }
+void BinaryConversions::BytesToHexString(const std::vector<boost::asio::const_buffer>& bytes, std::string& hexString) {
+    hexString.resize(0);
+    std::size_t totalSize = 0;
+    for (std::size_t i = 0; i < bytes.size(); ++i) {
+        totalSize += bytes[i].size();
+    }
+    hexString.reserve((totalSize * 2) + 2);
+    for (std::size_t i = 0; i < bytes.size(); ++i) {
+        const boost::asio::const_buffer& cb = bytes[i];
+        const uint8_t* const ptr = reinterpret_cast<const uint8_t*>(cb.data());
+        boost::algorithm::hex(ptr, ptr + cb.size(), std::back_inserter(hexString));
+    }
+}
 
 
 bool BinaryConversions::HexStringToBytes(const std::string & hexString, std::vector<uint8_t> & bytes) {
