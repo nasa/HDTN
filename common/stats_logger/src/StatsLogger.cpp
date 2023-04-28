@@ -118,7 +118,7 @@ void StatsLogger::createFileSink(
     sink->set_formatter
     (
         boost::log::expressions::stream
-            << timestampMsFormatter(boost::log::expressions::attr<boost::posix_time::ptime>("TimeStamp"))
+            << m_timestampMsFormatter(boost::log::expressions::attr<boost::posix_time::ptime>("TimeStamp"))
             << "," << boost::log::expressions::smessage
     );
 }
