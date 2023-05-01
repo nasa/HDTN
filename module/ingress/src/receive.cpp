@@ -179,6 +179,11 @@ private:
     volatile bool m_telemThreadStartupInProgress;
     boost::mutex m_telemThreadStartupMutex;
     boost::condition_variable m_telemThreadStartupConditionVariable;
+
+    //for preventing telem-thread from accessing inducts until intialized
+    volatile bool m_inductsFullyLoaded;
+    boost::mutex m_inductsFullyLoadedMutex;
+    boost::condition_variable m_inductsFullyLoadedConditionVariable;
 };
 
 Ingress::Impl::BundlePipelineAckingSet::BundlePipelineAckingSet(const uint64_t paramMaxBundlesInPipeline,
@@ -293,7 +298,8 @@ Ingress::Impl::Impl() :
     m_egressFullyInitialized(false),
     m_nextBundleUniqueIdAtomic(0),
     m_workerThreadStartupInProgress(false),
-    m_telemThreadStartupInProgress(false) {}
+    m_telemThreadStartupInProgress(false),
+    m_inductsFullyLoaded(false) {}
 
 Ingress::Ingress() :
     m_pimpl(boost::make_unique<Ingress::Impl>()),
@@ -708,6 +714,10 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                                         boost::bind(&Ingress::Impl::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
 
                                     m_egressFullyInitialized = true;
+                                    m_inductsFullyLoadedMutex.lock();
+                                    m_inductsFullyLoaded = true;
+                                    m_inductsFullyLoadedMutex.unlock();
+                                    m_inductsFullyLoadedConditionVariable.notify_one();
 
                                     LOG_INFO(subprocess) << "Now running and fully initialized and connected to egress";
                                 }
@@ -790,6 +800,22 @@ void Ingress::Impl::ZmqTelemThreadFunc() {
     m_telemThreadStartupInProgress = false;
     m_telemThreadStartupMutex.unlock();
     m_telemThreadStartupConditionVariable.notify_one();
+
+    //block until inducts are fully loaded to prevent a data race when populating telemetry
+    {
+        boost::mutex::scoped_lock inductsFullyLoadedLock(m_inductsFullyLoadedMutex);
+        while (!m_inductsFullyLoaded) { //lock mutex (above) before checking condition
+            //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
+            if (!m_inductsFullyLoadedConditionVariable.timed_wait(inductsFullyLoadedLock, boost::posix_time::seconds(20))) {
+                LOG_ERROR(subprocess) << "timed out waiting (for 20 seconds) for inducts to be fully loaded";
+                break;
+            }
+        }
+        if (!m_inductsFullyLoaded) {
+            LOG_ERROR(subprocess) << "timed out waiting for inducts to loaded. Existing telem thread";
+            return;
+        }
+    }
 
     while (m_running) { //keep thread alive if running
         int rc = 0;
