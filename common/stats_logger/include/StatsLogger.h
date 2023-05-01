@@ -122,7 +122,7 @@ private:
     struct timestampMs_t {
         int64_t operator()(boost::log::value_ref<boost::posix_time::ptime> const & date) const;
     };
-    static boost::phoenix::function<StatsLogger::timestampMs_t> timestampMsFormatter;
+    boost::phoenix::function<StatsLogger::timestampMs_t> m_timestampMsFormatter;
 };
 }
 
