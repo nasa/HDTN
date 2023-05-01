@@ -218,12 +218,14 @@ uint64_t Bpv7CanonicalBlock::SerializeBpv7(uint8_t * serialization) {
     }
 }
 
-uint64_t Bpv7CanonicalBlock::GetSerializationSize() const {
+uint64_t Bpv7CanonicalBlock::GetSerializationSize(const bool isEncrypted) const {
     uint64_t serializationSize = 2; //cbor byte (major type 4, additional information [5..6]) plus crcType
     serializationSize += CborGetEncodingSizeU64(static_cast<uint64_t>(m_blockTypeCode));
     serializationSize += CborGetEncodingSizeU64(m_blockNumber);
     serializationSize += CborGetEncodingSizeU64(static_cast<uint64_t>(m_blockProcessingControlFlags));
-    const uint64_t canonicalBlockTypeSpecificDataSerializationSize = GetCanonicalBlockTypeSpecificDataSerializationSize();
+    const uint64_t canonicalBlockTypeSpecificDataSerializationSize = (isEncrypted) ?
+        Bpv7CanonicalBlock::GetCanonicalBlockTypeSpecificDataSerializationSize() : //use raw data size
+        GetCanonicalBlockTypeSpecificDataSerializationSize(); //use virtual child class call
     serializationSize += CborGetEncodingSizeU64(canonicalBlockTypeSpecificDataSerializationSize);
     serializationSize += canonicalBlockTypeSpecificDataSerializationSize; //todo safety check on data length
     static const uint8_t CRC_TYPE_TO_SIZE[4] = { 0,3,5,0 };

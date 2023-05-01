@@ -746,6 +746,14 @@ void BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
                 std::cout << "aad: " << aadHexString << "\n";
             }
 #endif
+#if 0
+            {
+                std::string hexString;
+                BinaryConversions::BytesToHexString(targetCanonicalHeader.m_dataPtr, targetCanonicalHeader.m_dataLength, hexString);
+                boost::to_lower(hexString);
+                std::cout << "block (code=" << (int)targetCanonicalHeader.m_blockTypeCode << ") data part before decrypt : " << hexString << "\n";
+            }
+#endif
             if (targetCanonicalHeader.m_blockTypeCode == BPV7_BLOCK_TYPE_CODE::PAYLOAD) { //this blockView type will never be marked "dirty" and modifications will be done manually
                 //overwrite cyphertext with plaintext in-place and compute crc
                 uint64_t decryptedDataOutSize;
@@ -761,14 +769,25 @@ void BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
                     hadError = true;
                     return;
                 }
+#if 0
+                {
+                    std::string hexString;
+                    BinaryConversions::BytesToHexString(targetCanonicalHeader.m_dataPtr, targetCanonicalHeader.m_dataLength, hexString);
+                    boost::to_lower(hexString);
+                    std::cout << "payload block data part decrypted: " << hexString << "\n";
+                }
+#endif
                 int cborLengthFieldEncodedSizeIncrease = 0;
                 const unsigned int cborLengthFieldEncodedSizeBefore = CborGetNumBytesRequiredToEncode(targetCanonicalHeader.m_dataLength);
                 const unsigned int cborLengthFieldEncodedSizeAfter = CborGetNumBytesRequiredToEncode(decryptedDataOutSize);
                 const int64_t decryptSizeIncrease = (static_cast<int64_t>(decryptedDataOutSize)) - (static_cast<int64_t>(targetCanonicalHeader.m_dataLength));
+                //std::cout << "decryptSizeIncrease " << decryptSizeIncrease << "\n";
                 if (cborLengthFieldEncodedSizeBefore == cborLengthFieldEncodedSizeAfter) { //in place will work
                     //this should be the most common case
+                    //std::cout << "no len change\n";
                 }
                 else { //need to shift the payload data left or right by 1 byte because the cbor encoded length field grew or shrank by 1 byte
+                    std::cout << "len change\n";
                     cborLengthFieldEncodedSizeIncrease = (static_cast<const int>(cborLengthFieldEncodedSizeAfter)) - (static_cast<const int>(cborLengthFieldEncodedSizeBefore));
                     //move decrypted data by one byte
                     std::memmove(targetCanonicalHeader.m_dataPtr + cborLengthFieldEncodedSizeIncrease, targetCanonicalHeader.m_dataPtr, targetCanonicalHeader.m_dataLength);
@@ -786,6 +805,14 @@ void BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
                     targetCanonicalBlockViewPtr->actualSerializedBlockPtr.size()); //recompute crc
 
                 decryptionSuccessful = true;
+#if 0
+                {
+                    std::string hexString;
+                    BinaryConversions::BytesToHexString(targetCanonicalBlockViewPtr->actualSerializedBlockPtr.data(), targetCanonicalBlockViewPtr->actualSerializedBlockPtr.size(), hexString);
+                    boost::to_lower(hexString);
+                    std::cout << "payload block decrypted: " << hexString << "\n";
+                }
+#endif
             }
             else { //decrypt other extension blocks to temporary memory then copy in
                 uint64_t decryptedDataOutSize;
@@ -810,7 +837,16 @@ void BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
                 //Replace payload with the plain text
                 targetCanonicalHeader.m_dataPtr = decryptionTemporaryMemory.data();
                 targetCanonicalHeader.m_dataLength = decryptedDataOutSize;
+#if 0
+                {
+                    std::string hexString;
+                    BinaryConversions::BytesToHexString(targetCanonicalHeader.m_dataPtr, targetCanonicalHeader.m_dataLength, hexString);
+                    boost::to_lower(hexString);
+                    std::cout << "extension block data part decrypted: " << hexString << "\n";
+                }
+#endif
                 targetCanonicalBlockViewPtr->SetManuallyModified();
+                decryptionSuccessful = true;
             }
         }
         bcbBlockView.markedForDeletion = true;

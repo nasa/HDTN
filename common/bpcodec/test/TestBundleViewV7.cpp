@@ -485,7 +485,7 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             BOOST_REQUIRE_EQUAL(previousNodeBlockPtr->m_blockNumber, 2);
             BOOST_REQUIRE_EQUAL(previousNodeBlockPtr->m_previousNode.nodeId, PREVIOUS_NODE);
             BOOST_REQUIRE_EQUAL(previousNodeBlockPtr->m_previousNode.serviceId, PREVIOUS_SVC);
-            BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), previousNodeBlockPtr->GetSerializationSize());
+            BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), previousNodeBlockPtr->GetSerializationSize(false));
             BOOST_REQUIRE(!blocks[0]->isEncrypted); //not encrypted
         }
 
@@ -499,7 +499,7 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             BOOST_REQUIRE_EQUAL(bundleAgeBlockPtr->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::BUNDLE_AGE);
             BOOST_REQUIRE_EQUAL(bundleAgeBlockPtr->m_blockNumber, 3);
             BOOST_REQUIRE_EQUAL(bundleAgeBlockPtr->m_bundleAgeMilliseconds, BUNDLE_AGE_MS);
-            BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), bundleAgeBlockPtr->GetSerializationSize());
+            BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), bundleAgeBlockPtr->GetSerializationSize(false));
             BOOST_REQUIRE(!blocks[0]->isEncrypted); //not encrypted
         }
 
@@ -514,7 +514,7 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             BOOST_REQUIRE_EQUAL(hopCountBlockPtr->m_blockNumber, 4);
             BOOST_REQUIRE_EQUAL(hopCountBlockPtr->m_hopLimit, HOP_LIMIT);
             BOOST_REQUIRE_EQUAL(hopCountBlockPtr->m_hopCount, HOP_COUNT);
-            BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), hopCountBlockPtr->GetSerializationSize());
+            BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), hopCountBlockPtr->GetSerializationSize(false));
             BOOST_REQUIRE(!blocks[0]->isEncrypted); //not encrypted
         }
         
@@ -528,7 +528,7 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             BOOST_REQUIRE_EQUAL(priorityBlockPtr->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::PRIORITY);
             BOOST_REQUIRE_EQUAL(priorityBlockPtr->m_blockNumber, 5);
             BOOST_REQUIRE_EQUAL(priorityBlockPtr->m_bundlePriority, PRIORITY);
-            BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), priorityBlockPtr->GetSerializationSize());
+            BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), priorityBlockPtr->GetSerializationSize(false));
             BOOST_REQUIRE(!blocks[0]->isEncrypted); //not encrypted
         }
 
@@ -543,7 +543,7 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             BOOST_REQUIRE_EQUAL(s, payloadString);
             BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::PAYLOAD);
             BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockNumber, 1);
-            BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize());
+            BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize(false));
             BOOST_REQUIRE(!blocks[0]->isEncrypted); //not encrypted
         }
 
@@ -714,7 +714,7 @@ BOOST_AUTO_TEST_CASE(Bpv7PrependExtensionBlockToPaddedBundleTestCase)
             BOOST_REQUIRE_EQUAL(previousNodeBlockPtr->m_blockNumber, 2);
             BOOST_REQUIRE_EQUAL(previousNodeBlockPtr->m_previousNode.nodeId, PREVIOUS_NODE);
             BOOST_REQUIRE_EQUAL(previousNodeBlockPtr->m_previousNode.serviceId, PREVIOUS_SVC);
-            BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), previousNodeBlockPtr->GetSerializationSize());
+            BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), previousNodeBlockPtr->GetSerializationSize(false));
             BOOST_REQUIRE(!blocks[0]->isEncrypted); //not encrypted
 
             blocks[0]->markedForDeletion = true;
@@ -864,7 +864,7 @@ BOOST_AUTO_TEST_CASE(Bpv7BundleStatusReportTestCase)
                         BOOST_REQUIRE_EQUAL(adminRecordBlockPtr->m_blockNumber, 1);
                         BOOST_REQUIRE_EQUAL(adminRecordBlockPtr->m_adminRecordTypeCode, BPV7_ADMINISTRATIVE_RECORD_TYPE_CODE::BUNDLE_STATUS_REPORT);
 
-                        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), adminRecordBlockPtr->GetSerializationSize());
+                        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), adminRecordBlockPtr->GetSerializationSize(false));
                         //LOG_INFO(subprocess) << "adminRecordBlockPtr->GetSerializationSize() " << adminRecordBlockPtr->GetSerializationSize();
                         BOOST_REQUIRE(!blocks[0]->isEncrypted); //not encrypted
 
@@ -1052,7 +1052,7 @@ BOOST_AUTO_TEST_CASE(Bpv7BibeTestCase)
                 BOOST_REQUIRE_EQUAL(adminRecordBlockPtr->m_blockNumber, 1);
                 BOOST_REQUIRE_EQUAL(adminRecordBlockPtr->m_adminRecordTypeCode, BPV7_ADMINISTRATIVE_RECORD_TYPE_CODE::BIBE_PDU);
 
-                BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), adminRecordBlockPtr->GetSerializationSize());
+                BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), adminRecordBlockPtr->GetSerializationSize(false));
                 //LOG_INFO(subprocess) << "adminRecordBlockPtr->GetSerializationSize() " << adminRecordBlockPtr->GetSerializationSize();
                 BOOST_REQUIRE(!blocks[0]->isEncrypted); //not encrypted
 

@@ -98,7 +98,7 @@ BOOST_AUTO_TEST_CASE(TestBpsecDefaultSecurityContextsIntegrityTestCase)
         BOOST_REQUIRE_EQUAL(s, payloadString);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::PAYLOAD);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockNumber, 1);
-        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize());
+        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize(false));
 
         //verify from example
         std::vector<uint8_t> expectedSerializedPayloadBlock;
@@ -330,7 +330,7 @@ BOOST_AUTO_TEST_CASE(TestBpsecDefaultSecurityContextsSimpleConfidentialityTestCa
         BOOST_REQUIRE_EQUAL(s, payloadString);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::PAYLOAD);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockNumber, 1);
-        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize());
+        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize(false));
 
         //verify from example
         std::vector<uint8_t> expectedSerializedPayloadBlock;
@@ -529,7 +529,7 @@ BOOST_AUTO_TEST_CASE(TestBpsecDefaultSecurityContextsSimpleConfidentialityTestCa
         BinaryConversions::BytesToHexString(bv.m_frontBuffer, actualHex);
         boost::to_lower(actualHex);
         BOOST_REQUIRE_EQUAL(actualHex, expectedSerializedBundleString);
-	//load bundle to test deserialize
+        //load bundle to test deserialize
         {
             BundleViewV7 bv2;
             std::vector<uint8_t> toSwapIn(expectedSerializedBundle);
@@ -824,19 +824,58 @@ BOOST_AUTO_TEST_CASE(DecryptBundleFullScopeTestCase)
         hadError, decryptionSuccessful);
     BOOST_REQUIRE(!hadError);
     BOOST_REQUIRE(decryptionSuccessful);
-    /*
-    std::vector<uint8_t> decryptedBundleCopy(
-        (uint8_t*)bv.m_renderedBundle.data(),
-        ((uint8_t*)bv.m_renderedBundle.data()) + bv.m_renderedBundle.size()
+
+
+    static const std::string expectedSerializedPayloadBlockString(
+        "85010100005823526561647920746f2067656e657261746520612033322d62797465207061796c6f6164"
     );
-    std::string decryptedBundleHexString;
-    BinaryConversions::BytesToHexString(decryptedBundleCopy, decryptedBundleHexString);
-    boost::to_lower(decryptedBundleHexString);
-    //std::cout << "decrypted bundle: " << decryptedBundleHexString << "\n";
+    {
+        std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+        BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+        std::string actualHex;
+        BinaryConversions::BytesToHexString(blocks[0]->actualSerializedBlockPtr.data(), blocks[0]->actualSerializedBlockPtr.size(), actualHex);
+        boost::to_lower(actualHex);
+        BOOST_REQUIRE_EQUAL(actualHex, expectedSerializedPayloadBlockString);
+        //std::cout << "payload decrypted: " << actualHex << "\n";
+
+        BinaryConversions::BytesToHexString(blocks[0]->headerPtr->m_dataPtr, blocks[0]->headerPtr->m_dataLength, actualHex);
+        boost::to_lower(actualHex);
+        //std::cout << "payload data decrypted: " << actualHex << "\n";
+    }
+
+    
+    static const std::string expectedSerializedBibBlockString(
+        "850b030000584681010101820282020182820106820307818182015830f75fe4c3"
+        "7f76f046165855bd5ff72fbfd4e3a64b4695c40e2b787da005ae819f0a2e30a2e8b3"
+        "25527de8aefb52e73d71"
+    );
+    {
+        std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::INTEGRITY, blocks);
+        BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+        std::string actualHex;
+        BinaryConversions::BytesToHexString(blocks[0]->actualSerializedBlockPtr.data(), blocks[0]->actualSerializedBlockPtr.size(), actualHex);
+        boost::to_lower(actualHex);
+        BOOST_REQUIRE_EQUAL(actualHex, expectedSerializedBibBlockString);
+
+        //remove the decrypted bib
+        blocks[0]->markedForDeletion = true;
+        bv.RenderInPlace(128);
+    }
+    
+    //all decrypted, no bib nor bcb, just primary and payload
     static const std::string expectedSerializedBundleString(
         "9f88070000820282010282028202018202820201820018281a000f424085010100"
         "005823526561647920746f2067656e657261746520612033322d6279746520706179"
         "6c6f6164ff"
     );
-    BOOST_REQUIRE_EQUAL(expectedSerializedBundleString, decryptedBundleHexString);*/
+    {
+        std::string actualHex;
+        BinaryConversions::BytesToHexString(bv.m_renderedBundle, actualHex);
+        boost::to_lower(actualHex);
+        BOOST_REQUIRE_EQUAL(actualHex, expectedSerializedBundleString);
+        //std::cout << "decrypted bundle: " << actualHex << "\n";
+    }
+
 }

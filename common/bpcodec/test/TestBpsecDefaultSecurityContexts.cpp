@@ -213,7 +213,7 @@ A.1.1.1.  Primary Block
         BOOST_REQUIRE_EQUAL(s, payloadString);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::PAYLOAD);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockNumber, 1);
-        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize());
+        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize(false));
 
         //verify from example
         std::vector<uint8_t> expectedSerializedPayloadBlock;
@@ -623,7 +623,7 @@ A.2.1.1.  Primary Block
         BOOST_REQUIRE_EQUAL(s, payloadString);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::PAYLOAD);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockNumber, 1);
-        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize());
+        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize(false));
 
         //verify from example
         std::vector<uint8_t> expectedSerializedPayloadBlock;
@@ -1157,7 +1157,7 @@ A.3.1.1.  Primary Block
         BOOST_REQUIRE_EQUAL(s, payloadString);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::PAYLOAD);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockNumber, 1);
-        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize());
+        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize(false));
 
         //verify from example
         std::vector<uint8_t> expectedSerializedPayloadBlock;
@@ -1844,7 +1844,7 @@ A.4.1.1.  Primary Block
         BOOST_REQUIRE_EQUAL(s, payloadString);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::PAYLOAD);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockNumber, 1);
-        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize());
+        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize(false));
 
         //verify from example
         std::vector<uint8_t> expectedSerializedPayloadBlock;

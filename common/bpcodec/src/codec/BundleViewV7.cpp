@@ -297,7 +297,7 @@ bool BundleViewV7::GetSerializationSize(uint64_t & serializationSize) const {
             currentBlockSizeSerialized = 0;
         }
         else if (it->dirty) { //always reencode canonical block if dirty
-            currentBlockSizeSerialized = it->headerPtr->GetSerializationSize();
+            currentBlockSizeSerialized = it->headerPtr->GetSerializationSize(it->isEncrypted);
             if (currentBlockSizeSerialized < Bpv7CanonicalBlock::smallestSerializedCanonicalSize) {
                 return false;
             }
