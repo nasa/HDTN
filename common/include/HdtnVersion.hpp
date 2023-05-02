@@ -30,7 +30,7 @@
  //  00.000.00 where MAJOR_MINOR_PATCH
 
 /// version 00.009.01 (placeholder until official release)
-#define HDTN_VERSION 901
+#define HDTN_VERSION 100000
 
 #define HDTN_VERSION_PATCH (HDTN_VERSION % 100)
 #define HDTN_VERSION_MINOR ((HDTN_VERSION / 100) % 1000)
