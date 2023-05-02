@@ -19,6 +19,27 @@
 #include "PaddedVectorUint8.h"
 #include "Logger.h"
 
+
+#include <boost/multiprecision/cpp_int.hpp>
+#include <boost/multiprecision/detail/bitscan.hpp>
+#ifdef USE_BITTEST
+# include <immintrin.h>
+# ifdef HAVE_INTRIN_H
+#  include <intrin.h>
+# endif
+# ifdef HAVE_X86INTRIN_H
+#  include <x86intrin.h>
+# endif
+#elif defined(USE_ANDN)
+# include <immintrin.h>
+# if defined(__GNUC__) && defined(HAVE_X86INTRIN_H)
+#  include <x86intrin.h>
+#  define _andn_u64(a, b)   (__andn_u64((a), (b)))
+# elif defined(_MSC_VER)
+#  include <ammintrin.h>
+# endif
+#endif //USE_BITTEST or USE_ANDN
+
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 void BundleViewV7::Bpv7PrimaryBlockView::SetManuallyModified() {
@@ -29,7 +50,8 @@ void BundleViewV7::Bpv7CanonicalBlockView::SetManuallyModified() {
 }
 BundleViewV7::Bpv7CanonicalBlockView::Bpv7CanonicalBlockView() : isEncrypted(false) {}
 
-BundleViewV7::BundleViewV7() {}
+static constexpr uint64_t FREE_CANONICAL_BLOCK_INIT_MASK = UINT64_MAX - 3u; //reserve blocks 0 and 1 for primary and payload respectively
+BundleViewV7::BundleViewV7() : m_nextFreeCanonicalBlockNumberMask(FREE_CANONICAL_BLOCK_INIT_MASK) {}
 BundleViewV7::~BundleViewV7() {}
 
 bool BundleViewV7::Load(const bool skipCrcVerifyInCanonicalBlocks, const bool loadPrimaryBlockOnly) {
@@ -89,6 +111,7 @@ bool BundleViewV7::Load(const bool skipCrcVerifyInCanonicalBlocks, const bool lo
         if(!Bpv7CanonicalBlock::DeserializeBpv7(cbv.headerPtr, serialization, decodedBlockSize, bufferSize, skipCrcVerifyInCanonicalBlocks, isAdminRecord)) {
             return false;
         }
+        ReserveBlockNumber(cbv.headerPtr->m_blockNumber);
         serialization += decodedBlockSize;
         bufferSize -= decodedBlockSize;
         cbv.actualSerializedBlockPtr = boost::asio::buffer(serializationThisCanonicalBlockBeginPtr, decodedBlockSize);
@@ -227,7 +250,12 @@ bool BundleViewV7::Render(uint8_t * serialization, uint64_t & sizeSerialized, bo
         return false;
     }
     
-    m_listCanonicalBlockView.remove_if([](const Bpv7CanonicalBlockView & v) { return v.markedForDeletion; }); //makes easier last block detection
+    m_listCanonicalBlockView.remove_if([this](const Bpv7CanonicalBlockView & v) {
+        if (v.markedForDeletion) {
+            this->FreeBlockNumber(v.headerPtr->m_blockNumber);
+        }
+        return v.markedForDeletion;
+    }); //makes easier last block detection
 
     for (std::list<Bpv7CanonicalBlockView>::iterator it = m_listCanonicalBlockView.begin(); it != m_listCanonicalBlockView.end(); ++it) {
         const bool isLastBlock = (boost::next(it) == m_listCanonicalBlockView.end());
@@ -310,38 +338,42 @@ bool BundleViewV7::GetSerializationSize(uint64_t & serializationSize) const {
     return true;
 }
 
-void BundleViewV7::AppendMoveCanonicalBlock(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr) {
+void BundleViewV7::AppendMoveCanonicalBlock(std::unique_ptr<Bpv7CanonicalBlock>&& headerPtr) {
     m_listCanonicalBlockView.emplace_back();
     Bpv7CanonicalBlockView & cbv = m_listCanonicalBlockView.back();
     cbv.dirty = true; //true will ignore and set actualSerializedBlockPtr after render
     cbv.markedForDeletion = false;
+    ReserveBlockNumber(headerPtr->m_blockNumber);
     cbv.headerPtr = std::move(headerPtr);
 }
-void BundleViewV7::PrependMoveCanonicalBlock(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr) {
+void BundleViewV7::PrependMoveCanonicalBlock(std::unique_ptr<Bpv7CanonicalBlock>&& headerPtr) {
     m_listCanonicalBlockView.emplace_front();
     Bpv7CanonicalBlockView & cbv = m_listCanonicalBlockView.front();
     cbv.dirty = true; //true will ignore and set actualSerializedBlockPtr after render
     cbv.markedForDeletion = false;
+    ReserveBlockNumber(headerPtr->m_blockNumber);
     cbv.headerPtr = std::move(headerPtr);
 }
-bool BundleViewV7::InsertMoveCanonicalBlockAfterBlockNumber(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr, const uint64_t blockNumber) {
+bool BundleViewV7::InsertMoveCanonicalBlockAfterBlockNumber(std::unique_ptr<Bpv7CanonicalBlock>&& headerPtr, const uint64_t blockNumber) {
     for (std::list<Bpv7CanonicalBlockView>::iterator it = m_listCanonicalBlockView.begin(); it != m_listCanonicalBlockView.end(); ++it) {
         if (it->headerPtr->m_blockNumber == blockNumber) {
             Bpv7CanonicalBlockView & cbv = *m_listCanonicalBlockView.emplace(boost::next(it));
             cbv.dirty = true; //true will ignore and set actualSerializedBlockPtr after render
             cbv.markedForDeletion = false;
+            ReserveBlockNumber(headerPtr->m_blockNumber);
             cbv.headerPtr = std::move(headerPtr);
             return true;
         }
     }
     return false;
 }
-bool BundleViewV7::InsertMoveCanonicalBlockBeforeBlockNumber(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr, const uint64_t blockNumber) {
+bool BundleViewV7::InsertMoveCanonicalBlockBeforeBlockNumber(std::unique_ptr<Bpv7CanonicalBlock>&& headerPtr, const uint64_t blockNumber) {
     for (std::list<Bpv7CanonicalBlockView>::iterator it = m_listCanonicalBlockView.begin(); it != m_listCanonicalBlockView.end(); ++it) {
         if (it->headerPtr->m_blockNumber == blockNumber) {
             Bpv7CanonicalBlockView & cbv = *m_listCanonicalBlockView.emplace(it);
             cbv.dirty = true; //true will ignore and set actualSerializedBlockPtr after render
             cbv.markedForDeletion = false;
+            ReserveBlockNumber(headerPtr->m_blockNumber);
             cbv.headerPtr = std::move(headerPtr);
             return true;
         }
@@ -375,24 +407,61 @@ BundleViewV7::Bpv7CanonicalBlockView* BundleViewV7::GetCanonicalBlockByBlockNumb
     }
     return NULL;
 }
-uint64_t BundleViewV7::GetNextFreeCanonicalBlockNumber() const {
-    uint64_t largestCanonicalBlockNumber = 1;
-    for (std::list<Bpv7CanonicalBlockView>::const_iterator it = m_listCanonicalBlockView.cbegin(); it != m_listCanonicalBlockView.cend(); ++it) {
-        const uint64_t blockNumber = it->headerPtr->m_blockNumber;
-        if (largestCanonicalBlockNumber < blockNumber) {
-            largestCanonicalBlockNumber = blockNumber;
-        }
+void BundleViewV7::ReserveBlockNumber(const uint64_t blockNumber) {
+    if (blockNumber <= 63) {
+#ifdef USE_BITTEST
+        _bittestandreset64((int64_t*)&m_nextFreeCanonicalBlockNumberMask, blockNumber);
+#else
+        const uint64_t mask64 = (((uint64_t)1) << blockNumber);
+# if defined(USE_ANDN)
+        m_nextFreeCanonicalBlockNumberMask = _andn_u64(mask64, m_nextFreeCanonicalBlockNumberMask);
+# else
+        m_nextFreeCanonicalBlockNumberMask &= (~mask64);
+# endif
+#endif
     }
-    return largestCanonicalBlockNumber + 1;
+}
+void BundleViewV7::FreeBlockNumber(const uint64_t blockNumber) {
+    if (blockNumber <= 63) {
+#ifdef USE_BITTEST
+        _bittestandset64((int64_t*)&m_nextFreeCanonicalBlockNumberMask, blockNumber);
+#else
+        const uint64_t mask64 = (((uint64_t)1) << blockNumber);
+        m_nextFreeCanonicalBlockNumberMask |= mask64;
+#endif
+    }
+}
+uint64_t BundleViewV7::GetNextFreeCanonicalBlockNumber() const {
+    //The block number of the
+    //primary block is implicitly zero; the block numbers of all other
+    //blocks are explicitly stated in block headers as noted below.  Block
+    //numbering is unrelated to the order in which blocks are sequenced in
+    //the bundle.  The block number of the payload block is always 1.
+    if (m_nextFreeCanonicalBlockNumberMask) { //blocks between 0 and 63 inclusive
+        const unsigned int firstFreeBlockNumber = boost::multiprecision::detail::find_lsb<uint64_t>(m_nextFreeCanonicalBlockNumberMask);
+        return firstFreeBlockNumber;
+    }
+    else { //blocks >= 64
+        uint64_t largestCanonicalBlockNumber = 63;
+        for (std::list<Bpv7CanonicalBlockView>::const_iterator it = m_listCanonicalBlockView.cbegin(); it != m_listCanonicalBlockView.cend(); ++it) {
+            const uint64_t blockNumber = it->headerPtr->m_blockNumber;
+            if (largestCanonicalBlockNumber < blockNumber) {
+                largestCanonicalBlockNumber = blockNumber;
+            }
+        }
+        return largestCanonicalBlockNumber + 1;
+    }
 }
 std::size_t BundleViewV7::DeleteAllCanonicalBlocksByType(const BPV7_BLOCK_TYPE_CODE canonicalBlockTypeCode) {
     std::size_t count = 0;
-    for (std::list<Bpv7CanonicalBlockView>::iterator it = m_listCanonicalBlockView.begin(); it != m_listCanonicalBlockView.end();) {
-        if (it->headerPtr->m_blockTypeCode == canonicalBlockTypeCode) {
-            it = m_listCanonicalBlockView.erase(it);
-            ++count;
+    m_listCanonicalBlockView.remove_if([&](const Bpv7CanonicalBlockView& v) {
+        const bool doDelete = (v.headerPtr->m_blockTypeCode == canonicalBlockTypeCode);
+        if (doDelete) {
+            this->FreeBlockNumber(v.headerPtr->m_blockNumber);
         }
-    }
+        count += doDelete;
+        return doDelete;
+    });
     return count;
 }
 bool BundleViewV7::LoadBundle(uint8_t * bundleData, const std::size_t size, const bool skipCrcVerifyInCanonicalBlocks, const bool loadPrimaryBlockOnly) {
@@ -425,6 +494,7 @@ void BundleViewV7::Reset() {
     m_listCanonicalBlockView.clear();
     m_mapEncryptedBlockNumberToBcbPtr.clear();
     m_applicationDataUnitStartPtr = NULL;
+    m_nextFreeCanonicalBlockNumberMask = FREE_CANONICAL_BLOCK_INIT_MASK;
 
     m_renderedBundle = boost::asio::buffer((void*)NULL, 0);
     m_frontBuffer.clear();

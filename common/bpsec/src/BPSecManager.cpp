@@ -604,7 +604,7 @@ bool BPSecManager::AesUnwrapKey(
 }
 
 
-//User of this function provided KEK (key encryption key) and AAD.
+//User of this function provided KEK (key encryption key).
 //Bundle provides AES wrapped key, AES variant, IV, tag, and cipherText.
 //This function must unwrap key with KEK to get the DEK (data encryption key), then decrypt cipherText.
 void BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
@@ -859,3 +859,20 @@ void BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
     }
 }
 
+//User of this function provided KEK (key encryption key), AAD scope, AES variant, IV, and targets.
+//Function generates AES wrapped key, tag, and cipherText.
+//Bundle provides AAD data.
+//This function must unwrap key with KEK to get the DEK (data encryption key), then decrypt cipherText.
+void BPSecManager::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
+    BundleViewV7& bv, std::forward_list<std::vector<uint8_t> >& encryptionTemporaryMemoryList,
+    BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS aadScopeMask,
+    COSE_ALGORITHMS aesVariant,
+    const uint8_t* targetBlockNumbers, const unsigned int targetBlockNumbersLength,
+    const uint8_t* iv, const unsigned int ivLength,
+    const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for wrapping DEK only)
+    const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength, //NULL if not present (when no wrapped key is present)
+    std::vector<boost::asio::const_buffer>& aadPartsTemporaryMemory,
+    bool& hadError, bool& encryptionSuccessful)
+{
+    
+}

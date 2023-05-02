@@ -42,7 +42,7 @@ static void AppendCanonicalBlockAndRender(BundleViewV7 & bv, BPV7_BLOCK_TYPE_COD
     block.m_dataPtr = (uint8_t*)newBlockBody.data(); //blockBodyAsVecUint8 must remain in scope until after render
     block.m_crcType = crcTypeToUse;
     block.m_blockNumber = blockNumber;
-    bv.AppendMoveCanonicalBlock(blockPtr);
+    bv.AppendMoveCanonicalBlock(std::move(blockPtr));
     uint64_t expectedRenderSize;
     BOOST_REQUIRE(bv.GetSerializationSize(expectedRenderSize));
     BOOST_REQUIRE(bv.Render(5000));
@@ -60,7 +60,7 @@ static void PrependCanonicalBlockAndRender(BundleViewV7 & bv, BPV7_BLOCK_TYPE_CO
     block.m_dataPtr = (uint8_t*)newBlockBody.data(); //blockBodyAsVecUint8 must remain in scope until after render
     block.m_crcType = crcTypeToUse;
     block.m_blockNumber = blockNumber;
-    bv.PrependMoveCanonicalBlock(blockPtr);
+    bv.PrependMoveCanonicalBlock(std::move(blockPtr));
     uint64_t expectedRenderSize;
     BOOST_REQUIRE(bv.GetSerializationSize(expectedRenderSize));
     BOOST_REQUIRE(bv.Render(5000));
@@ -79,7 +79,7 @@ static void PrependCanonicalBlockAndRender_AllocateOnly(BundleViewV7 & bv, BPV7_
     block.m_dataPtr = NULL;
     block.m_crcType = crcTypeToUse;
     block.m_blockNumber = blockNumber;
-    bv.PrependMoveCanonicalBlock(blockPtr);
+    bv.PrependMoveCanonicalBlock(std::move(blockPtr));
     uint64_t expectedRenderSize;
     BOOST_REQUIRE(bv.GetSerializationSize(expectedRenderSize));
     BOOST_REQUIRE(bv.Render(5000));
@@ -141,7 +141,7 @@ static void GenerateBundle(const std::vector<BPV7_BLOCK_TYPE_CODE> & canonicalTy
         block.m_dataLength = blockBody.size();
         block.m_dataPtr = (uint8_t*)blockBody.data(); //blockBodyAsVecUint8 must remain in scope until after render
         BOOST_REQUIRE(blockPtr);
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
         BOOST_REQUIRE(!blockPtr);
     }
 
@@ -175,6 +175,7 @@ BOOST_AUTO_TEST_CASE(BundleViewV7TestCase)
         BOOST_REQUIRE(bv.LoadBundle(&bundleSerializedCopy[0], bundleSerializedCopy.size()));
         BOOST_REQUIRE(bv.m_backBuffer != bundleSerializedCopy);
         BOOST_REQUIRE(bv.m_frontBuffer != bundleSerializedCopy);
+        BOOST_REQUIRE_EQUAL(bv.GetNextFreeCanonicalBlockNumber(), 5);
 
         Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
         BOOST_REQUIRE_EQUAL(primary.m_sourceNodeId, cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
@@ -271,6 +272,7 @@ BOOST_AUTO_TEST_CASE(BundleViewV7TestCase)
             blocks[0]->markedForDeletion = true;
             //LOG_INFO(subprocess) << "render delete last block";
             BOOST_REQUIRE(bv.Render(5000));
+            BOOST_REQUIRE_EQUAL(bv.GetNextFreeCanonicalBlockNumber(), blockNumbersToUse.front());
             BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), canonicalTypesVec.size() - 1);
             const uint64_t canonicalSize = //uint64_t bufferSize
                 1 + //cbor initial byte denoting cbor array
@@ -286,6 +288,7 @@ BOOST_AUTO_TEST_CASE(BundleViewV7TestCase)
 
             std::string frontString(canonicalBodyStringsVec.front());
             PrependCanonicalBlockAndRender(bv, canonicalTypesVec.front(), frontString, blockNumber, crcTypeToUse); //0 was block number 0 from GenerateBundle
+            BOOST_REQUIRE_EQUAL(bv.GetNextFreeCanonicalBlockNumber(), 5);
             BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), bundleSerializedOriginal.size());
             BOOST_REQUIRE(bv.m_frontBuffer == bundleSerializedOriginal); //back to equal
         }
@@ -299,6 +302,7 @@ BOOST_AUTO_TEST_CASE(BundleViewV7TestCase)
             blocks[0]->markedForDeletion = true;
             //LOG_INFO(subprocess) << "render delete last block";
             BOOST_REQUIRE(bv.Render(5000));
+            BOOST_REQUIRE_EQUAL(bv.GetNextFreeCanonicalBlockNumber(), blockNumbersToUse.front());
             BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), canonicalTypesVec.size() - 1);
             const uint64_t canonicalSize = //uint64_t bufferSize
                 1 + //cbor initial byte denoting cbor array
@@ -313,6 +317,7 @@ BOOST_AUTO_TEST_CASE(BundleViewV7TestCase)
 
             bv.m_backBuffer.assign(bv.m_backBuffer.size(), 0); //make sure zeroed out
             PrependCanonicalBlockAndRender_AllocateOnly(bv, canonicalTypesVec.front(), canonicalBodyStringsVec.front().length(), blockNumber, crcTypeToUse); //0 was block number 0 from GenerateBundle
+            BOOST_REQUIRE_EQUAL(bv.GetNextFreeCanonicalBlockNumber(), 5);
             BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), bundleSerializedOriginal.size());
             BOOST_REQUIRE(bv.m_frontBuffer != bundleSerializedOriginal); //still not equal, need to copy data
             bv.GetCanonicalBlocksByType(canonicalTypesVec.front(), blocks); //get new preallocated block
@@ -381,10 +386,11 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             //block.SetZero();
 
             block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
-            block.m_blockNumber = 2;
+            block.m_blockNumber = bv.GetNextFreeCanonicalBlockNumber();
+            BOOST_REQUIRE_EQUAL(block.m_blockNumber, 2);
             block.m_crcType = crcTypeToUse;
             block.m_previousNode.Set(PREVIOUS_NODE, PREVIOUS_SVC);
-            bv.AppendMoveCanonicalBlock(blockPtr);
+            bv.AppendMoveCanonicalBlock(std::move(blockPtr));
             BOOST_REQUIRE_EQUAL(bv.GetNextFreeCanonicalBlockNumber(), 3);
         }
 
@@ -395,10 +401,11 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             //block.SetZero();
 
             block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
-            block.m_blockNumber = 3;
+            block.m_blockNumber = bv.GetNextFreeCanonicalBlockNumber();
+            BOOST_REQUIRE_EQUAL(block.m_blockNumber, 3);
             block.m_crcType = crcTypeToUse;
             block.m_bundleAgeMilliseconds = BUNDLE_AGE_MS;
-            bv.AppendMoveCanonicalBlock(blockPtr);
+            bv.AppendMoveCanonicalBlock(std::move(blockPtr));
         }
 
         //add hop count block
@@ -408,11 +415,12 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             //block.SetZero();
 
             block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
-            block.m_blockNumber = 4;
+            block.m_blockNumber = bv.GetNextFreeCanonicalBlockNumber();
+            BOOST_REQUIRE_EQUAL(block.m_blockNumber, 4);
             block.m_crcType = crcTypeToUse;
             block.m_hopLimit = HOP_LIMIT;
             block.m_hopCount = HOP_COUNT;
-            bv.AppendMoveCanonicalBlock(blockPtr);
+            bv.AppendMoveCanonicalBlock(std::move(blockPtr));
         }
         
         //add priority block
@@ -421,10 +429,11 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             Bpv7PriorityCanonicalBlock & block = *(reinterpret_cast<Bpv7PriorityCanonicalBlock*>(blockPtr.get()));
 
             block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED;
-            block.m_blockNumber = 5;
+            block.m_blockNumber = bv.GetNextFreeCanonicalBlockNumber();
+            BOOST_REQUIRE_EQUAL(block.m_blockNumber, 5);
             block.m_crcType = crcTypeToUse;
             block.m_bundlePriority = PRIORITY;
-            bv.AppendMoveCanonicalBlock(blockPtr);
+            bv.AppendMoveCanonicalBlock(std::move(blockPtr));
         }
 
         //add payload block
@@ -440,7 +449,7 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             block.m_crcType = crcTypeToUse;
             block.m_dataLength = payloadString.size();
             block.m_dataPtr = (uint8_t*)payloadString.data(); //payloadString must remain in scope until after render
-            bv.AppendMoveCanonicalBlock(blockPtr);
+            bv.AppendMoveCanonicalBlock(std::move(blockPtr));
 
         }
 
@@ -588,6 +597,18 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
                 }
             }
         }
+
+        BOOST_REQUIRE_EQUAL(bv.DeleteAllCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::HOP_COUNT), 1);
+        BOOST_REQUIRE_EQUAL(bv.DeleteAllCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::HOP_COUNT), 0);
+
+        BOOST_REQUIRE_EQUAL(bv.DeleteAllCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE), 1);
+        BOOST_REQUIRE_EQUAL(bv.DeleteAllCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE), 0);
+
+        BOOST_REQUIRE_EQUAL(bv.DeleteAllCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PRIORITY), 1);
+        BOOST_REQUIRE_EQUAL(bv.DeleteAllCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PRIORITY), 0);
+
+        BOOST_REQUIRE_EQUAL(bv.DeleteAllCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::BUNDLE_AGE), 1);
+        BOOST_REQUIRE_EQUAL(bv.DeleteAllCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::BUNDLE_AGE), 0);
     }
 }
 
@@ -636,7 +657,7 @@ BOOST_AUTO_TEST_CASE(Bpv7PrependExtensionBlockToPaddedBundleTestCase)
             block.m_crcType = crcTypeToUse;
             block.m_dataLength = payloadString.size();
             block.m_dataPtr = (uint8_t*)payloadString.data(); //payloadString must remain in scope until after render
-            bv.AppendMoveCanonicalBlock(blockPtr);
+            bv.AppendMoveCanonicalBlock(std::move(blockPtr));
 
         }
 
@@ -688,7 +709,7 @@ BOOST_AUTO_TEST_CASE(Bpv7PrependExtensionBlockToPaddedBundleTestCase)
             block.m_blockNumber = 2;
             block.m_crcType = crcTypeToUse;
             block.m_previousNode.Set(PREVIOUS_NODE, PREVIOUS_SVC);
-            bv.PrependMoveCanonicalBlock(blockPtr);
+            bv.PrependMoveCanonicalBlock(std::move(blockPtr));
         }
 
         BOOST_REQUIRE(bv.RenderInPlace(bundleSerializedPadded.get_allocator().PADDING_ELEMENTS_BEFORE));
@@ -820,7 +841,7 @@ BOOST_AUTO_TEST_CASE(Bpv7BundleStatusReportTestCase)
 
                         bsrSerializationSize = bsr.GetSerializationSize();
 
-                        bv.AppendMoveCanonicalBlock(blockPtr);
+                        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
                     }
 
 
@@ -960,7 +981,7 @@ BOOST_AUTO_TEST_CASE(Bpv7BibeTestCase)
                 block.m_crcType = crcTypeToUse;
                 block.m_dataLength = payloadString.size();
                 block.m_dataPtr = (uint8_t*)payloadString.data(); //payloadString must remain in scope until after render
-                bv.AppendMoveCanonicalBlock(blockPtr);
+                bv.AppendMoveCanonicalBlock(std::move(blockPtr));
 
             }
 
@@ -1012,7 +1033,7 @@ BOOST_AUTO_TEST_CASE(Bpv7BibeTestCase)
 
                 bibePduMessageSerializationSize = bibe.GetSerializationSize();
 
-                bv.AppendMoveCanonicalBlock(blockPtr);
+                bv.AppendMoveCanonicalBlock(std::move(blockPtr));
             }
 
 
@@ -1153,4 +1174,24 @@ BOOST_AUTO_TEST_CASE(BundleViewGetMillisecondsSinceCreateTestCase) {
     uint64_t ms = primary.GetMillisecondsSinceCreate();
     // Provide some buffer
     BOOST_REQUIRE(ms >= 50000 && ms <= 50100);
+}
+
+BOOST_AUTO_TEST_CASE(BundleViewGetNextBlockTestCase) {
+    {
+        BundleViewV7 bv;
+        //typically a bundle would be loaded first.. ok since just testing the bitscanning portion of the code here
+        for (uint64_t i = 2; i <= 63; ++i) {
+            BOOST_REQUIRE_EQUAL(bv.GetNextFreeCanonicalBlockNumber(), i);
+            BOOST_REQUIRE_EQUAL(bv.GetNextFreeCanonicalBlockNumber(), i); //unchanged check
+            bv.ReserveBlockNumber(i);
+        }
+        bv.FreeBlockNumber(55);
+        BOOST_REQUIRE_EQUAL(bv.GetNextFreeCanonicalBlockNumber(), 55);
+        for (uint64_t i = 2; i <= 50; ++i) {
+            bv.FreeBlockNumber(i);
+            BOOST_REQUIRE_EQUAL(bv.GetNextFreeCanonicalBlockNumber(), i);
+            bv.ReserveBlockNumber(i);
+            BOOST_REQUIRE_EQUAL(bv.GetNextFreeCanonicalBlockNumber(), 55);
+        }
+    }
 }

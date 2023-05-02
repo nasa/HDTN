@@ -199,7 +199,7 @@ A.1.1.1.  Primary Block
 
         block.m_dataLength = payloadString.size();
         block.m_dataPtr = (uint8_t*)payloadString.data(); //payloadString must remain in scope until after render
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
         BOOST_REQUIRE(bv.Render(500));
     }
     //get payload and verify
@@ -375,7 +375,7 @@ A.1.3.2.  Abstract Security Block
 
         
         
-        bv.PrependMoveCanonicalBlock(blockPtr);
+        bv.PrependMoveCanonicalBlock(std::move(blockPtr));
         BOOST_REQUIRE(bv.Render(5000));
     }
     //get bib and verify
@@ -609,7 +609,7 @@ A.2.1.1.  Primary Block
 
         block.m_dataLength = payloadString.size();
         block.m_dataPtr = (uint8_t*)payloadString.data(); //payloadString must remain in scope until after render
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
         BOOST_REQUIRE(bv.Render(500));
     }
     //get payload and verify
@@ -817,7 +817,7 @@ A.2.3.2.  Abstract Security Block
 
 
 
-        bv.PrependMoveCanonicalBlock(blockPtr);
+        bv.PrependMoveCanonicalBlock(std::move(blockPtr));
         BOOST_REQUIRE(bv.Render(5000));
     }
     //get bcb and verify
@@ -1092,7 +1092,7 @@ A.3.1.1.  Primary Block
         block.m_crcType = BPV7_CRC_TYPE::NONE;
         block.m_bundleAgeMilliseconds = 300;
 
-        bv.PrependMoveCanonicalBlock(blockPtr);
+        bv.PrependMoveCanonicalBlock(std::move(blockPtr));
     }
 
     /*
@@ -1122,7 +1122,7 @@ A.3.1.1.  Primary Block
 
         block.m_dataLength = payloadString.size();
         block.m_dataPtr = (uint8_t*)payloadString.data(); //payloadString must remain in scope until after render
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
         BOOST_REQUIRE(bv.Render(500));
     }
     //get bundle age and verify
@@ -1361,7 +1361,7 @@ A.3.3.2.  Abstract Security Block
 
         BOOST_REQUIRE_EQUAL(bib.GetAllExpectedHmacPtrs().size(), 2);
 
-        bv.PrependMoveCanonicalBlock(blockPtr);
+        bv.PrependMoveCanonicalBlock(std::move(blockPtr));
         BOOST_REQUIRE(bv.Render(5000));
     }
     //get bib and verify
@@ -1548,7 +1548,7 @@ A.3.4.2.  Abstract Security Block
 
 
 
-        bv.InsertMoveCanonicalBlockAfterBlockNumber(blockPtr, 3); //insert after first bib which is block number 3 to match example
+        bv.InsertMoveCanonicalBlockAfterBlockNumber(std::move(blockPtr), 3); //insert after first bib which is block number 3 to match example
         BOOST_REQUIRE(bv.Render(5000));
     }
     //get bcb and verify
@@ -1830,7 +1830,7 @@ A.4.1.1.  Primary Block
 
         block.m_dataLength = payloadString.size();
         block.m_dataPtr = (uint8_t*)payloadString.data(); //payloadString must remain in scope until after render
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
         BOOST_REQUIRE(bv.Render(500));
     }
     //get payload and verify
@@ -2039,7 +2039,7 @@ A.4.3.2.  Abstract Security Block
 
 
 
-        bv.PrependMoveCanonicalBlock(blockPtr);
+        bv.PrependMoveCanonicalBlock(std::move(blockPtr));
         BOOST_REQUIRE(bv.Render(5000));
     }
     //get bib and verify
@@ -2267,7 +2267,7 @@ A.4.4.2.  Abstract Security Block
 
 
 
-        bv.InsertMoveCanonicalBlockAfterBlockNumber(blockPtr, 3); //insert after first bib which is block number 3 to match example
+        bv.InsertMoveCanonicalBlockAfterBlockNumber(std::move(blockPtr), 3); //insert after first bib which is block number 3 to match example
         BOOST_REQUIRE(bv.Render(5000));
     }
     //get bcb and verify

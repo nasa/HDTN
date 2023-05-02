@@ -42,7 +42,7 @@ static void AppendCanonicalBlockAndRender(BundleViewV6 & bv, BPV6_BLOCK_TYPE_COD
     block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET; //don't worry about block.flags as last block because Render will take care of that automatically
     block.m_blockTypeSpecificDataLength = newBlockBody.length();
     block.m_blockTypeSpecificDataPtr = (uint8_t*)newBlockBody.data(); //blockBodyAsVecUint8 must remain in scope until after render
-    bv.AppendMoveCanonicalBlock(blockPtr);
+    bv.AppendMoveCanonicalBlock(std::move(blockPtr));
     uint64_t expectedRenderSize;
     BOOST_REQUIRE(bv.GetSerializationSize(expectedRenderSize));
     BOOST_REQUIRE(bv.Render(5000));
@@ -59,7 +59,7 @@ static void PrependCanonicalBlockAndRender(BundleViewV6 & bv, BPV6_BLOCK_TYPE_CO
     block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET; //don't worry about block.flags as last block because Render will take care of that automatically
     block.m_blockTypeSpecificDataLength = newBlockBody.length();
     block.m_blockTypeSpecificDataPtr = (uint8_t*)newBlockBody.data(); //blockBodyAsVecUint8 must remain in scope until after render
-    bv.PrependMoveCanonicalBlock(blockPtr);
+    bv.PrependMoveCanonicalBlock(std::move(blockPtr));
     uint64_t expectedRenderSize;
     BOOST_REQUIRE(bv.GetSerializationSize(expectedRenderSize));
     BOOST_REQUIRE(bv.Render(5000));
@@ -76,7 +76,7 @@ static void PrependCanonicalBlockAndRender_AllocateOnly(BundleViewV6 & bv, BPV6_
     block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET; //don't worry about block.flags as last block because Render will take care of that automatically
     block.m_blockTypeSpecificDataLength = dataLengthToAllocate;
     block.m_blockTypeSpecificDataPtr = NULL;
-    bv.PrependMoveCanonicalBlock(blockPtr);
+    bv.PrependMoveCanonicalBlock(std::move(blockPtr));
     uint64_t expectedRenderSize;
     BOOST_REQUIRE(bv.GetSerializationSize(expectedRenderSize));
     BOOST_REQUIRE(bv.Render(5000));
@@ -136,7 +136,7 @@ static void GenerateBundle(const std::vector<BPV6_BLOCK_TYPE_CODE> & canonicalTy
         block.m_blockTypeSpecificDataPtr = (uint8_t*)blockBody.data(); //blockBody must remain in scope until after render
 
         BOOST_REQUIRE(blockPtr);
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
         BOOST_REQUIRE(!blockPtr);
     }
 
@@ -394,7 +394,7 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
         block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
         block.m_custodyId = 150; //size 2 sdnv
         block.m_ctebCreatorCustodianEidString = "ipn:2.3";
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
     }
 
     //add previous hop insertion
@@ -405,7 +405,7 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
 
         //block.m_blockProcessingControlFlags = DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED set by Bpv6PreviousHopInsertionCanonicalBlock constructor
         block.m_previousNode.Set(550, 60000);
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
     }
 
     uint64_t metaUriListSerializationSize = 0;
@@ -426,7 +426,7 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
 
         metaUriListSerializationSize = meta.GetSerializationSize();
 
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
     }
 
     uint64_t metaGenericSerializationSize = 0;
@@ -444,7 +444,7 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
 
         metaGenericSerializationSize = meta.GetSerializationSize();
 
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
     }
 
     //add bundle age
@@ -455,7 +455,7 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
 
         //block.m_blockProcessingControlFlags = MUST_BE_REPLICATED_IN_EVERY_FRAGMENT set by Bpv6BundleAgeCanonicalBlock constructor
         block.m_bundleAgeMicroseconds = 1000000;
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
     }
 
     //add payload block
@@ -469,7 +469,7 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
         block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
         block.m_blockTypeSpecificDataLength = payloadString.size();
         block.m_blockTypeSpecificDataPtr = (uint8_t*)payloadString.data(); //payloadString must remain in scope until after render
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
 
     }
 
@@ -735,7 +735,7 @@ BOOST_AUTO_TEST_CASE(Bpv6BundleStatusReportTestCase)
 
                 bsrSerializationSize = bsr.GetSerializationSize();
 
-                bv.AppendMoveCanonicalBlock(blockPtr);
+                bv.AppendMoveCanonicalBlock(std::move(blockPtr));
             }
 
 

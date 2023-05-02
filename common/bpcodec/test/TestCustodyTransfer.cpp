@@ -68,7 +68,7 @@ static void GenerateBundleWithCteb(uint64_t primaryCustodianNode, uint64_t prima
         block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET; //something for checking against
         block.m_custodyId = ctebCustodyId;
         block.m_ctebCreatorCustodianEidString = Uri::GetIpnUriString(ctebCustodianNode, ctebCustodianService);
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
     }
 
     //add payload block
@@ -82,7 +82,7 @@ static void GenerateBundleWithCteb(uint64_t primaryCustodianNode, uint64_t prima
         block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET;
         block.m_blockTypeSpecificDataLength = bundleDataStr.length();
         block.m_blockTypeSpecificDataPtr = (uint8_t*)bundleDataStr.data(); //bundleDataStr must remain in scope until after render
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
 
     }
 
@@ -118,7 +118,7 @@ static void GenerateBundleWithoutCteb(uint64_t primaryCustodianNode, uint64_t pr
         block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET;
         block.m_blockTypeSpecificDataLength = bundleDataStr.length();
         block.m_blockTypeSpecificDataPtr = (uint8_t*)bundleDataStr.data(); //bundleDataStr must remain in scope until after render
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
 
     }
 

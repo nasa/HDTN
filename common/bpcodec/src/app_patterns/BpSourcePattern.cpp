@@ -360,7 +360,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                     block.m_crcType = BPV7_CRC_TYPE::CRC32C;
                     block.m_hopLimit = 100; //Hop limit MUST be in the range 1 through 255.
                     block.m_hopCount = 0; //the hop count value SHOULD initially be zero and SHOULD be increased by 1 on each hop.
-                    bv.AppendMoveCanonicalBlock(blockPtr);
+                    bv.AppendMoveCanonicalBlock(std::move(blockPtr));
                 }
 
                 // Append priority block
@@ -372,7 +372,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                     block.m_blockNumber = 3;
                     block.m_crcType = BPV7_CRC_TYPE::CRC32C;
                     block.m_bundlePriority = m_bundlePriority; // MUST be 0 = Bulk, 1 = Normal, or 2 = Expedited
-                    bv.AppendMoveCanonicalBlock(blockPtr);
+                    bv.AppendMoveCanonicalBlock(std::move(blockPtr));
                 }
 
                 //append payload block (must be last block)
@@ -387,7 +387,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                     payloadBlock.m_crcType = BPV7_CRC_TYPE::CRC32C;
                     payloadBlock.m_dataLength = payloadSizeBytes;
                     payloadBlock.m_dataPtr = NULL; //NULL will preallocate (won't copy or compute crc, user must do that manually below)
-                    bv.AppendMoveCanonicalBlock(payloadBlockPtr);
+                    bv.AppendMoveCanonicalBlock(std::move(payloadBlockPtr));
                 }
 
                 //render bundle to the front buffer
@@ -456,7 +456,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                             block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET; //something for checking against
                             block.m_custodyId = ctebCustodyId;
                             block.m_ctebCreatorCustodianEidString = m_myCustodianEidUriString;
-                            bv.AppendMoveCanonicalBlock(blockPtr);
+                            bv.AppendMoveCanonicalBlock(std::move(blockPtr));
                         }
 
                         m_mutexCtebSet.lock();
@@ -488,7 +488,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                     payloadBlock.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET;
                     payloadBlock.m_blockTypeSpecificDataLength = payloadSizeBytes;
                     payloadBlock.m_blockTypeSpecificDataPtr = NULL; //NULL will preallocate (won't copy or compute crc, user must do that manually below)
-                    bv.AppendMoveCanonicalBlock(payloadBlockPtr);
+                    bv.AppendMoveCanonicalBlock(std::move(payloadBlockPtr));
                 }
 
                 //render bundle to the front buffer

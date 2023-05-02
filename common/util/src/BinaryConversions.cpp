@@ -38,9 +38,7 @@ void BinaryConversions::EncodeBase64(const std::vector<uint8_t> & binaryMessage,
 #endif //#if (BOOST_VERSION >= 106600)
 
 void BinaryConversions::BytesToHexString(const std::vector<uint8_t> & bytes, std::string & hexString) {
-    hexString.resize(0);
-    hexString.reserve((bytes.size() * 2) + 2);
-    boost::algorithm::hex(bytes, std::back_inserter(hexString));
+    BytesToHexString(bytes.data(), bytes.size(), hexString);
 }
 void BinaryConversions::BytesToHexString(const void* data, std::size_t size, std::string& hexString) {
     hexString.resize(0);
@@ -62,10 +60,7 @@ void BinaryConversions::BytesToHexString(const std::vector<boost::asio::const_bu
     }
 }
 void BinaryConversions::BytesToHexString(const boost::asio::const_buffer& bytes, std::string& hexString) {
-    hexString.resize(0);
-    hexString.reserve((bytes.size() * 2) + 2);
-    const uint8_t* const ptr = reinterpret_cast<const uint8_t*>(bytes.data());
-    boost::algorithm::hex(ptr, ptr + bytes.size(), std::back_inserter(hexString));
+    BytesToHexString(bytes.data(), bytes.size(), hexString);
 }
 
 bool BinaryConversions::HexStringToBytes(const std::string & hexString, std::vector<uint8_t> & bytes) {

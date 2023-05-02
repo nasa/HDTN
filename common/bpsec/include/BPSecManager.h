@@ -124,6 +124,17 @@ public:
         std::vector<boost::asio::const_buffer>& aadPartsTemporaryMemory,
         bool& hadError, bool& decryptionSuccessful);
 
+    BPSEC_EXPORT static void TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
+        BundleViewV7& bv, std::forward_list<std::vector<uint8_t> >& encryptionTemporaryMemoryList,
+        BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS aadScopeMask,
+        COSE_ALGORITHMS aesVariant,
+        const uint8_t* targetBlockNumbers, const unsigned int targetBlockNumbersLength,
+        const uint8_t* iv, const unsigned int ivLength,
+        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for wrapping DEK only)
+        const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength, //NULL if not present (when no wrapped key is present)
+        std::vector<boost::asio::const_buffer>& aadPartsTemporaryMemory,
+        bool& hadError, bool& encryptionSuccessful);
+
    /**
     * Adds BCB confidentiality block to the bundle
     *

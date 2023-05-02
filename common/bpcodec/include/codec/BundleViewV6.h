@@ -96,8 +96,8 @@ public:
     BPCODEC_EXPORT BundleViewV6();
     BPCODEC_EXPORT ~BundleViewV6();
 
-    BPCODEC_EXPORT void AppendMoveCanonicalBlock(std::unique_ptr<Bpv6CanonicalBlock> & headerPtr);
-    BPCODEC_EXPORT void PrependMoveCanonicalBlock(std::unique_ptr<Bpv6CanonicalBlock> & headerPtr);
+    BPCODEC_EXPORT void AppendMoveCanonicalBlock(std::unique_ptr<Bpv6CanonicalBlock>&& headerPtr);
+    BPCODEC_EXPORT void PrependMoveCanonicalBlock(std::unique_ptr<Bpv6CanonicalBlock>&& headerPtr);
     BPCODEC_EXPORT bool GetSerializationSize(uint64_t & serializationSize) const;
     BPCODEC_EXPORT std::size_t GetCanonicalBlockCountByType(const BPV6_BLOCK_TYPE_CODE canonicalBlockTypeCode) const;
     BPCODEC_EXPORT std::size_t GetNumCanonicalBlocks() const;

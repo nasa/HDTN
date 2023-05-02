@@ -1123,7 +1123,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                     block.m_blockNumber = bv.GetNextFreeCanonicalBlockNumber();
                     block.m_crcType = BPV7_CRC_TYPE::CRC32C;
                     block.m_previousNode.Set(m_hdtnConfig.m_myNodeId, 0);
-                    bv.PrependMoveCanonicalBlock(blockPtr);
+                    bv.PrependMoveCanonicalBlock(std::move(blockPtr));
                 }
 
                 //get hop count if exists and update it
@@ -1554,7 +1554,7 @@ void Ingress::Impl::SendPing(const uint64_t remoteNodeId, const uint64_t remoteP
             block.m_crcType = BPV7_CRC_TYPE::CRC32C;
             block.m_hopLimit = 100; //Hop limit MUST be in the range 1 through 255.
             block.m_hopCount = 0; //the hop count value SHOULD initially be zero and SHOULD be increased by 1 on each hop.
-            bv.AppendMoveCanonicalBlock(blockPtr);
+            bv.AppendMoveCanonicalBlock(std::move(blockPtr));
         }
 
         //append payload block (must be last block)
@@ -1569,7 +1569,7 @@ void Ingress::Impl::SendPing(const uint64_t remoteNodeId, const uint64_t remoteP
             payloadBlock.m_crcType = BPV7_CRC_TYPE::CRC32C;
             payloadBlock.m_dataLength = payloadSizeBytes;
             payloadBlock.m_dataPtr = NULL; //NULL will preallocate (won't copy or compute crc, user must do that manually below)
-            bv.AppendMoveCanonicalBlock(payloadBlockPtr);
+            bv.AppendMoveCanonicalBlock(std::move(payloadBlockPtr));
         }
 
         //render bundle to the front buffer
@@ -1625,7 +1625,7 @@ void Ingress::Impl::SendPing(const uint64_t remoteNodeId, const uint64_t remoteP
             payloadBlock.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET;
             payloadBlock.m_blockTypeSpecificDataLength = payloadSizeBytes;
             payloadBlock.m_blockTypeSpecificDataPtr = NULL; //NULL will preallocate (won't copy or compute crc, user must do that manually below)
-            bv.AppendMoveCanonicalBlock(payloadBlockPtr);
+            bv.AppendMoveCanonicalBlock(std::move(payloadBlockPtr));
         }
 
         //render bundle to the front buffer

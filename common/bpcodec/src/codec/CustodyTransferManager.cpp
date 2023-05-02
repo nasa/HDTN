@@ -78,7 +78,7 @@ bool CustodyTransferManager::GenerateCustodySignalBundle(BundleViewV6 & newRende
         const uint8_t sri = static_cast<uint8_t>(statusReasonIndex);
         sig.SetCustodyTransferStatusAndReason(INDEX_TO_IS_SUCCESS[sri], INDEX_TO_REASON_CODE[sri]);
 
-        newRenderedBundleView.AppendMoveCanonicalBlock(blockPtr);
+        newRenderedBundleView.AppendMoveCanonicalBlock(std::move(blockPtr));
     }
     if (!newRenderedBundleView.Render(CBHE_BPV6_MINIMUM_SAFE_PRIMARY_HEADER_ENCODE_SIZE + Bpv6AdministrativeRecordContentCustodySignal::CBHE_MAX_SERIALIZATION_SIZE)) { //todo size
         return false;
@@ -142,7 +142,7 @@ bool CustodyTransferManager::GenerateAcsBundle(BundleViewV6 & newAcsRenderedBund
         else {
             block.m_adminRecordContentPtr = boost::make_unique<Bpv6AdministrativeRecordContentAggregateCustodySignal>(std::move(acsToMove));
         }
-        newAcsRenderedBundleView.AppendMoveCanonicalBlock(blockPtr);
+        newAcsRenderedBundleView.AppendMoveCanonicalBlock(std::move(blockPtr));
     }
     if (!newAcsRenderedBundleView.Render(CBHE_BPV6_MINIMUM_SAFE_PRIMARY_HEADER_ENCODE_SIZE + 2000)) { //todo size
         return false;
@@ -296,7 +296,7 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
                 block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET;
                 block.m_custodyId = custodyId;
                 block.m_ctebCreatorCustodianEidString = m_myCtebCreatorCustodianEidString;
-                bv.AppendMoveCanonicalBlock(blockPtr); //bundle needs rerendered
+                bv.AppendMoveCanonicalBlock(std::move(blockPtr)); //bundle needs rerendered
             }
 
             
@@ -437,7 +437,7 @@ bool CustodyTransferManager::GenerateBundleDeletionStatusReport(const Bpv6CbhePr
     report.m_copyOfBundleCreationTimestamp = copyOfCreationTime;
     report.m_bundleSourceEid = Uri::GetIpnUriString(sourceEid.nodeId, sourceEid.serviceId);
 
-    bv.AppendMoveCanonicalBlock(blockPtr);
+    bv.AppendMoveCanonicalBlock(std::move(blockPtr));
     bool success = bv.Render(CBHE_BPV6_MINIMUM_SAFE_PRIMARY_HEADER_ENCODE_SIZE + Bpv6AdministrativeRecordContentBundleStatusReport::CBHE_MAX_SERIALIZATION_SIZE + 100);
 
     return success;

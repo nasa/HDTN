@@ -330,7 +330,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
             block.m_blockNumber = bv.GetNextFreeCanonicalBlockNumber();
             block.m_crcType = BPV7_CRC_TYPE::CRC32C;
             block.m_previousNode = m_myEidEcho;
-            bv.PrependMoveCanonicalBlock(blockPtr);
+            bv.PrependMoveCanonicalBlock(std::move(blockPtr));
         }
 
         //get hop count if exists

@@ -57,7 +57,7 @@ static bool GenerateBundle(std::vector<uint8_t> & bundle, const Bpv6CbhePrimaryB
         block.m_blockTypeSpecificDataLength = targetBlockTypeSpecificDataLength;
         block.m_blockTypeSpecificDataPtr = payloadData.data(); //payloadString must remain in scope until after render
         uint64_t canonicalSize = block.GetSerializationSize();
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
 
     }
 
@@ -85,7 +85,7 @@ static bool GenerateBundleV7(std::vector<uint8_t> & bundle, const Bpv7CbhePrimar
         block.m_crcType = BPV7_CRC_TYPE::CRC32C;
         block.m_dataLength = payloadData.size();
         block.m_dataPtr = (uint8_t*)payloadData.data(); //payloadString must remain in scope until after render
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
 
     }
 

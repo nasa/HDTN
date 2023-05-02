@@ -567,7 +567,7 @@ bool Scheduler::Impl::SendBundle(const uint8_t* payloadData, const uint64_t payl
         payloadBlock.m_crcType = BPV7_CRC_TYPE::CRC32C;
         payloadBlock.m_dataLength = payloadSizeBytes;
         payloadBlock.m_dataPtr = NULL; //NULL will preallocate (won't copy or compute crc, user must do that manually below)
-        bv.AppendMoveCanonicalBlock(payloadBlockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(payloadBlockPtr));
     }
 
     //render bundle to the front buffer
