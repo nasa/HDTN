@@ -879,10 +879,6 @@ void BPSecManager::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
         return;
     }
 
-    if (!bcb.AddSecurityParameterScope(aadScopeMask)) {
-        hadError = true;
-        return;
-    }
 
     std::vector<boost::asio::const_buffer>& aadParts = aadPartsTemporaryMemory;
     aadParts.clear();
@@ -922,6 +918,12 @@ void BPSecManager::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
             return;
         }
         wrappedKeyPtr->resize(wrappedKeyOutSize);
+    }
+
+    //do this after the key wrapping so the results appear in order and match unit tests
+    if (!bcb.AddSecurityParameterScope(aadScopeMask)) {
+        hadError = true;
+        return;
     }
 
 

@@ -731,7 +731,7 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
     }
 }
 
-BOOST_AUTO_TEST_CASE(DecryptBundleTestCase)
+BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleWithKeyWrapTestCase)
 {
     std::vector<uint8_t> encryptedSerializedBundle;
     static const std::string encryptedSerializedBundleString(
@@ -770,7 +770,7 @@ BOOST_AUTO_TEST_CASE(DecryptBundleTestCase)
         hadError, decryptionSuccessful);
     BOOST_REQUIRE(!hadError);
     BOOST_REQUIRE(decryptionSuccessful);
-    std::vector<uint8_t> decryptedBundleCopy(
+    const std::vector<uint8_t> decryptedBundleCopy(
         (uint8_t*)bv.m_renderedBundle.data(),
         ((uint8_t*)bv.m_renderedBundle.data()) + bv.m_renderedBundle.size()
     );
@@ -784,10 +784,60 @@ BOOST_AUTO_TEST_CASE(DecryptBundleTestCase)
         "6c6f6164ff"
     );
     BOOST_REQUIRE_EQUAL(expectedSerializedBundleString, decryptedBundleHexString);
+
+    { //take new bundle and encrypt
+        padded_vector_uint8_t decryptedBundleCopyPadded(
+            decryptedBundleCopy.data(),
+            decryptedBundleCopy.data() + decryptedBundleCopy.size()
+        );
+        BundleViewV7 bv2;
+        BOOST_REQUIRE(bv2.LoadBundle(decryptedBundleCopyPadded.data(), decryptedBundleCopyPadded.size(), false));
+
+        std::vector<uint8_t> expectedInitializationVector;
+        static const std::string expectedInitializationVectorString(
+            "5477656c7665313231323132"
+        );
+        BOOST_REQUIRE(BinaryConversions::HexStringToBytes(expectedInitializationVectorString, expectedInitializationVector));
+
+        std::vector<uint8_t> dataEncryptionKeyBytes; //DEK
+        static const std::string dataEncryptionKeyString(
+            "71776572747975696f70617364666768"
+        );
+        BOOST_REQUIRE(BinaryConversions::HexStringToBytes(dataEncryptionKeyString, dataEncryptionKeyBytes));
+
+        static const uint64_t targetBlockNumbers[1] = { 1 };
+
+        const uint64_t insertBcbBeforeThisBlockNumber = 1;
+        bool encryptionSuccessful;
+        BPSecManager::TryEncryptBundle(ctxWrapper,
+            bv2,
+            BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::NO_ADDITIONAL_SCOPE,
+            COSE_ALGORITHMS::A128GCM,
+            BPV7_CRC_TYPE::NONE,
+            cbhe_eid_t(2, 1),
+            targetBlockNumbers, 1,
+            expectedInitializationVector.data(), static_cast<unsigned int>(expectedInitializationVector.size()),
+            keyEncryptionKeyBytes.data(), static_cast<unsigned int>(keyEncryptionKeyBytes.size()), //NULL if not present (for wrapping DEK only)
+            dataEncryptionKeyBytes.data(), static_cast<unsigned int>(dataEncryptionKeyBytes.size()), //NULL if not present (when no wrapped key is present)
+            aadPartsTemporaryMemory,
+            &insertBcbBeforeThisBlockNumber,
+            hadError, encryptionSuccessful);
+
+        BOOST_REQUIRE(!hadError);
+        BOOST_REQUIRE(encryptionSuccessful);
+
+        {
+            std::string actualHex;
+            BinaryConversions::BytesToHexString(bv2.m_renderedBundle, actualHex);
+            boost::to_lower(actualHex);
+            BOOST_REQUIRE_EQUAL(actualHex, encryptedSerializedBundleString);
+            //std::cout << "decrypted bundle: " << actualHex << "\n";
+        }
+    }
 }
 
 //from TestBpsecDefaultSecurityContextsSecurityBlocksWithFullScopeTestCase
-BOOST_AUTO_TEST_CASE(DecryptBundleFullScopeTestCase)
+BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleFullScopeTestCase)
 {
     std::vector<uint8_t> encryptedSerializedBundle;
     static const std::string encryptedSerializedBundleString(
