@@ -760,16 +760,11 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleWithKeyWrapTestCase)
     std::vector<boost::asio::const_buffer> aadPartsTemporaryMemory;
 
     BPSecManager::EvpCipherCtxWrapper ctxWrapper;
-    bool hadError;
-    bool decryptionSuccessful;
-    BPSecManager::TryDecryptBundle(ctxWrapper,
+    BOOST_REQUIRE(BPSecManager::TryDecryptBundle(ctxWrapper,
         bv,
         keyEncryptionKeyBytes.data(), static_cast<const unsigned int>(keyEncryptionKeyBytes.size()),
         NULL, 0, //no DEK (using KEK instead)
-        aadPartsTemporaryMemory,
-        hadError, decryptionSuccessful);
-    BOOST_REQUIRE(!hadError);
-    BOOST_REQUIRE(decryptionSuccessful);
+        aadPartsTemporaryMemory));
     const std::vector<uint8_t> decryptedBundleCopy(
         (uint8_t*)bv.m_renderedBundle.data(),
         ((uint8_t*)bv.m_renderedBundle.data()) + bv.m_renderedBundle.size()
@@ -808,8 +803,7 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleWithKeyWrapTestCase)
         static const uint64_t targetBlockNumbers[1] = { 1 };
 
         const uint64_t insertBcbBeforeThisBlockNumber = 1;
-        bool encryptionSuccessful;
-        BPSecManager::TryEncryptBundle(ctxWrapper,
+        BOOST_REQUIRE(BPSecManager::TryEncryptBundle(ctxWrapper,
             bv2,
             BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::NO_ADDITIONAL_SCOPE,
             COSE_ALGORITHMS::A128GCM,
@@ -820,18 +814,13 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleWithKeyWrapTestCase)
             keyEncryptionKeyBytes.data(), static_cast<unsigned int>(keyEncryptionKeyBytes.size()), //NULL if not present (for wrapping DEK only)
             dataEncryptionKeyBytes.data(), static_cast<unsigned int>(dataEncryptionKeyBytes.size()), //NULL if not present (when no wrapped key is present)
             aadPartsTemporaryMemory,
-            &insertBcbBeforeThisBlockNumber,
-            hadError, encryptionSuccessful);
-
-        BOOST_REQUIRE(!hadError);
-        BOOST_REQUIRE(encryptionSuccessful);
+            &insertBcbBeforeThisBlockNumber));
 
         {
             std::string actualHex;
             BinaryConversions::BytesToHexString(bv2.m_renderedBundle, actualHex);
             boost::to_lower(actualHex);
             BOOST_REQUIRE_EQUAL(actualHex, encryptedSerializedBundleString);
-            //std::cout << "decrypted bundle: " << actualHex << "\n";
         }
     }
 }
@@ -869,16 +858,11 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleFullScopeTestCase)
     std::vector<boost::asio::const_buffer> aadPartsTemporaryMemory;
 
     BPSecManager::EvpCipherCtxWrapper ctxWrapper;
-    bool hadError;
-    bool decryptionSuccessful;
-    BPSecManager::TryDecryptBundle(ctxWrapper,
+    BOOST_REQUIRE(BPSecManager::TryDecryptBundle(ctxWrapper,
         bv,
         NULL, 0, //not using KEK
         dataEncryptionKeyBytes.data(), static_cast<const unsigned int>(dataEncryptionKeyBytes.size()),
-        aadPartsTemporaryMemory,
-        hadError, decryptionSuccessful);
-    BOOST_REQUIRE(!hadError);
-    BOOST_REQUIRE(decryptionSuccessful);
+        aadPartsTemporaryMemory));
 
 
     static const std::string expectedSerializedPayloadBlockString(
@@ -961,8 +945,7 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleFullScopeTestCase)
         static const uint64_t targetBlockNumbers[2] = { 3, 1 };
 
         const uint64_t insertBcbBeforeThisBlockNumber = 1;
-        bool encryptionSuccessful;
-        BPSecManager::TryEncryptBundle(ctxWrapper,
+        BOOST_REQUIRE(BPSecManager::TryEncryptBundle(ctxWrapper,
             bv2,
             BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET,
             COSE_ALGORITHMS::A256GCM,
@@ -973,18 +956,13 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleFullScopeTestCase)
             NULL, 0, //NULL if not present (for wrapping DEK only)
             dataEncryptionKeyBytes.data(), static_cast<unsigned int>(dataEncryptionKeyBytes.size()), //NULL if not present (when no wrapped key is present)
             aadPartsTemporaryMemory,
-            &insertBcbBeforeThisBlockNumber,
-            hadError, encryptionSuccessful);
-
-        BOOST_REQUIRE(!hadError);
-        BOOST_REQUIRE(encryptionSuccessful);
+            &insertBcbBeforeThisBlockNumber));
 
         {
             std::string actualHex;
             BinaryConversions::BytesToHexString(bv2.m_renderedBundle, actualHex);
             boost::to_lower(actualHex);
             BOOST_REQUIRE_EQUAL(actualHex, encryptedSerializedBundleString);
-            //std::cout << "decrypted bundle: " << actualHex << "\n";
         }
     }
 
