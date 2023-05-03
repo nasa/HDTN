@@ -408,6 +408,7 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7CanonicalBlock {
     BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
     BPCODEC_EXPORT uint64_t GetSerializationSize(const bool isEncrypted) const;
     BPCODEC_EXPORT uint64_t GetSerializationSizeOfAadPart() const;
+    BPCODEC_EXPORT uint64_t SerializeAadPart(uint8_t* serialization) const;
     BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
     BPCODEC_EXPORT void RecomputeCrcAfterDataModification(uint8_t * serializationBase, const uint64_t sizeSerialized);
     BPCODEC_EXPORT static bool DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & canonicalPtr, uint8_t * serialization,

@@ -614,11 +614,13 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
     std::vector<uint8_t> gcmAadBytes;
     static const std::string gcmAadString("00");
     BOOST_REQUIRE(BinaryConversions::HexStringToBytes(gcmAadString, gcmAadBytes));
+    std::vector<boost::asio::const_buffer> aadParts;
+    aadParts.emplace_back(boost::asio::buffer(gcmAadBytes));
     
 
     //Encrypt payload data (not in place)  
-    std::vector<uint8_t> cipherTextBytes(payloadString.size() + EVP_MAX_BLOCK_LENGTH, 0);
-    std::vector<uint8_t> tagBytes(EVP_GCM_TLS_TAG_LEN + 10, 'a'); //add 10 extra bytes to make sure they are unmodified
+    std::vector<uint8_t> cipherTextBytes(payloadString.size() + EVP_MAX_BLOCK_LENGTH, 'b'); //paint extra bytes (should be unmodified)
+    std::vector<uint8_t> tagBytes(EVP_GCM_TLS_TAG_LEN + 10, 'a'); //paint/add 10 extra bytes to make sure they are unmodified
     BPSecManager::EvpCipherCtxWrapper ctxWrapper;
     uint64_t cipherTextOutSize = 0;
     //not inplace test (separate in and out buffers)
@@ -626,8 +628,11 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
         (const uint8_t *)payloadString.data(), payloadString.size(),
         keyBytes.data(), keyBytes.size(),
         initializationVectorBytes.data(), initializationVectorBytes.size(),
-        gcmAadBytes.data(), gcmAadBytes.size(), //affects tag only
+        aadParts, //affects tag only
         cipherTextBytes.data(), cipherTextOutSize, tagBytes.data()));
+
+    BOOST_REQUIRE_EQUAL(memcmp(&cipherTextBytes[payloadString.size()],
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", EVP_MAX_BLOCK_LENGTH), 0); //cipherTextBytes should not have overrun
 
     cipherTextBytes.resize(cipherTextOutSize);
     std::string cipherTextHexString;
@@ -651,6 +656,7 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
         reinterpret_cast<const uint8_t*>(payloadString.data()),
         (reinterpret_cast<const uint8_t*>(payloadString.data())) + payloadString.size()
     );
+    memset(inplaceData.data() + payloadString.size(), 'c', 5); //paint 5 bytes (in padding area) after payload to make sure unmodified
     tagBytes.assign(EVP_GCM_TLS_TAG_LEN + 10, 'a'); //add 10 extra bytes to make sure they are unmodified
     cipherTextOutSize = 0;
     //inplace test (same in and out buffers)
@@ -658,8 +664,11 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
         inplaceData.data(), inplaceData.size(),
         keyBytes.data(), keyBytes.size(),
         initializationVectorBytes.data(), initializationVectorBytes.size(),
-        gcmAadBytes.data(), gcmAadBytes.size(),
+        aadParts,
         inplaceData.data(), cipherTextOutSize, tagBytes.data()));
+
+    BOOST_REQUIRE_EQUAL(memcmp(&inplaceData[payloadString.size()],
+        "cccccc", 5), 0); //inplaceData should not have overrun
 
     std::vector<uint8_t> inplaceDataEncryptedCopy(inplaceData.data(), inplaceData.data() + cipherTextOutSize); //safely go out of bounds
     std::string inplaceDataEncryptedHexString;
@@ -679,8 +688,6 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
     {
         std::vector<uint8_t> decryptedBytes(payloadString.size() + EVP_MAX_BLOCK_LENGTH, 0);
         uint64_t decryptedDataOutSize = 0;
-        std::vector<boost::asio::const_buffer> aadParts;
-        aadParts.emplace_back(boost::asio::buffer(gcmAadBytes));
         //not inplace test (separate in and out buffers)
         BOOST_REQUIRE(BPSecManager::AesGcmDecrypt(ctxWrapper,
             cipherTextBytes.data(), cipherTextBytes.size(),
@@ -755,9 +762,8 @@ BOOST_AUTO_TEST_CASE(DecryptBundleTestCase)
     BPSecManager::EvpCipherCtxWrapper ctxWrapper;
     bool hadError;
     bool decryptionSuccessful;
-    std::forward_list<std::vector<uint8_t> > decryptionTemporaryMemoryList;
     BPSecManager::TryDecryptBundle(ctxWrapper,
-        bv, decryptionTemporaryMemoryList,
+        bv,
         keyEncryptionKeyBytes.data(), static_cast<const unsigned int>(keyEncryptionKeyBytes.size()),
         NULL, 0, //no DEK (using KEK instead)
         aadPartsTemporaryMemory,
@@ -815,9 +821,8 @@ BOOST_AUTO_TEST_CASE(DecryptBundleFullScopeTestCase)
     BPSecManager::EvpCipherCtxWrapper ctxWrapper;
     bool hadError;
     bool decryptionSuccessful;
-    std::forward_list<std::vector<uint8_t> > decryptionTemporaryMemoryList;
     BPSecManager::TryDecryptBundle(ctxWrapper,
-        bv, decryptionTemporaryMemoryList,
+        bv,
         NULL, 0, //not using KEK
         dataEncryptionKeyBytes.data(), static_cast<const unsigned int>(dataEncryptionKeyBytes.size()),
         aadPartsTemporaryMemory,
@@ -876,6 +881,61 @@ BOOST_AUTO_TEST_CASE(DecryptBundleFullScopeTestCase)
         boost::to_lower(actualHex);
         BOOST_REQUIRE_EQUAL(actualHex, expectedSerializedBundleString);
         //std::cout << "decrypted bundle: " << actualHex << "\n";
+    }
+
+    { //take new bundle and encrypt
+        //Generated from TestBpsecDefaultSecurityContexts.cpp with comment:
+        //  dump the payload, bib, and primary as a full bundle for "encryption+add_bcb" unit test 
+        static const std::string expectedSerializedBundleWithBibString(
+            "9f88070000820282010282028202018202820201820018281a000f4240850b030000"
+            "584681010101820282020182820106820307818182015830f75fe4c37f76f0461658"
+            "55bd5ff72fbfd4e3a64b4695c40e2b787da005ae819f0a2e30a2e8b325527de8aefb"
+            "52e73d7185010100005823526561647920746f2067656e657261746520612033322d"
+            "62797465207061796c6f6164ff"
+        );
+        std::vector<uint8_t> expectedSerializedBundleWithBib;
+        BOOST_REQUIRE(BinaryConversions::HexStringToBytes(expectedSerializedBundleWithBibString, expectedSerializedBundleWithBib));
+        padded_vector_uint8_t serializedBundleWithBibPadded(
+            expectedSerializedBundleWithBib.data(),
+            expectedSerializedBundleWithBib.data() + expectedSerializedBundleWithBib.size()
+        );
+        BundleViewV7 bv2;
+        BOOST_REQUIRE(bv2.LoadBundle(serializedBundleWithBibPadded.data(), serializedBundleWithBibPadded.size(), false));
+        
+        std::vector<uint8_t> expectedInitializationVector;
+        static const std::string expectedInitializationVectorString(
+            "5477656c7665313231323132"
+        );
+        BOOST_REQUIRE(BinaryConversions::HexStringToBytes(expectedInitializationVectorString, expectedInitializationVector));
+
+        static const uint64_t targetBlockNumbers[2] = { 3, 1 };
+
+        const uint64_t insertBcbBeforeThisBlockNumber = 1;
+        bool encryptionSuccessful;
+        BPSecManager::TryEncryptBundle(ctxWrapper,
+            bv2,
+            BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET,
+            COSE_ALGORITHMS::A256GCM,
+            BPV7_CRC_TYPE::NONE,
+            cbhe_eid_t(2, 1),
+            targetBlockNumbers, 2,
+            expectedInitializationVector.data(), static_cast<unsigned int>(expectedInitializationVector.size()),
+            NULL, 0, //NULL if not present (for wrapping DEK only)
+            dataEncryptionKeyBytes.data(), static_cast<unsigned int>(dataEncryptionKeyBytes.size()), //NULL if not present (when no wrapped key is present)
+            aadPartsTemporaryMemory,
+            &insertBcbBeforeThisBlockNumber,
+            hadError, encryptionSuccessful);
+
+        BOOST_REQUIRE(!hadError);
+        BOOST_REQUIRE(encryptionSuccessful);
+
+        {
+            std::string actualHex;
+            BinaryConversions::BytesToHexString(bv2.m_renderedBundle, actualHex);
+            boost::to_lower(actualHex);
+            BOOST_REQUIRE_EQUAL(actualHex, encryptedSerializedBundleString);
+            //std::cout << "decrypted bundle: " << actualHex << "\n";
+        }
     }
 
 }

@@ -2123,6 +2123,13 @@ A.4.3.2.  Abstract Security Block
 
     }
 
+    if (false) { //dump the payload, bib, and primary as a full bundle for "encryption+add_bcb" unit test 
+        std::string actualHex;
+        BinaryConversions::BytesToHexString(bv.m_renderedBundle, actualHex);
+        boost::to_lower(actualHex);
+        std::cout << "primary+bib+payload bundle: " << actualHex << "\n";
+    }
+
     /*
     A.4.4.  Block Confidentiality Block
 

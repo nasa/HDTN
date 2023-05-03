@@ -96,7 +96,7 @@ public:
         const uint8_t* unencryptedData, const uint64_t unencryptedDataLength,
         const uint8_t* key, const uint64_t keyLength,
         const uint8_t* iv, const uint64_t ivLength,
-        const uint8_t* aad, const uint64_t aadLength,
+        const std::vector<boost::asio::const_buffer>& aadParts,
         uint8_t* cipherTextOut, uint64_t& cipherTextOutSize, uint8_t* tagOut);
 
     BPSEC_EXPORT static bool AesGcmDecrypt(EvpCipherCtxWrapper& ctxWrapper,
@@ -118,21 +118,24 @@ public:
         uint8_t* unwrappedKeyOut, unsigned int& unwrappedKeyOutSize);
 
     BPSEC_EXPORT static void TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
-        BundleViewV7& bv, std::forward_list<std::vector<uint8_t> >& decryptionTemporaryMemoryList,
+        BundleViewV7& bv,
         const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping DEK only)
         const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength, //NULL if not present (when no wrapped key is present)
         std::vector<boost::asio::const_buffer>& aadPartsTemporaryMemory,
         bool& hadError, bool& decryptionSuccessful);
 
     BPSEC_EXPORT static void TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
-        BundleViewV7& bv, std::forward_list<std::vector<uint8_t> >& encryptionTemporaryMemoryList,
+        BundleViewV7& bv,
         BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS aadScopeMask,
         COSE_ALGORITHMS aesVariant,
-        const uint8_t* targetBlockNumbers, const unsigned int targetBlockNumbersLength,
+        BPV7_CRC_TYPE bibCrcType,
+        const cbhe_eid_t& securitySource,
+        const uint64_t* targetBlockNumbers, const unsigned int numTargetBlockNumbers,
         const uint8_t* iv, const unsigned int ivLength,
         const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for wrapping DEK only)
         const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength, //NULL if not present (when no wrapped key is present)
         std::vector<boost::asio::const_buffer>& aadPartsTemporaryMemory,
+        const uint64_t* insertBcbBeforeThisBlockNumberIfNotNull,
         bool& hadError, bool& encryptionSuccessful);
 
    /**
