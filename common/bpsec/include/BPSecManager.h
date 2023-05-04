@@ -46,6 +46,11 @@ public:
         BPSEC_EXPORT ~EvpCipherCtxWrapper();
         EVP_CIPHER_CTX* m_ctx;
     };
+    struct HmacCtxWrapper {
+        BPSEC_EXPORT HmacCtxWrapper();
+        BPSEC_EXPORT ~HmacCtxWrapper();
+        HMAC_CTX* m_ctx;
+    };
 
     BPSEC_EXPORT BPSecManager(const bool isSecEnabled);
     BPSEC_EXPORT ~BPSecManager();
@@ -91,6 +96,12 @@ public:
     BPSEC_EXPORT static int aes_gcm_decrypt(std::string gcm_ct, std::string gcm_tag,
                                      std::string gcm_key, std::string gcm_iv,
                                      std::string gcm_aad, unsigned char* pt, int *outlen);
+
+    BPSEC_EXPORT static bool HmacSha(HmacCtxWrapper& ctxWrapper,
+        const BPSEC_SHA2_VARIANT variant,
+        const std::vector<boost::asio::const_buffer>& ipptParts,
+        const uint8_t* key, const uint64_t keyLength,
+        uint8_t* messageDigestOut, unsigned int& messageDigestOutSize);
 
     BPSEC_EXPORT static bool AesGcmEncrypt(EvpCipherCtxWrapper& ctxWrapper,
         const uint8_t* unencryptedData, const uint64_t unencryptedDataLength,

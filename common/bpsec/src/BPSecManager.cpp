@@ -333,6 +333,71 @@ BPSecManager::EvpCipherCtxWrapper::~EvpCipherCtxWrapper() {
     }
 }
 
+BPSecManager::HmacCtxWrapper::HmacCtxWrapper() : m_ctx(HMAC_CTX_new()) {}
+BPSecManager::HmacCtxWrapper::~HmacCtxWrapper() {
+    if (m_ctx) {
+        HMAC_CTX_free(m_ctx);
+        m_ctx = NULL;
+    }
+}
+
+//https://www.openssl.org/docs/man1.1.1/man3/HMAC_Init_ex.html
+
+bool BPSecManager::HmacSha(HmacCtxWrapper& ctxWrapper,
+    const BPSEC_SHA2_VARIANT variant,
+    const std::vector<boost::asio::const_buffer>& ipptParts,
+    const uint8_t* key, const uint64_t keyLength,
+    uint8_t* messageDigestOut, unsigned int& messageDigestOutSize)
+{
+    HMAC_CTX* ctx = ctxWrapper.m_ctx;
+
+    messageDigestOutSize = 0;
+
+    const EVP_MD* evpMdPtr;
+    switch (variant) {
+        case BPSEC_SHA2_VARIANT::HMAC256:
+            evpMdPtr = EVP_sha256();
+            break;
+        case BPSEC_SHA2_VARIANT::HMAC512:
+            evpMdPtr = EVP_sha512(); //returns pointer to a static const variable
+            break;
+        case BPSEC_SHA2_VARIANT::HMAC384:
+            evpMdPtr = EVP_sha384();
+            break;
+        default:
+            return false;
+    }
+
+    //HMAC_Init_ex() initializes or reuses a HMAC_CTX structure to use the hash function evp_md and key key.
+    //If both are NULL, or if key is NULL and evp_md is the same as the previous call, then the existing key is reused.
+    //ctx must have been created with HMAC_CTX_new() before the first use of an HMAC_CTX in this function.
+    //
+    //If HMAC_Init_ex() is called with key NULL and evp_md is not the same as the previous digest used by ctx
+    //then an error is returned because reuse of an existing key with a different digest is not supported.
+    //HMAC_Init_ex() return 1 for success or 0 if an error occurred.
+    if (!HMAC_Init_ex(ctx, key, (int)keyLength, evpMdPtr, NULL)) {
+        return false;
+    }
+
+    //HMAC_Update() can be called repeatedly with chunks of the message to be authenticated (len bytes at data).
+    //HMAC_Update() return 1 for success or 0 if an error occurred.
+    for (std::size_t i = 0; i < ipptParts.size(); ++i) {
+        const boost::asio::const_buffer& cb = ipptParts[i];
+        if (!HMAC_Update(ctx, reinterpret_cast<const uint8_t*>(cb.data()), cb.size())) {
+            return false;
+        }
+    }
+    
+
+    //HMAC_Final() places the message authentication code in md, which must have space for the hash function output.
+    //HMAC_Final() return 1 for success or 0 if an error occurred.
+    if (!HMAC_Final(ctx, messageDigestOut, &messageDigestOutSize)) {
+        return false;
+    }
+
+    return true;
+}
+
 //https://www.openssl.org/docs/man1.1.1/man3/EVP_EncryptUpdate.html
     
 //buffer size of cipherTextOut must be at least (unencryptedDataLength + EVP_MAX_BLOCK_LENGTH)
