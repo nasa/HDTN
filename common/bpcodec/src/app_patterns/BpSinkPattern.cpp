@@ -305,7 +305,19 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
         #ifdef DO_STATS_LOGGING
             std::vector<hdtn::StatsLogger::metric_t> metrics;
             metrics.push_back(hdtn::StatsLogger::metric_t("bundle_source_to_sink_latency_s", primary.GetSecondsSinceCreate()));
-            hdtn::StatsLogger::Log("bundle_source_to_sink_latency_s", metrics);
+            metrics.push_back(hdtn::StatsLogger::metric_t("priority", (uint64_t)primary.GetPriority()));
+            cbhe_eid_t dest = primary.GetFinalDestinationEid();
+            metrics.push_back(hdtn::StatsLogger::metric_t("destination_node_id", (uint64_t)dest.nodeId));
+            metrics.push_back(hdtn::StatsLogger::metric_t("destination_service_id", (uint64_t)dest.serviceId));
+            cbhe_eid_t src = primary.GetSourceEid();
+            metrics.push_back(hdtn::StatsLogger::metric_t("source_node_id", (uint64_t)src.nodeId));
+            metrics.push_back(hdtn::StatsLogger::metric_t("source_service_id", (uint64_t)src.serviceId));
+            metrics.push_back(hdtn::StatsLogger::metric_t("expiration_ms", (uint64_t)primary.GetExpirationMilliseconds()));
+            metrics.push_back(hdtn::StatsLogger::metric_t("lifetime_seconds", (uint64_t)primary.m_lifetimeSeconds));
+            TimestampUtil::bpv6_creation_timestamp_t creationTimestamp;
+            metrics.push_back(hdtn::StatsLogger::metric_t("creation_seconds_since_2000", (uint64_t)creationTimestamp.secondsSinceStartOfYear2000));
+
+            hdtn::StatsLogger::Log("bundle_stats", metrics);
         #endif
     }
     else if (isBpVersion7) {
