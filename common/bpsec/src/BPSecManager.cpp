@@ -14,48 +14,18 @@
  */
 
 #include "BPSecManager.h"
-#include <iostream>
-#include "TimestampUtil.h"
-#include "Uri.h"
 #include <boost/make_unique.hpp>
-#include <openssl/hmac.h>
-#include <openssl/evp.h>
-#include <string>
-#include <cstring>
-#include <sstream>
-#include "codec/BundleViewV7.h"
-#include "codec/bpv7.h"
 #include "BinaryConversions.h"
 #include "PaddedVectorUint8.h"
-#include <vector>
-#include <iostream>
-#include <openssl/bio.h>
-#include <openssl/err.h>
-#include <openssl/rand.h>
-#include <openssl/ssl.h>
-#include <openssl/x509v3.h>
-#include <openssl/aes.h>
-#include <openssl/evp.h>
-#include <openssl/rand.h>
-#include <string>
-#include <sstream>
-#include <vector>
-#include <iostream>
 #include "Logger.h"
-#include "codec/bpv7.h"
-#include <openssl/bn.h>
-#include <openssl/rsa.h>
-#include <openssl/pem.h>
-#include <openssl/engine.h>
-#include <assert.h>
-#include <stdio.h>
-#include <boost/algorithm/hex.hpp>
 #include <boost/algorithm/string.hpp>
-#include "CborUint.h"
 #include <boost/next_prior.hpp>
-
+#include "CborUint.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
+
+
+//#define BPSEC_MANAGER_PRINT_DEBUG
 
 BPSecManager::BPSecManager(const bool isSecEnabled) : 
 m_isSecEnabled(isSecEnabled)
@@ -64,254 +34,7 @@ m_isSecEnabled(isSecEnabled)
 
 BPSecManager::~BPSecManager() {}
 
-unsigned char* BPSecManager::hmac_sha(const EVP_MD *evp_md,
-                    std::string key,
-                    std::string data, unsigned char *md,
-                    unsigned int *md_len)
-{
-    HMAC_CTX *c = NULL;
-    if ((c = HMAC_CTX_new()) == NULL) {
-        goto err;
-    }
 
-    printf("key:\n");
-    BIO_dump_fp(stdout, (const char*) key.c_str(), (int)key.length());
-    /*
-    std::cout << "Key Length: " << key.length() << std::endl;
-    std::cout << "Plaintext: " << data << std::endl;
-    std::cout << "Plaintext length: " << data.length()  << std::endl;
-    */
-
-    printf("Plaintext:\n");
-    BIO_dump_fp(stdout, (const char*) data.c_str(), (int)data.length());
-
-    if (!HMAC_Init_ex(c, (const unsigned char*)key.c_str(), (int)key.length(), evp_md, NULL)) {
-        goto err;
-    }
-    if (!HMAC_Update(c, (const unsigned char*)data.c_str(), data.length())) {
-        goto err;
-    }
-    if (!HMAC_Final(c, md, md_len)) {
-        goto err;
-    }
-    HMAC_CTX_free(c);
-
-    printf("HMAC Digest:\n");
-    BIO_dump_fp(stdout, (const char*) md, *md_len);
-
-    return md;
- err:
-    HMAC_CTX_free(c);
-    return NULL;
-}
-
-int BPSecManager::aes_gcm_encrypt(std::string gcm_pt, std::string gcm_key, 
-    std::string gcm_iv, std::string gcm_aad, 
-    unsigned char* ciphertext, unsigned char* tag, 
-    int *outlen) 
-{
-    int ret = 0;
-    EVP_CIPHER_CTX *ctx;
-
-    printf("AES GCM Encrypt:\n");
-    printf("Plaintext:\n");
-    BIO_dump_fp(stdout, (const char*) gcm_pt.c_str(), (int)gcm_pt.length());
- 
-
-    printf("key:\n");
-    BIO_dump_fp(stdout, (const char*) gcm_key.c_str(), (int)gcm_key.length());
-
-    printf("IV:\n");
-    BIO_dump_fp(stdout, (const char*) gcm_iv.c_str(), (int)gcm_iv.length());
-
-    printf("aad:\n");
-    BIO_dump_fp(stdout, (const char*) gcm_aad.c_str(), (int)gcm_aad.length());
-
-    if ((ctx = EVP_CIPHER_CTX_new()) == NULL) {
-        goto err;
-    }
-
-    /* Set cipher type and mode */
-    if (gcm_key.length() == 16) {
-        if (!EVP_EncryptInit_ex(ctx, EVP_aes_128_gcm(), NULL, NULL, NULL)) {
-            goto err;
-        }
-    }
-    else if (gcm_key.length() == 32) {
-        if (!EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL)) {
-            goto err;
-        }
-    }
-    else { 
-       printf("Error Incorrect Key length!!\n");
-       goto err;    
-    }
-
-    /* Set IV length if default 96 bits is not appropriate */
-    if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_IVLEN, (int)gcm_iv.length(), NULL)) {
-        goto err;
-    }
-    
-    /* Initialise key and IV */
-    if (!EVP_EncryptInit_ex(ctx, NULL, NULL, (const unsigned char*)gcm_key.c_str(),
-        (const unsigned char*)gcm_iv.c_str()))
-    {
-        goto err;
-    }
-    
-    /* Zero or more calls to specify any AAD */
-    if (!EVP_EncryptUpdate(ctx, NULL, outlen,
-        (const unsigned char*)gcm_aad.c_str(),
-        (int)gcm_aad.length()))
-    {
-        goto err;
-    }
-    
-    /* Encrypt plaintext */
-    if (!EVP_EncryptUpdate(ctx, ciphertext, outlen, (const unsigned char*)gcm_pt.c_str(),
-        (int)gcm_pt.length()))
-    {
-        goto err;
-    }
-    
-    /* Output encrypted block */
-    printf("Ciphertext:\n");
-    BIO_dump_fp(stdout, (const char*) ciphertext, *outlen);
-    std::cout << "Ciphertext Len "  << *outlen << std::endl;  
-
-    memcpy(tag, ciphertext, EVP_GCM_TLS_TAG_LEN); //The length of the authentication tag, prior to any CBOR encoding, MUST be 128 bits.
-
-    /* Finalise: note get no output for GCM */
-    if (!EVP_EncryptFinal_ex(ctx, tag, outlen)) {
-        goto err;
-    }
-    
-
-    /* Get tag */
-    if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, EVP_GCM_TLS_TAG_LEN, tag)) { //The length of the authentication tag, prior to any CBOR encoding, MUST be 128 bits.
-        goto err;
-    }
-
-
-    /* Output tag */
-    printf("Tag:\n");
-    BIO_dump_fp(stdout, (const char*) tag, EVP_GCM_TLS_TAG_LEN);
-
-    ret = 1; 
-
-err:
-    if (!ret) {
-        ERR_print_errors_fp(stderr);
-    }
-
-    EVP_CIPHER_CTX_free(ctx);
-    
-    return ret;
-}
-
-int BPSecManager::aes_gcm_decrypt(std::string gcm_ct, std::string gcm_tag,
-    std::string gcm_key, std::string gcm_iv, 
-    std::string gcm_aad, unsigned char* plaintext, 
-    int *outlen)
-{
-    int ret = 0;
-    EVP_CIPHER_CTX *ctx;
-    int rv;
-    EVP_CIPHER *cipher = NULL;
-
-    printf("AES GCM Decrypt:\n");
-    printf("Ciphertext:\n");
-    BIO_dump_fp(stdout, (const char*) gcm_ct.c_str(), (int)gcm_ct.length());
-    
-    if ((ctx = EVP_CIPHER_CTX_new()) == NULL) {
-        goto err;
-    }
-
-    // Select cipher 
-    if (gcm_key.length() == 16) {
-        if (!EVP_DecryptInit_ex(ctx, EVP_aes_128_gcm(), NULL, NULL, NULL)) {
-            goto err;
-        }
-    }
-    else if (gcm_key.length() == 32) {
-        if (!EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL)) {
-            goto err;
-        }
-    }
-    else {
-        printf("Error Incorrect Key length!!\n");
-        goto err;
-    }
-
-    //Set IV length, omit for 96 bits
-    if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_IVLEN, (int)gcm_iv.length(), NULL)) {
-        goto err;
-    }
-
-    // Specify key and IV 
-    if (!EVP_DecryptInit_ex(ctx, NULL, NULL, (const unsigned char*)gcm_key.c_str(),
-        (const unsigned char*)gcm_iv.c_str()))
-    {
-        goto err;
-    }
-
-    // Zero or more calls to specify any AAD 
-    if (!EVP_DecryptUpdate(ctx, NULL, outlen, (const unsigned char*)gcm_aad.c_str(),
-        (int)gcm_aad.length()))
-    {
-        goto err;
-    }
-
-    // Decrypt plaintext 
-    if (!EVP_DecryptUpdate(ctx, plaintext, outlen, (const unsigned char*)gcm_ct.c_str(),
-        (int)gcm_ct.length()))
-    {
-        goto err;
-    }
-
-    // Output decrypted block 
-    printf("Plaintext:\n");
-    BIO_dump_fp(stdout, (const char*) plaintext, *outlen);
-    std::cout << "plaintext Len "  << *outlen << std::endl;
-
-    printf("Tag :\n");
-    BIO_dump_fp(stdout, (const char*)gcm_tag.c_str(), (int)gcm_tag.length());
-
-    printf("Key :\n");
-    BIO_dump_fp(stdout, (const char*)gcm_iv.c_str(), (int)gcm_iv.length());
-
-    printf("IV :\n");
-    BIO_dump_fp(stdout, (const char*)gcm_key.c_str(), (int)gcm_key.length());
-
-    printf("Ciphertext:\n");
-    BIO_dump_fp(stdout, (const char*) gcm_ct.c_str(), (int)gcm_ct.length());
-
-
-    // Set expected tag value. 
-    if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, (int)gcm_tag.length(),
-        (void*)gcm_tag.c_str()))
-    {
-        goto err;
-    }
-    
-    // Finalise: note get no output for GCM 
-    rv = EVP_DecryptFinal_ex(ctx, plaintext, outlen);
-    
-    printf("***Tag Verify %s\n", rv > 0 ? "Successful!" : "Failed!");
-    
-    ret = 1; 
-
-err:
- 
-    if (!ret) {
-        ERR_print_errors_fp(stderr);
-        std::cout << "Error Decrypt!!! " << std::endl;
-    }
-
-    EVP_CIPHER_CTX_free(ctx);
-
-    return ret;
-}
 
 //https://www.openssl.org/docs/man3.0/man7/crypto.html
 //Performance:
@@ -449,7 +172,7 @@ bool BPSecManager::AesGcmEncrypt(EvpCipherCtxWrapper& ctxWrapper,
         cipherPtr = EVP_aes_256_gcm();
     }
     else {
-        printf("Error Incorrect Key length!!\n");
+        LOG_ERROR(subprocess) << "Error Incorrect Key length!!";
         return false;
     }
     //EVP_EncryptInit_ex(), EVP_EncryptUpdate() and EVP_EncryptFinal_ex() return 1 for success and 0 for failure.
@@ -576,7 +299,7 @@ bool BPSecManager::AesGcmDecrypt(EvpCipherCtxWrapper& ctxWrapper,
         cipherPtr = EVP_aes_256_gcm();
     }
     else {
-        printf("Error Incorrect Key length!!\n");
+        LOG_ERROR(subprocess) << "Error Incorrect Key length!!";
         return false;
     }
     //EVP_EncryptInit_ex(), EVP_EncryptUpdate() and EVP_EncryptFinal_ex() return 1 for success and 0 for failure.
@@ -818,20 +541,20 @@ bool BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
                 const std::size_t len = targetCanonicalHeader.GetSerializationSizeOfAadPart();
                 *targetHeaderAadPiece = boost::asio::const_buffer(startPtr, len);
             }
-#if 0
+#ifdef BPSEC_MANAGER_PRINT_DEBUG
             {
                 std::string aadHexString;
                 BinaryConversions::BytesToHexString(aadParts, aadHexString);
                 boost::to_lower(aadHexString);
-                std::cout << "aad: " << aadHexString << "\n";
+                LOG_DEBUG(subprocess) << "aad: " << aadHexString;
             }
 #endif
-#if 0
+#ifdef BPSEC_MANAGER_PRINT_DEBUG
             {
                 std::string hexString;
                 BinaryConversions::BytesToHexString(targetCanonicalHeader.m_dataPtr, targetCanonicalHeader.m_dataLength, hexString);
                 boost::to_lower(hexString);
-                std::cout << "block (code=" << (int)targetCanonicalHeader.m_blockTypeCode << ") data part before decrypt : " << hexString << "\n";
+                LOG_DEBUG(subprocess) << "block (code=" << (int)targetCanonicalHeader.m_blockTypeCode << ") data part before decrypt : " << hexString;
             }
 #endif
             
@@ -848,12 +571,12 @@ bool BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
             {
                 return false;
             }
-#if 0
+#ifdef BPSEC_MANAGER_PRINT_DEBUG
             {
                 std::string hexString;
                 BinaryConversions::BytesToHexString(targetCanonicalHeader.m_dataPtr, targetCanonicalHeader.m_dataLength, hexString);
                 boost::to_lower(hexString);
-                std::cout << "block data part decrypted: " << hexString << "\n";
+                LOG_DEBUG(subprocess) << "block data part decrypted: " << hexString;
             }
 #endif
             //RFC9173:
@@ -880,12 +603,12 @@ bool BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
                 return false;
             }
 
-#if 0
+#ifdef BPSEC_MANAGER_PRINT_DEBUG
             {
                 std::string hexString;
                 BinaryConversions::BytesToHexString(targetCanonicalBlockViewPtr->actualSerializedBlockPtr.data(), targetCanonicalBlockViewPtr->actualSerializedBlockPtr.size(), hexString);
                 boost::to_lower(hexString);
-                std::cout << "block decrypted: " << hexString << "\n";
+                LOG_DEBUG(subprocess) << "block decrypted: " << hexString;
             }
 #endif
             
@@ -894,7 +617,7 @@ bool BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
         bcbBlockView.markedForDeletion = true;
     }
     //at least one bcb was marked for deletion, so rerender
-    return bv.RenderInPlace(128); //todo make PADDING_ELEMENTS_BEFORE
+    return bv.RenderInPlace(PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE);
 }
 
 //User of this function provided KEK (key encryption key), AAD scope, AES variant, IV, and targets.
@@ -1065,7 +788,7 @@ bool BPSecManager::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
     else {
         bv.PrependMoveCanonicalBlock(std::move(blockPtr));
     }
-    return bv.RenderInPlace(128); //todo make PADDING_ELEMENTS_BEFORE
+    return bv.RenderInPlace(PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE);
 }
 
 //User of this function provided KEK (key encryption key).
@@ -1238,12 +961,12 @@ bool BPSecManager::TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
                 ipptParts.emplace_back(primaryByteStringHeader, cborByteStringHeaderLength);
                 ipptParts.emplace_back(cbPrimary);
             }
-#if 0
+#ifdef BPSEC_MANAGER_PRINT_DEBUG
             {
                 std::string ipptHexString;
                 BinaryConversions::BytesToHexString(ipptParts, ipptHexString);
                 boost::to_lower(ipptHexString);
-                std::cout << "ippt: " << ipptHexString << "\n";
+                LOG_DEBUG(subprocess) << "ippt: " << ipptHexString;
             }
 #endif
 
@@ -1261,19 +984,19 @@ bool BPSecManager::TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
             //expectedHmac
 
             
-#if 0
-            std::cout << "target block number " << target << ":\n";
+#ifdef BPSEC_MANAGER_PRINT_DEBUG
+            LOG_DEBUG(subprocess) << "target block number " << target << ":";
             {
                 std::string hexString;
                 BinaryConversions::BytesToHexString(expectedHmac, hexString);
                 boost::to_lower(hexString);
-                std::cout << "  expectedHmac: " << hexString << "\n";
+                LOG_DEBUG(subprocess) << "  expectedHmac: " << hexString;
             }
             {
                 std::string hexString;
                 BinaryConversions::BytesToHexString(messageDigestCalculated, messageDigestOutSize, hexString);
                 boost::to_lower(hexString);
-                std::cout << "  calculatedHmac: " << hexString << "\n";
+                LOG_DEBUG(subprocess) << "  calculatedHmac: " << hexString;
             }
 #endif
             
@@ -1293,7 +1016,7 @@ bool BPSecManager::TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
     }
     if (removeBib) {
         //at least one bib was marked for deletion, so rerender
-        return bv.RenderInPlace(128); //todo make PADDING_ELEMENTS_BEFORE
+        return bv.RenderInPlace(PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE);
     }
     return true;
 }
@@ -1437,12 +1160,12 @@ bool BPSecManager::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
             ipptParts.emplace_back(cbPrimary);
         }
 
-#if 0
+#ifdef BPSEC_MANAGER_PRINT_DEBUG
         {
             std::string ipptHexString;
             BinaryConversions::BytesToHexString(ipptParts, ipptHexString);
             boost::to_lower(ipptHexString);
-            std::cout << "ippt: " << ipptHexString << "\n";
+            LOG_DEBUG(subprocess) << "ippt: " << ipptHexString;
         }
 #endif
 
@@ -1473,13 +1196,13 @@ bool BPSecManager::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
             LOG_FATAL(subprocess) << "hmacPtr->size() != messageDigestOutSize (may have overwritten memory)";
             return false;
         }
-#if 0
-        std::cout << "target block number " << target << ":\n";
+#ifdef BPSEC_MANAGER_PRINT_DEBUG
+        LOG_DEBUG(subprocess) << "target block number " << target << ":";
         {
             std::string hexString;
             BinaryConversions::BytesToHexString(*hmacPtr, hexString);
             boost::to_lower(hexString);
-            std::cout << "  calculatedHmac: " << hexString << "\n";
+            LOG_DEBUG(subprocess) << "  calculatedHmac: " << hexString;
         }
 #endif
     }
@@ -1491,5 +1214,5 @@ bool BPSecManager::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
     else {
         bv.PrependMoveCanonicalBlock(std::move(blockPtr));
     }
-    return bv.RenderInPlace(128); //todo make PADDING_ELEMENTS_BEFORE
+    return bv.RenderInPlace(PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE);
 }

@@ -32,10 +32,10 @@
 #include "codec/bpv7.h"
 #include "bpsec_export.h"
 #include <openssl/evp.h>
+#include <openssl/hmac.h>
+#include <openssl/aes.h>
 #include <openssl/bio.h>
 #include <openssl/err.h>
-#include "BPSecManager.h"
-#include <forward_list>
 
 class BPSecManager { 
 private:
@@ -55,57 +55,43 @@ public:
     BPSEC_EXPORT BPSecManager(const bool isSecEnabled);
     BPSEC_EXPORT ~BPSecManager();
 
-    /**
-    * Generates Keyed Hash for integrity
-    *
-    * @param input The target data to be hashed
-    * @param key The HMAC key to be used for hashing
-    * @param suite The variant of SHA-2 algorithm to be used
-    * to generate the hash
-    * @return the computed HMAC digest
-    */
-    BPSEC_EXPORT static unsigned char* hmac_sha(const EVP_MD *evp_md,
-                                         std::string key,
-                                         std::string data, unsigned char *md,
-                                         unsigned int *md_len);
-
-   /**
-    * Adds BIB interity block to the bundle
-    *
-    * @param bv The bundle BundleViewV7
-    * @return True if BIB was added successfully
-    */
-//    BPSEC_EXPORT bool bpSecSign(BundleViewV7 & bv);
-    
-   /**
-    * Processes the BIB integrity blocks
-    *
-    * @param bv The bundle BundleViewV7
-    * @return true if the keyed Hash is verified correctly
-    */
-  //  BPSEC_EXPORT bool bpSecVerify(BundleViewV7 & bv);
     
     const bool m_isSecEnabled;
     
-
-    BPSEC_EXPORT static int aes_gcm_encrypt(std::string gcm_pt, std::string gcm_key,
-                                  std::string gcm_iv, std::string gcm_aad,
-                                  unsigned char* ciphertext, unsigned char* tag,      
-                                  int *outlen);
-
-    BPSEC_EXPORT static int aes_gcm_decrypt(std::string gcm_ct, std::string gcm_tag,
-                                     std::string gcm_key, std::string gcm_iv,
-                                     std::string gcm_aad, unsigned char* pt, int *outlen);
-
+    /**
+    * Generates Keyed Hash for integrity
+    *
+    * @param ctxWrapper The reusable (allocated once) openssl HMAC_CTX context.
+    * @param variant The SHA variant to use.
+    * @param ipptParts The Integrity-Protected Plaintext (IPPT) to hash.
+    *        These are pointer-length pieces to avoid having to concatenate everything to contiguous memory.
+    * @param key The HMAC key to be used for hashing
+    * @param key The HMAC key length to be used for hashing
+    * @param messageDigestOut The generated hash output of this function.
+    * @param messageDigestOutSize The generated size (in bytes) of the hash output of this function.
+    * @return true if there were no errors, false otherwise
+    */
     BPSEC_EXPORT static bool HmacSha(HmacCtxWrapper& ctxWrapper,
         const COSE_ALGORITHMS variant,
         const std::vector<boost::asio::const_buffer>& ipptParts,
         const uint8_t* key, const uint64_t keyLength,
         uint8_t* messageDigestOut, unsigned int& messageDigestOutSize);
 
-    //the following return false if there was an error
-
-    //follows the flow of TryDecryptBundle
+    
+    /**
+    * Verifies any BIB block(s) within the preloaded bundle view.  The bundle must be loaded with padded data.
+    *
+    * @param ctxWrapper The reusable (allocated once) openssl HMAC_CTX context.
+    * @param bv The preloaded bundle view.  The bundle must be loaded with padded data!
+    * @param keyEncryptionKey The key used for unwrapping any wrapped keys included in the BIB blocks. (set to NULL if not present)
+    * @param keyEncryptionKeyLength The length of the keyEncryptionKey. (should set to 0 if keyEncryptionKey is NULL)
+    * @param hmacKey The HMAC key to be used for hashing (when no wrapped key is present)
+    * @param hmacKeyLength The length of the hmacKey. (should set to 0 if hmacKey is NULL)
+    * @param ipptPartsTemporaryMemory Create this once throughout the program duration.  This parameter is used internally and
+    *        resizes constantly.  This parameter is intended to minimize unnecessary allocations/deallocations.
+    * @param removeBib If true, remove the BIB block on successful verification and rerender the bundle in-place.
+    * @return true if there were no errors, false otherwise
+    */
     BPSEC_EXPORT static bool TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
         BundleViewV7& bv,
         const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping hmac key only)
@@ -113,7 +99,27 @@ public:
         std::vector<boost::asio::const_buffer>& ipptPartsTemporaryMemory,
         const bool removeBib);
 
-    //follows the flow of TryEncryptBundle
+    /**
+    * Adds a BIB block to the preloaded bundle view.  The bundle must be loaded with padded data.
+    *
+    * @param ctxWrapper The reusable (allocated once) openssl HMAC_CTX context.
+    * @param bv The preloaded bundle view.  The bundle must be loaded with padded data!
+    * @param integrityScopeMask The scope mask used for determining the Integrity-Protected Plaintext (IPPT) to hash.
+    * @param variant The SHA variant to use.
+    * @param bibCrcType Defines the CRC (if any) to use for the new BIB block.
+    * @param securitySource The CBHE encoded security source to use for the new BIB block.
+    * @param targetBlockNumbers A uint64 array of block numbers that the new BIB block shall target.
+    * @param numTargetBlockNumbers The length of the targetBlockNumbers array.
+    * @param keyEncryptionKey The key used for wrapping the HMAC key and adding a wrapped key in the new BIB block. (set to NULL if not present)
+    * @param keyEncryptionKeyLength The length of the keyEncryptionKey. (should set to 0 if keyEncryptionKey is NULL)
+    * @param hmacKey The HMAC key to be used for hashing (when no wrapped key is present)
+    * @param hmacKeyLength The length of the hmacKey. (should set to 0 if hmacKey is NULL)
+    * @param ipptPartsTemporaryMemory Create this once throughout the program duration.  This parameter is used internally and
+    *        resizes constantly.  This parameter is intended to minimize unnecessary allocations/deallocations.
+    * @param insertBibBeforeThisBlockNumberIfNotNull If not NULL, places the BIB before this particular block number, used for making unit tests match examples.
+    *        If NULL, the BIB is placed immediately after the primary block.
+    * @return true if there were no errors, false otherwise
+    */
     BPSEC_EXPORT static bool TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
         BundleViewV7& bv,
         BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS integrityScopeMask,
@@ -126,7 +132,23 @@ public:
         std::vector<boost::asio::const_buffer>& ipptPartsTemporaryMemory,
         const uint64_t* insertBibBeforeThisBlockNumberIfNotNull);
 
-
+    /**
+    * Encrypts data (optionally in-place) for confidentiality. Ciphertext length is equivalent to plaintext length.
+    *
+    * @param ctxWrapper The reusable (allocated once) openssl EVP_CIPHER_CTX context.
+    * @param unencryptedData The plaintext data to encrypt.
+    * @param unencryptedDataLength The length in bytes of unencryptedData.
+    * @param key The data encryption key (DEK) to be used for encrypting the plaintext data.
+    * @param keyLength The length in bytes of the data encryption key (DEK).
+    * @param iv The initialization vector to use.
+    * @param ivLength The length in bytes of the initialization vector.
+    * @param aadParts The additional authenticated data (AAD) to use.
+    *        These are pointer-length pieces to avoid having to concatenate everything to contiguous memory.
+    * @param cipherTextOut The generated ciphertext of this function.  Must not be partially overlapping with unencryptedData.
+    *                      If this cipherTextOut pointer is the same as the unencryptedData pointer (fully overlapping), the encryption will be done in-place.
+    * @param cipherTextOutSize The generated size (in bytes) of the ciphertext output of this function (will be equivalent to plaintext length).
+    * @return true if there were no errors, false otherwise
+    */
     BPSEC_EXPORT static bool AesGcmEncrypt(EvpCipherCtxWrapper& ctxWrapper,
         const uint8_t* unencryptedData, const uint64_t unencryptedDataLength,
         const uint8_t* key, const uint64_t keyLength,
@@ -134,6 +156,24 @@ public:
         const std::vector<boost::asio::const_buffer>& aadParts,
         uint8_t* cipherTextOut, uint64_t& cipherTextOutSize, uint8_t* tagOut);
 
+    /**
+    * Decrypts data (optionally in-place) for confidentiality.  Plaintext length is equivalent to ciphertext length.
+    *
+    * @param ctxWrapper The reusable (allocated once) openssl EVP_CIPHER_CTX context.
+    * @param encryptedData The ciphertext data to decrypt.
+    * @param encryptedDataLength The length in bytes of encryptedData.
+    * @param key The data encryption key (DEK) to be used for decrypting the plaintext data.
+    * @param keyLength The length in bytes of the data encryption key (DEK).
+    * @param iv The initialization vector to use.
+    * @param ivLength The length in bytes of the initialization vector.
+    * @param aadParts The additional authenticated data (AAD) to use.
+    *        These are pointer-length pieces to avoid having to concatenate everything to contiguous memory.
+    * @param tag The authentication tag to use.
+    * @param decryptedDataOut The generated plaintext of this function.  Must not be partially overlapping with encryptedData.
+    *                      If this decryptedDataOut pointer is the same as the encryptedData pointer (fully overlapping), the decryption will be done in-place.
+    * @param decryptedDataOutSize The generated size (in bytes) of the plaintext output of this function (will be equivalent to encryptedDataLength length).
+    * @return true if there were no errors, false otherwise
+    */
     BPSEC_EXPORT static bool AesGcmDecrypt(EvpCipherCtxWrapper& ctxWrapper,
         const uint8_t* encryptedData, const uint64_t encryptedDataLength,
         const uint8_t* key, const uint64_t keyLength,
@@ -142,24 +182,85 @@ public:
         const uint8_t* tag,
         uint8_t* decryptedDataOut, uint64_t& decryptedDataOutSize);
 
+    /**
+    * Wraps a key.
+    *
+    * @param keyEncryptionKey The key encryption key (KEK) to be used for encrypting/wrapping the data encryption key (DEK).
+    * @param keyEncryptionKeyLength The length in bytes of the key encryption key (KEK).
+    * @param keyToWrap The data encryption key (DEK) to be encrypted/wrapped.
+    * @param keyToWrapLength The length in bytes of the data encryption key (DEK) that will be getting wrapped.
+    * @param wrappedKeyOut The generated wrapped key of this function.
+    * @param wrappedKeyOutSize The generated size (in bytes) of the wrapped key (will be equivalent to keyEncryptionKeyLength + 8).
+    * @return true if there were no errors, false otherwise
+    */
     BPSEC_EXPORT static bool AesWrapKey(
         const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
         const uint8_t* keyToWrap, const unsigned int keyToWrapLength,
         uint8_t* wrappedKeyOut, unsigned int& wrappedKeyOutSize);
 
+    /**
+    * Unwraps a key.
+    *
+    * @param keyEncryptionKey The key encryption key (KEK) to be used for unwrapping the data encryption key (DEK).
+    * @param keyEncryptionKeyLength The length in bytes of the key encryption key (KEK).
+    * @param keyToUnwrap The wrapped key to be unwrapped into a data encryption key (DEK).
+    * @param keyToUnwrapLength The length in bytes of the wrapped key.
+    * @param unwrappedKeyOut The generated (unwrapped) data encryption key (DEK) of this function.
+    * @param unwrappedKeyOutSize The generated size (in bytes) of the unwrapped key (will be equivalent to keyEncryptionKeyLength).
+    * @return true if there were no errors, false otherwise
+    */
     BPSEC_EXPORT static bool AesUnwrapKey(
         const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
         const uint8_t* keyToUnwrap, const unsigned int keyToUnwrapLength,
         uint8_t* unwrappedKeyOut, unsigned int& unwrappedKeyOutSize);
 
-    //return false if there was an error
+    /**
+    * Decrypts any BCB target block(s) within the preloaded bundle view in-place.  The bundle must be loaded with padded data.
+    *
+    * @param ctxWrapper The reusable (allocated once) openssl EVP_CIPHER_CTX context.
+    * @param bv The preloaded bundle view.  The bundle must be loaded with padded data!
+    * @param keyEncryptionKey The key used for unwrapping any wrapped keys included in the BCB blocks.
+    *                         Any wrapped keys would then be unwrapped into a dataEncryptionKey (DEK) which would be used
+    *                         in lieu of the function parameter dataEncryptionKey. Set to NULL if not present.
+    * @param keyEncryptionKeyLength The length of the keyEncryptionKey. (should set to 0 if keyEncryptionKey is NULL)
+    * @param dataEncryptionKey The key (DEK) to be used for decrypting (when no wrapped key is present).
+    *                          Set to NULL if always expecting wrapped keys to be included in the received BCBs.
+    * @param dataEncryptionKeyLength The length of the dataEncryptionKey. (should set to 0 if dataEncryptionKey is NULL)
+    * @param aadPartsTemporaryMemory Create this once throughout the program duration.  This parameter is used internally and
+    *        resizes constantly.  This parameter is intended to minimize unnecessary allocations/deallocations.
+    * @post The BCB block is removed on successful in-place decryption, and the bundle is rerendered in-place.
+    * @return true if there were no errors, false otherwise
+    */
     BPSEC_EXPORT static bool TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
         BundleViewV7& bv,
-        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping DEK only)
-        const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength, //NULL if not present (when no wrapped key is present)
+        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
+        const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength,
         std::vector<boost::asio::const_buffer>& aadPartsTemporaryMemory);
 
-    //return false if there was an error
+    /**
+    * Adds a BCB block to the preloaded bundle view and encrypts the targets.  The bundle must be loaded with padded data.
+    *
+    * @param ctxWrapper The reusable (allocated once) openssl EVP_CIPHER_CTX context.
+    * @param bv The preloaded bundle view.  The bundle must be loaded with padded data!
+    * @param aadScopeMask The scope mask used for determining the additional authenticated data (AAD).
+    * @param aesVariant The AES variant to use.
+    * @param bcbCrcType Defines the CRC (if any) to use for the new BCB block.
+    * @param securitySource The CBHE encoded security source to use for the new BCB block.
+    * @param targetBlockNumbers A uint64 array of block numbers that the new BCB block shall target.
+    * @param numTargetBlockNumbers The length of the targetBlockNumbers array.
+    * @param iv The initialization vector to use.
+    * @param ivLength The length in bytes of the initialization vector.
+    * @param keyEncryptionKey The key used for wrapping the data encryption key (DEK) included in the BCB blocks. (set to NULL if not present)
+    * @param keyEncryptionKeyLength The length of the keyEncryptionKey. (should set to 0 if keyEncryptionKey is NULL)
+    * @param dataEncryptionKey The key (DEK) to be used for encrypting (when no wrapped key is present)
+    * @param dataEncryptionKeyLength The length of the dataEncryptionKey. (should set to 0 if hmacKey is NULL)
+    * @param aadPartsTemporaryMemory Create this once throughout the program duration.  This parameter is used internally and
+    *        resizes constantly.  This parameter is intended to minimize unnecessary allocations/deallocations.
+    * @param insertBcbBeforeThisBlockNumberIfNotNull If not NULL, places the BCB before this particular block number, used for making unit tests match examples.
+    *        If NULL, the BCB is placed immediately after the primary block.
+    * @post A new BCB block is added on successful in-place encryption of the BCB's target(s) to the bv (BundleViewV7), and the bundle is rerendered in-place.
+    * @return true if there were no errors, false otherwise
+    */
     BPSEC_EXPORT static bool TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
         BundleViewV7& bv,
         BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS aadScopeMask,
@@ -168,29 +269,10 @@ public:
         const cbhe_eid_t& securitySource,
         const uint64_t* targetBlockNumbers, const unsigned int numTargetBlockNumbers,
         const uint8_t* iv, const unsigned int ivLength,
-        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for wrapping DEK only)
-        const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength, //NULL if not present (when no wrapped key is present)
+        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
+        const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength,
         std::vector<boost::asio::const_buffer>& aadPartsTemporaryMemory,
         const uint64_t* insertBcbBeforeThisBlockNumberIfNotNull);
-
-   /**
-    * Adds BCB confidentiality block to the bundle
-    *
-    * @param bv The BPv7 bundle BundleViewV7
-    * @return true if BCB block is added successfully
-    */
-
-     // BPSEC_EXPORT bool bcbAdd(BundleViewV7 & bv, uint64_t target,  std::string gcm_key,
-       //                   std::string gcm_iv, std::string gcm_aad);
-    
-   /**
-    * Processes BCB confidentiality block 
-    *
-    * @param bv The BPv7 bundle BundleViewV7
-    * @return true if BCB block is processed successfully
-    */
-  // BPSEC_EXPORT bool bcbProcess(BundleViewV7 & bv, std::string gcm_key,
-    //                      std::string gcm_iv, std::string gcm_aad); 
 
 };
 
