@@ -324,7 +324,7 @@ BOOST_AUTO_TEST_CASE(HmacShaTestCase)
         unsigned int messageDigestOutSize = 0;
         //not inplace test (separate in and out buffers)
         BOOST_REQUIRE(BPSecManager::HmacSha(ctxWrapper,
-            BPSEC_SHA2_VARIANT::HMAC512,
+            COSE_ALGORITHMS::HMAC_512_512,
             ipptParts,
             keyBytes.data(), keyBytes.size(),
             messageDigestBytes.data(), messageDigestOutSize));
@@ -340,6 +340,129 @@ BOOST_AUTO_TEST_CASE(HmacShaTestCase)
         BOOST_REQUIRE_EQUAL(messageDigestHexString, expectedSha);
     }
 }
+
+BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
+{
+    std::vector<uint8_t> bibSerializedBundle;
+    static const std::string bibSerializedBundleString(
+        "9f88070000820282010282028202018202820201820018281a000f4240850b0200"
+        "005856810101018202820201828201078203008181820158403bdc69b3a34a2b5d3a"
+        "8554368bd1e808f606219d2a10a846eae3886ae4ecc83c4ee550fdfb1cc636b904e2"
+        "f1a73e303dcd4b6ccece003e95e8164dcc89a156e185010100005823526561647920"
+        "746f2067656e657261746520612033322d62797465207061796c6f6164ff"
+    );
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(bibSerializedBundleString, bibSerializedBundle));
+
+    std::vector<uint8_t> hmacKeyBytes;
+    static const std::string hmacKeyString(
+        "1a2b1a2b1a2b1a2b1a2b1a2b1a2b1a2b"
+    );
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(hmacKeyString, hmacKeyBytes));
+
+    BPSecManager::HmacCtxWrapper ctxWrapper;
+    std::vector<boost::asio::const_buffer> ipptPartsTemporaryMemory;
+
+    //load bundle to test deserialize
+    {
+        padded_vector_uint8_t bibSerializedBundlePadded(
+            bibSerializedBundle.data(),
+            bibSerializedBundle.data() + bibSerializedBundle.size()
+        );
+        BundleViewV7 bv;
+        BOOST_REQUIRE(bv.LoadBundle(bibSerializedBundlePadded.data(), bibSerializedBundlePadded.size(), false));
+
+        BOOST_REQUIRE(BPSecManager::TryVerifyBundleIntegrity(ctxWrapper,
+            bv,
+            NULL, 0, //NULL if not present (for unwrapping hmac key only)
+            hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
+            ipptPartsTemporaryMemory,
+            true));
+    }
+}
+
+BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleMultipleSourcesTestCase)
+{
+    std::vector<uint8_t> bibSerializedBundle;
+    static const std::string bibSerializedBundleString(
+        "9f88070000820282010282028202018202820201820018281a000f4240850b0300"
+        "00585c8200020101820282030082820105820300828182015820cac6ce8e4c5dae57"
+        "988b757e49a6dd1431dc04763541b2845098265bc817241b81820158203ed614c0d9"
+        "7f49b3633627779aa18a338d212bf3c92b97759d9739cd50725596850c0401005834"
+        "8101020182028202018382014c5477656c7665313231323132820201820400818182"
+        "0150efa4b5ac0108e3816c5606479801bc0485070200004319012c85010100005823"
+        "3a09c1e63fe23a7f66a59c7303837241e070b02619fc59c5214a22f08cd70795e73e"
+        "9aff"
+    );
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(bibSerializedBundleString, bibSerializedBundle));
+
+    std::vector<uint8_t> hmacKeyBytes;
+    static const std::string hmacKeyString(
+        "1a2b1a2b1a2b1a2b1a2b1a2b1a2b1a2b"
+    );
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(hmacKeyString, hmacKeyBytes));
+
+    BPSecManager::HmacCtxWrapper ctxWrapper;
+    std::vector<boost::asio::const_buffer> ipptPartsTemporaryMemory;
+
+    //load bundle to test deserialize
+    {
+        padded_vector_uint8_t bibSerializedBundlePadded(
+            bibSerializedBundle.data(),
+            bibSerializedBundle.data() + bibSerializedBundle.size()
+        );
+        BundleViewV7 bv;
+        BOOST_REQUIRE(bv.LoadBundle(bibSerializedBundlePadded.data(), bibSerializedBundlePadded.size(), false));
+
+        BOOST_REQUIRE(BPSecManager::TryVerifyBundleIntegrity(ctxWrapper,
+            bv,
+            NULL, 0, //NULL if not present (for unwrapping hmac key only)
+            hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
+            ipptPartsTemporaryMemory,
+            true));
+    }
+}
+
+BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
+{
+    //Generated from TestBpsecDefaultSecurityContexts.cpp with comment:
+    //  dump the payload, bib, and primary as a full bundle for "encryption+add_bcb" unit test 
+    std::vector<uint8_t> bibSerializedBundle;
+    static const std::string bibSerializedBundleString(
+        "9f88070000820282010282028202018202820201820018281a000f4240850b030000"
+        "584681010101820282020182820106820307818182015830f75fe4c37f76f0461658"
+        "55bd5ff72fbfd4e3a64b4695c40e2b787da005ae819f0a2e30a2e8b325527de8aefb"
+        "52e73d7185010100005823526561647920746f2067656e657261746520612033322d"
+        "62797465207061796c6f6164ff"
+    );
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(bibSerializedBundleString, bibSerializedBundle));
+
+    std::vector<uint8_t> hmacKeyBytes;
+    static const std::string hmacKeyString(
+        "1a2b1a2b1a2b1a2b1a2b1a2b1a2b1a2b"
+    );
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(hmacKeyString, hmacKeyBytes));
+
+    BPSecManager::HmacCtxWrapper ctxWrapper;
+    std::vector<boost::asio::const_buffer> ipptPartsTemporaryMemory;
+
+    //load bundle to test deserialize
+    {
+        padded_vector_uint8_t bibSerializedBundlePadded(
+            bibSerializedBundle.data(),
+            bibSerializedBundle.data() + bibSerializedBundle.size()
+        );
+        BundleViewV7 bv;
+        BOOST_REQUIRE(bv.LoadBundle(bibSerializedBundlePadded.data(), bibSerializedBundlePadded.size(), false));
+
+        BOOST_REQUIRE(BPSecManager::TryVerifyBundleIntegrity(ctxWrapper,
+            bv,
+            NULL, 0, //NULL if not present (for unwrapping hmac key only)
+            hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
+            ipptPartsTemporaryMemory,
+            true));
+    }
+}
+
 
 BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
 {

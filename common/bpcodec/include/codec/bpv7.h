@@ -145,6 +145,7 @@ enum class BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS : uint64_t {
     INCLUDE_PRIMARY_BLOCK = 1 << (static_cast<uint8_t>(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_FLAGS::INCLUDE_PRIMARY_BLOCK_FLAG)),
     INCLUDE_TARGET_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_FLAGS::INCLUDE_TARGET_HEADER_FLAG)),
     INCLUDE_SECURITY_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_FLAGS::INCLUDE_SECURITY_HEADER_FLAG)),
+    ALL_FLAGS_SET = 7
 };
 MAKE_ENUM_SUPPORT_FLAG_OPERATORS(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS);
 MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS);
@@ -178,12 +179,6 @@ enum class BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS {
     SHA_VARIANT = 1,
     WRAPPED_KEY = 2,
     INTEGRITY_SCOPE_FLAGS = 3
-};
-
-enum class BPSEC_SHA2_VARIANT {
-    HMAC256 = 1,
-    HMAC512 = 2,
-    HMAC384 = 3
 };
 
 
@@ -564,8 +559,12 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7AbstractSecurityBlock : public Bpv7Canonical
     security_results_t m_securityResults;
 
 protected:
-    std::vector<uint8_t> * Protected_AppendAndGetSecurityResultByteStringPtr(uint64_t resultType);
-    std::vector<std::vector<uint8_t>*> Protected_GetAllSecurityResultsByteStringPtrs(uint64_t resultType);
+    BPCODEC_EXPORT std::vector<uint8_t> * Protected_AppendAndGetSecurityResultByteStringPtr(uint64_t resultType);
+    BPCODEC_EXPORT std::vector<std::vector<uint8_t>*> Protected_GetAllSecurityResultsByteStringPtrs(uint64_t resultType);
+    BPCODEC_EXPORT std::vector<uint8_t>* Protected_AddAndGetByteStringParamPtr(parameter_id_t parameter);
+    BPCODEC_EXPORT std::vector<uint8_t>* Protected_GetByteStringParamPtr(parameter_id_t parameter);
+    BPCODEC_EXPORT bool Protected_AddOrUpdateUintValueSecurityParameter(parameter_id_t parameter, uint64_t uintValue);
+    BPCODEC_EXPORT uint64_t Protected_GetUintSecurityParameter(parameter_id_t parameter, bool& success) const;
 };
 
 struct CLASS_VISIBILITY_BPCODEC Bpv7BlockIntegrityBlock : public Bpv7AbstractSecurityBlock {
@@ -581,9 +580,10 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7BlockIntegrityBlock : public Bpv7AbstractSec
     
     BPCODEC_EXPORT bool AddOrUpdateSecurityParameterShaVariant(COSE_ALGORITHMS alg);
     BPCODEC_EXPORT COSE_ALGORITHMS GetSecurityParameterShaVariant(bool & success) const;
+    BPCODEC_EXPORT BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS GetSecurityParameterScope() const;
     BPCODEC_EXPORT bool AddSecurityParameterIntegrityScope(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS integrityScope);
-    BPCODEC_EXPORT bool IsSecurityParameterIntegrityScopePresentAndSet(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS integrityScope) const;
-    BPCODEC_EXPORT std::vector<uint8_t> * AddAndGetWrappedKeyPtr();
+    BPCODEC_EXPORT std::vector<uint8_t>* AddAndGetAesWrappedKeyPtr();
+    BPCODEC_EXPORT std::vector<uint8_t>* GetAesWrappedKeyPtr();
     BPCODEC_EXPORT std::vector<uint8_t> * AppendAndGetExpectedHmacPtr();
     BPCODEC_EXPORT std::vector<std::vector<uint8_t>*> GetAllExpectedHmacPtrs();
 };
@@ -602,7 +602,6 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7BlockConfidentialityBlock : public Bpv7Abstr
     BPCODEC_EXPORT bool AddOrUpdateSecurityParameterAesVariant(COSE_ALGORITHMS alg);
     BPCODEC_EXPORT COSE_ALGORITHMS GetSecurityParameterAesVariant(bool & success) const;
     BPCODEC_EXPORT bool AddSecurityParameterScope(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS scope);
-    BPCODEC_EXPORT bool IsSecurityParameterScopePresentAndSet(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS scope) const;
     BPCODEC_EXPORT BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS GetSecurityParameterScope() const;
     BPCODEC_EXPORT std::vector<uint8_t> * AddAndGetAesWrappedKeyPtr();
     BPCODEC_EXPORT std::vector<uint8_t> * GetAesWrappedKeyPtr();
@@ -610,9 +609,6 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7BlockConfidentialityBlock : public Bpv7Abstr
     BPCODEC_EXPORT std::vector<uint8_t> * GetInitializationVectorPtr();
     BPCODEC_EXPORT std::vector<uint8_t> * AppendAndGetPayloadAuthenticationTagPtr();
     BPCODEC_EXPORT std::vector<std::vector<uint8_t>*> GetAllPayloadAuthenticationTagPtrs();
-private:
-    BPCODEC_NO_EXPORT std::vector<uint8_t> * Private_AddAndGetByteStringParamPtr(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS parameter);
-    BPCODEC_NO_EXPORT std::vector<uint8_t> * Private_GetByteStringParamPtr(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS parameter);
 };
 
 struct CLASS_VISIBILITY_BPCODEC Bpv7AdministrativeRecordContentBase {

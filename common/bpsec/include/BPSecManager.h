@@ -98,10 +98,20 @@ public:
                                      std::string gcm_aad, unsigned char* pt, int *outlen);
 
     BPSEC_EXPORT static bool HmacSha(HmacCtxWrapper& ctxWrapper,
-        const BPSEC_SHA2_VARIANT variant,
+        const COSE_ALGORITHMS variant,
         const std::vector<boost::asio::const_buffer>& ipptParts,
         const uint8_t* key, const uint64_t keyLength,
         uint8_t* messageDigestOut, unsigned int& messageDigestOutSize);
+
+    //the following return false if there was an error
+
+    //follows the flow of TryDecryptBundle
+    BPSEC_EXPORT static bool TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
+        BundleViewV7& bv,
+        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping hmac key only)
+        const uint8_t* hmacKey, const unsigned int hmacKeyLength, //NULL if not present (when no wrapped key is present)
+        std::vector<boost::asio::const_buffer>& ipptPartsTemporaryMemory,
+        const bool removeBib);
 
     BPSEC_EXPORT static bool AesGcmEncrypt(EvpCipherCtxWrapper& ctxWrapper,
         const uint8_t* unencryptedData, const uint64_t unencryptedDataLength,
