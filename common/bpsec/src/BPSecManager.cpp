@@ -1113,7 +1113,7 @@ bool BPSecManager::TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
         std::vector<boost::asio::const_buffer>& ipptParts = ipptPartsTemporaryMemory;
         ipptParts.clear();
         ipptParts.reserve(5); //5 parts per RFC9173 - 3.7.  Canonicalization Algorithms
-        const BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS scopeMask = bibPtr->GetSecurityParameterScope();
+        const BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS scopeMask = bibPtr->GetSecurityParameterScope();
         const uint8_t scopeMaskAsU8 = static_cast<uint8_t>(scopeMask);
         ipptParts.emplace_back(&scopeMaskAsU8, sizeof(scopeMaskAsU8)); //the only one guaranteed to be present and not change
 
@@ -1202,16 +1202,16 @@ bool BPSecManager::TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
                 //primary block of a bundle does not have the expected elements
                 //of a block header such as block number and block processing
                 //control flags.
-                if ((scopeMask & BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_PRIMARY_BLOCK) != BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
+                if ((scopeMask & BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_PRIMARY_BLOCK) != BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
                     ipptParts.emplace_back(bv.m_primaryBlockView.actualSerializedPrimaryBlockPtr);
                 }
-                if ((scopeMask & BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_TARGET_HEADER) != BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
+                if ((scopeMask & BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_TARGET_HEADER) != BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
                     const uint8_t* const startPtr = (reinterpret_cast<const uint8_t*>(targetCanonicalBlockViewPtr->actualSerializedBlockPtr.data())) + 1;
                     const std::size_t len = targetCanonicalBlockViewPtr->headerPtr->GetSerializationSizeOfAadPart(); //target is already rendered in this case                    
                     ipptParts.emplace_back(startPtr, len);
                 }
             }
-            if ((scopeMask & BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_SECURITY_HEADER) != BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
+            if ((scopeMask & BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_SECURITY_HEADER) != BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
                 const uint8_t* const startPtr = (reinterpret_cast<const uint8_t*>(bibBlockView.actualSerializedBlockPtr.data())) + 1;
                 const std::size_t len = bibBlockView.headerPtr->GetSerializationSizeOfAadPart(); //bib is already rendered in this case 
                 ipptParts.emplace_back(startPtr, len);
@@ -1300,7 +1300,7 @@ bool BPSecManager::TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
 
 bool BPSecManager::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
     BundleViewV7& bv,
-    BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS integrityScopeMask,
+    BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS integrityScopeMask,
     COSE_ALGORITHMS variant,
     BPV7_CRC_TYPE bibCrcType,
     const cbhe_eid_t& securitySource,
@@ -1344,7 +1344,7 @@ bool BPSecManager::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
 
     uint8_t securityHeaderIpptSerialization[3 * 9];
     std::size_t securityHeaderIpptSerializationLength = 0; //used also as a flag
-    if ((integrityScopeMask & BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_SECURITY_HEADER) != BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
+    if ((integrityScopeMask & BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_SECURITY_HEADER) != BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
         //m_blockTypeCode, m_blockNumber, and m_blockProcessingControlFlags must be set prior to this call
         securityHeaderIpptSerializationLength = static_cast<std::size_t>(bib.SerializeAadPart(securityHeaderIpptSerialization)); //this block is not serialized yet
     }
@@ -1402,10 +1402,10 @@ bool BPSecManager::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
             //primary block of a bundle does not have the expected elements
             //of a block header such as block number and block processing
             //control flags.
-            if ((integrityScopeMask & BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_PRIMARY_BLOCK) != BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
+            if ((integrityScopeMask & BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_PRIMARY_BLOCK) != BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
                 ipptParts.emplace_back(bv.m_primaryBlockView.actualSerializedPrimaryBlockPtr);
             }
-            if ((integrityScopeMask & BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_TARGET_HEADER) != BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
+            if ((integrityScopeMask & BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_TARGET_HEADER) != BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
                 const uint8_t* const startPtr = (reinterpret_cast<const uint8_t*>(targetCanonicalBlockViewPtr->actualSerializedBlockPtr.data())) + 1;
                 const std::size_t len = targetCanonicalBlockViewPtr->headerPtr->GetSerializationSizeOfAadPart(); //target is already rendered in this case                    
                 ipptParts.emplace_back(startPtr, len);

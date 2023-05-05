@@ -167,7 +167,7 @@ BOOST_AUTO_TEST_CASE(TestBpsecDefaultSecurityContextsIntegrityTestCase)
         bib.SetSecurityContextParametersPresent();
         bib.m_securitySource.Set(2, 1);
         BOOST_REQUIRE(bib.AddOrUpdateSecurityParameterShaVariant(COSE_ALGORITHMS::HMAC_512_512));
-        BOOST_REQUIRE(bib.AddSecurityParameterIntegrityScope(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE));
+        BOOST_REQUIRE(bib.AddSecurityParameterIntegrityScope(BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE));
         std::vector<uint8_t> * result1Ptr = bib.AppendAndGetExpectedHmacPtr();
         BOOST_REQUIRE(result1Ptr);
         *result1Ptr = resultHMAC; //use std::move in production
@@ -398,7 +398,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
         static const uint64_t targetBlockNumbers[1] = { 1 };
         BOOST_REQUIRE(BPSecManager::TryAddBundleIntegrity(ctxWrapper,
             bv,
-            BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE,
+            BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE,
             COSE_ALGORITHMS::HMAC_512_512,
             BPV7_CRC_TYPE::NONE,
             cbhe_eid_t(2,1),
@@ -474,7 +474,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleMultipleSourcesTestCase)
         static const uint64_t targetBlockNumbers[2] = { 0, 2 };
         BOOST_REQUIRE(BPSecManager::TryAddBundleIntegrity(ctxWrapper,
             bv,
-            BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE,
+            BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE,
             COSE_ALGORITHMS::HMAC_256_256,
             BPV7_CRC_TYPE::NONE,
             cbhe_eid_t(3, 0),
@@ -550,7 +550,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
         bv.ReserveBlockNumber(2); //force bib block number to be 3 to match test
         BOOST_REQUIRE(BPSecManager::TryAddBundleIntegrity(ctxWrapper,
             bv,
-            BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::ALL_FLAGS_SET,
+            BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::ALL_FLAGS_SET,
             COSE_ALGORITHMS::HMAC_384_384,
             BPV7_CRC_TYPE::NONE,
             cbhe_eid_t(2, 1),

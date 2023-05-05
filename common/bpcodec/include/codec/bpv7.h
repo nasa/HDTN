@@ -129,26 +129,26 @@ enum class BPSEC_SECURITY_CONTEXT_IDENTIFIERS {
     BIB_HMAC_SHA2 = 1, //   BIB-HMAC-SHA2  [RFC-ietf-dtn-bpsec-default-sc-11]
     BCB_AES_GCM = 2 //      BCB-AES-GCM    [RFC-ietf-dtn-bpsec-default-sc-11]
 };
-enum class BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_FLAGS {
+enum class BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_FLAGS {
     //name = value                       Description
     //------------                       -----------
     INCLUDE_PRIMARY_BLOCK_FLAG = 0, //   [RFC-ietf-dtn-bpsec-default-sc-11]
     INCLUDE_TARGET_HEADER_FLAG = 1, //   [RFC-ietf-dtn-bpsec-default-sc-11]
     INCLUDE_SECURITY_HEADER_FLAG = 2 //  [RFC-ietf-dtn-bpsec-default-sc-11]
 };
-enum class BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS : uint64_t {
+enum class BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS : uint64_t {
     //https://datatracker.ietf.org/doc/draft-ietf-dtn-bpsec-default-sc/ 3.3.3.  Integrity Scope Flags
     //Bit 0 (the low-order bit, 0x0001): Primary Block Flag.
     //Bit 1 (0x0002): Target Header Flag.
     //Bit 2 (0x0004): Security Header Flag.
     NO_ADDITIONAL_SCOPE = 0,
-    INCLUDE_PRIMARY_BLOCK = 1 << (static_cast<uint8_t>(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_FLAGS::INCLUDE_PRIMARY_BLOCK_FLAG)),
-    INCLUDE_TARGET_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_FLAGS::INCLUDE_TARGET_HEADER_FLAG)),
-    INCLUDE_SECURITY_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_FLAGS::INCLUDE_SECURITY_HEADER_FLAG)),
+    INCLUDE_PRIMARY_BLOCK = 1 << (static_cast<uint8_t>(BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_FLAGS::INCLUDE_PRIMARY_BLOCK_FLAG)),
+    INCLUDE_TARGET_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_FLAGS::INCLUDE_TARGET_HEADER_FLAG)),
+    INCLUDE_SECURITY_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_FLAGS::INCLUDE_SECURITY_HEADER_FLAG)),
     ALL_FLAGS_SET = 7
 };
-MAKE_ENUM_SUPPORT_FLAG_OPERATORS(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS);
-MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS);
+MAKE_ENUM_SUPPORT_FLAG_OPERATORS(BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS);
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS);
 /*
 //https://datatracker.ietf.org/doc/draft-ietf-dtn-bpsec-default-sc/
 3.3.4.  Enumerations
@@ -175,7 +175,7 @@ MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS);
       +---------+-------------+--------------------+---------------+
 
                                  Table 2*/
-enum class BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS {
+enum class BPSEC_BIB_HMAC_SHA2_SECURITY_PARAMETERS {
     SHA_VARIANT = 1,
     WRAPPED_KEY = 2,
     INTEGRITY_SCOPE_FLAGS = 3
@@ -203,7 +203,7 @@ enum class BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS {
        +--------+----------+---------------+----------------------+
 
                                  Table 3*/
-enum class BPSEC_BIB_HMAX_SHA2_SECURITY_RESULTS {
+enum class BPSEC_BIB_HMAC_SHA2_SECURITY_RESULTS {
     EXPECTED_HMAC = 1
 };
 
@@ -580,8 +580,8 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7BlockIntegrityBlock : public Bpv7AbstractSec
     
     BPCODEC_EXPORT bool AddOrUpdateSecurityParameterShaVariant(COSE_ALGORITHMS alg);
     BPCODEC_EXPORT COSE_ALGORITHMS GetSecurityParameterShaVariant(bool & success) const;
-    BPCODEC_EXPORT BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS GetSecurityParameterScope() const;
-    BPCODEC_EXPORT bool AddSecurityParameterIntegrityScope(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS integrityScope);
+    BPCODEC_EXPORT BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS GetSecurityParameterScope() const;
+    BPCODEC_EXPORT bool AddSecurityParameterIntegrityScope(BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS integrityScope);
     BPCODEC_EXPORT std::vector<uint8_t>* AddAndGetAesWrappedKeyPtr();
     BPCODEC_EXPORT std::vector<uint8_t>* GetAesWrappedKeyPtr();
     BPCODEC_EXPORT std::vector<uint8_t> * AppendAndGetExpectedHmacPtr();

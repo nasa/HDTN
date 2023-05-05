@@ -116,7 +116,7 @@ public:
     //follows the flow of TryEncryptBundle
     BPSEC_EXPORT static bool TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
         BundleViewV7& bv,
-        BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS integrityScopeMask,
+        BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS integrityScopeMask,
         COSE_ALGORITHMS variant,
         BPV7_CRC_TYPE bibCrcType,
         const cbhe_eid_t& securitySource,

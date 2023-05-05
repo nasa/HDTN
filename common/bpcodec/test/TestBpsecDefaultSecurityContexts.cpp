@@ -366,7 +366,7 @@ A.1.3.2.  Abstract Security Block
         bib.SetSecurityContextParametersPresent();
         bib.m_securitySource.Set(2, 1);
         BOOST_REQUIRE(bib.AddOrUpdateSecurityParameterShaVariant(COSE_ALGORITHMS::HMAC_512_512));
-        BOOST_REQUIRE(bib.AddSecurityParameterIntegrityScope(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE));
+        BOOST_REQUIRE(bib.AddSecurityParameterIntegrityScope(BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE));
         
         BOOST_REQUIRE(BinaryConversions::HexStringToBytes(expectedSecurityResultString, expectedSecurityResult));
         std::vector<uint8_t> * result1Ptr = bib.AppendAndGetExpectedHmacPtr();
@@ -1348,7 +1348,7 @@ A.3.3.2.  Abstract Security Block
         bib.SetSecurityContextParametersPresent();
         bib.m_securitySource.Set(3, 0);
         BOOST_REQUIRE(bib.AddOrUpdateSecurityParameterShaVariant(COSE_ALGORITHMS::HMAC_256_256));
-        BOOST_REQUIRE(bib.AddSecurityParameterIntegrityScope(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE));
+        BOOST_REQUIRE(bib.AddSecurityParameterIntegrityScope(BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE));
 
         
         std::vector<uint8_t> * result1Ptr = bib.AppendAndGetExpectedHmacPtr();
@@ -2027,9 +2027,9 @@ A.4.3.2.  Abstract Security Block
         bib.m_securitySource.Set(2, 1);
         BOOST_REQUIRE(bib.AddOrUpdateSecurityParameterShaVariant(COSE_ALGORITHMS::HMAC_384_384));
         BOOST_REQUIRE(bib.AddSecurityParameterIntegrityScope(
-            BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_PRIMARY_BLOCK |
-            BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_SECURITY_HEADER |
-            BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_TARGET_HEADER
+            BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_PRIMARY_BLOCK |
+            BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_SECURITY_HEADER |
+            BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_TARGET_HEADER
         ));
 
         
