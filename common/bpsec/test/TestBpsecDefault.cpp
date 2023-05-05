@@ -362,6 +362,8 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
     BPSecManager::HmacCtxWrapper ctxWrapper;
     std::vector<boost::asio::const_buffer> ipptPartsTemporaryMemory;
 
+    std::string nobibSerializedBundleString; //used later when bib is removed
+
     //load bundle to test deserialize
     {
         padded_vector_uint8_t bibSerializedBundlePadded(
@@ -377,6 +379,38 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
             hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
             ipptPartsTemporaryMemory,
             true));
+        BinaryConversions::BytesToHexString(bv.m_renderedBundle, nobibSerializedBundleString);
+        boost::to_lower(nobibSerializedBundleString);
+        BOOST_REQUIRE_NE(bibSerializedBundleString, nobibSerializedBundleString);
+    }
+    
+    //load nobib bundle to test adding integrity
+    {
+        std::vector<uint8_t> nobibSerializedBundle;
+        BOOST_REQUIRE(BinaryConversions::HexStringToBytes(nobibSerializedBundleString, nobibSerializedBundle));
+        padded_vector_uint8_t bundlePadded(
+            nobibSerializedBundle.data(),
+            nobibSerializedBundle.data() + nobibSerializedBundle.size()
+        );
+        BundleViewV7 bv;
+        BOOST_REQUIRE(bv.LoadBundle(bundlePadded.data(), bundlePadded.size(), false));
+
+        static const uint64_t targetBlockNumbers[1] = { 1 };
+        BOOST_REQUIRE(BPSecManager::TryAddBundleIntegrity(ctxWrapper,
+            bv,
+            BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE,
+            COSE_ALGORITHMS::HMAC_512_512,
+            BPV7_CRC_TYPE::NONE,
+            cbhe_eid_t(2,1),
+            targetBlockNumbers, 1,
+            NULL, 0, //NULL if not present (for unwrapping hmac key only)
+            hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
+            ipptPartsTemporaryMemory,
+            NULL));
+        std::string newBibSerializedBundleString;
+        BinaryConversions::BytesToHexString(bv.m_renderedBundle, newBibSerializedBundleString);
+        boost::to_lower(newBibSerializedBundleString);
+        BOOST_REQUIRE_EQUAL(bibSerializedBundleString, newBibSerializedBundleString);
     }
 }
 
@@ -404,6 +438,8 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleMultipleSourcesTestCase)
     BPSecManager::HmacCtxWrapper ctxWrapper;
     std::vector<boost::asio::const_buffer> ipptPartsTemporaryMemory;
 
+    std::string nobibSerializedBundleString; //used later when bib is removed
+
     //load bundle to test deserialize
     {
         padded_vector_uint8_t bibSerializedBundlePadded(
@@ -419,6 +455,38 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleMultipleSourcesTestCase)
             hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
             ipptPartsTemporaryMemory,
             true));
+        BinaryConversions::BytesToHexString(bv.m_renderedBundle, nobibSerializedBundleString);
+        boost::to_lower(nobibSerializedBundleString);
+        BOOST_REQUIRE_NE(bibSerializedBundleString, nobibSerializedBundleString);
+    }
+
+    //load nobib bundle to test adding integrity
+    {
+        std::vector<uint8_t> nobibSerializedBundle;
+        BOOST_REQUIRE(BinaryConversions::HexStringToBytes(nobibSerializedBundleString, nobibSerializedBundle));
+        padded_vector_uint8_t bundlePadded(
+            nobibSerializedBundle.data(),
+            nobibSerializedBundle.data() + nobibSerializedBundle.size()
+        );
+        BundleViewV7 bv;
+        BOOST_REQUIRE(bv.LoadBundle(bundlePadded.data(), bundlePadded.size(), false));
+
+        static const uint64_t targetBlockNumbers[2] = { 0, 2 };
+        BOOST_REQUIRE(BPSecManager::TryAddBundleIntegrity(ctxWrapper,
+            bv,
+            BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE,
+            COSE_ALGORITHMS::HMAC_256_256,
+            BPV7_CRC_TYPE::NONE,
+            cbhe_eid_t(3, 0),
+            targetBlockNumbers, 2,
+            NULL, 0, //NULL if not present (for unwrapping hmac key only)
+            hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
+            ipptPartsTemporaryMemory,
+            NULL));
+        std::string newBibSerializedBundleString;
+        BinaryConversions::BytesToHexString(bv.m_renderedBundle, newBibSerializedBundleString);
+        boost::to_lower(newBibSerializedBundleString);
+        BOOST_REQUIRE_EQUAL(bibSerializedBundleString, newBibSerializedBundleString);
     }
 }
 
@@ -445,6 +513,8 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
     BPSecManager::HmacCtxWrapper ctxWrapper;
     std::vector<boost::asio::const_buffer> ipptPartsTemporaryMemory;
 
+    std::string nobibSerializedBundleString; //used later when bib is removed
+
     //load bundle to test deserialize
     {
         padded_vector_uint8_t bibSerializedBundlePadded(
@@ -460,6 +530,39 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
             hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
             ipptPartsTemporaryMemory,
             true));
+        BinaryConversions::BytesToHexString(bv.m_renderedBundle, nobibSerializedBundleString);
+        boost::to_lower(nobibSerializedBundleString);
+        BOOST_REQUIRE_NE(bibSerializedBundleString, nobibSerializedBundleString);
+    }
+
+    //load nobib bundle to test adding integrity
+    {
+        std::vector<uint8_t> nobibSerializedBundle;
+        BOOST_REQUIRE(BinaryConversions::HexStringToBytes(nobibSerializedBundleString, nobibSerializedBundle));
+        padded_vector_uint8_t bundlePadded(
+            nobibSerializedBundle.data(),
+            nobibSerializedBundle.data() + nobibSerializedBundle.size()
+        );
+        BundleViewV7 bv;
+        BOOST_REQUIRE(bv.LoadBundle(bundlePadded.data(), bundlePadded.size(), false));
+
+        static const uint64_t targetBlockNumbers[1] = { 1 };
+        bv.ReserveBlockNumber(2); //force bib block number to be 3 to match test
+        BOOST_REQUIRE(BPSecManager::TryAddBundleIntegrity(ctxWrapper,
+            bv,
+            BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::ALL_FLAGS_SET,
+            COSE_ALGORITHMS::HMAC_384_384,
+            BPV7_CRC_TYPE::NONE,
+            cbhe_eid_t(2, 1),
+            targetBlockNumbers, 1,
+            NULL, 0, //NULL if not present (for unwrapping hmac key only)
+            hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
+            ipptPartsTemporaryMemory,
+            NULL));
+        std::string newBibSerializedBundleString;
+        BinaryConversions::BytesToHexString(bv.m_renderedBundle, newBibSerializedBundleString);
+        boost::to_lower(newBibSerializedBundleString);
+        BOOST_REQUIRE_EQUAL(bibSerializedBundleString, newBibSerializedBundleString);
     }
 }
 

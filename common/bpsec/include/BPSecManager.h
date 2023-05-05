@@ -113,6 +113,20 @@ public:
         std::vector<boost::asio::const_buffer>& ipptPartsTemporaryMemory,
         const bool removeBib);
 
+    //follows the flow of TryEncryptBundle
+    BPSEC_EXPORT static bool TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
+        BundleViewV7& bv,
+        BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS integrityScopeMask,
+        COSE_ALGORITHMS variant,
+        BPV7_CRC_TYPE bibCrcType,
+        const cbhe_eid_t& securitySource,
+        const uint64_t* targetBlockNumbers, const unsigned int numTargetBlockNumbers,
+        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping hmac key only)
+        const uint8_t* hmacKey, const unsigned int hmacKeyLength, //NULL if not present (when no wrapped key is present)
+        std::vector<boost::asio::const_buffer>& ipptPartsTemporaryMemory,
+        const uint64_t* insertBibBeforeThisBlockNumberIfNotNull);
+
+
     BPSEC_EXPORT static bool AesGcmEncrypt(EvpCipherCtxWrapper& ctxWrapper,
         const uint8_t* unencryptedData, const uint64_t unencryptedDataLength,
         const uint8_t* key, const uint64_t keyLength,
@@ -150,7 +164,7 @@ public:
         BundleViewV7& bv,
         BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS aadScopeMask,
         COSE_ALGORITHMS aesVariant,
-        BPV7_CRC_TYPE bibCrcType,
+        BPV7_CRC_TYPE bcbCrcType,
         const cbhe_eid_t& securitySource,
         const uint64_t* targetBlockNumbers, const unsigned int numTargetBlockNumbers,
         const uint8_t* iv, const unsigned int ivLength,

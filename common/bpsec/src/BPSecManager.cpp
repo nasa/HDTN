@@ -341,6 +341,17 @@ BPSecManager::HmacCtxWrapper::~HmacCtxWrapper() {
     }
 }
 
+static const uint8_t ALG_TO_BYTE_LENGTH_LUT[8] = { //7 is highest index in COSE_ALGORITHMS
+    0, //unused = 0
+    0, //A128GCM = 1, (not used here)
+    0, //unused = 2
+    0, //A256GCM = 3, (not used here
+    0, //unused = 4
+    256 / 8, //HMAC_256_256 = 5,
+    384 / 8, //HMAC_384_384 = 6,
+    512 / 8  //HMAC_512_512 = 7
+};
+
 //https://www.openssl.org/docs/man1.1.1/man3/HMAC_Init_ex.html
 
 bool BPSecManager::HmacSha(HmacCtxWrapper& ctxWrapper,
@@ -354,19 +365,16 @@ bool BPSecManager::HmacSha(HmacCtxWrapper& ctxWrapper,
     messageDigestOutSize = 0;
 
     const EVP_MD* evpMdPtr;
-    unsigned int expectedHmacSizeBytes;
+    const unsigned int expectedHmacSizeBytes = ALG_TO_BYTE_LENGTH_LUT[static_cast<uint8_t>(variant)];
     switch (variant) {
         case COSE_ALGORITHMS::HMAC_256_256:
             evpMdPtr = EVP_sha256();
-            expectedHmacSizeBytes = 256 / 8;
             break;
         case COSE_ALGORITHMS::HMAC_384_384:
             evpMdPtr = EVP_sha384();
-            expectedHmacSizeBytes = 384 / 8;
             break;
         case COSE_ALGORITHMS::HMAC_512_512:
             evpMdPtr = EVP_sha512(); //returns pointer to a static const variable
-            expectedHmacSizeBytes = 512 / 8;
             break;
         default:
             return false;
@@ -897,7 +905,7 @@ bool BPSecManager::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
     BundleViewV7& bv,
     BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS aadScopeMask,
     COSE_ALGORITHMS aesVariant,
-    BPV7_CRC_TYPE bibCrcType,
+    BPV7_CRC_TYPE bcbCrcType,
     const cbhe_eid_t& securitySource,
     const uint64_t* targetBlockNumbers, const unsigned int numTargetBlockNumbers,
     const uint8_t* iv, const unsigned int ivLength,
@@ -914,7 +922,7 @@ bool BPSecManager::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
     
 
     bcb.m_blockNumber = bv.GetNextFreeCanonicalBlockNumber();
-    bcb.m_crcType = bibCrcType;
+    bcb.m_crcType = bcbCrcType;
     Bpv7AbstractSecurityBlock::security_targets_t& securityTargets = bcb.m_securityTargets;
     securityTargets.assign(targetBlockNumbers, targetBlockNumbers + numTargetBlockNumbers);
     const bool doesTargetPayload = (std::find(securityTargets.begin(), securityTargets.end(), 1) != securityTargets.end());
@@ -1157,7 +1165,7 @@ bool BPSecManager::TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
         //field of the security block, and so on.  There MUST be one
         //entry in this array for each entry in the Security Targets
         //field of the security block.
-        //(payload authentication tag is the only result)
+        //(hmac is the only result)
         if (expectedHmacPtrs.size() != targets.size()) {
             return false;
         }
@@ -1288,4 +1296,200 @@ bool BPSecManager::TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
         return bv.RenderInPlace(128); //todo make PADDING_ELEMENTS_BEFORE
     }
     return true;
+}
+
+bool BPSecManager::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
+    BundleViewV7& bv,
+    BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS integrityScopeMask,
+    COSE_ALGORITHMS variant,
+    BPV7_CRC_TYPE bibCrcType,
+    const cbhe_eid_t& securitySource,
+    const uint64_t* targetBlockNumbers, const unsigned int numTargetBlockNumbers,
+    const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping hmac key only)
+    const uint8_t* hmacKey, const unsigned int hmacKeyLength, //NULL if not present (when no wrapped key is present)
+    std::vector<boost::asio::const_buffer>& ipptPartsTemporaryMemory,
+    const uint64_t* insertBibBeforeThisBlockNumberIfNotNull)
+{
+    uint8_t primaryByteStringHeader[10]; //must be at least 9
+    std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+
+    std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7BlockIntegrityBlock>();
+    Bpv7BlockIntegrityBlock& bib = *(reinterpret_cast<Bpv7BlockIntegrityBlock*>(blockPtr.get()));
+
+
+
+    bib.m_blockNumber = bv.GetNextFreeCanonicalBlockNumber();
+    bib.m_crcType = bibCrcType;
+    Bpv7AbstractSecurityBlock::security_targets_t& securityTargets = bib.m_securityTargets;
+    securityTargets.assign(targetBlockNumbers, targetBlockNumbers + numTargetBlockNumbers);
+    
+    bib.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET;
+
+    //bcb.m_securityContextId = static_cast<uint64_t>(BPSEC_SECURITY_CONTEXT_IDENTIFIERS::BCB_AES_GCM); //handled by constructor
+    bib.m_securityContextFlags = 0;
+    bib.SetSecurityContextParametersPresent();
+    bib.m_securitySource = securitySource;
+
+    
+    if (!bib.AddOrUpdateSecurityParameterShaVariant(variant)) {
+        return false;
+    }
+
+    std::vector<boost::asio::const_buffer>& ipptParts = ipptPartsTemporaryMemory;
+    ipptParts.clear();
+    ipptParts.reserve(5); //5 parts per RFC9173 - 3.7.  Canonicalization Algorithms
+    const uint8_t scopeMaskAsU8 = static_cast<uint8_t>(integrityScopeMask);
+    ipptParts.emplace_back(&scopeMaskAsU8, sizeof(scopeMaskAsU8)); //the only one guaranteed to be present and not change
+
+
+    uint8_t securityHeaderIpptSerialization[3 * 9];
+    std::size_t securityHeaderIpptSerializationLength = 0; //used also as a flag
+    if ((integrityScopeMask & BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_SECURITY_HEADER) != BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
+        //m_blockTypeCode, m_blockNumber, and m_blockProcessingControlFlags must be set prior to this call
+        securityHeaderIpptSerializationLength = static_cast<std::size_t>(bib.SerializeAadPart(securityHeaderIpptSerialization)); //this block is not serialized yet
+    }
+
+    
+    if (!hmacKey) {
+        //no key present
+        return false;
+    }
+    if (keyEncryptionKey) { //will be wrapping the DEK
+        std::vector<uint8_t>* wrappedKeyPtr = bib.AddAndGetAesWrappedKeyPtr();
+        wrappedKeyPtr->resize(32 + 10); //32+8 worse case for 32*8=256bit (KEKlen + 8)
+        unsigned int wrappedKeyOutSize;
+        if (!BPSecManager::AesWrapKey(
+            keyEncryptionKey, keyEncryptionKeyLength,
+            hmacKey, hmacKeyLength, //Wrapping this key
+            wrappedKeyPtr->data(), wrappedKeyOutSize))
+        {
+            return false;
+        }
+        wrappedKeyPtr->resize(wrappedKeyOutSize);
+    }
+
+    //do this after the key wrapping so the results appear in order and match unit tests
+    if (!bib.AddSecurityParameterIntegrityScope(integrityScopeMask)) {
+        return false;
+    }
+
+    if (securityTargets.empty()) {
+        return false;
+    }
+
+    for (std::size_t stI = 0; stI < securityTargets.size(); ++stI) {
+        const uint64_t target = securityTargets[stI];
+        ipptParts.resize(1); //ipptParts[0] is the scopeMask itself which is constant
+        BundleViewV7::Bpv7CanonicalBlockView* targetCanonicalBlockViewPtr = NULL;
+        if (target != 0) {
+            targetCanonicalBlockViewPtr = bv.GetCanonicalBlockByBlockNumber(target);
+            if (!targetCanonicalBlockViewPtr) {
+                return false;
+            }
+            //RFC9172 3.1 - BIBs are never used for
+            //integrity protection of the ciphertext provided by a BCB.
+            if (targetCanonicalBlockViewPtr->isEncrypted) {
+                return false;
+            }
+        }
+        if (targetCanonicalBlockViewPtr) { //targetIsNotPrimary
+            //NOTE: When the security target is the bundle's primary block,
+            //the canonicalization steps associated with the primary block
+            //flag and the target header flag are skipped.  Skipping primary
+            //block flag processing, in this case, avoids adding the bundle's
+            //primary block twice in the IPPT calculation.  Skipping target
+            //header flag processing, in this case, is necessary because the
+            //primary block of a bundle does not have the expected elements
+            //of a block header such as block number and block processing
+            //control flags.
+            if ((integrityScopeMask & BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_PRIMARY_BLOCK) != BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
+                ipptParts.emplace_back(bv.m_primaryBlockView.actualSerializedPrimaryBlockPtr);
+            }
+            if ((integrityScopeMask & BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_TARGET_HEADER) != BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
+                const uint8_t* const startPtr = (reinterpret_cast<const uint8_t*>(targetCanonicalBlockViewPtr->actualSerializedBlockPtr.data())) + 1;
+                const std::size_t len = targetCanonicalBlockViewPtr->headerPtr->GetSerializationSizeOfAadPart(); //target is already rendered in this case                    
+                ipptParts.emplace_back(startPtr, len);
+            }
+        }
+        if (securityHeaderIpptSerializationLength) { //INCLUDE_SECURITY_HEADER
+            ipptParts.emplace_back(securityHeaderIpptSerialization, securityHeaderIpptSerializationLength);
+        }
+        if (targetCanonicalBlockViewPtr) { //targetIsNotPrimary, so this is the canonical form of the block-type-specific data of the security target
+            //The canonical blocks block-type-specific data is already in the form of a CBOR byte string,
+            //and therefore the byte string header is already present in the rendered encoding,
+            //so just back up the pointer by the encoding length to include this byte-string header with the block-type-specific data.
+            const Bpv7CanonicalBlock& targetBlock = *(targetCanonicalBlockViewPtr->headerPtr);
+            const uint64_t cborByteStringHeaderLength = CborGetEncodingSizeU64(targetBlock.m_dataLength);
+            ipptParts.emplace_back(targetBlock.m_dataPtr - cborByteStringHeaderLength, targetBlock.m_dataLength + cborByteStringHeaderLength);
+        }
+        else { //target is primary, so this is the canonical form of the primary block
+            //The canonical form of the primary block is as specified in [RFC9171]
+            //with the following constraint.
+            // *  CBOR values from the primary block MUST be canonicalized using the
+            //    rules for Deterministically Encoded CBOR, as specified in [RFC8949].
+            //
+            //The canonical blocks block-type-specific data is already in the form of a CBOR byte string,
+            //but the primary is not in byte string format, so a byte-string header must be generated.
+            const boost::asio::const_buffer& cbPrimary = bv.m_primaryBlockView.actualSerializedPrimaryBlockPtr;
+            const uint64_t cborByteStringHeaderLength = CborEncodeU64BufSize9(primaryByteStringHeader, cbPrimary.size());
+            primaryByteStringHeader[0] |= (2U << 5); //change from major type 0 (unsigned integer) to major type 2 (byte string)
+            ipptParts.emplace_back(primaryByteStringHeader, cborByteStringHeaderLength);
+            ipptParts.emplace_back(cbPrimary);
+        }
+
+#if 0
+        {
+            std::string ipptHexString;
+            BinaryConversions::BytesToHexString(ipptParts, ipptHexString);
+            boost::to_lower(ipptHexString);
+            std::cout << "ippt: " << ipptHexString << "\n";
+        }
+#endif
+
+
+        //The target results MUST be ordered
+        //identically to the Security Targets field of the security
+        //block.  This means that the first set of target results in this
+        //array corresponds to the first entry in the Security Targets
+        //field of the security block, and so on.  There MUST be one
+        //entry in this array for each entry in the Security Targets
+        //field of the security block.
+        //(hmac is the only result)
+        std::vector<uint8_t>* hmacPtr = bib.AppendAndGetExpectedHmacPtr();
+        hmacPtr->resize(ALG_TO_BYTE_LENGTH_LUT[static_cast<uint8_t>(variant)]);
+
+        unsigned int messageDigestOutSize;
+        //not inplace test (separate in and out buffers)
+        if (!BPSecManager::HmacSha(ctxWrapper,
+            variant,
+            ipptParts,
+            hmacKey, hmacKeyLength,
+            hmacPtr->data(), messageDigestOutSize))
+        {
+            return false;
+        }
+        if (hmacPtr->size() != messageDigestOutSize) {
+            //fatal error (may have overwritten memory)
+            LOG_FATAL(subprocess) << "hmacPtr->size() != messageDigestOutSize (may have overwritten memory)";
+            return false;
+        }
+#if 0
+        std::cout << "target block number " << target << ":\n";
+        {
+            std::string hexString;
+            BinaryConversions::BytesToHexString(*hmacPtr, hexString);
+            boost::to_lower(hexString);
+            std::cout << "  calculatedHmac: " << hexString << "\n";
+        }
+#endif
+    }
+
+    //at least one bib was added, so rerender
+    if (insertBibBeforeThisBlockNumberIfNotNull) { //for matching unit test examples
+        bv.InsertMoveCanonicalBlockBeforeBlockNumber(std::move(blockPtr), *insertBibBeforeThisBlockNumberIfNotNull);
+    }
+    else {
+        bv.PrependMoveCanonicalBlock(std::move(blockPtr));
+    }
+    return bv.RenderInPlace(128); //todo make PADDING_ELEMENTS_BEFORE
 }
