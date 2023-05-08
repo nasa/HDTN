@@ -317,8 +317,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
 
             metrics.push_back(hdtn::StatsLogger::metric_t("expiration_ms", (uint64_t)primary.GetExpirationMilliseconds()));
             metrics.push_back(hdtn::StatsLogger::metric_t("lifetime_seconds", (uint64_t)primary.m_lifetimeSeconds));
-            TimestampUtil::bpv6_creation_timestamp_t creationTimestamp;
-            metrics.push_back(hdtn::StatsLogger::metric_t("creation_seconds_since_2000", (uint64_t)creationTimestamp.secondsSinceStartOfYear2000));
+            metrics.push_back(hdtn::StatsLogger::metric_t("creation_seconds_since_2000", (uint64_t)primary.m_creationTimestamp.secondsSinceStartOfYear2000));
             hdtn::StatsLogger::Log("bundle_stats", metrics);
         #endif
     }
@@ -489,8 +488,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
 
             metrics.push_back(hdtn::StatsLogger::metric_t("expiration_ms", (uint64_t)primary.GetExpirationMilliseconds()));
             metrics.push_back(hdtn::StatsLogger::metric_t("lifetime_ms", (uint64_t)primary.m_lifetimeMilliseconds));
-            TimestampUtil::bpv6_creation_timestamp_t creationTimestamp;
-            metrics.push_back(hdtn::StatsLogger::metric_t("creation_seconds_since_2000", (uint64_t)creationTimestamp.secondsSinceStartOfYear2000));
+            metrics.push_back(hdtn::StatsLogger::metric_t("creation_ms_since_2000", (uint64_t)primary.m_creationTimestamp.millisecondsSinceStartOfYear2000));
             hdtn::StatsLogger::Log("bundle_stats", metrics);
         #endif
     }
