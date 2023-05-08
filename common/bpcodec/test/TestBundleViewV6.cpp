@@ -2,7 +2,7 @@
  * @file TestBundleViewV6.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -1069,4 +1069,13 @@ BOOST_AUTO_TEST_CASE(BundleViewV6ReadDtnMeRawDataTestCase)
         BOOST_REQUIRE(bv.m_frontBuffer == bundleRawData);
         BOOST_REQUIRE(bv.m_backBuffer == bundleRawData);
     }
+}
+
+BOOST_AUTO_TEST_CASE(BundleView6SourceEidTestCase) {
+    Bpv6CbhePrimaryBlock primary;
+    primary.m_sourceNodeId.nodeId = 1;
+    primary.m_sourceNodeId.serviceId = 1;
+    cbhe_eid_t sourceId = primary.GetSourceEid();
+    BOOST_REQUIRE_EQUAL(sourceId.nodeId, 1);
+    BOOST_REQUIRE_EQUAL(sourceId.serviceId, 1);
 }
