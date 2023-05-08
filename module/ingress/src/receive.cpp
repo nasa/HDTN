@@ -556,10 +556,6 @@ static void CustomCleanupZmqMessage(void *data, void *hint) {
 static void CustomCleanupPaddedVecUint8(void *data, void *hint) {
     delete static_cast<padded_vector_uint8_t*>(hint);
 }
-
-static void CustomCleanupStdVecUint8(void *data, void *hint) {
-    delete static_cast<std::vector<uint8_t>*>(hint);
-}
 static void CustomCleanupStdString(void* data, void* hint) {
     delete static_cast<std::string*>(hint);
 }
@@ -1041,8 +1037,8 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                     LOG_ERROR(subprocess) << "cannot render bpv6 echo bundle";
                     return false;
                 }
-                std::vector<uint8_t> * rxBufRawPointer = new std::vector<uint8_t>(std::move(bv.m_frontBuffer));
-                zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer)));
+                padded_vector_uint8_t * rxBufRawPointer = new padded_vector_uint8_t(std::move(bv.m_frontBuffer));
+                zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupPaddedVecUint8, rxBufRawPointer)));
                 bundleCurrentSize = zmqMessageToSendUniquePtr->size();
             }
             else if (finalDestEid == M_HDTN_EID_PING) {
@@ -1587,8 +1583,8 @@ void Ingress::Impl::SendPing(const uint64_t remoteNodeId, const uint64_t remoteP
         payloadBlockView.headerPtr->RecomputeCrcAfterDataModification((uint8_t*)payloadBlockView.actualSerializedBlockPtr.data(), payloadBlockView.actualSerializedBlockPtr.size()); //recompute crc
 
         //move the bundle out of bundleView
-        std::vector<uint8_t>* rxBufRawPointer = new std::vector<uint8_t>(std::move(bv.m_frontBuffer));
-        zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer)));
+        padded_vector_uint8_t* rxBufRawPointer = new padded_vector_uint8_t(std::move(bv.m_frontBuffer));
+        zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupPaddedVecUint8, rxBufRawPointer)));
     }
     else { //bp version 6
         BundleViewV6 bv;
@@ -1643,8 +1639,8 @@ void Ingress::Impl::SendPing(const uint64_t remoteNodeId, const uint64_t remoteP
         memcpy(payloadBlockView.headerPtr->m_blockTypeSpecificDataPtr, &pingPayload, sizeof(pingPayload)); //m_dataPtr now points to new allocated or copied data within the serialized block (from after Render())
 
         //move the bundle out of bundleView
-        std::vector<uint8_t>* rxBufRawPointer = new std::vector<uint8_t>(std::move(bv.m_frontBuffer));
-        zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer)));
+        padded_vector_uint8_t* rxBufRawPointer = new padded_vector_uint8_t(std::move(bv.m_frontBuffer));
+        zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupPaddedVecUint8, rxBufRawPointer)));
     }
     static padded_vector_uint8_t unusedPaddedVecMessage;
     ProcessPaddedData((uint8_t*)zmqMessageToSendUniquePtr->data(), zmqMessageToSendUniquePtr->size(),

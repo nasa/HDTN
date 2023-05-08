@@ -249,7 +249,7 @@ bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, zmq::message_t & m
         return false;
     }
 }
-bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, std::vector<uint8_t> & movableDataVec, std::vector<uint8_t>&& userData) {
+bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, padded_vector_uint8_t& movableDataVec, std::vector<uint8_t>&& userData) {
     if (Outduct * const outductPtr = GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
         if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxNumberOfBundlesInPipeline()) {
             LOG_ERROR(subprocess) << "bundle pipeline limit exceeded";

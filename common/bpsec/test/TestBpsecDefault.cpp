@@ -102,7 +102,7 @@ BOOST_AUTO_TEST_CASE(HmacShaTestCase)
 
 BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
 {
-    std::vector<uint8_t> bibSerializedBundle;
+    padded_vector_uint8_t bibSerializedBundle;
     static const std::string bibSerializedBundleString(
         "9f88070000820282010282028202018202820201820018281a000f4240850b0200"
         "005856810101018202820201828201078203008181820158403bdc69b3a34a2b5d3a"
@@ -125,12 +125,9 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
 
     //load bundle to test deserialize
     {
-        padded_vector_uint8_t bibSerializedBundlePadded(
-            bibSerializedBundle.data(),
-            bibSerializedBundle.data() + bibSerializedBundle.size()
-        );
+        padded_vector_uint8_t toSwapIn(bibSerializedBundle);
         BundleViewV7 bv;
-        BOOST_REQUIRE(bv.LoadBundle(bibSerializedBundlePadded.data(), bibSerializedBundlePadded.size(), false));
+        BOOST_REQUIRE(bv.SwapInAndLoadBundle(toSwapIn, false));
 
         BOOST_REQUIRE(BPSecManager::TryVerifyBundleIntegrity(ctxWrapper,
             bv,
@@ -145,14 +142,11 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
     
     //load nobib bundle to test adding integrity
     {
-        std::vector<uint8_t> nobibSerializedBundle;
+        padded_vector_uint8_t nobibSerializedBundle;
         BOOST_REQUIRE(BinaryConversions::HexStringToBytes(nobibSerializedBundleString, nobibSerializedBundle));
-        padded_vector_uint8_t bundlePadded(
-            nobibSerializedBundle.data(),
-            nobibSerializedBundle.data() + nobibSerializedBundle.size()
-        );
+        
         BundleViewV7 bv;
-        BOOST_REQUIRE(bv.LoadBundle(bundlePadded.data(), bundlePadded.size(), false));
+        BOOST_REQUIRE(bv.SwapInAndLoadBundle(nobibSerializedBundle, false));
 
         static const uint64_t targetBlockNumbers[1] = { 1 };
         BOOST_REQUIRE(BPSecManager::TryAddBundleIntegrity(ctxWrapper,
@@ -175,7 +169,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
 
 BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleMultipleSourcesTestCase)
 {
-    std::vector<uint8_t> bibSerializedBundle;
+    padded_vector_uint8_t bibSerializedBundle;
     static const std::string bibSerializedBundleString(
         "9f88070000820282010282028202018202820201820018281a000f4240850b0300"
         "00585c8200020101820282030082820105820300828182015820cac6ce8e4c5dae57"
@@ -201,12 +195,9 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleMultipleSourcesTestCase)
 
     //load bundle to test deserialize
     {
-        padded_vector_uint8_t bibSerializedBundlePadded(
-            bibSerializedBundle.data(),
-            bibSerializedBundle.data() + bibSerializedBundle.size()
-        );
+        padded_vector_uint8_t toSwapIn(bibSerializedBundle);
         BundleViewV7 bv;
-        BOOST_REQUIRE(bv.LoadBundle(bibSerializedBundlePadded.data(), bibSerializedBundlePadded.size(), false));
+        BOOST_REQUIRE(bv.SwapInAndLoadBundle(toSwapIn, false));
 
         BOOST_REQUIRE(BPSecManager::TryVerifyBundleIntegrity(ctxWrapper,
             bv,
@@ -221,14 +212,11 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleMultipleSourcesTestCase)
 
     //load nobib bundle to test adding integrity
     {
-        std::vector<uint8_t> nobibSerializedBundle;
+        padded_vector_uint8_t nobibSerializedBundle;
         BOOST_REQUIRE(BinaryConversions::HexStringToBytes(nobibSerializedBundleString, nobibSerializedBundle));
-        padded_vector_uint8_t bundlePadded(
-            nobibSerializedBundle.data(),
-            nobibSerializedBundle.data() + nobibSerializedBundle.size()
-        );
+        
         BundleViewV7 bv;
-        BOOST_REQUIRE(bv.LoadBundle(bundlePadded.data(), bundlePadded.size(), false));
+        BOOST_REQUIRE(bv.SwapInAndLoadBundle(nobibSerializedBundle, false));
 
         static const uint64_t targetBlockNumbers[2] = { 0, 2 };
         BOOST_REQUIRE(BPSecManager::TryAddBundleIntegrity(ctxWrapper,
@@ -253,7 +241,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
 {
     //Generated from TestBpsecDefaultSecurityContexts.cpp with comment:
     //  dump the payload, bib, and primary as a full bundle for "encryption+add_bcb" unit test 
-    std::vector<uint8_t> bibSerializedBundle;
+    padded_vector_uint8_t bibSerializedBundle;
     static const std::string bibSerializedBundleString(
         "9f88070000820282010282028202018202820201820018281a000f4240850b030000"
         "584681010101820282020182820106820307818182015830f75fe4c37f76f0461658"
@@ -276,12 +264,9 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
 
     //load bundle to test deserialize
     {
-        padded_vector_uint8_t bibSerializedBundlePadded(
-            bibSerializedBundle.data(),
-            bibSerializedBundle.data() + bibSerializedBundle.size()
-        );
+        padded_vector_uint8_t toSwapIn(bibSerializedBundle);
         BundleViewV7 bv;
-        BOOST_REQUIRE(bv.LoadBundle(bibSerializedBundlePadded.data(), bibSerializedBundlePadded.size(), false));
+        BOOST_REQUIRE(bv.SwapInAndLoadBundle(toSwapIn, false));
 
         BOOST_REQUIRE(BPSecManager::TryVerifyBundleIntegrity(ctxWrapper,
             bv,
@@ -296,14 +281,11 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
 
     //load nobib bundle to test adding integrity
     {
-        std::vector<uint8_t> nobibSerializedBundle;
+        padded_vector_uint8_t nobibSerializedBundle;
         BOOST_REQUIRE(BinaryConversions::HexStringToBytes(nobibSerializedBundleString, nobibSerializedBundle));
-        padded_vector_uint8_t bundlePadded(
-            nobibSerializedBundle.data(),
-            nobibSerializedBundle.data() + nobibSerializedBundle.size()
-        );
+        
         BundleViewV7 bv;
-        BOOST_REQUIRE(bv.LoadBundle(bundlePadded.data(), bundlePadded.size(), false));
+        BOOST_REQUIRE(bv.SwapInAndLoadBundle(nobibSerializedBundle, false));
 
         static const uint64_t targetBlockNumbers[1] = { 1 };
         bv.ReserveBlockNumber(2); //force bib block number to be 3 to match test
@@ -502,7 +484,7 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
 
 BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleWithKeyWrapTestCase)
 {
-    std::vector<uint8_t> encryptedSerializedBundle;
+    padded_vector_uint8_t encryptedSerializedBundle;
     static const std::string encryptedSerializedBundleString(
         "9f88070000820282010282028202018202820201820018281a000f4240850c0201"
         "0058508101020182028202018482014c5477656c7665313231323132820201820358"
@@ -511,12 +493,9 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleWithKeyWrapTestCase)
         "03837241e070b02619fc59c5214a22f08cd70795e73e9aff"
     );
     BOOST_REQUIRE(BinaryConversions::HexStringToBytes(encryptedSerializedBundleString, encryptedSerializedBundle));
-    padded_vector_uint8_t encryptedSerializedBundlePadded(
-        encryptedSerializedBundle.data(),
-        encryptedSerializedBundle.data() + encryptedSerializedBundle.size()
-    );
+    padded_vector_uint8_t toSwapIn(encryptedSerializedBundle);
     BundleViewV7 bv;
-    BOOST_REQUIRE(bv.LoadBundle(encryptedSerializedBundlePadded.data(), encryptedSerializedBundlePadded.size(), false));
+    BOOST_REQUIRE(bv.SwapInAndLoadBundle(toSwapIn, false));
 
     //decrypt
 
@@ -534,7 +513,7 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleWithKeyWrapTestCase)
         keyEncryptionKeyBytes.data(), static_cast<const unsigned int>(keyEncryptionKeyBytes.size()),
         NULL, 0, //no DEK (using KEK instead)
         aadPartsTemporaryMemory));
-    const std::vector<uint8_t> decryptedBundleCopy(
+    padded_vector_uint8_t decryptedBundleCopy(
         (uint8_t*)bv.m_renderedBundle.data(),
         ((uint8_t*)bv.m_renderedBundle.data()) + bv.m_renderedBundle.size()
     );
@@ -550,12 +529,9 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleWithKeyWrapTestCase)
     BOOST_REQUIRE_EQUAL(expectedSerializedBundleString, decryptedBundleHexString);
 
     { //take new bundle and encrypt
-        padded_vector_uint8_t decryptedBundleCopyPadded(
-            decryptedBundleCopy.data(),
-            decryptedBundleCopy.data() + decryptedBundleCopy.size()
-        );
+        
         BundleViewV7 bv2;
-        BOOST_REQUIRE(bv2.LoadBundle(decryptedBundleCopyPadded.data(), decryptedBundleCopyPadded.size(), false));
+        BOOST_REQUIRE(bv2.SwapInAndLoadBundle(decryptedBundleCopy, false));
 
         std::vector<uint8_t> expectedInitializationVector;
         static const std::string expectedInitializationVectorString(
@@ -597,7 +573,7 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleWithKeyWrapTestCase)
 //from TestBpsecDefaultSecurityContextsSecurityBlocksWithFullScopeTestCase
 BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleFullScopeTestCase)
 {
-    std::vector<uint8_t> encryptedSerializedBundle;
+    padded_vector_uint8_t encryptedSerializedBundle;
     static const std::string encryptedSerializedBundleString(
         "9f88070000820282010282028202018202820201820018281a000f4240850b0300"
         "005846438ed6208eb1c1ffb94d952175167df0902902064a2983910c4fb2340790bf"
@@ -608,12 +584,9 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleFullScopeTestCase)
         "724e16e61f837488e127212b59ac91f8a86287b7d07630a122ff"
     );
     BOOST_REQUIRE(BinaryConversions::HexStringToBytes(encryptedSerializedBundleString, encryptedSerializedBundle));
-    padded_vector_uint8_t encryptedSerializedBundlePadded(
-        encryptedSerializedBundle.data(),
-        encryptedSerializedBundle.data() + encryptedSerializedBundle.size()
-    );
+    padded_vector_uint8_t toSwapIn(encryptedSerializedBundle);
     BundleViewV7 bv;
-    BOOST_REQUIRE(bv.LoadBundle(encryptedSerializedBundlePadded.data(), encryptedSerializedBundlePadded.size(), false));
+    BOOST_REQUIRE(bv.SwapInAndLoadBundle(toSwapIn, false));
 
     //decrypt
 
@@ -696,14 +669,11 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleFullScopeTestCase)
             "52e73d7185010100005823526561647920746f2067656e657261746520612033322d"
             "62797465207061796c6f6164ff"
         );
-        std::vector<uint8_t> expectedSerializedBundleWithBib;
-        BOOST_REQUIRE(BinaryConversions::HexStringToBytes(expectedSerializedBundleWithBibString, expectedSerializedBundleWithBib));
-        padded_vector_uint8_t serializedBundleWithBibPadded(
-            expectedSerializedBundleWithBib.data(),
-            expectedSerializedBundleWithBib.data() + expectedSerializedBundleWithBib.size()
-        );
+        padded_vector_uint8_t serializedBundleWithBib;
+        BOOST_REQUIRE(BinaryConversions::HexStringToBytes(expectedSerializedBundleWithBibString, serializedBundleWithBib));
+        
         BundleViewV7 bv2;
-        BOOST_REQUIRE(bv2.LoadBundle(serializedBundleWithBibPadded.data(), serializedBundleWithBibPadded.size(), false));
+        BOOST_REQUIRE(bv2.SwapInAndLoadBundle(serializedBundleWithBib, false));
         
         std::vector<uint8_t> expectedInitializationVector;
         static const std::string expectedInitializationVectorString(

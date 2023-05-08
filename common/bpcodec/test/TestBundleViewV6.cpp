@@ -156,11 +156,11 @@ BOOST_AUTO_TEST_CASE(BundleViewV6TestCase)
         const std::vector<std::string> canonicalBodyStringsVec = { "The ", "quick ", " brown", " fox" };
         BundleViewV6 bv;
         GenerateBundle(canonicalTypesVec, canonicalBodyStringsVec, bv);
-        std::vector<uint8_t> bundleSerializedOriginal(bv.m_frontBuffer);
+        padded_vector_uint8_t bundleSerializedOriginal(bv.m_frontBuffer);
 
 
         BOOST_REQUIRE_GT(bundleSerializedOriginal.size(), 0);
-        std::vector<uint8_t> bundleSerializedCopy(bundleSerializedOriginal); //the copy can get modified by bundle view on first load
+        padded_vector_uint8_t bundleSerializedCopy(bundleSerializedOriginal); //the copy can get modified by bundle view on first load
         BOOST_REQUIRE(bundleSerializedOriginal == bundleSerializedCopy);
         bv.Reset();
         //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
@@ -475,11 +475,11 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
 
     BOOST_REQUIRE(bv.Render(5000));
 
-    std::vector<uint8_t> bundleSerializedOriginal(bv.m_frontBuffer);
+    padded_vector_uint8_t bundleSerializedOriginal(bv.m_frontBuffer);
     //std::cout << "renderedsize: " << bv.m_frontBuffer.size() << "\n";
 
     BOOST_REQUIRE_GT(bundleSerializedOriginal.size(), 0);
-    std::vector<uint8_t> bundleSerializedCopy(bundleSerializedOriginal); //the copy can get modified by bundle view on first load
+    padded_vector_uint8_t bundleSerializedCopy(bundleSerializedOriginal); //the copy can get modified by bundle view on first load
     BOOST_REQUIRE(bundleSerializedOriginal == bundleSerializedCopy);
     bv.Reset();
     //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
@@ -741,11 +741,11 @@ BOOST_AUTO_TEST_CASE(Bpv6BundleStatusReportTestCase)
 
             BOOST_REQUIRE(bv.Render(5000));
 
-            std::vector<uint8_t> bundleSerializedOriginal(bv.m_frontBuffer);
+            padded_vector_uint8_t bundleSerializedOriginal(bv.m_frontBuffer);
             //std::cout << "renderedsize: " << bv.m_frontBuffer.size() << "\n";
 
             BOOST_REQUIRE_GT(bundleSerializedOriginal.size(), 0);
-            std::vector<uint8_t> bundleSerializedCopy(bundleSerializedOriginal); //the copy can get modified by bundle view on first load
+            padded_vector_uint8_t bundleSerializedCopy(bundleSerializedOriginal); //the copy can get modified by bundle view on first load
             BOOST_REQUIRE(bundleSerializedOriginal == bundleSerializedCopy);
             bv.Reset();
             //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
@@ -927,10 +927,10 @@ BOOST_AUTO_TEST_CASE(BundleViewV6ReadDtnMeRawDataTestCase)
 {
     { //an rfc5050 admin record with previous hop and an unspecified block type 19
         static const std::string hexAsString = "0681121882814900828000000000000082dce9d45084ad1d85a3000005100c69706e0033323736382e300013010208ff010819200382dce9d4500082dce9d26c82790969706e3a31312e3634";
-        std::vector<uint8_t> bundleRawData;
+        padded_vector_uint8_t bundleRawData;
         BOOST_REQUIRE(BinaryConversions::HexStringToBytes(hexAsString, bundleRawData));
         
-        std::vector<uint8_t> bundleRawDataCopy(bundleRawData);
+        padded_vector_uint8_t bundleRawDataCopy(bundleRawData);
         BundleViewV6 bv;
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(bundleRawDataCopy));
         
@@ -981,10 +981,10 @@ BOOST_AUTO_TEST_CASE(BundleViewV6ReadDtnMeRawDataTestCase)
 
     { //an acs bundle
         static const std::string hexAsString = "0681121882814900828000000000000082dce9e74688aa2085a3000005100c69706e0033323736382e300013010208ff01080b4080000101817f82018116";
-        std::vector<uint8_t> bundleRawData;
+        padded_vector_uint8_t bundleRawData;
         BOOST_REQUIRE(BinaryConversions::HexStringToBytes(hexAsString, bundleRawData));
 
-        std::vector<uint8_t> bundleRawDataCopy(bundleRawData);
+        padded_vector_uint8_t bundleRawDataCopy(bundleRawData);
         BundleViewV6 bv;
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(bundleRawDataCopy));
 

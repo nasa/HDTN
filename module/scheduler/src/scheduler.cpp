@@ -518,8 +518,8 @@ void Scheduler::Impl::EgressEventsHandler() {
     }
 }
 
-static void CustomCleanupStdVecUint8(void* data, void* hint) {
-    delete static_cast<std::vector<uint8_t>*>(hint);
+static void CustomCleanupPaddedVecUint8(void* data, void* hint) {
+    delete static_cast<padded_vector_uint8_t*>(hint);
 }
 
 bool Scheduler::Impl::SendBundle(const uint8_t* payloadData, const uint64_t payloadSizeBytes, const cbhe_eid_t& finalDestEid) {
@@ -584,8 +584,8 @@ bool Scheduler::Impl::SendBundle(const uint8_t* payloadData, const uint64_t payl
     payloadBlockView.headerPtr->RecomputeCrcAfterDataModification((uint8_t*)payloadBlockView.actualSerializedBlockPtr.data(), payloadBlockView.actualSerializedBlockPtr.size()); //recompute crc
 
     //move the bundle out of bundleView
-    std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(std::move(bv.m_frontBuffer));
-    zmq::message_t zmqSchedulerGeneratedBundle(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
+    padded_vector_uint8_t* vecUint8RawPointer = new padded_vector_uint8_t(std::move(bv.m_frontBuffer));
+    zmq::message_t zmqSchedulerGeneratedBundle(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupPaddedVecUint8, vecUint8RawPointer);
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
         if (!m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(

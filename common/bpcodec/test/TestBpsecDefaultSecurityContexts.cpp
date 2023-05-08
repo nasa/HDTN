@@ -246,7 +246,7 @@ A.1.1.1.  Primary Block
    6c6f6164ff
     */
     {
-        std::vector<uint8_t> expectedSerializedBundle;
+        padded_vector_uint8_t expectedSerializedBundle;
         static const std::string expectedSerializedBundleString(
           //"9f88070000820282010282028202018202820201820018281a000f42408501010000582052656164792047656e657261746520612033322062797465207061796c6f6164ff" //last draft rfc
             "9f88070000820282010282028202018202820201820018281a000f424085010100005823526561647920746f2067656e657261746520612033322d62797465207061796c6f6164ff"
@@ -459,7 +459,7 @@ A.1.3.2.  Abstract Security Block
    746f2067656e657261746520612033322d62797465207061796c6f6164ff*/
 
     {
-        std::vector<uint8_t> expectedSerializedBundle;
+        padded_vector_uint8_t expectedSerializedBundle;
         static const std::string expectedSerializedBundleString(
             
             //last draft rfc
@@ -492,7 +492,7 @@ A.1.3.2.  Abstract Security Block
         //load bundle to test deserialize
         {
             BundleViewV7 bv2;
-            std::vector<uint8_t> toSwapIn(expectedSerializedBundle);
+            padded_vector_uint8_t toSwapIn(expectedSerializedBundle);
             BOOST_REQUIRE(bv2.SwapInAndLoadBundle(toSwapIn)); //swap in a copy
             //get bib and verify
             {
@@ -656,7 +656,7 @@ A.2.1.1.  Primary Block
    6c6f6164ff
     */
     {
-        std::vector<uint8_t> expectedSerializedBundle;
+        padded_vector_uint8_t expectedSerializedBundle;
         static const std::string expectedSerializedBundleString(
             //last draft rfc
             /*
@@ -928,7 +928,7 @@ A.2.3.2.  Abstract Security Block
         BOOST_REQUIRE(bv.Render(5000));
 
         //verify from example
-        std::vector<uint8_t> expectedSerializedBundle;
+        padded_vector_uint8_t expectedSerializedBundle;
         static const std::string expectedSerializedBundleString(
             //last draft rfc
             /*
@@ -958,7 +958,7 @@ A.2.3.2.  Abstract Security Block
         //load bundle to test deserialize
         {
             BundleViewV7 bv2;
-            std::vector<uint8_t> toSwapIn(expectedSerializedBundle);
+            padded_vector_uint8_t toSwapIn(expectedSerializedBundle);
             BOOST_REQUIRE(bv2.SwapInAndLoadBundle(toSwapIn)); //swap in a copy
             //get bib and verify
             {
@@ -1195,7 +1195,7 @@ A.3.1.1.  Primary Block
    2d62797465207061796c6f6164ff
     */
     {
-        std::vector<uint8_t> expectedSerializedBundle;
+        padded_vector_uint8_t expectedSerializedBundle;
         static const std::string expectedSerializedBundleString(
             //last draft rfc
             /*
@@ -1656,7 +1656,7 @@ A.3.4.2.  Abstract Security Block
         BOOST_REQUIRE(bv.Render(5000));
 
         //verify from example
-        std::vector<uint8_t> expectedSerializedBundle;
+        padded_vector_uint8_t expectedSerializedBundle;
         static const std::string expectedSerializedBundleString(
             //last draft rfc
             /*
@@ -1690,7 +1690,7 @@ A.3.4.2.  Abstract Security Block
         //load bundle to test deserialize
         {
             BundleViewV7 bv2;
-            std::vector<uint8_t> toSwapIn(expectedSerializedBundle);
+            padded_vector_uint8_t toSwapIn(expectedSerializedBundle);
             BOOST_REQUIRE(bv2.SwapInAndLoadBundle(toSwapIn)); //swap in a copy
             //get bcb and verify
             {
@@ -1877,7 +1877,7 @@ A.4.1.1.  Primary Block
    6c6f6164ff
     */
     {
-        std::vector<uint8_t> expectedSerializedBundle;
+        padded_vector_uint8_t expectedSerializedBundle;
         static const std::string expectedSerializedBundleString(
             //last draft rfc
             /*
@@ -2417,7 +2417,7 @@ A.4.4.2.  Abstract Security Block
         BOOST_REQUIRE(bv.Render(5000));
 
         //verify from example
-        std::vector<uint8_t> expectedSerializedBundle;
+        padded_vector_uint8_t expectedSerializedBundle;
         static const std::string expectedSerializedBundleString(
             //last draft rfc
             /*
@@ -2451,7 +2451,7 @@ A.4.4.2.  Abstract Security Block
         //load bundle to test deserialize
         {
             BundleViewV7 bv2;
-            std::vector<uint8_t> toSwapIn(expectedSerializedBundle);
+            padded_vector_uint8_t toSwapIn(expectedSerializedBundle);
             BOOST_REQUIRE(bv2.SwapInAndLoadBundle(toSwapIn)); //swap in a copy
             //get bcb and verify
             {

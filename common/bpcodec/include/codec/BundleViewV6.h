@@ -32,6 +32,7 @@
 #include <list>
 #include <map>
 #include <boost/asio/buffer.hpp>
+#include "PaddedVectorUint8.h"
 
 /*
 
@@ -104,7 +105,7 @@ public:
     BPCODEC_EXPORT void GetCanonicalBlocksByType(const BPV6_BLOCK_TYPE_CODE canonicalBlockTypeCode, std::vector<Bpv6CanonicalBlockView*> & blocks);
     BPCODEC_EXPORT std::size_t DeleteAllCanonicalBlocksByType(const BPV6_BLOCK_TYPE_CODE canonicalBlockTypeCode);
     BPCODEC_EXPORT bool LoadBundle(uint8_t * bundleData, const std::size_t size, const bool loadPrimaryBlockOnly = false);
-    BPCODEC_EXPORT bool SwapInAndLoadBundle(std::vector<uint8_t> & bundleData, const bool loadPrimaryBlockOnly = false);
+    BPCODEC_EXPORT bool SwapInAndLoadBundle(padded_vector_uint8_t& bundleData, const bool loadPrimaryBlockOnly = false);
     BPCODEC_EXPORT bool CopyAndLoadBundle(const uint8_t * bundleData, const std::size_t size, const bool loadPrimaryBlockOnly = false);
     BPCODEC_EXPORT bool IsValid() const;
     BPCODEC_EXPORT bool Render(const std::size_t maxBundleSizeBytes);
@@ -121,8 +122,8 @@ public:
 
 
     boost::asio::const_buffer m_renderedBundle;
-    std::vector<uint8_t> m_frontBuffer;
-    std::vector<uint8_t> m_backBuffer;
+    padded_vector_uint8_t m_frontBuffer;
+    padded_vector_uint8_t m_backBuffer;
 };
 
 #endif // BUNDLE_VIEW_V6_H

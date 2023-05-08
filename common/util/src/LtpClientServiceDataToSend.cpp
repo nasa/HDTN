@@ -16,8 +16,8 @@
 
 
 LtpClientServiceDataToSend::LtpClientServiceDataToSend() : m_vector(0), m_ptrData(m_vector.data()), m_size(m_vector.size()) { } //default constructor
-LtpClientServiceDataToSend::LtpClientServiceDataToSend(std::vector<uint8_t> && vec) : m_vector(std::move(vec)), m_ptrData(m_vector.data()), m_size(m_vector.size()) { }
-LtpClientServiceDataToSend& LtpClientServiceDataToSend::operator=(std::vector<uint8_t> && vec) { //a move assignment: operator=(X&&)
+LtpClientServiceDataToSend::LtpClientServiceDataToSend(padded_vector_uint8_t&& vec) : m_vector(std::move(vec)), m_ptrData(m_vector.data()), m_size(m_vector.size()) { }
+LtpClientServiceDataToSend& LtpClientServiceDataToSend::operator=(padded_vector_uint8_t&& vec) { //a move assignment: operator=(X&&)
     m_vector = std::move(vec);
 #ifdef LTP_CLIENT_SERVICE_DATA_TO_SEND_SUPPORT_ZMQ
     if (m_zmqMessage.size()) {
@@ -31,7 +31,7 @@ LtpClientServiceDataToSend& LtpClientServiceDataToSend::operator=(std::vector<ui
 #ifdef LTP_CLIENT_SERVICE_DATA_TO_SEND_SUPPORT_ZMQ
 LtpClientServiceDataToSend::LtpClientServiceDataToSend(zmq::message_t && zmqMessage) : m_zmqMessage(std::move(zmqMessage)), m_ptrData((uint8_t*)m_zmqMessage.data()), m_size(m_zmqMessage.size()) { }
 LtpClientServiceDataToSend& LtpClientServiceDataToSend::operator=(zmq::message_t && zmqMessage) { //a move assignment: operator=(X&&)
-    m_vector = std::vector<uint8_t>();
+    m_vector = padded_vector_uint8_t();
     m_zmqMessage = std::move(zmqMessage);
     m_ptrData = (uint8_t*)m_zmqMessage.data();
     m_size = m_zmqMessage.size();
@@ -62,17 +62,17 @@ void LtpClientServiceDataToSend::clear(bool setSizeValueToZero) {
     if (m_zmqMessage.size()) {
         m_zmqMessage.rebuild();
     }
-    m_vector = std::vector<uint8_t>();
+    m_vector = padded_vector_uint8_t();
     m_ptrData = NULL;
     if (setSizeValueToZero) {
         m_size = 0;
     }
 }
 
-bool LtpClientServiceDataToSend::operator==(const std::vector<uint8_t> & vec) const {
+bool LtpClientServiceDataToSend::operator==(const padded_vector_uint8_t& vec) const {
     return (m_vector == vec);
 }
-bool LtpClientServiceDataToSend::operator!=(const std::vector<uint8_t> & vec) const {
+bool LtpClientServiceDataToSend::operator!=(const padded_vector_uint8_t& vec) const {
     return (m_vector != vec);
 }
 
@@ -83,7 +83,7 @@ std::size_t LtpClientServiceDataToSend::size() const {
     return m_size;
 }
 
-std::vector<uint8_t>& LtpClientServiceDataToSend::GetVecRef() {
+padded_vector_uint8_t& LtpClientServiceDataToSend::GetVecRef() {
     return m_vector;
 }
 zmq::message_t& LtpClientServiceDataToSend::GetZmqRef() {

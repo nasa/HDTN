@@ -80,7 +80,7 @@ bool TcpclV4Outduct::Forward(const uint8_t* bundleData, const std::size_t size, 
 bool TcpclV4Outduct::Forward(zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData) {
     return m_tcpclV4BundleSource.BaseClass_Forward(movableDataZmq, std::move(userData));
 }
-bool TcpclV4Outduct::Forward(std::vector<uint8_t> & movableDataVec, std::vector<uint8_t>&& userData) {
+bool TcpclV4Outduct::Forward(padded_vector_uint8_t& movableDataVec, std::vector<uint8_t>&& userData) {
     return m_tcpclV4BundleSource.BaseClass_Forward(movableDataVec, std::move(userData));
 }
 

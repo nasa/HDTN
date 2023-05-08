@@ -128,7 +128,7 @@ std::size_t LtpBundleSource::GetTotalBundleBytesSent() {
 //    return GetTotalBundleBytesSent() - GetTotalBundleBytesAcked();
 //}
 
-bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData) {
+bool LtpBundleSource::Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_t>&& userData) {
 
     if (!ReadyToForward()) { //virtual function call
         return false;
@@ -137,7 +137,7 @@ bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_
     const unsigned int startingCount = m_startingCount.fetch_add(1);
     if ((m_activeSessionNumbersSet.size() + startingCount) > M_BUNDLE_PIPELINE_LIMIT) {
         --m_startingCount;
-        LOG_ERROR(subprocess) << "LtpBundleSource::Forward(std::vector<uint8_t>.. too many unacked sessions (exceeds bundle pipeline limit of " << M_BUNDLE_PIPELINE_LIMIT << ").";
+        LOG_ERROR(subprocess) << "LtpBundleSource::Forward(padded_vector_uint8_t.. too many unacked sessions (exceeds bundle pipeline limit of " << M_BUNDLE_PIPELINE_LIMIT << ").";
         return false;
     }
 
@@ -189,7 +189,7 @@ bool LtpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& u
 }
 
 bool LtpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
-    std::vector<uint8_t> vec(bundleData, bundleData + size);
+    padded_vector_uint8_t vec(bundleData, bundleData + size);
     return Forward(vec, std::move(userData));
 }
 

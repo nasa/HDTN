@@ -36,7 +36,7 @@ static const uint64_t PRIMARY_SRC_SVC = 1;
 //static const uint64_t PRIMARY_TIME = 1000;
 //static const uint64_t PRIMARY_LIFETIME = 2000;
 static const uint64_t PRIMARY_SEQ = 1;
-static bool GenerateBundle(std::vector<uint8_t> & bundle, const Bpv6CbhePrimaryBlock & primary, const uint64_t targetBundleSize, uint8_t startChar) {
+static bool GenerateBundle(padded_vector_uint8_t& bundle, const Bpv6CbhePrimaryBlock & primary, const uint64_t targetBundleSize, uint8_t startChar) {
     BundleViewV6 bv;
     bv.m_primaryBlockView.header = primary;
     bv.m_primaryBlockView.SetManuallyModified();
@@ -67,7 +67,7 @@ static bool GenerateBundle(std::vector<uint8_t> & bundle, const Bpv6CbhePrimaryB
     return (targetBundleSize == bundle.size());
 }
 
-static bool GenerateBundleV7(std::vector<uint8_t> & bundle, const Bpv7CbhePrimaryBlock & primary, const uint64_t targetBundleSize, uint8_t startChar) {
+static bool GenerateBundleV7(padded_vector_uint8_t& bundle, const Bpv7CbhePrimaryBlock & primary, const uint64_t targetBundleSize, uint8_t startChar) {
     //TODO target bundle size
     BundleViewV7 bv;
     bv.m_primaryBlockView.header = primary;
@@ -177,10 +177,11 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAllTestCase)
             const uint64_t custodyId = sizeI;
             const uint64_t size = sizes[sizeI];
             //std::cout << "testing size " << size << "\n";
-            std::vector<boost::uint8_t> data(size);
-            std::vector<boost::uint8_t> dataReadBack(size);
+            padded_vector_uint8_t data(size);
+            padded_vector_uint8_t dataReadBack(size);
             for (std::size_t i = 0; i < size; ++i) {
                 data[i] = distRandomData(gen);
+                dataReadBack[i] = data[i] + 1; //ensure cannot be the same
             }
             const unsigned int linkId = distLinkId(gen);
             const unsigned int priorityIndex = distPriorityIndex(gen);
@@ -303,7 +304,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAll_RestoreFromDisk_TestCase)
                 1000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE + 1,
                 1000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE + 2,
             };
-            std::map < uint64_t, std::vector<uint8_t> > mapBundleSizeToBundleData;
+            std::map < uint64_t, padded_vector_uint8_t> mapBundleSizeToBundleData;
             std::map < uint64_t, std::unique_ptr<PrimaryBlock> > mapBundleSizeToPrimary;
 
             uint64_t bytesWritten = 0, totalSegmentsWritten = 0;
@@ -341,7 +342,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAll_RestoreFromDisk_TestCase)
                     const uint64_t absExpiration = sizeI;
 
                     BundleStorageManagerSession_WriteToDisk sessionWrite;
-                    std::vector<uint8_t> bundle;
+                    padded_vector_uint8_t bundle;
                     std::unique_ptr<PrimaryBlock> primaryBlockPtr;
                     if (whichBundleVersion == 6) {
                         Bpv6CbhePrimaryBlock primary;
@@ -443,7 +444,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAll_RestoreFromDisk_TestCase)
                     const uint64_t bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks);
                     //std::cout << "bytesToReadFromDisk " << bytesToReadFromDisk << "\n";
                     BOOST_REQUIRE_NE(bytesToReadFromDisk, 0);
-                    std::vector<boost::uint8_t> dataReadBack(bytesToReadFromDisk);
+                    padded_vector_uint8_t dataReadBack(bytesToReadFromDisk);
                     totalBytesReadFromRestored += bytesToReadFromDisk;
 
                     const std::size_t numSegmentsToRead = sessionRead.catalogEntryPtr->segmentIdChainVec.size();

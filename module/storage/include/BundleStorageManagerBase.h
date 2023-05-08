@@ -45,6 +45,7 @@
 #include "StorageConfig.h"
 #include "codec/bpv6.h"
 #include "BundleStorageCatalog.h"
+#include "PaddedVectorUint8.h"
 
 
 
@@ -99,7 +100,7 @@ public:
     STORAGE_LIB_EXPORT catalog_entry_t * GetCatalogEntryPtrFromCustodyId(const uint64_t custodyId); //for deletion of custody timer
     STORAGE_LIB_EXPORT std::size_t TopSegment(BundleStorageManagerSession_ReadFromDisk & session, void * buf);
     STORAGE_LIB_EXPORT bool ReadFirstSegment(BundleStorageManagerSession_ReadFromDisk & session, catalog_entry_t * enty, std::vector<uint8_t> & buf);
-    STORAGE_LIB_EXPORT bool ReadAllSegments(BundleStorageManagerSession_ReadFromDisk & session, std::vector<uint8_t> & buf);
+    STORAGE_LIB_EXPORT bool ReadAllSegments(BundleStorageManagerSession_ReadFromDisk & session, padded_vector_uint8_t& buf);
     STORAGE_LIB_EXPORT bool RemoveBundleFromDisk(const catalog_entry_t * catalogEntryPtr,const uint64_t custodyId);
     STORAGE_LIB_EXPORT bool RemoveReadBundleFromDisk(const uint64_t custodyId);
     STORAGE_LIB_EXPORT bool RemoveReadBundleFromDisk(BundleStorageManagerSession_ReadFromDisk & sessionRead);

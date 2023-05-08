@@ -69,7 +69,7 @@ bool LtpOutduct::Forward(const uint8_t* bundleData, const std::size_t size, std:
 bool LtpOutduct::Forward(zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData) {
     return m_ltpBundleSourcePtr->Forward(movableDataZmq, std::move(userData));
 }
-bool LtpOutduct::Forward(std::vector<uint8_t> & movableDataVec, std::vector<uint8_t>&& userData) {
+bool LtpOutduct::Forward(padded_vector_uint8_t& movableDataVec, std::vector<uint8_t>&& userData) {
     return m_ltpBundleSourcePtr->Forward(movableDataVec, std::move(userData));
 }
 

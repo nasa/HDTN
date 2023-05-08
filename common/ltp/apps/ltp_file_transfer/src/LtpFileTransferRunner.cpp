@@ -177,7 +177,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
         LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(maxRxUdpPacketSizeBytes);
         if (!ltpRxOrTxCfg.isInduct) {
             LOG_INFO(subprocess) << "loading file " << sendFilePath;
-            std::vector<uint8_t> fileContentsInMemory;
+            padded_vector_uint8_t fileContentsInMemory;
             boost::filesystem::ifstream ifs(sendFilePath, std::ifstream::in | std::ifstream::binary);
 
             if (ifs.good()) {

@@ -45,7 +45,7 @@ public:
     STCP_LIB_EXPORT void Stop();
     STCP_LIB_EXPORT bool Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData);
     STCP_LIB_EXPORT bool Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData);
-    STCP_LIB_EXPORT bool Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData);
+    STCP_LIB_EXPORT bool Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_t>&& userData);
     STCP_LIB_EXPORT std::size_t GetTotalDataSegmentsAcked();
     STCP_LIB_EXPORT std::size_t GetTotalDataSegmentsSent();
     STCP_LIB_EXPORT std::size_t GetTotalDataSegmentsUnacked();

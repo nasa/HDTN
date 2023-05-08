@@ -250,7 +250,7 @@ bool BundleViewV6::LoadBundle(uint8_t * bundleData, const std::size_t size, cons
     m_renderedBundle = boost::asio::buffer(bundleData, size);
     return Load(loadPrimaryBlockOnly);
 }
-bool BundleViewV6::SwapInAndLoadBundle(std::vector<uint8_t> & bundleData, const bool loadPrimaryBlockOnly) {
+bool BundleViewV6::SwapInAndLoadBundle(padded_vector_uint8_t& bundleData, const bool loadPrimaryBlockOnly) {
     Reset();
     m_frontBuffer.swap(bundleData);
     m_renderedBundle = boost::asio::buffer(m_frontBuffer);

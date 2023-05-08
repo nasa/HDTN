@@ -56,7 +56,7 @@ public:
     virtual void PopulateInductTelemetry(InductTelemetry_t& inductTelem) = 0;
 
     //tcpcl only
-    INDUCT_MANAGER_LIB_EXPORT bool ForwardOnOpportunisticLink(const uint64_t remoteNodeId, std::vector<uint8_t> & dataVec, const uint32_t timeoutSeconds);
+    INDUCT_MANAGER_LIB_EXPORT bool ForwardOnOpportunisticLink(const uint64_t remoteNodeId, padded_vector_uint8_t& dataVec, const uint32_t timeoutSeconds);
     INDUCT_MANAGER_LIB_EXPORT bool ForwardOnOpportunisticLink(const uint64_t remoteNodeId, zmq::message_t & dataZmq, const uint32_t timeoutSeconds);
     INDUCT_MANAGER_LIB_EXPORT bool ForwardOnOpportunisticLink(const uint64_t remoteNodeId, const uint8_t* bundleData, const std::size_t size, const uint32_t timeoutSeconds);
 
@@ -66,23 +66,23 @@ protected:
         INDUCT_MANAGER_LIB_EXPORT ~OpportunisticBundleQueue();
         INDUCT_MANAGER_LIB_EXPORT std::size_t GetQueueSize() const noexcept;
         INDUCT_MANAGER_LIB_EXPORT void PushMove_ThreadSafe(zmq::message_t & msg);
-        INDUCT_MANAGER_LIB_EXPORT void PushMove_ThreadSafe(std::vector<uint8_t> & msg);
-        INDUCT_MANAGER_LIB_EXPORT void PushMove_ThreadSafe(std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > & msgPair);
-        INDUCT_MANAGER_LIB_EXPORT bool TryPop_ThreadSafe(std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > & msgPair);
+        INDUCT_MANAGER_LIB_EXPORT void PushMove_ThreadSafe(padded_vector_uint8_t& msg);
+        INDUCT_MANAGER_LIB_EXPORT void PushMove_ThreadSafe(std::pair<std::unique_ptr<zmq::message_t>, padded_vector_uint8_t> & msgPair);
+        INDUCT_MANAGER_LIB_EXPORT bool TryPop_ThreadSafe(std::pair<std::unique_ptr<zmq::message_t>, padded_vector_uint8_t> & msgPair);
         INDUCT_MANAGER_LIB_EXPORT void WaitUntilNotifiedOr250MsTimeout(const uint64_t waitWhileSizeGeThisValue);
         INDUCT_MANAGER_LIB_EXPORT void NotifyAll();
 
         boost::mutex m_mutex;
         boost::condition_variable m_conditionVariable;
-        std::queue<std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > > m_dataToSendQueue;
+        std::queue<std::pair<std::unique_ptr<zmq::message_t>, padded_vector_uint8_t> > m_dataToSendQueue;
         //BidirectionalLink * m_bidirectionalLinkPtr;
         uint64_t m_remoteNodeId;
         unsigned int m_maxTxBundlesInPipeline;
     };
     //tcpcl only
-    INDUCT_MANAGER_LIB_EXPORT bool BundleSinkTryGetData_FromIoServiceThread(OpportunisticBundleQueue & opportunisticBundleQueue, std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > & bundleDataPair);
+    INDUCT_MANAGER_LIB_EXPORT bool BundleSinkTryGetData_FromIoServiceThread(OpportunisticBundleQueue & opportunisticBundleQueue, std::pair<std::unique_ptr<zmq::message_t>, padded_vector_uint8_t> & bundleDataPair);
     INDUCT_MANAGER_LIB_EXPORT void BundleSinkNotifyOpportunisticDataAcked_FromIoServiceThread(OpportunisticBundleQueue & opportunisticBundleQueue);
-    INDUCT_MANAGER_LIB_EXPORT bool ForwardOnOpportunisticLink(const uint64_t remoteNodeId, zmq::message_t * zmqMsgPtr, std::vector<uint8_t> * vec8Ptr, const uint32_t timeoutSeconds);
+    INDUCT_MANAGER_LIB_EXPORT bool ForwardOnOpportunisticLink(const uint64_t remoteNodeId, zmq::message_t * zmqMsgPtr, padded_vector_uint8_t* vec8Ptr, const uint32_t timeoutSeconds);
     INDUCT_MANAGER_LIB_EXPORT virtual void Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId);
 
     const InductProcessBundleCallback_t m_inductProcessBundleCallback;

@@ -469,7 +469,7 @@ bool BundleViewV7::LoadBundle(uint8_t * bundleData, const std::size_t size, cons
     m_renderedBundle = boost::asio::buffer(bundleData, size);
     return Load(skipCrcVerifyInCanonicalBlocks, loadPrimaryBlockOnly);
 }
-bool BundleViewV7::SwapInAndLoadBundle(std::vector<uint8_t> & bundleData, const bool skipCrcVerifyInCanonicalBlocks, const bool loadPrimaryBlockOnly) {
+bool BundleViewV7::SwapInAndLoadBundle(padded_vector_uint8_t& bundleData, const bool skipCrcVerifyInCanonicalBlocks, const bool loadPrimaryBlockOnly) {
     Reset();
     m_frontBuffer.swap(bundleData);
     m_renderedBundle = boost::asio::buffer(m_frontBuffer);

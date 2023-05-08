@@ -524,7 +524,7 @@ void BpSinkPattern::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNode
     }
 }
 
-bool BpSinkPattern::Forward_ThreadSafe(const cbhe_eid_t & destEid, std::vector<uint8_t> & bundleToMoveAndSend) {
+bool BpSinkPattern::Forward_ThreadSafe(const cbhe_eid_t & destEid, padded_vector_uint8_t& bundleToMoveAndSend) {
     if (m_bundleToSendQueue.size() > 2000) { //todo
         return false;
     }
@@ -541,7 +541,7 @@ void BpSinkPattern::SenderReaderThreadFunc() {
 
     uint64_t m_nextBundleId = 0;
     cbhe_eid_t destEid;
-    std::vector<uint8_t> bundleToSend;
+    padded_vector_uint8_t bundleToSend;
     Outduct* outduct = NULL;
     uint64_t outductMaxBundlesInPipeline = 0;
     
@@ -670,7 +670,7 @@ void BpSinkPattern::SenderReaderThreadFunc() {
 
 }
 
-void BpSinkPattern::OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid) {
+void BpSinkPattern::OnFailedBundleVecSendCallback(padded_vector_uint8_t& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid) {
     bundleid_finaldesteid_pair_t* p = (bundleid_finaldesteid_pair_t*)userData.data();
     const uint64_t bundleId = p->first;
     LOG_INFO(subprocess) << "Bundle failed to send: id=" << bundleId << " bundle size=" << movableBundle.size();

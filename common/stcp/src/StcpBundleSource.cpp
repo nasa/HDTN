@@ -199,7 +199,7 @@ bool StcpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& 
     return true;
 }
 
-bool StcpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData) {
+bool StcpBundleSource::Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_t>&& userData) {
     if (!m_readyToForward) {
         LOG_ERROR(subprocess) << "link not ready to forward yet";
         return false;
@@ -241,7 +241,7 @@ bool StcpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8
 
 
 bool StcpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
-    std::vector<uint8_t> vec(bundleData, bundleData + size);
+    padded_vector_uint8_t vec(bundleData, bundleData + size);
     return Forward(vec, std::move(userData));
 }
 

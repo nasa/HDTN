@@ -900,7 +900,7 @@ void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_
     const uint8_t * clientServiceDataToCopyAndSend, uint64_t length, std::shared_ptr<LtpTransmissionRequestUserData> && userDataPtrToTake, uint64_t lengthOfRedPart)
 {  //only called directly by unit test (not thread safe)
     TransmissionRequest(destinationClientServiceId, destinationLtpEngineId,
-        std::move(std::vector<uint8_t>(clientServiceDataToCopyAndSend, clientServiceDataToCopyAndSend + length)),
+        std::move(padded_vector_uint8_t(clientServiceDataToCopyAndSend, clientServiceDataToCopyAndSend + length)),
         std::move(userDataPtrToTake), lengthOfRedPart
     );
 }
@@ -908,7 +908,7 @@ void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_
     const uint8_t * clientServiceDataToCopyAndSend, uint64_t length, uint64_t lengthOfRedPart)
 {  //only called directly by unit test (not thread safe)
     TransmissionRequest(destinationClientServiceId, destinationLtpEngineId,
-        std::move(std::vector<uint8_t>(clientServiceDataToCopyAndSend, clientServiceDataToCopyAndSend + length)),
+        std::move(padded_vector_uint8_t(clientServiceDataToCopyAndSend, clientServiceDataToCopyAndSend + length)),
         std::move(std::shared_ptr<LtpTransmissionRequestUserData>()), lengthOfRedPart
     );
 }
@@ -1713,7 +1713,7 @@ void LtpEngine::TryReturnTxSessionDataToUser(map_session_number_to_session_sende
     const bool safeToMove = (csdRef.use_count() == 1); //not also involved in a send operation
     const bool successCallbackAlreadyCalled = (m_memoryInFilesPtr) ? true : false;
     if (m_onFailedBundleVecSendCallback) { //if the user wants the data back
-        std::vector<uint8_t>& vecRef = csdRef->GetVecRef();
+        padded_vector_uint8_t& vecRef = csdRef->GetVecRef();
         if (vecRef.size()) { //this session sender is using vector<uint8_t> client service data
             if (m_numTxSessionsReturnedToStorage == 0) {
                 LOG_INFO(subprocess) << "First time LTP sender "
@@ -1725,7 +1725,7 @@ void LtpEngine::TryReturnTxSessionDataToUser(map_session_number_to_session_sende
                 m_onFailedBundleVecSendCallback(vecRef, csdRef->m_userData, m_userAssignedUuid, successCallbackAlreadyCalled);
             }
             else {
-                std::vector<uint8_t> vecCopy(vecRef);
+                padded_vector_uint8_t vecCopy(vecRef);
                 m_onFailedBundleVecSendCallback(vecCopy, csdRef->m_userData, m_userAssignedUuid, successCallbackAlreadyCalled);
             }
         }

@@ -164,11 +164,11 @@ BOOST_AUTO_TEST_CASE(BundleViewV7TestCase)
 
         BundleViewV7 bv;
         GenerateBundle(canonicalTypesVec, blockNumbersToUse, canonicalBodyStringsVec, bv, crcTypeToUse);
-        std::vector<uint8_t> bundleSerializedOriginal(bv.m_frontBuffer);
+        padded_vector_uint8_t bundleSerializedOriginal(bv.m_frontBuffer);
         //LOG_INFO(subprocess) << "renderedsize: " << bv.m_frontBuffer.size();
 
         BOOST_REQUIRE_GT(bundleSerializedOriginal.size(), 0);
-        std::vector<uint8_t> bundleSerializedCopy(bundleSerializedOriginal); //the copy can get modified by bundle view on first load
+        padded_vector_uint8_t bundleSerializedCopy(bundleSerializedOriginal); //the copy can get modified by bundle view on first load
         BOOST_REQUIRE(bundleSerializedOriginal == bundleSerializedCopy);
         bv.Reset();
         //LOG_INFO(subprocess) << "sz " << bundleSerializedCopy.size();
@@ -455,11 +455,11 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
 
         BOOST_REQUIRE(bv.Render(5000));
 
-        std::vector<uint8_t> bundleSerializedOriginal(bv.m_frontBuffer);
+        padded_vector_uint8_t bundleSerializedOriginal(bv.m_frontBuffer);
         //LOG_INFO(subprocess) << "renderedsize: " << bv.m_frontBuffer.size();
 
         BOOST_REQUIRE_GT(bundleSerializedOriginal.size(), 0);
-        std::vector<uint8_t> bundleSerializedCopy(bundleSerializedOriginal); //the copy can get modified by bundle view on first load
+        padded_vector_uint8_t bundleSerializedCopy(bundleSerializedOriginal); //the copy can get modified by bundle view on first load
         BOOST_REQUIRE(bundleSerializedOriginal == bundleSerializedCopy);
         bv.Reset();
         //LOG_INFO(subprocess) << "sz " << bundleSerializedCopy.size();
@@ -572,11 +572,11 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             std::size_t bundleSize = bv.m_renderedBundle.size();
             uint8_t * blockPtrStart = (uint8_t*)(blocks[0]->actualSerializedBlockPtr.data());
             std::size_t blockSize = blocks[0]->actualSerializedBlockPtr.size();
-            std::vector<uint8_t> bundleUnmodified(bundlePtrStart, bundlePtrStart + bundleSize);
+            padded_vector_uint8_t bundleUnmodified(bundlePtrStart, bundlePtrStart + bundleSize);
             ++hopCountBlockPtr->m_hopCount;
             BOOST_REQUIRE(hopCountBlockPtr->TryReserializeExtensionBlockDataWithoutResizeBpv7());
             blocks[0]->headerPtr->RecomputeCrcAfterDataModification(blockPtrStart, blockSize);
-            std::vector<uint8_t> bundleModifiedButSameSize(bundlePtrStart, bundlePtrStart + bundleSize);
+            padded_vector_uint8_t bundleModifiedButSameSize(bundlePtrStart, bundlePtrStart + bundleSize);
             BOOST_REQUIRE(bundleSerializedOriginal == bundleUnmodified);
             BOOST_REQUIRE(bundleSerializedOriginal != bundleModifiedButSameSize);
             BOOST_REQUIRE_EQUAL(bundleSerializedOriginal.size(), bundleModifiedButSameSize.size());
@@ -663,7 +663,7 @@ BOOST_AUTO_TEST_CASE(Bpv7PrependExtensionBlockToPaddedBundleTestCase)
 
         BOOST_REQUIRE(bv.Render(5000));
 
-        std::vector<uint8_t> bundleSerializedOriginal(bv.m_frontBuffer);
+        padded_vector_uint8_t bundleSerializedOriginal(bv.m_frontBuffer);
         //LOG_INFO(subprocess) << "renderedsize: " << bv.m_frontBuffer.size();
 
         BOOST_REQUIRE_GT(bundleSerializedOriginal.size(), 0);
@@ -718,7 +718,7 @@ BOOST_AUTO_TEST_CASE(Bpv7PrependExtensionBlockToPaddedBundleTestCase)
         {
             uint8_t * newStartPtr = (uint8_t *)bv.m_renderedBundle.data();
             std::size_t newSize = bv.m_renderedBundle.size();
-            std::vector<uint8_t> newBundleWithPrependedBlock(newStartPtr, newStartPtr + newSize);
+            padded_vector_uint8_t newBundleWithPrependedBlock(newStartPtr, newStartPtr + newSize);
             BOOST_REQUIRE(bundleSerializedOriginal != newBundleWithPrependedBlock);
             bv.Reset();
             BOOST_REQUIRE(bv.LoadBundle(newStartPtr, newSize));
@@ -759,7 +759,7 @@ BOOST_AUTO_TEST_CASE(Bpv7PrependExtensionBlockToPaddedBundleTestCase)
         {
             uint8_t * newStartPtr = (uint8_t *)bv.m_renderedBundle.data();
             std::size_t newSize = bv.m_renderedBundle.size();
-            std::vector<uint8_t> newOriginalBundle(newStartPtr, newStartPtr + newSize);
+            padded_vector_uint8_t newOriginalBundle(newStartPtr, newStartPtr + newSize);
             BOOST_REQUIRE(bundleSerializedOriginal == newOriginalBundle);
         }
     }
@@ -847,11 +847,11 @@ BOOST_AUTO_TEST_CASE(Bpv7BundleStatusReportTestCase)
 
                     BOOST_REQUIRE(bv.Render(5000));
 
-                    std::vector<uint8_t> bundleSerializedOriginal(bv.m_frontBuffer);
+                    padded_vector_uint8_t bundleSerializedOriginal(bv.m_frontBuffer);
                     //LOG_INFO(subprocess) << "renderedsize: " << bv.m_frontBuffer.size();
 
                     BOOST_REQUIRE_GT(bundleSerializedOriginal.size(), 0);
-                    std::vector<uint8_t> bundleSerializedCopy(bundleSerializedOriginal); //the copy can get modified by bundle view on first load
+                    padded_vector_uint8_t bundleSerializedCopy(bundleSerializedOriginal); //the copy can get modified by bundle view on first load
                     BOOST_REQUIRE(bundleSerializedOriginal == bundleSerializedCopy);
                     bv.Reset();
                     //LOG_INFO(subprocess) << "sz " << bundleSerializedCopy.size();
@@ -991,7 +991,7 @@ BOOST_AUTO_TEST_CASE(Bpv7BibeTestCase)
         }
 
         //create the encapsulating (outer) bundle (admin record)
-        std::vector<uint8_t> encapsulatingBundleVersion7;
+        padded_vector_uint8_t encapsulatingBundleVersion7;
         uint64_t bibePduMessageSerializationSize = 0;
         {
             BundleViewV7 bv;
@@ -1042,7 +1042,7 @@ BOOST_AUTO_TEST_CASE(Bpv7BibeTestCase)
         }
 
         //load the encapsulating (outer) bundle (admin record)
-        std::vector<uint8_t> encapsulatingBundleVersion7ForLoad(encapsulatingBundleVersion7);
+        padded_vector_uint8_t encapsulatingBundleVersion7ForLoad(encapsulatingBundleVersion7);
         {
             BundleViewV7 bv;
             BOOST_REQUIRE(bv.SwapInAndLoadBundle(encapsulatingBundleVersion7ForLoad));
@@ -1128,14 +1128,14 @@ BOOST_AUTO_TEST_CASE(Bpv7BibeTestCase)
 BOOST_AUTO_TEST_CASE(BundleViewV7ReadDtnMeRawDataTestCase)
 {
     {
-        static const std::vector<uint8_t> bundleRawData = {
+        static const padded_vector_uint8_t bundleRawData = {
             0x9f, 0x89, 0x07, 0x00, 0x02, 0x82, 0x02, 0x82, 0x19, 0x7d, 0x02, 0x19, 0x07, 0xff, 0x82, 0x02, 0x82, 0x19,
             0x7d, 0x01, 0x0b, 0x82, 0x02, 0x82, 0x19, 0x7d, 0x01, 0x0b, 0x82, 0x1a, 0x29, 0xc3, 0x6d, 0x4b, 0x14, 0x19,
             0xea, 0x60, 0x44, 0xbb, 0x77, 0x69, 0x94, 0x85, 0x06, 0x03, 0x00, 0x00, 0x47, 0x82, 0x02, 0x82, 0x19, 0x7d,
             0x01, 0x00, 0x85, 0x01, 0x01, 0x00, 0x00, 0x54, 0x70, 0x69, 0x6e, 0x67, 0x5f, 0x6d, 0x65, 0x21, 0x14, 0x00,
             0x00, 0x00, 0xaa, 0xbf, 0x82, 0x30, 0xcb, 0xb0, 0x30, 0x62, 0xff
         };
-        std::vector<uint8_t> bundleRawDataCopy(bundleRawData);
+        padded_vector_uint8_t bundleRawDataCopy(bundleRawData);
         BundleViewV7 bv;
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(bundleRawDataCopy));
         bv.m_primaryBlockView.SetManuallyModified();
@@ -1146,14 +1146,14 @@ BOOST_AUTO_TEST_CASE(BundleViewV7ReadDtnMeRawDataTestCase)
 
     //this bundle has a "dtn:none" reportTo EID
     {
-        static const std::vector<uint8_t> bundleRawData = {
+        static const padded_vector_uint8_t bundleRawData = {
             0x9f, 0x89, 0x07, 0x00, 0x02, 0x82, 0x02, 0x82, 0x19, 0x7d, 0x01, 0x0b, 0x82, 0x02, 0x82, 0x19, 0x7d, 0x02,
             0x19, 0x07, 0xff, 0x82, 0x01, 0x00, 0x82, 0x1a, 0x29, 0xc3, 0x6d, 0x4c, 0x18, 0x29, 0x19, 0xea, 0x60, 0x44,
             0x1b, 0xc3, 0x18, 0x2b, 0x85, 0x06, 0x03, 0x00, 0x00, 0x47, 0x82, 0x02, 0x82, 0x19, 0x7d, 0x02, 0x00, 0x85,
             0x01, 0x01, 0x00, 0x00, 0x54, 0x70, 0x69, 0x6e, 0x67, 0x5f, 0x6d, 0x65, 0x21, 0x14, 0x00, 0x00, 0x00, 0xaa,
             0xbf, 0x82, 0x30, 0xcb, 0xb0, 0x30, 0x62, 0xff
         };
-        std::vector<uint8_t> bundleRawDataCopy(bundleRawData);
+        padded_vector_uint8_t bundleRawDataCopy(bundleRawData);
         BundleViewV7 bv;
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(bundleRawDataCopy));
         //LOG_INFO(subprocess) << bv.m_primaryBlockView.header.m_reportToEid;

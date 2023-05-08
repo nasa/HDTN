@@ -271,7 +271,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
 
     boost::asio::io_service ioService;
     boost::asio::deadline_timer deadlineTimer(ioService, sleepValTimeDuration);
-    std::vector<uint8_t> bundleToSend;
+    padded_vector_uint8_t bundleToSend;
     boost::posix_time::ptime startTime = boost::posix_time::microsec_clock::universal_time();
     bool isGeneratingNewBundles = true;
     bool inWaitForNewBundlesState = false;
@@ -935,7 +935,7 @@ void BpSourcePattern::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNo
     }
 }
 
-void BpSourcePattern::OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled) {
+void BpSourcePattern::OnFailedBundleVecSendCallback(padded_vector_uint8_t& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled) {
     if (successCallbackCalled) { //ltp sender with sessions from disk enabled
         LOG_ERROR(subprocess) << "OnFailedBundleVecSendCallback called, dropping bundle for now";
     }

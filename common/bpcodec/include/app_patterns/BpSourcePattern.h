@@ -46,6 +46,7 @@
 #include "codec/CustodyTransferManager.h"
 #include <queue>
 #include <unordered_set>
+#include "PaddedVectorUint8.h"
 
 class CLASS_VISIBILITY_BP_APP_PATTERNS_LIB BpSourcePattern {
 public:
@@ -82,7 +83,7 @@ private:
     BP_APP_PATTERNS_LIB_NO_EXPORT void WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtr);
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtrAboutToBeDeleted);
-    BP_APP_PATTERNS_LIB_NO_EXPORT void OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled);
+    BP_APP_PATTERNS_LIB_NO_EXPORT void OnFailedBundleVecSendCallback(padded_vector_uint8_t& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled);
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData, uint64_t outductUuid);
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid);
 
@@ -113,7 +114,7 @@ private:
     volatile bool m_linkIsDown;
     boost::mutex m_mutexQueueBundlesThatFailedToSend;
     typedef std::pair<uint64_t, uint64_t> bundleid_payloadsize_pair_t;
-    typedef std::pair<std::vector<uint8_t>, bundleid_payloadsize_pair_t> bundle_userdata_pair_t;
+    typedef std::pair<padded_vector_uint8_t, bundleid_payloadsize_pair_t> bundle_userdata_pair_t;
     std::queue<bundle_userdata_pair_t> m_queueBundlesThatFailedToSend;
     uint64_t m_nextBundleId;
     boost::mutex m_mutexCurrentlySendingBundleIdSet;

@@ -147,7 +147,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         PRIMARY_SRC_NODE, PRIMARY_SRC_SVC, //primary custodian
         PRIMARY_SRC_NODE, PRIMARY_SRC_SVC, srcCtebCustodyId, //cteb custodian
         bundleDataStr, bundleViewWithCteb);
-    std::vector<uint8_t> validCtebBundle(bundleViewWithCteb.m_frontBuffer);
+    padded_vector_uint8_t validCtebBundle(bundleViewWithCteb.m_frontBuffer);
     BOOST_REQUIRE_GT(validCtebBundle.size(), 0);
 
     //create invalid cteb bundle where cteb doesnt match
@@ -156,7 +156,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         PRIMARY_SRC_NODE, PRIMARY_SRC_SVC, //primary custodian
         INVALID_CTEB_SRC_NODE, INVALID_CTEB_SRC_SVC, srcCtebCustodyId, //cteb custodian
         bundleDataStr, bundleViewWithInvalidCteb);
-    std::vector<uint8_t> invalidCtebBundle(bundleViewWithInvalidCteb.m_frontBuffer);
+    padded_vector_uint8_t invalidCtebBundle(bundleViewWithInvalidCteb.m_frontBuffer);
     BOOST_REQUIRE_GT(invalidCtebBundle.size(), 0);
 
     //create no cteb bundle where cteb missing
@@ -165,14 +165,14 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
     GenerateBundleWithoutCteb(
         PRIMARY_SRC_NODE, PRIMARY_SRC_SVC, //primary custodian
         bundleDataStr, bundleViewWithoutCteb);
-    std::vector<uint8_t> missingCtebBundle(bundleViewWithoutCteb.m_frontBuffer);
+    padded_vector_uint8_t missingCtebBundle(bundleViewWithoutCteb.m_frontBuffer);
     BOOST_REQUIRE_GT(missingCtebBundle.size(), 0);
 
     
 
     //bundle with custody bit set, hdtn acs enabled and accepts custody, valid cteb
     {
-        std::vector<uint8_t> bundleData(validCtebBundle);
+        padded_vector_uint8_t bundleData(validCtebBundle);
         BundleViewV6 bv;
         //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
         Bpv6CbhePrimaryBlock originalPrimaryFromOriginator;
@@ -210,7 +210,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         BOOST_REQUIRE_EQUAL(custodySignalRfc5050RenderedBundleView.m_renderedBundle.size(), 0);
         //pretend it was time to send acs
         BundleViewV6 newAcsRenderedBundleView;
-        std::vector<uint8_t> & serializedAcsBundleFromHdtn = newAcsRenderedBundleView.m_frontBuffer;
+        padded_vector_uint8_t& serializedAcsBundleFromHdtn = newAcsRenderedBundleView.m_frontBuffer;
         //originalPrimaryFromOriginator.bpv6_primary_block_print();
         BOOST_REQUIRE(ctmHdtn.GenerateAcsBundle(newAcsRenderedBundleView,
             originalPrimaryFromOriginator.m_custodianEid,
@@ -288,7 +288,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
 
     //bundle with custody bit set, hdtn acs enabled and accepts custody, invalid cteb
     {
-        std::vector<uint8_t> bundleData(invalidCtebBundle);
+        padded_vector_uint8_t bundleData(invalidCtebBundle);
         BundleViewV6 bv;
         //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
         Bpv6CbhePrimaryBlock originalPrimaryFromOriginator;
@@ -384,7 +384,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
 
     //bundle with custody bit set, hdtn acs enabled and accepts custody, missing cteb
     {
-        std::vector<uint8_t> bundleData(missingCtebBundle);
+        padded_vector_uint8_t bundleData(missingCtebBundle);
         BundleViewV6 bv;
         //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
         Bpv6CbhePrimaryBlock originalPrimaryFromOriginator;
@@ -471,7 +471,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
 
     //bundle with custody bit set, hdtn acs enabled and refuses custody, valid cteb
     {
-        std::vector<uint8_t> bundleData(validCtebBundle);
+        padded_vector_uint8_t bundleData(validCtebBundle);
         BundleViewV6 bv;
         //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(bundleData));
@@ -488,7 +488,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         BOOST_REQUIRE_EQUAL(custodySignalRfc5050RenderedBundleView.m_renderedBundle.size(), 0);
         //pretend it was time to send acs
         BundleViewV6 newAcsRenderedBundleView;
-        std::vector<uint8_t> & serializedAcsBundleFromHdtn = newAcsRenderedBundleView.m_frontBuffer;
+        padded_vector_uint8_t& serializedAcsBundleFromHdtn = newAcsRenderedBundleView.m_frontBuffer;
         //originalPrimaryFromOriginator.bpv6_primary_block_print();
         BOOST_REQUIRE(ctmHdtn.GenerateAcsBundle(newAcsRenderedBundleView,
             originalPrimaryFromOriginator.m_custodianEid,
@@ -544,7 +544,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
 
     //bundle with custody bit set, hdtn acs enabled and refuses custody, invalid cteb
     {
-        std::vector<uint8_t> bundleData(invalidCtebBundle);
+        padded_vector_uint8_t bundleData(invalidCtebBundle);
         BundleViewV6 bv;
         //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
         
@@ -600,7 +600,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
 
     //bundle with custody bit set, hdtn acs disabled and accepts custody (still valid cteb bundle)
     {
-        std::vector<uint8_t> bundleData(validCtebBundle);
+        padded_vector_uint8_t bundleData(validCtebBundle);
         BundleViewV6 bv;
         //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
         
@@ -678,7 +678,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
 
     //bundle with custody bit set, hdtn acs disabled and refuses custody (still valid cteb bundle)
     {
-        std::vector<uint8_t> bundleData(validCtebBundle);
+        padded_vector_uint8_t bundleData(validCtebBundle);
         BundleViewV6 bv;
         //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
 
