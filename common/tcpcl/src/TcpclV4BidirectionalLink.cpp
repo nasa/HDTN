@@ -817,6 +817,11 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
         }
     }
     else {
+        const unsigned int writeIndex = m_base_segmentsToAckCbPtr->GetIndexForWrite(); //don't put this in tcp async write callback
+        if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) { //push check
+            LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": Base_Forward.. cannot get cb write index";
+            return false;
+        }
         TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
         el->m_underlyingDataVecHeaders.resize(1);
         if (usingZmqData) {
@@ -831,11 +836,7 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
         el->m_constBufferVec[1] = boost::asio::buffer(dataToSendPtr, dataSize);
         el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
 
-        const unsigned int writeIndex = m_base_segmentsToAckCbPtr->GetIndexForWrite(); //don't put this in tcp async write callback
-        if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) { //push check
-            LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": Base_Forward.. cannot get cb write index";
-            return false;
-        }
+        
         m_base_segmentsToAckCbVec[writeIndex] = TcpclV4::tcpclv4_ack_t(true, true, transferId, dataSize);
         m_base_userDataCbVec[writeIndex] = std::move(userData);
         m_base_segmentsToAckCbPtr->CommitWrite(); //pushed
