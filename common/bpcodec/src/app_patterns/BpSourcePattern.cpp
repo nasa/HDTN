@@ -29,8 +29,16 @@
 #include "StcpInduct.h"
 #include "codec/BundleViewV7.h"
 #include "ThreadNamer.h"
+#include "BPSecManager.h"
+#include "BinaryConversions.h"
+
+#define DO_BPSEC_TEST 1
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
+
+static void CustomCleanupPaddedVecUint8(void* data, void* hint) {
+    delete static_cast<padded_vector_uint8_t*>(hint);
+}
 
 BpSourcePattern::BpSourcePattern() : m_running(false) {
 
@@ -272,9 +280,31 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
     boost::asio::io_service ioService;
     boost::asio::deadline_timer deadlineTimer(ioService, sleepValTimeDuration);
     padded_vector_uint8_t bundleToSend;
+    uint8_t* bundleToSendStartPtr = NULL;
     boost::posix_time::ptime startTime = boost::posix_time::microsec_clock::universal_time();
     bool isGeneratingNewBundles = true;
     bool inWaitForNewBundlesState = false;
+#ifdef DO_BPSEC_TEST
+    std::vector<uint8_t> dataEncryptionKeyBytes; //DEK
+    static const std::string dataEncryptionKeyString(
+        "71776572747975696f70617364666768"
+        "71776572747975696f70617364666768"
+    );
+    BinaryConversions::HexStringToBytes(dataEncryptionKeyString, dataEncryptionKeyBytes);
+
+    std::vector<uint8_t> initializationVector;
+    static const std::string initializationVectorString(
+        "5477656c7665313231323132"
+    );
+    BinaryConversions::HexStringToBytes(initializationVectorString, initializationVector);
+
+    static const uint64_t targetBlockNumbers[1] = { 1 }; //just encrypt payload block
+    std::vector<boost::asio::const_buffer> aadPartsTemporaryMemory;
+    BPSecManager::EvpCipherCtxWrapper ctxWrapper;
+#endif // DO_BPSEC_TEST
+    zmq::message_t zmqMessageToSendWrapper;
+
+
     while (m_running) { //keep thread alive if running
                 
         if(bundleRate) {
@@ -404,11 +434,35 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                     m_running = false;
                     continue;
                 }
+#ifdef DO_BPSEC_TEST
+                if (!BPSecManager::TryEncryptBundle(ctxWrapper,
+                    bv,
+                    BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET,
+                    COSE_ALGORITHMS::A256GCM,
+                    BPV7_CRC_TYPE::NONE,
+                    m_myEid,
+                    targetBlockNumbers, 1,
+                    initializationVector.data(), static_cast<unsigned int>(initializationVector.size()),
+                    NULL, 0, //NULL if not present (for wrapping DEK only)
+                    dataEncryptionKeyBytes.data(), static_cast<unsigned int>(dataEncryptionKeyBytes.size()), //NULL if not present (when no wrapped key is present)
+                    aadPartsTemporaryMemory,
+                    NULL))
+                {
+                    LOG_ERROR(subprocess) << "cannot encrypt bundle";
+                    m_running = false;
+                    continue;
+                }
+#endif
                 payloadBlockView.headerPtr->RecomputeCrcAfterDataModification((uint8_t*)payloadBlockView.actualSerializedBlockPtr.data(), payloadBlockView.actualSerializedBlockPtr.size()); //recompute crc
 
                 //move the bundle out of bundleView
                 bundleToSend = std::move(bv.m_frontBuffer);
-                bundleLength = bundleToSend.size();
+                bundleLength = bv.m_renderedBundle.size();
+#ifdef DO_BPSEC_TEST
+                bundleToSendStartPtr = (uint8_t*)bv.m_renderedBundle.data();
+                padded_vector_uint8_t* rxBufRawPointer = new padded_vector_uint8_t(std::move(bundleToSend));
+                zmqMessageToSendWrapper.rebuild(bundleToSendStartPtr, bundleLength, CustomCleanupPaddedVecUint8, rxBufRawPointer);
+#endif
             }
             else { //bp version 6
                 BundleViewV6 bv;
@@ -569,12 +623,24 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                         m_currentlySendingBundleIdSet.insert(bundleId); //ok if already exists
                         m_mutexCurrentlySendingBundleIdSet.unlock();
 
-                        if (!outduct->Forward(bundleToSend, std::move(bundleToSendUserData))) {
-                            LOG_ERROR(subprocess) << "BpSourcePattern unable to send bundle on the outduct.. retrying in 1 second";
-                            boost::this_thread::sleep(boost::posix_time::seconds(1));
+                        if (bundleToSendStartPtr) { //bundle was rendered in place, wrap inside a zmq message
+                            if (!outduct->Forward(zmqMessageToSendWrapper, std::move(bundleToSendUserData))) {
+                                LOG_ERROR(subprocess) << "BpSourcePattern unable to send bundle on the outduct.. retrying in 1 second";
+                                boost::this_thread::sleep(boost::posix_time::seconds(1));
+                            }
+                            else {
+                                successForward = true;
+                                bundleToSendStartPtr = NULL;
+                            }
                         }
                         else {
-                            successForward = true;
+                            if (!outduct->Forward(bundleToSend, std::move(bundleToSendUserData))) {
+                                LOG_ERROR(subprocess) << "BpSourcePattern unable to send bundle on the outduct.. retrying in 1 second";
+                                boost::this_thread::sleep(boost::posix_time::seconds(1));
+                            }
+                            else {
+                                successForward = true;
+                            }
                         }
                     }
                 }

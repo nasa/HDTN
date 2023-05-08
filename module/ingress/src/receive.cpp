@@ -44,6 +44,10 @@
 #include <shared_mutex>
 #endif
 
+#include "BPSecManager.h"
+#include "BinaryConversions.h"
+#define DO_BPSEC_TEST 1
+
 namespace hdtn {
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::ingress;
@@ -1094,6 +1098,32 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             static constexpr BPV7_BUNDLEFLAG requiredPrimaryFlagsForEcho = BPV7_BUNDLEFLAG::NO_FLAGS_SET;
             const bool isEcho = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO));
             if (!isAdminRecordForHdtnStorage) {
+#ifdef DO_BPSEC_TEST
+                static thread_local std::vector<uint8_t> dataEncryptionKeyBytes; //DEK
+                static const std::string dataEncryptionKeyString(
+                    "71776572747975696f70617364666768"
+                    "71776572747975696f70617364666768"
+                );
+                if (dataEncryptionKeyBytes.empty()) {
+                    BinaryConversions::HexStringToBytes(dataEncryptionKeyString, dataEncryptionKeyBytes);
+                }
+
+                static thread_local std::vector<boost::asio::const_buffer> aadPartsTemporaryMemory;
+                static thread_local BPSecManager::EvpCipherCtxWrapper ctxWrapper;
+
+                if (!BPSecManager::TryDecryptBundle(ctxWrapper,
+                    bv,
+                    NULL, 0, //not using KEK
+                    dataEncryptionKeyBytes.data(), static_cast<const unsigned int>(dataEncryptionKeyBytes.size()),
+                    aadPartsTemporaryMemory))
+                {
+                    LOG_ERROR(subprocess) << "Process: version 7 bundle received but cannot decrypt";
+                    return false;
+                }
+                else {
+                    //LOG_DEBUG(subprocess) << "ingress decrypted bundle successfully";
+                }
+#endif // DO_BPSEC_TEST
                 //get previous node
                 std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
                 bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE, blocks);
