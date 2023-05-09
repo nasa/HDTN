@@ -44,9 +44,11 @@
 #include <shared_mutex>
 #endif
 
-#include "BPSecManager.h"
 #include "BinaryConversions.h"
-#define DO_BPSEC_TEST 1
+#ifdef BPSEC_SUPPORT_ENABLED
+#include "BPSecManager.h"
+# define DO_BPSEC_TEST 1
+#endif
 
 namespace hdtn {
 

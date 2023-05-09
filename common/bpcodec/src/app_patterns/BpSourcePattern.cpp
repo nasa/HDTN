@@ -29,10 +29,12 @@
 #include "StcpInduct.h"
 #include "codec/BundleViewV7.h"
 #include "ThreadNamer.h"
-#include "BPSecManager.h"
 #include "BinaryConversions.h"
 
-#define DO_BPSEC_TEST 1
+#ifdef BPSEC_SUPPORT_ENABLED
+#include "BPSecManager.h"
+# define DO_BPSEC_TEST 1
+#endif
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 

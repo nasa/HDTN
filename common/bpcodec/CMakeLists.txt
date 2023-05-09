@@ -78,7 +78,7 @@ target_link_libraries(bp_app_patterns_lib
 		hdtn_util
 		outduct_manager_lib
 		induct_manager_lib
-		bpsec
+		$<$<BOOL:${ENABLE_BPSEC}>:bpsec>
 )
 target_include_directories(bp_app_patterns_lib
 	PUBLIC
