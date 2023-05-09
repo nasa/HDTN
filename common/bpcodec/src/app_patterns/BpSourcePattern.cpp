@@ -446,7 +446,8 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                     NULL, 0, //NULL if not present (for wrapping DEK only)
                     dataEncryptionKeyBytes.data(), static_cast<unsigned int>(dataEncryptionKeyBytes.size()), //NULL if not present (when no wrapped key is present)
                     aadPartsTemporaryMemory,
-                    NULL))
+                    NULL,
+                    true))
                 {
                     LOG_ERROR(subprocess) << "cannot encrypt bundle";
                     m_running = false;

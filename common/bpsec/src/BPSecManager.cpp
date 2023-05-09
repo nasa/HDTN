@@ -419,7 +419,8 @@ bool BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
     BundleViewV7& bv,
     const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping DEK only)
     const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength, //NULL if not present (when no wrapped key is present)
-    std::vector<boost::asio::const_buffer>& aadPartsTemporaryMemory)
+    std::vector<boost::asio::const_buffer>& aadPartsTemporaryMemory,
+    const bool renderInPlaceWhenFinished)
 {
     std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
     bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, blocks);
@@ -617,7 +618,10 @@ bool BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
         bcbBlockView.markedForDeletion = true;
     }
     //at least one bcb was marked for deletion, so rerender
-    return bv.RenderInPlace(PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE);
+    if (renderInPlaceWhenFinished) {
+        return bv.RenderInPlace(PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE);
+    }
+    return true;
 }
 
 //User of this function provided KEK (key encryption key), AAD scope, AES variant, IV, and targets.
@@ -635,7 +639,8 @@ bool BPSecManager::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
     const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for wrapping DEK only)
     const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength, //NULL if not present (when no wrapped key is present)
     std::vector<boost::asio::const_buffer>& aadPartsTemporaryMemory,
-    const uint64_t* insertBcbBeforeThisBlockNumberIfNotNull)
+    const uint64_t* insertBcbBeforeThisBlockNumberIfNotNull,
+    const bool renderInPlaceWhenFinished)
 {
     std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
 
@@ -788,7 +793,10 @@ bool BPSecManager::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
     else {
         bv.PrependMoveCanonicalBlock(std::move(blockPtr));
     }
-    return bv.RenderInPlace(PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE);
+    if (renderInPlaceWhenFinished) {
+        return bv.RenderInPlace(PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE);
+    }
+    return true;
 }
 
 //User of this function provided KEK (key encryption key).
@@ -799,7 +807,8 @@ bool BPSecManager::TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
     const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping hmac key only)
     const uint8_t* hmacKey, const unsigned int hmacKeyLength, //NULL if not present (when no wrapped key is present)
     std::vector<boost::asio::const_buffer>& ipptPartsTemporaryMemory,
-    const bool removeBib)
+    const bool markBibForDeletion,
+    const bool renderInPlaceWhenFinished)
 {
     std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
     uint8_t primaryByteStringHeader[10]; //must be at least 9
@@ -1010,11 +1019,11 @@ bool BPSecManager::TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
 
 
         }
-        if (removeBib) {
+        if (markBibForDeletion) {
             bibBlockView.markedForDeletion = true;
         }
     }
-    if (removeBib) {
+    if (markBibForDeletion && renderInPlaceWhenFinished) {
         //at least one bib was marked for deletion, so rerender
         return bv.RenderInPlace(PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE);
     }
@@ -1031,7 +1040,8 @@ bool BPSecManager::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
     const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping hmac key only)
     const uint8_t* hmacKey, const unsigned int hmacKeyLength, //NULL if not present (when no wrapped key is present)
     std::vector<boost::asio::const_buffer>& ipptPartsTemporaryMemory,
-    const uint64_t* insertBibBeforeThisBlockNumberIfNotNull)
+    const uint64_t* insertBibBeforeThisBlockNumberIfNotNull,
+    const bool renderInPlaceWhenFinished)
 {
     uint8_t primaryByteStringHeader[10]; //must be at least 9
     std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
@@ -1214,5 +1224,8 @@ bool BPSecManager::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
     else {
         bv.PrependMoveCanonicalBlock(std::move(blockPtr));
     }
-    return bv.RenderInPlace(PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE);
+    if (renderInPlaceWhenFinished) {
+        return bv.RenderInPlace(PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE);
+    }
+    return true;
 }

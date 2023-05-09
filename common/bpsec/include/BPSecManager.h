@@ -89,7 +89,10 @@ public:
     * @param hmacKeyLength The length of the hmacKey. (should set to 0 if hmacKey is NULL)
     * @param ipptPartsTemporaryMemory Create this once throughout the program duration.  This parameter is used internally and
     *        resizes constantly.  This parameter is intended to minimize unnecessary allocations/deallocations.
-    * @param removeBib If true, remove the BIB block on successful verification and rerender the bundle in-place.
+    * @param markBibForDeletion If true, mark BIB block for deletion on successful verification so that it will be removed
+    *                           after the next rerender of the bundleview.
+    * @param renderInPlaceWhenFinished Perform a render in place automatically on the bundle view at function completion.
+    *                                  Set to false to render manually (i.e. if there are other operations needing completed prior to render).
     * @return true if there were no errors, false otherwise
     */
     BPSEC_EXPORT static bool TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
@@ -97,7 +100,8 @@ public:
         const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping hmac key only)
         const uint8_t* hmacKey, const unsigned int hmacKeyLength, //NULL if not present (when no wrapped key is present)
         std::vector<boost::asio::const_buffer>& ipptPartsTemporaryMemory,
-        const bool removeBib);
+        const bool markBibForDeletion,
+        const bool renderInPlaceWhenFinished);
 
     /**
     * Adds a BIB block to the preloaded bundle view.  The bundle must be loaded with padded data.
@@ -118,6 +122,8 @@ public:
     *        resizes constantly.  This parameter is intended to minimize unnecessary allocations/deallocations.
     * @param insertBibBeforeThisBlockNumberIfNotNull If not NULL, places the BIB before this particular block number, used for making unit tests match examples.
     *        If NULL, the BIB is placed immediately after the primary block.
+    * @param renderInPlaceWhenFinished Perform a render in place automatically on the bundle view at function completion.
+    *                                  Set to false to render manually (i.e. if there are other operations needing completed prior to render).
     * @return true if there were no errors, false otherwise
     */
     BPSEC_EXPORT static bool TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
@@ -130,7 +136,8 @@ public:
         const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping hmac key only)
         const uint8_t* hmacKey, const unsigned int hmacKeyLength, //NULL if not present (when no wrapped key is present)
         std::vector<boost::asio::const_buffer>& ipptPartsTemporaryMemory,
-        const uint64_t* insertBibBeforeThisBlockNumberIfNotNull);
+        const uint64_t* insertBibBeforeThisBlockNumberIfNotNull,
+        const bool renderInPlaceWhenFinished);
 
     /**
     * Encrypts data (optionally in-place) for confidentiality. Ciphertext length is equivalent to plaintext length.
@@ -228,14 +235,17 @@ public:
     * @param dataEncryptionKeyLength The length of the dataEncryptionKey. (should set to 0 if dataEncryptionKey is NULL)
     * @param aadPartsTemporaryMemory Create this once throughout the program duration.  This parameter is used internally and
     *        resizes constantly.  This parameter is intended to minimize unnecessary allocations/deallocations.
-    * @post The BCB block is removed on successful in-place decryption, and the bundle is rerendered in-place.
+    * @param renderInPlaceWhenFinished Perform a render in place automatically on the bundle view at function completion.
+    *                                  Set to false to render manually (i.e. if there are other operations needing completed prior to render).
+    * @post The BCB block is marked for deletion on successful in-place decryption, and the bundle view is (optionally) rerendered in-place.
     * @return true if there were no errors, false otherwise
     */
     BPSEC_EXPORT static bool TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
         BundleViewV7& bv,
         const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
         const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength,
-        std::vector<boost::asio::const_buffer>& aadPartsTemporaryMemory);
+        std::vector<boost::asio::const_buffer>& aadPartsTemporaryMemory,
+        const bool renderInPlaceWhenFinished);
 
     /**
     * Adds a BCB block to the preloaded bundle view and encrypts the targets.  The bundle must be loaded with padded data.
@@ -258,6 +268,8 @@ public:
     *        resizes constantly.  This parameter is intended to minimize unnecessary allocations/deallocations.
     * @param insertBcbBeforeThisBlockNumberIfNotNull If not NULL, places the BCB before this particular block number, used for making unit tests match examples.
     *        If NULL, the BCB is placed immediately after the primary block.
+    * @param renderInPlaceWhenFinished Perform a render in place automatically on the bundle view at function completion.
+    *                                  Set to false to render manually (i.e. if there are other operations needing completed prior to render).
     * @post A new BCB block is added on successful in-place encryption of the BCB's target(s) to the bv (BundleViewV7), and the bundle is rerendered in-place.
     * @return true if there were no errors, false otherwise
     */
@@ -272,7 +284,8 @@ public:
         const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
         const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength,
         std::vector<boost::asio::const_buffer>& aadPartsTemporaryMemory,
-        const uint64_t* insertBcbBeforeThisBlockNumberIfNotNull);
+        const uint64_t* insertBcbBeforeThisBlockNumberIfNotNull,
+        const bool renderInPlaceWhenFinished);
 
 };
 

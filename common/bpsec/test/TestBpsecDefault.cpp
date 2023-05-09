@@ -134,6 +134,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
             NULL, 0, //NULL if not present (for unwrapping hmac key only)
             hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
             ipptPartsTemporaryMemory,
+            true,
             true));
         BinaryConversions::BytesToHexString(bv.m_renderedBundle, nobibSerializedBundleString);
         boost::to_lower(nobibSerializedBundleString);
@@ -159,7 +160,8 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
             NULL, 0, //NULL if not present (for unwrapping hmac key only)
             hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
             ipptPartsTemporaryMemory,
-            NULL));
+            NULL,
+            true));
         std::string newBibSerializedBundleString;
         BinaryConversions::BytesToHexString(bv.m_renderedBundle, newBibSerializedBundleString);
         boost::to_lower(newBibSerializedBundleString);
@@ -204,6 +206,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleMultipleSourcesTestCase)
             NULL, 0, //NULL if not present (for unwrapping hmac key only)
             hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
             ipptPartsTemporaryMemory,
+            true,
             true));
         BinaryConversions::BytesToHexString(bv.m_renderedBundle, nobibSerializedBundleString);
         boost::to_lower(nobibSerializedBundleString);
@@ -229,7 +232,8 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleMultipleSourcesTestCase)
             NULL, 0, //NULL if not present (for unwrapping hmac key only)
             hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
             ipptPartsTemporaryMemory,
-            NULL));
+            NULL,
+            true));
         std::string newBibSerializedBundleString;
         BinaryConversions::BytesToHexString(bv.m_renderedBundle, newBibSerializedBundleString);
         boost::to_lower(newBibSerializedBundleString);
@@ -273,6 +277,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
             NULL, 0, //NULL if not present (for unwrapping hmac key only)
             hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
             ipptPartsTemporaryMemory,
+            true,
             true));
         BinaryConversions::BytesToHexString(bv.m_renderedBundle, nobibSerializedBundleString);
         boost::to_lower(nobibSerializedBundleString);
@@ -299,7 +304,8 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
             NULL, 0, //NULL if not present (for unwrapping hmac key only)
             hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
             ipptPartsTemporaryMemory,
-            NULL));
+            NULL,
+            true));
         std::string newBibSerializedBundleString;
         BinaryConversions::BytesToHexString(bv.m_renderedBundle, newBibSerializedBundleString);
         boost::to_lower(newBibSerializedBundleString);
@@ -512,7 +518,8 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleWithKeyWrapTestCase)
         bv,
         keyEncryptionKeyBytes.data(), static_cast<const unsigned int>(keyEncryptionKeyBytes.size()),
         NULL, 0, //no DEK (using KEK instead)
-        aadPartsTemporaryMemory));
+        aadPartsTemporaryMemory,
+        true));
     padded_vector_uint8_t decryptedBundleCopy(
         (uint8_t*)bv.m_renderedBundle.data(),
         ((uint8_t*)bv.m_renderedBundle.data()) + bv.m_renderedBundle.size()
@@ -559,7 +566,8 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleWithKeyWrapTestCase)
             keyEncryptionKeyBytes.data(), static_cast<unsigned int>(keyEncryptionKeyBytes.size()), //NULL if not present (for wrapping DEK only)
             dataEncryptionKeyBytes.data(), static_cast<unsigned int>(dataEncryptionKeyBytes.size()), //NULL if not present (when no wrapped key is present)
             aadPartsTemporaryMemory,
-            &insertBcbBeforeThisBlockNumber));
+            &insertBcbBeforeThisBlockNumber,
+            true));
 
         {
             std::string actualHex;
@@ -604,7 +612,8 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleFullScopeTestCase)
         bv,
         NULL, 0, //not using KEK
         dataEncryptionKeyBytes.data(), static_cast<const unsigned int>(dataEncryptionKeyBytes.size()),
-        aadPartsTemporaryMemory));
+        aadPartsTemporaryMemory,
+        true));
 
 
     static const std::string expectedSerializedPayloadBlockString(
@@ -695,7 +704,8 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleFullScopeTestCase)
             NULL, 0, //NULL if not present (for wrapping DEK only)
             dataEncryptionKeyBytes.data(), static_cast<unsigned int>(dataEncryptionKeyBytes.size()), //NULL if not present (when no wrapped key is present)
             aadPartsTemporaryMemory,
-            &insertBcbBeforeThisBlockNumber));
+            &insertBcbBeforeThisBlockNumber,
+            true));
 
         {
             std::string actualHex;
