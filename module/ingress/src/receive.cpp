@@ -1014,7 +1014,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
     const bool isBpVersion6 = (firstByte == 6);
     const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
     if (isBpVersion6) {
-        BundleViewV6 bv;
+        static thread_local BundleViewV6 bv;
         if (!bv.LoadBundle(bundleDataBegin, bundleCurrentSize)) {
             LOG_ERROR(subprocess) << "malformed bundle";
             return false;
@@ -1069,7 +1069,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
         }
     }
     else if (isBpVersion7) {
-        BundleViewV7 bv;
+        static thread_local BundleViewV7 bv;
         const bool skipCrcVerifyInCanonicalBlocks = !needsProcessing;
         if (!bv.LoadBundle(bundleDataBegin, bundleCurrentSize, skipCrcVerifyInCanonicalBlocks)) { //todo true => skip canonical block crc checks to increase speed
             LOG_ERROR(subprocess) << "Process: malformed version 7 bundle received";

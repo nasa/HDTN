@@ -33,6 +33,7 @@
 #include <map>
 #include <boost/asio/buffer.hpp>
 #include "PaddedVectorUint8.h"
+#include "FreeListAllocator.h"
 
 /*
 
@@ -118,7 +119,9 @@ private:
 public:
     Bpv6PrimaryBlockView m_primaryBlockView;
     const uint8_t * m_applicationDataUnitStartPtr;
-    std::list<Bpv6CanonicalBlockView> m_listCanonicalBlockView; //list will maintain block relative order
+
+    typedef std::list<Bpv6CanonicalBlockView, FreeListAllocator<Bpv6CanonicalBlockView> > canonical_block_view_list_t;
+    canonical_block_view_list_t m_listCanonicalBlockView; //list will maintain block relative order
 
 
     boost::asio::const_buffer m_renderedBundle;

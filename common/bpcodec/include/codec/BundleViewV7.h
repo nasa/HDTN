@@ -36,6 +36,7 @@
 #include <map>
 #include <boost/asio/buffer.hpp>
 #include "PaddedVectorUint8.h"
+#include "FreeListAllocator.h"
 
 /*
 Each bundle SHALL be a concatenated sequence of at least two blocks,
@@ -129,8 +130,14 @@ private:
 public:
     Bpv7PrimaryBlockView m_primaryBlockView;
     const uint8_t * m_applicationDataUnitStartPtr;
-    std::list<Bpv7CanonicalBlockView> m_listCanonicalBlockView; //list will maintain block relative order
-    std::map<uint64_t, Bpv7BlockConfidentialityBlock*> m_mapEncryptedBlockNumberToBcbPtr;
+
+    typedef std::list<Bpv7CanonicalBlockView, FreeListAllocator<Bpv7CanonicalBlockView> > canonical_block_view_list_t;
+    canonical_block_view_list_t m_listCanonicalBlockView; //list will maintain block relative order
+
+    typedef std::map<uint64_t, Bpv7BlockConfidentialityBlock*,
+        std::less<uint64_t>,
+        FreeListAllocator<std::pair<const uint64_t, Bpv7BlockConfidentialityBlock*> > > encrypted_block_number_to_bcb_map_t;
+    encrypted_block_number_to_bcb_map_t m_mapEncryptedBlockNumberToBcbPtr;
 
     boost::asio::const_buffer m_renderedBundle;
     padded_vector_uint8_t m_frontBuffer;

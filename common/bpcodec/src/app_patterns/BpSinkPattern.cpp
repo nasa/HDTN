@@ -190,7 +190,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
     const bool isBpVersion6 = (firstByte == 6);
     const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
     if (isBpVersion6) {
-        BundleViewV6 bv;
+        static thread_local BundleViewV6 bv;
         if (!bv.LoadBundle(rxBuf.data(), rxBuf.size())) { //invalid bundle
             LOG_ERROR(subprocess) << "malformed bundle";
             return false;
@@ -275,7 +275,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
         #endif
     }
     else if (isBpVersion7) {
-        BundleViewV7 bv;
+        static thread_local BundleViewV7 bv;
         if (!bv.LoadBundle(rxBuf.data(), rxBuf.size())) { //invalid bundle
             LOG_ERROR(subprocess) << "malformed bpv7 bundle";
             return false;

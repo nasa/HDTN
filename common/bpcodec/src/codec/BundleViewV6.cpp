@@ -143,7 +143,7 @@ bool BundleViewV6::Render(uint8_t * serialization, uint64_t & sizeSerialized) {
     
     m_listCanonicalBlockView.remove_if([](const Bpv6CanonicalBlockView & v) { return v.markedForDeletion; }); //makes easier last block detection
 
-    for (std::list<Bpv6CanonicalBlockView>::iterator it = m_listCanonicalBlockView.begin(); it != m_listCanonicalBlockView.end(); ++it) {
+    for (canonical_block_view_list_t::iterator it = m_listCanonicalBlockView.begin(); it != m_listCanonicalBlockView.end(); ++it) {
         const bool isLastBlock = (boost::next(it) == m_listCanonicalBlockView.end());
         if (isLastBlock) {
             it->SetBlockProcessingControlFlagAndDirtyIfNecessary(BPV6_BLOCKFLAG::IS_LAST_BLOCK);
@@ -183,7 +183,7 @@ bool BundleViewV6::GetSerializationSize(uint64_t & serializationSize) const {
         serializationSize += m_primaryBlockView.actualSerializedPrimaryBlockPtr.size();
     }
 
-    for (std::list<Bpv6CanonicalBlockView>::const_iterator it = m_listCanonicalBlockView.cbegin(); it != m_listCanonicalBlockView.cend(); ++it) {
+    for (canonical_block_view_list_t::const_iterator it = m_listCanonicalBlockView.cbegin(); it != m_listCanonicalBlockView.cend(); ++it) {
         const bool isLastBlock = (boost::next(it) == m_listCanonicalBlockView.end());
         //DON'T NEED TO CHECK IS_LAST_BLOCK FLAG AS IT RESIDES WITHIN THE 1-BYTE SDNV SIZE
         uint64_t currentBlockSizeSerialized;
@@ -220,7 +220,7 @@ void BundleViewV6::PrependMoveCanonicalBlock(std::unique_ptr<Bpv6CanonicalBlock>
 }
 std::size_t BundleViewV6::GetCanonicalBlockCountByType(const BPV6_BLOCK_TYPE_CODE canonicalBlockTypeCode) const {
     std::size_t count = 0;
-    for (std::list<Bpv6CanonicalBlockView>::const_iterator it = m_listCanonicalBlockView.cbegin(); it != m_listCanonicalBlockView.cend(); ++it) {
+    for (canonical_block_view_list_t::const_iterator it = m_listCanonicalBlockView.cbegin(); it != m_listCanonicalBlockView.cend(); ++it) {
         count += (it->headerPtr->m_blockTypeCode == canonicalBlockTypeCode);
     }
     return count;
@@ -230,7 +230,7 @@ std::size_t BundleViewV6::GetNumCanonicalBlocks() const {
 }
 void BundleViewV6::GetCanonicalBlocksByType(const BPV6_BLOCK_TYPE_CODE canonicalBlockTypeCode, std::vector<Bpv6CanonicalBlockView*> & blocks) {
     blocks.clear();
-    for (std::list<Bpv6CanonicalBlockView>::iterator it = m_listCanonicalBlockView.begin(); it != m_listCanonicalBlockView.end(); ++it) {
+    for (canonical_block_view_list_t::iterator it = m_listCanonicalBlockView.begin(); it != m_listCanonicalBlockView.end(); ++it) {
         if (it->headerPtr->m_blockTypeCode == canonicalBlockTypeCode) {
             blocks.push_back(&(*it));
         }
