@@ -419,10 +419,10 @@ bool BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
     BundleViewV7& bv,
     const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping DEK only)
     const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength, //NULL if not present (when no wrapped key is present)
-    std::vector<boost::asio::const_buffer>& aadPartsTemporaryMemory,
+    ReusableElementsInternal& reusableElementsInternal,
     const bool renderInPlaceWhenFinished)
 {
-    std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+    std::vector<BundleViewV7::Bpv7CanonicalBlockView*>& blocks = reusableElementsInternal.blocks;
     bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, blocks);
     for (std::size_t i = 0; i < blocks.size(); ++i) {
         BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView = *(blocks[i]);
@@ -454,7 +454,7 @@ bool BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
             return false;
         }
 
-        std::vector<boost::asio::const_buffer>& aadParts = aadPartsTemporaryMemory;
+        std::vector<boost::asio::const_buffer>& aadParts = reusableElementsInternal.constBufferVec;
         aadParts.clear();
         aadParts.reserve(4);
         const BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS scopeMask = bcbPtr->GetSecurityParameterScope();
@@ -638,11 +638,11 @@ bool BPSecManager::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
     const uint8_t* iv, const unsigned int ivLength,
     const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for wrapping DEK only)
     const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength, //NULL if not present (when no wrapped key is present)
-    std::vector<boost::asio::const_buffer>& aadPartsTemporaryMemory,
+    ReusableElementsInternal& reusableElementsInternal,
     const uint64_t* insertBcbBeforeThisBlockNumberIfNotNull,
     const bool renderInPlaceWhenFinished)
 {
-    std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+    std::vector<BundleViewV7::Bpv7CanonicalBlockView*>& blocks = reusableElementsInternal.blocks;
 
     std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7BlockConfidentialityBlock>();
     Bpv7BlockConfidentialityBlock& bcb = *(reinterpret_cast<Bpv7BlockConfidentialityBlock*>(blockPtr.get()));
@@ -674,7 +674,7 @@ bool BPSecManager::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
     }
 
 
-    std::vector<boost::asio::const_buffer>& aadParts = aadPartsTemporaryMemory;
+    std::vector<boost::asio::const_buffer>& aadParts = reusableElementsInternal.constBufferVec;
     aadParts.clear();
     aadParts.reserve(4);
     const uint8_t scopeMaskAsU8 = static_cast<uint8_t>(aadScopeMask);
@@ -806,11 +806,11 @@ bool BPSecManager::TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
     BundleViewV7& bv,
     const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping hmac key only)
     const uint8_t* hmacKey, const unsigned int hmacKeyLength, //NULL if not present (when no wrapped key is present)
-    std::vector<boost::asio::const_buffer>& ipptPartsTemporaryMemory,
+    ReusableElementsInternal& reusableElementsInternal,
     const bool markBibForDeletion,
     const bool renderInPlaceWhenFinished)
 {
-    std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+    std::vector<BundleViewV7::Bpv7CanonicalBlockView*>& blocks = reusableElementsInternal.blocks;
     uint8_t primaryByteStringHeader[10]; //must be at least 9
     bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::INTEGRITY, blocks);
     for (std::size_t i = 0; i < blocks.size(); ++i) {
@@ -842,7 +842,7 @@ bool BPSecManager::TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
         }
         
 
-        std::vector<boost::asio::const_buffer>& ipptParts = ipptPartsTemporaryMemory;
+        std::vector<boost::asio::const_buffer>& ipptParts = reusableElementsInternal.constBufferVec;
         ipptParts.clear();
         ipptParts.reserve(5); //5 parts per RFC9173 - 3.7.  Canonicalization Algorithms
         const BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS scopeMask = bibPtr->GetSecurityParameterScope();
@@ -1039,12 +1039,12 @@ bool BPSecManager::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
     const uint64_t* targetBlockNumbers, const unsigned int numTargetBlockNumbers,
     const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping hmac key only)
     const uint8_t* hmacKey, const unsigned int hmacKeyLength, //NULL if not present (when no wrapped key is present)
-    std::vector<boost::asio::const_buffer>& ipptPartsTemporaryMemory,
+    ReusableElementsInternal& reusableElementsInternal,
     const uint64_t* insertBibBeforeThisBlockNumberIfNotNull,
     const bool renderInPlaceWhenFinished)
 {
     uint8_t primaryByteStringHeader[10]; //must be at least 9
-    std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+    std::vector<BundleViewV7::Bpv7CanonicalBlockView*>& blocks = reusableElementsInternal.blocks;
 
     std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7BlockIntegrityBlock>();
     Bpv7BlockIntegrityBlock& bib = *(reinterpret_cast<Bpv7BlockIntegrityBlock*>(blockPtr.get()));
@@ -1068,7 +1068,7 @@ bool BPSecManager::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
         return false;
     }
 
-    std::vector<boost::asio::const_buffer>& ipptParts = ipptPartsTemporaryMemory;
+    std::vector<boost::asio::const_buffer>& ipptParts = reusableElementsInternal.constBufferVec;
     ipptParts.clear();
     ipptParts.reserve(5); //5 parts per RFC9173 - 3.7.  Canonicalization Algorithms
     const uint8_t scopeMaskAsU8 = static_cast<uint8_t>(integrityScopeMask);

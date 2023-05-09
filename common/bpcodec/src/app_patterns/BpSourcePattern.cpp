@@ -299,7 +299,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
     BinaryConversions::HexStringToBytes(initializationVectorString, initializationVector);
 
     static const uint64_t targetBlockNumbers[1] = { 1 }; //just encrypt payload block
-    std::vector<boost::asio::const_buffer> aadPartsTemporaryMemory;
+    BPSecManager::ReusableElementsInternal bpsecReusableElementsInternal;
     BPSecManager::EvpCipherCtxWrapper ctxWrapper;
 #endif // DO_BPSEC_TEST
     zmq::message_t zmqMessageToSendWrapper;
@@ -445,7 +445,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                     initializationVector.data(), static_cast<unsigned int>(initializationVector.size()),
                     NULL, 0, //NULL if not present (for wrapping DEK only)
                     dataEncryptionKeyBytes.data(), static_cast<unsigned int>(dataEncryptionKeyBytes.size()), //NULL if not present (when no wrapped key is present)
-                    aadPartsTemporaryMemory,
+                    bpsecReusableElementsInternal,
                     NULL,
                     true))
                 {

@@ -1108,14 +1108,14 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                     BinaryConversions::HexStringToBytes(dataEncryptionKeyString, dataEncryptionKeyBytes);
                 }
 
-                static thread_local std::vector<boost::asio::const_buffer> aadPartsTemporaryMemory;
+                static thread_local BPSecManager::ReusableElementsInternal bpsecReusableElementsInternal;
                 static thread_local BPSecManager::EvpCipherCtxWrapper ctxWrapper;
 
                 if (!BPSecManager::TryDecryptBundle(ctxWrapper,
                     bv,
                     NULL, 0, //not using KEK
                     dataEncryptionKeyBytes.data(), static_cast<const unsigned int>(dataEncryptionKeyBytes.size()),
-                    aadPartsTemporaryMemory,
+                    bpsecReusableElementsInternal,
                     false)) //false => don't rerender in place here, there are more ops to complete after decryption and then a manual render-in-place will be called later
                 {
                     LOG_ERROR(subprocess) << "Process: version 7 bundle received but cannot decrypt";

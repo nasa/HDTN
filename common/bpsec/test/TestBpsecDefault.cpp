@@ -119,7 +119,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
     BOOST_REQUIRE(BinaryConversions::HexStringToBytes(hmacKeyString, hmacKeyBytes));
 
     BPSecManager::HmacCtxWrapper ctxWrapper;
-    std::vector<boost::asio::const_buffer> ipptPartsTemporaryMemory;
+    BPSecManager::ReusableElementsInternal reusableElementsInternal;
 
     std::string nobibSerializedBundleString; //used later when bib is removed
 
@@ -133,7 +133,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
             bv,
             NULL, 0, //NULL if not present (for unwrapping hmac key only)
             hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
-            ipptPartsTemporaryMemory,
+            reusableElementsInternal,
             true,
             true));
         BinaryConversions::BytesToHexString(bv.m_renderedBundle, nobibSerializedBundleString);
@@ -159,7 +159,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
             targetBlockNumbers, 1,
             NULL, 0, //NULL if not present (for unwrapping hmac key only)
             hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
-            ipptPartsTemporaryMemory,
+            reusableElementsInternal,
             NULL,
             true));
         std::string newBibSerializedBundleString;
@@ -191,7 +191,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleMultipleSourcesTestCase)
     BOOST_REQUIRE(BinaryConversions::HexStringToBytes(hmacKeyString, hmacKeyBytes));
 
     BPSecManager::HmacCtxWrapper ctxWrapper;
-    std::vector<boost::asio::const_buffer> ipptPartsTemporaryMemory;
+    BPSecManager::ReusableElementsInternal reusableElementsInternal;
 
     std::string nobibSerializedBundleString; //used later when bib is removed
 
@@ -205,7 +205,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleMultipleSourcesTestCase)
             bv,
             NULL, 0, //NULL if not present (for unwrapping hmac key only)
             hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
-            ipptPartsTemporaryMemory,
+            reusableElementsInternal,
             true,
             true));
         BinaryConversions::BytesToHexString(bv.m_renderedBundle, nobibSerializedBundleString);
@@ -231,7 +231,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleMultipleSourcesTestCase)
             targetBlockNumbers, 2,
             NULL, 0, //NULL if not present (for unwrapping hmac key only)
             hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
-            ipptPartsTemporaryMemory,
+            reusableElementsInternal,
             NULL,
             true));
         std::string newBibSerializedBundleString;
@@ -262,7 +262,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
     BOOST_REQUIRE(BinaryConversions::HexStringToBytes(hmacKeyString, hmacKeyBytes));
 
     BPSecManager::HmacCtxWrapper ctxWrapper;
-    std::vector<boost::asio::const_buffer> ipptPartsTemporaryMemory;
+    BPSecManager::ReusableElementsInternal reusableElementsInternal;
 
     std::string nobibSerializedBundleString; //used later when bib is removed
 
@@ -276,7 +276,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
             bv,
             NULL, 0, //NULL if not present (for unwrapping hmac key only)
             hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
-            ipptPartsTemporaryMemory,
+            reusableElementsInternal,
             true,
             true));
         BinaryConversions::BytesToHexString(bv.m_renderedBundle, nobibSerializedBundleString);
@@ -303,7 +303,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
             targetBlockNumbers, 1,
             NULL, 0, //NULL if not present (for unwrapping hmac key only)
             hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
-            ipptPartsTemporaryMemory,
+            reusableElementsInternal,
             NULL,
             true));
         std::string newBibSerializedBundleString;
@@ -511,14 +511,14 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleWithKeyWrapTestCase)
     );
     BOOST_REQUIRE(BinaryConversions::HexStringToBytes(keyEncryptionKeyString, keyEncryptionKeyBytes));
 
-    std::vector<boost::asio::const_buffer> aadPartsTemporaryMemory;
+    BPSecManager::ReusableElementsInternal reusableElementsInternal;
 
     BPSecManager::EvpCipherCtxWrapper ctxWrapper;
     BOOST_REQUIRE(BPSecManager::TryDecryptBundle(ctxWrapper,
         bv,
         keyEncryptionKeyBytes.data(), static_cast<const unsigned int>(keyEncryptionKeyBytes.size()),
         NULL, 0, //no DEK (using KEK instead)
-        aadPartsTemporaryMemory,
+        reusableElementsInternal,
         true));
     padded_vector_uint8_t decryptedBundleCopy(
         (uint8_t*)bv.m_renderedBundle.data(),
@@ -565,7 +565,7 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleWithKeyWrapTestCase)
             expectedInitializationVector.data(), static_cast<unsigned int>(expectedInitializationVector.size()),
             keyEncryptionKeyBytes.data(), static_cast<unsigned int>(keyEncryptionKeyBytes.size()), //NULL if not present (for wrapping DEK only)
             dataEncryptionKeyBytes.data(), static_cast<unsigned int>(dataEncryptionKeyBytes.size()), //NULL if not present (when no wrapped key is present)
-            aadPartsTemporaryMemory,
+            reusableElementsInternal,
             &insertBcbBeforeThisBlockNumber,
             true));
 
@@ -605,14 +605,14 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleFullScopeTestCase)
     );
     BOOST_REQUIRE(BinaryConversions::HexStringToBytes(dataEncryptionKeyString, dataEncryptionKeyBytes));
 
-    std::vector<boost::asio::const_buffer> aadPartsTemporaryMemory;
+    BPSecManager::ReusableElementsInternal reusableElementsInternal;
 
     BPSecManager::EvpCipherCtxWrapper ctxWrapper;
     BOOST_REQUIRE(BPSecManager::TryDecryptBundle(ctxWrapper,
         bv,
         NULL, 0, //not using KEK
         dataEncryptionKeyBytes.data(), static_cast<const unsigned int>(dataEncryptionKeyBytes.size()),
-        aadPartsTemporaryMemory,
+        reusableElementsInternal,
         true));
 
 
@@ -703,7 +703,7 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleFullScopeTestCase)
             expectedInitializationVector.data(), static_cast<unsigned int>(expectedInitializationVector.size()),
             NULL, 0, //NULL if not present (for wrapping DEK only)
             dataEncryptionKeyBytes.data(), static_cast<unsigned int>(dataEncryptionKeyBytes.size()), //NULL if not present (when no wrapped key is present)
-            aadPartsTemporaryMemory,
+            reusableElementsInternal,
             &insertBcbBeforeThisBlockNumber,
             true));
 

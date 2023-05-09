@@ -51,6 +51,10 @@ public:
         BPSEC_EXPORT ~HmacCtxWrapper();
         HMAC_CTX* m_ctx;
     };
+    struct ReusableElementsInternal {
+        std::vector<boost::asio::const_buffer> constBufferVec; //aadParts and ipptParts
+        std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+    };
 
     BPSEC_EXPORT BPSecManager(const bool isSecEnabled);
     BPSEC_EXPORT ~BPSecManager();
@@ -87,7 +91,7 @@ public:
     * @param keyEncryptionKeyLength The length of the keyEncryptionKey. (should set to 0 if keyEncryptionKey is NULL)
     * @param hmacKey The HMAC key to be used for hashing (when no wrapped key is present)
     * @param hmacKeyLength The length of the hmacKey. (should set to 0 if hmacKey is NULL)
-    * @param ipptPartsTemporaryMemory Create this once throughout the program duration.  This parameter is used internally and
+    * @param reusableElementsInternal Create this once throughout the program duration.  This parameter is used internally and
     *        resizes constantly.  This parameter is intended to minimize unnecessary allocations/deallocations.
     * @param markBibForDeletion If true, mark BIB block for deletion on successful verification so that it will be removed
     *                           after the next rerender of the bundleview.
@@ -99,7 +103,7 @@ public:
         BundleViewV7& bv,
         const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping hmac key only)
         const uint8_t* hmacKey, const unsigned int hmacKeyLength, //NULL if not present (when no wrapped key is present)
-        std::vector<boost::asio::const_buffer>& ipptPartsTemporaryMemory,
+        ReusableElementsInternal& reusableElementsInternal,
         const bool markBibForDeletion,
         const bool renderInPlaceWhenFinished);
 
@@ -118,7 +122,7 @@ public:
     * @param keyEncryptionKeyLength The length of the keyEncryptionKey. (should set to 0 if keyEncryptionKey is NULL)
     * @param hmacKey The HMAC key to be used for hashing (when no wrapped key is present)
     * @param hmacKeyLength The length of the hmacKey. (should set to 0 if hmacKey is NULL)
-    * @param ipptPartsTemporaryMemory Create this once throughout the program duration.  This parameter is used internally and
+    * @param reusableElementsInternal Create this once throughout the program duration.  This parameter is used internally and
     *        resizes constantly.  This parameter is intended to minimize unnecessary allocations/deallocations.
     * @param insertBibBeforeThisBlockNumberIfNotNull If not NULL, places the BIB before this particular block number, used for making unit tests match examples.
     *        If NULL, the BIB is placed immediately after the primary block.
@@ -135,7 +139,7 @@ public:
         const uint64_t* targetBlockNumbers, const unsigned int numTargetBlockNumbers,
         const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping hmac key only)
         const uint8_t* hmacKey, const unsigned int hmacKeyLength, //NULL if not present (when no wrapped key is present)
-        std::vector<boost::asio::const_buffer>& ipptPartsTemporaryMemory,
+        ReusableElementsInternal& reusableElementsInternal,
         const uint64_t* insertBibBeforeThisBlockNumberIfNotNull,
         const bool renderInPlaceWhenFinished);
 
@@ -233,7 +237,7 @@ public:
     * @param dataEncryptionKey The key (DEK) to be used for decrypting (when no wrapped key is present).
     *                          Set to NULL if always expecting wrapped keys to be included in the received BCBs.
     * @param dataEncryptionKeyLength The length of the dataEncryptionKey. (should set to 0 if dataEncryptionKey is NULL)
-    * @param aadPartsTemporaryMemory Create this once throughout the program duration.  This parameter is used internally and
+    * @param reusableElementsInternal Create this once throughout the program duration.  This parameter is used internally and
     *        resizes constantly.  This parameter is intended to minimize unnecessary allocations/deallocations.
     * @param renderInPlaceWhenFinished Perform a render in place automatically on the bundle view at function completion.
     *                                  Set to false to render manually (i.e. if there are other operations needing completed prior to render).
@@ -244,7 +248,7 @@ public:
         BundleViewV7& bv,
         const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
         const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength,
-        std::vector<boost::asio::const_buffer>& aadPartsTemporaryMemory,
+        ReusableElementsInternal& reusableElementsInternal,
         const bool renderInPlaceWhenFinished);
 
     /**
@@ -264,7 +268,7 @@ public:
     * @param keyEncryptionKeyLength The length of the keyEncryptionKey. (should set to 0 if keyEncryptionKey is NULL)
     * @param dataEncryptionKey The key (DEK) to be used for encrypting (when no wrapped key is present)
     * @param dataEncryptionKeyLength The length of the dataEncryptionKey. (should set to 0 if hmacKey is NULL)
-    * @param aadPartsTemporaryMemory Create this once throughout the program duration.  This parameter is used internally and
+    * @param reusableElementsInternal Create this once throughout the program duration.  This parameter is used internally and
     *        resizes constantly.  This parameter is intended to minimize unnecessary allocations/deallocations.
     * @param insertBcbBeforeThisBlockNumberIfNotNull If not NULL, places the BCB before this particular block number, used for making unit tests match examples.
     *        If NULL, the BCB is placed immediately after the primary block.
@@ -283,7 +287,7 @@ public:
         const uint8_t* iv, const unsigned int ivLength,
         const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
         const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength,
-        std::vector<boost::asio::const_buffer>& aadPartsTemporaryMemory,
+        ReusableElementsInternal& reusableElementsInternal,
         const uint64_t* insertBcbBeforeThisBlockNumberIfNotNull,
         const bool renderInPlaceWhenFinished);
 
