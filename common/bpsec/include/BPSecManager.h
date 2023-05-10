@@ -49,7 +49,10 @@ public:
     struct HmacCtxWrapper {
         BPSEC_EXPORT HmacCtxWrapper();
         BPSEC_EXPORT ~HmacCtxWrapper();
-        HMAC_CTX* m_ctx;
+        /// PIMPL idiom
+        struct Impl;
+        /// Pointer to the internal implementation
+        std::unique_ptr<Impl> m_pimpl;
     };
     struct ReusableElementsInternal {
         std::vector<boost::asio::const_buffer> constBufferVec; //aadParts and ipptParts

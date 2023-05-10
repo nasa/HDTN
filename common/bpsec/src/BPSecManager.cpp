@@ -21,6 +21,13 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/next_prior.hpp>
 #include "CborUint.h"
+#include <boost/noncopyable.hpp>
+#include <openssl/opensslv.h>
+
+#if (OPENSSL_VERSION_NUMBER >= 0x30000000L)
+# define BPSEC_USE_SSL3 1
+#include <openssl/params.h>
+#endif
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -56,24 +63,55 @@ BPSecManager::EvpCipherCtxWrapper::~EvpCipherCtxWrapper() {
     }
 }
 
-BPSecManager::HmacCtxWrapper::HmacCtxWrapper() : m_ctx(HMAC_CTX_new()) {}
-BPSecManager::HmacCtxWrapper::~HmacCtxWrapper() {
-    if (m_ctx) {
-        HMAC_CTX_free(m_ctx);
-        m_ctx = NULL;
-    }
-}
 
-static const uint8_t ALG_TO_BYTE_LENGTH_LUT[8] = { //7 is highest index in COSE_ALGORITHMS
-    0, //unused = 0
-    0, //A128GCM = 1, (not used here)
-    0, //unused = 2
-    0, //A256GCM = 3, (not used here
-    0, //unused = 4
+struct BPSecManager::HmacCtxWrapper::Impl : private boost::noncopyable {
+#ifdef BPSEC_USE_SSL3
+    Impl() :
+        m_mac(EVP_MAC_fetch(NULL, "HMAC", NULL)),
+        m_ctx(EVP_MAC_CTX_new(m_mac)) {}
+    ~Impl() {
+        if (m_ctx) {
+            EVP_MAC_CTX_free(m_ctx);
+            EVP_MAC_free(m_mac); //could do this right after EVP_MAC_CTX_new in ctor
+            m_ctx = NULL;
+            m_mac = NULL;
+        }
+    }
+    EVP_MAC* m_mac;
+    EVP_MAC_CTX* m_ctx;
+#else
+    Impl() : m_ctx(HMAC_CTX_new()) {}
+    ~Impl() {
+        if (m_ctx) {
+            HMAC_CTX_free(m_ctx);
+            m_ctx = NULL; //EVP_MAC* mac = EVP_MAC_fetch(NULL, getenv("MY_MAC"), NULL);
+        }
+    }
+    HMAC_CTX* m_ctx;
+#endif
+};
+BPSecManager::HmacCtxWrapper::HmacCtxWrapper() : m_pimpl(boost::make_unique<BPSecManager::HmacCtxWrapper::Impl>()) {}
+BPSecManager::HmacCtxWrapper::~HmacCtxWrapper() {}
+
+static const uint8_t ALG_MINUS_5_TO_BYTE_LENGTH_LUT[3] = { //7 is highest index in COSE_ALGORITHMS
     256 / 8, //HMAC_256_256 = 5,
     384 / 8, //HMAC_384_384 = 6,
     512 / 8  //HMAC_512_512 = 7
 };
+
+#ifdef BPSEC_USE_SSL3
+static const OSSL_PARAM ALG_MINUS_5_TO_PARAM_LUT[3][2] = {
+    {OSSL_PARAM_construct_utf8_string("digest", "SHA256", 0), OSSL_PARAM_construct_end()}, //HMAC_256_256 = 5,
+    {OSSL_PARAM_construct_utf8_string("digest", "SHA384", 0), OSSL_PARAM_construct_end()}, //HMAC_384_384 = 6,
+    {OSSL_PARAM_construct_utf8_string("digest", "SHA512", 0), OSSL_PARAM_construct_end()} //HMAC_512_512 = 7
+};
+#else
+static const EVP_MD* ALG_MINUS_5_TO_EVPMD_LUT[3] = { //7 is highest index in COSE_ALGORITHMS
+    EVP_sha256(), //HMAC_256_256 = 5,
+    EVP_sha384(), //HMAC_384_384 = 6,
+    EVP_sha512()  //HMAC_512_512 = 7 //returns pointer to a static const variable
+};
+#endif
 
 //https://www.openssl.org/docs/man1.1.1/man3/HMAC_Init_ex.html
 
@@ -83,26 +121,49 @@ bool BPSecManager::HmacSha(HmacCtxWrapper& ctxWrapper,
     const uint8_t* key, const uint64_t keyLength,
     uint8_t* messageDigestOut, unsigned int& messageDigestOutSize)
 {
-    HMAC_CTX* ctx = ctxWrapper.m_ctx;
-
+    const uint8_t variantMinus5 = (static_cast<uint8_t>(variant)) - 5u;
+    if (variantMinus5 > 2) { //not 0, 1, or 2
+        return false;
+    }
     messageDigestOutSize = 0;
-
-    const EVP_MD* evpMdPtr;
-    const unsigned int expectedHmacSizeBytes = ALG_TO_BYTE_LENGTH_LUT[static_cast<uint8_t>(variant)];
-    switch (variant) {
-        case COSE_ALGORITHMS::HMAC_256_256:
-            evpMdPtr = EVP_sha256();
-            break;
-        case COSE_ALGORITHMS::HMAC_384_384:
-            evpMdPtr = EVP_sha384();
-            break;
-        case COSE_ALGORITHMS::HMAC_512_512:
-            evpMdPtr = EVP_sha512(); //returns pointer to a static const variable
-            break;
-        default:
-            return false;
+    const unsigned int expectedHmacSizeBytes = ALG_MINUS_5_TO_BYTE_LENGTH_LUT[variantMinus5];
+#ifdef BPSEC_USE_SSL3
+    EVP_MAC_CTX* ctx = ctxWrapper.m_pimpl->m_ctx;
+    const OSSL_PARAM* osslParams = ALG_MINUS_5_TO_PARAM_LUT[variantMinus5];
+    //EVP_MAC_init() sets up the underlying context ctx with information given via the key and params arguments.
+    //The MAC key has a length of keylen and the parameters in params are processed before setting the key.
+    //If key is NULL, the key must be set via params either as part of this call or separately using EVP_MAC_CTX_set_params().
+    //Providing non-NULL params to this function is equivalent to calling EVP_MAC_CTX_set_params() with those params for the same ctx beforehand.
+    //EVP_MAC_init() should be called before EVP_MAC_update() and EVP_MAC_final().
+    //EVP_MAC_init() return 1 on success, 0 on error.
+    if (!EVP_MAC_init(ctx, key, (std::size_t)keyLength, osslParams)) {
+        return false;
     }
 
+    //EVP_MAC_update() adds datalen bytes from data to the MAC input.
+    //EVP_MAC_update() return 1 on success, 0 on error.
+    for (std::size_t i = 0; i < ipptParts.size(); ++i) {
+        const boost::asio::const_buffer& cb = ipptParts[i];
+        if (!EVP_MAC_update(ctx, reinterpret_cast<const uint8_t*>(cb.data()), cb.size())) {
+            return false;
+        }
+    }
+
+    //EVP_MAC_final() does the final computation and stores the result in the memory pointed at by out of size outsize,
+    //and sets the number of bytes written in *outl at.
+    //If out is NULL or outsize is too small, then no computation is made.
+    //To figure out what the output length will be and allocate space for it dynamically,
+    //simply call with out being NULL and outl pointing at a valid location,
+    //then allocate space and make a second call with out pointing at the allocated space.
+    //EVP_MAC_final() return 1 on success, 0 on error.
+    std::size_t macFinalOutSize;
+    if (!EVP_MAC_final(ctx, messageDigestOut, &macFinalOutSize, expectedHmacSizeBytes)) {
+        return false;
+    }
+    messageDigestOutSize = static_cast<unsigned int>(macFinalOutSize);
+#else
+    HMAC_CTX* ctx = ctxWrapper.m_pimpl->m_ctx;
+    const EVP_MD* evpMdPtr = ALG_MINUS_5_TO_EVPMD_LUT[variantMinus5];
     //HMAC_Init_ex() initializes or reuses a HMAC_CTX structure to use the hash function evp_md and key key.
     //If both are NULL, or if key is NULL and evp_md is the same as the previous call, then the existing key is reused.
     //ctx must have been created with HMAC_CTX_new() before the first use of an HMAC_CTX in this function.
@@ -122,14 +183,14 @@ bool BPSecManager::HmacSha(HmacCtxWrapper& ctxWrapper,
             return false;
         }
     }
-    
 
     //HMAC_Final() places the message authentication code in md, which must have space for the hash function output.
     //HMAC_Final() return 1 for success or 0 if an error occurred.
     if (!HMAC_Final(ctx, messageDigestOut, &messageDigestOutSize)) {
         return false;
     }
-
+#endif
+    
     //RFC9173:
     //The output of the HMAC MUST be equal to the size of the SHA2 hashing
     //function: 256 bits for SHA-256, 384 bits for SHA-384, and 512 bits
@@ -1043,6 +1104,11 @@ bool BPSecManager::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
     const uint64_t* insertBibBeforeThisBlockNumberIfNotNull,
     const bool renderInPlaceWhenFinished)
 {
+    const uint8_t variantMinus5 = (static_cast<uint8_t>(variant)) - 5u;
+    if (variantMinus5 > 2) { //not 0, 1, or 2
+        return false;
+    }
+
     uint8_t primaryByteStringHeader[10]; //must be at least 9
     std::vector<BundleViewV7::Bpv7CanonicalBlockView*>& blocks = reusableElementsInternal.blocks;
 
@@ -1189,7 +1255,7 @@ bool BPSecManager::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
         //field of the security block.
         //(hmac is the only result)
         std::vector<uint8_t>* hmacPtr = bib.AppendAndGetExpectedHmacPtr();
-        hmacPtr->resize(ALG_TO_BYTE_LENGTH_LUT[static_cast<uint8_t>(variant)]);
+        hmacPtr->resize(ALG_MINUS_5_TO_BYTE_LENGTH_LUT[variantMinus5]);
 
         unsigned int messageDigestOutSize;
         //not inplace test (separate in and out buffers)
