@@ -34,11 +34,31 @@
 #include <boost/property_tree/ptree.hpp>
 #include "router_lib_export.h"
 
+/** HDTN Router.
+ *
+ * Notifies other modules of link up/down events
+ * and provides them with new routes on link change
+ */
 class Router : private boost::noncopyable {
 public:
+    /** Constructs a Router instance */
     ROUTER_LIB_EXPORT Router();
+    /** Destroys a Router instance. Stops the router if running */
     ROUTER_LIB_EXPORT ~Router();
+    /** Stops a running router instance */
     ROUTER_LIB_EXPORT void Stop();
+    /** Starts the router
+     *
+     * @param hdtnConfig The HDTN Config
+     * @param hdtnDistributedConfig HDTN config for running in distributed mode
+     * @param usingUnixTimestamp If true, interpret times in contact file as unix time stamps
+     * @param useMgr if true, use the MGR routing algorithm; otherwise use CGR
+     * @param hdtnOneProcessZmqInprocContextPtr ZMQ context for one-process mode
+     * 
+     * @returns true on successful start, false on error
+     *
+     * Starts the router on a thread; returns once initial setup is complete 
+     */
     ROUTER_LIB_EXPORT bool Init(const HdtnConfig& hdtnConfig,
         const HdtnDistributedConfig& hdtnDistributedConfig,
         const boost::filesystem::path& contactPlanFilePath,
@@ -46,7 +66,22 @@ public:
         bool useMgr,
         zmq::context_t* hdtnOneProcessZmqInprocContextPtr = NULL);
 
+    /** Get absolute path to contact plan from relative path
+     *
+     * @param filename the name of the file to find an absolute path for
+     *
+     * @returns the absolute path to the file
+     *
+     * This path is relative to the router/contact_plans directory
+     */
     ROUTER_LIB_EXPORT static boost::filesystem::path GetFullyQualifiedFilename(const boost::filesystem::path& filename);
+
+    /** Get the contact rate in bits per second from its property tree 
+     *
+     * @param eventPtr The contact plan property tree to extract the bits per second from 
+     *
+     * @returns the bit rate on success, 0 on error
+     */
     ROUTER_LIB_EXPORT static uint64_t GetRateBpsFromPtree(const boost::property_tree::ptree::value_type& eventPtr);
 
     // Internal implementation class

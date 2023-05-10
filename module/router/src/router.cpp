@@ -37,8 +37,10 @@
 #include "codec/BundleViewV7.h"
 #include "libcgr.h"
 
+/** logger subprocess for the router */
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::router;
 
+/** A contact in the contact plan */
 struct contactPlan_t {
     uint64_t contact;
     uint64_t source;
@@ -54,16 +56,20 @@ struct contactPlan_t {
     bool operator<(const contactPlan_t& o) const; //operator < so it can be used as a map key
 };
 
+/** State for an outduct */
 struct OutductInfo_t {
     OutductInfo_t() : outductIndex(UINT64_MAX), nextHopNodeId(UINT64_MAX), linkIsUpTimeBased(false) {}
     OutductInfo_t(uint64_t paramOutductIndex, uint64_t paramNextHopNodeId, bool paramLinkIsUpTimeBased) :
         outductIndex(paramOutductIndex), nextHopNodeId(paramNextHopNodeId), linkIsUpTimeBased(paramLinkIsUpTimeBased) {}
     uint64_t outductIndex;
     uint64_t nextHopNodeId;
+
+    /** Does the contact plan consider this link to be up? */
     bool linkIsUpTimeBased;
     
 };
 
+/** Router private implementation class */
 class Router::Impl {
 public:
     Impl();
