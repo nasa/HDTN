@@ -190,7 +190,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
     const bool isBpVersion6 = (firstByte == 6);
     const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
     if (isBpVersion6) {
-        BundleViewV6 bv;
+        static thread_local BundleViewV6 bv;
         if (!bv.LoadBundle(rxBuf.data(), rxBuf.size())) { //invalid bundle
             LOG_ERROR(subprocess) << "malformed bundle";
             return false;
@@ -275,7 +275,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
         #endif
     }
     else if (isBpVersion7) {
-        BundleViewV7 bv;
+        static thread_local BundleViewV7 bv;
         if (!bv.LoadBundle(rxBuf.data(), rxBuf.size())) { //invalid bundle
             LOG_ERROR(subprocess) << "malformed bpv7 bundle";
             return false;
@@ -330,7 +330,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
             block.m_blockNumber = bv.GetNextFreeCanonicalBlockNumber();
             block.m_crcType = BPV7_CRC_TYPE::CRC32C;
             block.m_previousNode = m_myEidEcho;
-            bv.PrependMoveCanonicalBlock(blockPtr);
+            bv.PrependMoveCanonicalBlock(std::move(blockPtr));
         }
 
         //get hop count if exists
@@ -524,7 +524,7 @@ void BpSinkPattern::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNode
     }
 }
 
-bool BpSinkPattern::Forward_ThreadSafe(const cbhe_eid_t & destEid, std::vector<uint8_t> & bundleToMoveAndSend) {
+bool BpSinkPattern::Forward_ThreadSafe(const cbhe_eid_t & destEid, padded_vector_uint8_t& bundleToMoveAndSend) {
     if (m_bundleToSendQueue.size() > 2000) { //todo
         return false;
     }
@@ -541,7 +541,7 @@ void BpSinkPattern::SenderReaderThreadFunc() {
 
     uint64_t m_nextBundleId = 0;
     cbhe_eid_t destEid;
-    std::vector<uint8_t> bundleToSend;
+    padded_vector_uint8_t bundleToSend;
     Outduct* outduct = NULL;
     uint64_t outductMaxBundlesInPipeline = 0;
     
@@ -670,7 +670,7 @@ void BpSinkPattern::SenderReaderThreadFunc() {
 
 }
 
-void BpSinkPattern::OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid) {
+void BpSinkPattern::OnFailedBundleVecSendCallback(padded_vector_uint8_t& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid) {
     bundleid_finaldesteid_pair_t* p = (bundleid_finaldesteid_pair_t*)userData.data();
     const uint64_t bundleId = p->first;
     LOG_INFO(subprocess) << "Bundle failed to send: id=" << bundleId << " bundle size=" << movableBundle.size();

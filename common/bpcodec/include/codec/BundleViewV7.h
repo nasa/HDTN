@@ -35,6 +35,8 @@
 #include <list>
 #include <map>
 #include <boost/asio/buffer.hpp>
+#include "PaddedVectorUint8.h"
+#include "FreeListAllocator.h"
 
 /*
 Each bundle SHALL be a concatenated sequence of at least two blocks,
@@ -99,18 +101,21 @@ public:
     BPCODEC_EXPORT BundleViewV7();
     BPCODEC_EXPORT ~BundleViewV7();
 
-    BPCODEC_EXPORT void AppendMoveCanonicalBlock(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr);
-    BPCODEC_EXPORT void PrependMoveCanonicalBlock(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr);
-    BPCODEC_EXPORT bool InsertMoveCanonicalBlockAfterBlockNumber(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr, const uint64_t blockNumber);
-    BPCODEC_EXPORT bool InsertMoveCanonicalBlockBeforeBlockNumber(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr, const uint64_t blockNumber);
+    BPCODEC_EXPORT void AppendMoveCanonicalBlock(std::unique_ptr<Bpv7CanonicalBlock>&& headerPtr);
+    BPCODEC_EXPORT void PrependMoveCanonicalBlock(std::unique_ptr<Bpv7CanonicalBlock>&& headerPtr);
+    BPCODEC_EXPORT bool InsertMoveCanonicalBlockAfterBlockNumber(std::unique_ptr<Bpv7CanonicalBlock>&& headerPtr, const uint64_t blockNumber);
+    BPCODEC_EXPORT bool InsertMoveCanonicalBlockBeforeBlockNumber(std::unique_ptr<Bpv7CanonicalBlock>&& headerPtr, const uint64_t blockNumber);
     BPCODEC_EXPORT bool GetSerializationSize(uint64_t & serializationSize) const;
     BPCODEC_EXPORT std::size_t GetCanonicalBlockCountByType(const BPV7_BLOCK_TYPE_CODE canonicalBlockTypeCode) const;
     BPCODEC_EXPORT std::size_t GetNumCanonicalBlocks() const;
     BPCODEC_EXPORT void GetCanonicalBlocksByType(const BPV7_BLOCK_TYPE_CODE canonicalBlockTypeCode, std::vector<Bpv7CanonicalBlockView*> & blocks);
+    BPCODEC_EXPORT Bpv7CanonicalBlockView* GetCanonicalBlockByBlockNumber(const uint64_t blockNumber);
+    BPCODEC_EXPORT void ReserveBlockNumber(const uint64_t blockNumber);
+    BPCODEC_EXPORT void FreeBlockNumber(const uint64_t blockNumber);
     BPCODEC_EXPORT uint64_t GetNextFreeCanonicalBlockNumber() const;
     BPCODEC_EXPORT std::size_t DeleteAllCanonicalBlocksByType(const BPV7_BLOCK_TYPE_CODE canonicalBlockTypeCode);
     BPCODEC_EXPORT bool LoadBundle(uint8_t * bundleData, const std::size_t size, const bool skipCrcVerifyInCanonicalBlocks = false, const bool loadPrimaryBlockOnly = false);
-    BPCODEC_EXPORT bool SwapInAndLoadBundle(std::vector<uint8_t> & bundleData, const bool skipCrcVerifyInCanonicalBlocks = false, const bool loadPrimaryBlockOnly = false);
+    BPCODEC_EXPORT bool SwapInAndLoadBundle(padded_vector_uint8_t& bundleData, const bool skipCrcVerifyInCanonicalBlocks = false, const bool loadPrimaryBlockOnly = false);
     BPCODEC_EXPORT bool CopyAndLoadBundle(const uint8_t * bundleData, const std::size_t size, const bool skipCrcVerifyInCanonicalBlocks = false, const bool loadPrimaryBlockOnly = false);
     BPCODEC_EXPORT bool IsValid() const;
     BPCODEC_EXPORT bool Render(const std::size_t maxBundleSizeBytes);
@@ -120,15 +125,23 @@ private:
     BPCODEC_NO_EXPORT bool Load(const bool skipCrcVerifyInCanonicalBlocks, const bool loadPrimaryBlockOnly);
     BPCODEC_NO_EXPORT bool Render(uint8_t * serialization, uint64_t & sizeSerialized, bool terminateBeforeLastBlock);
     
+private:
+    uint64_t m_nextFreeCanonicalBlockNumberMask;
 public:
     Bpv7PrimaryBlockView m_primaryBlockView;
     const uint8_t * m_applicationDataUnitStartPtr;
-    std::list<Bpv7CanonicalBlockView> m_listCanonicalBlockView; //list will maintain block relative order
-    std::map<uint64_t, Bpv7BlockConfidentialityBlock*> m_mapEncryptedBlockNumberToBcbPtr;
+
+    typedef std::list<Bpv7CanonicalBlockView, FreeListAllocator<Bpv7CanonicalBlockView> > canonical_block_view_list_t;
+    canonical_block_view_list_t m_listCanonicalBlockView; //list will maintain block relative order
+
+    typedef std::map<uint64_t, Bpv7BlockConfidentialityBlock*,
+        std::less<uint64_t>,
+        FreeListAllocator<std::pair<const uint64_t, Bpv7BlockConfidentialityBlock*> > > encrypted_block_number_to_bcb_map_t;
+    encrypted_block_number_to_bcb_map_t m_mapEncryptedBlockNumberToBcbPtr;
 
     boost::asio::const_buffer m_renderedBundle;
-    std::vector<uint8_t> m_frontBuffer;
-    std::vector<uint8_t> m_backBuffer;
+    padded_vector_uint8_t m_frontBuffer;
+    padded_vector_uint8_t m_backBuffer;
 };
 
 #endif // BUNDLE_VIEW_V7_H

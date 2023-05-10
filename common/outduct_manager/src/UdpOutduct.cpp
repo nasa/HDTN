@@ -33,7 +33,7 @@ bool UdpOutduct::Forward(const uint8_t* bundleData, const std::size_t size, std:
 bool UdpOutduct::Forward(zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData) {
     return m_udpBundleSource.Forward(movableDataZmq, std::move(userData));
 }
-bool UdpOutduct::Forward(std::vector<uint8_t> & movableDataVec, std::vector<uint8_t>&& userData) {
+bool UdpOutduct::Forward(padded_vector_uint8_t& movableDataVec, std::vector<uint8_t>&& userData) {
     return m_udpBundleSource.Forward(movableDataVec, std::move(userData));
 }
 

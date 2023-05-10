@@ -54,9 +54,9 @@ public:
     TCPCL_LIB_EXPORT virtual ~TcpclV3BidirectionalLink();
 
     TCPCL_LIB_EXPORT bool BaseClass_Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData);
-    TCPCL_LIB_EXPORT bool BaseClass_Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData);
+    TCPCL_LIB_EXPORT bool BaseClass_Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_t>&& userData);
     TCPCL_LIB_EXPORT bool BaseClass_Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData);
-    TCPCL_LIB_EXPORT bool BaseClass_Forward(std::unique_ptr<zmq::message_t> & zmqMessageUniquePtr, std::vector<uint8_t> & vecMessage, const bool usingZmqData, std::vector<uint8_t>&& userData);
+    TCPCL_LIB_EXPORT bool BaseClass_Forward(std::unique_ptr<zmq::message_t> & zmqMessageUniquePtr, padded_vector_uint8_t& vecMessage, const bool usingZmqData, std::vector<uint8_t>&& userData);
     
     TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundlesAcked() override;
     TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundlesSent() override;

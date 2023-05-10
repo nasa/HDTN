@@ -126,7 +126,7 @@ $build_openssl_with_jom = $true #parallel build
 $jom_version = "1.1.3"
 $jom_version_underscore_separated = $jom_version.replace('.','_')
 $nasm_version = "2.15.05" #required for compiling openssl
-$openssl_version = "1.1.1s"
+$openssl_version = "3.1.0"
 $openssl_src_directory = "openssl-${openssl_version}"
 $openssl_install_directory_name = "${openssl_src_directory}_install"
 #------zero mq-----------------

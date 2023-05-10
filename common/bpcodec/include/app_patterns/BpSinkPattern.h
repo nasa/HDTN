@@ -61,9 +61,9 @@ private:
     BP_APP_PATTERNS_LIB_NO_EXPORT void SendAcsFromTimerThread();
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtr);
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtrAboutToBeDeleted);
-    BP_APP_PATTERNS_LIB_NO_EXPORT bool Forward_ThreadSafe(const cbhe_eid_t & destEid, std::vector<uint8_t> & bundleToMoveAndSend);
+    BP_APP_PATTERNS_LIB_NO_EXPORT bool Forward_ThreadSafe(const cbhe_eid_t & destEid, padded_vector_uint8_t& bundleToMoveAndSend);
     BP_APP_PATTERNS_LIB_NO_EXPORT void SenderReaderThreadFunc();
-    BP_APP_PATTERNS_LIB_NO_EXPORT void OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid);
+    BP_APP_PATTERNS_LIB_NO_EXPORT void OnFailedBundleVecSendCallback(padded_vector_uint8_t& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid);
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData, uint64_t outductUuid);
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid);
 public:
@@ -100,14 +100,14 @@ private:
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     std::unique_ptr<boost::thread> m_threadSenderReaderPtr;
     boost::condition_variable m_conditionVariableSenderReader;
-    typedef std::pair<cbhe_eid_t, std::vector<uint8_t> > desteid_bundle_pair_t;
+    typedef std::pair<cbhe_eid_t, padded_vector_uint8_t> desteid_bundle_pair_t;
     std::queue<desteid_bundle_pair_t> m_bundleToSendQueue;
     boost::mutex m_mutexCurrentlySendingBundleIdSet;
     std::unordered_set<uint64_t> m_currentlySendingBundleIdSet;
     boost::condition_variable m_cvCurrentlySendingBundleIdSet;
     boost::mutex m_mutexQueueBundlesThatFailedToSend;
     typedef std::pair<uint64_t, cbhe_eid_t> bundleid_finaldesteid_pair_t;
-    typedef std::pair<std::vector<uint8_t>, bundleid_finaldesteid_pair_t> bundle_userdata_pair_t;
+    typedef std::pair<padded_vector_uint8_t, bundleid_finaldesteid_pair_t> bundle_userdata_pair_t;
     std::queue<bundle_userdata_pair_t> m_queueBundlesThatFailedToSend;
     volatile bool m_linkIsDown;
     volatile bool m_runningSenderThread;

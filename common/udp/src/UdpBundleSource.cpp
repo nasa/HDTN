@@ -128,7 +128,7 @@ void UdpBundleSource::UpdateRate(uint64_t rateBitsPerSec) {
     );
 }
 
-bool UdpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData) {
+bool UdpBundleSource::Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_t>&& userData) {
 
     if(!m_readyToForward) {
         LOG_ERROR(subprocess) << "link not ready to forward yet";
@@ -148,7 +148,7 @@ bool UdpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_
     m_userDataCbVec[writeIndexSentCallback] = std::move(userData);
     m_bytesToAckBySentCallbackCb.CommitWrite(); //pushed
 
-    std::shared_ptr<std::vector<uint8_t> > udpDataToSendPtr = std::make_shared<std::vector<uint8_t> >(std::move(dataVec));
+    std::shared_ptr<padded_vector_uint8_t> udpDataToSendPtr = std::make_shared<padded_vector_uint8_t>(std::move(dataVec));
     //dataVec invalid after this point
     boost::asio::post(m_ioService, boost::bind(&UdpBundleSource::HandlePostForUdpSendVecMessage, this, std::move(udpDataToSendPtr)));
     
@@ -182,7 +182,7 @@ bool UdpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& u
 }
 
 bool UdpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
-    std::vector<uint8_t> vec(bundleData, bundleData + size);
+    padded_vector_uint8_t vec(bundleData, bundleData + size);
     return Forward(vec, std::move(userData));
 }
 
@@ -246,10 +246,10 @@ void UdpBundleSource::OnResolve(const boost::system::error_code & ec, boost::asi
     }
 }
 
-void UdpBundleSource::HandlePostForUdpSendVecMessage(std::shared_ptr<std::vector<boost::uint8_t> > & vecDataToSendPtr) {
+void UdpBundleSource::HandlePostForUdpSendVecMessage(std::shared_ptr<padded_vector_uint8_t> & vecDataToSendPtr) {
     //now that the token rate limiter can be used entirely in one thread (the io_service thread), take tokens
     m_queueVecDataToSendPtrs.emplace(std::move(vecDataToSendPtr)); //put on the queue first (there might be other packets in there that need to be sent first)
-    std::shared_ptr<std::vector<boost::uint8_t> > & vecDataToSendFrontOfQueuePtr = m_queueVecDataToSendPtrs.front();
+    std::shared_ptr<padded_vector_uint8_t>& vecDataToSendFrontOfQueuePtr = m_queueVecDataToSendPtrs.front();
     //try to remove the front of the queue if tokens available
     if (m_tokenRateLimiter.TakeTokens(vecDataToSendFrontOfQueuePtr->size())) { //there are tokens available for the packet at the front of the queue, send this now
         boost::asio::const_buffer bufToSend = boost::asio::buffer(*vecDataToSendFrontOfQueuePtr);
@@ -285,7 +285,7 @@ void UdpBundleSource::HandlePostForUdpSendZmqMessage(std::shared_ptr<zmq::messag
 }
 
 
-void UdpBundleSource::HandleUdpSendVecMessage(std::shared_ptr<std::vector<boost::uint8_t> > & dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
+void UdpBundleSource::HandleUdpSendVecMessage(std::shared_ptr<padded_vector_uint8_t>& dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
     if (error) {
         LOG_ERROR(subprocess) << "UdpBundleSource::HandleUdpSend: " << error.message();
         DoUdpShutdown();
@@ -397,7 +397,7 @@ void UdpBundleSource::OnTokenRefresh_TimerExpired(const boost::system::error_cod
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
         while (!m_queueVecDataToSendPtrs.empty()) {
-            std::shared_ptr<std::vector<boost::uint8_t> > & vecDataToSendPtr = m_queueVecDataToSendPtrs.front();
+            std::shared_ptr<padded_vector_uint8_t>& vecDataToSendPtr = m_queueVecDataToSendPtrs.front();
             //empty the queue of rate limited packets
             if (m_tokenRateLimiter.TakeTokens(vecDataToSendPtr->size())) { //there are tokens available, send this now
                 boost::asio::const_buffer bufToSend = boost::asio::buffer(*vecDataToSendPtr);

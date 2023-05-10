@@ -218,17 +218,39 @@ uint64_t Bpv7CanonicalBlock::SerializeBpv7(uint8_t * serialization) {
     }
 }
 
-uint64_t Bpv7CanonicalBlock::GetSerializationSize() const {
+uint64_t Bpv7CanonicalBlock::GetSerializationSize(const bool isEncrypted) const {
     uint64_t serializationSize = 2; //cbor byte (major type 4, additional information [5..6]) plus crcType
     serializationSize += CborGetEncodingSizeU64(static_cast<uint64_t>(m_blockTypeCode));
     serializationSize += CborGetEncodingSizeU64(m_blockNumber);
     serializationSize += CborGetEncodingSizeU64(static_cast<uint64_t>(m_blockProcessingControlFlags));
-    const uint64_t canonicalBlockTypeSpecificDataSerializationSize = GetCanonicalBlockTypeSpecificDataSerializationSize();
+    const uint64_t canonicalBlockTypeSpecificDataSerializationSize = (isEncrypted) ?
+        Bpv7CanonicalBlock::GetCanonicalBlockTypeSpecificDataSerializationSize() : //use raw data size
+        GetCanonicalBlockTypeSpecificDataSerializationSize(); //use virtual child class call
     serializationSize += CborGetEncodingSizeU64(canonicalBlockTypeSpecificDataSerializationSize);
     serializationSize += canonicalBlockTypeSpecificDataSerializationSize; //todo safety check on data length
     static const uint8_t CRC_TYPE_TO_SIZE[4] = { 0,3,5,0 };
     serializationSize += CRC_TYPE_TO_SIZE[(static_cast<uint8_t>(m_crcType)) & 3];
     return serializationSize;
+}
+uint64_t Bpv7CanonicalBlock::GetSerializationSizeOfAadPart() const {
+    //4.7.2.  Additional Authenticated Data
+    //If the target header flag of the AAD scope flags is set to 1,
+    //then the canonical form of the block type code, block number, and
+    //block processing control flags associated with the security
+    //target MUST be calculated and, in that order, appended to the
+    //AAD.
+    uint64_t serializationSize = 0;
+    serializationSize += CborGetEncodingSizeU64(static_cast<uint64_t>(m_blockTypeCode));
+    serializationSize += CborGetEncodingSizeU64(m_blockNumber);
+    serializationSize += CborGetEncodingSizeU64(static_cast<uint64_t>(m_blockProcessingControlFlags));
+    return serializationSize;
+}
+uint64_t Bpv7CanonicalBlock::SerializeAadPart(uint8_t* serialization) const { //pass in a buffer size of 3*9=27 worse case
+    uint8_t* const serializationBase = serialization;
+    serialization += CborEncodeU64BufSize9(serialization, static_cast<uint64_t>(m_blockTypeCode));
+    serialization += CborEncodeU64BufSize9(serialization, m_blockNumber);
+    serialization += CborEncodeU64BufSize9(serialization, static_cast<uint64_t>(m_blockProcessingControlFlags));
+    return serialization - serializationBase;
 }
 uint64_t Bpv7CanonicalBlock::GetCanonicalBlockTypeSpecificDataSerializationSize() const {
     return m_dataLength;

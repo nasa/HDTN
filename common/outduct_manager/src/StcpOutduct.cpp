@@ -33,7 +33,7 @@ bool StcpOutduct::Forward(const uint8_t* bundleData, const std::size_t size, std
 bool StcpOutduct::Forward(zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData) {
     return m_stcpBundleSource.Forward(movableDataZmq, std::move(userData));
 }
-bool StcpOutduct::Forward(std::vector<uint8_t> & movableDataVec, std::vector<uint8_t>&& userData) {
+bool StcpOutduct::Forward(padded_vector_uint8_t& movableDataVec, std::vector<uint8_t>&& userData) {
     return m_stcpBundleSource.Forward(movableDataVec, std::move(userData));
 }
 

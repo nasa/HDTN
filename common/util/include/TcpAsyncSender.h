@@ -35,6 +35,7 @@
 #include <boost/thread.hpp>
 #include <boost/asio.hpp>
 #include <vector>
+#include "PaddedVectorUint8.h"
 #include <queue>
 #include <memory>
 #include <boost/function.hpp>
@@ -55,7 +56,7 @@ struct TcpAsyncSenderElement {
     std::vector<uint8_t> m_userData;
     std::vector<boost::asio::const_buffer> m_constBufferVec;
     std::vector<std::vector<boost::uint8_t> > m_underlyingDataVecHeaders;
-    std::vector<boost::uint8_t> m_underlyingDataVecBundle;
+    padded_vector_uint8_t m_underlyingDataVecBundle;
     std::unique_ptr<zmq::message_t> m_underlyingDataZmqBundle;
     OnSuccessfulSendCallbackByIoServiceThread_t * m_onSuccessfulSendCallbackByIoServiceThreadPtr;
 };

@@ -107,7 +107,7 @@ struct ZmqStorageInterface::Impl : private boost::noncopyable {
     std::size_t GetCurrentNumberOfBundlesDeletedFromStorage();
 
 private:
-    bool WriteAcsBundle(const Bpv6CbhePrimaryBlock& primary, const std::vector<uint8_t>& acsBundleSerialized);
+    bool WriteAcsBundle(const Bpv6CbhePrimaryBlock& primary, const padded_vector_uint8_t& acsBundleSerialized);
     bool Write(zmq::message_t* message,
         cbhe_eid_t& finalDestEidReturned, bool dontWriteIfCustodyFlagSet,
         bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord);
@@ -369,7 +369,7 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDi
     return true;
 }
 
-bool ZmqStorageInterface::Impl::WriteAcsBundle(const Bpv6CbhePrimaryBlock & primary, const std::vector<uint8_t> & acsBundleSerialized)
+bool ZmqStorageInterface::Impl::WriteAcsBundle(const Bpv6CbhePrimaryBlock & primary, const padded_vector_uint8_t& acsBundleSerialized)
 {
     const cbhe_eid_t & hdtnSrcEid = primary.m_sourceNodeId;
     const uint64_t newCustodyIdForAcsCustodySignal = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(hdtnSrcEid);
@@ -642,8 +642,8 @@ static void CustomCleanupToEgressHdr(void *data, void *hint) {
 static void CustomCleanupStorageAckHdr(void *data, void *hint) {
     delete static_cast<hdtn::StorageAckHdr*>(hint);
 }
-static void CustomCleanupStdVecUint8(void *data, void *hint) {
-    delete static_cast<std::vector<uint8_t>*>(hint);
+static void CustomCleanupPaddedVecUint8(void* data, void* hint) {
+    delete static_cast<padded_vector_uint8_t*>(hint);
 }
 static void CustomCleanupStdString(void* data, void* hint) {
     delete static_cast<std::string*>(hint);
@@ -667,9 +667,9 @@ bool ZmqStorageInterface::Impl::ReleaseOne_NoBlock(const OutductInfo_t& info, co
         //bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks); //get it back
     }
         
-    std::vector<uint8_t> * vecUint8BundleDataRawPointer = new std::vector<uint8_t>();
+    padded_vector_uint8_t* vecUint8BundleDataRawPointer = new padded_vector_uint8_t();
     const bool successReadAllSegments = m_bsmPtr->ReadAllSegments(m_sessionRead, *vecUint8BundleDataRawPointer);
-    zmq::message_t zmqBundleDataMessageWithDataStolen(vecUint8BundleDataRawPointer->data(), vecUint8BundleDataRawPointer->size(), CustomCleanupStdVecUint8, vecUint8BundleDataRawPointer);
+    zmq::message_t zmqBundleDataMessageWithDataStolen(vecUint8BundleDataRawPointer->data(), vecUint8BundleDataRawPointer->size(), CustomCleanupPaddedVecUint8, vecUint8BundleDataRawPointer);
         
     if (!successReadAllSegments) {
         LOG_ERROR(subprocess) << "unable to read all segments from disk";

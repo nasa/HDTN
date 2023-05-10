@@ -35,6 +35,7 @@
 #include <zmq.hpp>
 #include "BundleCallbackFunctionDefines.h"
 #include "TelemetryDefinitions.h"
+#include "PaddedVectorUint8.h"
 
 struct OutductFinalStats {
     std::string m_convergenceLayer;
@@ -57,7 +58,7 @@ public:
     virtual std::size_t GetTotalDataSegmentsUnacked() = 0;
     virtual bool Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t> && userData) = 0;
     virtual bool Forward(zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData) = 0;
-    virtual bool Forward(std::vector<uint8_t> & movableDataVec, std::vector<uint8_t>&& userData) = 0;
+    virtual bool Forward(padded_vector_uint8_t& movableDataVec, std::vector<uint8_t>&& userData) = 0;
     OUTDUCT_MANAGER_LIB_EXPORT virtual void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
     OUTDUCT_MANAGER_LIB_EXPORT virtual void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
     OUTDUCT_MANAGER_LIB_EXPORT virtual void SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback);

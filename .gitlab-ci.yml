@@ -61,7 +61,7 @@ build-extra-options:
     - mkdir -p external/lib
     - cp /home/civetweb/libcivetweb.a external/lib
     - mkdir -p build
-    - cmake -S . -B build -DUSE_WEB_INTERFACE:BOOL=OFF -DDO_STATS_LOGGING=ON -DENABLE_OPENSSL_SUPPORT=OFF
+    - cmake -S . -B build -DUSE_WEB_INTERFACE:BOOL=OFF -DDO_STATS_LOGGING=ON -DENABLE_OPENSSL_SUPPORT=OFF -DENABLE_BPSEC=OFF
     - make -C build/ -j8
   cache:
     key: build-without-gui-$CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID

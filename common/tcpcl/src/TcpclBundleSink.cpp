@@ -241,7 +241,7 @@ void TcpclBundleSink::TrySendOpportunisticBundleIfAvailable_FromIoServiceThread(
         LOG_ERROR(subprocess) << "opportunistic link unavailable";
         return;
     }
-    std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > bundleDataPair;
+    std::pair<std::unique_ptr<zmq::message_t>, padded_vector_uint8_t> bundleDataPair;
     const std::size_t totalBundlesUnacked = m_base_outductTelemetry.m_totalBundlesSent - m_base_outductTelemetry.m_totalBundlesAcked; //same as Virtual_GetTotalBundlesUnacked
     if ((totalBundlesUnacked < M_BASE_MAX_UNACKED_BUNDLES_IN_PIPELINE) && m_tryGetOpportunisticDataFunction && m_tryGetOpportunisticDataFunction(bundleDataPair)) {
         BaseClass_Forward(bundleDataPair.first, bundleDataPair.second, static_cast<bool>(bundleDataPair.first), std::vector<uint8_t>());

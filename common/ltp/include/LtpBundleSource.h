@@ -48,7 +48,7 @@ public:
     LTP_LIB_EXPORT void Stop();
     LTP_LIB_EXPORT bool Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData);
     LTP_LIB_EXPORT bool Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData);
-    LTP_LIB_EXPORT bool Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData);
+    LTP_LIB_EXPORT bool Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_t>&& userData);
     LTP_LIB_EXPORT std::size_t GetTotalDataSegmentsAcked();
     LTP_LIB_EXPORT std::size_t GetTotalDataSegmentsSent();
     LTP_LIB_EXPORT std::size_t GetTotalDataSegmentsUnacked();
