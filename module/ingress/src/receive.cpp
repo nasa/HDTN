@@ -47,7 +47,7 @@
 #include "BinaryConversions.h"
 #ifdef BPSEC_SUPPORT_ENABLED
 #include "BPSecManager.h"
-# define DO_BPSEC_TEST 1
+//# define DO_BPSEC_TEST 1
 #endif
 
 namespace hdtn {
