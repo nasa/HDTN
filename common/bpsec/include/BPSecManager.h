@@ -87,6 +87,7 @@ public:
     * Verifies any BIB block(s) within the preloaded bundle view.  The bundle must be loaded with padded data.
     *
     * @param ctxWrapper The reusable (allocated once) openssl HMAC_CTX context.
+    * @param ctxWrapperForKeyUnwrap The reusable (allocated once) openssl EVP_CIPHER_CTX context (for key unwrap operations).
     * @param bv The preloaded bundle view.  The bundle must be loaded with padded data!
     * @param keyEncryptionKey The key used for unwrapping any wrapped keys included in the BIB blocks. (set to NULL if not present)
     * @param keyEncryptionKeyLength The length of the keyEncryptionKey. (should set to 0 if keyEncryptionKey is NULL)
@@ -113,6 +114,7 @@ public:
     * Adds a BIB block to the preloaded bundle view.  The bundle must be loaded with padded data.
     *
     * @param ctxWrapper The reusable (allocated once) openssl HMAC_CTX context.
+    * @param ctxWrapperForKeyWrap The reusable (allocated once) openssl EVP_CIPHER_CTX context (for key wrap operations).
     * @param bv The preloaded bundle view.  The bundle must be loaded with padded data!
     * @param integrityScopeMask The scope mask used for determining the Integrity-Protected Plaintext (IPPT) to hash.
     * @param variant The SHA variant to use.
@@ -216,7 +218,7 @@ public:
     /**
     * Unwraps a key.
     *
-    * @param ctxWrapper The reusable (allocated once) openssl EVP_CIPHER_CTX context (for keywrap operations).
+    * @param ctxWrapper The reusable (allocated once) openssl EVP_CIPHER_CTX context (for key unwrap operations).
     * @param keyEncryptionKey The key encryption key (KEK) to be used for unwrapping the data encryption key (DEK).
     * @param keyEncryptionKeyLength The length in bytes of the key encryption key (KEK).
     * @param keyToUnwrap The wrapped key to be unwrapped into a data encryption key (DEK).
@@ -234,6 +236,7 @@ public:
     * Decrypts any BCB target block(s) within the preloaded bundle view in-place.  The bundle must be loaded with padded data.
     *
     * @param ctxWrapper The reusable (allocated once) openssl EVP_CIPHER_CTX context.
+    * @param ctxWrapperForKeyUnwrap The reusable (allocated once) openssl EVP_CIPHER_CTX context (for key unwrap operations).
     * @param bv The preloaded bundle view.  The bundle must be loaded with padded data!
     * @param keyEncryptionKey The key used for unwrapping any wrapped keys included in the BCB blocks.
     *                         Any wrapped keys would then be unwrapped into a dataEncryptionKey (DEK) which would be used
@@ -261,6 +264,7 @@ public:
     * Adds a BCB block to the preloaded bundle view and encrypts the targets.  The bundle must be loaded with padded data.
     *
     * @param ctxWrapper The reusable (allocated once) openssl EVP_CIPHER_CTX context.
+    * @param ctxWrapperForKeyWrap The reusable (allocated once) openssl EVP_CIPHER_CTX context (for key wrap operations).
     * @param bv The preloaded bundle view.  The bundle must be loaded with padded data!
     * @param aadScopeMask The scope mask used for determining the additional authenticated data (AAD).
     * @param aesVariant The AES variant to use.
