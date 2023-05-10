@@ -109,18 +109,17 @@ static const uint8_t ALG_MINUS_5_TO_BYTE_LENGTH_LUT[3] = { //7 is highest index 
 };
 
 #ifdef BPSEC_USE_SSL3
+//must be non-const to work as param data
 //data is non-const, but should act as const
-static char* ALG_MINUS_5_TO_SHA_NAME_LUT[3] = { //must be non-const to work as param data
-    "SHA256", //HMAC_256_256 = 5,
-    "SHA384", //HMAC_384_384 = 6,
-    "SHA512" //HMAC_512_512 = 7
-};
+static char sha256Str[] = "SHA256";
+static char sha384Str[] = "SHA384";
+static char sha512Str[] = "SHA512";
 
 //https://mta.openssl.org/pipermail/openssl-users/2021-July/013990.html
 static const OSSL_PARAM ALG_MINUS_5_TO_PARAM_LUT[3][2] = {
-    {OSSL_PARAM_construct_utf8_string("digest", ALG_MINUS_5_TO_SHA_NAME_LUT[0], 0), OSSL_PARAM_construct_end()}, //HMAC_256_256 = 5,
-    {OSSL_PARAM_construct_utf8_string("digest", ALG_MINUS_5_TO_SHA_NAME_LUT[1], 0), OSSL_PARAM_construct_end()}, //HMAC_384_384 = 6,
-    {OSSL_PARAM_construct_utf8_string("digest", ALG_MINUS_5_TO_SHA_NAME_LUT[2], 0), OSSL_PARAM_construct_end()} //HMAC_512_512 = 7
+    {OSSL_PARAM_construct_utf8_string("digest", sha256Str, 0), OSSL_PARAM_construct_end()}, //HMAC_256_256 = 5,
+    {OSSL_PARAM_construct_utf8_string("digest", sha384Str, 0), OSSL_PARAM_construct_end()}, //HMAC_384_384 = 6,
+    {OSSL_PARAM_construct_utf8_string("digest", sha512Str, 0), OSSL_PARAM_construct_end()} //HMAC_512_512 = 7
 };
 #else
 static const EVP_MD* ALG_MINUS_5_TO_EVPMD_LUT[3] = { //7 is highest index in COSE_ALGORITHMS
