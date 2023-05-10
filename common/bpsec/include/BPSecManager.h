@@ -31,11 +31,6 @@
 #include "codec/BundleViewV7.h"
 #include "codec/bpv7.h"
 #include "bpsec_export.h"
-#include <openssl/evp.h>
-#include <openssl/hmac.h>
-#include <openssl/aes.h>
-#include <openssl/bio.h>
-#include <openssl/err.h>
 
 class BPSecManager { 
 private:
@@ -44,7 +39,10 @@ public:
     struct EvpCipherCtxWrapper {
         BPSEC_EXPORT EvpCipherCtxWrapper();
         BPSEC_EXPORT ~EvpCipherCtxWrapper();
-        EVP_CIPHER_CTX* m_ctx;
+        /// PIMPL idiom
+        struct Impl;
+        /// Pointer to the internal implementation
+        std::unique_ptr<Impl> m_pimpl;
     };
     struct HmacCtxWrapper {
         BPSEC_EXPORT HmacCtxWrapper();
@@ -103,6 +101,7 @@ public:
     * @return true if there were no errors, false otherwise
     */
     BPSEC_EXPORT static bool TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
+        EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
         BundleViewV7& bv,
         const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping hmac key only)
         const uint8_t* hmacKey, const unsigned int hmacKeyLength, //NULL if not present (when no wrapped key is present)
@@ -134,6 +133,7 @@ public:
     * @return true if there were no errors, false otherwise
     */
     BPSEC_EXPORT static bool TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
+        EvpCipherCtxWrapper& ctxWrapperForKeyWrap,
         BundleViewV7& bv,
         BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS integrityScopeMask,
         COSE_ALGORITHMS variant,
@@ -199,6 +199,7 @@ public:
     /**
     * Wraps a key.
     *
+    * @param ctxWrapper The reusable (allocated once) openssl EVP_CIPHER_CTX context (for keywrap operations).
     * @param keyEncryptionKey The key encryption key (KEK) to be used for encrypting/wrapping the data encryption key (DEK).
     * @param keyEncryptionKeyLength The length in bytes of the key encryption key (KEK).
     * @param keyToWrap The data encryption key (DEK) to be encrypted/wrapped.
@@ -207,7 +208,7 @@ public:
     * @param wrappedKeyOutSize The generated size (in bytes) of the wrapped key (will be equivalent to keyEncryptionKeyLength + 8).
     * @return true if there were no errors, false otherwise
     */
-    BPSEC_EXPORT static bool AesWrapKey(
+    BPSEC_EXPORT static bool AesWrapKey(EvpCipherCtxWrapper& ctxWrapper,
         const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
         const uint8_t* keyToWrap, const unsigned int keyToWrapLength,
         uint8_t* wrappedKeyOut, unsigned int& wrappedKeyOutSize);
@@ -215,6 +216,7 @@ public:
     /**
     * Unwraps a key.
     *
+    * @param ctxWrapper The reusable (allocated once) openssl EVP_CIPHER_CTX context (for keywrap operations).
     * @param keyEncryptionKey The key encryption key (KEK) to be used for unwrapping the data encryption key (DEK).
     * @param keyEncryptionKeyLength The length in bytes of the key encryption key (KEK).
     * @param keyToUnwrap The wrapped key to be unwrapped into a data encryption key (DEK).
@@ -223,7 +225,7 @@ public:
     * @param unwrappedKeyOutSize The generated size (in bytes) of the unwrapped key (will be equivalent to keyEncryptionKeyLength).
     * @return true if there were no errors, false otherwise
     */
-    BPSEC_EXPORT static bool AesUnwrapKey(
+    BPSEC_EXPORT static bool AesUnwrapKey(EvpCipherCtxWrapper& ctxWrapper,
         const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
         const uint8_t* keyToUnwrap, const unsigned int keyToUnwrapLength,
         uint8_t* unwrappedKeyOut, unsigned int& unwrappedKeyOutSize);
@@ -248,6 +250,7 @@ public:
     * @return true if there were no errors, false otherwise
     */
     BPSEC_EXPORT static bool TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
+        EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
         BundleViewV7& bv,
         const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
         const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength,
@@ -281,6 +284,7 @@ public:
     * @return true if there were no errors, false otherwise
     */
     BPSEC_EXPORT static bool TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
+        EvpCipherCtxWrapper& ctxWrapperForKeyWrap,
         BundleViewV7& bv,
         BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS aadScopeMask,
         COSE_ALGORITHMS aesVariant,

@@ -24,6 +24,7 @@
 #include "BinaryConversions.h"
 #include "BPSecManager.h"
 #include <boost/algorithm/string.hpp>
+#include <openssl/evp.h>
 
 
 
@@ -119,6 +120,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
     BOOST_REQUIRE(BinaryConversions::HexStringToBytes(hmacKeyString, hmacKeyBytes));
 
     BPSecManager::HmacCtxWrapper ctxWrapper;
+    BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
     BPSecManager::ReusableElementsInternal reusableElementsInternal;
 
     std::string nobibSerializedBundleString; //used later when bib is removed
@@ -130,6 +132,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(toSwapIn, false));
 
         BOOST_REQUIRE(BPSecManager::TryVerifyBundleIntegrity(ctxWrapper,
+            ctxWrapperKeyWrapOps,
             bv,
             NULL, 0, //NULL if not present (for unwrapping hmac key only)
             hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
@@ -151,6 +154,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
 
         static const uint64_t targetBlockNumbers[1] = { 1 };
         BOOST_REQUIRE(BPSecManager::TryAddBundleIntegrity(ctxWrapper,
+            ctxWrapperKeyWrapOps,
             bv,
             BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE,
             COSE_ALGORITHMS::HMAC_512_512,
@@ -191,6 +195,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleMultipleSourcesTestCase)
     BOOST_REQUIRE(BinaryConversions::HexStringToBytes(hmacKeyString, hmacKeyBytes));
 
     BPSecManager::HmacCtxWrapper ctxWrapper;
+    BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
     BPSecManager::ReusableElementsInternal reusableElementsInternal;
 
     std::string nobibSerializedBundleString; //used later when bib is removed
@@ -202,6 +207,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleMultipleSourcesTestCase)
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(toSwapIn, false));
 
         BOOST_REQUIRE(BPSecManager::TryVerifyBundleIntegrity(ctxWrapper,
+            ctxWrapperKeyWrapOps,
             bv,
             NULL, 0, //NULL if not present (for unwrapping hmac key only)
             hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
@@ -223,6 +229,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleMultipleSourcesTestCase)
 
         static const uint64_t targetBlockNumbers[2] = { 0, 2 };
         BOOST_REQUIRE(BPSecManager::TryAddBundleIntegrity(ctxWrapper,
+            ctxWrapperKeyWrapOps,
             bv,
             BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE,
             COSE_ALGORITHMS::HMAC_256_256,
@@ -262,6 +269,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
     BOOST_REQUIRE(BinaryConversions::HexStringToBytes(hmacKeyString, hmacKeyBytes));
 
     BPSecManager::HmacCtxWrapper ctxWrapper;
+    BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
     BPSecManager::ReusableElementsInternal reusableElementsInternal;
 
     std::string nobibSerializedBundleString; //used later when bib is removed
@@ -273,6 +281,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(toSwapIn, false));
 
         BOOST_REQUIRE(BPSecManager::TryVerifyBundleIntegrity(ctxWrapper,
+            ctxWrapperKeyWrapOps,
             bv,
             NULL, 0, //NULL if not present (for unwrapping hmac key only)
             hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
@@ -295,6 +304,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
         static const uint64_t targetBlockNumbers[1] = { 1 };
         bv.ReserveBlockNumber(2); //force bib block number to be 3 to match test
         BOOST_REQUIRE(BPSecManager::TryAddBundleIntegrity(ctxWrapper,
+            ctxWrapperKeyWrapOps,
             bv,
             BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::ALL_FLAGS_SET,
             COSE_ALGORITHMS::HMAC_384_384,
@@ -316,6 +326,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
 
 BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
 {
+    BPSecManager::EvpCipherCtxWrapper ctxWrapper;
     static const std::string payloadString("Ready to generate a 32-byte payload");
     
 
@@ -349,7 +360,7 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
     //wrap key
     std::vector<uint8_t> aesWrappedKeyBytes(expectedAesWrappedKeyBytes.size() + 100);
     unsigned int wrappedKeyOutSize;
-    BOOST_REQUIRE(BPSecManager::AesWrapKey(
+    BOOST_REQUIRE(BPSecManager::AesWrapKey(ctxWrapper,
         keyEncryptionKeyBytes.data(), static_cast<const unsigned int>(keyEncryptionKeyBytes.size()),
         keyBytes.data(), static_cast<const unsigned int>(keyBytes.size()),
         aesWrappedKeyBytes.data(), wrappedKeyOutSize));
@@ -360,7 +371,7 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
     //unwrap key: https://gchq.github.io/CyberChef/#recipe=AES_Key_Unwrap(%7B'option':'Hex','string':'6162636465666768696a6b6c6d6e6f70'%7D,%7B'option':'Hex','string':'a6a6a6a6a6a6a6a6'%7D,'Hex','Hex')&input=NjljNDExMjc2ZmVjZGRjNDc4MGRmNDJjOGEyYWY4OTI5NmZhYmYzNGQ3ZmFlNzAw
     std::vector<uint8_t> unwrappedKeyBytes(keyBytes.size() + 100);
     unsigned int unwrappedKeyOutSize;
-    BOOST_REQUIRE(BPSecManager::AesUnwrapKey(
+    BOOST_REQUIRE(BPSecManager::AesUnwrapKey(ctxWrapper,
         keyEncryptionKeyBytes.data(), static_cast<const unsigned int>(keyEncryptionKeyBytes.size()),
         aesWrappedKeyBytes.data(), static_cast<const unsigned int>(aesWrappedKeyBytes.size()),
         unwrappedKeyBytes.data(), unwrappedKeyOutSize));
@@ -378,7 +389,6 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
     //Encrypt payload data (not in place)  
     std::vector<uint8_t> cipherTextBytes(payloadString.size() + EVP_MAX_BLOCK_LENGTH, 'b'); //paint extra bytes (should be unmodified)
     std::vector<uint8_t> tagBytes(EVP_GCM_TLS_TAG_LEN + 10, 'a'); //paint/add 10 extra bytes to make sure they are unmodified
-    BPSecManager::EvpCipherCtxWrapper ctxWrapper;
     uint64_t cipherTextOutSize = 0;
     //not inplace test (separate in and out buffers)
     BOOST_REQUIRE(BPSecManager::AesGcmEncrypt(ctxWrapper,
@@ -514,7 +524,9 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleWithKeyWrapTestCase)
     BPSecManager::ReusableElementsInternal reusableElementsInternal;
 
     BPSecManager::EvpCipherCtxWrapper ctxWrapper;
+    BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
     BOOST_REQUIRE(BPSecManager::TryDecryptBundle(ctxWrapper,
+        ctxWrapperKeyWrapOps,
         bv,
         keyEncryptionKeyBytes.data(), static_cast<const unsigned int>(keyEncryptionKeyBytes.size()),
         NULL, 0, //no DEK (using KEK instead)
@@ -556,6 +568,7 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleWithKeyWrapTestCase)
 
         const uint64_t insertBcbBeforeThisBlockNumber = 1;
         BOOST_REQUIRE(BPSecManager::TryEncryptBundle(ctxWrapper,
+            ctxWrapperKeyWrapOps,
             bv2,
             BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::NO_ADDITIONAL_SCOPE,
             COSE_ALGORITHMS::A128GCM,
@@ -608,7 +621,9 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleFullScopeTestCase)
     BPSecManager::ReusableElementsInternal reusableElementsInternal;
 
     BPSecManager::EvpCipherCtxWrapper ctxWrapper;
+    BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
     BOOST_REQUIRE(BPSecManager::TryDecryptBundle(ctxWrapper,
+        ctxWrapperKeyWrapOps,
         bv,
         NULL, 0, //not using KEK
         dataEncryptionKeyBytes.data(), static_cast<const unsigned int>(dataEncryptionKeyBytes.size()),
@@ -694,6 +709,7 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleFullScopeTestCase)
 
         const uint64_t insertBcbBeforeThisBlockNumber = 1;
         BOOST_REQUIRE(BPSecManager::TryEncryptBundle(ctxWrapper,
+            ctxWrapperKeyWrapOps,
             bv2,
             BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET,
             COSE_ALGORITHMS::A256GCM,

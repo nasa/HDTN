@@ -1112,8 +1112,10 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
 
                 static thread_local BPSecManager::ReusableElementsInternal bpsecReusableElementsInternal;
                 static thread_local BPSecManager::EvpCipherCtxWrapper ctxWrapper;
+                static thread_local BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
 
                 if (!BPSecManager::TryDecryptBundle(ctxWrapper,
+                    ctxWrapperKeyWrapOps,
                     bv,
                     NULL, 0, //not using KEK
                     dataEncryptionKeyBytes.data(), static_cast<const unsigned int>(dataEncryptionKeyBytes.size()),
@@ -1124,7 +1126,14 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                     return false;
                 }
                 else {
-                    //LOG_DEBUG(subprocess) << "ingress decrypted bundle successfully";
+                    static thread_local bool printedMsg = false;
+                    if (!printedMsg) {
+                        LOG_INFO(subprocess) << "first time ingress decrypted bundle successfully from source node " 
+                            << bv.m_primaryBlockView.header.m_sourceNodeId
+                            << " ..(This message type will now be suppressed.)";
+                        printedMsg = true;
+                    }
+                    //LOG_INFO(subprocess) << "ingress decrypted bundle successfully";
                 }
 #endif // DO_BPSEC_TEST
                 //get previous node

@@ -22,6 +22,11 @@
 #include <boost/next_prior.hpp>
 #include "CborUint.h"
 #include <boost/noncopyable.hpp>
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+#include <openssl/aes.h>
+#include <openssl/bio.h>
+#include <openssl/err.h>
 #include <openssl/opensslv.h>
 
 #if (OPENSSL_VERSION_NUMBER >= 0x30000000L)
@@ -53,15 +58,19 @@ to prefetch an algorithm once initially,
 and then pass this created object to any operations that are currently using "Implicit fetching".
 See an example of Explicit fetching in "USING ALGORITHMS IN APPLICATIONS".*/
 
-
-
-BPSecManager::EvpCipherCtxWrapper::EvpCipherCtxWrapper() : m_ctx(EVP_CIPHER_CTX_new()) {}
-BPSecManager::EvpCipherCtxWrapper::~EvpCipherCtxWrapper() {
-    if (m_ctx) {
-        EVP_CIPHER_CTX_free(m_ctx);
-        m_ctx = NULL;
+struct BPSecManager::EvpCipherCtxWrapper::Impl : private boost::noncopyable {
+    Impl() : m_ctx(EVP_CIPHER_CTX_new()) {}
+    ~Impl() {
+        if (m_ctx) {
+            EVP_CIPHER_CTX_free(m_ctx);
+            m_ctx = NULL;
+        }
     }
-}
+    EVP_CIPHER_CTX* m_ctx;
+};
+
+BPSecManager::EvpCipherCtxWrapper::EvpCipherCtxWrapper() : m_pimpl(boost::make_unique<BPSecManager::EvpCipherCtxWrapper::Impl>()) {}
+BPSecManager::EvpCipherCtxWrapper::~EvpCipherCtxWrapper() {}
 
 
 struct BPSecManager::HmacCtxWrapper::Impl : private boost::noncopyable {
@@ -100,6 +109,7 @@ static const uint8_t ALG_MINUS_5_TO_BYTE_LENGTH_LUT[3] = { //7 is highest index 
 };
 
 #ifdef BPSEC_USE_SSL3
+//https://mta.openssl.org/pipermail/openssl-users/2021-July/013990.html
 static const OSSL_PARAM ALG_MINUS_5_TO_PARAM_LUT[3][2] = {
     {OSSL_PARAM_construct_utf8_string("digest", "SHA256", 0), OSSL_PARAM_construct_end()}, //HMAC_256_256 = 5,
     {OSSL_PARAM_construct_utf8_string("digest", "SHA384", 0), OSSL_PARAM_construct_end()}, //HMAC_384_384 = 6,
@@ -210,7 +220,7 @@ bool BPSecManager::AesGcmEncrypt(EvpCipherCtxWrapper& ctxWrapper,
     uint8_t* cipherTextOut, uint64_t& cipherTextOutSize, uint8_t* tagOut)
 {
     //EVP_CIPHER_CTX_new() returns a pointer to a newly created EVP_CIPHER_CTX for success and NULL for failure.
-    EVP_CIPHER_CTX* ctx = ctxWrapper.m_ctx;
+    EVP_CIPHER_CTX* ctx = ctxWrapper.m_pimpl->m_ctx;
 
     cipherTextOutSize = 0;
     uint8_t* const cipherTextOutBase = cipherTextOut;
@@ -337,7 +347,7 @@ bool BPSecManager::AesGcmDecrypt(EvpCipherCtxWrapper& ctxWrapper,
     uint8_t* decryptedDataOut, uint64_t& decryptedDataOutSize)
 {
     //EVP_CIPHER_CTX_new() returns a pointer to a newly created EVP_CIPHER_CTX for success and NULL for failure.
-    EVP_CIPHER_CTX* ctx = ctxWrapper.m_ctx;
+    EVP_CIPHER_CTX* ctx = ctxWrapper.m_pimpl->m_ctx;
 
     decryptedDataOutSize = 0;
     uint8_t* const decryptedDataOutBase = decryptedDataOut;
@@ -432,11 +442,59 @@ bool BPSecManager::AesGcmDecrypt(EvpCipherCtxWrapper& ctxWrapper,
     return true;
 }
 
-bool BPSecManager::AesWrapKey(
+bool BPSecManager::AesWrapKey(EvpCipherCtxWrapper& ctxWrapper,
     const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
     const uint8_t* keyToWrap, const unsigned int keyToWrapLength,
     uint8_t* wrappedKeyOut, unsigned int& wrappedKeyOutSize)
 {
+#ifdef BPSEC_USE_SSL3
+    const uint8_t* const wrappedKeyOutBase = wrappedKeyOut;
+    EVP_CIPHER_CTX* ctx = ctxWrapper.m_pimpl->m_ctx;
+    if (ctx == NULL) {
+        return false;
+    }
+
+    //Used for Legacy purposes only. This flag needed to be set to indicate the cipher handled wrapping.
+    EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
+
+    // Set cipher type and mode
+    //per https://www.openssl.org/docs/man1.1.1/man3/EVP_EncryptUpdate.html
+    // New code should use EVP_EncryptInit_ex(), EVP_EncryptFinal_ex(), EVP_DecryptInit_ex(), EVP_DecryptFinal_ex(),
+    // EVP_CipherInit_ex() and EVP_CipherFinal_ex() because they can reuse an existing context without allocating and freeing it up on each call.
+    const EVP_CIPHER* cipherPtr;
+    if (keyToWrapLength == 16) {
+        cipherPtr = EVP_aes_128_wrap();
+    }
+    else if (keyToWrapLength == 32) {
+        cipherPtr = EVP_aes_256_wrap();
+    }
+    else {
+        LOG_ERROR(subprocess) << "Error Incorrect Key length!!";
+        return false;
+    }
+    //EVP_EncryptInit_ex(), EVP_EncryptUpdate() and EVP_EncryptFinal_ex() return 1 for success and 0 for failure.
+    if (!EVP_EncryptInit_ex(ctx, cipherPtr, NULL, keyEncryptionKey, NULL)) {
+        ERR_print_errors_fp(stderr);
+        return false;
+    }
+
+    int tmpOutLength;
+    if (!EVP_EncryptUpdate(ctx, wrappedKeyOut, &tmpOutLength, keyToWrap, keyToWrapLength)) {
+        ERR_print_errors_fp(stderr);
+        return false;
+    }
+    wrappedKeyOut += tmpOutLength;
+
+    if (!EVP_EncryptFinal_ex(ctx, wrappedKeyOut, &tmpOutLength)) {
+        ERR_print_errors_fp(stderr);
+        return false;
+    }
+    wrappedKeyOut += tmpOutLength;
+
+    wrappedKeyOutSize = static_cast<unsigned int>(wrappedKeyOut - wrappedKeyOutBase);
+    return wrappedKeyOutSize == (keyEncryptionKeyLength + 8);
+#else
+    (void)ctxWrapper; //parameter not used
     AES_KEY aesKey;
 
     //AES_set_encrypt_key() and AES_set_decrypt_key() return 0 for success, -1 if userKey or key is NULL, or -2 if the number of bits is unsupported.
@@ -450,13 +508,62 @@ bool BPSecManager::AesWrapKey(
     const int wrappedKeyLength = AES_wrap_key(&aesKey, NULL, wrappedKeyOut, keyToWrap, keyToWrapLength);
     wrappedKeyOutSize = static_cast<unsigned int>(wrappedKeyLength);
     return wrappedKeyLength == (keyEncryptionKeyLength + 8);
+#endif
 }
 
-bool BPSecManager::AesUnwrapKey(
+bool BPSecManager::AesUnwrapKey(EvpCipherCtxWrapper& ctxWrapper,
     const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
     const uint8_t* keyToUnwrap, const unsigned int keyToUnwrapLength,
     uint8_t* unwrappedKeyOut, unsigned int& unwrappedKeyOutSize)
 {
+#ifdef BPSEC_USE_SSL3
+    const uint8_t* const unwrappedKeyOutBase = unwrappedKeyOut;
+    EVP_CIPHER_CTX* ctx = ctxWrapper.m_pimpl->m_ctx;
+    if (ctx == NULL) {
+        return false;
+    }
+
+    //Used for Legacy purposes only. This flag needed to be set to indicate the cipher handled wrapping.
+    EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
+
+    // Set cipher type and mode
+    //per https://www.openssl.org/docs/man1.1.1/man3/EVP_EncryptUpdate.html
+    // New code should use EVP_EncryptInit_ex(), EVP_EncryptFinal_ex(), EVP_DecryptInit_ex(), EVP_DecryptFinal_ex(),
+    // EVP_CipherInit_ex() and EVP_CipherFinal_ex() because they can reuse an existing context without allocating and freeing it up on each call.
+    const EVP_CIPHER* cipherPtr;
+    if (keyEncryptionKeyLength == 16) {
+        cipherPtr = EVP_aes_128_wrap();
+    }
+    else if (keyEncryptionKeyLength == 32) {
+        cipherPtr = EVP_aes_256_wrap();
+    }
+    else {
+        LOG_ERROR(subprocess) << "Error Incorrect Key length!!";
+        return false;
+    }
+    
+    if (!EVP_DecryptInit_ex(ctx, cipherPtr, NULL, keyEncryptionKey, NULL)) {
+        ERR_print_errors_fp(stderr);
+        return false;
+    }
+
+    int tmpOutLength;
+    if (!EVP_DecryptUpdate(ctx, unwrappedKeyOut, &tmpOutLength, keyToUnwrap, keyToUnwrapLength)) {
+        ERR_print_errors_fp(stderr);
+        return false;
+    }
+    unwrappedKeyOut += tmpOutLength;
+
+    if (!EVP_DecryptFinal_ex(ctx, unwrappedKeyOut, &tmpOutLength)) {
+        ERR_print_errors_fp(stderr);
+        return false;
+    }
+    unwrappedKeyOut += tmpOutLength;
+
+    unwrappedKeyOutSize = static_cast<unsigned int>(unwrappedKeyOut - unwrappedKeyOutBase);
+    return unwrappedKeyOutSize == keyEncryptionKeyLength;
+#else
+    (void)ctxWrapper; //parameter not used
     AES_KEY aesKey;
 
     //AES_set_encrypt_key() and AES_set_decrypt_key() return 0 for success, -1 if userKey or key is NULL, or -2 if the number of bits is unsupported.
@@ -470,6 +577,7 @@ bool BPSecManager::AesUnwrapKey(
     const int unwrappedKeyLength = AES_unwrap_key(&aesKey, NULL, unwrappedKeyOut, keyToUnwrap, keyToUnwrapLength);
     unwrappedKeyOutSize = static_cast<unsigned int>(unwrappedKeyLength);
     return unwrappedKeyLength == keyEncryptionKeyLength;
+#endif
 }
 
 
@@ -477,6 +585,7 @@ bool BPSecManager::AesUnwrapKey(
 //Bundle provides AES wrapped key, AES variant, IV, tag, and cipherText.
 //This function must unwrap key with KEK to get the DEK (data encryption key), then decrypt cipherText.
 bool BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
+    EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
     BundleViewV7& bv,
     const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping DEK only)
     const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength, //NULL if not present (when no wrapped key is present)
@@ -551,7 +660,7 @@ bool BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
                 return false;
             }
             //unwrap key:
-            if (!BPSecManager::AesUnwrapKey(
+            if (!BPSecManager::AesUnwrapKey(ctxWrapperForKeyUnwrap,
                 keyEncryptionKey, keyEncryptionKeyLength,
                 wrappedKeyPtr->data(), static_cast<const unsigned int>(wrappedKeyPtr->size()),
                 unwrappedKeyBytes, unwrappedKeyOutSize))
@@ -690,6 +799,7 @@ bool BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
 //Bundle provides AAD data.
 //This function must unwrap key with KEK to get the DEK (data encryption key), then decrypt cipherText.
 bool BPSecManager::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
+    EvpCipherCtxWrapper& ctxWrapperForKeyWrap,
     BundleViewV7& bv,
     BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS aadScopeMask,
     COSE_ALGORITHMS aesVariant,
@@ -763,7 +873,7 @@ bool BPSecManager::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
         std::vector<uint8_t>* wrappedKeyPtr = bcb.AddAndGetAesWrappedKeyPtr();
         wrappedKeyPtr->resize(32 + 10); //32+8 worse case for 32*8=256bit (KEKlen + 8)
         unsigned int wrappedKeyOutSize;
-        if (!BPSecManager::AesWrapKey(
+        if (!BPSecManager::AesWrapKey(ctxWrapperForKeyWrap,
             keyEncryptionKey, keyEncryptionKeyLength,
             dataEncryptionKey, dataEncryptionKeyLength, //Wrapping this key
             wrappedKeyPtr->data(), wrappedKeyOutSize))
@@ -864,6 +974,7 @@ bool BPSecManager::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
 //Bundle provides AES wrapped key, AES variant, IV, tag, and cipherText.
 //This function must unwrap key with KEK to get the DEK (data encryption key), then decrypt cipherText.
 bool BPSecManager::TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
+    EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
     BundleViewV7& bv,
     const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping hmac key only)
     const uint8_t* hmacKey, const unsigned int hmacKeyLength, //NULL if not present (when no wrapped key is present)
@@ -927,7 +1038,7 @@ bool BPSecManager::TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
                 return false;
             }
             //unwrap key:
-            if (!BPSecManager::AesUnwrapKey(
+            if (!BPSecManager::AesUnwrapKey(ctxWrapperForKeyUnwrap,
                 keyEncryptionKey, keyEncryptionKeyLength,
                 wrappedKeyPtr->data(), static_cast<const unsigned int>(wrappedKeyPtr->size()),
                 unwrappedKeyBytes, unwrappedKeyOutSize))
@@ -1092,6 +1203,7 @@ bool BPSecManager::TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
 }
 
 bool BPSecManager::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
+    EvpCipherCtxWrapper& ctxWrapperForKeyWrap,
     BundleViewV7& bv,
     BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS integrityScopeMask,
     COSE_ALGORITHMS variant,
@@ -1157,7 +1269,7 @@ bool BPSecManager::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
         std::vector<uint8_t>* wrappedKeyPtr = bib.AddAndGetAesWrappedKeyPtr();
         wrappedKeyPtr->resize(32 + 10); //32+8 worse case for 32*8=256bit (KEKlen + 8)
         unsigned int wrappedKeyOutSize;
-        if (!BPSecManager::AesWrapKey(
+        if (!BPSecManager::AesWrapKey(ctxWrapperForKeyWrap,
             keyEncryptionKey, keyEncryptionKeyLength,
             hmacKey, hmacKeyLength, //Wrapping this key
             wrappedKeyPtr->data(), wrappedKeyOutSize))

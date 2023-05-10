@@ -303,6 +303,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
     static const uint64_t targetBlockNumbers[1] = { 1 }; //just encrypt payload block
     BPSecManager::ReusableElementsInternal bpsecReusableElementsInternal;
     BPSecManager::EvpCipherCtxWrapper ctxWrapper;
+    BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
 #endif // DO_BPSEC_TEST
     zmq::message_t zmqMessageToSendWrapper;
     BundleViewV7 bv7;
@@ -438,6 +439,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                 }
 #ifdef DO_BPSEC_TEST
                 if (!BPSecManager::TryEncryptBundle(ctxWrapper,
+                    ctxWrapperKeyWrapOps,
                     bv7,
                     BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET,
                     COSE_ALGORITHMS::A256GCM,
