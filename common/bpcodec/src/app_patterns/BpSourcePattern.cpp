@@ -385,7 +385,15 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
 
                 //add hop count block (before payload last block)
                 {
-                    std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7HopCountCanonicalBlock>();
+                    std::unique_ptr<Bpv7CanonicalBlock> blockPtr;
+                    static constexpr std::size_t blockTypeCodeAsSizeT = static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::HOP_COUNT);
+                    if (bv7.m_blockNumberToRecycledCanonicalBlockArray[blockTypeCodeAsSizeT]) {
+                        //std::cout << "recycle hop count\n";
+                        blockPtr = std::move(bv7.m_blockNumberToRecycledCanonicalBlockArray[blockTypeCodeAsSizeT]);
+                    }
+                    else {
+                        blockPtr = boost::make_unique<Bpv7HopCountCanonicalBlock>();
+                    }
                     Bpv7HopCountCanonicalBlock& block = *(reinterpret_cast<Bpv7HopCountCanonicalBlock*>(blockPtr.get()));
 
                     block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
@@ -398,7 +406,15 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
 
                 // Append priority block
                 {
-                    std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7PriorityCanonicalBlock>();
+                    std::unique_ptr<Bpv7CanonicalBlock> blockPtr;
+                    static constexpr std::size_t blockTypeCodeAsSizeT = static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PRIORITY);
+                    if (bv7.m_blockNumberToRecycledCanonicalBlockArray[blockTypeCodeAsSizeT]) {
+                        //std::cout << "recycle priority\n";
+                        blockPtr = std::move(bv7.m_blockNumberToRecycledCanonicalBlockArray[blockTypeCodeAsSizeT]);
+                    }
+                    else {
+                        blockPtr = boost::make_unique<Bpv7PriorityCanonicalBlock>();
+                    }
                     Bpv7PriorityCanonicalBlock& block = *(reinterpret_cast<Bpv7PriorityCanonicalBlock*>(blockPtr.get()));
 
                     block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
@@ -410,7 +426,15 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
 
                 //append payload block (must be last block)
                 {
-                    std::unique_ptr<Bpv7CanonicalBlock> payloadBlockPtr = boost::make_unique<Bpv7CanonicalBlock>();
+                    std::unique_ptr<Bpv7CanonicalBlock> payloadBlockPtr;
+                    static constexpr std::size_t blockTypeCodeAsSizeT = static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PAYLOAD);
+                    if (bv7.m_blockNumberToRecycledCanonicalBlockArray[blockTypeCodeAsSizeT]) {
+                        //std::cout << "recycle payload\n";
+                        payloadBlockPtr = std::move(bv7.m_blockNumberToRecycledCanonicalBlockArray[blockTypeCodeAsSizeT]);
+                    }
+                    else {
+                        payloadBlockPtr = boost::make_unique<Bpv7CanonicalBlock>();
+                    }
                     Bpv7CanonicalBlock& payloadBlock = *payloadBlockPtr;
                     //payloadBlock.SetZero();
 

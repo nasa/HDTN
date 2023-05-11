@@ -276,8 +276,10 @@ void Bpv7CanonicalBlock::RecomputeCrcAfterDataModification(uint8_t * serializati
 
 //serialization must be temporarily modifyable to zero crc and restore it
 bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & canonicalPtr, uint8_t * serialization, uint64_t & numBytesTakenToDecode,
-    uint64_t bufferSize, const bool skipCrcVerify, const bool isAdminRecord)
+    uint64_t bufferSize, const bool skipCrcVerify, const bool isAdminRecord,
+    std::unique_ptr<Bpv7CanonicalBlock>* blockNumberToRecycledCanonicalBlockArray)
 {
+    static constexpr std::size_t MAX_NUM_BLOCK_TYPE_CODES = static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::RESERVED_MAX_BLOCK_TYPES);
     uint8_t cborSizeDecoded;
     const uint8_t * const serializationBase = serialization;
     if (bufferSize < Bpv7CanonicalBlock::smallestSerializedCanonicalSize) {
@@ -308,6 +310,7 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
     //reserved and are available for private and/or experimental use.
     //All other block type code values are reserved for future use.
     const BPV7_BLOCK_TYPE_CODE blockTypeCode = static_cast<BPV7_BLOCK_TYPE_CODE>(CborDecodeU64(serialization, &cborSizeDecoded, bufferSize));
+    const std::size_t blockTypeCodeAsSizeT = static_cast<std::size_t>(blockTypeCode);
     if ((cborSizeDecoded == 0) || (cborSizeDecoded > 2)) { //uint8_t should be size 1 or 2 encoded bytes
         return false; //failure
     }
@@ -318,6 +321,14 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
             return false;
         }
         canonicalPtr = boost::make_unique<Bpv7AdministrativeRecord>();
+    }
+    else if (blockNumberToRecycledCanonicalBlockArray
+        && (blockTypeCodeAsSizeT < MAX_NUM_BLOCK_TYPE_CODES)
+        && (blockNumberToRecycledCanonicalBlockArray[blockTypeCodeAsSizeT]))
+    {
+        //take from recycle bin (prevents allocations and deallocations)
+        canonicalPtr = std::move(blockNumberToRecycledCanonicalBlockArray[blockTypeCodeAsSizeT]);
+        //std::cout << "recycled block code " << blockTypeCodeAsSizeT << "\n";
     }
     else {
         switch (blockTypeCode) {

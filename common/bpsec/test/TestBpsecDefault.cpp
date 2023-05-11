@@ -293,6 +293,41 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
         BOOST_REQUIRE_NE(bibSerializedBundleString, nobibSerializedBundleString);
     }
 
+    //reload bundle many times to test BundleViewV7 block recycler (using same BundleViewV7 obj)
+    {
+        BundleViewV7 bvRecycled;
+        BOOST_REQUIRE_EQUAL(bvRecycled.m_listCanonicalBlockView.size(), 0);
+        Bpv7CanonicalBlock* lastPayloadBlockPtr = NULL;
+        Bpv7CanonicalBlock* lastIntegrityBlockPtr = NULL;
+        for (unsigned int i = 0; i < 4; ++i) {
+
+            padded_vector_uint8_t toSwapIn(bibSerializedBundle);
+            BOOST_REQUIRE(bvRecycled.SwapInAndLoadBundle(toSwapIn, false)); //load resets the bundleview
+            BOOST_REQUIRE_EQUAL(bvRecycled.m_listCanonicalBlockView.size(), 2);
+
+            if (i) {
+                //make sure blocks were recycled
+                BOOST_REQUIRE_EQUAL(lastPayloadBlockPtr, bvRecycled.m_listCanonicalBlockView.back().headerPtr.get());
+                BOOST_REQUIRE_EQUAL(lastIntegrityBlockPtr, bvRecycled.m_listCanonicalBlockView.front().headerPtr.get());
+            }
+            lastPayloadBlockPtr = bvRecycled.m_listCanonicalBlockView.back().headerPtr.get();
+            lastIntegrityBlockPtr = bvRecycled.m_listCanonicalBlockView.front().headerPtr.get();
+
+            BOOST_REQUIRE(BPSecManager::TryVerifyBundleIntegrity(ctxWrapper,
+                ctxWrapperKeyWrapOps,
+                bvRecycled,
+                NULL, 0, //NULL if not present (for unwrapping hmac key only)
+                hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
+                reusableElementsInternal,
+                true,
+                true));
+            BinaryConversions::BytesToHexString(bvRecycled.m_renderedBundle, nobibSerializedBundleString);
+            boost::to_lower(nobibSerializedBundleString);
+            BOOST_REQUIRE_NE(bibSerializedBundleString, nobibSerializedBundleString);
+            BOOST_REQUIRE_EQUAL(bvRecycled.m_listCanonicalBlockView.size(), 1); //after first loop, there will be just the payload block
+        }
+    }
+
     //load nobib bundle to test adding integrity
     {
         padded_vector_uint8_t nobibSerializedBundle;
