@@ -56,7 +56,7 @@ public:
     BP_APP_PATTERNS_LIB_EXPORT void Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfig_ptr & inductsConfigPtr,
         const boost::filesystem::path& bpSecConfigFilePath,
         bool custodyTransferUseAcs,
-        const cbhe_eid_t & myEid, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId,
+        const cbhe_eid_t & myEid, double bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId,
         const unsigned int bundleSendTimeoutSeconds, const uint64_t bundleLifetimeMilliseconds, const uint64_t bundlePriority,
         const bool requireRxBundleBeforeNextTx = false, const bool forceDisableCustody = false, const bool useBpVersion7 = false);
 
@@ -81,7 +81,7 @@ protected:
     virtual bool CopyPayload_Step2(uint8_t * destinationBuffer) = 0;
     BP_APP_PATTERNS_LIB_EXPORT virtual bool ProcessNonAdminRecordBundlePayload(const uint8_t * data, const uint64_t size);
 private:
-    BP_APP_PATTERNS_LIB_NO_EXPORT void BpSourcePatternThreadFunc(uint32_t bundleRate, const boost::filesystem::path& bpSecConfigFilePath);
+    BP_APP_PATTERNS_LIB_NO_EXPORT void BpSourcePatternThreadFunc(double bundleRate, const boost::filesystem::path& bpSecConfigFilePath);
     BP_APP_PATTERNS_LIB_NO_EXPORT void WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtr);
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtrAboutToBeDeleted);

@@ -32,7 +32,7 @@ public:
     BpGenAsyncRunner();
     ~BpGenAsyncRunner();
     bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
-    uint64_t m_bundleCount;
+    double m_bundleCount;
     uint64_t m_totalBundlesAcked;
 
     OutductFinalStats m_outductFinalStats;

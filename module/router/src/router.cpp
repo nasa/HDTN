@@ -36,6 +36,7 @@
 #include "codec/BundleViewV6.h"
 #include "codec/BundleViewV7.h"
 #include "libcgr.h"
+#include <limits>
 
 /** logger subprocess for the router */
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::router;
@@ -58,14 +59,16 @@ struct contactPlan_t {
 
 /** State for an outduct */
 struct OutductInfo_t {
-    OutductInfo_t() : outductIndex(UINT64_MAX), nextHopNodeId(UINT64_MAX), linkIsUpTimeBased(false) {}
-    OutductInfo_t(uint64_t paramOutductIndex, uint64_t paramNextHopNodeId, bool paramLinkIsUpTimeBased) :
-        outductIndex(paramOutductIndex), nextHopNodeId(paramNextHopNodeId), linkIsUpTimeBased(paramLinkIsUpTimeBased) {}
+    OutductInfo_t() : outductIndex(UINT64_MAX), nextHopNodeId(UINT64_MAX), linkIsUpTimeBased(false), linkIsUpPhysical(false) {}
+    OutductInfo_t(uint64_t paramOutductIndex, uint64_t paramNextHopNodeId, bool paramLinkIsUpTimeBased, bool paramLinkIsUpPhysical) :
+        outductIndex(paramOutductIndex), nextHopNodeId(paramNextHopNodeId), linkIsUpTimeBased(paramLinkIsUpTimeBased), linkIsUpPhysical(paramLinkIsUpPhysical) {}
     uint64_t outductIndex;
     uint64_t nextHopNodeId;
 
     /** Does the contact plan consider this link to be up? */
     bool linkIsUpTimeBased;
+
+    bool linkIsUpPhysical;
     
 };
 
@@ -113,6 +116,7 @@ private:
 
     void SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNodeId);
 
+    void FilterContactPlan(uint64_t sourceNode, std::vector<cgr::Contact> & contact_plan);
     bool ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNextHopNodeId, uint64_t finalDestNodeId);
     bool ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint64_t outductIndex);
 
@@ -148,7 +152,7 @@ private:
     bool m_contactPlanTimerIsRunning;
     boost::posix_time::ptime m_epoch;
     uint64_t m_subtractMeFromUnixTimeSecondsToConvertToRouterTimeSeconds;
-    uint64_t m_numOutductCapabilityTelemetriesReceived;
+    bool m_receivedInitialOutductTelemetry;
 
     std::unique_ptr<zmq::message_t> m_zmqMessageOutductCapabilitiesTelemPtr;
 
@@ -199,7 +203,7 @@ Router::Impl::Impl() :
     m_usingUnixTimestamp(false),
     m_contactPlanTimerIsRunning(false),
     m_subtractMeFromUnixTimeSecondsToConvertToRouterTimeSeconds(0),
-    m_numOutductCapabilityTelemetriesReceived(0),
+    m_receivedInitialOutductTelemetry(false),
     m_workerThreadStartupInProgress(false),
     m_lastMillisecondsSinceStartOfYear2000(0),
     m_bundleSequence(0),	
@@ -518,9 +522,10 @@ void Router::Impl::EgressEventsHandler() {
         else {
             LOG_INFO(subprocess) << "Router received initial " << aoct.outductCapabilityTelemetryList.size() << " outduct telemetries from egress";
 
-            boost::asio::post(m_ioService, boost::bind(&Router::Impl::PopulateMapsFromAllOutductCapabilitiesTelemetry, this, std::move(aoct)));
-    	    
-            ++m_numOutductCapabilityTelemetriesReceived;
+            if(!m_receivedInitialOutductTelemetry) {
+                boost::asio::post(m_ioService, boost::bind(&Router::Impl::PopulateMapsFromAllOutductCapabilitiesTelemetry, this, std::move(aoct)));
+                m_receivedInitialOutductTelemetry = true;
+            }
         }
     }
     else if (linkStatusHdr.base.type == HDTN_MSGTYPE_BUNDLES_TO_ROUTER) {
@@ -920,6 +925,11 @@ bool Router::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
                 << " which is this HDTN's node id.. ignoring this unused contact from the contact plan.";
             continue;
         }
+        if(linkEvent.source != m_hdtnConfig.m_myNodeId) {
+            LOG_WARNING(subprocess) << "Found a contact with source of " << linkEvent.source
+                << " which is not this HDTN's node id... ignoring this contact from the contact plan";
+            continue;
+        }
         std::map<uint64_t, uint64_t>::const_iterator it = m_mapNextHopNodeIdToOutductArrayIndex.find(linkEvent.dest);
         if (it != m_mapNextHopNodeIdToOutductArrayIndex.cend()) {
             linkEvent.outductArrayIndex = it->second;
@@ -1031,7 +1041,7 @@ void Router::Impl::PopulateMapsFromAllOutductCapabilitiesTelemetry(AllOutductCap
         m_mapOutductArrayIndexToOutductInfo.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(oct.outductArrayIndex),
-            std::forward_as_tuple(oct.outductArrayIndex, oct.nextHopNodeId, false));
+            std::forward_as_tuple(oct.outductArrayIndex, oct.nextHopNodeId, false, false));
     }
 }
 
@@ -1044,13 +1054,14 @@ void Router::Impl::HandlePhysicalLinkStatusChange(const hdtn::LinkStatusHdr& lin
     LOG_INFO(subprocess) << "Received physical link status " << ((eventLinkIsUpPhysically) ? "UP" : "DOWN")
         << " event from Egress for outductArrayIndex " << outductArrayIndex;
 
-    std::map<uint64_t, OutductInfo_t>::const_iterator it = m_mapOutductArrayIndexToOutductInfo.find(outductArrayIndex);
-    if (it == m_mapOutductArrayIndexToOutductInfo.cend()) {
+    std::map<uint64_t, OutductInfo_t>::iterator it = m_mapOutductArrayIndexToOutductInfo.find(outductArrayIndex);
+    if (it == m_mapOutductArrayIndexToOutductInfo.end()) {
         LOG_ERROR(subprocess) << "EgressEventsHandler got event for unknown outductArrayIndex " << outductArrayIndex << " which does not correspond to a next hop";
         return;
     }
-    const OutductInfo_t& outductInfo = it->second;
+    OutductInfo_t& outductInfo = it->second;
 
+    outductInfo.linkIsUpPhysical = eventLinkIsUpPhysically;
 
     if (eventLinkIsUpPhysically) {
         if (outductInfo.linkIsUpTimeBased) {
@@ -1099,6 +1110,7 @@ void Router::Impl::HandleLinkDownEvent(const hdtn::IreleaseChangeHdr &releaseCha
         LOG_ERROR(subprocess) << "out of order command, received link down before receiving outduct capabilities";
         return;
     }
+
 
     ComputeOptimalRoutesForOutductIndex(releaseChangeHdr.prevHopNodeId, releaseChangeHdr.outductArrayIndex);
     LOG_DEBUG(subprocess) << "Updated time to " << m_latestTime;
@@ -1154,6 +1166,52 @@ void Router::Impl::HandleBundle(const hdtn::IreleaseChangeHdr &releaseChangeHdr)
     m_latestTime = releaseChangeHdr.time;
 }
 
+/** Filter "failed" contacts
+ *
+ * Remove from the contact plan contacts which are active (i.e.
+ * happening now), have this node as the source, and for which
+ * the link to the neighbor node is down
+ *
+ * @param contactPlan - the contact plan to modify in-place
+ */
+void Router::Impl::FilterContactPlan(uint64_t sourceNode, std::vector<cgr::Contact> & contactPlan) {
+	
+    int i = 0;
+    while(i < contactPlan.size()) {
+        const cgr::Contact & contact = contactPlan[i];
+
+        // Don't remove if not "active"
+        if(!(contact.start < m_latestTime && m_latestTime < contact.end)) {
+            ++i;
+            continue;
+        }
+
+        // Don't remove if we're not the source
+        if(contact.frm != sourceNode) {
+            ++i;
+            continue;
+        }
+
+        // Don't remove if not associated with one of our outducts
+        if(m_mapNextHopNodeIdToOutductArrayIndex.count(contact.to) == 0) {
+            ++i;
+            continue;
+        }
+        uint64_t outduct_index = m_mapNextHopNodeIdToOutductArrayIndex[contact.to];
+        const OutductInfo_t & info = m_mapOutductArrayIndexToOutductInfo[outduct_index];
+
+        // Don't remove if link is up
+        if(info.linkIsUpPhysical) {
+            ++i;
+            continue;
+        }
+
+        // Otherwise: active contact from our node with link DOWN,
+        // remove contact from contact plan to re-route around down node
+        contactPlan.erase(contactPlan.begin() + i);
+    }
+}
+
 bool Router::Impl::ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint64_t outductIndex) {
     std::map<uint64_t, nexthop_finaldestlist_pair_t>::const_iterator mapIt = m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList.find(outductIndex);
     if (mapIt == m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList.cend()) {
@@ -1183,6 +1241,10 @@ bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNex
 
     LOG_DEBUG(subprocess) << "Reading contact plan and computing next hop";
     std::vector<cgr::Contact> contactPlan = cgr::cp_load(m_contactPlanFilePath);
+
+    // The contact plan here is a copy of the actual contact plan,
+    // filtering only affects this instance of this function call
+    FilterContactPlan(sourceNode, contactPlan);
 
     cgr::Contact rootContact = cgr::Contact(sourceNode,
         sourceNode, 0, cgr::MAX_TIME_T, 100, 1.0, 0);

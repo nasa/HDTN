@@ -96,7 +96,7 @@ void BpSourcePattern::Stop() {
 void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfig_ptr & inductsConfigPtr,
     const boost::filesystem::path& bpSecConfigFilePath,
     bool custodyTransferUseAcs,
-    const cbhe_eid_t & myEid, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId,
+    const cbhe_eid_t & myEid, double bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId,
     const unsigned int bundleSendTimeoutSeconds, const uint64_t bundleLifetimeMilliseconds, const uint64_t bundlePriority,
     const bool requireRxBundleBeforeNextTx, const bool forceDisableCustody, const bool useBpVersion7) {
     if (m_running) {
@@ -188,7 +188,7 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
 }
 
 
-void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate, const boost::filesystem::path& bpSecConfigFilePath) {
+void BpSourcePattern::BpSourcePatternThreadFunc(double bundleRate, const boost::filesystem::path& bpSecConfigFilePath) {
 
     ThreadNamer::SetThisThreadName("BpSourcePattern");
 
