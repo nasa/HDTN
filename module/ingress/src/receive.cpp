@@ -1154,7 +1154,15 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                     }
                 }
                 else { //prepend new previous node block
-                    std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7PreviousNodeCanonicalBlock>();
+                    std::unique_ptr<Bpv7CanonicalBlock> blockPtr;
+                    static constexpr std::size_t blockTypeCodeAsSizeT = static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE);
+                    if (bv.m_blockNumberToRecycledCanonicalBlockArray[blockTypeCodeAsSizeT]) {
+                        //std::cout << "recycle previous node\n";
+                        blockPtr = std::move(bv.m_blockNumberToRecycledCanonicalBlockArray[blockTypeCodeAsSizeT]);
+                    }
+                    else {
+                        blockPtr = boost::make_unique<Bpv7PreviousNodeCanonicalBlock>();
+                    }
                     Bpv7PreviousNodeCanonicalBlock & block = *(reinterpret_cast<Bpv7PreviousNodeCanonicalBlock*>(blockPtr.get()));
 
                     block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED;

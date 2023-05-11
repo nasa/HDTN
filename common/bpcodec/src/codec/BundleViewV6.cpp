@@ -83,7 +83,10 @@ bool BundleViewV6::Load(const bool loadPrimaryBlockOnly) {
         Bpv6CanonicalBlockView & cbv = m_listCanonicalBlockView.back();
         cbv.dirty = false;
         cbv.markedForDeletion = false;
-        if (!Bpv6CanonicalBlock::DeserializeBpv6(cbv.headerPtr, serialization, decodedBlockSize, bufferSize, isAdminRecord)) {
+        if (!Bpv6CanonicalBlock::DeserializeBpv6(cbv.headerPtr, serialization,
+            decodedBlockSize, bufferSize, isAdminRecord,
+            m_blockNumberToRecycledCanonicalBlockArray))
+        {
             return false;
         }
         serialization += decodedBlockSize;
@@ -141,7 +144,15 @@ bool BundleViewV6::Render(uint8_t * serialization, uint64_t & sizeSerialized) {
         return false;
     }
     
-    m_listCanonicalBlockView.remove_if([](const Bpv6CanonicalBlockView & v) { return v.markedForDeletion; }); //makes easier last block detection
+    m_listCanonicalBlockView.remove_if([&](Bpv6CanonicalBlockView & v) {
+        if (v.markedForDeletion && v.headerPtr) {
+            const std::size_t blockTypeCode = static_cast<std::size_t>(v.headerPtr->m_blockTypeCode);
+            if (blockTypeCode < MAX_NUM_BLOCK_TYPE_CODES) {
+                m_blockNumberToRecycledCanonicalBlockArray[blockTypeCode] = std::move(v.headerPtr);
+            }
+        }
+        return v.markedForDeletion;
+    }); //makes easier last block detection
 
     for (canonical_block_view_list_t::iterator it = m_listCanonicalBlockView.begin(); it != m_listCanonicalBlockView.end(); ++it) {
         const bool isLastBlock = (boost::next(it) == m_listCanonicalBlockView.end());
@@ -238,8 +249,14 @@ void BundleViewV6::GetCanonicalBlocksByType(const BPV6_BLOCK_TYPE_CODE canonical
 }
 std::size_t BundleViewV6::DeleteAllCanonicalBlocksByType(const BPV6_BLOCK_TYPE_CODE canonicalBlockTypeCode) {
     std::size_t count = 0;
-    m_listCanonicalBlockView.remove_if([&](const Bpv6CanonicalBlockView& v) {
-        const bool doDelete = (v.headerPtr->m_blockTypeCode == canonicalBlockTypeCode);
+    m_listCanonicalBlockView.remove_if([&](Bpv6CanonicalBlockView& v) {
+        const bool doDelete = (v.headerPtr) && (v.headerPtr->m_blockTypeCode == canonicalBlockTypeCode);
+        if (doDelete) {
+            const std::size_t blockTypeCode = static_cast<std::size_t>(v.headerPtr->m_blockTypeCode);
+            if (blockTypeCode < MAX_NUM_BLOCK_TYPE_CODES) {
+                m_blockNumberToRecycledCanonicalBlockArray[blockTypeCode] = std::move(v.headerPtr);
+            }
+        }
         count += doDelete;
         return doDelete;
     });
@@ -272,7 +289,18 @@ bool BundleViewV6::IsValid() const {
 
 void BundleViewV6::Reset() {
     m_primaryBlockView.header.SetZero();
-    m_listCanonicalBlockView.clear();
+
+    //clear the list, recycling content (also implicitly does m_listCanonicalBlockView.clear();)
+    m_listCanonicalBlockView.remove_if([&](Bpv6CanonicalBlockView& v) {
+        if (v.headerPtr) {
+            const std::size_t blockTypeCode = static_cast<std::size_t>(v.headerPtr->m_blockTypeCode);
+            if (blockTypeCode < MAX_NUM_BLOCK_TYPE_CODES) {
+                m_blockNumberToRecycledCanonicalBlockArray[blockTypeCode] = std::move(v.headerPtr);
+            }
+        }
+        return true; //always delete
+    });
+
     m_applicationDataUnitStartPtr = NULL;
 
     m_renderedBundle = boost::asio::buffer((void*)NULL, 0);

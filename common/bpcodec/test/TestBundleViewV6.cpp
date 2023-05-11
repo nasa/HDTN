@@ -357,6 +357,34 @@ BOOST_AUTO_TEST_CASE(BundleViewV6TestCase)
             BOOST_REQUIRE(bv.m_frontBuffer != bundleSerializedCopy);
             BOOST_REQUIRE(bv.m_frontBuffer == bundleSerializedOriginal);
         }
+
+        //reload bundle many times to test BundleViewV6 block recycler (using same BundleViewV6 obj)
+        {
+            BundleViewV6 bvRecycled;
+            BOOST_REQUIRE_EQUAL(bvRecycled.m_listCanonicalBlockView.size(), 0);
+            std::vector<Bpv6CanonicalBlock*> lastBlockPtrs;
+            for (unsigned int i = 0; i < 4; ++i) {
+                padded_vector_uint8_t toSwapIn(bundleSerializedOriginal);
+                BOOST_REQUIRE(bvRecycled.SwapInAndLoadBundle(toSwapIn, false)); //load resets the bundleview
+                BOOST_REQUIRE_EQUAL(bvRecycled.m_listCanonicalBlockView.size(), 4);
+                if (i) {
+                    //make sure blocks were recycled
+                    std::vector<Bpv6CanonicalBlock*> nowBlockPtrs;
+                    for (BundleViewV6::canonical_block_view_list_t::const_iterator it = bvRecycled.m_listCanonicalBlockView.cbegin();
+                        it != bvRecycled.m_listCanonicalBlockView.cend(); ++it)
+                    {
+                        nowBlockPtrs.push_back(it->headerPtr.get());
+                    }
+                    BOOST_REQUIRE(lastBlockPtrs == nowBlockPtrs);
+                }
+                lastBlockPtrs.clear();
+                for (BundleViewV6::canonical_block_view_list_t::const_iterator it = bvRecycled.m_listCanonicalBlockView.cbegin();
+                    it != bvRecycled.m_listCanonicalBlockView.cend(); ++it)
+                {
+                    lastBlockPtrs.push_back(it->headerPtr.get());
+                }
+            }
+        }
     }
 }
 

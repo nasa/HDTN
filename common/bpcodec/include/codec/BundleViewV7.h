@@ -139,6 +139,9 @@ public:
         FreeListAllocator<std::pair<const uint64_t, Bpv7BlockConfidentialityBlock*> > > encrypted_block_number_to_bcb_map_t;
     encrypted_block_number_to_bcb_map_t m_mapEncryptedBlockNumberToBcbPtr;
 
+    static constexpr std::size_t MAX_NUM_BLOCK_TYPE_CODES = static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::RESERVED_MAX_BLOCK_TYPES);
+    std::unique_ptr<Bpv7CanonicalBlock> m_blockNumberToRecycledCanonicalBlockArray[MAX_NUM_BLOCK_TYPE_CODES];
+
     boost::asio::const_buffer m_renderedBundle;
     padded_vector_uint8_t m_frontBuffer;
     padded_vector_uint8_t m_backBuffer;
