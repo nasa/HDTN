@@ -123,6 +123,8 @@ public:
     typedef std::list<Bpv6CanonicalBlockView, FreeListAllocator<Bpv6CanonicalBlockView> > canonical_block_view_list_t;
     canonical_block_view_list_t m_listCanonicalBlockView; //list will maintain block relative order
 
+    static constexpr std::size_t MAX_NUM_BLOCK_TYPE_CODES = static_cast<std::size_t>(BPV6_BLOCK_TYPE_CODE::RESERVED_MAX_BLOCK_TYPES);
+    std::unique_ptr<Bpv6CanonicalBlock> m_blockNumberToRecycledCanonicalBlockArray[MAX_NUM_BLOCK_TYPE_CODES];
 
     boost::asio::const_buffer m_renderedBundle;
     padded_vector_uint8_t m_frontBuffer;

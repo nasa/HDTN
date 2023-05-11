@@ -145,10 +145,12 @@ uint64_t Bpv6CanonicalBlock::GetCanonicalBlockTypeSpecificDataSerializationSize(
     return m_blockTypeSpecificDataLength;
 }
 
-bool Bpv6CanonicalBlock::DeserializeBpv6(std::unique_ptr<Bpv6CanonicalBlock> & canonicalPtr, const uint8_t * serialization, uint64_t & numBytesTakenToDecode,
-    uint64_t bufferSize, const bool isAdminRecord)
+bool Bpv6CanonicalBlock::DeserializeBpv6(std::unique_ptr<Bpv6CanonicalBlock> & canonicalPtr,
+    const uint8_t * serialization, uint64_t & numBytesTakenToDecode,
+    uint64_t bufferSize, const bool isAdminRecord,
+    std::unique_ptr<Bpv6CanonicalBlock>* blockNumberToRecycledCanonicalBlockArray)
 {
-
+    static constexpr std::size_t MAX_NUM_BLOCK_TYPE_CODES = static_cast<std::size_t>(BPV6_BLOCK_TYPE_CODE::RESERVED_MAX_BLOCK_TYPES);
     uint8_t sdnvSize;
     const uint8_t * const serializationBase = serialization;
 
@@ -166,28 +168,39 @@ bool Bpv6CanonicalBlock::DeserializeBpv6(std::unique_ptr<Bpv6CanonicalBlock> & c
     }
     const BPV6_BLOCK_TYPE_CODE blockTypeCode = static_cast<BPV6_BLOCK_TYPE_CODE>(*serialization++);
     --bufferSize;
-    switch (blockTypeCode) {
-        case BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION:
-            canonicalPtr = boost::make_unique<Bpv6PreviousHopInsertionCanonicalBlock>();
-            break;
-        case BPV6_BLOCK_TYPE_CODE::METADATA_EXTENSION:
-            canonicalPtr = boost::make_unique<Bpv6MetadataCanonicalBlock>();
-            break;
-        case BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT:
-            canonicalPtr = boost::make_unique<Bpv6CustodyTransferEnhancementBlock>();
-            break;
-        case BPV6_BLOCK_TYPE_CODE::BUNDLE_AGE:
-            canonicalPtr = boost::make_unique<Bpv6BundleAgeCanonicalBlock>();
-            break;
-        case BPV6_BLOCK_TYPE_CODE::PAYLOAD:
-            //admin records always go into a payload block
-            canonicalPtr = (isAdminRecord) ? boost::make_unique<Bpv6AdministrativeRecord>() : boost::make_unique<Bpv6CanonicalBlock>();
-            break;
-        default:
-            canonicalPtr = boost::make_unique<Bpv6CanonicalBlock>();
-            break;
+    const std::size_t blockTypeCodeAsSizeT = static_cast<std::size_t>(blockTypeCode);
+    if (blockNumberToRecycledCanonicalBlockArray
+        && (blockTypeCodeAsSizeT < MAX_NUM_BLOCK_TYPE_CODES)
+        && (blockNumberToRecycledCanonicalBlockArray[blockTypeCodeAsSizeT]))
+    {
+        //take from recycle bin (prevents allocations and deallocations)
+        canonicalPtr = std::move(blockNumberToRecycledCanonicalBlockArray[blockTypeCodeAsSizeT]);
+        //std::cout << "recycled block code " << blockTypeCodeAsSizeT << "\n";
     }
-    canonicalPtr->m_blockTypeCode = blockTypeCode;
+    else {
+        switch (blockTypeCode) {
+            case BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION:
+                canonicalPtr = boost::make_unique<Bpv6PreviousHopInsertionCanonicalBlock>();
+                break;
+            case BPV6_BLOCK_TYPE_CODE::METADATA_EXTENSION:
+                canonicalPtr = boost::make_unique<Bpv6MetadataCanonicalBlock>();
+                break;
+            case BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT:
+                canonicalPtr = boost::make_unique<Bpv6CustodyTransferEnhancementBlock>();
+                break;
+            case BPV6_BLOCK_TYPE_CODE::BUNDLE_AGE:
+                canonicalPtr = boost::make_unique<Bpv6BundleAgeCanonicalBlock>();
+                break;
+            case BPV6_BLOCK_TYPE_CODE::PAYLOAD:
+                //admin records always go into a payload block
+                canonicalPtr = (isAdminRecord) ? boost::make_unique<Bpv6AdministrativeRecord>() : boost::make_unique<Bpv6CanonicalBlock>();
+                break;
+            default:
+                canonicalPtr = boost::make_unique<Bpv6CanonicalBlock>();
+                break;
+        }
+        canonicalPtr->m_blockTypeCode = blockTypeCode;
+    }
     //Block processing control flags, an unsigned integer expressed as
     //an SDNV.  The individual bits of this integer are used to invoke
     //selected block processing control features.

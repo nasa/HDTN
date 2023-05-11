@@ -532,7 +532,15 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                         const uint64_t ctebCustodyId = nextCtebCustodyId++;
                         //add cteb
                         {
-                            std::unique_ptr<Bpv6CanonicalBlock> blockPtr = boost::make_unique<Bpv6CustodyTransferEnhancementBlock>();
+                            std::unique_ptr<Bpv6CanonicalBlock> blockPtr;
+                            static constexpr std::size_t blockTypeCodeAsSizeT = static_cast<std::size_t>(BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT);
+                            if (bv6.m_blockNumberToRecycledCanonicalBlockArray[blockTypeCodeAsSizeT]) {
+                                //std::cout << "recycle cteb\n";
+                                blockPtr = std::move(bv6.m_blockNumberToRecycledCanonicalBlockArray[blockTypeCodeAsSizeT]);
+                            }
+                            else {
+                                blockPtr = boost::make_unique<Bpv6CustodyTransferEnhancementBlock>();
+                            }
                             Bpv6CustodyTransferEnhancementBlock& block = *(reinterpret_cast<Bpv6CustodyTransferEnhancementBlock*>(blockPtr.get()));
                             //block.SetZero();
 
@@ -563,7 +571,15 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
 
                 //append payload block (must be last block)
                 {
-                    std::unique_ptr<Bpv6CanonicalBlock> payloadBlockPtr = boost::make_unique<Bpv6CanonicalBlock>();
+                    std::unique_ptr<Bpv6CanonicalBlock> payloadBlockPtr;
+                    static constexpr std::size_t blockTypeCodeAsSizeT = static_cast<std::size_t>(BPV6_BLOCK_TYPE_CODE::PAYLOAD);
+                    if (bv6.m_blockNumberToRecycledCanonicalBlockArray[blockTypeCodeAsSizeT]) {
+                        //std::cout << "recycle payload\n";
+                        payloadBlockPtr = std::move(bv6.m_blockNumberToRecycledCanonicalBlockArray[blockTypeCodeAsSizeT]);
+                    }
+                    else {
+                        payloadBlockPtr = boost::make_unique<Bpv6CanonicalBlock>();
+                    }
                     Bpv6CanonicalBlock& payloadBlock = *payloadBlockPtr;
                     //payloadBlock.SetZero();
 
