@@ -1,5 +1,6 @@
 add_library(bpsec 
 	    src/BPSecManager.cpp
+		src/InitializationVectors.cpp
 )
 
 target_compile_options(bpsec PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
@@ -25,6 +26,7 @@ target_include_directories(bpsec
 
 set(MY_PUBLIC_HEADERS
 	include/BPSecManager.h
+	include/InitializationVectors.h
 	${CMAKE_CURRENT_BINARY_DIR}/bpsec_export.h
 )
 

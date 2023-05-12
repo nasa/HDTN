@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `LtpClientServiceDataToSend`
     - the outduct `Forward` calls
     - the internal buffers of `BundleViewV6` and `BundleViewV7`
+* Added support for `BundleViewV6` and `BundleViewV7` to recycle their canonical block header objects whenever the bundle view object is reused in the creation or loading of bundles.
 
 ### Removed
 
