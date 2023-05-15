@@ -36,7 +36,6 @@
 #include "codec/BundleViewV6.h"
 #include "codec/BundleViewV7.h"
 #include "libcgr.h"
-#include <limits>
 
 /** logger subprocess for the router */
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::router;
@@ -59,9 +58,13 @@ struct contactPlan_t {
 
 /** State for an outduct */
 struct OutductInfo_t {
-    OutductInfo_t() : outductIndex(UINT64_MAX), nextHopNodeId(UINT64_MAX), linkIsUpTimeBased(false), linkIsUpPhysical(false) {}
-    OutductInfo_t(uint64_t paramOutductIndex, uint64_t paramNextHopNodeId, bool paramLinkIsUpTimeBased, bool paramLinkIsUpPhysical) :
-        outductIndex(paramOutductIndex), nextHopNodeId(paramNextHopNodeId), linkIsUpTimeBased(paramLinkIsUpTimeBased), linkIsUpPhysical(paramLinkIsUpPhysical) {}
+    OutductInfo_t()
+        : outductIndex(UINT64_MAX), nextHopNodeId(UINT64_MAX), linkIsUpTimeBased(false), linkIsUpPhysical(false) {}
+    OutductInfo_t(uint64_t paramOutductIndex, uint64_t paramNextHopNodeId, bool paramLinkIsUpTimeBased,
+                  bool paramLinkIsUpPhysical, std::list<uint64_t> paramFinalDestNodeIdList)
+        : outductIndex(paramOutductIndex), nextHopNodeId(paramNextHopNodeId), linkIsUpTimeBased(paramLinkIsUpTimeBased),
+          linkIsUpPhysical(paramLinkIsUpPhysical), finalDestNodeIdList(paramFinalDestNodeIdList) {}
+
     uint64_t outductIndex;
     uint64_t nextHopNodeId;
 
@@ -69,7 +72,8 @@ struct OutductInfo_t {
     bool linkIsUpTimeBased;
 
     bool linkIsUpPhysical;
-    
+
+    std::list<uint64_t> finalDestNodeIdList;
 };
 
 /** Router private implementation class */
@@ -166,14 +170,11 @@ private:
     uint64_t m_lastMillisecondsSinceStartOfYear2000;
     uint64_t m_bundleSequence;
 
-    /* From Router (non-duplicates) */
+    /* From Router */
     
     bool m_usingMGR;
     bool m_computedInitialOptimalRoutes;
     uint64_t m_latestTime;
-
-    typedef std::pair<uint64_t, std::list<uint64_t> > nexthop_finaldestlist_pair_t;
-    std::map<uint64_t, nexthop_finaldestlist_pair_t> m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList;
 
 };
 
@@ -1041,7 +1042,7 @@ void Router::Impl::PopulateMapsFromAllOutductCapabilitiesTelemetry(AllOutductCap
         m_mapOutductArrayIndexToOutductInfo.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(oct.outductArrayIndex),
-            std::forward_as_tuple(oct.outductArrayIndex, oct.nextHopNodeId, false, false));
+            std::forward_as_tuple(oct.outductArrayIndex, oct.nextHopNodeId, false, false, std::list<uint64_t>()));
     }
 }
 
@@ -1128,20 +1129,23 @@ void Router::Impl::HandleOutductCapabilitiesTelemetry(const hdtn::IreleaseChange
         << " AllOutductCapabilitiesTelemetry_t message from Router containing "
         << aoct.outductCapabilityTelemetryList.size() << " outducts.";
 
-    m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList.clear();
-
     for (std::list<OutductCapabilityTelemetry_t>::const_iterator itAoct = aoct.outductCapabilityTelemetryList.cbegin();
         itAoct != aoct.outductCapabilityTelemetryList.cend(); ++itAoct)
     {
         const OutductCapabilityTelemetry_t& oct = *itAoct;
-        nexthop_finaldestlist_pair_t& nhFdPair = m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList[oct.outductArrayIndex];
-        nhFdPair.first = oct.nextHopNodeId;
-        std::list<uint64_t>& finalDestNodeIdList = nhFdPair.second;
+        std::map<uint64_t, OutductInfo_t>::iterator it =  m_mapOutductArrayIndexToOutductInfo.find(oct.outductArrayIndex);
+        if(it == m_mapOutductArrayIndexToOutductInfo.end()) {
+            LOG_ERROR(subprocess) << "could not find outduct info for index while updating routes";
+            continue;
+        }
+        OutductInfo_t & info = it->second;
+        info.finalDestNodeIdList.clear();
+
         for (std::list<uint64_t>::const_iterator it = oct.finalDestinationNodeIdList.cbegin();
             it != oct.finalDestinationNodeIdList.cend(); ++it)
         {
             const uint64_t nodeId = *it;
-            finalDestNodeIdList.emplace_back(nodeId);
+            info.finalDestNodeIdList.emplace_back(nodeId);
             LOG_INFO(subprocess) << "Compute Optimal Route for finalDestination node " << nodeId;
         }
         std::set<uint64_t> usedNodeIds;
@@ -1150,7 +1154,7 @@ void Router::Impl::HandleOutductCapabilitiesTelemetry(const hdtn::IreleaseChange
         {
             const uint64_t nodeId = it->nodeId;
             if (usedNodeIds.emplace(nodeId).second) { //was inserted
-                finalDestNodeIdList.emplace_back(nodeId);
+                info.finalDestNodeIdList.emplace_back(nodeId);
                 LOG_INFO(subprocess) << "Compute Optimal Route for finalDestination node " << nodeId;
             }
         }
@@ -1162,6 +1166,7 @@ void Router::Impl::HandleOutductCapabilitiesTelemetry(const hdtn::IreleaseChange
 
 }
 
+/** Placeholder */
 void Router::Impl::HandleBundle(const hdtn::IreleaseChangeHdr &releaseChangeHdr) {
     m_latestTime = releaseChangeHdr.time;
 }
@@ -1212,29 +1217,49 @@ void Router::Impl::FilterContactPlan(uint64_t sourceNode, std::vector<cgr::Conta
     }
 }
 
+/** Recompute routes for destination eids associated with an outduct
+ *
+ * @param sourceNode - the source node ID for the routes
+ * @param outductIndex - the outduct index
+ *
+ * @returns true on success, false on failure
+ *
+ * Sends updated routes to egress
+ *
+ */
 bool Router::Impl::ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint64_t outductIndex) {
-    std::map<uint64_t, nexthop_finaldestlist_pair_t>::const_iterator mapIt = m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList.find(outductIndex);
-    if (mapIt == m_mapOutductArrayIndexToNextHopPlusFinalDestNodeIdList.cend()) {
+
+    std::map<uint64_t, OutductInfo_t>::const_iterator it = m_mapOutductArrayIndexToOutductInfo.find(outductIndex);
+    if (it == m_mapOutductArrayIndexToOutductInfo.cend()) {
         LOG_ERROR(subprocess) << "ComputeOptimalRoutesForOutductIndex cannot find outductIndex " << outductIndex;
         return false;
     }
 
-    const nexthop_finaldestlist_pair_t& nhFdPair = mapIt->second;
-    const uint64_t originalNextHopNodeId = nhFdPair.first;
-    const std::list<uint64_t>& finalDestNodeIdList = nhFdPair.second;
+    const OutductInfo_t &info = it->second;
     bool noErrors = true;
-    for (std::list<uint64_t>::const_iterator it = finalDestNodeIdList.cbegin();
-        it != finalDestNodeIdList.cend(); ++it)
+    for (std::list<uint64_t>::const_iterator it = info.finalDestNodeIdList.cbegin();
+        it != info.finalDestNodeIdList.cend(); ++it)
     {
         const uint64_t finalDestNodeId = *it;
         LOG_DEBUG(subprocess) << "FinalDest nodeId found is:  " << finalDestNodeId;
-        if (!ComputeOptimalRoute(sourceNode, originalNextHopNodeId, finalDestNodeId)) {
+        if (!ComputeOptimalRoute(sourceNode, info.nextHopNodeId, finalDestNodeId)) {
             noErrors = false;
         }
     }
     return noErrors;
 }
 
+/** Compute optimal route to destination
+ *
+ * @param sourceNode the starting node for the route
+ * @param originalNextHopNodeId the current route
+ * @param the final destination node ID
+ *
+ * Computes the optimal route for a node. If the route is different,
+ * sends a route update message to egress
+ *
+ * @returns false on error, true on success
+ */
 bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNextHopNodeId, uint64_t finalDestNodeId) {
 
     cgr::Route bestRoute;
@@ -1263,10 +1288,10 @@ bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNex
 
     if (bestRoute.valid()) { // successfully computed a route
         const uint64_t nextHopNodeId = bestRoute.next_node;
-	if (originalNextHopNodeId != nextHopNodeId) {
-            LOG_INFO(subprocess) << "Successfully Computed next hop: "
-                << nextHopNodeId << " for final Destination " << finalDestNodeId
-                << "Best route is " << bestRoute;
+        if (originalNextHopNodeId != nextHopNodeId) {
+                LOG_INFO(subprocess) << "Successfully Computed next hop: "
+                    << nextHopNodeId << " for final Destination " << finalDestNodeId
+                    << "Best route is " << bestRoute;
             SendRouteUpdate(nextHopNodeId, finalDestNodeId);
 
         }
