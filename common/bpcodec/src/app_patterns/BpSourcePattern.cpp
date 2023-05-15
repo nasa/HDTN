@@ -33,6 +33,7 @@
 
 #ifdef BPSEC_SUPPORT_ENABLED
 #include "BPSecManager.h"
+#include "InitializationVectors.h"
 //# define DO_BPSEC_TEST 1
 #endif
 
@@ -294,11 +295,11 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
     );
     BinaryConversions::HexStringToBytes(dataEncryptionKeyString, dataEncryptionKeyBytes);
 
-    std::vector<uint8_t> initializationVector;
-    static const std::string initializationVectorString(
-        "5477656c7665313231323132"
-    );
-    BinaryConversions::HexStringToBytes(initializationVectorString, initializationVector);
+    //support 12 or 16 byte iv's
+    const bool use12ByteIv = true;
+    InitializationVector12Byte iv12;
+    InitializationVector16Byte iv16;
+    std::vector<uint8_t> initializationVector(use12ByteIv ? 12 : 16);
 
     static const uint64_t targetBlockNumbers[1] = { 1 }; //just encrypt payload block
     BPSecManager::ReusableElementsInternal bpsecReusableElementsInternal;
@@ -462,6 +463,14 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                     continue;
                 }
 #ifdef DO_BPSEC_TEST
+                if (use12ByteIv) {
+                    iv12.Serialize(initializationVector.data());
+                    iv12.Increment();
+                }
+                else {
+                    iv16.Serialize(initializationVector.data());
+                    iv16.Increment();
+                }
                 if (!BPSecManager::TryEncryptBundle(ctxWrapper,
                     ctxWrapperKeyWrapOps,
                     bv7,

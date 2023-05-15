@@ -26,9 +26,9 @@ BOOST_AUTO_TEST_CASE(InitializationVector12ByteTestCase)
         boost::this_thread::sleep(boost::posix_time::milliseconds(100));
         InitializationVector12Byte iv2;
         BOOST_REQUIRE_GT(iv2.m_timePart, iv.m_timePart);
-        const uint64_t deltaMs = iv2.m_timePart - iv.m_timePart;
-        BOOST_REQUIRE_GT(deltaMs, 50);
-        BOOST_REQUIRE_LT(deltaMs, 500);
+        const uint64_t deltaUs = iv2.m_timePart - iv.m_timePart;
+        BOOST_REQUIRE_GT(deltaUs, 50000);
+        BOOST_REQUIRE_LT(deltaUs, 500000);
     }
 
     const std::vector<uint8_t> noBitsSetVec(12, 0);
@@ -87,9 +87,9 @@ BOOST_AUTO_TEST_CASE(InitializationVector16ByteTestCase)
         boost::this_thread::sleep(boost::posix_time::milliseconds(100));
         InitializationVector12Byte iv2;
         BOOST_REQUIRE_GT(iv2.m_timePart, iv.m_timePart);
-        const uint64_t deltaMs = iv2.m_timePart - iv.m_timePart;
-        BOOST_REQUIRE_GT(deltaMs, 50);
-        BOOST_REQUIRE_LT(deltaMs, 500);
+        const uint64_t deltaUs = iv2.m_timePart - iv.m_timePart;
+        BOOST_REQUIRE_GT(deltaUs, 50000);
+        BOOST_REQUIRE_LT(deltaUs, 500000);
     }
 
     const std::vector<uint8_t> noBitsSetVec(16, 0);

@@ -33,7 +33,7 @@
 //AES-GCM uses a newly generated key, then the same IV can be reused.
 
 InitializationVector12Byte::InitializationVector12Byte() :
-    m_timePart(TimestampUtil::GetMillisecondsSinceEpochRfc5050()),
+    m_timePart(TimestampUtil::GetMicrosecondsSinceEpochRfc5050()), //good for 584,868 years
     m_counterPart(0)
 {
 }
@@ -51,7 +51,7 @@ void InitializationVector12Byte::Increment() {
 
 
 InitializationVector16Byte::InitializationVector16Byte() :
-    m_timePart(TimestampUtil::GetMillisecondsSinceEpochRfc5050()),
+    m_timePart(TimestampUtil::GetMicrosecondsSinceEpochRfc5050()), //good for 584,868 years
     m_counterPart(0)
 {
 }
