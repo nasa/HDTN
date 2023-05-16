@@ -987,8 +987,7 @@ void Ingress::Impl::RouterEventHandler() {
             BundlePipelineAckingSet& bundlePipelineAckingSetObj = *(m_vectorBundlePipelineAckingSet[releaseChangeHdr.outductArrayIndex]);
             if (!bundlePipelineAckingSetObj.m_linkIsUp) {
                 bundlePipelineAckingSetObj.m_linkIsUp = true; //no mutex needed as this flag is only set from ReadZmqAcksThreadFunc
-                LOG_INFO(subprocess) << "Ingress sending bundles to egress for nextHopNodeId: " << releaseChangeHdr.nextHopNodeId
-                    << " outductArrayIndex=" << releaseChangeHdr.outductArrayIndex;
+                LOG_INFO(subprocess) << "Ingress sending bundles to egress for outductArrayIndex=" << releaseChangeHdr.outductArrayIndex;
             }
         }
         else {
@@ -1001,8 +1000,7 @@ void Ingress::Impl::RouterEventHandler() {
             BundlePipelineAckingSet& bundlePipelineAckingSetObj = *(m_vectorBundlePipelineAckingSet[releaseChangeHdr.outductArrayIndex]);
             if (bundlePipelineAckingSetObj.m_linkIsUp) {
                 bundlePipelineAckingSetObj.m_linkIsUp = false; //no mutex needed as this flag is only set from ReadZmqAcksThreadFunc
-                LOG_INFO(subprocess) << "Sending bundles to storage for nextHopNodeId: " << releaseChangeHdr.nextHopNodeId
-                    << " since outductArrayIndex=" << releaseChangeHdr.outductArrayIndex << " is down";
+                LOG_INFO(subprocess) << "Sending bundles to storage for down outductArrayIndex=" << releaseChangeHdr.outductArrayIndex;
             }
         }
         else {

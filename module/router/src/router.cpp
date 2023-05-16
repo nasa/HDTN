@@ -16,6 +16,7 @@
 #include "Uri.h"
 #include "TimestampUtil.h"
 #include "Logger.h"
+#include <boost/asio/detail/event.hpp>
 #include <fstream>
 #include "message.hpp"
 #include <boost/filesystem.hpp>
@@ -36,22 +37,39 @@
 #include "codec/BundleViewV6.h"
 #include "codec/BundleViewV7.h"
 #include "libcgr.h"
+#include <unordered_map>
+#include <unordered_set>
+
+/* Messages overview
+ *      + Sockets:
+ *          + router <-> egress
+ *          + router -> [egress, ingress, storage]
+ *          + telem -> router
+ *
+ *      + Egress tells the router when links change state physically (up/down)
+ *        + Egress also provides the router with initial info on outducts
+ *      + The router sends route updates to egress,  map(final dest -> next hop)
+ *      + The router broadcasts to egress, ingress, and storage when links change state (up/down)
+ *      + Telem provides the router with new contact plans
+ */
 
 /** logger subprocess for the router */
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::router;
+
+/** No route found for final destination */
+static constexpr uint64_t NOROUTE = UINT64_MAX;
 
 /** A contact in the contact plan */
 struct contactPlan_t {
     uint64_t contact;
     uint64_t source;
     uint64_t dest;
-    uint64_t finalDest;//deprecated and not in operator <
     uint64_t start;
     uint64_t end;
     uint64_t rateBps;
 
     uint64_t outductArrayIndex; //not in operator <
-    bool isLinkUp; 
+    bool isLinkUp;              //not in operator <
 
     bool operator<(const contactPlan_t& o) const; //operator < so it can be used as a map key
 };
@@ -59,21 +77,20 @@ struct contactPlan_t {
 /** State for an outduct */
 struct OutductInfo_t {
     OutductInfo_t()
-        : outductIndex(UINT64_MAX), nextHopNodeId(UINT64_MAX), linkIsUpTimeBased(false), linkIsUpPhysical(false) {}
+        : outductIndex(UINT64_MAX), nextHopNodeId(UINT64_MAX), linkIsUpTimeBased(false), linkIsUpPhysical(false), rateBps(0) {}
     OutductInfo_t(uint64_t paramOutductIndex, uint64_t paramNextHopNodeId, bool paramLinkIsUpTimeBased,
-                  bool paramLinkIsUpPhysical, std::list<uint64_t> paramFinalDestNodeIdList)
+                  bool paramLinkIsUpPhysical)
         : outductIndex(paramOutductIndex), nextHopNodeId(paramNextHopNodeId), linkIsUpTimeBased(paramLinkIsUpTimeBased),
-          linkIsUpPhysical(paramLinkIsUpPhysical), finalDestNodeIdList(paramFinalDestNodeIdList) {}
+          linkIsUpPhysical(paramLinkIsUpPhysical), rateBps(0) {}
 
     uint64_t outductIndex;
     uint64_t nextHopNodeId;
-
-    /** Does the contact plan consider this link to be up? */
     bool linkIsUpTimeBased;
-
     bool linkIsUpPhysical;
+    uint64_t rateBps;
 
-    std::list<uint64_t> finalDestNodeIdList;
+    /** Routes; the final destinations associated with this outduct */
+    std::unordered_set<uint64_t> finalDestNodeIds;
 };
 
 /** Router private implementation class */
@@ -95,14 +112,12 @@ private:
     bool ProcessContactsJsonText(const std::string& jsonText);
     bool ProcessContactsFile(const boost::filesystem::path& jsonEventFilePath);
 
-    void PopulateMapsFromAllOutductCapabilitiesTelemetry(AllOutductCapabilitiesTelemetry_t& aoct);
+    void PopulateMapsFromAllOutductCapabilitiesTelemetry(const AllOutductCapabilitiesTelemetry_t& aoct);
     void HandlePhysicalLinkStatusChange(const hdtn::LinkStatusHdr& linkStatusHdr);
 
     void NotifyEgressOfTimeBasedLinkChange(uint64_t outductArrayIndex, uint64_t rateBps, bool linkIsUpTimeBased);
-    void SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
-        uint64_t time, uint64_t rateBps, uint64_t duration, bool isPhysical);
-    void SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
-        uint64_t time, bool isPhysical);
+    void SendLinkUp(uint64_t outductArrayIndex, uint64_t rateBps);
+    void SendLinkDown(uint64_t outductArrayIndex);
 
     void EgressEventsHandler();
     bool SendBundle(const uint8_t* payloadData, const uint64_t payloadSizeBytes, const cbhe_eid_t& finalDestEid);
@@ -113,16 +128,17 @@ private:
     bool AddContact_NotThreadSafe(contactPlan_t& contact);
 
     /* From router */
-    void HandleLinkDownEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr);
-    void HandleLinkUpEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr);
-    void HandleOutductCapabilitiesTelemetry(const hdtn::IreleaseChangeHdr &releaseChangeHdr, const AllOutductCapabilitiesTelemetry_t & aoct);
-    void HandleBundle(const hdtn::IreleaseChangeHdr &releaseChangeHdr);
+    void RerouteOnLinkDown(uint64_t prevHopNodeId, uint64_t nextHopNodeId, uint64_t outductArrayIndex);
+    void RerouteOnLinkUp(uint64_t prevHopNodeId);
+    void HandleBundle();
 
     void SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNodeId);
 
+    void UpdateRouteState(uint64_t oldNextHop, uint64_t newNextHop, uint64_t finalDest);
     void FilterContactPlan(uint64_t sourceNode, std::vector<cgr::Contact> & contact_plan);
-    bool ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNextHopNodeId, uint64_t finalDestNodeId);
-    bool ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint64_t outductIndex);
+    void ComputeAllRoutes(uint64_t sourceNode);
+    uint64_t ComputeOptimalRoute(uint64_t sourceNode, uint64_t finalDestNodeId);
+    void ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint64_t outductIndex);
 
 private:
 
@@ -134,6 +150,7 @@ private:
     HdtnConfig m_hdtnConfig;
     std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
 
+    // ZMQ Sockets
     std::unique_ptr<zmq::context_t> m_zmqCtxPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundEgressToConnectingRouterPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingRouterToBoundEgressPtr;
@@ -141,10 +158,12 @@ private:
     std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingTelemToFromBoundRouterPtr;
     boost::mutex m_mutexZmqPubSock;
 
+    // Outduct state tracking
     //no mutex needed (all run from ioService thread)
     std::map<uint64_t, OutductInfo_t> m_mapOutductArrayIndexToOutductInfo;
     std::map<uint64_t, uint64_t> m_mapNextHopNodeIdToOutductArrayIndex;
 
+    // Contact plans
     boost::filesystem::path m_contactPlanFilePath;
     bool m_usingUnixTimestamp;
 
@@ -156,9 +175,11 @@ private:
     bool m_contactPlanTimerIsRunning;
     boost::posix_time::ptime m_epoch;
     uint64_t m_subtractMeFromUnixTimeSecondsToConvertToRouterTimeSeconds;
-    bool m_receivedInitialOutductTelemetry;
 
-    std::unique_ptr<zmq::message_t> m_zmqMessageOutductCapabilitiesTelemPtr;
+    /** Used in service thread to mark setup complete */
+    bool m_outductInfoInitialized;
+    /** Used in zmq message thread to track setup progress */
+    bool m_receivedInitialOutductTelem;
 
     //for blocking until worker-thread startup
     volatile bool m_workerThreadStartupInProgress;
@@ -170,12 +191,12 @@ private:
     uint64_t m_lastMillisecondsSinceStartOfYear2000;
     uint64_t m_bundleSequence;
 
-    /* From Router */
-    
+    // Router
     bool m_usingMGR;
-    bool m_computedInitialOptimalRoutes;
     uint64_t m_latestTime;
-
+    std::vector<cgr::Contact> m_cgrContacts;
+    /** Map of final destination node ids to next hops */
+    std::unordered_map<uint64_t, uint64_t> m_routes;
 };
 
 boost::filesystem::path Router::GetFullyQualifiedFilename(const boost::filesystem::path& filename) {
@@ -199,15 +220,14 @@ bool contactPlan_t::operator<(const contactPlan_t& o) const {
 }
 
 
-Router::Impl::Impl() : 
-    m_running(false), 
+Router::Impl::Impl() :
+    m_running(false),
     m_usingUnixTimestamp(false),
     m_contactPlanTimerIsRunning(false),
     m_subtractMeFromUnixTimeSecondsToConvertToRouterTimeSeconds(0),
-    m_receivedInitialOutductTelemetry(false),
     m_workerThreadStartupInProgress(false),
     m_lastMillisecondsSinceStartOfYear2000(0),
-    m_bundleSequence(0),	
+    m_bundleSequence(0),
     m_contactPlanTimer(m_ioService) {}
 
 Router::Impl::~Impl() {
@@ -238,7 +258,7 @@ void Router::Impl::Stop() {
 
     if (m_threadZmqAckReaderPtr) {
         try {
-            m_threadZmqAckReaderPtr->join(); 
+            m_threadZmqAckReaderPtr->join();
             m_threadZmqAckReaderPtr.reset(); //delete it
         }
         catch (const boost::thread_resource_error&) {
@@ -246,13 +266,13 @@ void Router::Impl::Stop() {
         }
     }
 
-    try {	
+    try {
         m_contactPlanTimer.cancel();
     }
     catch (const boost::system::system_error&) {
         LOG_ERROR(subprocess) << "error cancelling contact plan timer ";
     }
-	
+
     m_workPtr.reset();
     //This function does not block, but instead simply signals the io_service to stop
     //All invocations of its run() or run_one() member functions should return as soon as possible.
@@ -288,12 +308,14 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
     m_contactPlanFilePath = contactPlanFilePath;
     m_usingUnixTimestamp = usingUnixTimestamp;
     m_usingMGR = useMgr;
-    m_computedInitialOptimalRoutes = false;
+
+    m_receivedInitialOutductTelem = false;
+    m_outductInfoInitialized = false;
 
     m_lastMillisecondsSinceStartOfYear2000 = 0;
     m_bundleSequence = 0;
-    
-    
+
+
     LOG_INFO(subprocess) << "initializing Router..";
 
     m_ioService.reset();
@@ -301,7 +323,7 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
     m_contactPlanTimerIsRunning = false;
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
     ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceRouter");
- 
+
     //socket for receiving events from Egress
     m_zmqCtxPtr = boost::make_unique<zmq::context_t>();
 
@@ -413,20 +435,17 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
     return true;
 }
 
-void Router::Impl::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
-		             uint64_t time, bool isPhysical) {
+/** Sends link down message to Ingress and Storage
+ *
+ * @param outductArrayIndex The outduct array index for the link
+ */
+void Router::Impl::SendLinkDown(uint64_t outductArrayIndex) {
     hdtn::IreleaseChangeHdr stopMsg;
-    
+
     memset(&stopMsg, 0, sizeof(stopMsg));
     stopMsg.SetSubscribeAll();
     stopMsg.base.type = HDTN_MSGTYPE_ILINKDOWN;
-    stopMsg.nextHopNodeId = dest;
-    stopMsg.prevHopNodeId = src;
     stopMsg.outductArrayIndex = outductArrayIndex;
-    stopMsg.time = time;
-    stopMsg.isPhysical = (isPhysical ? 1 : 0);
-
-    HandleLinkDownEvent(stopMsg);
 
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
@@ -436,16 +455,21 @@ void Router::Impl::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArr
             LOG_FATAL(subprocess) << "Cannot sent link down message to all subscribers";
         }
     }
-    
+
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
     LOG_INFO(subprocess) << " -- LINK DOWN Event sent for outductArrayIndex=" << outductArrayIndex
-        << "  src(" << src << ") == = > dest(" << dest << ") at time " << timeLocal;
+        << " at time " << timeLocal;
 }
 
+/** Notify egress of time based link change
+ *
+ * @param outductArrayIndex index of outduct
+ * @param rateBps rate for link
+ * @param linkIsUpTimeBased whether this is a link up/down event
+ *
+ * Egress needs to know whether the link has gone up/down regardless of physical state
+ */
 void Router::Impl::NotifyEgressOfTimeBasedLinkChange(uint64_t outductArrayIndex, uint64_t rateBps, bool linkIsUpTimeBased) {
-    // First, send rate update message to egress, so it has time to
-    // update the rate before receiving date.
-    // This message also serves for Egress to update telemetry of linkIsUpTimeBased for an outduct
     hdtn::IreleaseChangeHdr rateUpdateMsg;
     memset(&rateUpdateMsg, 0, sizeof(rateUpdateMsg));
     rateUpdateMsg.SetSubscribeEgressOnly();
@@ -462,21 +486,19 @@ void Router::Impl::NotifyEgressOfTimeBasedLinkChange(uint64_t outductArrayIndex,
     }
 }
 
-void Router::Impl::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex, uint64_t time, uint64_t rateBps, uint64_t duration, bool isPhysical) {
+/** Send link up message to ingress, storage, and egress
+ *
+ * @param outductArrayIndex - the outduct which is now up
+ * @param rateBps - the rate for the link
+ */
+void Router::Impl::SendLinkUp(uint64_t outductArrayIndex, uint64_t rateBps) {
     // Send event to Ingress, Storage, and Router modules (not egress)
     hdtn::IreleaseChangeHdr releaseMsg;
     memset(&releaseMsg, 0, sizeof(releaseMsg));
     releaseMsg.SetSubscribeAll();
     releaseMsg.base.type = HDTN_MSGTYPE_ILINKUP;
-    releaseMsg.nextHopNodeId = dest;
-    releaseMsg.prevHopNodeId = src;
     releaseMsg.outductArrayIndex = outductArrayIndex;
-    releaseMsg.time = time;
     releaseMsg.rateBps = rateBps;
-    releaseMsg.duration = duration;
-    releaseMsg.isPhysical = (isPhysical ? 1 : 0);
-
-    HandleLinkUpEvent(releaseMsg);
 
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
@@ -489,7 +511,7 @@ void Router::Impl::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArray
 
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
     LOG_INFO(subprocess) << " -- LINK UP Event sent for outductArrayIndex=" << outductArrayIndex
-        << "  src(" << src << ") == = > dest(" << dest << ") at time " << timeLocal;
+                         << " at time " << timeLocal;
 }
 
 void Router::Impl::EgressEventsHandler() {
@@ -505,28 +527,29 @@ void Router::Impl::EgressEventsHandler() {
         return;
     }
 
-    
+
     if (linkStatusHdr.base.type == HDTN_MSGTYPE_LINKSTATUS) {
         boost::asio::post(m_ioService, boost::bind(&Router::Impl::HandlePhysicalLinkStatusChange, this, linkStatusHdr));
-        
+
     }
     else if (linkStatusHdr.base.type == HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY) {
+        zmq::message_t zmqMessageOutductCapabilitiesTelem;
         AllOutductCapabilitiesTelemetry_t aoct;
-        m_zmqMessageOutductCapabilitiesTelemPtr = boost::make_unique<zmq::message_t>();
         //message guaranteed to be there due to the zmq::send_flags::sndmore
-        if (!m_zmqPullSock_boundEgressToConnectingRouterPtr->recv(*m_zmqMessageOutductCapabilitiesTelemPtr, zmq::recv_flags::none)) {
+        if (!m_zmqPullSock_boundEgressToConnectingRouterPtr->recv(zmqMessageOutductCapabilitiesTelem, zmq::recv_flags::none)) {
             LOG_ERROR(subprocess) << "error receiving AllOutductCapabilitiesTelemetry";
         }
-        else if (!aoct.SetValuesFromJsonCharArray((char*)m_zmqMessageOutductCapabilitiesTelemPtr->data(), m_zmqMessageOutductCapabilitiesTelemPtr->size())) {
+        else if (!aoct.SetValuesFromJsonCharArray((char*)zmqMessageOutductCapabilitiesTelem.data(), zmqMessageOutductCapabilitiesTelem.size())) {
             LOG_ERROR(subprocess) << "error deserializing AllOutductCapabilitiesTelemetry";
         }
         else {
-            LOG_INFO(subprocess) << "Router received initial " << aoct.outductCapabilityTelemetryList.size() << " outduct telemetries from egress";
+                LOG_INFO(subprocess) << "Router received "  << aoct.outductCapabilityTelemetryList.size() << " outduct telemetries from egress";
 
-            if(!m_receivedInitialOutductTelemetry) {
-                boost::asio::post(m_ioService, boost::bind(&Router::Impl::PopulateMapsFromAllOutductCapabilitiesTelemetry, this, std::move(aoct)));
-                m_receivedInitialOutductTelemetry = true;
-            }
+                if(!m_receivedInitialOutductTelem) {
+                    AllOutductCapabilitiesTelemetry_t aoctCopy = aoct; // need to move, below func also needs one
+                    boost::asio::post(m_ioService, boost::bind(&Router::Impl::PopulateMapsFromAllOutductCapabilitiesTelemetry, this, std::move(aoctCopy)));
+                    m_receivedInitialOutductTelem = true;
+                }
         }
     }
     else if (linkStatusHdr.base.type == HDTN_MSGTYPE_BUNDLES_TO_ROUTER) {
@@ -559,7 +582,7 @@ void Router::Impl::EgressEventsHandler() {
 
                 LOG_INFO(subprocess) << "router received Bpv6 bundle with payload size " << payloadBlock.m_blockTypeSpecificDataLength;
                 //if (!ProcessPayload(payloadBlock.m_blockTypeSpecificDataPtr, payloadBlock.m_blockTypeSpecificDataLength)) {
-                
+
             }
             else if (isBpVersion7) {
                 BundleViewV7 bv;
@@ -621,7 +644,7 @@ bool Router::Impl::SendBundle(const uint8_t* payloadData, const uint64_t payload
     primary.m_crcType = BPV7_CRC_TYPE::CRC32C;
     bv.m_primaryBlockView.SetManuallyModified();
 
-    
+
 
     //append payload block (must be last block)
     {
@@ -648,7 +671,7 @@ bool Router::Impl::SendBundle(const uint8_t* payloadData, const uint64_t payload
 
     //manually copy data to preallocated space and compute crc
     memcpy(payloadBlockView.headerPtr->m_dataPtr, payloadData, payloadSizeBytes);
-    
+
     payloadBlockView.headerPtr->RecomputeCrcAfterDataModification((uint8_t*)payloadBlockView.actualSerializedBlockPtr.data(), payloadBlockView.actualSerializedBlockPtr.size()); //recompute crc
 
     //move the bundle out of bundleView
@@ -657,7 +680,7 @@ bool Router::Impl::SendBundle(const uint8_t* payloadData, const uint64_t payload
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
 
-        HandleBundle(releaseMsg);
+        HandleBundle(); // placeholder
 
         if (!m_zmqXPubSock_boundRouterToConnectingSubsPtr->send(
             zmq::const_buffer(&releaseMsg, sizeof(releaseMsg)), zmq::send_flags::sndmore | zmq::send_flags::dontwait))
@@ -674,6 +697,7 @@ bool Router::Impl::SendBundle(const uint8_t* payloadData, const uint64_t payload
 }
 
 void Router::Impl::TelemEventsHandler() {
+    // TODO need to wait on this until router is fully initialized
     uint8_t telemMsgByte;
     const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingTelemToFromBoundRouterPtr->recv(zmq::mutable_buffer(&telemMsgByte, sizeof(telemMsgByte)), zmq::recv_flags::dontwait);
     if (!res) {
@@ -760,6 +784,7 @@ void Router::Impl::ReadZmqAcksThreadFunc() {
                 TelemEventsHandler();
             }
             if (items[2].revents & ZMQ_POLLIN) { //subscriber events from xsub sockets for release messages
+                // Track who has already subscribed; need to know for full initialization
                 zmq::message_t zmqSubscriberDataReceived;
                 //Subscription message is a byte 1 (for subscriptions) or byte 0 (for unsubscriptions) followed by the subscription body.
                 //All release messages shall be prefixed by "aaaaaaaa" before the common header
@@ -785,7 +810,7 @@ void Router::Impl::ReadZmqAcksThreadFunc() {
                         LOG_INFO(subprocess) << "Storage " << ((storageSubscribed) ? "subscribed" : "desubscribed");
                     }
                     else if ((zmqSubscriberDataReceived.size() == 9) &&
-                        (dataSubscriber[1] == 'a') && 
+                        (dataSubscriber[1] == 'a') &&
                         (dataSubscriber[2] == 'a') &&
                         (dataSubscriber[3] == 'a') &&
                         (dataSubscriber[4] == 'a') &&
@@ -802,30 +827,14 @@ void Router::Impl::ReadZmqAcksThreadFunc() {
                 }
             }
 
-            if ((egressSubscribed) && (ingressSubscribed) && (storageSubscribed) && (m_zmqMessageOutductCapabilitiesTelemPtr)) {
+            // Wait for all modules to subcribe and for the first outduct capabilities telem
+            // before starting router
+            bool allSubscribed = (egressSubscribed) && (ingressSubscribed) && (storageSubscribed);
+            if(!routerFullyInitialized && m_receivedInitialOutductTelem && allSubscribed) {
+                routerFullyInitialized = true;
+                LOG_INFO(subprocess) << "Now running and fully initialized and connected to egress.. reading contact file " << m_contactPlanFilePath;
+                boost::asio::post(m_ioService, boost::bind(&Router::Impl::ProcessContactsFile, this, m_contactPlanFilePath));
 
-                LOG_INFO(subprocess) << "Forwarding outduct capabilities telemetry to Router";
-                hdtn::IreleaseChangeHdr releaseMsgHdr;
-                releaseMsgHdr.SetSubscribeRouterOnly();
-                releaseMsgHdr.base.type = HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY;
-
-                //boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
-                AllOutductCapabilitiesTelemetry_t aoct;
-                if (!aoct.SetValuesFromJsonCharArray((char*)m_zmqMessageOutductCapabilitiesTelemPtr->data(), m_zmqMessageOutductCapabilitiesTelemPtr->size())) {
-                    HandleOutductCapabilitiesTelemetry(releaseMsgHdr, aoct);
-                } else {
-                    LOG_ERROR(subprocess) << "error deserializing AllOutductCapabilitiesTelemetry";
-                }
-
-                m_zmqMessageOutductCapabilitiesTelemPtr.reset();
-
-                if (!routerFullyInitialized) {
-                    //first time this outduct capabilities telemetry received, start remaining router threads
-                    routerFullyInitialized = true;
-                    LOG_INFO(subprocess) << "Now running and fully initialized and connected to egress.. reading contact file " << m_contactPlanFilePath;
-                    boost::asio::post(m_ioService, boost::bind(&Router::Impl::ProcessContactsFile, this, m_contactPlanFilePath));
-                }
-                
             }
         }
     }
@@ -877,7 +886,7 @@ uint64_t Router::GetRateBpsFromPtree(const boost::property_tree::ptree::value_ty
 
 //must only be run from ioService thread because maps unprotected (no mutex)
 bool Router::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
-    
+
 
     m_contactPlanTimer.cancel(); //cancel any running contacts in the timer
 
@@ -887,11 +896,14 @@ bool Router::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
         if (outductInfo.linkIsUpTimeBased) {
             LOG_INFO(subprocess) << "Reloading contact plan: changing time based link up to link down for source "
                 << m_hdtnConfig.m_myNodeId << " destination " << outductInfo.nextHopNodeId << " outductIndex " << outductInfo.outductIndex;
-            SendLinkDown(m_hdtnConfig.m_myNodeId, outductInfo.nextHopNodeId, outductInfo.outductIndex, 0, false);
+            SendLinkDown(outductInfo.outductIndex);
+            //TODO clear old routes
             outductInfo.linkIsUpTimeBased = false;
         }
+        outductInfo.finalDestNodeIds.clear();
     }
 
+    m_routes.clear();
 
     m_ptimeToContactPlanBimap.clear(); //clear the map
 
@@ -910,14 +922,13 @@ bool Router::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
 
     //for non-throw versions of get_child which return a reference to the second parameter
     static const boost::property_tree::ptree EMPTY_PTREE;
-    
+
     const boost::property_tree::ptree& contactsPt = pt.get_child("contacts", EMPTY_PTREE);
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & eventPt, contactsPt) {
         contactPlan_t linkEvent;
         linkEvent.contact = eventPt.second.get<int>("contact", 0);
         linkEvent.source = eventPt.second.get<int>("source", 0);
         linkEvent.dest = eventPt.second.get<int>("dest", 0);
-        linkEvent.finalDest = eventPt.second.get<int>("finalDestination", 0);
         linkEvent.start = eventPt.second.get<int>("startTime", 0);
         linkEvent.end = eventPt.second.get<int>("endTime", 0);
         linkEvent.rateBps = Router::GetRateBpsFromPtree(eventPt);
@@ -937,12 +948,16 @@ bool Router::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
             if (!AddContact_NotThreadSafe(linkEvent)) {
                 LOG_WARNING(subprocess) << "failed to add a contact";
             }
+            m_routes[linkEvent.source] = NOROUTE;
         }
         else {
             LOG_WARNING(subprocess) << "Found a contact with destination (next hop node id) of " << linkEvent.dest
                 << " which isn't in the HDTN outductVector.. ignoring this unused contact from the contact plan.";
         }
     }
+
+    // Contacts for routing
+    m_cgrContacts = cgr::cp_load(contactsPt);
 
     LOG_INFO(subprocess) << "Epoch Time:  " << m_epoch;
 
@@ -988,15 +1003,28 @@ void Router::Impl::OnContactPlan_TimerExpired(const boost::system::error_code& e
                 //update linkIsUpTimeBased in the outductInfo
                 OutductInfo_t& outductInfo = outductInfoIt->second;
                 outductInfo.linkIsUpTimeBased = contactPlan.isLinkUp;
-                NotifyEgressOfTimeBasedLinkChange(contactPlan.outductArrayIndex, contactPlan.rateBps, outductInfo.linkIsUpTimeBased);
-                if (outductInfo.linkIsUpTimeBased) {
-                    const uint64_t now = TimestampUtil::GetSecondsSinceEpochUnix() - m_subtractMeFromUnixTimeSecondsToConvertToRouterTimeSeconds;
-                    const uint64_t durationStart = std::max(contactPlan.start, now);
-                    const uint64_t duration = contactPlan.end < durationStart ?  0 : (contactPlan.end - durationStart);
-                    SendLinkUp(contactPlan.source, contactPlan.dest, contactPlan.outductArrayIndex, contactPlan.start, contactPlan.rateBps, duration, false);
+                // Save the rate here in case the link goes down physically;
+                // we want to include it in future physical link up messages
+                outductInfo.rateBps = contactPlan.rateBps;
+
+                // Don't send updates or re-route if the link is not up physically
+                if(outductInfo.linkIsUpPhysical) {
+                    if (outductInfo.linkIsUpTimeBased) {
+                        SendLinkUp(contactPlan.outductArrayIndex, contactPlan.rateBps);
+                        RerouteOnLinkUp(contactPlan.source);
+                    }
+                    else {
+                        SendLinkDown(contactPlan.outductArrayIndex);
+                        RerouteOnLinkDown(contactPlan.source, contactPlan.dest, contactPlan.outductArrayIndex);
+                    }
+                } else {
+                    // Always tell egress; it needs this for telemetry and the rate even if physically down
+                    NotifyEgressOfTimeBasedLinkChange(contactPlan.outductArrayIndex, contactPlan.rateBps, outductInfo.linkIsUpTimeBased);
                 }
-                else {
-                    SendLinkDown(contactPlan.source, contactPlan.dest, contactPlan.outductArrayIndex, contactPlan.end + 1, false);
+                // TODO should we use our node ID as the source? Or the one from the contact plan?
+                // sanity check here
+                if(contactPlan.source != m_hdtnConfig.m_myNodeId) {
+                    LOG_FATAL(subprocess) << "Unexpected node ID in contact: " << contactPlan.source;
                 }
             }
 
@@ -1006,6 +1034,7 @@ void Router::Impl::OnContactPlan_TimerExpired(const boost::system::error_code& e
     }
 }
 
+/** Add contact to bimap for use with timer */
 bool Router::Impl::AddContact_NotThreadSafe(contactPlan_t& contact) {
     {
         ptime_index_pair_t pipStart(m_epoch + boost::posix_time::seconds(contact.start), 0);
@@ -1030,7 +1059,8 @@ bool Router::Impl::AddContact_NotThreadSafe(contactPlan_t& contact) {
     return true;
 }
 
-void Router::Impl::PopulateMapsFromAllOutductCapabilitiesTelemetry(AllOutductCapabilitiesTelemetry_t& aoct) {
+/** Build OutductInfo data structures */
+void Router::Impl::PopulateMapsFromAllOutductCapabilitiesTelemetry(const AllOutductCapabilitiesTelemetry_t& aoct) {
     m_mapOutductArrayIndexToOutductInfo.clear();
     m_mapNextHopNodeIdToOutductArrayIndex.clear();
 
@@ -1042,41 +1072,60 @@ void Router::Impl::PopulateMapsFromAllOutductCapabilitiesTelemetry(AllOutductCap
         m_mapOutductArrayIndexToOutductInfo.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(oct.outductArrayIndex),
-            std::forward_as_tuple(oct.outductArrayIndex, oct.nextHopNodeId, false, false, std::list<uint64_t>()));
+            std::forward_as_tuple(oct.outductArrayIndex, oct.nextHopNodeId, false, false));
     }
+    m_outductInfoInitialized = true;
 }
 
+/** Respond to physical link status change from egress
+ *
+ * Update state tracking in outduct info
+ *
+ * If link went up physically and there's an active contact for the link,
+ * then send out a link up message
+ * If the link wend down physically and there's an active contact for the link,
+ * then send out a link down message (TODO not current behavior)
+ * */
 void Router::Impl::HandlePhysicalLinkStatusChange(const hdtn::LinkStatusHdr& linkStatusHdr) {
     const bool eventLinkIsUpPhysically = (linkStatusHdr.event == 1);
     const uint64_t outductArrayIndex = linkStatusHdr.uuid;
-    const uint64_t timeSecondsSinceRouterEpoch = (linkStatusHdr.unixTimeSecondsSince1970 > m_subtractMeFromUnixTimeSecondsToConvertToRouterTimeSeconds) ?
-        (linkStatusHdr.unixTimeSecondsSince1970 - m_subtractMeFromUnixTimeSecondsToConvertToRouterTimeSeconds) : 0;
 
     LOG_INFO(subprocess) << "Received physical link status " << ((eventLinkIsUpPhysically) ? "UP" : "DOWN")
-        << " event from Egress for outductArrayIndex " << outductArrayIndex;
+                         << " event from Egress for outductArrayIndex " << outductArrayIndex;
 
     std::map<uint64_t, OutductInfo_t>::iterator it = m_mapOutductArrayIndexToOutductInfo.find(outductArrayIndex);
     if (it == m_mapOutductArrayIndexToOutductInfo.end()) {
-        LOG_ERROR(subprocess) << "EgressEventsHandler got event for unknown outductArrayIndex " << outductArrayIndex << " which does not correspond to a next hop";
+        LOG_ERROR(subprocess) << "EgressEventsHandler got event for unknown outductArrayIndex "
+                              << outductArrayIndex << " which does not correspond to a next hop";
         return;
     }
     OutductInfo_t& outductInfo = it->second;
 
+    bool changedState = outductInfo.linkIsUpPhysical != eventLinkIsUpPhysically;
     outductInfo.linkIsUpPhysical = eventLinkIsUpPhysically;
 
-    if (eventLinkIsUpPhysically) {
-        if (outductInfo.linkIsUpTimeBased) {
-            LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Up event at time  " << timeSecondsSinceRouterEpoch;
-            SendLinkUp(m_hdtnConfig.m_myNodeId, outductInfo.nextHopNodeId, outductArrayIndex, timeSecondsSinceRouterEpoch, 0, 0, true);
+    if (outductInfo.linkIsUpTimeBased && changedState) {
+        LOG_INFO(subprocess) << "Sending Link " << (eventLinkIsUpPhysically ? "UP" : "DOWN") << " and rerouting";
+        if (eventLinkIsUpPhysically) {
+                SendLinkUp(outductArrayIndex, outductInfo.rateBps);
+                RerouteOnLinkUp(m_hdtnConfig.m_myNodeId);
         }
-    }
-    else {
-        LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Down event at time  " << timeSecondsSinceRouterEpoch;
-
-        SendLinkDown(m_hdtnConfig.m_myNodeId, outductInfo.nextHopNodeId, outductArrayIndex, timeSecondsSinceRouterEpoch, true);
+        else {
+            SendLinkDown(outductArrayIndex);
+            RerouteOnLinkDown(m_hdtnConfig.m_myNodeId, outductInfo.nextHopNodeId, outductArrayIndex);
+        }
+    } else {
+        std::string reason = std::string(outductInfo.linkIsUpTimeBased ? "" : "[no contact]")
+                             + std::string(changedState ? "" : "[no state change]");
+        LOG_INFO(subprocess) << "Not sending link update due to physical change: " << reason;
     }
 }
 
+/** Send route update to egress
+ *
+ * @param nextHopNodeId The next hop node ID for the route
+ * @param finalDestNodeId The final destination ode ID for the route
+ */
 void Router::Impl::SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNodeId) {
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
 
@@ -1100,75 +1149,27 @@ void Router::Impl::SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNod
 
 /* From Router */
 
-void Router::Impl::HandleLinkDownEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr) {
-    m_latestTime = releaseChangeHdr.time;
-    LOG_INFO(subprocess) << "Received Link Down for contact: src = "
-        << releaseChangeHdr.prevHopNodeId
-        << "  dest = " << releaseChangeHdr.nextHopNodeId
-        << "  outductIndex = " << releaseChangeHdr.outductArrayIndex;
-
-    if (!m_computedInitialOptimalRoutes) {
+void Router::Impl::RerouteOnLinkDown(uint64_t prevHopNodeId, uint64_t nextHopNodeId, uint64_t outductArrayIndex) {
+    //TODO time
+    if (!m_outductInfoInitialized) {
         LOG_ERROR(subprocess) << "out of order command, received link down before receiving outduct capabilities";
         return;
     }
-
-
-    ComputeOptimalRoutesForOutductIndex(releaseChangeHdr.prevHopNodeId, releaseChangeHdr.outductArrayIndex);
-    LOG_DEBUG(subprocess) << "Updated time to " << m_latestTime;
+    ComputeOptimalRoutesForOutductIndex(prevHopNodeId, outductArrayIndex);
 }
 
-void Router::Impl::HandleLinkUpEvent(const hdtn::IreleaseChangeHdr &releaseChangeHdr) {
-    m_latestTime = releaseChangeHdr.time;
-    LOG_DEBUG(subprocess) << "Contact up ";
-    LOG_DEBUG(subprocess) << "Updated time to " << m_latestTime;
-}
-
-void Router::Impl::HandleOutductCapabilitiesTelemetry(const hdtn::IreleaseChangeHdr &releaseChangeHdr, const AllOutductCapabilitiesTelemetry_t & aoct) {
-    m_latestTime = releaseChangeHdr.time;
-    LOG_INFO(subprocess) << "Received and successfully decoded " << ((m_computedInitialOptimalRoutes) ? "UPDATED" : "NEW")
-        << " AllOutductCapabilitiesTelemetry_t message from Router containing "
-        << aoct.outductCapabilityTelemetryList.size() << " outducts.";
-
-    for (std::list<OutductCapabilityTelemetry_t>::const_iterator itAoct = aoct.outductCapabilityTelemetryList.cbegin();
-        itAoct != aoct.outductCapabilityTelemetryList.cend(); ++itAoct)
-    {
-        const OutductCapabilityTelemetry_t& oct = *itAoct;
-        std::map<uint64_t, OutductInfo_t>::iterator it =  m_mapOutductArrayIndexToOutductInfo.find(oct.outductArrayIndex);
-        if(it == m_mapOutductArrayIndexToOutductInfo.end()) {
-            LOG_ERROR(subprocess) << "could not find outduct info for index while updating routes";
-            continue;
-        }
-        OutductInfo_t & info = it->second;
-        info.finalDestNodeIdList.clear();
-
-        for (std::list<uint64_t>::const_iterator it = oct.finalDestinationNodeIdList.cbegin();
-            it != oct.finalDestinationNodeIdList.cend(); ++it)
-        {
-            const uint64_t nodeId = *it;
-            info.finalDestNodeIdList.emplace_back(nodeId);
-            LOG_INFO(subprocess) << "Compute Optimal Route for finalDestination node " << nodeId;
-        }
-        std::set<uint64_t> usedNodeIds;
-        for (std::list<cbhe_eid_t>::const_iterator it = oct.finalDestinationEidList.cbegin();
-            it != oct.finalDestinationEidList.cend(); ++it)
-        {
-            const uint64_t nodeId = it->nodeId;
-            if (usedNodeIds.emplace(nodeId).second) { //was inserted
-                info.finalDestNodeIdList.emplace_back(nodeId);
-                LOG_INFO(subprocess) << "Compute Optimal Route for finalDestination node " << nodeId;
-            }
-        }
-        if (!m_computedInitialOptimalRoutes) {
-            ComputeOptimalRoutesForOutductIndex(m_hdtnConfig.m_myNodeId, oct.outductArrayIndex);
-        }
+void Router::Impl::RerouteOnLinkUp(uint64_t prevHopNodeId) {
+    //TODO time
+    if (!m_outductInfoInitialized) {
+        LOG_ERROR(subprocess) << "out of order command, received link up before receiving outduct capabilities";
+        return;
     }
-    m_computedInitialOptimalRoutes = true;
-
+    ComputeAllRoutes(prevHopNodeId);
 }
 
 /** Placeholder */
-void Router::Impl::HandleBundle(const hdtn::IreleaseChangeHdr &releaseChangeHdr) {
-    m_latestTime = releaseChangeHdr.time;
+void Router::Impl::HandleBundle() {
+    //TODO time
 }
 
 /** Filter "failed" contacts
@@ -1180,7 +1181,7 @@ void Router::Impl::HandleBundle(const hdtn::IreleaseChangeHdr &releaseChangeHdr)
  * @param contactPlan - the contact plan to modify in-place
  */
 void Router::Impl::FilterContactPlan(uint64_t sourceNode, std::vector<cgr::Contact> & contactPlan) {
-	
+
     int i = 0;
     while(i < contactPlan.size()) {
         const cgr::Contact & contact = contactPlan[i];
@@ -1217,55 +1218,126 @@ void Router::Impl::FilterContactPlan(uint64_t sourceNode, std::vector<cgr::Conta
     }
 }
 
+/** Update data structures that track routes
+ * @param oldNextHop the original next hop node ID
+ * @param newNextHop the new next hop node ID
+ * @param finalDest the final destination node ID
+ *
+ * Updates the route map to point to the new next hop.
+ * If the old next hop was not unroutable, removes the final destination from the associated outduct
+ * If the new next hop is not unroutable, adds the final destination to the assoicated outduct
+ */
+void Router::Impl::UpdateRouteState(uint64_t oldNextHop, uint64_t newNextHop, uint64_t finalDest) {
+    m_routes[finalDest] = newNextHop;
+    if(oldNextHop != NOROUTE) {
+        std::map<uint64_t, uint64_t>::iterator it = m_mapNextHopNodeIdToOutductArrayIndex.find(oldNextHop);
+        if(it == m_mapNextHopNodeIdToOutductArrayIndex.end()) {
+            LOG_ERROR(subprocess) << "Could not find outduct for next hop " << oldNextHop;
+        }
+        else {
+            OutductInfo_t &info = m_mapOutductArrayIndexToOutductInfo[it->second];
+            info.finalDestNodeIds.erase(finalDest);
+        }
+    }
+    if(newNextHop != NOROUTE) {
+        std::map<uint64_t, uint64_t>::iterator it = m_mapNextHopNodeIdToOutductArrayIndex.find(newNextHop);
+        if(it == m_mapNextHopNodeIdToOutductArrayIndex.end()) {
+            LOG_ERROR(subprocess) << "Could not find outduct for next hop " << newNextHop;
+        }
+        else {
+            OutductInfo_t &info = m_mapOutductArrayIndexToOutductInfo[it->second];
+            info.finalDestNodeIds.insert(finalDest);
+        }
+    }
+}
+
+// Helper for logging
+static std::string routeToStr(uint64_t n) {
+    return n == NOROUTE ? "[no route]" : std::to_string(n);
+}
+
+/** Recompute all routes
+ *
+ * @param sourceNode - the source node ID for the routes
+ *
+ * Sends updated routes to egress
+ */
+void Router::Impl::ComputeAllRoutes(uint64_t sourceNode) {
+
+    for (std::unordered_map<uint64_t, uint64_t>::iterator it = m_routes.begin();
+        it != m_routes.end(); ++it)
+    {
+        uint64_t finalDest = it->first;
+        uint64_t origNextHop = it->second;
+        uint64_t newNextHop = ComputeOptimalRoute(sourceNode, finalDest);
+
+
+        if (newNextHop == origNextHop) {
+            LOG_DEBUG(subprocess) << "Skipping Computed next hop: " << routeToStr(newNextHop)
+                                  << " for final Destination " << finalDest << " because the next hops didn't change.";
+            continue;
+        }
+
+        UpdateRouteState(origNextHop, newNextHop, finalDest);
+
+        LOG_INFO(subprocess) << "Route updated: finalDest " << finalDest << " -> nextHop "
+                             << routeToStr(newNextHop) << ", (was " << routeToStr(origNextHop) << ")";
+
+        SendRouteUpdate(newNextHop, finalDest);
+    }
+}
+
 /** Recompute routes for destination eids associated with an outduct
  *
  * @param sourceNode - the source node ID for the routes
  * @param outductIndex - the outduct index
  *
- * @returns true on success, false on failure
- *
  * Sends updated routes to egress
- *
  */
-bool Router::Impl::ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint64_t outductIndex) {
+void Router::Impl::ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint64_t outductIndex) {
 
-    std::map<uint64_t, OutductInfo_t>::const_iterator it = m_mapOutductArrayIndexToOutductInfo.find(outductIndex);
-    if (it == m_mapOutductArrayIndexToOutductInfo.cend()) {
+    std::map<uint64_t, OutductInfo_t>::iterator it = m_mapOutductArrayIndexToOutductInfo.find(outductIndex);
+    if (it == m_mapOutductArrayIndexToOutductInfo.end()) {
         LOG_ERROR(subprocess) << "ComputeOptimalRoutesForOutductIndex cannot find outductIndex " << outductIndex;
-        return false;
+        return;
     }
 
-    const OutductInfo_t &info = it->second;
+    OutductInfo_t &info = it->second;
+    const uint64_t origNextHop = info.nextHopNodeId;
     bool noErrors = true;
-    for (std::list<uint64_t>::const_iterator it = info.finalDestNodeIdList.cbegin();
-        it != info.finalDestNodeIdList.cend(); ++it)
+    for (std::unordered_set<uint64_t>::iterator it = info.finalDestNodeIds.begin();
+        it != info.finalDestNodeIds.end(); ++it)
     {
-        const uint64_t finalDestNodeId = *it;
-        LOG_DEBUG(subprocess) << "FinalDest nodeId found is:  " << finalDestNodeId;
-        if (!ComputeOptimalRoute(sourceNode, info.nextHopNodeId, finalDestNodeId)) {
-            noErrors = false;
+        const uint64_t finalDest = *it;
+        uint64_t newNextHop = ComputeOptimalRoute(sourceNode, finalDest);
+
+        if (newNextHop == origNextHop) {
+            LOG_DEBUG(subprocess) << "Skipping Computed next hop: " << routeToStr(newNextHop)
+                                  << " for final Destination " << finalDest << " because the next hops didn't change.";
+            continue;
         }
+        UpdateRouteState(origNextHop, newNextHop, finalDest);
+
+        LOG_INFO(subprocess) << "Route updated: finalDest " << finalDest << " -> nextHop "
+                             << routeToStr(newNextHop) << ", (was " << routeToStr(origNextHop) << ")";
+
+        SendRouteUpdate(newNextHop, finalDest);
     }
-    return noErrors;
 }
 
 /** Compute optimal route to destination
  *
  * @param sourceNode the starting node for the route
- * @param originalNextHopNodeId the current route
  * @param the final destination node ID
  *
- * Computes the optimal route for a node. If the route is different,
- * sends a route update message to egress
- *
- * @returns false on error, true on success
+ * @returns The next hop node ID or NOROUTE if no route found
  */
-bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNextHopNodeId, uint64_t finalDestNodeId) {
+uint64_t Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t finalDestNodeId) {
 
     cgr::Route bestRoute;
 
-    LOG_DEBUG(subprocess) << "Reading contact plan and computing next hop";
-    std::vector<cgr::Contact> contactPlan = cgr::cp_load(m_contactPlanFilePath);
+    // Make copy here to filter
+    std::vector<cgr::Contact> contactPlan = m_cgrContacts;
 
     // The contact plan here is a copy of the actual contact plan,
     // filtering only affects this instance of this function call
@@ -1280,31 +1352,15 @@ bool Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t originalNex
         bestRoute = cgr::dijkstra(&rootContact, finalDestNodeId, contactPlan);
     }
     else {
-        bestRoute = cgr::cmr_dijkstra(&rootContact,
-            finalDestNodeId, contactPlan);
         LOG_INFO(subprocess) << "Computing Optimal Route using CMR algorithm for final Destination "
             << finalDestNodeId << " at latest time " << rootContact.arrival_time;
+        bestRoute = cgr::cmr_dijkstra(&rootContact,
+            finalDestNodeId, contactPlan);
     }
 
     if (bestRoute.valid()) { // successfully computed a route
-        const uint64_t nextHopNodeId = bestRoute.next_node;
-        if (originalNextHopNodeId != nextHopNodeId) {
-                LOG_INFO(subprocess) << "Successfully Computed next hop: "
-                    << nextHopNodeId << " for final Destination " << finalDestNodeId
-                    << "Best route is " << bestRoute;
-            SendRouteUpdate(nextHopNodeId, finalDestNodeId);
-
-        }
-        else {
-            LOG_DEBUG(subprocess) << "Skipping Computed next hop: "
-                << nextHopNodeId << " for final Destination " << finalDestNodeId
-                << " because the next hops didn't change.";
-        }
+        return bestRoute.next_node;
    } else {
-        // what should we do if no route is found?
-        LOG_ERROR(subprocess) << "No route is found!!";
-        return false;
+        return NOROUTE;
     }
-
-    return true;
 }

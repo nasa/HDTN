@@ -1357,8 +1357,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     }
                     else {
                         mapOuductArrayIndexToPendingLinkChangeEvent[releaseChangeHdr.outductArrayIndex] = true;
-                        LOG_INFO(subprocess) << "nextHopNodeId: " << releaseChangeHdr.nextHopNodeId
-                            << " outductArrayIndex=" << releaseChangeHdr.outductArrayIndex
+                        LOG_INFO(subprocess) << " outductArrayIndex=" << releaseChangeHdr.outductArrayIndex
                             << ") will be released from storage once egress is fully initialized";
                     }
                 }
@@ -1374,8 +1373,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     }
                     else {
                         mapOuductArrayIndexToPendingLinkChangeEvent[releaseChangeHdr.outductArrayIndex] = true;
-                        LOG_INFO(subprocess) << "nextHopNodeId: " << releaseChangeHdr.nextHopNodeId
-                            << " outductArrayIndex=" << releaseChangeHdr.outductArrayIndex
+                        LOG_INFO(subprocess) << " outductArrayIndex=" << releaseChangeHdr.outductArrayIndex
                             << ") will STOP BEING released from storage once egress is fully initialized";
                     }
                 }

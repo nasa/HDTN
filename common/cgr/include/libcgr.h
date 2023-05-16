@@ -8,6 +8,7 @@
 #include <limits>
 #include <memory>
 #include <boost/filesystem.hpp>
+#include <boost/property_tree/ptree.hpp>
 #include "cgr_lib_export.h"
 
 namespace cgr {
@@ -140,6 +141,7 @@ CGR_LIB_EXPORT int64_t contact_search_index(const std::vector<const Contact*>& c
 //CGR_LIB_EXPORT Contact* contact_search_predecessor(std::vector<Contact>& contacts, time_t arrival_time);
 
 CGR_LIB_EXPORT std::vector<Contact> cp_load(const boost::filesystem::path & filePath, std::size_t max_contacts= std::numeric_limits<std::size_t>::max());
+CGR_LIB_EXPORT std::vector<Contact> cp_load(const boost::property_tree::ptree& contactsPt, std::size_t max_contacts= std::numeric_limits<std::size_t>::max());
 
 CGR_LIB_EXPORT Route dijkstra(Contact *root_contact, nodeId_t destination, std::vector<Contact> contact_plan);
 
