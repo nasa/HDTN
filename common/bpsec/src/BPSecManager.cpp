@@ -630,6 +630,15 @@ bool BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
             return false;
         }
 
+#if BPSEC_MANAGER_PRINT_DEBUG
+        {
+            std::string ivHexString;
+            BinaryConversions::BytesToHexString(*ivPtr, ivHexString);
+            boost::to_lower(ivHexString);
+            LOG_DEBUG(subprocess) << "iv: " << ivHexString;
+        }
+#endif
+
         std::vector<boost::asio::const_buffer>& aadParts = reusableElementsInternal.constBufferVec;
         aadParts.clear();
         aadParts.reserve(4);
