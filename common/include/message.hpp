@@ -190,7 +190,6 @@ struct RouteUpdateHdr {
     uint8_t unused4;
     uint64_t nextHopNodeId;
     uint64_t finalDestNodeId;
-    uint64_t route[20]; //optimal route
 };
 
 struct LinkStatusHdr {
