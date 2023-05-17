@@ -948,6 +948,10 @@ bool Router::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
                 << " which is this HDTN's node id.. ignoring this unused contact from the contact plan.";
             continue;
         }
+
+        // Add all possible destinations except ourself
+        m_routes[linkEvent.dest] = NOROUTE;
+
         if(linkEvent.source != m_hdtnConfig.m_myNodeId) {
             LOG_WARNING(subprocess) << "Found a contact with source of " << linkEvent.source
                 << " which is not this HDTN's node id... ignoring this contact from the contact plan";
@@ -959,7 +963,6 @@ bool Router::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
             if (!AddContact_NotThreadSafe(linkEvent)) {
                 LOG_WARNING(subprocess) << "failed to add a contact";
             }
-            m_routes[linkEvent.dest] = NOROUTE;
         }
         else {
             LOG_WARNING(subprocess) << "Found a contact with destination (next hop node id) of " << linkEvent.dest
