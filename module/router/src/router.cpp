@@ -40,24 +40,40 @@
 #include <unordered_map>
 #include <unordered_set>
 
-/* Messages overview
+/* Messages overview:
  *      + Sockets:
- *          + router <-> egress
- *          + router -> [ingress, storage]
+ *          + egress -> router
+ *          + router -> egress
+ *          + router -> [ingress, storage, (egress)]
  *          + telem -> router
+ *      + From egress
+ *          + Link physical state change (outduct index & up/down)
+ *          + All outduct capabilities: for each outduct...
+ *              + outduct index and next hop node ID
+ *      + To Egress
+ *          + Schedule-based link up/down with rate (index, up/down, & rate)
+ *          + Route Updates (final destination node ID -> next hop node ID)
+ *      + To Ingress & Storage
+ *          + Link state changes, aka release messages (index, up/down)
+ *            + (physically up AND schedule-based up) -> up
+ *            + (physcailly down OR schedule-based down) -> down
+ *            + Messages sent upon transition between the above states
+ *      + From Telem/Cmd/API
+ *         + Receive new contact plans
  *
- *      + Egress tells the router when links change state physically (up/down)
- *        + Egress also provides the router with initial info on outducts
- *      + The router sends route updates to egress,  map(final dest -> next hop)
- *      + The router sends time-based link change updates to egress (up/down)
- *      + The router broadcasts to ingress and storage when links change state (up/down)
- *        + This includes physical and schedule-driven changes
- *      + Telem provides the router with new contact plans
+ * Threads:
  *
+ *      + Callee thread
+ *      + Worker thread (ReadZmqAcksThreadFunc)
+ *      + asio thread
  *
- * Ingress and Storage are notified when links are "up" or "down". A link is up
- * when it is both physically up and up per the contact plan. A link is down if
- * either: it's down physically or down per the contact plan (or both).
+ * Init/Stop called from callee thread; Init starts worker thread.
+ * Worker thread runs event loop listening to messages from modules.
+ * Upon receipt of messages, worker thread dispatches work (member
+ * functions to be called) on the asio thread (via boost::asio::post)
+ *
+ * Once a contact plan has been read (or provided via telem api), a
+ * timer is started that wakes up at the start and end of each contact.
  */
 
 /** logger subprocess for the router */
@@ -557,9 +573,9 @@ void Router::Impl::EgressEventsHandler() {
                 LOG_INFO(subprocess) << "Router received "  << aoct.outductCapabilityTelemetryList.size() << " outduct telemetries from egress";
 
                 if(!m_receivedInitialOutductTelem) {
-                    AllOutductCapabilitiesTelemetry_t aoctCopy = aoct; // need to move, below func also needs one
-                    boost::asio::post(m_ioService, boost::bind(&Router::Impl::PopulateMapsFromAllOutductCapabilitiesTelemetry, this, std::move(aoctCopy)));
                     m_receivedInitialOutductTelem = true;
+                    boost::asio::post(m_ioService, boost::bind(&Router::Impl::PopulateMapsFromAllOutductCapabilitiesTelemetry,
+                                                               this, std::move(aoct)));
                 }
         }
     }
@@ -820,6 +836,7 @@ void Router::Impl::ReadZmqAcksThreadFunc() {
                         storageSubscribed = (dataSubscriber[0] == 0x1);
                         LOG_INFO(subprocess) << "Storage " << ((storageSubscribed) ? "subscribed" : "desubscribed");
                     }
+                    // TODO does UIS still subscribe?
                     else if ((zmqSubscriberDataReceived.size() == 9) &&
                         (dataSubscriber[1] == 'a') &&
                         (dataSubscriber[2] == 'a') &&
