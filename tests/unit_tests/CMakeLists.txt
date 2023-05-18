@@ -40,6 +40,7 @@ add_executable(unit-tests
 	../../common/bpcodec/test/TestBpsecDefaultSecurityContexts.cpp
 	$<$<BOOL:${ENABLE_BPSEC}>:../../common/bpsec/test/TestBpsecDefault.cpp>
 	$<$<BOOL:${ENABLE_BPSEC}>:../../common/bpsec/test/TestInitializationVectors.cpp>
+	$<$<BOOL:${ENABLE_BPSEC}>:../../common/bpsec/test/TestBpSecPolicyManager.cpp>
 	../../common/bpcodec/test/TestBpv7Crc.cpp
 	../../common/config/test/TestInductsConfig.cpp
 	../../common/config/test/TestOutductsConfig.cpp
