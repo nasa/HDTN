@@ -808,7 +808,10 @@ void Router::Impl::ReadZmqAcksThreadFunc() {
                 EgressEventsHandler();
             }
             if (items[1].revents & ZMQ_POLLIN) { //events from Telemetry
-                TelemEventsHandler();
+                // Don't update contact plan until we've read in the first one
+                if(routerFullyInitialized) {
+                    TelemEventsHandler();
+                }
             }
             if (items[2].revents & ZMQ_POLLIN) { //subscriber events from xsub sockets for release messages
                 // Track who has already subscribed; need to know for full initialization
