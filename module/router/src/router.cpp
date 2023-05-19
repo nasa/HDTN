@@ -50,13 +50,14 @@
  *          + Link physical state change (outduct index & up/down)
  *          + All outduct capabilities: for each outduct...
  *              + outduct index and next hop node ID
+ *          + Bundles to scheduler/router
  *      + To Egress
  *          + Schedule-based link up/down with rate (index, up/down, & rate)
  *          + Route Updates (final destination node ID -> next hop node ID)
  *      + To Ingress & Storage
  *          + Link state changes, aka release messages (index, up/down)
  *            + (physically up AND schedule-based up) -> up
- *            + (physcailly down OR schedule-based down) -> down
+ *            + (physically down OR schedule-based down) -> down
  *            + Messages sent upon transition between the above states
  *      + From Telem/Cmd/API
  *         + Receive new contact plans
@@ -65,7 +66,7 @@
  *
  *      + Callee thread
  *      + Worker thread (ReadZmqAcksThreadFunc)
- *      + asio thread
+ *      + asio thread (service thread)
  *
  * Init/Stop called from callee thread; Init starts worker thread.
  * Worker thread runs event loop listening to messages from modules.
@@ -74,6 +75,42 @@
  *
  * Once a contact plan has been read (or provided via telem api), a
  * timer is started that wakes up at the start and end of each contact.
+ * The timer is run on the asio thread.
+ *
+ * Behavior:
+ *
+ * Router is responible for notifying other modules of available
+ * routes and whether links are up and down. Storage and ingress use
+ * this up/down information to determine when they can pass bundles
+ * to egress. (Egress uses the link up/down messages for telemetry
+ * and to get the rate for a link).
+ *
+ * Link up/down messages are sent to storage and ingress based on
+ * both the physical and logical state of the link. The physical
+ * link information is provided to the router via messages from egress.
+ * The logical state comes from the contact plan. Links are logically
+ * up when there's an active contact.
+ *
+ * Routes are re-calculated when the link state changes.
+ *
+ * Architecture:
+ *
+ * Init starts the event thread, ReadMzqAcksThreadFunc. This listens
+ * on the ZMQ sockets for messages from egress, telem, and subscription
+ * notifications. The router is fully initialized once all modules
+ * subscribe AND the first outduct telemetry message is received from
+ * egress. On full initialization, the contact plan is loaded from disk.
+ *
+ * This populates the contact and route data structures and starts the
+ * timer. These data structures are reset and repopulated every time
+ * a new contact plan is received.
+ *
+ * Link up/down and routing actions take place when either the timer
+ * expires or when egress sends physical link status changes (and on
+ * new contact plans).
+ *
+ * Most work other than listening for events (and handling received
+ * bundles) occurs on the service thread via asio::post calls.
  */
 
 /** logger subprocess for the router */
@@ -154,7 +191,7 @@ private:
     void OnContactPlan_TimerExpired(const boost::system::error_code& e);
     bool AddContact_NotThreadSafe(contactPlan_t& contact);
 
-    /* From router */
+    // Routing
     void RerouteOnLinkDown(uint64_t prevHopNodeId, uint64_t outductArrayIndex);
     void RerouteOnLinkUp(uint64_t prevHopNodeId);
     void HandleBundle();
@@ -172,7 +209,6 @@ private:
 
     typedef std::pair<boost::posix_time::ptime, uint64_t> ptime_index_pair_t; //used in case of identical ptimes for starting events
     typedef boost::bimap<ptime_index_pair_t, contactPlan_t> ptime_to_contactplan_bimap_t;
-
 
     volatile bool m_running;
     HdtnConfig m_hdtnConfig;
@@ -204,9 +240,9 @@ private:
     boost::posix_time::ptime m_epoch;
     uint64_t m_subtractMeFromUnixTimeSecondsToConvertToRouterTimeSeconds;
 
-    /** Used in service thread to mark setup complete */
+    // Used in service thread to mark setup complete
     bool m_outductInfoInitialized;
-    /** Used in zmq message thread to track setup progress */
+    // Used in zmq message thread to track setup progress
     bool m_receivedInitialOutductTelem;
 
     //for blocking until worker-thread startup
@@ -219,11 +255,11 @@ private:
     uint64_t m_lastMillisecondsSinceStartOfYear2000;
     uint64_t m_bundleSequence;
 
-    // Router
+    // Routing
     bool m_usingMGR;
     uint64_t m_latestTime;
     std::vector<cgr::Contact> m_cgrContacts;
-    /** Map of final destination node ids to next hops */
+    // Map of final destination node ids to next hops
     std::unordered_map<uint64_t, uint64_t> m_routes;
 };
 
@@ -517,7 +553,6 @@ void Router::Impl::NotifyEgressOfTimeBasedLinkChange(uint64_t outductArrayIndex,
 /** Send link up message to ingress and storage
  *
  * @param outductArrayIndex - the outduct which is now up
- * @param rateBps - the rate for the link
  */
 void Router::Impl::SendLinkUp(uint64_t outductArrayIndex) {
     // Send event to Ingress, Storage, and Router modules (not egress)
@@ -556,6 +591,7 @@ void Router::Impl::EgressEventsHandler() {
 
 
     if (linkStatusHdr.base.type == HDTN_MSGTYPE_LINKSTATUS) {
+        //TODO we need the first outduct capabilities message before we can really handle this
         boost::asio::post(m_ioService, boost::bind(&Router::Impl::HandlePhysicalLinkStatusChange, this, linkStatusHdr));
 
     }
@@ -723,8 +759,8 @@ bool Router::Impl::SendBundle(const uint8_t* payloadData, const uint64_t payload
     return true;
 }
 
+/** Handle events from telemetry. Receives new contact plan and updates router to use that contact plan */
 void Router::Impl::TelemEventsHandler() {
-    // TODO need to wait on this until router is fully initialized
     uint8_t telemMsgByte;
     const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingTelemToFromBoundRouterPtr->recv(zmq::mutable_buffer(&telemMsgByte, sizeof(telemMsgByte)), zmq::recv_flags::dontwait);
     if (!res) {
@@ -770,6 +806,7 @@ void Router::Impl::TelemEventsHandler() {
     }
 }
 
+/** Event thread loop */
 void Router::Impl::ReadZmqAcksThreadFunc() {
     ThreadNamer::SetThisThreadName("routerZmqReader");
 
@@ -1179,6 +1216,7 @@ void Router::Impl::SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNod
     }
 }
 
+//FIXME Debugging only; get rid of this before merge
 void Router::Impl::DumpRoutes(std::string label) {
     LOG_INFO(subprocess) << "Dumping routes " << label << ":";
     LOG_INFO(subprocess) << "  All Routes: ";
@@ -1202,7 +1240,7 @@ void Router::Impl::DumpRoutes(std::string label) {
     }
 }
 
-/* From Router */
+/* Routing */
 
 void Router::Impl::RerouteOnLinkDown(uint64_t prevHopNodeId, uint64_t outductArrayIndex) {
     DumpRoutes("before link down reroute");
@@ -1273,7 +1311,7 @@ void Router::Impl::FilterContactPlan(uint64_t sourceNode, std::vector<cgr::Conta
 
         // Otherwise: active contact from our node with link DOWN,
         // remove contact from contact plan to re-route around down node
-        /*DEBUG*/LOG_INFO(subprocess) << "Filtering contact " << contact << "; outduct " 
+        /*FIXME remove (DEBUG)*/LOG_INFO(subprocess) << "Filtering contact " << contact << "; outduct "
                                       << info.outductIndex << " is up?: " << info.linkIsUpPhysical;
         contactPlan.erase(contactPlan.begin() + i);
     }
