@@ -1368,6 +1368,8 @@ void Router::Impl::ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint
     std::unordered_set<uint64_t>::iterator destIt = info.finalDestNodeIds.begin();
     while(destIt!= info.finalDestNodeIds.end()) {
         const uint64_t finalDest = *destIt;
+        ++destIt;
+
         uint64_t newNextHop = ComputeOptimalRoute(sourceNode, finalDest);
 
         if (newNextHop == origNextHop) {
@@ -1379,7 +1381,6 @@ void Router::Impl::ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint
                              << routeToStr(newNextHop) << ", (was " << routeToStr(origNextHop) << ")";
 
         // Update will invalidate current iterator, so move on to next first
-        ++destIt;
         UpdateRouteState(origNextHop, newNextHop, finalDest);
         SendRouteUpdate(newNextHop, finalDest);
     }
