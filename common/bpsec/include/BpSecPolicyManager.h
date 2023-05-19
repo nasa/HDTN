@@ -38,7 +38,26 @@ enum class BPSEC_ROLE {
     RESERVED_MAX_ROLE_TYPES
 };
 struct BpSecPolicy {
-    FragmentSet::data_fragment_set_t m_allowedBlockTypes;
+    BpSecPolicy() : m_doIntegrity(false), m_doConfidentiality(false), m_use12ByteIv(true) {}
+
+    bool m_doIntegrity;
+    bool m_doConfidentiality;
+
+    //integrity only variables
+    COSE_ALGORITHMS m_integrityVariant;
+    BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS m_integrityScopeMask;
+    BPV7_CRC_TYPE m_bibCrcType;
+    FragmentSet::data_fragment_set_t m_bibBlockTypeTargets;
+    std::vector<uint8_t> m_hmacKeyEncryptionKey;
+    std::vector<uint8_t> m_hmacKey;
+    
+    //confidentiality only variables
+    COSE_ALGORITHMS m_confidentialityVariant;
+    bool m_use12ByteIv;
+    BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS m_aadScopeMask;
+    BPV7_CRC_TYPE m_bcbCrcType;
+    FragmentSet::data_fragment_set_t m_bcbBlockTypeTargets;
+    std::vector<uint8_t> m_confidentialityKeyEncryptionKey;
     std::vector<uint8_t> m_dataEncryptionKey;
 };
 typedef std::shared_ptr<BpSecPolicy> BpSecPolicySharedPtr;

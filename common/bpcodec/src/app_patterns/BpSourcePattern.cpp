@@ -34,6 +34,7 @@
 #ifdef BPSEC_SUPPORT_ENABLED
 #include "BPSecManager.h"
 #include "InitializationVectors.h"
+#include "BpSecPolicyManager.h"
 //# define DO_BPSEC_TEST 1
 #endif
 
@@ -287,25 +288,72 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
     boost::posix_time::ptime startTime = boost::posix_time::microsec_clock::universal_time();
     bool isGeneratingNewBundles = true;
     bool inWaitForNewBundlesState = false;
+    static constexpr std::size_t MAX_NUM_BPV7_BLOCK_TYPE_CODES = static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::RESERVED_MAX_BLOCK_TYPES);
+    uint8_t bpv7BlockTypeToManuallyAssignedBlockNumberLut[MAX_NUM_BPV7_BLOCK_TYPE_CODES] = { 0 };
+    bpv7BlockTypeToManuallyAssignedBlockNumberLut[static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::HOP_COUNT)] = 2;
+    bpv7BlockTypeToManuallyAssignedBlockNumberLut[static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PRIORITY)] = 3;
+    bpv7BlockTypeToManuallyAssignedBlockNumberLut[static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PAYLOAD)] = 1; //must be 1
+    
+#ifdef BPSEC_SUPPORT_ENABLED
+    BpSecPolicyManager m_bpSecPolicyManager;
+#endif
 #ifdef DO_BPSEC_TEST
-    std::vector<uint8_t> dataEncryptionKeyBytes; //DEK
-    static const std::string dataEncryptionKeyString(
-        "71776572747975696f70617364666768"
-        "71776572747975696f70617364666768"
-    );
-    BinaryConversions::HexStringToBytes(dataEncryptionKeyString, dataEncryptionKeyBytes);
+    
+    { //simulate loading from policy file
+        BpSecPolicy* p = m_bpSecPolicyManager.CreateAndGetNewPolicy(
+            Uri::GetIpnUriString(m_myEid.nodeId, m_myEid.serviceId),
+            Uri::GetIpnUriString(m_myEid.nodeId, m_myEid.serviceId),
+            Uri::GetIpnUriString(m_finalDestinationEid.nodeId, m_finalDestinationEid.serviceId),
+            BPSEC_ROLE::SOURCE);
+        p->m_doConfidentiality = true;
+        static const std::string dataEncryptionKeyString(
+            "71776572747975696f70617364666768"
+            "71776572747975696f70617364666768"
+        );
+        BinaryConversions::HexStringToBytes(dataEncryptionKeyString, p->m_dataEncryptionKey);
+        /*BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET,
+                    ,
+                    BPV7_CRC_TYPE::NONE,
+                    m_myEid,
+                    targetBlockNumbers, 1,*/
+        p->m_confidentialityVariant = COSE_ALGORITHMS::A256GCM;
+        p->m_use12ByteIv = true;
+        p->m_aadScopeMask = BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET;
+        p->m_bcbCrcType = BPV7_CRC_TYPE::NONE;
+        FragmentSet::InsertFragment(p->m_bcbBlockTypeTargets, FragmentSet::data_fragment_t(1, 1)); //just payload block
+    }
+#endif // DO_BPSEC_TEST
+#ifdef BPSEC_SUPPORT_ENABLED
+    const BpSecPolicy* bpSecPolicyPtr = m_bpSecPolicyManager.FindPolicy(m_myEid, m_myEid, m_finalDestinationEid, BPSEC_ROLE::SOURCE);
+
+    std::vector<uint64_t> bcbTargetBlockNumbers;
 
     //support 12 or 16 byte iv's
-    const bool use12ByteIv = true;
     InitializationVector12Byte iv12;
     InitializationVector16Byte iv16;
-    std::vector<uint8_t> initializationVector(use12ByteIv ? 12 : 16);
-
-    static const uint64_t targetBlockNumbers[1] = { 1 }; //just encrypt payload block
+    std::vector<uint8_t> initializationVector;
+    if (bpSecPolicyPtr) {
+        if (bpSecPolicyPtr->m_doConfidentiality) {
+            initializationVector.resize(bpSecPolicyPtr->m_use12ByteIv ? 12 : 16);
+            for (FragmentSet::data_fragment_set_t::const_iterator it = bpSecPolicyPtr->m_bcbBlockTypeTargets.cbegin();
+                it != bpSecPolicyPtr->m_bcbBlockTypeTargets.cend(); ++it)
+            {
+                const FragmentSet::data_fragment_t& df = *it;
+                for (uint64_t i = df.beginIndex; i <= df.endIndex; ++i) {
+                    if (i >= MAX_NUM_BPV7_BLOCK_TYPE_CODES) {
+                        LOG_FATAL(subprocess) << "policy error: invalid block type " << i;
+                        return;
+                    }
+                    bcbTargetBlockNumbers.push_back(bpv7BlockTypeToManuallyAssignedBlockNumberLut[i]);
+                    LOG_DEBUG(subprocess) << "bpsec add block target confidentiality " << bcbTargetBlockNumbers.back();
+                }
+            }
+        }
+    }
     BPSecManager::ReusableElementsInternal bpsecReusableElementsInternal;
     BPSecManager::EvpCipherCtxWrapper ctxWrapper;
     BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
-#endif // DO_BPSEC_TEST
+#endif // BPSEC_SUPPORT_ENABLED
     zmq::message_t zmqMessageToSendWrapper;
     BundleViewV7 bv7;
     BundleViewV6 bv6;
@@ -398,7 +446,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                     Bpv7HopCountCanonicalBlock& block = *(reinterpret_cast<Bpv7HopCountCanonicalBlock*>(blockPtr.get()));
 
                     block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
-                    block.m_blockNumber = 2;
+                    block.m_blockNumber = bpv7BlockTypeToManuallyAssignedBlockNumberLut[static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::HOP_COUNT)];
                     block.m_crcType = BPV7_CRC_TYPE::CRC32C;
                     block.m_hopLimit = 100; //Hop limit MUST be in the range 1 through 255.
                     block.m_hopCount = 0; //the hop count value SHOULD initially be zero and SHOULD be increased by 1 on each hop.
@@ -419,7 +467,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                     Bpv7PriorityCanonicalBlock& block = *(reinterpret_cast<Bpv7PriorityCanonicalBlock*>(blockPtr.get()));
 
                     block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
-                    block.m_blockNumber = 3;
+                    block.m_blockNumber = bpv7BlockTypeToManuallyAssignedBlockNumberLut[static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PRIORITY)];
                     block.m_crcType = BPV7_CRC_TYPE::CRC32C;
                     block.m_bundlePriority = m_bundlePriority; // MUST be 0 = Bulk, 1 = Normal, or 2 = Expedited
                     bv7.AppendMoveCanonicalBlock(std::move(blockPtr));
@@ -441,7 +489,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
 
                     payloadBlock.m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PAYLOAD;
                     payloadBlock.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET;
-                    payloadBlock.m_blockNumber = 1; //must be 1
+                    payloadBlock.m_blockNumber = bpv7BlockTypeToManuallyAssignedBlockNumberLut[static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PAYLOAD)]; //must be 1
                     payloadBlock.m_crcType = BPV7_CRC_TYPE::CRC32C;
                     payloadBlock.m_dataLength = payloadSizeBytes;
                     payloadBlock.m_dataPtr = NULL; //NULL will preallocate (won't copy or compute crc, user must do that manually below)
@@ -462,33 +510,39 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                     m_running = false;
                     continue;
                 }
-#ifdef DO_BPSEC_TEST
-                if (use12ByteIv) {
-                    iv12.Serialize(initializationVector.data());
-                    iv12.Increment();
-                }
-                else {
-                    iv16.Serialize(initializationVector.data());
-                    iv16.Increment();
-                }
-                if (!BPSecManager::TryEncryptBundle(ctxWrapper,
-                    ctxWrapperKeyWrapOps,
-                    bv7,
-                    BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET,
-                    COSE_ALGORITHMS::A256GCM,
-                    BPV7_CRC_TYPE::NONE,
-                    m_myEid,
-                    targetBlockNumbers, 1,
-                    initializationVector.data(), static_cast<unsigned int>(initializationVector.size()),
-                    NULL, 0, //NULL if not present (for wrapping DEK only)
-                    dataEncryptionKeyBytes.data(), static_cast<unsigned int>(dataEncryptionKeyBytes.size()), //NULL if not present (when no wrapped key is present)
-                    bpsecReusableElementsInternal,
-                    NULL,
-                    true))
-                {
-                    LOG_ERROR(subprocess) << "cannot encrypt bundle";
-                    m_running = false;
-                    continue;
+#ifdef BPSEC_SUPPORT_ENABLED
+                if (bpSecPolicyPtr) {
+                    if (bpSecPolicyPtr->m_doConfidentiality) {
+                        if (bpSecPolicyPtr->m_use12ByteIv) {
+                            iv12.Serialize(initializationVector.data());
+                            iv12.Increment();
+                        }
+                        else {
+                            iv16.Serialize(initializationVector.data());
+                            iv16.Increment();
+                        }
+                        if (!BPSecManager::TryEncryptBundle(ctxWrapper,
+                            ctxWrapperKeyWrapOps,
+                            bv7,
+                            bpSecPolicyPtr->m_aadScopeMask,
+                            bpSecPolicyPtr->m_confidentialityVariant,
+                            bpSecPolicyPtr->m_bcbCrcType,
+                            m_myEid,
+                            bcbTargetBlockNumbers.data(), static_cast<unsigned int>(bcbTargetBlockNumbers.size()),
+                            initializationVector.data(), static_cast<unsigned int>(initializationVector.size()),
+                            bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.empty() ? NULL : bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.data(), //NULL if not present (for wrapping DEK only)
+                            static_cast<unsigned int>(bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.size()),
+                            bpSecPolicyPtr->m_dataEncryptionKey.empty() ? NULL : bpSecPolicyPtr->m_dataEncryptionKey.data(), //NULL if not present (when no wrapped key is present)
+                            static_cast<unsigned int>(bpSecPolicyPtr->m_dataEncryptionKey.size()),
+                            bpsecReusableElementsInternal,
+                            NULL,
+                            true))
+                        {
+                            LOG_ERROR(subprocess) << "cannot encrypt bundle";
+                            m_running = false;
+                            continue;
+                        }
+                    }
                 }
 #endif
                 payloadBlockView.headerPtr->RecomputeCrcAfterDataModification((uint8_t*)payloadBlockView.actualSerializedBlockPtr.data(), payloadBlockView.actualSerializedBlockPtr.size()); //recompute crc

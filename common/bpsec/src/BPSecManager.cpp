@@ -602,210 +602,231 @@ bool BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
     bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, blocks);
     for (std::size_t i = 0; i < blocks.size(); ++i) {
         BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView = *(blocks[i]);
-        Bpv7BlockConfidentialityBlock* bcbPtr = dynamic_cast<Bpv7BlockConfidentialityBlock*>(bcbBlockView.headerPtr.get());
-        if (!bcbPtr) {
-            return false;
-        }
-        std::vector<std::vector<uint8_t>*> patPtrs = bcbPtr->GetAllPayloadAuthenticationTagPtrs();
-        
-        
-        bool success;
-        COSE_ALGORITHMS variant = bcbPtr->GetSecurityParameterAesVariant(success);
-        if (!success) {
-            //When not provided, implementations SHOULD assume a value of 3
-            //(indicating use of A256GCM), unless an alternate default is
-            //established by local security policy at the security source,
-            //verifier, or acceptor of this integrity service.
-            variant = COSE_ALGORITHMS::A256GCM;
-        }
-        else if ((variant == COSE_ALGORITHMS::A128GCM) || (variant == COSE_ALGORITHMS::A256GCM)) {
-            //ok to continue
-        }
-        else {
-            //invalid variant given
-            return false;
-        }
-        const std::vector<uint8_t>* ivPtr = bcbPtr->GetInitializationVectorPtr();
-        if (!ivPtr) {
-            return false;
-        }
-
-#if BPSEC_MANAGER_PRINT_DEBUG
+        if (!TryDecryptBundleByIndividualBcb(ctxWrapper,
+            ctxWrapperForKeyUnwrap,
+            bv,
+            bcbBlockView,
+            keyEncryptionKey, keyEncryptionKeyLength,
+            dataEncryptionKey, dataEncryptionKeyLength,
+            reusableElementsInternal))
         {
-            std::string ivHexString;
-            BinaryConversions::BytesToHexString(*ivPtr, ivHexString);
-            boost::to_lower(ivHexString);
-            LOG_DEBUG(subprocess) << "iv: " << ivHexString;
-        }
-#endif
-
-        std::vector<boost::asio::const_buffer>& aadParts = reusableElementsInternal.constBufferVec;
-        aadParts.clear();
-        aadParts.reserve(4);
-        const BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS scopeMask = bcbPtr->GetSecurityParameterScope();
-        const uint8_t scopeMaskAsU8 = static_cast<uint8_t>(scopeMask);
-        aadParts.emplace_back(&scopeMaskAsU8, sizeof(scopeMaskAsU8));
-        if ((scopeMask & BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::INCLUDE_PRIMARY_BLOCK) != BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
-            aadParts.emplace_back(bv.m_primaryBlockView.actualSerializedPrimaryBlockPtr);
-        }
-        boost::asio::const_buffer* targetHeaderAadPiece = NULL;
-        if ((scopeMask & BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::INCLUDE_TARGET_HEADER) != BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
-            aadParts.emplace_back(); //placeholder
-            targetHeaderAadPiece = &aadParts.back();
-        }
-        if ((scopeMask & BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::INCLUDE_SECURITY_HEADER) != BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
-            const uint8_t * const startPtr = (reinterpret_cast<const uint8_t*>(bcbBlockView.actualSerializedBlockPtr.data())) + 1;
-            const Bpv7CanonicalBlock& blk = *bcbBlockView.headerPtr;
-            const std::size_t len = blk.GetSerializationSizeOfAadPart();
-            aadParts.emplace_back(startPtr, len);
-        }
-        
-        const uint8_t* dataEncryptionKeyToUse;
-        unsigned int dataEncryptionKeySizeToUse;
-        uint8_t unwrappedKeyBytes[32 + 10]; //32 worse case for 32*8=256bit
-        unsigned int unwrappedKeyOutSize;
-        const std::vector<uint8_t>* wrappedKeyPtr = bcbPtr->GetAesWrappedKeyPtr();
-        if (wrappedKeyPtr) {
-            //When an AES-KW wrapped key is present in a security block, it is
-            //assumed that security verifiers and security acceptors can
-            //independently determine the KEK used in the wrapping of the symmetric
-            //AES content-encrypting key.
-            if (!keyEncryptionKey) {
-                //no KEK present, can't unwrap key
-                return false;
-            }
-            //unwrap key:
-            if (!BPSecManager::AesUnwrapKey(ctxWrapperForKeyUnwrap,
-                keyEncryptionKey, keyEncryptionKeyLength,
-                wrappedKeyPtr->data(), static_cast<const unsigned int>(wrappedKeyPtr->size()),
-                unwrappedKeyBytes, unwrappedKeyOutSize))
-            {
-                return false;
-            }
-            dataEncryptionKeyToUse = unwrappedKeyBytes;
-            dataEncryptionKeySizeToUse = unwrappedKeyOutSize;
-        }
-        else {
-            if (!dataEncryptionKey) {
-                //no DEK present, can't decrypt anything
-                return false;
-            }
-            dataEncryptionKeyToUse = dataEncryptionKey;
-            dataEncryptionKeySizeToUse = dataEncryptionKeyLength;
-        }
-
-        
-        const Bpv7AbstractSecurityBlock::security_targets_t& targets = bcbPtr->m_securityTargets;
-
-        
-        //The target results MUST be ordered
-        //identically to the Security Targets field of the security
-        //block.  This means that the first set of target results in this
-        //array corresponds to the first entry in the Security Targets
-        //field of the security block, and so on.  There MUST be one
-        //entry in this array for each entry in the Security Targets
-        //field of the security block.
-        //(payload authentication tag is the only result)
-        if (patPtrs.size() != targets.size()) {
             return false;
         }
-
-        if (targets.empty()) {
-            return false;
-        }
-        
-        for (std::size_t stI = 0; stI < targets.size(); ++stI) {
-            const uint64_t target = targets[stI];
-            const std::vector<uint8_t>& tag = *(patPtrs[stI]);
-            BundleViewV7::Bpv7CanonicalBlockView* targetCanonicalBlockViewPtr = bv.GetCanonicalBlockByBlockNumber(target);
-            if (!targetCanonicalBlockViewPtr) {
-                return false;
-            }
-            Bpv7CanonicalBlock& targetCanonicalHeader = *(targetCanonicalBlockViewPtr->headerPtr);
-            if (targetHeaderAadPiece) {
-                const uint8_t* const startPtr = (reinterpret_cast<const uint8_t*>(targetCanonicalBlockViewPtr->actualSerializedBlockPtr.data())) + 1;
-                const std::size_t len = targetCanonicalHeader.GetSerializationSizeOfAadPart();
-                *targetHeaderAadPiece = boost::asio::const_buffer(startPtr, len);
-            }
-#ifdef BPSEC_MANAGER_PRINT_DEBUG
-            {
-                std::string aadHexString;
-                BinaryConversions::BytesToHexString(aadParts, aadHexString);
-                boost::to_lower(aadHexString);
-                LOG_DEBUG(subprocess) << "aad: " << aadHexString;
-            }
-#endif
-#ifdef BPSEC_MANAGER_PRINT_DEBUG
-            {
-                std::string hexString;
-                BinaryConversions::BytesToHexString(targetCanonicalHeader.m_dataPtr, targetCanonicalHeader.m_dataLength, hexString);
-                boost::to_lower(hexString);
-                LOG_DEBUG(subprocess) << "block (code=" << (int)targetCanonicalHeader.m_blockTypeCode << ") data part before decrypt : " << hexString;
-            }
-#endif
-            
-            //overwrite cyphertext with plaintext in-place and compute crc
-            uint64_t decryptedDataOutSize;
-            //inplace (same in and out buffers)
-            if (!BPSecManager::AesGcmDecrypt(ctxWrapper,
-                targetCanonicalHeader.m_dataPtr, targetCanonicalHeader.m_dataLength,
-                dataEncryptionKeyToUse, dataEncryptionKeySizeToUse,
-                ivPtr->data(), ivPtr->size(),
-                aadParts, //affects tag only
-                tag.data(),
-                targetCanonicalHeader.m_dataPtr, decryptedDataOutSize))
-            {
-                return false;
-            }
-#ifdef BPSEC_MANAGER_PRINT_DEBUG
-            {
-                std::string hexString;
-                BinaryConversions::BytesToHexString(targetCanonicalHeader.m_dataPtr, targetCanonicalHeader.m_dataLength, hexString);
-                boost::to_lower(hexString);
-                LOG_DEBUG(subprocess) << "block data part decrypted: " << hexString;
-            }
-#endif
-            //RFC9173:
-            //The BCB-AES-GCM security context replaces the block-type-specific
-            //data field of its security target with ciphertext generated using the
-            //Advanced Encryption Standard (AES) cipher operating in Galois/Counter
-            //Mode (GCM) [AES-GCM].  The use of AES-GCM was selected as the cipher
-            //suite for this confidentiality mechanism for several reasons:
-            //  3. The use of the Galois/Counter Mode produces ciphertext with the
-            //     same size as the plaintext making the replacement of target block
-            //     information easier as length fields do not need to be changed.
-            if (targetCanonicalHeader.m_dataLength != decryptedDataOutSize) {
-                return false;
-            }
-
-            //recompute crc at end
-            targetCanonicalHeader.RecomputeCrcAfterDataModification(
-                (uint8_t*)targetCanonicalBlockViewPtr->actualSerializedBlockPtr.data(),
-                targetCanonicalBlockViewPtr->actualSerializedBlockPtr.size()); //recompute crc
-
-            //parse now-unencrypted block
-            targetCanonicalBlockViewPtr->isEncrypted = false;
-            if (!targetCanonicalHeader.Virtual_DeserializeExtensionBlockDataBpv7()) { //requires m_dataPtr and m_dataLength to be set (which should be already done)
-                return false;
-            }
-
-#ifdef BPSEC_MANAGER_PRINT_DEBUG
-            {
-                std::string hexString;
-                BinaryConversions::BytesToHexString(targetCanonicalBlockViewPtr->actualSerializedBlockPtr.data(), targetCanonicalBlockViewPtr->actualSerializedBlockPtr.size(), hexString);
-                boost::to_lower(hexString);
-                LOG_DEBUG(subprocess) << "block decrypted: " << hexString;
-            }
-#endif
-            
-            
-        }
-        bcbBlockView.markedForDeletion = true;
     }
     //at least one bcb was marked for deletion, so rerender
     if (renderInPlaceWhenFinished) {
         return bv.RenderInPlace(PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE);
     }
+    return true;
+}
+bool BPSecManager::TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& ctxWrapper,
+    EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
+    BundleViewV7& bv,
+    BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView,
+    const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
+    const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength,
+    ReusableElementsInternal& reusableElementsInternal)
+{
+    Bpv7BlockConfidentialityBlock* bcbPtr = dynamic_cast<Bpv7BlockConfidentialityBlock*>(bcbBlockView.headerPtr.get());
+    if (!bcbPtr) {
+        return false;
+    }
+    std::vector<std::vector<uint8_t>*> patPtrs = bcbPtr->GetAllPayloadAuthenticationTagPtrs();
+        
+        
+    bool success;
+    COSE_ALGORITHMS variant = bcbPtr->GetSecurityParameterAesVariant(success);
+    if (!success) {
+        //When not provided, implementations SHOULD assume a value of 3
+        //(indicating use of A256GCM), unless an alternate default is
+        //established by local security policy at the security source,
+        //verifier, or acceptor of this integrity service.
+        variant = COSE_ALGORITHMS::A256GCM;
+    }
+    else if ((variant == COSE_ALGORITHMS::A128GCM) || (variant == COSE_ALGORITHMS::A256GCM)) {
+        //ok to continue
+    }
+    else {
+        //invalid variant given
+        return false;
+    }
+    const std::vector<uint8_t>* ivPtr = bcbPtr->GetInitializationVectorPtr();
+    if (!ivPtr) {
+        return false;
+    }
+
+#if BPSEC_MANAGER_PRINT_DEBUG
+    {
+        std::string ivHexString;
+        BinaryConversions::BytesToHexString(*ivPtr, ivHexString);
+        boost::to_lower(ivHexString);
+        LOG_DEBUG(subprocess) << "iv: " << ivHexString;
+    }
+#endif
+
+    std::vector<boost::asio::const_buffer>& aadParts = reusableElementsInternal.constBufferVec;
+    aadParts.clear();
+    aadParts.reserve(4);
+    const BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS scopeMask = bcbPtr->GetSecurityParameterScope();
+    const uint8_t scopeMaskAsU8 = static_cast<uint8_t>(scopeMask);
+    aadParts.emplace_back(&scopeMaskAsU8, sizeof(scopeMaskAsU8));
+    if ((scopeMask & BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::INCLUDE_PRIMARY_BLOCK) != BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
+        aadParts.emplace_back(bv.m_primaryBlockView.actualSerializedPrimaryBlockPtr);
+    }
+    boost::asio::const_buffer* targetHeaderAadPiece = NULL;
+    if ((scopeMask & BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::INCLUDE_TARGET_HEADER) != BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
+        aadParts.emplace_back(); //placeholder
+        targetHeaderAadPiece = &aadParts.back();
+    }
+    if ((scopeMask & BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::INCLUDE_SECURITY_HEADER) != BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
+        const uint8_t * const startPtr = (reinterpret_cast<const uint8_t*>(bcbBlockView.actualSerializedBlockPtr.data())) + 1;
+        const Bpv7CanonicalBlock& blk = *bcbBlockView.headerPtr;
+        const std::size_t len = blk.GetSerializationSizeOfAadPart();
+        aadParts.emplace_back(startPtr, len);
+    }
+        
+    const uint8_t* dataEncryptionKeyToUse;
+    unsigned int dataEncryptionKeySizeToUse;
+    uint8_t unwrappedKeyBytes[32 + 10]; //32 worse case for 32*8=256bit
+    unsigned int unwrappedKeyOutSize;
+    const std::vector<uint8_t>* wrappedKeyPtr = bcbPtr->GetAesWrappedKeyPtr();
+    if (wrappedKeyPtr) {
+        //When an AES-KW wrapped key is present in a security block, it is
+        //assumed that security verifiers and security acceptors can
+        //independently determine the KEK used in the wrapping of the symmetric
+        //AES content-encrypting key.
+        if (!keyEncryptionKey) {
+            //no KEK present, can't unwrap key
+            return false;
+        }
+        //unwrap key:
+        if (!BPSecManager::AesUnwrapKey(ctxWrapperForKeyUnwrap,
+            keyEncryptionKey, keyEncryptionKeyLength,
+            wrappedKeyPtr->data(), static_cast<const unsigned int>(wrappedKeyPtr->size()),
+            unwrappedKeyBytes, unwrappedKeyOutSize))
+        {
+            return false;
+        }
+        dataEncryptionKeyToUse = unwrappedKeyBytes;
+        dataEncryptionKeySizeToUse = unwrappedKeyOutSize;
+    }
+    else {
+        if (!dataEncryptionKey) {
+            //no DEK present, can't decrypt anything
+            return false;
+        }
+        dataEncryptionKeyToUse = dataEncryptionKey;
+        dataEncryptionKeySizeToUse = dataEncryptionKeyLength;
+    }
+
+        
+    const Bpv7AbstractSecurityBlock::security_targets_t& targets = bcbPtr->m_securityTargets;
+
+        
+    //The target results MUST be ordered
+    //identically to the Security Targets field of the security
+    //block.  This means that the first set of target results in this
+    //array corresponds to the first entry in the Security Targets
+    //field of the security block, and so on.  There MUST be one
+    //entry in this array for each entry in the Security Targets
+    //field of the security block.
+    //(payload authentication tag is the only result)
+    if (patPtrs.size() != targets.size()) {
+        return false;
+    }
+
+    if (targets.empty()) {
+        return false;
+    }
+        
+    for (std::size_t stI = 0; stI < targets.size(); ++stI) {
+        const uint64_t target = targets[stI];
+        const std::vector<uint8_t>& tag = *(patPtrs[stI]);
+        BundleViewV7::Bpv7CanonicalBlockView* targetCanonicalBlockViewPtr = bv.GetCanonicalBlockByBlockNumber(target);
+        if (!targetCanonicalBlockViewPtr) {
+            return false;
+        }
+        Bpv7CanonicalBlock& targetCanonicalHeader = *(targetCanonicalBlockViewPtr->headerPtr);
+        if (targetHeaderAadPiece) {
+            const uint8_t* const startPtr = (reinterpret_cast<const uint8_t*>(targetCanonicalBlockViewPtr->actualSerializedBlockPtr.data())) + 1;
+            const std::size_t len = targetCanonicalHeader.GetSerializationSizeOfAadPart();
+            *targetHeaderAadPiece = boost::asio::const_buffer(startPtr, len);
+        }
+#ifdef BPSEC_MANAGER_PRINT_DEBUG
+        {
+            std::string aadHexString;
+            BinaryConversions::BytesToHexString(aadParts, aadHexString);
+            boost::to_lower(aadHexString);
+            LOG_DEBUG(subprocess) << "aad: " << aadHexString;
+        }
+#endif
+#ifdef BPSEC_MANAGER_PRINT_DEBUG
+        {
+            std::string hexString;
+            BinaryConversions::BytesToHexString(targetCanonicalHeader.m_dataPtr, targetCanonicalHeader.m_dataLength, hexString);
+            boost::to_lower(hexString);
+            LOG_DEBUG(subprocess) << "block (code=" << (int)targetCanonicalHeader.m_blockTypeCode << ") data part before decrypt : " << hexString;
+        }
+#endif
+            
+        //overwrite cyphertext with plaintext in-place and compute crc
+        uint64_t decryptedDataOutSize;
+        //inplace (same in and out buffers)
+        if (!BPSecManager::AesGcmDecrypt(ctxWrapper,
+            targetCanonicalHeader.m_dataPtr, targetCanonicalHeader.m_dataLength,
+            dataEncryptionKeyToUse, dataEncryptionKeySizeToUse,
+            ivPtr->data(), ivPtr->size(),
+            aadParts, //affects tag only
+            tag.data(),
+            targetCanonicalHeader.m_dataPtr, decryptedDataOutSize))
+        {
+            return false;
+        }
+#ifdef BPSEC_MANAGER_PRINT_DEBUG
+        {
+            std::string hexString;
+            BinaryConversions::BytesToHexString(targetCanonicalHeader.m_dataPtr, targetCanonicalHeader.m_dataLength, hexString);
+            boost::to_lower(hexString);
+            LOG_DEBUG(subprocess) << "block data part decrypted: " << hexString;
+        }
+#endif
+        //RFC9173:
+        //The BCB-AES-GCM security context replaces the block-type-specific
+        //data field of its security target with ciphertext generated using the
+        //Advanced Encryption Standard (AES) cipher operating in Galois/Counter
+        //Mode (GCM) [AES-GCM].  The use of AES-GCM was selected as the cipher
+        //suite for this confidentiality mechanism for several reasons:
+        //  3. The use of the Galois/Counter Mode produces ciphertext with the
+        //     same size as the plaintext making the replacement of target block
+        //     information easier as length fields do not need to be changed.
+        if (targetCanonicalHeader.m_dataLength != decryptedDataOutSize) {
+            return false;
+        }
+
+        //recompute crc at end
+        targetCanonicalHeader.RecomputeCrcAfterDataModification(
+            (uint8_t*)targetCanonicalBlockViewPtr->actualSerializedBlockPtr.data(),
+            targetCanonicalBlockViewPtr->actualSerializedBlockPtr.size()); //recompute crc
+
+        //parse now-unencrypted block
+        targetCanonicalBlockViewPtr->isEncrypted = false;
+        if (!targetCanonicalHeader.Virtual_DeserializeExtensionBlockDataBpv7()) { //requires m_dataPtr and m_dataLength to be set (which should be already done)
+            return false;
+        }
+
+#ifdef BPSEC_MANAGER_PRINT_DEBUG
+        {
+            std::string hexString;
+            BinaryConversions::BytesToHexString(targetCanonicalBlockViewPtr->actualSerializedBlockPtr.data(), targetCanonicalBlockViewPtr->actualSerializedBlockPtr.size(), hexString);
+            boost::to_lower(hexString);
+            LOG_DEBUG(subprocess) << "block decrypted: " << hexString;
+        }
+#endif
+            
+            
+    }
+    bcbBlockView.markedForDeletion = true;
+    
     return true;
 }
 

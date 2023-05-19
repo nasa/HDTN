@@ -260,6 +260,14 @@ public:
         ReusableElementsInternal& reusableElementsInternal,
         const bool renderInPlaceWhenFinished);
 
+    BPSEC_EXPORT static bool TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& ctxWrapper,
+        EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
+        BundleViewV7& bv,
+        BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView,
+        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
+        const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength,
+        ReusableElementsInternal& reusableElementsInternal);
+
     /**
     * Adds a BCB block to the preloaded bundle view and encrypts the targets.  The bundle must be loaded with padded data.
     *

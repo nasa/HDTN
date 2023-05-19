@@ -47,6 +47,7 @@
 #include "BinaryConversions.h"
 #ifdef BPSEC_SUPPORT_ENABLED
 #include "BPSecManager.h"
+#include "BpSecPolicyManager.h"
 //# define DO_BPSEC_TEST 1
 #endif
 
@@ -190,6 +191,10 @@ private:
     volatile bool m_inductsFullyLoaded;
     boost::mutex m_inductsFullyLoadedMutex;
     boost::condition_variable m_inductsFullyLoadedConditionVariable;
+
+#ifdef BPSEC_SUPPORT_ENABLED
+    BpSecPolicyManager m_bpSecPolicyManager;
+#endif
 };
 
 Ingress::Impl::BundlePipelineAckingSet::BundlePipelineAckingSet(const uint64_t paramMaxBundlesInPipeline,
@@ -501,6 +506,32 @@ bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConf
         LOG_ERROR(subprocess) << "Cannot subscribe to all events from scheduler: " << ex.what();
         return false;
     }
+
+#ifdef DO_BPSEC_TEST
+    { //simulate loading from policy file
+        BpSecPolicy* p = m_bpSecPolicyManager.CreateAndGetNewPolicy(
+            "ipn:1.1",
+            "ipn:*.*",
+            "ipn:*.*",
+            BPSEC_ROLE::ACCEPTOR);
+        p->m_doConfidentiality = true;
+        static const std::string dataEncryptionKeyString(
+            "71776572747975696f70617364666768"
+            "71776572747975696f70617364666768"
+        );
+        BinaryConversions::HexStringToBytes(dataEncryptionKeyString, p->m_dataEncryptionKey);
+        /*BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET,
+                    ,
+                    BPV7_CRC_TYPE::NONE,
+                    m_myEid,
+                    targetBlockNumbers, 1,*/
+        p->m_confidentialityVariant = COSE_ALGORITHMS::A256GCM;
+        p->m_use12ByteIv = true;
+        p->m_aadScopeMask = BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET;
+        p->m_bcbCrcType = BPV7_CRC_TYPE::NONE;
+        FragmentSet::InsertFragment(p->m_bcbBlockTypeTargets, FragmentSet::data_fragment_t(1, 1)); //just payload block
+    }
+#endif // DO_BPSEC_TEST
 
     { //start worker thread
         m_running = true;
@@ -1100,32 +1131,45 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             static constexpr BPV7_BUNDLEFLAG requiredPrimaryFlagsForEcho = BPV7_BUNDLEFLAG::NO_FLAGS_SET;
             const bool isEcho = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO));
             if (!isAdminRecordForHdtnStorage) {
-#ifdef DO_BPSEC_TEST
-                static thread_local std::vector<uint8_t> dataEncryptionKeyBytes; //DEK
-                static const std::string dataEncryptionKeyString(
-                    "71776572747975696f70617364666768"
-                    "71776572747975696f70617364666768"
-                );
-                if (dataEncryptionKeyBytes.empty()) {
-                    BinaryConversions::HexStringToBytes(dataEncryptionKeyString, dataEncryptionKeyBytes);
-                }
-
+#ifdef BPSEC_SUPPORT_ENABLED
+                bool wasCacheHit;
+                bool decryptionSuccess = false;
                 static thread_local BPSecManager::ReusableElementsInternal bpsecReusableElementsInternal;
                 static thread_local BPSecManager::EvpCipherCtxWrapper ctxWrapper;
                 static thread_local BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
+                static thread_local std::vector<BundleViewV7::Bpv7CanonicalBlockView*> bcbBlocks;
+                bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, bcbBlocks);
+                for (std::size_t i = 0; i < bcbBlocks.size(); ++i) {
+                    BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView = *(bcbBlocks[i]);
+                    Bpv7BlockConfidentialityBlock* bcbPtr = dynamic_cast<Bpv7BlockConfidentialityBlock*>(bcbBlockView.headerPtr.get());
+                    if (!bcbPtr) {
+                        LOG_ERROR(subprocess) << "cast to bcb block failed";
+                        return false;
+                    }
+                    const BpSecPolicy* bpSecPolicyPtr = m_bpSecPolicyManager.FindPolicyWithThreadLocalCacheSupport(
+                        bcbPtr->m_securitySource, primary.m_sourceNodeId, primary.m_destinationEid, BPSEC_ROLE::ACCEPTOR, wasCacheHit);
+                    if (!bpSecPolicyPtr) {
+                        continue;
+                    }
 
-                if (!BPSecManager::TryDecryptBundle(ctxWrapper,
-                    ctxWrapperKeyWrapOps,
-                    bv,
-                    NULL, 0, //not using KEK
-                    dataEncryptionKeyBytes.data(), static_cast<const unsigned int>(dataEncryptionKeyBytes.size()),
-                    bpsecReusableElementsInternal,
-                    false)) //false => don't rerender in place here, there are more ops to complete after decryption and then a manual render-in-place will be called later
-                {
-                    LOG_ERROR(subprocess) << "Process: version 7 bundle received but cannot decrypt";
-                    return false;
+                    //does not rerender in place here, there are more ops to complete after decryption and then a manual render-in-place will be called later
+                    if (!BPSecManager::TryDecryptBundleByIndividualBcb(ctxWrapper,
+                        ctxWrapperKeyWrapOps,
+                        bv,
+                        bcbBlockView,
+                        bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.empty() ? NULL : bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.data(), //NULL if not present (for wrapping DEK only)
+                        static_cast<unsigned int>(bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.size()),
+                        bpSecPolicyPtr->m_dataEncryptionKey.empty() ? NULL : bpSecPolicyPtr->m_dataEncryptionKey.data(), //NULL if not present (when no wrapped key is present)
+                        static_cast<unsigned int>(bpSecPolicyPtr->m_dataEncryptionKey.size()),
+                        bpsecReusableElementsInternal))
+                    {
+                        LOG_ERROR(subprocess) << "Process: version 7 bundle received but cannot decrypt";
+                        return false;
+                    }
+                    decryptionSuccess = true;
                 }
-                else {
+
+                if (decryptionSuccess) {
                     static thread_local bool printedMsg = false;
                     if (!printedMsg) {
                         LOG_INFO(subprocess) << "first time ingress decrypted bundle successfully from source node " 
@@ -1135,7 +1179,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                     }
                     //LOG_INFO(subprocess) << "ingress decrypted bundle successfully";
                 }
-#endif // DO_BPSEC_TEST
+#endif // BPSEC_SUPPORT_ENABLED
                 //get previous node
                 std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
                 bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE, blocks);
