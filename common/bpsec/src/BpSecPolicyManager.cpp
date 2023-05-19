@@ -134,3 +134,40 @@ const BpSecPolicy* BpSecPolicyManager::FindPolicy(const cbhe_eid_t& securitySour
     }
     return policyFilterRollArraysPtr->m_policiesByRollArray[roleIndex].get();
 }
+
+const BpSecPolicy* BpSecPolicyManager::FindPolicyWithThreadLocalCacheSupport(const cbhe_eid_t& securitySourceEid,
+    const cbhe_eid_t& bundleSourceEid, const cbhe_eid_t& bundleFinalDestEid, const BPSEC_ROLE role, bool& wasCacheHit) const
+{
+    struct LocalCache {
+        LocalCache() : 
+            securitySourceEid(0, 0),
+            bundleSourceEid(0, 0),
+            bundleFinalDestEid(0, 0),
+            role(BPSEC_ROLE::RESERVED_MAX_ROLE_TYPES),
+            foundPolicy(NULL) {}
+        cbhe_eid_t securitySourceEid;
+        cbhe_eid_t bundleSourceEid;
+        cbhe_eid_t bundleFinalDestEid;
+        BPSEC_ROLE role;
+        const BpSecPolicy* foundPolicy;
+    };
+    static thread_local LocalCache localCache;
+    wasCacheHit = false;
+    if (localCache.foundPolicy && (role == localCache.role)
+        && (securitySourceEid == localCache.securitySourceEid)
+        && (bundleSourceEid == localCache.bundleSourceEid)
+        && (bundleFinalDestEid == localCache.bundleFinalDestEid))
+    {
+        wasCacheHit = true;
+        return localCache.foundPolicy;
+    }
+    localCache.foundPolicy = BpSecPolicyManager::FindPolicy(securitySourceEid,
+        bundleSourceEid, bundleFinalDestEid, role);
+    if (localCache.foundPolicy) {
+        localCache.role = role;
+        localCache.securitySourceEid = securitySourceEid;
+        localCache.bundleSourceEid = bundleSourceEid;
+        localCache.bundleFinalDestEid = bundleFinalDestEid;
+    }
+    return localCache.foundPolicy;
+}

@@ -97,4 +97,15 @@ BOOST_AUTO_TEST_CASE(BpSecPolicyManagerTestCase)
             BOOST_REQUIRE(caseToPtrMap[testCase[0] + testCase[1] + testCase[2]] == pFound);
         }
     }
+    { //cache
+        BpSecPolicyManager m;
+        const cbhe_eid_t ss(1, 1), bs(2, 1), bd(3, 1);
+        bool wasCacheHit;
+        BOOST_REQUIRE(m.CreateAndGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::ACCEPTOR));
+        const BpSecPolicy* policyAny = m.FindPolicyWithThreadLocalCacheSupport(ss, bs, bd, BPSEC_ROLE::ACCEPTOR, wasCacheHit);
+        BOOST_REQUIRE(policyAny);
+        BOOST_REQUIRE(!wasCacheHit);
+        BOOST_REQUIRE(m.FindPolicyWithThreadLocalCacheSupport(ss, bs, bd, BPSEC_ROLE::ACCEPTOR, wasCacheHit) == policyAny);
+        BOOST_REQUIRE(wasCacheHit);
+    }
 }
