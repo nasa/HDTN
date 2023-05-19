@@ -965,12 +965,18 @@ bool Router::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
             LOG_INFO(subprocess) << "Reloading contact plan: changing time based link up to link down for source "
                 << m_hdtnConfig.m_myNodeId << " destination " << outductInfo.nextHopNodeId << " outductIndex " << outductInfo.outductIndex;
             SendLinkDown(outductInfo.outductIndex);
-            //TODO clear old routes
             outductInfo.linkIsUpTimeBased = false;
         }
         outductInfo.finalDestNodeIds.clear();
     }
 
+    // Clear any existing routes
+    for(std::unordered_map<uint64_t, uint64_t>::iterator it = m_routes.begin();
+            it != m_routes.end(); it++) {
+        if(it->second != NOROUTE) {
+            SendRouteUpdate(NOROUTE, it->first);
+        }
+    }
     m_routes.clear();
 
     m_ptimeToContactPlanBimap.clear(); //clear the map
