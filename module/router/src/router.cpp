@@ -1034,6 +1034,8 @@ bool Router::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
     }
 
     // Contacts for routing
+    //TODO filter out contacts with our node as the source and with a next hop that's not associated
+    //with one of our outducts
     m_cgrContacts = cgr::cp_load(contactsPt);
 
     LOG_INFO(subprocess) << "Epoch Time:  " << m_epoch;
@@ -1376,6 +1378,7 @@ void Router::Impl::ComputeAllRoutes(uint64_t sourceNode) {
         uint64_t origNextHop = it->second;
         uint64_t newNextHop = ComputeOptimalRoute(sourceNode, finalDest);
 
+        // TODO make sure the new next hop is associated with an outduct
 
         if (newNextHop == origNextHop) {
             /*DEBUG*/LOG_INFO(subprocess) << "Skipping Computed next hop: " << routeToStr(newNextHop)
@@ -1415,6 +1418,8 @@ void Router::Impl::ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint
     while(destIt!= info.finalDestNodeIds.end()) {
         const uint64_t finalDest = *destIt;
         ++destIt;
+
+        // TODO make sure the new next hop is associated with an outduct
 
         uint64_t newNextHop = ComputeOptimalRoute(sourceNode, finalDest);
 
