@@ -515,21 +515,21 @@ bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConf
             "ipn:*.*",
             BPSEC_ROLE::ACCEPTOR);
         p->m_doConfidentiality = true;
-        static const std::string dataEncryptionKeyString(
-            "71776572747975696f70617364666768"
-            "71776572747975696f70617364666768"
-        );
-        BinaryConversions::HexStringToBytes(dataEncryptionKeyString, p->m_dataEncryptionKey);
-        /*BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET,
-                    ,
-                    BPV7_CRC_TYPE::NONE,
-                    m_myEid,
-                    targetBlockNumbers, 1,*/
-        p->m_confidentialityVariant = COSE_ALGORITHMS::A256GCM;
-        p->m_use12ByteIv = true;
-        p->m_aadScopeMask = BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET;
-        p->m_bcbCrcType = BPV7_CRC_TYPE::NONE;
-        FragmentSet::InsertFragment(p->m_bcbBlockTypeTargets, FragmentSet::data_fragment_t(1, 1)); //just payload block
+        if (p->m_doConfidentiality) {
+            static const std::string dataEncryptionKeyString(
+                "71776572747975696f70617364666768"
+                "71776572747975696f70617364666768"
+            );
+            BinaryConversions::HexStringToBytes(dataEncryptionKeyString, p->m_dataEncryptionKey);
+        }
+
+        p->m_doIntegrity = true;
+        if (p->m_doIntegrity) {
+            static const std::string hmacKeyString(
+                "1a2b1a2b1a2b1a2b1a2b1a2b1a2b1a2b"
+            );
+            BinaryConversions::HexStringToBytes(hmacKeyString, p->m_hmacKey);
+        }
     }
 #endif // DO_BPSEC_TEST
 
@@ -1135,7 +1135,8 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                 bool wasCacheHit;
                 bool decryptionSuccess = false;
                 static thread_local BPSecManager::ReusableElementsInternal bpsecReusableElementsInternal;
-                static thread_local BPSecManager::EvpCipherCtxWrapper ctxWrapper;
+                static thread_local BPSecManager::HmacCtxWrapper hmacCtxWrapper;
+                static thread_local BPSecManager::EvpCipherCtxWrapper evpCtxWrapper;
                 static thread_local BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
                 static thread_local std::vector<BundleViewV7::Bpv7CanonicalBlockView*> bcbBlocks;
                 bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, bcbBlocks);
@@ -1151,9 +1152,12 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                     if (!bpSecPolicyPtr) {
                         continue;
                     }
+                    if (!bpSecPolicyPtr->m_doConfidentiality) {
+                        continue;
+                    }
 
                     //does not rerender in place here, there are more ops to complete after decryption and then a manual render-in-place will be called later
-                    if (!BPSecManager::TryDecryptBundleByIndividualBcb(ctxWrapper,
+                    if (!BPSecManager::TryDecryptBundleByIndividualBcb(evpCtxWrapper,
                         ctxWrapperKeyWrapOps,
                         bv,
                         bcbBlockView,
@@ -1177,7 +1181,63 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                             << " ..(This message type will now be suppressed.)";
                         printedMsg = true;
                     }
-                    //LOG_INFO(subprocess) << "ingress decrypted bundle successfully";
+                }
+
+                static thread_local std::vector<BundleViewV7::Bpv7CanonicalBlockView*> bibBlocks;
+                bool integritySuccess = false;
+                bool markBibForDeletion = false;
+                bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::INTEGRITY, bibBlocks);
+                for (std::size_t i = 0; i < bibBlocks.size(); ++i) {
+                    BundleViewV7::Bpv7CanonicalBlockView& bibBlockView = *(bibBlocks[i]);
+                    Bpv7BlockIntegrityBlock* bibPtr = dynamic_cast<Bpv7BlockIntegrityBlock*>(bibBlockView.headerPtr.get());
+                    if (!bibPtr) {
+                        LOG_ERROR(subprocess) << "cast to bib block failed";
+                        return false;
+                    }
+                    const BpSecPolicy* bpSecPolicyPtr = m_bpSecPolicyManager.FindPolicyWithThreadLocalCacheSupport(
+                        bibPtr->m_securitySource, primary.m_sourceNodeId, primary.m_destinationEid, BPSEC_ROLE::ACCEPTOR, wasCacheHit);
+                    
+                    if (bpSecPolicyPtr) {
+                        markBibForDeletion = true; //true for acceptors
+                    }
+                    else {
+                        bpSecPolicyPtr = m_bpSecPolicyManager.FindPolicyWithThreadLocalCacheSupport(
+                            bibPtr->m_securitySource, primary.m_sourceNodeId, primary.m_destinationEid, BPSEC_ROLE::VERIFIER, wasCacheHit);
+                        if (!bpSecPolicyPtr) {
+                            continue;
+                        }
+                        markBibForDeletion = false; //false for verifiers
+                    }
+
+                    if (!bpSecPolicyPtr->m_doIntegrity) {
+                        continue;
+                    }
+
+                    //does not rerender in place here, there are more ops to complete after decryption and then a manual render-in-place will be called later
+                    if (!BPSecManager::TryVerifyBundleIntegrityByIndividualBib(hmacCtxWrapper,
+                        ctxWrapperKeyWrapOps,
+                        bv,
+                        bibBlockView,
+                        bpSecPolicyPtr->m_hmacKeyEncryptionKey.empty() ? NULL : bpSecPolicyPtr->m_hmacKeyEncryptionKey.data(), //NULL if not present (for unwrapping hmac key only)
+                        static_cast<unsigned int>(bpSecPolicyPtr->m_hmacKeyEncryptionKey.size()),
+                        bpSecPolicyPtr->m_hmacKey.empty() ? NULL : bpSecPolicyPtr->m_hmacKey.data(), //NULL if not present (when no wrapped key is present)
+                        static_cast<unsigned int>(bpSecPolicyPtr->m_hmacKey.size()),
+                        bpsecReusableElementsInternal,
+                        markBibForDeletion))
+                    {
+                        LOG_ERROR(subprocess) << "Process: version 7 bundle received but cannot check integrity";
+                        return false;
+                    }
+                    integritySuccess = true;
+                }
+                if (integritySuccess) {
+                    static thread_local bool printedMsg = false;
+                    if (!printedMsg) {
+                        LOG_INFO(subprocess) << "first time ingress " << ((markBibForDeletion) ? "accepted" : "verified") << " a bundle's integrity successfully from source node "
+                            << bv.m_primaryBlockView.header.m_sourceNodeId
+                            << " ..(This message type will now be suppressed.)";
+                        printedMsg = true;
+                    }
                 }
 #endif // BPSEC_SUPPORT_ENABLED
                 //get previous node

@@ -110,6 +110,15 @@ public:
         const bool markBibForDeletion,
         const bool renderInPlaceWhenFinished);
 
+    BPSEC_EXPORT static bool TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrapper& ctxWrapper,
+        EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
+        BundleViewV7& bv,
+        BundleViewV7::Bpv7CanonicalBlockView& bibBlockView,
+        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping hmac key only)
+        const uint8_t* hmacKey, const unsigned int hmacKeyLength, //NULL if not present (when no wrapped key is present)
+        ReusableElementsInternal& reusableElementsInternal,
+        const bool markBibForDeletion);
+
     /**
     * Adds a BIB block to the preloaded bundle view.  The bundle must be loaded with padded data.
     *
