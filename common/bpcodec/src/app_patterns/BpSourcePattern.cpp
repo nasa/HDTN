@@ -296,6 +296,9 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
     
 #ifdef BPSEC_SUPPORT_ENABLED
     BpSecPolicyManager m_bpSecPolicyManager;
+    bool bcbTargetsPayloadBlock = false;
+#else
+    static constexpr bool bcbTargetsPayloadBlock = false;
 #endif
 #ifdef DO_BPSEC_TEST
     
@@ -392,6 +395,9 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                     else {
                         bcbTargetBlockNumbers.push_back(bpv7BlockTypeToManuallyAssignedBlockNumberLut[i]);
                         LOG_DEBUG(subprocess) << "bpsec add block target confidentiality " << bcbTargetBlockNumbers.back();
+                        if (i == 1) { //payload block (block type and block index both 1)
+                            bcbTargetsPayloadBlock = true;
+                        }
                     }
                 }
             }
@@ -636,8 +642,11 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                     }
                 }
 #endif
-                payloadBlockView.headerPtr->RecomputeCrcAfterDataModification((uint8_t*)payloadBlockView.actualSerializedBlockPtr.data(), payloadBlockView.actualSerializedBlockPtr.size()); //recompute crc
-
+                if (!bcbTargetsPayloadBlock) { //encrypt automatically recomputes crcs for the blocks it targets
+                    payloadBlockView.headerPtr->RecomputeCrcAfterDataModification(
+                        (uint8_t*)payloadBlockView.actualSerializedBlockPtr.data(),
+                        payloadBlockView.actualSerializedBlockPtr.size()); //recompute crc
+                }
                 //move the bundle out of bundleView
                 bundleToSend = std::move(bv7.m_frontBuffer);
                 bundleLength = bv7.m_renderedBundle.size();
