@@ -18,9 +18,12 @@
 #include <memory>
 #include <boost/lexical_cast.hpp>
 
+static constexpr bool hasPing(const outduct_element_config_t& cfg) {
+    return cfg.ltpSenderPingSecondsOrZeroToDisable != 0;
+}
 
 LtpOutduct::LtpOutduct(const outduct_element_config_t& outductConfig, const uint64_t outductUuid) :
-    Outduct(outductConfig, outductUuid),
+    Outduct(outductConfig, outductUuid, hasPing(outductConfig)),
     m_ltpBundleSourcePtr(NULL)
 {
 

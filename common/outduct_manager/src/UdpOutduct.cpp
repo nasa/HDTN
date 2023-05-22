@@ -19,7 +19,7 @@
 #include <boost/lexical_cast.hpp>
 
 UdpOutduct::UdpOutduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid) :
-    Outduct(outductConfig, outductUuid),
+    Outduct(outductConfig, outductUuid, false),
     m_udpBundleSource(outductConfig.udpRateBps, outductConfig.maxNumberOfBundlesInPipeline + 5)
 {}
 UdpOutduct::~UdpOutduct() {}

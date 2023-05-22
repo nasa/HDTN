@@ -208,12 +208,13 @@ OutductCapabilityTelemetry_t::OutductCapabilityTelemetry_t() :
     outductArrayIndex(0),
     maxBundlesInPipeline(0),
     maxBundleSizeBytesInPipeline(0),
-    nextHopNodeId(0) {}
+    nextHopNodeId(0), hasInitLinkState(false) {}
 bool OutductCapabilityTelemetry_t::operator==(const OutductCapabilityTelemetry_t& o) const {
     return (outductArrayIndex == o.outductArrayIndex)
         && (maxBundlesInPipeline == o.maxBundlesInPipeline)
         && (maxBundleSizeBytesInPipeline == o.maxBundleSizeBytesInPipeline)
         && (nextHopNodeId == o.nextHopNodeId)
+        && (hasInitLinkState == o.hasInitLinkState)
         && (finalDestinationEidList == o.finalDestinationEidList)
         && (finalDestinationNodeIdList == o.finalDestinationNodeIdList);
 }
@@ -225,6 +226,7 @@ OutductCapabilityTelemetry_t::OutductCapabilityTelemetry_t(const OutductCapabili
     maxBundlesInPipeline(o.maxBundlesInPipeline),
     maxBundleSizeBytesInPipeline(o.maxBundleSizeBytesInPipeline),
     nextHopNodeId(o.nextHopNodeId),
+    hasInitLinkState(o.hasInitLinkState),
     finalDestinationEidList(o.finalDestinationEidList),
     finalDestinationNodeIdList(o.finalDestinationNodeIdList) { } //a copy constructor: X(const X&)
 OutductCapabilityTelemetry_t::OutductCapabilityTelemetry_t(OutductCapabilityTelemetry_t&& o) noexcept :
@@ -232,6 +234,7 @@ OutductCapabilityTelemetry_t::OutductCapabilityTelemetry_t(OutductCapabilityTele
     maxBundlesInPipeline(o.maxBundlesInPipeline),
     maxBundleSizeBytesInPipeline(o.maxBundleSizeBytesInPipeline),
     nextHopNodeId(o.nextHopNodeId),
+    hasInitLinkState(o.hasInitLinkState),
     finalDestinationEidList(std::move(o.finalDestinationEidList)),
     finalDestinationNodeIdList(std::move(o.finalDestinationNodeIdList)) { } //a move constructor: X(X&&)
 OutductCapabilityTelemetry_t& OutductCapabilityTelemetry_t::operator=(const OutductCapabilityTelemetry_t& o) { //a copy assignment: operator=(const X&)
@@ -239,6 +242,7 @@ OutductCapabilityTelemetry_t& OutductCapabilityTelemetry_t::operator=(const Outd
     maxBundlesInPipeline = o.maxBundlesInPipeline;
     maxBundleSizeBytesInPipeline = o.maxBundleSizeBytesInPipeline;
     nextHopNodeId = o.nextHopNodeId;
+    hasInitLinkState = o.hasInitLinkState,
     finalDestinationEidList = o.finalDestinationEidList;
     finalDestinationNodeIdList = o.finalDestinationNodeIdList;
     return *this;
@@ -248,6 +252,7 @@ OutductCapabilityTelemetry_t& OutductCapabilityTelemetry_t::operator=(OutductCap
     maxBundlesInPipeline = o.maxBundlesInPipeline;
     maxBundleSizeBytesInPipeline = o.maxBundleSizeBytesInPipeline;
     nextHopNodeId = o.nextHopNodeId;
+    hasInitLinkState = o.hasInitLinkState,
     finalDestinationEidList = std::move(o.finalDestinationEidList);
     finalDestinationNodeIdList = std::move(o.finalDestinationNodeIdList);
     return *this;
@@ -258,6 +263,7 @@ bool OutductCapabilityTelemetry_t::SetValuesFromPropertyTree(const boost::proper
         maxBundlesInPipeline = pt.get<uint64_t>("maxBundlesInPipeline");
         maxBundleSizeBytesInPipeline = pt.get<uint64_t>("maxBundleSizeBytesInPipeline");
         nextHopNodeId = pt.get<uint64_t>("nextHopNodeId");
+        hasInitLinkState = pt.get<bool>("hasInitLinkState");
 
         const boost::property_tree::ptree& finalDestinationEidsListPt = pt.get_child("finalDestinationEidsList", EMPTY_PTREE); //non-throw version
         finalDestinationEidList.clear();
@@ -291,6 +297,7 @@ boost::property_tree::ptree OutductCapabilityTelemetry_t::GetNewPropertyTree() c
     pt.put("maxBundlesInPipeline", maxBundlesInPipeline);
     pt.put("maxBundleSizeBytesInPipeline", maxBundleSizeBytesInPipeline);
     pt.put("nextHopNodeId", nextHopNodeId);
+    pt.put("hasInitLinkState", hasInitLinkState);
     boost::property_tree::ptree& eidListPt = pt.put_child("finalDestinationEidsList",
         (finalDestinationEidList.empty() && finalDestinationNodeIdList.empty()) ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
     for (std::list<cbhe_eid_t>::const_iterator it = finalDestinationEidList.cbegin(); it != finalDestinationEidList.cend(); ++it) {

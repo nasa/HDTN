@@ -18,12 +18,16 @@
 #include <memory>
 
 
-Outduct::Outduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid) :
+Outduct::Outduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid, const bool hasInitLinkState) :
     m_outductConfig(outductConfig),
     m_outductUuid(outductUuid),
+    m_hasInitLinkState(hasInitLinkState),
     m_linkIsUpPerTimeSchedule(false),
     m_physicalLinkStatusIsKnown(false),
     m_linkIsUpPhysically(false) //don't care, set properly when m_physicalLinkStatusIsKnown gets set to true
+{}
+Outduct::Outduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid) :
+    Outduct(outductConfig, outductUuid, true)
 {}
 Outduct::~Outduct() {}
 
@@ -45,6 +49,9 @@ uint64_t Outduct::GetOutductNextHopNodeId() const {
 }
 std::string Outduct::GetConvergenceLayerName() const {
     return m_outductConfig.convergenceLayer;
+}
+bool Outduct::GetHasInitLinkState() const {
+    return m_hasInitLinkState;
 }
 uint64_t Outduct::GetStartingMaxSendRateBitsPerSec() const noexcept {
     return 0;
