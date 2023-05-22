@@ -147,6 +147,16 @@ bool FragmentSet::DoesNotContainFragmentEntirely(const data_fragment_set_t & fra
 #endif
 }
 
+bool FragmentSet::FragmentSetsHaveOverlap(const data_fragment_set_t& fragmentSet1, const data_fragment_set_t& fragmentSet2) {
+    for (data_fragment_set_t::const_iterator it = fragmentSet1.cbegin(); it != fragmentSet1.cend(); ++it) {
+        const bool containsNoOverlap = DoesNotContainFragmentEntirely(fragmentSet2, *it); //True if the fragment does not overlap, False if the fragment overlaps
+        if (!containsNoOverlap) { //contains overlap
+            return true;
+        }
+    }
+    return false;
+}
+
 //return true if the set was modified, false if unmodified
 bool FragmentSet::RemoveFragment(data_fragment_set_t & fragmentSet, const data_fragment_t & key) {
     const uint64_t deleteBegin = key.beginIndex;

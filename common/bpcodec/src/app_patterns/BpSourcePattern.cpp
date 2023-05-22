@@ -35,7 +35,7 @@
 #include "BPSecManager.h"
 #include "InitializationVectors.h"
 #include "BpSecPolicyManager.h"
-//# define DO_BPSEC_TEST 1
+# define DO_BPSEC_TEST 1
 #endif
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
@@ -306,33 +306,72 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
             Uri::GetIpnUriString(m_finalDestinationEid.nodeId, m_finalDestinationEid.serviceId),
             BPSEC_ROLE::SOURCE);
         p->m_doConfidentiality = true;
-        static const std::string dataEncryptionKeyString(
-            "71776572747975696f70617364666768"
-            "71776572747975696f70617364666768"
-        );
-        BinaryConversions::HexStringToBytes(dataEncryptionKeyString, p->m_dataEncryptionKey);
-        /*BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET,
-                    ,
-                    BPV7_CRC_TYPE::NONE,
-                    m_myEid,
-                    targetBlockNumbers, 1,*/
-        p->m_confidentialityVariant = COSE_ALGORITHMS::A256GCM;
-        p->m_use12ByteIv = true;
-        p->m_aadScopeMask = BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET;
-        p->m_bcbCrcType = BPV7_CRC_TYPE::NONE;
-        FragmentSet::InsertFragment(p->m_bcbBlockTypeTargets, FragmentSet::data_fragment_t(1, 1)); //just payload block
+        if (p->m_doConfidentiality) {
+            static const std::string dataEncryptionKeyString(
+                "71776572747975696f70617364666768"
+                "71776572747975696f70617364666768"
+            );
+            BinaryConversions::HexStringToBytes(dataEncryptionKeyString, p->m_dataEncryptionKey);
+            p->m_confidentialityVariant = COSE_ALGORITHMS::A256GCM;
+            p->m_use12ByteIv = true;
+            p->m_aadScopeMask = BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET;
+            p->m_bcbCrcType = BPV7_CRC_TYPE::NONE;
+            FragmentSet::InsertFragment(p->m_bcbBlockTypeTargets,
+                FragmentSet::data_fragment_t(static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PAYLOAD),
+                    static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PAYLOAD))); //just payload block
+        }
+
+        p->m_doIntegrity = true;
+        if (p->m_doIntegrity) {
+            static const std::string hmacKeyString(
+                "1a2b1a2b1a2b1a2b1a2b1a2b1a2b1a2b"
+            );
+            BinaryConversions::HexStringToBytes(hmacKeyString, p->m_hmacKey);
+            p->m_integrityVariant = COSE_ALGORITHMS::HMAC_384_384;
+            p->m_integrityScopeMask = BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::ALL_FLAGS_SET;
+            p->m_bibCrcType = BPV7_CRC_TYPE::NONE;
+            FragmentSet::InsertFragment(p->m_bibBlockTypeTargets,
+                FragmentSet::data_fragment_t(static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PAYLOAD),
+                    static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PAYLOAD)));
+
+            //When adding a BCB to a bundle, if some (or all) of the security
+            //targets of the BCB match all of the security targets of an
+            //existing BIB, then the existing BIB MUST also be encrypted.
+            // A check that this was done shall be performed later.
+            FragmentSet::InsertFragment(p->m_bcbBlockTypeTargets,
+                FragmentSet::data_fragment_t(static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::INTEGRITY),
+                    static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::INTEGRITY))); //just payload block
+        }
     }
 #endif // DO_BPSEC_TEST
 #ifdef BPSEC_SUPPORT_ENABLED
     const BpSecPolicy* bpSecPolicyPtr = m_bpSecPolicyManager.FindPolicy(m_myEid, m_myEid, m_finalDestinationEid, BPSEC_ROLE::SOURCE);
 
     std::vector<uint64_t> bcbTargetBlockNumbers;
+    std::vector<uint64_t> bibTargetBlockNumbers;
 
     //support 12 or 16 byte iv's
     InitializationVector12Byte iv12;
     InitializationVector16Byte iv16;
     std::vector<uint8_t> initializationVector;
+    uint64_t bcbTargetBibBlockNumberPlaceholderIndex = UINT64_MAX;
+    bool bibMustBeEncrypted = false;
     if (bpSecPolicyPtr) {
+        if (bpSecPolicyPtr->m_doIntegrity) {
+            for (FragmentSet::data_fragment_set_t::const_iterator it = bpSecPolicyPtr->m_bibBlockTypeTargets.cbegin();
+                it != bpSecPolicyPtr->m_bibBlockTypeTargets.cend(); ++it)
+            {
+                const FragmentSet::data_fragment_t& df = *it;
+                for (uint64_t i = df.beginIndex; i <= df.endIndex; ++i) {
+                    if (i >= MAX_NUM_BPV7_BLOCK_TYPE_CODES) {
+                        LOG_FATAL(subprocess) << "policy error: invalid block type " << i;
+                        return;
+                    }
+                    bibTargetBlockNumbers.push_back(bpv7BlockTypeToManuallyAssignedBlockNumberLut[i]);
+                    LOG_DEBUG(subprocess) << "bpsec add block target integrity " << bibTargetBlockNumbers.back();
+                }
+            }
+        }
         if (bpSecPolicyPtr->m_doConfidentiality) {
             initializationVector.resize(bpSecPolicyPtr->m_use12ByteIv ? 12 : 16);
             for (FragmentSet::data_fragment_set_t::const_iterator it = bpSecPolicyPtr->m_bcbBlockTypeTargets.cbegin();
@@ -344,14 +383,41 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                         LOG_FATAL(subprocess) << "policy error: invalid block type " << i;
                         return;
                     }
-                    bcbTargetBlockNumbers.push_back(bpv7BlockTypeToManuallyAssignedBlockNumberLut[i]);
-                    LOG_DEBUG(subprocess) << "bpsec add block target confidentiality " << bcbTargetBlockNumbers.back();
+                    if (i == static_cast<uint64_t>(BPV7_BLOCK_TYPE_CODE::INTEGRITY)) {
+                        //integrity block number is auto-assigned later
+                        bcbTargetBibBlockNumberPlaceholderIndex = bcbTargetBlockNumbers.size();
+                        bcbTargetBlockNumbers.push_back(0);
+                        LOG_DEBUG(subprocess) << "bpsec add block target confidentiality placeholder for bib";
+                    }
+                    else {
+                        bcbTargetBlockNumbers.push_back(bpv7BlockTypeToManuallyAssignedBlockNumberLut[i]);
+                        LOG_DEBUG(subprocess) << "bpsec add block target confidentiality " << bcbTargetBlockNumbers.back();
+                    }
+                }
+            }
+        }
+        if (bpSecPolicyPtr->m_doIntegrity && bpSecPolicyPtr->m_doConfidentiality) {
+            //When adding a BCB to a bundle, if some (or all) of the security
+            //targets of the BCB match all of the security targets of an
+            //existing BIB, then the existing BIB MUST also be encrypted.
+            bibMustBeEncrypted = FragmentSet::FragmentSetsHaveOverlap(bpSecPolicyPtr->m_bcbBlockTypeTargets, bpSecPolicyPtr->m_bibBlockTypeTargets);
+            if (bibMustBeEncrypted) {
+                const bool bcbAlreadyTargetsBib = FragmentSet::ContainsFragmentEntirely(bpSecPolicyPtr->m_bcbBlockTypeTargets,
+                    FragmentSet::data_fragment_t(static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::INTEGRITY),
+                        static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::INTEGRITY))); //just payload block
+                if (bcbAlreadyTargetsBib) {
+                    LOG_INFO(subprocess) << "bpsec shall encrypt BIB since the BIB shares target(s) with the BCB";
+                }
+                else {
+                    LOG_FATAL(subprocess) << "bpsec policy must be fixed to encrypt the BIB since the BIB shares target(s) with the BCB";
+                    return;
                 }
             }
         }
     }
     BPSecManager::ReusableElementsInternal bpsecReusableElementsInternal;
-    BPSecManager::EvpCipherCtxWrapper ctxWrapper;
+    BPSecManager::HmacCtxWrapper hmacCtxWrapper;
+    BPSecManager::EvpCipherCtxWrapper evpCtxWrapper;
     BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
 #endif // BPSEC_SUPPORT_ENABLED
     zmq::message_t zmqMessageToSendWrapper;
@@ -512,6 +578,31 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                 }
 #ifdef BPSEC_SUPPORT_ENABLED
                 if (bpSecPolicyPtr) {
+                    if (bpSecPolicyPtr->m_doIntegrity) {
+                        if (!BPSecManager::TryAddBundleIntegrity(hmacCtxWrapper,
+                            ctxWrapperKeyWrapOps,
+                            bv7,
+                            bpSecPolicyPtr->m_integrityScopeMask,
+                            bpSecPolicyPtr->m_integrityVariant,
+                            bpSecPolicyPtr->m_bibCrcType,
+                            m_myEid,
+                            bibTargetBlockNumbers.data(), static_cast<unsigned int>(bibTargetBlockNumbers.size()),
+                            bpSecPolicyPtr->m_hmacKeyEncryptionKey.empty() ? NULL : bpSecPolicyPtr->m_hmacKeyEncryptionKey.data(), //NULL if not present (for unwrapping hmac key only)
+                            static_cast<unsigned int>(bpSecPolicyPtr->m_hmacKeyEncryptionKey.size()),
+                            bpSecPolicyPtr->m_hmacKey.empty() ? NULL : bpSecPolicyPtr->m_hmacKey.data(), //NULL if not present (when no wrapped key is present)
+                            static_cast<unsigned int>(bpSecPolicyPtr->m_hmacKey.size()),
+                            bpsecReusableElementsInternal,
+                            NULL, //bib placed immediately after primary
+                            true))
+                        {
+                            LOG_ERROR(subprocess) << "cannot add integrity to bundle";
+                            m_running = false;
+                            continue;
+                        }
+                        if (bcbTargetBibBlockNumberPlaceholderIndex != UINT64_MAX) {
+                            bcbTargetBlockNumbers[bcbTargetBibBlockNumberPlaceholderIndex] = bv7.m_listCanonicalBlockView.front().headerPtr->m_blockNumber;
+                        }
+                    }
                     if (bpSecPolicyPtr->m_doConfidentiality) {
                         if (bpSecPolicyPtr->m_use12ByteIv) {
                             iv12.Serialize(initializationVector.data());
@@ -521,7 +612,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                             iv16.Serialize(initializationVector.data());
                             iv16.Increment();
                         }
-                        if (!BPSecManager::TryEncryptBundle(ctxWrapper,
+                        if (!BPSecManager::TryEncryptBundle(evpCtxWrapper,
                             ctxWrapperKeyWrapOps,
                             bv7,
                             bpSecPolicyPtr->m_aadScopeMask,
@@ -550,11 +641,30 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                 //move the bundle out of bundleView
                 bundleToSend = std::move(bv7.m_frontBuffer);
                 bundleLength = bv7.m_renderedBundle.size();
-#ifdef DO_BPSEC_TEST
-                bundleToSendStartPtr = (uint8_t*)bv7.m_renderedBundle.data();
-                padded_vector_uint8_t* rxBufRawPointer = new padded_vector_uint8_t(std::move(bundleToSend));
-                zmqMessageToSendWrapper.rebuild(bundleToSendStartPtr, bundleLength, CustomCleanupPaddedVecUint8, rxBufRawPointer);
-#endif
+                if ((bundleToSend.data() != ((uint8_t*)bv7.m_renderedBundle.data())) || (bundleToSend.size() != bv7.m_renderedBundle.size())) {
+                    //bundle was rendered in place, wrap inside a zmq message
+                    bundleToSendStartPtr = (uint8_t*)bv7.m_renderedBundle.data();
+                    if (bundleToSend.data() > bundleToSendStartPtr) {
+                        const std::uintptr_t diff = bundleToSend.data() - bundleToSendStartPtr;
+                        if (diff > PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE) {
+                            LOG_FATAL(subprocess) << "used " << ((unsigned int)diff) 
+                                << " bytes of prepadded data from render in place, exceeding the limit of "
+                                << PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE << " bytes!";
+                        }
+                        else {
+                            //LOG_DEBUG(subprocess) << "using " << ((unsigned int)diff) << " bytes of prepadded data from render in place";
+                        }
+                    }
+                    /*{
+                        std::string hexString;
+                        BinaryConversions::BytesToHexString(bundleToSendStartPtr, bundleLength, hexString);
+                        boost::to_lower(hexString);
+                        LOG_DEBUG(subprocess) << "bundle start ptr: " << ((uintptr_t)bundleToSendStartPtr) << " len=" << bundleLength;
+                        LOG_DEBUG(subprocess) << "bundle encrypted: " << hexString;
+                    }*/
+                    padded_vector_uint8_t* rxBufRawPointer = new padded_vector_uint8_t(std::move(bundleToSend));
+                    zmqMessageToSendWrapper.rebuild(bundleToSendStartPtr, bundleLength, CustomCleanupPaddedVecUint8, rxBufRawPointer);
+                }
             }
             else { //bp version 6
                 bv6.Reset(); //when reusing bv, it must be Reset since not calling any Load functions (loading calls Reset)

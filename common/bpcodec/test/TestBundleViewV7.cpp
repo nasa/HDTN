@@ -712,7 +712,7 @@ BOOST_AUTO_TEST_CASE(Bpv7PrependExtensionBlockToPaddedBundleTestCase)
             bv.PrependMoveCanonicalBlock(std::move(blockPtr));
         }
 
-        BOOST_REQUIRE(bv.RenderInPlace(bundleSerializedPadded.get_allocator().PADDING_ELEMENTS_BEFORE));
+        BOOST_REQUIRE(bv.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE));
 
         //reload new bundle
         {

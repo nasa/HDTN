@@ -769,8 +769,8 @@ void Egress::Impl::WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleV
     static const zmq::const_buffer messageFlagsConstBuf(&messageFlags, sizeof(messageFlags));
     const uint64_t wholeBundleVecSize = wholeBundleVec.size();
     padded_vector_uint8_t * rxBufRawPointer = new padded_vector_uint8_t(std::move(wholeBundleVec));
-    zmq::message_t paddedMessageWithDataStolen(rxBufRawPointer->data() - rxBufRawPointer->get_allocator().PADDING_ELEMENTS_BEFORE,
-        rxBufRawPointer->size() + rxBufRawPointer->get_allocator().TOTAL_PADDING_ELEMENTS, CustomCleanupPaddedVecUint8, rxBufRawPointer);
+    zmq::message_t paddedMessageWithDataStolen(rxBufRawPointer->data() - PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE,
+        rxBufRawPointer->size() + PaddedMallocatorConstants::TOTAL_PADDING_ELEMENTS, CustomCleanupPaddedVecUint8, rxBufRawPointer);
     boost::mutex::scoped_lock lock(m_mutexPushBundleToIngress);
     if (!m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->send(messageFlagsConstBuf, zmq::send_flags::sndmore)) { //blocks if above 5 high water mark
         LOG_ERROR(subprocess) << "WholeBundleReadyCallback: zmq could not send messageFlagsConstBuf to ingress";

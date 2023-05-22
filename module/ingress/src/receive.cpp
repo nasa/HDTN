@@ -48,7 +48,7 @@
 #ifdef BPSEC_SUPPORT_ENABLED
 #include "BPSecManager.h"
 #include "BpSecPolicyManager.h"
-//# define DO_BPSEC_TEST 1
+# define DO_BPSEC_TEST 1
 #endif
 
 namespace hdtn {
@@ -958,9 +958,9 @@ void Ingress::Impl::ReadTcpclOpportunisticBundlesFromEgressThreadFunc() {
             else {
                 if (messageFlags) { //1 => from egress and needs processing (is padded from the convergence layer)
                     uint8_t * paddedDataBegin = (uint8_t *)zmqPotentiallyPaddedMessage->data();
-                    uint8_t * bundleDataBegin = paddedDataBegin + PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE;
+                    uint8_t * bundleDataBegin = paddedDataBegin + PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE;
 
-                    std::size_t bundleCurrentSize = zmqPotentiallyPaddedMessage->size() - PaddedMallocator<uint8_t>::TOTAL_PADDING_ELEMENTS;
+                    std::size_t bundleCurrentSize = zmqPotentiallyPaddedMessage->size() - PaddedMallocatorConstants::TOTAL_PADDING_ELEMENTS;
                     ProcessPaddedData(bundleDataBegin, bundleCurrentSize, zmqPotentiallyPaddedMessage, unusedPaddedVec, true, true);
                     ++totalOpportunisticBundlesFromEgress;
                 }
@@ -1251,7 +1251,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                     bv.m_primaryBlockView.SetManuallyModified();
                 }
 
-                if (!bv.RenderInPlace(PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE)) {
+                if (!bv.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE)) {
                     LOG_ERROR(subprocess) << "Process: bpv7 RenderInPlace failed";
                     return false;
                 }

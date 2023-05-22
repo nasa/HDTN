@@ -615,7 +615,7 @@ bool BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
     }
     //at least one bcb was marked for deletion, so rerender
     if (renderInPlaceWhenFinished) {
-        return bv.RenderInPlace(PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE);
+        return bv.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE);
     }
     return true;
 }
@@ -655,7 +655,7 @@ bool BPSecManager::TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& ctxWrapp
         return false;
     }
 
-#if BPSEC_MANAGER_PRINT_DEBUG
+#ifdef BPSEC_MANAGER_PRINT_DEBUG
     {
         std::string ivHexString;
         BinaryConversions::BytesToHexString(*ivPtr, ivHexString);
@@ -876,6 +876,15 @@ bool BPSecManager::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
     std::vector<uint8_t>* ivPtr = bcb.AddAndGetInitializationVectorPtr();
     ivPtr->assign(iv, iv + ivLength);
 
+#ifdef BPSEC_MANAGER_PRINT_DEBUG
+    {
+        std::string ivHexString;
+        BinaryConversions::BytesToHexString(*ivPtr, ivHexString);
+        boost::to_lower(ivHexString);
+        LOG_DEBUG(subprocess) << "iv: " << ivHexString;
+    }
+#endif
+
     if (!bcb.AddOrUpdateSecurityParameterAesVariant(aesVariant)) {
         return false;
     }
@@ -944,6 +953,23 @@ bool BPSecManager::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
             *targetHeaderAadPiece = boost::asio::const_buffer(startPtr, len);
         }
 
+#ifdef BPSEC_MANAGER_PRINT_DEBUG
+        {
+            std::string aadHexString;
+            BinaryConversions::BytesToHexString(aadParts, aadHexString);
+            boost::to_lower(aadHexString);
+            LOG_DEBUG(subprocess) << "aad: " << aadHexString;
+        }
+#endif
+#ifdef BPSEC_MANAGER_PRINT_DEBUG
+        {
+            std::string hexString;
+            BinaryConversions::BytesToHexString(targetCanonicalHeader.m_dataPtr, targetCanonicalHeader.m_dataLength, hexString);
+            boost::to_lower(hexString);
+            LOG_DEBUG(subprocess) << "block (code=" << (int)targetCanonicalHeader.m_blockTypeCode << ") data part before encrypt : " << hexString;
+        }
+#endif
+
         //The target results MUST be ordered
         //identically to the Security Targets field of the security
         //block.  This means that the first set of target results in this
@@ -985,6 +1011,16 @@ bool BPSecManager::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
             return false;
         }
 
+#ifdef BPSEC_MANAGER_PRINT_DEBUG
+        {
+            std::string hexString;
+            BinaryConversions::BytesToHexString(targetCanonicalHeader.m_dataPtr, targetCanonicalHeader.m_dataLength, hexString);
+            boost::to_lower(hexString);
+            LOG_DEBUG(subprocess) << "block data part encrypted: " << hexString;
+            LOG_DEBUG(subprocess) << "encrypted start ptr: " << ((uintptr_t)targetCanonicalHeader.m_dataPtr) << " len=" << targetCanonicalHeader.m_dataLength;
+        }
+#endif
+
         //recompute crc at end
         targetCanonicalHeader.RecomputeCrcAfterDataModification(
             (uint8_t*)targetCanonicalBlockViewPtr->actualSerializedBlockPtr.data(),
@@ -1001,7 +1037,7 @@ bool BPSecManager::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
         bv.PrependMoveCanonicalBlock(std::move(blockPtr));
     }
     if (renderInPlaceWhenFinished) {
-        return bv.RenderInPlace(PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE);
+        return bv.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE);
     }
     return true;
 }
@@ -1233,7 +1269,7 @@ bool BPSecManager::TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
     }
     if (markBibForDeletion && renderInPlaceWhenFinished) {
         //at least one bib was marked for deletion, so rerender
-        return bv.RenderInPlace(PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE);
+        return bv.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE);
     }
     return true;
 }
@@ -1439,7 +1475,7 @@ bool BPSecManager::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
         bv.PrependMoveCanonicalBlock(std::move(blockPtr));
     }
     if (renderInPlaceWhenFinished) {
-        return bv.RenderInPlace(PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE);
+        return bv.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE);
     }
     return true;
 }
