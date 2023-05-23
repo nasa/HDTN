@@ -14,6 +14,7 @@
  */
 
 #include "BpSecPolicyManager.h"
+#include "BPSecManager.h"
 #include <boost/make_unique.hpp>
 #include "Uri.h"
 #include "Logger.h"
@@ -170,4 +171,115 @@ const BpSecPolicy* BpSecPolicyManager::FindPolicyWithThreadLocalCacheSupport(con
         localCache.bundleFinalDestEid = bundleFinalDestEid;
     }
     return localCache.foundPolicy;
+}
+
+bool BpSecPolicyManager::ProcessReceivedBundle_ThreadLocal(BundleViewV7& bv) const {
+    const Bpv7CbhePrimaryBlock& primary = bv.m_primaryBlockView.header;
+    bool wasCacheHit;
+    bool decryptionSuccess = false;
+    static thread_local BPSecManager::ReusableElementsInternal bpsecReusableElementsInternal;
+    static thread_local BPSecManager::HmacCtxWrapper hmacCtxWrapper;
+    static thread_local BPSecManager::EvpCipherCtxWrapper evpCtxWrapper;
+    static thread_local BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
+    static thread_local std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+    bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, blocks);
+    for (std::size_t i = 0; i < blocks.size(); ++i) {
+        BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView = *(blocks[i]);
+        Bpv7BlockConfidentialityBlock* bcbPtr = dynamic_cast<Bpv7BlockConfidentialityBlock*>(bcbBlockView.headerPtr.get());
+        if (!bcbPtr) {
+            LOG_ERROR(subprocess) << "cast to bcb block failed";
+            return false;
+        }
+        const BpSecPolicy* bpSecPolicyPtr = FindPolicyWithThreadLocalCacheSupport(
+            bcbPtr->m_securitySource, primary.m_sourceNodeId, primary.m_destinationEid, BPSEC_ROLE::ACCEPTOR, wasCacheHit);
+        if (!bpSecPolicyPtr) {
+            continue;
+        }
+        if (!bpSecPolicyPtr->m_doConfidentiality) {
+            continue;
+        }
+
+        //does not rerender in place here, there are more ops to complete after decryption and then a manual render-in-place will be called later
+        if (!BPSecManager::TryDecryptBundleByIndividualBcb(evpCtxWrapper,
+            ctxWrapperKeyWrapOps,
+            bv,
+            bcbBlockView,
+            bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.empty() ? NULL : bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.data(), //NULL if not present (for wrapping DEK only)
+            static_cast<unsigned int>(bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.size()),
+            bpSecPolicyPtr->m_dataEncryptionKey.empty() ? NULL : bpSecPolicyPtr->m_dataEncryptionKey.data(), //NULL if not present (when no wrapped key is present)
+            static_cast<unsigned int>(bpSecPolicyPtr->m_dataEncryptionKey.size()),
+            bpsecReusableElementsInternal))
+        {
+            LOG_ERROR(subprocess) << "Process: version 7 bundle received but cannot decrypt";
+            return false;
+        }
+        decryptionSuccess = true;
+    }
+
+    if (decryptionSuccess) {
+        static thread_local bool printedMsg = false;
+        if (!printedMsg) {
+            LOG_INFO(subprocess) << "first time decrypted bundle successfully from source node "
+                << bv.m_primaryBlockView.header.m_sourceNodeId
+                << " ..(This message type will now be suppressed.)";
+            printedMsg = true;
+        }
+    }
+
+    bool integritySuccess = false;
+    bool markBibForDeletion = false;
+    bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::INTEGRITY, blocks);
+    for (std::size_t i = 0; i < blocks.size(); ++i) {
+        BundleViewV7::Bpv7CanonicalBlockView& bibBlockView = *(blocks[i]);
+        Bpv7BlockIntegrityBlock* bibPtr = dynamic_cast<Bpv7BlockIntegrityBlock*>(bibBlockView.headerPtr.get());
+        if (!bibPtr) {
+            LOG_ERROR(subprocess) << "cast to bib block failed";
+            return false;
+        }
+        const BpSecPolicy* bpSecPolicyPtr = FindPolicyWithThreadLocalCacheSupport(
+            bibPtr->m_securitySource, primary.m_sourceNodeId, primary.m_destinationEid, BPSEC_ROLE::ACCEPTOR, wasCacheHit);
+
+        if (bpSecPolicyPtr) {
+            markBibForDeletion = true; //true for acceptors
+        }
+        else {
+            bpSecPolicyPtr = FindPolicyWithThreadLocalCacheSupport(
+                bibPtr->m_securitySource, primary.m_sourceNodeId, primary.m_destinationEid, BPSEC_ROLE::VERIFIER, wasCacheHit);
+            if (!bpSecPolicyPtr) {
+                continue;
+            }
+            markBibForDeletion = false; //false for verifiers
+        }
+
+        if (!bpSecPolicyPtr->m_doIntegrity) {
+            continue;
+        }
+
+        //does not rerender in place here, there are more ops to complete after decryption and then a manual render-in-place will be called later
+        if (!BPSecManager::TryVerifyBundleIntegrityByIndividualBib(hmacCtxWrapper,
+            ctxWrapperKeyWrapOps,
+            bv,
+            bibBlockView,
+            bpSecPolicyPtr->m_hmacKeyEncryptionKey.empty() ? NULL : bpSecPolicyPtr->m_hmacKeyEncryptionKey.data(), //NULL if not present (for unwrapping hmac key only)
+            static_cast<unsigned int>(bpSecPolicyPtr->m_hmacKeyEncryptionKey.size()),
+            bpSecPolicyPtr->m_hmacKey.empty() ? NULL : bpSecPolicyPtr->m_hmacKey.data(), //NULL if not present (when no wrapped key is present)
+            static_cast<unsigned int>(bpSecPolicyPtr->m_hmacKey.size()),
+            bpsecReusableElementsInternal,
+            markBibForDeletion))
+        {
+            LOG_ERROR(subprocess) << "Process: version 7 bundle received but cannot check integrity";
+            return false;
+        }
+        integritySuccess = true;
+    }
+    if (integritySuccess) {
+        static thread_local bool printedMsg = false;
+        if (!printedMsg) {
+            LOG_INFO(subprocess) << "first time " << ((markBibForDeletion) ? "accepted" : "verified") << " a bundle's integrity successfully from source node "
+                << bv.m_primaryBlockView.header.m_sourceNodeId
+                << " ..(This message type will now be suppressed.)";
+            printedMsg = true;
+        }
+    }
+    return true;
 }

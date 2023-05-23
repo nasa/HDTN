@@ -25,6 +25,7 @@
 
 #include "codec/Cbhe.h"
 #include "codec/bpv7.h"
+#include "codec/BundleViewV7.h"
 #include "FragmentSet.h"
 #include <map>
 #include <vector>
@@ -110,6 +111,8 @@ public:
 
     BPSEC_EXPORT const BpSecPolicy* FindPolicyWithThreadLocalCacheSupport(const cbhe_eid_t& securitySourceEid,
         const cbhe_eid_t& bundleSourceEid, const cbhe_eid_t& bundleFinalDestEid, const BPSEC_ROLE role, bool& wasCacheHit) const;
+
+    BPSEC_EXPORT bool ProcessReceivedBundle_ThreadLocal(BundleViewV7& bv) const;
 private:
     BpSecPolicyFilter m_policyFilterSecuritySource;
 };
