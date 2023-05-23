@@ -1040,6 +1040,13 @@ bool Router::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
 
     LOG_INFO(subprocess) << "Epoch Time:  " << m_epoch;
 
+    // Clear any static routes in outducts
+    // TODO only do this the first time?
+    for(std::unordered_map<uint64_t, uint64_t>::iterator it = m_routes.begin();
+            it != m_routes.end(); it++) {
+        SendRouteUpdate(NOROUTE, it->first);
+    }
+
     m_contactPlanTimerIsRunning = false;
     TryRestartContactPlanTimer(); //wait for next event (do this after all sockets initialized)
 
