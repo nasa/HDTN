@@ -605,8 +605,7 @@ void Egress::Impl::ReadZmqThreadFunc() {
 
                     //send telemetry
                     if (m_lastJsonAoctSharedPtr) {
-                        std::shared_ptr<std::string>* jsonRawPtrToSharedPtr = new std::shared_ptr<std::string>(m_lastJsonAoctSharedPtr);
-                        m_lastJsonAoctSharedPtr.reset();
+                        std::shared_ptr<std::string>* jsonRawPtrToSharedPtr = new std::shared_ptr<std::string>(std::move(m_lastJsonAoctSharedPtr));
 
                         std::shared_ptr<std::string>& sharedPtrRef = *jsonRawPtrToSharedPtr;
                         std::string& strAoctRef = *sharedPtrRef;
