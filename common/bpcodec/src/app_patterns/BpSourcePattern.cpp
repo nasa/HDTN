@@ -354,9 +354,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
     std::vector<uint64_t> bibTargetBlockNumbers;
 
     //support 12 or 16 byte iv's
-    InitializationVector12Byte iv12;
-    InitializationVector16Byte iv16;
-    std::vector<uint8_t> initializationVector;
+    InitializationVectorsForOneThread ivStruct = InitializationVectorsForOneThread::Create();
     uint64_t bcbTargetBibBlockNumberPlaceholderIndex = UINT64_MAX;
     bool bibMustBeEncrypted = false;
     if (bpSecPolicyPtr) {
@@ -376,7 +374,6 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
             }
         }
         if (bpSecPolicyPtr->m_doConfidentiality) {
-            initializationVector.resize(bpSecPolicyPtr->m_use12ByteIv ? 12 : 16);
             for (FragmentSet::data_fragment_set_t::const_iterator it = bpSecPolicyPtr->m_bcbBlockTypeTargets.cbegin();
                 it != bpSecPolicyPtr->m_bcbBlockTypeTargets.cend(); ++it)
             {
@@ -610,14 +607,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                         }
                     }
                     if (bpSecPolicyPtr->m_doConfidentiality) {
-                        if (bpSecPolicyPtr->m_use12ByteIv) {
-                            iv12.Serialize(initializationVector.data());
-                            iv12.Increment();
-                        }
-                        else {
-                            iv16.Serialize(initializationVector.data());
-                            iv16.Increment();
-                        }
+                        ivStruct.SerializeAndIncrement(bpSecPolicyPtr->m_use12ByteIv);
                         if (!BPSecManager::TryEncryptBundle(evpCtxWrapper,
                             ctxWrapperKeyWrapOps,
                             bv7,
@@ -626,7 +616,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                             bpSecPolicyPtr->m_bcbCrcType,
                             m_myEid,
                             bcbTargetBlockNumbers.data(), static_cast<unsigned int>(bcbTargetBlockNumbers.size()),
-                            initializationVector.data(), static_cast<unsigned int>(initializationVector.size()),
+                            ivStruct.m_initializationVector.data(), static_cast<unsigned int>(ivStruct.m_initializationVector.size()),
                             bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.empty() ? NULL : bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.data(), //NULL if not present (for wrapping DEK only)
                             static_cast<unsigned int>(bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.size()),
                             bpSecPolicyPtr->m_dataEncryptionKey.empty() ? NULL : bpSecPolicyPtr->m_dataEncryptionKey.data(), //NULL if not present (when no wrapped key is present)

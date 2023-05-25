@@ -138,3 +138,48 @@ BOOST_AUTO_TEST_CASE(InitializationVector16ByteTestCase)
     BOOST_REQUIRE_EQUAL(iv.m_timePart, 0);
     BOOST_REQUIRE_EQUAL(iv.m_counterPart, 1);
 }
+
+BOOST_AUTO_TEST_CASE(InitializationVectorsForOneThreadTestCase)
+{
+    InitializationVectorsForOneThread iv1 = InitializationVectorsForOneThread::Create();
+    InitializationVectorsForOneThread iv2 = InitializationVectorsForOneThread::Create();
+    InitializationVectorsForOneThread iv3 = InitializationVectorsForOneThread::Create();
+    InitializationVectorsForOneThread iv4 = InitializationVectorsForOneThread::Create();
+
+    BOOST_REQUIRE_NE(iv1.m_iv12.m_timePart, 0);
+    BOOST_REQUIRE_NE(iv2.m_iv12.m_timePart, 0);
+    BOOST_REQUIRE_NE(iv3.m_iv12.m_timePart, 0);
+    BOOST_REQUIRE_NE(iv4.m_iv12.m_timePart, 0);
+
+    BOOST_REQUIRE_EQUAL(iv1.m_iv12.m_timePart, iv1.m_iv16.m_timePart);
+    BOOST_REQUIRE_EQUAL(iv2.m_iv12.m_timePart, iv2.m_iv16.m_timePart);
+    BOOST_REQUIRE_EQUAL(iv3.m_iv12.m_timePart, iv3.m_iv16.m_timePart);
+    BOOST_REQUIRE_EQUAL(iv4.m_iv12.m_timePart, iv4.m_iv16.m_timePart);
+
+    BOOST_REQUIRE_EQUAL(iv1.m_iv12.m_counterPart, 0);
+    BOOST_REQUIRE_EQUAL(iv2.m_iv12.m_counterPart, 0);
+    BOOST_REQUIRE_EQUAL(iv3.m_iv12.m_counterPart, 0);
+    BOOST_REQUIRE_EQUAL(iv4.m_iv12.m_counterPart, 0);
+
+    BOOST_REQUIRE_EQUAL(iv1.m_iv16.m_counterPart, 0);
+    BOOST_REQUIRE_EQUAL(iv2.m_iv16.m_counterPart, 0);
+    BOOST_REQUIRE_EQUAL(iv3.m_iv16.m_counterPart, 0);
+    BOOST_REQUIRE_EQUAL(iv4.m_iv16.m_counterPart, 0);
+    
+    BOOST_REQUIRE_LT(iv1.m_iv12.m_timePart, iv2.m_iv12.m_timePart);
+    BOOST_REQUIRE_LT(iv2.m_iv12.m_timePart, iv3.m_iv12.m_timePart);
+    BOOST_REQUIRE_LT(iv3.m_iv12.m_timePart, iv4.m_iv12.m_timePart);
+
+    const uint64_t diff21 = iv2.m_iv12.m_timePart - iv1.m_iv12.m_timePart;
+    const uint64_t diff32 = iv3.m_iv12.m_timePart - iv2.m_iv12.m_timePart;
+    const uint64_t diff43 = iv4.m_iv12.m_timePart - iv3.m_iv12.m_timePart;
+
+    BOOST_REQUIRE_GE(diff21, InitializationVectorsForOneThread::MIN_DIFF_MICROSECONDS);
+    BOOST_REQUIRE_GE(diff32, InitializationVectorsForOneThread::MIN_DIFF_MICROSECONDS);
+    BOOST_REQUIRE_GE(diff43, InitializationVectorsForOneThread::MIN_DIFF_MICROSECONDS);
+
+    BOOST_REQUIRE_LE(diff21, InitializationVectorsForOneThread::MIN_DIFF_MICROSECONDS * 5);
+    BOOST_REQUIRE_LE(diff32, InitializationVectorsForOneThread::MIN_DIFF_MICROSECONDS * 5);
+    BOOST_REQUIRE_LE(diff43, InitializationVectorsForOneThread::MIN_DIFF_MICROSECONDS * 5);
+
+}
