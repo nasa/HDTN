@@ -31,8 +31,9 @@
 
 
 class BpSendPacket : public BpSourcePattern {
-public:
+private:
     BpSendPacket();
+public:
     bool Init(InductsConfig_ptr & inductsConfigPtr, const cbhe_eid_t & myEid, const uint64_t maxBundleSizeBytes);
     virtual ~BpSendPacket() override;
 protected:

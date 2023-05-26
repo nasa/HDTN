@@ -3,11 +3,6 @@
 #include "app_patterns/BpSinkPattern.h"
 #include "BpSendPacket.h"
 
-BpSendPacket::BpSendPacket()
-    : BpSourcePattern()
-{
-}
-
 bool BpSendPacket::Init(InductsConfig_ptr & inductsConfigPtr, const cbhe_eid_t & myEid, const uint64_t maxBundleSizeBytes) {
     m_packetInductManager.LoadInductsFromConfig(
         boost::bind(&BpSendPacket::ProcessPacketCallback, this, boost::placeholders::_1),
