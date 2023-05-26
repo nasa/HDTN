@@ -296,11 +296,8 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
     
 #ifdef BPSEC_SUPPORT_ENABLED
     BpSecPolicyManager m_bpSecPolicyManager;
-    bool bcbTargetsPayloadBlock = false;
-#else
-    static constexpr bool bcbTargetsPayloadBlock = false;
-#endif
-#ifdef DO_BPSEC_TEST
+    BpSecPolicyProcessingContext m_policyProcessingCtx;
+# ifdef DO_BPSEC_TEST
     
     { //simulate loading from policy file
         BpSecPolicy* p = m_bpSecPolicyManager.CreateAndGetNewPolicy(
@@ -345,83 +342,22 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                 FragmentSet::data_fragment_t(static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::INTEGRITY),
                     static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::INTEGRITY))); //just payload block
         }
+
+        if (!p->ValidateAndFinalize()) {
+            return;
+        }
     }
-#endif // DO_BPSEC_TEST
-#ifdef BPSEC_SUPPORT_ENABLED
+# endif // DO_BPSEC_TEST
     const BpSecPolicy* bpSecPolicyPtr = m_bpSecPolicyManager.FindPolicy(m_myEid, m_myEid, m_finalDestinationEid, BPSEC_ROLE::SOURCE);
-
-    std::vector<uint64_t> bcbTargetBlockNumbers;
-    std::vector<uint64_t> bibTargetBlockNumbers;
-
-    //support 12 or 16 byte iv's
-    InitializationVectorsForOneThread ivStruct = InitializationVectorsForOneThread::Create();
-    uint64_t bcbTargetBibBlockNumberPlaceholderIndex = UINT64_MAX;
-    bool bibMustBeEncrypted = false;
     if (bpSecPolicyPtr) {
-        if (bpSecPolicyPtr->m_doIntegrity) {
-            for (FragmentSet::data_fragment_set_t::const_iterator it = bpSecPolicyPtr->m_bibBlockTypeTargets.cbegin();
-                it != bpSecPolicyPtr->m_bibBlockTypeTargets.cend(); ++it)
-            {
-                const FragmentSet::data_fragment_t& df = *it;
-                for (uint64_t i = df.beginIndex; i <= df.endIndex; ++i) {
-                    if (i >= MAX_NUM_BPV7_BLOCK_TYPE_CODES) {
-                        LOG_FATAL(subprocess) << "policy error: invalid block type " << i;
-                        return;
-                    }
-                    bibTargetBlockNumbers.push_back(bpv7BlockTypeToManuallyAssignedBlockNumberLut[i]);
-                    LOG_DEBUG(subprocess) << "bpsec add block target integrity " << bibTargetBlockNumbers.back();
-                }
-            }
-        }
-        if (bpSecPolicyPtr->m_doConfidentiality) {
-            for (FragmentSet::data_fragment_set_t::const_iterator it = bpSecPolicyPtr->m_bcbBlockTypeTargets.cbegin();
-                it != bpSecPolicyPtr->m_bcbBlockTypeTargets.cend(); ++it)
-            {
-                const FragmentSet::data_fragment_t& df = *it;
-                for (uint64_t i = df.beginIndex; i <= df.endIndex; ++i) {
-                    if (i >= MAX_NUM_BPV7_BLOCK_TYPE_CODES) {
-                        LOG_FATAL(subprocess) << "policy error: invalid block type " << i;
-                        return;
-                    }
-                    if (i == static_cast<uint64_t>(BPV7_BLOCK_TYPE_CODE::INTEGRITY)) {
-                        //integrity block number is auto-assigned later
-                        bcbTargetBibBlockNumberPlaceholderIndex = bcbTargetBlockNumbers.size();
-                        bcbTargetBlockNumbers.push_back(0);
-                        LOG_DEBUG(subprocess) << "bpsec add block target confidentiality placeholder for bib";
-                    }
-                    else {
-                        bcbTargetBlockNumbers.push_back(bpv7BlockTypeToManuallyAssignedBlockNumberLut[i]);
-                        LOG_DEBUG(subprocess) << "bpsec add block target confidentiality " << bcbTargetBlockNumbers.back();
-                        if (i == 1) { //payload block (block type and block index both 1)
-                            bcbTargetsPayloadBlock = true;
-                        }
-                    }
-                }
-            }
-        }
-        if (bpSecPolicyPtr->m_doIntegrity && bpSecPolicyPtr->m_doConfidentiality) {
-            //When adding a BCB to a bundle, if some (or all) of the security
-            //targets of the BCB match all of the security targets of an
-            //existing BIB, then the existing BIB MUST also be encrypted.
-            bibMustBeEncrypted = FragmentSet::FragmentSetsHaveOverlap(bpSecPolicyPtr->m_bcbBlockTypeTargets, bpSecPolicyPtr->m_bibBlockTypeTargets);
-            if (bibMustBeEncrypted) {
-                const bool bcbAlreadyTargetsBib = FragmentSet::ContainsFragmentEntirely(bpSecPolicyPtr->m_bcbBlockTypeTargets,
-                    FragmentSet::data_fragment_t(static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::INTEGRITY),
-                        static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::INTEGRITY))); //just payload block
-                if (bcbAlreadyTargetsBib) {
-                    LOG_INFO(subprocess) << "bpsec shall encrypt BIB since the BIB shares target(s) with the BCB";
-                }
-                else {
-                    LOG_FATAL(subprocess) << "bpsec policy must be fixed to encrypt the BIB since the BIB shares target(s) with the BCB";
-                    return;
-                }
-            }
+        if (!BpSecPolicyManager::PopulateTargetArraysForSecuritySource(
+            bpv7BlockTypeToManuallyAssignedBlockNumberLut,
+            m_policyProcessingCtx,
+            *bpSecPolicyPtr))
+        {
+            return;
         }
     }
-    BPSecManager::ReusableElementsInternal bpsecReusableElementsInternal;
-    BPSecManager::HmacCtxWrapper hmacCtxWrapper;
-    BPSecManager::EvpCipherCtxWrapper evpCtxWrapper;
-    BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
 #endif // BPSEC_SUPPORT_ENABLED
     zmq::message_t zmqMessageToSendWrapper;
     BundleViewV7 bv7;
@@ -581,58 +517,19 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                 }
 #ifdef BPSEC_SUPPORT_ENABLED
                 if (bpSecPolicyPtr) {
-                    if (bpSecPolicyPtr->m_doIntegrity) {
-                        if (!BPSecManager::TryAddBundleIntegrity(hmacCtxWrapper,
-                            ctxWrapperKeyWrapOps,
-                            bv7,
-                            bpSecPolicyPtr->m_integrityScopeMask,
-                            bpSecPolicyPtr->m_integrityVariant,
-                            bpSecPolicyPtr->m_bibCrcType,
-                            m_myEid,
-                            bibTargetBlockNumbers.data(), static_cast<unsigned int>(bibTargetBlockNumbers.size()),
-                            bpSecPolicyPtr->m_hmacKeyEncryptionKey.empty() ? NULL : bpSecPolicyPtr->m_hmacKeyEncryptionKey.data(), //NULL if not present (for unwrapping hmac key only)
-                            static_cast<unsigned int>(bpSecPolicyPtr->m_hmacKeyEncryptionKey.size()),
-                            bpSecPolicyPtr->m_hmacKey.empty() ? NULL : bpSecPolicyPtr->m_hmacKey.data(), //NULL if not present (when no wrapped key is present)
-                            static_cast<unsigned int>(bpSecPolicyPtr->m_hmacKey.size()),
-                            bpsecReusableElementsInternal,
-                            NULL, //bib placed immediately after primary
-                            true))
-                        {
-                            LOG_ERROR(subprocess) << "cannot add integrity to bundle";
-                            m_running = false;
-                            continue;
-                        }
-                        if (bcbTargetBibBlockNumberPlaceholderIndex != UINT64_MAX) {
-                            bcbTargetBlockNumbers[bcbTargetBibBlockNumberPlaceholderIndex] = bv7.m_listCanonicalBlockView.front().headerPtr->m_blockNumber;
-                        }
-                    }
-                    if (bpSecPolicyPtr->m_doConfidentiality) {
-                        ivStruct.SerializeAndIncrement(bpSecPolicyPtr->m_use12ByteIv);
-                        if (!BPSecManager::TryEncryptBundle(evpCtxWrapper,
-                            ctxWrapperKeyWrapOps,
-                            bv7,
-                            bpSecPolicyPtr->m_aadScopeMask,
-                            bpSecPolicyPtr->m_confidentialityVariant,
-                            bpSecPolicyPtr->m_bcbCrcType,
-                            m_myEid,
-                            bcbTargetBlockNumbers.data(), static_cast<unsigned int>(bcbTargetBlockNumbers.size()),
-                            ivStruct.m_initializationVector.data(), static_cast<unsigned int>(ivStruct.m_initializationVector.size()),
-                            bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.empty() ? NULL : bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.data(), //NULL if not present (for wrapping DEK only)
-                            static_cast<unsigned int>(bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.size()),
-                            bpSecPolicyPtr->m_dataEncryptionKey.empty() ? NULL : bpSecPolicyPtr->m_dataEncryptionKey.data(), //NULL if not present (when no wrapped key is present)
-                            static_cast<unsigned int>(bpSecPolicyPtr->m_dataEncryptionKey.size()),
-                            bpsecReusableElementsInternal,
-                            NULL,
-                            true))
-                        {
-                            LOG_ERROR(subprocess) << "cannot encrypt bundle";
-                            m_running = false;
-                            continue;
-                        }
+                    if (!BpSecPolicyManager::ProcessOutgoingBundle(bv7, m_policyProcessingCtx, *bpSecPolicyPtr, m_myEid)) {
+                        m_running = false;
+                        continue;
                     }
                 }
+                const bool payloadAlreadyHasCrcComputed = (bpSecPolicyPtr && bpSecPolicyPtr->m_bcbTargetsPayloadBlock);
+#else
+                static constexpr bool payloadAlreadyHasCrcComputed = false;
 #endif
-                if (!bcbTargetsPayloadBlock) { //encrypt automatically recomputes crcs for the blocks it targets
+                if (payloadAlreadyHasCrcComputed) {
+                    //payload already has crc recomputed because encrypt automatically recomputes crcs for the blocks it targets
+                }
+                else {
                     payloadBlockView.headerPtr->RecomputeCrcAfterDataModification(
                         (uint8_t*)payloadBlockView.actualSerializedBlockPtr.data(),
                         payloadBlockView.actualSerializedBlockPtr.size()); //recompute crc

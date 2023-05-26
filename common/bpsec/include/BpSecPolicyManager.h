@@ -26,6 +26,8 @@
 #include "codec/Cbhe.h"
 #include "codec/bpv7.h"
 #include "codec/BundleViewV7.h"
+#include "BPSecManager.h"
+#include "InitializationVectors.h"
 #include "FragmentSet.h"
 #include <map>
 #include <vector>
@@ -40,9 +42,14 @@ enum class BPSEC_ROLE {
 };
 struct BpSecPolicy {
     BpSecPolicy() : m_doIntegrity(false), m_doConfidentiality(false), m_use12ByteIv(true) {}
+    BPSEC_EXPORT bool ValidateAndFinalize();
 
     bool m_doIntegrity;
     bool m_doConfidentiality;
+
+    //fields set by ValidateAndFinalize()
+    bool m_bcbTargetsPayloadBlock;
+    bool m_bibMustBeEncrypted;
 
     //integrity only variables
     COSE_ALGORITHMS m_integrityVariant;
@@ -71,6 +78,18 @@ struct BpSecPolicyFilter {
     map_eid_to_next_filter_t m_eidToNextFilterMap;
     std::unique_ptr<BpSecPolicyFilter> m_anyEidToNextFilterPtr;
     BpSecPoliciesByRollArray m_policiesByRollArray; //used only by filter leaf node
+};
+struct BpSecPolicyProcessingContext {
+    BPSEC_EXPORT BpSecPolicyProcessingContext();
+    InitializationVectorsForOneThread m_ivStruct;
+    BPSecManager::ReusableElementsInternal m_bpsecReusableElementsInternal;
+    BPSecManager::HmacCtxWrapper m_hmacCtxWrapper;
+    BPSecManager::EvpCipherCtxWrapper m_evpCtxWrapper;
+    BPSecManager::EvpCipherCtxWrapper m_ctxWrapperKeyWrapOps;
+    std::vector<uint64_t> m_bcbTargetBlockNumbers;
+    std::vector<uint64_t> m_bibTargetBlockNumbers;
+    uint64_t m_bcbTargetBibBlockNumberPlaceholderIndex;
+    std::vector<BundleViewV7::Bpv7CanonicalBlockView*> m_tmpBlocks;
 };
 class BpSecPolicyManager {
 public:
@@ -113,6 +132,18 @@ public:
         const cbhe_eid_t& bundleSourceEid, const cbhe_eid_t& bundleFinalDestEid, const BPSEC_ROLE role, bool& wasCacheHit) const;
 
     BPSEC_EXPORT bool ProcessReceivedBundle_ThreadLocal(BundleViewV7& bv) const;
+
+    BPSEC_EXPORT static bool PopulateTargetArraysForSecuritySource(BundleViewV7& bv,
+        BpSecPolicyProcessingContext& ctx,
+        const BpSecPolicy& policy);
+
+    BPSEC_EXPORT static bool PopulateTargetArraysForSecuritySource(
+        const uint8_t* bpv7BlockTypeToManuallyAssignedBlockNumberLut,
+        BpSecPolicyProcessingContext& ctx,
+        const BpSecPolicy& policy);
+
+    BPSEC_EXPORT static bool ProcessOutgoingBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx,
+        const BpSecPolicy& policy, const cbhe_eid_t& thisSecuritySourceEid);
 private:
     BpSecPolicyFilter m_policyFilterSecuritySource;
 };
