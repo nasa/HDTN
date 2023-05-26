@@ -51,7 +51,7 @@ struct TestFile {
             m_data[i] = distRandomData(gen);
         }
     }
-    std::vector<boost::uint8_t> m_data;
+    padded_vector_uint8_t m_data;
 };
 
 //two days
@@ -136,7 +136,7 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
             boost::timer::cpu_timer timer;
             while (g_running) {
                 const unsigned int fileIdx = distFileId(gen);
-                std::vector<boost::uint8_t> & data = testFiles[fileIdx].m_data;
+                padded_vector_uint8_t& data = testFiles[fileIdx].m_data;
                 const boost::uint64_t size = data.size();
 
                 const unsigned int linkId = distLinkId(gen);
@@ -182,7 +182,7 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
 
                 
                 boost::uint64_t bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks);
-                std::vector<boost::uint8_t> dataReadBack(bytesToReadFromDisk);
+                padded_vector_uint8_t dataReadBack(bytesToReadFromDisk);
                 TestFile & originalFile = *fileMap[bytesToReadFromDisk];
 
                 const std::size_t numSegmentsToRead = sessionRead.catalogEntryPtr->segmentIdChainVec.size();

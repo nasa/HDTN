@@ -382,7 +382,7 @@ bool BundleStorageManagerBase::ReadFirstSegment(BundleStorageManagerSession_Read
     std::size_t totalBytesRead = TopSegment(session, buf.data());
     return (totalBytesRead == totalBytesToRead);
 }
-bool BundleStorageManagerBase::ReadAllSegments(BundleStorageManagerSession_ReadFromDisk & session, std::vector<uint8_t> & buf) {
+bool BundleStorageManagerBase::ReadAllSegments(BundleStorageManagerSession_ReadFromDisk & session, padded_vector_uint8_t& buf) {
     const std::size_t numSegmentsToRead = session.catalogEntryPtr->segmentIdChainVec.size();
     const uint64_t totalBytesToRead = session.catalogEntryPtr->bundleSizeBytes;
     buf.resize(totalBytesToRead);

@@ -650,15 +650,15 @@ void TcpclV4BidirectionalLink::BaseClass_CloseAndDeleteSockets() {
 }
 
 bool TcpclV4BidirectionalLink::BaseClass_Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
-    std::vector<uint8_t> vec(bundleData, bundleData + size);
+    padded_vector_uint8_t vec(bundleData, bundleData + size);
     return BaseClass_Forward(vec, std::move(userData));
 }
-bool TcpclV4BidirectionalLink::BaseClass_Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData) {
+bool TcpclV4BidirectionalLink::BaseClass_Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_t>&& userData) {
     static std::unique_ptr<zmq::message_t> nullZmqMessagePtr;
     return BaseClass_Forward(nullZmqMessagePtr, dataVec, false, std::move(userData));
 }
 bool TcpclV4BidirectionalLink::BaseClass_Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData) {
-    static std::vector<uint8_t> unusedVecMessage;
+    static padded_vector_uint8_t unusedVecMessage;
     std::unique_ptr<zmq::message_t> zmqMessageUniquePtr = boost::make_unique<zmq::message_t>(std::move(dataZmq));
     const bool success = BaseClass_Forward(zmqMessageUniquePtr, unusedVecMessage, true, std::move(userData));
     if (!success) { //if failure
@@ -669,7 +669,7 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(zmq::message_t & dataZmq, std::
     }
     return success;
 }
-bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t> & zmqMessageUniquePtr, std::vector<uint8_t> & vecMessage, const bool usingZmqData, std::vector<uint8_t>&& userData) {
+bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t> & zmqMessageUniquePtr, padded_vector_uint8_t& vecMessage, const bool usingZmqData, std::vector<uint8_t>&& userData) {
     
     if (!m_base_readyToForward) {
         LOG_ERROR(subprocess) << "link not ready to forward yet";
@@ -817,6 +817,11 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
         }
     }
     else {
+        const unsigned int writeIndex = m_base_segmentsToAckCbPtr->GetIndexForWrite(); //don't put this in tcp async write callback
+        if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) { //push check
+            LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": Base_Forward.. cannot get cb write index";
+            return false;
+        }
         TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
         el->m_underlyingDataVecHeaders.resize(1);
         if (usingZmqData) {
@@ -831,11 +836,7 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
         el->m_constBufferVec[1] = boost::asio::buffer(dataToSendPtr, dataSize);
         el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
 
-        const unsigned int writeIndex = m_base_segmentsToAckCbPtr->GetIndexForWrite(); //don't put this in tcp async write callback
-        if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) { //push check
-            LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": Base_Forward.. cannot get cb write index";
-            return false;
-        }
+        
         m_base_segmentsToAckCbVec[writeIndex] = TcpclV4::tcpclv4_ack_t(true, true, transferId, dataSize);
         m_base_userDataCbVec[writeIndex] = std::move(userData);
         m_base_segmentsToAckCbPtr->CommitWrite(); //pushed

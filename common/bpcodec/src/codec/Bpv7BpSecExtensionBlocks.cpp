@@ -486,12 +486,12 @@ bool Bpv7AbstractSecurityBlock::DeserializeIdValuePairBpv7(uint8_t * serializati
     if (isForSecurityParameters) {
         switch (securityContext) {
             case BPSEC_SECURITY_CONTEXT_IDENTIFIERS::BIB_HMAC_SHA2:
-                switch (static_cast<BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS>(idValuePair.first)) {
-                    case BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS::SHA_VARIANT:
-                    case BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS::INTEGRITY_SCOPE_FLAGS:
+                switch (static_cast<BPSEC_BIB_HMAC_SHA2_SECURITY_PARAMETERS>(idValuePair.first)) {
+                    case BPSEC_BIB_HMAC_SHA2_SECURITY_PARAMETERS::SHA_VARIANT:
+                    case BPSEC_BIB_HMAC_SHA2_SECURITY_PARAMETERS::INTEGRITY_SCOPE_FLAGS:
                         idValuePair.second = boost::make_unique<Bpv7AbstractSecurityBlockValueUint>();
                         break;
-                    case BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS::WRAPPED_KEY:
+                    case BPSEC_BIB_HMAC_SHA2_SECURITY_PARAMETERS::WRAPPED_KEY:
                         idValuePair.second = boost::make_unique<Bpv7AbstractSecurityBlockValueByteString>();
                         break;
                     default:
@@ -519,8 +519,8 @@ bool Bpv7AbstractSecurityBlock::DeserializeIdValuePairBpv7(uint8_t * serializati
     else {
         switch (securityContext) {
             case BPSEC_SECURITY_CONTEXT_IDENTIFIERS::BIB_HMAC_SHA2:
-                switch (static_cast<BPSEC_BIB_HMAX_SHA2_SECURITY_RESULTS>(idValuePair.first)) {
-                    case BPSEC_BIB_HMAX_SHA2_SECURITY_RESULTS::EXPECTED_HMAC:
+                switch (static_cast<BPSEC_BIB_HMAC_SHA2_SECURITY_RESULTS>(idValuePair.first)) {
+                    case BPSEC_BIB_HMAC_SHA2_SECURITY_RESULTS::EXPECTED_HMAC:
                         idValuePair.second = boost::make_unique<Bpv7AbstractSecurityBlockValueByteString>();
                         break;
                     default:
@@ -613,6 +613,79 @@ std::vector<std::vector<uint8_t>*> Bpv7AbstractSecurityBlock::Protected_GetAllSe
     }
     return ptrs;
 }
+std::vector<uint8_t>* Bpv7AbstractSecurityBlock::Protected_AddAndGetByteStringParamPtr(parameter_id_t parameter) {
+    for (std::size_t i = 0; i < m_securityContextParametersOptional.size(); ++i) {
+        security_context_parameter_t& param = m_securityContextParametersOptional[i];
+        if (param.first == parameter) {
+            if (Bpv7AbstractSecurityBlockValueByteString* valueByteString = dynamic_cast<Bpv7AbstractSecurityBlockValueByteString*>(param.second.get())) {
+                return &(valueByteString->m_byteString);
+            }
+            else {
+                return NULL;
+            }
+        }
+    }
+    //doesn't exist, add it
+    m_securityContextParametersOptional.emplace_back();
+    m_securityContextParametersOptional.back().first = parameter;
+    std::unique_ptr<Bpv7AbstractSecurityBlockValueByteString> v = boost::make_unique<Bpv7AbstractSecurityBlockValueByteString>();
+    std::vector<uint8_t>* retVal = &(v->m_byteString);
+    m_securityContextParametersOptional.back().second = std::move(v);
+    return retVal;
+}
+std::vector<uint8_t>* Bpv7AbstractSecurityBlock::Protected_GetByteStringParamPtr(parameter_id_t parameter) {
+    for (std::size_t i = 0; i < m_securityContextParametersOptional.size(); ++i) {
+        security_context_parameter_t& param = m_securityContextParametersOptional[i];
+        if (param.first == parameter) {
+            if (Bpv7AbstractSecurityBlockValueByteString* valueByteString = dynamic_cast<Bpv7AbstractSecurityBlockValueByteString*>(param.second.get())) {
+                return &(valueByteString->m_byteString);
+            }
+            else {
+                return NULL;
+            }
+        }
+    }
+    //doesn't exist
+    return NULL;
+}
+bool Bpv7AbstractSecurityBlock::Protected_AddOrUpdateUintValueSecurityParameter(parameter_id_t parameter, uint64_t uintValue) {
+    for (std::size_t i = 0; i < m_securityContextParametersOptional.size(); ++i) {
+        security_context_parameter_t& param = m_securityContextParametersOptional[i];
+        if (param.first == parameter) {
+            if (Bpv7AbstractSecurityBlockValueUint* valueUint = dynamic_cast<Bpv7AbstractSecurityBlockValueUint*>(param.second.get())) {
+                valueUint->m_uintValue = uintValue;
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+    }
+    //doesn't exist, add it
+    m_securityContextParametersOptional.emplace_back();
+    m_securityContextParametersOptional.back().first = parameter;
+    std::unique_ptr<Bpv7AbstractSecurityBlockValueUint> v = boost::make_unique<Bpv7AbstractSecurityBlockValueUint>();
+    v->m_uintValue = uintValue;
+    m_securityContextParametersOptional.back().second = std::move(v);
+    return true;
+}
+uint64_t Bpv7AbstractSecurityBlock::Protected_GetUintSecurityParameter(parameter_id_t parameter, bool& success) const {
+    for (std::size_t i = 0; i < m_securityContextParametersOptional.size(); ++i) {
+        const security_context_parameter_t& param = m_securityContextParametersOptional[i];
+        if (param.first == parameter) {
+            if (Bpv7AbstractSecurityBlockValueUint* valueUint = dynamic_cast<Bpv7AbstractSecurityBlockValueUint*>(param.second.get())) {
+                success = true;
+                return valueUint->m_uintValue;
+            }
+            else {
+                success = false;
+                return 0;
+            }
+        }
+    }
+    success = false;
+    return 0;
+}
 
 /////////////////////////////////////////
 // BLOCK INTEGRITY BLOCK
@@ -639,103 +712,43 @@ void Bpv7BlockIntegrityBlock::SetZero() {
     m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::INTEGRITY;
 }
 bool Bpv7BlockIntegrityBlock::AddOrUpdateSecurityParameterShaVariant(COSE_ALGORITHMS alg) {
-    for (std::size_t i = 0; i < m_securityContextParametersOptional.size(); ++i) {
-        security_context_parameter_t & param = m_securityContextParametersOptional[i];
-        if (static_cast<BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS>(param.first) == BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS::SHA_VARIANT) {
-            if (Bpv7AbstractSecurityBlockValueUint * valueUint = dynamic_cast<Bpv7AbstractSecurityBlockValueUint*>(param.second.get())) {
-                valueUint->m_uintValue = static_cast<uint64_t>(alg);
-                return true;
-            }
-            else {
-                return false;
-            }
-        }
-    }
-    //doesn't exist, add it
-    m_securityContextParametersOptional.emplace_back();
-    m_securityContextParametersOptional.back().first = static_cast<uint64_t>(BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS::SHA_VARIANT);
-    std::unique_ptr<Bpv7AbstractSecurityBlockValueUint> v = boost::make_unique<Bpv7AbstractSecurityBlockValueUint>();
-    v->m_uintValue = static_cast<uint64_t>(alg);
-    m_securityContextParametersOptional.back().second = std::move(v);
-    return true;
+    return Protected_AddOrUpdateUintValueSecurityParameter(
+        static_cast<parameter_id_t>(BPSEC_BIB_HMAC_SHA2_SECURITY_PARAMETERS::SHA_VARIANT),
+        static_cast<uint64_t>(alg));
 }
 COSE_ALGORITHMS Bpv7BlockIntegrityBlock::GetSecurityParameterShaVariant(bool & success) const {
-    for (std::size_t i = 0; i < m_securityContextParametersOptional.size(); ++i) {
-        const security_context_parameter_t & param = m_securityContextParametersOptional[i];
-        if (static_cast<BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS>(param.first) == BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS::SHA_VARIANT) {
-            if (Bpv7AbstractSecurityBlockValueUint * valueUint = dynamic_cast<Bpv7AbstractSecurityBlockValueUint*>(param.second.get())) {
-                success = true;
-                return static_cast<COSE_ALGORITHMS>(valueUint->m_uintValue);
-            }
-            else {
-                success = false;
-                return static_cast<COSE_ALGORITHMS>(0);
-            }
-        }
-    }
-    success = false;
-    return static_cast<COSE_ALGORITHMS>(0);
+    return static_cast<COSE_ALGORITHMS>(Protected_GetUintSecurityParameter(static_cast<parameter_id_t>(BPSEC_BIB_HMAC_SHA2_SECURITY_PARAMETERS::SHA_VARIANT), success));
 }
-bool Bpv7BlockIntegrityBlock::AddSecurityParameterIntegrityScope(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS integrityScope) {
-    for (std::size_t i = 0; i < m_securityContextParametersOptional.size(); ++i) {
-        security_context_parameter_t & param = m_securityContextParametersOptional[i];
-        if (static_cast<BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS>(param.first) == BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS::INTEGRITY_SCOPE_FLAGS) {
-            if (Bpv7AbstractSecurityBlockValueUint * valueUint = dynamic_cast<Bpv7AbstractSecurityBlockValueUint*>(param.second.get())) {
-                valueUint->m_uintValue |= static_cast<uint64_t>(integrityScope);
-                return true;
-            }
-            else {
-                return false;
-            }
-        }
+BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS Bpv7BlockIntegrityBlock::GetSecurityParameterScope() const {
+    bool success;
+    BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS scope = static_cast<BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS>(
+        Protected_GetUintSecurityParameter(static_cast<parameter_id_t>(BPSEC_BIB_HMAC_SHA2_SECURITY_PARAMETERS::INTEGRITY_SCOPE_FLAGS), success));
+    if (!success) {
+        //3.3.3.  Integrity Scope Flags
+        //When not provided, implementations SHOULD assume a value of 7
+        //(indicating all assigned fields), unless an alternate default is
+        //established by local security policy at the security source,
+        //verifier, or acceptor of this integrity service.
+        scope = BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::ALL_FLAGS_SET;
     }
-    //doesn't exist, add it
-    m_securityContextParametersOptional.emplace_back();
-    m_securityContextParametersOptional.back().first = static_cast<uint64_t>(BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS::INTEGRITY_SCOPE_FLAGS);
-    std::unique_ptr<Bpv7AbstractSecurityBlockValueUint> v = boost::make_unique<Bpv7AbstractSecurityBlockValueUint>();
-    v->m_uintValue = static_cast<uint64_t>(integrityScope);
-    m_securityContextParametersOptional.back().second = std::move(v);
-    return true;
+    return scope;
 }
-bool Bpv7BlockIntegrityBlock::IsSecurityParameterIntegrityScopePresentAndSet(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS integrityScope) const {
-    for (std::size_t i = 0; i < m_securityContextParametersOptional.size(); ++i) {
-        const security_context_parameter_t & param = m_securityContextParametersOptional[i];
-        if (static_cast<BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS>(param.first) == BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS::INTEGRITY_SCOPE_FLAGS) {
-            if (const Bpv7AbstractSecurityBlockValueUint * valueUint = dynamic_cast<const Bpv7AbstractSecurityBlockValueUint*>(param.second.get())) {
-                return (valueUint->m_uintValue & static_cast<uint64_t>(integrityScope)) == static_cast<uint64_t>(integrityScope);
-            }
-            else {
-                return false;
-            }
-        }
-    }
-    return false;
-}
-std::vector<uint8_t> * Bpv7BlockIntegrityBlock::AddAndGetWrappedKeyPtr() {
-    for (std::size_t i = 0; i < m_securityContextParametersOptional.size(); ++i) {
-        security_context_parameter_t & param = m_securityContextParametersOptional[i];
-        if (static_cast<BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS>(param.first) == BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS::WRAPPED_KEY) {
-            if (Bpv7AbstractSecurityBlockValueByteString * valueByteString = dynamic_cast<Bpv7AbstractSecurityBlockValueByteString*>(param.second.get())) {
-                return &(valueByteString->m_byteString);
-            }
-            else {
-                return NULL;
-            }
-        }
-    }
-    //doesn't exist, add it
-    m_securityContextParametersOptional.emplace_back();
-    m_securityContextParametersOptional.back().first = static_cast<uint64_t>(BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS::WRAPPED_KEY);
-    std::unique_ptr<Bpv7AbstractSecurityBlockValueByteString> v = boost::make_unique<Bpv7AbstractSecurityBlockValueByteString>();
-    std::vector<uint8_t> * retVal = &(v->m_byteString);
-    m_securityContextParametersOptional.back().second = std::move(v);
-    return retVal;
+bool Bpv7BlockIntegrityBlock::AddSecurityParameterIntegrityScope(BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS integrityScope) {
+    return Protected_AddOrUpdateUintValueSecurityParameter(
+        static_cast<parameter_id_t>(BPSEC_BIB_HMAC_SHA2_SECURITY_PARAMETERS::INTEGRITY_SCOPE_FLAGS),
+        static_cast<uint64_t>(integrityScope));
 }
 std::vector<uint8_t> * Bpv7BlockIntegrityBlock::AppendAndGetExpectedHmacPtr() {
-    return Protected_AppendAndGetSecurityResultByteStringPtr(static_cast<uint64_t>(BPSEC_BIB_HMAX_SHA2_SECURITY_RESULTS::EXPECTED_HMAC));
+    return Protected_AppendAndGetSecurityResultByteStringPtr(static_cast<uint64_t>(BPSEC_BIB_HMAC_SHA2_SECURITY_RESULTS::EXPECTED_HMAC));
 }
 std::vector<std::vector<uint8_t>*> Bpv7BlockIntegrityBlock::GetAllExpectedHmacPtrs() {
-    return Protected_GetAllSecurityResultsByteStringPtrs(static_cast<uint64_t>(BPSEC_BIB_HMAX_SHA2_SECURITY_RESULTS::EXPECTED_HMAC));
+    return Protected_GetAllSecurityResultsByteStringPtrs(static_cast<uint64_t>(BPSEC_BIB_HMAC_SHA2_SECURITY_RESULTS::EXPECTED_HMAC));
+}
+std::vector<uint8_t>* Bpv7BlockIntegrityBlock::AddAndGetAesWrappedKeyPtr() {
+    return Protected_AddAndGetByteStringParamPtr(static_cast<parameter_id_t>(BPSEC_BIB_HMAC_SHA2_SECURITY_PARAMETERS::WRAPPED_KEY));
+}
+std::vector<uint8_t>* Bpv7BlockIntegrityBlock::GetAesWrappedKeyPtr() {
+    return Protected_GetByteStringParamPtr(static_cast<parameter_id_t>(BPSEC_BIB_HMAC_SHA2_SECURITY_PARAMETERS::WRAPPED_KEY));
 }
 
 /////////////////////////////////////////
@@ -762,105 +775,44 @@ void Bpv7BlockConfidentialityBlock::SetZero() {
     Bpv7AbstractSecurityBlock::SetZero();
     m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY;
 }
-
 bool Bpv7BlockConfidentialityBlock::AddOrUpdateSecurityParameterAesVariant(COSE_ALGORITHMS alg) {
-    for (std::size_t i = 0; i < m_securityContextParametersOptional.size(); ++i) {
-        security_context_parameter_t & param = m_securityContextParametersOptional[i];
-        if (static_cast<BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS>(param.first) == BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS::AES_VARIANT) {
-            if (Bpv7AbstractSecurityBlockValueUint * valueUint = dynamic_cast<Bpv7AbstractSecurityBlockValueUint*>(param.second.get())) {
-                valueUint->m_uintValue = static_cast<uint64_t>(alg);
-                return true;
-            }
-            else {
-                return false;
-            }
-        }
-    }
-    //doesn't exist, add it
-    m_securityContextParametersOptional.emplace_back();
-    m_securityContextParametersOptional.back().first = static_cast<uint64_t>(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS::AES_VARIANT);
-    std::unique_ptr<Bpv7AbstractSecurityBlockValueUint> v = boost::make_unique<Bpv7AbstractSecurityBlockValueUint>();
-    v->m_uintValue = static_cast<uint64_t>(alg);
-    m_securityContextParametersOptional.back().second = std::move(v);
-    return true;
+    return Protected_AddOrUpdateUintValueSecurityParameter(
+        static_cast<parameter_id_t>(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS::AES_VARIANT),
+        static_cast<uint64_t>(alg));
 }
 COSE_ALGORITHMS Bpv7BlockConfidentialityBlock::GetSecurityParameterAesVariant(bool & success) const {
-    for (std::size_t i = 0; i < m_securityContextParametersOptional.size(); ++i) {
-        const security_context_parameter_t & param = m_securityContextParametersOptional[i];
-        if (static_cast<BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS>(param.first) == BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS::AES_VARIANT) {
-            if (Bpv7AbstractSecurityBlockValueUint * valueUint = dynamic_cast<Bpv7AbstractSecurityBlockValueUint*>(param.second.get())) {
-                success = true;
-                return static_cast<COSE_ALGORITHMS>(valueUint->m_uintValue);
-            }
-            else {
-                success = false;
-                return static_cast<COSE_ALGORITHMS>(0);
-            }
-        }
-    }
-    success = false;
-    return static_cast<COSE_ALGORITHMS>(0);
+    return static_cast<COSE_ALGORITHMS>(Protected_GetUintSecurityParameter(static_cast<parameter_id_t>(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS::AES_VARIANT), success));
 }
 bool Bpv7BlockConfidentialityBlock::AddSecurityParameterScope(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS scope) {
-    for (std::size_t i = 0; i < m_securityContextParametersOptional.size(); ++i) {
-        security_context_parameter_t & param = m_securityContextParametersOptional[i];
-        if (static_cast<BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS>(param.first) == BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS::AAD_SCOPE_FLAGS) {
-            if (Bpv7AbstractSecurityBlockValueUint * valueUint = dynamic_cast<Bpv7AbstractSecurityBlockValueUint*>(param.second.get())) {
-                valueUint->m_uintValue |= static_cast<uint64_t>(scope);
-                return true;
-            }
-            else {
-                return false;
-            }
-        }
-    }
-    //doesn't exist, add it
-    m_securityContextParametersOptional.emplace_back();
-    m_securityContextParametersOptional.back().first = static_cast<uint64_t>(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS::AAD_SCOPE_FLAGS);
-    std::unique_ptr<Bpv7AbstractSecurityBlockValueUint> v = boost::make_unique<Bpv7AbstractSecurityBlockValueUint>();
-    v->m_uintValue = static_cast<uint64_t>(scope);
-    m_securityContextParametersOptional.back().second = std::move(v);
-    return true;
+    return Protected_AddOrUpdateUintValueSecurityParameter(
+        static_cast<parameter_id_t>(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS::AAD_SCOPE_FLAGS),
+        static_cast<uint64_t>(scope));
 }
-bool Bpv7BlockConfidentialityBlock::IsSecurityParameterScopePresentAndSet(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS scope) const {
-    for (std::size_t i = 0; i < m_securityContextParametersOptional.size(); ++i) {
-        const security_context_parameter_t & param = m_securityContextParametersOptional[i];
-        if (static_cast<BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS>(param.first) == BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS::AAD_SCOPE_FLAGS) {
-            if (const Bpv7AbstractSecurityBlockValueUint * valueUint = dynamic_cast<const Bpv7AbstractSecurityBlockValueUint*>(param.second.get())) {
-                return (valueUint->m_uintValue & static_cast<uint64_t>(scope)) == static_cast<uint64_t>(scope);
-            }
-            else {
-                return false;
-            }
-        }
+BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS Bpv7BlockConfidentialityBlock::GetSecurityParameterScope() const {
+    bool success;
+    BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS scope = static_cast<BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS>(
+        Protected_GetUintSecurityParameter(static_cast<parameter_id_t>(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS::AAD_SCOPE_FLAGS), success));
+    if (!success) {
+        //4.3.4.  AAD Scope Flags
+        //When not provided, implementations SHOULD assume a value of 7
+        //(indicating all assigned fields), unless an alternate default is
+        //established by local security policy at the security source,
+        //verifier, or acceptor of this integrity service.
+        scope = BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET;
     }
-    return false;
+    return scope;
 }
 std::vector<uint8_t> * Bpv7BlockConfidentialityBlock::AddAndGetAesWrappedKeyPtr() {
-    return Private_AddAndGetByteStringParamPtr(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS::WRAPPED_KEY);
+    return Protected_AddAndGetByteStringParamPtr(static_cast<parameter_id_t>(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS::WRAPPED_KEY));
 }
-std::vector<uint8_t> * Bpv7BlockConfidentialityBlock::Private_AddAndGetByteStringParamPtr(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS parameter) {
-    for (std::size_t i = 0; i < m_securityContextParametersOptional.size(); ++i) {
-        security_context_parameter_t & param = m_securityContextParametersOptional[i];
-        if (static_cast<BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS>(param.first) == parameter) {
-            if (Bpv7AbstractSecurityBlockValueByteString * valueByteString = dynamic_cast<Bpv7AbstractSecurityBlockValueByteString*>(param.second.get())) {
-                return &(valueByteString->m_byteString);
-            }
-            else {
-                return NULL;
-            }
-        }
-    }
-    //doesn't exist, add it
-    m_securityContextParametersOptional.emplace_back();
-    m_securityContextParametersOptional.back().first = static_cast<uint64_t>(parameter);
-    std::unique_ptr<Bpv7AbstractSecurityBlockValueByteString> v = boost::make_unique<Bpv7AbstractSecurityBlockValueByteString>();
-    std::vector<uint8_t> * retVal = &(v->m_byteString);
-    m_securityContextParametersOptional.back().second = std::move(v);
-    return retVal;
+std::vector<uint8_t>* Bpv7BlockConfidentialityBlock::GetAesWrappedKeyPtr() {
+    return Protected_GetByteStringParamPtr(static_cast<parameter_id_t>(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS::WRAPPED_KEY));
 }
 std::vector<uint8_t> * Bpv7BlockConfidentialityBlock::AddAndGetInitializationVectorPtr() {
-    return Private_AddAndGetByteStringParamPtr(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS::INITIALIZATION_VECTOR);
+    return Protected_AddAndGetByteStringParamPtr(static_cast<parameter_id_t>(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS::INITIALIZATION_VECTOR));
+}
+std::vector<uint8_t>* Bpv7BlockConfidentialityBlock::GetInitializationVectorPtr() {
+    return Protected_GetByteStringParamPtr(static_cast<parameter_id_t>(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS::INITIALIZATION_VECTOR));
 }
 std::vector<uint8_t> * Bpv7BlockConfidentialityBlock::AppendAndGetPayloadAuthenticationTagPtr() {
     return Protected_AppendAndGetSecurityResultByteStringPtr(static_cast<uint64_t>(BPSEC_BCB_AES_GCM_AAD_SECURITY_RESULTS::AUTHENTICATION_TAG));

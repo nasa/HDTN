@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+* All bundle data types use `padded_vector_uint8_t` instead of `std::vector<uint8_t>` to remain uniform across both inducts, outducts, and BundleView.  This results in API changes for:
+    - `LtpClientServiceDataToSend`
+    - the outduct `Forward` calls
+    - the internal buffers of `BundleViewV6` and `BundleViewV7`
+* Added support for `BundleViewV6` and `BundleViewV7` to recycle their canonical block header objects whenever the bundle view object is reused in the creation or loading of bundles.
+
 ### Removed
 
 ## [1.0.0] - 2023-05-02

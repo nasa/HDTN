@@ -262,7 +262,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             cv.notify_one();
         }
 
-        void OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled) {
+        void OnFailedBundleVecSendCallback(padded_vector_uint8_t& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled) {
             std::string failedMessage((char*)movableBundle.data(), ((char*)movableBundle.data()) + movableBundle.size());
             {
                 boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
@@ -336,7 +336,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
-            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -387,7 +387,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
-            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_AND_GREEN_DATA_TO_SEND.data(), DESIRED_RED_AND_GREEN_DATA_TO_SEND.data() + DESIRED_RED_AND_GREEN_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_AND_GREEN_DATA_TO_SEND.data(), DESIRED_RED_AND_GREEN_DATA_TO_SEND.data() + DESIRED_RED_AND_GREEN_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -432,7 +432,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
-            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_FULLY_GREEN_DATA_TO_SEND.data(), DESIRED_FULLY_GREEN_DATA_TO_SEND.data() + DESIRED_FULLY_GREEN_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_FULLY_GREEN_DATA_TO_SEND.data(), DESIRED_FULLY_GREEN_DATA_TO_SEND.data() + DESIRED_FULLY_GREEN_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = 0;
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -495,7 +495,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
-            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -566,7 +566,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
-            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -635,7 +635,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
-            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -719,7 +719,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
-            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -800,7 +800,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
-            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -874,7 +874,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
-            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -1010,7 +1010,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
-            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -1071,7 +1071,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
-            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -1131,7 +1131,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
-            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -1184,7 +1184,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST + 1; //+1 to make it invalid
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
-            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -1244,7 +1244,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
-            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -1318,7 +1318,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
-            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -1381,7 +1381,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
-            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_FULLY_GREEN_DATA_TO_SEND.data(), DESIRED_FULLY_GREEN_DATA_TO_SEND.data() + DESIRED_FULLY_GREEN_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_FULLY_GREEN_DATA_TO_SEND.data(), DESIRED_FULLY_GREEN_DATA_TO_SEND.data() + DESIRED_FULLY_GREEN_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = 0;
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -1496,7 +1496,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
-            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy

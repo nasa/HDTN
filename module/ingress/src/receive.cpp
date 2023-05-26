@@ -44,6 +44,12 @@
 #include <shared_mutex>
 #endif
 
+#include "BinaryConversions.h"
+#ifdef BPSEC_SUPPORT_ENABLED
+#include "BPSecManager.h"
+//# define DO_BPSEC_TEST 1
+#endif
+
 namespace hdtn {
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::ingress;
@@ -556,10 +562,6 @@ static void CustomCleanupZmqMessage(void *data, void *hint) {
 static void CustomCleanupPaddedVecUint8(void *data, void *hint) {
     delete static_cast<padded_vector_uint8_t*>(hint);
 }
-
-static void CustomCleanupStdVecUint8(void *data, void *hint) {
-    delete static_cast<std::vector<uint8_t>*>(hint);
-}
 static void CustomCleanupStdString(void* data, void* hint) {
     delete static_cast<std::string*>(hint);
 }
@@ -1014,7 +1016,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
     const bool isBpVersion6 = (firstByte == 6);
     const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
     if (isBpVersion6) {
-        BundleViewV6 bv;
+        static thread_local BundleViewV6 bv;
         if (!bv.LoadBundle(bundleDataBegin, bundleCurrentSize)) {
             LOG_ERROR(subprocess) << "malformed bundle";
             return false;
@@ -1041,8 +1043,8 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                     LOG_ERROR(subprocess) << "cannot render bpv6 echo bundle";
                     return false;
                 }
-                std::vector<uint8_t> * rxBufRawPointer = new std::vector<uint8_t>(std::move(bv.m_frontBuffer));
-                zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer)));
+                padded_vector_uint8_t * rxBufRawPointer = new padded_vector_uint8_t(std::move(bv.m_frontBuffer));
+                zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupPaddedVecUint8, rxBufRawPointer)));
                 bundleCurrentSize = zmqMessageToSendUniquePtr->size();
             }
             else if (finalDestEid == M_HDTN_EID_PING) {
@@ -1069,7 +1071,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
         }
     }
     else if (isBpVersion7) {
-        BundleViewV7 bv;
+        static thread_local BundleViewV7 bv;
         const bool skipCrcVerifyInCanonicalBlocks = !needsProcessing;
         if (!bv.LoadBundle(bundleDataBegin, bundleCurrentSize, skipCrcVerifyInCanonicalBlocks)) { //todo true => skip canonical block crc checks to increase speed
             LOG_ERROR(subprocess) << "Process: malformed version 7 bundle received";
@@ -1098,6 +1100,42 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             static constexpr BPV7_BUNDLEFLAG requiredPrimaryFlagsForEcho = BPV7_BUNDLEFLAG::NO_FLAGS_SET;
             const bool isEcho = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO));
             if (!isAdminRecordForHdtnStorage) {
+#ifdef DO_BPSEC_TEST
+                static thread_local std::vector<uint8_t> dataEncryptionKeyBytes; //DEK
+                static const std::string dataEncryptionKeyString(
+                    "71776572747975696f70617364666768"
+                    "71776572747975696f70617364666768"
+                );
+                if (dataEncryptionKeyBytes.empty()) {
+                    BinaryConversions::HexStringToBytes(dataEncryptionKeyString, dataEncryptionKeyBytes);
+                }
+
+                static thread_local BPSecManager::ReusableElementsInternal bpsecReusableElementsInternal;
+                static thread_local BPSecManager::EvpCipherCtxWrapper ctxWrapper;
+                static thread_local BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
+
+                if (!BPSecManager::TryDecryptBundle(ctxWrapper,
+                    ctxWrapperKeyWrapOps,
+                    bv,
+                    NULL, 0, //not using KEK
+                    dataEncryptionKeyBytes.data(), static_cast<const unsigned int>(dataEncryptionKeyBytes.size()),
+                    bpsecReusableElementsInternal,
+                    false)) //false => don't rerender in place here, there are more ops to complete after decryption and then a manual render-in-place will be called later
+                {
+                    LOG_ERROR(subprocess) << "Process: version 7 bundle received but cannot decrypt";
+                    return false;
+                }
+                else {
+                    static thread_local bool printedMsg = false;
+                    if (!printedMsg) {
+                        LOG_INFO(subprocess) << "first time ingress decrypted bundle successfully from source node " 
+                            << bv.m_primaryBlockView.header.m_sourceNodeId
+                            << " ..(This message type will now be suppressed.)";
+                        printedMsg = true;
+                    }
+                    //LOG_INFO(subprocess) << "ingress decrypted bundle successfully";
+                }
+#endif // DO_BPSEC_TEST
                 //get previous node
                 std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
                 bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE, blocks);
@@ -1116,14 +1154,22 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                     }
                 }
                 else { //prepend new previous node block
-                    std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7PreviousNodeCanonicalBlock>();
+                    std::unique_ptr<Bpv7CanonicalBlock> blockPtr;
+                    static constexpr std::size_t blockTypeCodeAsSizeT = static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE);
+                    if (bv.m_blockNumberToRecycledCanonicalBlockArray[blockTypeCodeAsSizeT]) {
+                        //std::cout << "recycle previous node\n";
+                        blockPtr = std::move(bv.m_blockNumberToRecycledCanonicalBlockArray[blockTypeCodeAsSizeT]);
+                    }
+                    else {
+                        blockPtr = boost::make_unique<Bpv7PreviousNodeCanonicalBlock>();
+                    }
                     Bpv7PreviousNodeCanonicalBlock & block = *(reinterpret_cast<Bpv7PreviousNodeCanonicalBlock*>(blockPtr.get()));
 
                     block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED;
                     block.m_blockNumber = bv.GetNextFreeCanonicalBlockNumber();
                     block.m_crcType = BPV7_CRC_TYPE::CRC32C;
                     block.m_previousNode.Set(m_hdtnConfig.m_myNodeId, 0);
-                    bv.PrependMoveCanonicalBlock(blockPtr);
+                    bv.PrependMoveCanonicalBlock(std::move(blockPtr));
                 }
 
                 //get hop count if exists and update it
@@ -1554,7 +1600,7 @@ void Ingress::Impl::SendPing(const uint64_t remoteNodeId, const uint64_t remoteP
             block.m_crcType = BPV7_CRC_TYPE::CRC32C;
             block.m_hopLimit = 100; //Hop limit MUST be in the range 1 through 255.
             block.m_hopCount = 0; //the hop count value SHOULD initially be zero and SHOULD be increased by 1 on each hop.
-            bv.AppendMoveCanonicalBlock(blockPtr);
+            bv.AppendMoveCanonicalBlock(std::move(blockPtr));
         }
 
         //append payload block (must be last block)
@@ -1569,7 +1615,7 @@ void Ingress::Impl::SendPing(const uint64_t remoteNodeId, const uint64_t remoteP
             payloadBlock.m_crcType = BPV7_CRC_TYPE::CRC32C;
             payloadBlock.m_dataLength = payloadSizeBytes;
             payloadBlock.m_dataPtr = NULL; //NULL will preallocate (won't copy or compute crc, user must do that manually below)
-            bv.AppendMoveCanonicalBlock(payloadBlockPtr);
+            bv.AppendMoveCanonicalBlock(std::move(payloadBlockPtr));
         }
 
         //render bundle to the front buffer
@@ -1587,8 +1633,8 @@ void Ingress::Impl::SendPing(const uint64_t remoteNodeId, const uint64_t remoteP
         payloadBlockView.headerPtr->RecomputeCrcAfterDataModification((uint8_t*)payloadBlockView.actualSerializedBlockPtr.data(), payloadBlockView.actualSerializedBlockPtr.size()); //recompute crc
 
         //move the bundle out of bundleView
-        std::vector<uint8_t>* rxBufRawPointer = new std::vector<uint8_t>(std::move(bv.m_frontBuffer));
-        zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer)));
+        padded_vector_uint8_t* rxBufRawPointer = new padded_vector_uint8_t(std::move(bv.m_frontBuffer));
+        zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupPaddedVecUint8, rxBufRawPointer)));
     }
     else { //bp version 6
         BundleViewV6 bv;
@@ -1625,7 +1671,7 @@ void Ingress::Impl::SendPing(const uint64_t remoteNodeId, const uint64_t remoteP
             payloadBlock.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET;
             payloadBlock.m_blockTypeSpecificDataLength = payloadSizeBytes;
             payloadBlock.m_blockTypeSpecificDataPtr = NULL; //NULL will preallocate (won't copy or compute crc, user must do that manually below)
-            bv.AppendMoveCanonicalBlock(payloadBlockPtr);
+            bv.AppendMoveCanonicalBlock(std::move(payloadBlockPtr));
         }
 
         //render bundle to the front buffer
@@ -1643,8 +1689,8 @@ void Ingress::Impl::SendPing(const uint64_t remoteNodeId, const uint64_t remoteP
         memcpy(payloadBlockView.headerPtr->m_blockTypeSpecificDataPtr, &pingPayload, sizeof(pingPayload)); //m_dataPtr now points to new allocated or copied data within the serialized block (from after Render())
 
         //move the bundle out of bundleView
-        std::vector<uint8_t>* rxBufRawPointer = new std::vector<uint8_t>(std::move(bv.m_frontBuffer));
-        zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer)));
+        padded_vector_uint8_t* rxBufRawPointer = new padded_vector_uint8_t(std::move(bv.m_frontBuffer));
+        zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupPaddedVecUint8, rxBufRawPointer)));
     }
     static padded_vector_uint8_t unusedPaddedVecMessage;
     ProcessPaddedData((uint8_t*)zmqMessageToSendUniquePtr->data(), zmqMessageToSendUniquePtr->size(),

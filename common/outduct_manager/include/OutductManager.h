@@ -52,7 +52,7 @@ public:
 
     OUTDUCT_MANAGER_LIB_EXPORT bool Forward(const cbhe_eid_t & finalDestEid, const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData);
     OUTDUCT_MANAGER_LIB_EXPORT bool Forward(const cbhe_eid_t & finalDestEid, zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData);
-    OUTDUCT_MANAGER_LIB_EXPORT bool Forward(const cbhe_eid_t & finalDestEid, std::vector<uint8_t> & movableDataVec, std::vector<uint8_t>&& userData);
+    OUTDUCT_MANAGER_LIB_EXPORT bool Forward(const cbhe_eid_t & finalDestEid, padded_vector_uint8_t& movableDataVec, std::vector<uint8_t>&& userData);
 
     OUTDUCT_MANAGER_LIB_EXPORT void PopulateAllOutductTelemetry(AllOutductTelemetry_t& allOutductTelem);
 private:

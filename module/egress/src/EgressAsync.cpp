@@ -605,10 +605,13 @@ void Egress::Impl::ReadZmqThreadFunc() {
 
                     //send telemetry
                     if (m_lastJsonAoctSharedPtr) {
-                        std::string* stringRawPointer = new std::string(std::move(*m_lastJsonAoctSharedPtr));
-                        std::string& strAoctRef = *stringRawPointer;
-                        zmq::message_t zmqTelemMessageWithDataStolen(&strAoctRef[0], stringRawPointer->size(), CustomCleanupStdString, stringRawPointer);
-                        m_lastJsonAoctSharedPtr.reset();
+                        std::shared_ptr<std::string>* jsonRawPtrToSharedPtr = new std::shared_ptr<std::string>(std::move(m_lastJsonAoctSharedPtr));
+
+                        std::shared_ptr<std::string>& sharedPtrRef = *jsonRawPtrToSharedPtr;
+                        std::string& strAoctRef = *sharedPtrRef;
+
+                        zmq::message_t zmqTelemMessageWithDataStolen(&strAoctRef[0], strAoctRef.size(),
+                                CustomCleanupSharedPtrStdString, jsonRawPtrToSharedPtr);
                         //use msg.more() on receiving end to know if this is multipart
                         if (!m_zmqRepSock_connectingTelemToFromBoundEgressPtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
                             LOG_ERROR(subprocess) << "can't send Json Aoct telemetry to telemetry interface";

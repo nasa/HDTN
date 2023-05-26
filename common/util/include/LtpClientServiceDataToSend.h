@@ -27,6 +27,7 @@
 
 #include <cstdint>
 #include <vector>
+#include "PaddedVectorUint8.h"
 #include <boost/asio.hpp>
 #include "MemoryInFiles.h"
 
@@ -55,7 +56,7 @@ public:
      * @post Active data state: Byte buffer.
      * @post The argument to vec is left in a moved-from state.
      */
-    HDTN_UTIL_EXPORT LtpClientServiceDataToSend(std::vector<uint8_t> && vec);
+    HDTN_UTIL_EXPORT LtpClientServiceDataToSend(padded_vector_uint8_t&& vec);
     
     /**
      * If previously holding a ZMQ message, clean up its resources.
@@ -65,7 +66,7 @@ public:
      * @post Active data state: Byte buffer.
      * @post The argument to vec is left in a moved-from state.
      */
-    HDTN_UTIL_EXPORT LtpClientServiceDataToSend& operator=(std::vector<uint8_t> && vec); //a move assignment: operator=(X&&)
+    HDTN_UTIL_EXPORT LtpClientServiceDataToSend& operator=(padded_vector_uint8_t&& vec); //a move assignment: operator=(X&&)
 #ifdef LTP_CLIENT_SERVICE_DATA_TO_SEND_SUPPORT_ZMQ
     /**
      * Initialize the packet buffer to the given ZMQ message.
@@ -102,13 +103,13 @@ public:
      * @param vec The byte buffer to compare.
      * @return Stored byte buffer == vec.
      */
-    HDTN_UTIL_EXPORT bool operator==(const std::vector<uint8_t> & vec) const; //operator ==
+    HDTN_UTIL_EXPORT bool operator==(const padded_vector_uint8_t& vec) const; //operator ==
     
     /**
      * @param vec The byte buffer to compare.
      * @return Stored byte buffer != vec.
      */
-    HDTN_UTIL_EXPORT bool operator!=(const std::vector<uint8_t> & vec) const; //operator !=
+    HDTN_UTIL_EXPORT bool operator!=(const padded_vector_uint8_t& vec) const; //operator !=
     
     /** Get the begin pointer of the primary data buffer.
      *
@@ -137,7 +138,7 @@ public:
      * Reference to a default-constructed object when not the active data state.
      * @return The stored byte buffer.
      */
-    HDTN_UTIL_EXPORT std::vector<uint8_t> & GetVecRef();
+    HDTN_UTIL_EXPORT padded_vector_uint8_t& GetVecRef();
     
     /** Get the stored ZMQ message.
      *
@@ -152,7 +153,7 @@ public:
 
 private:
     /// Stored byte buffer
-    std::vector<uint8_t> m_vector;
+    padded_vector_uint8_t m_vector;
 #ifdef LTP_CLIENT_SERVICE_DATA_TO_SEND_SUPPORT_ZMQ
     /// Stored ZMQ message
     zmq::message_t m_zmqMessage;

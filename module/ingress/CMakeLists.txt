@@ -19,6 +19,7 @@ target_link_libraries(ingress_async_lib
 		hdtn_util
 		log_lib
 		induct_manager_lib
+		$<$<BOOL:${ENABLE_BPSEC}>:bpsec>
 		bpcodec
 		telemetry_definitions
 		Boost::program_options

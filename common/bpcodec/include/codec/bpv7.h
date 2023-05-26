@@ -80,7 +80,8 @@ enum class BPV7_BLOCK_TYPE_CODE : uint8_t {
     HOP_COUNT                   = 10,
     INTEGRITY                   = 11,
     CONFIDENTIALITY             = 12,
-    PRIORITY                    = 13
+    PRIORITY                    = 13,
+    RESERVED_MAX_BLOCK_TYPES    = 14 //for sizing lookup tables
 };
 MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV7_BLOCK_TYPE_CODE);
 
@@ -129,25 +130,26 @@ enum class BPSEC_SECURITY_CONTEXT_IDENTIFIERS {
     BIB_HMAC_SHA2 = 1, //   BIB-HMAC-SHA2  [RFC-ietf-dtn-bpsec-default-sc-11]
     BCB_AES_GCM = 2 //      BCB-AES-GCM    [RFC-ietf-dtn-bpsec-default-sc-11]
 };
-enum class BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_FLAGS {
+enum class BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_FLAGS {
     //name = value                       Description
     //------------                       -----------
     INCLUDE_PRIMARY_BLOCK_FLAG = 0, //   [RFC-ietf-dtn-bpsec-default-sc-11]
     INCLUDE_TARGET_HEADER_FLAG = 1, //   [RFC-ietf-dtn-bpsec-default-sc-11]
     INCLUDE_SECURITY_HEADER_FLAG = 2 //  [RFC-ietf-dtn-bpsec-default-sc-11]
 };
-enum class BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS : uint64_t {
+enum class BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS : uint64_t {
     //https://datatracker.ietf.org/doc/draft-ietf-dtn-bpsec-default-sc/ 3.3.3.  Integrity Scope Flags
     //Bit 0 (the low-order bit, 0x0001): Primary Block Flag.
     //Bit 1 (0x0002): Target Header Flag.
     //Bit 2 (0x0004): Security Header Flag.
     NO_ADDITIONAL_SCOPE = 0,
-    INCLUDE_PRIMARY_BLOCK = 1 << (static_cast<uint8_t>(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_FLAGS::INCLUDE_PRIMARY_BLOCK_FLAG)),
-    INCLUDE_TARGET_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_FLAGS::INCLUDE_TARGET_HEADER_FLAG)),
-    INCLUDE_SECURITY_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_FLAGS::INCLUDE_SECURITY_HEADER_FLAG)),
+    INCLUDE_PRIMARY_BLOCK = 1 << (static_cast<uint8_t>(BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_FLAGS::INCLUDE_PRIMARY_BLOCK_FLAG)),
+    INCLUDE_TARGET_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_FLAGS::INCLUDE_TARGET_HEADER_FLAG)),
+    INCLUDE_SECURITY_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_FLAGS::INCLUDE_SECURITY_HEADER_FLAG)),
+    ALL_FLAGS_SET = 7
 };
-MAKE_ENUM_SUPPORT_FLAG_OPERATORS(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS);
-MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS);
+MAKE_ENUM_SUPPORT_FLAG_OPERATORS(BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS);
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS);
 /*
 //https://datatracker.ietf.org/doc/draft-ietf-dtn-bpsec-default-sc/
 3.3.4.  Enumerations
@@ -174,11 +176,13 @@ MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS);
       +---------+-------------+--------------------+---------------+
 
                                  Table 2*/
-enum class BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS {
+enum class BPSEC_BIB_HMAC_SHA2_SECURITY_PARAMETERS {
     SHA_VARIANT = 1,
     WRAPPED_KEY = 2,
     INTEGRITY_SCOPE_FLAGS = 3
 };
+
+
 /*
 //https://datatracker.ietf.org/doc/draft-ietf-dtn-bpsec-default-sc/
 3.4.  Results
@@ -200,7 +204,7 @@ enum class BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS {
        +--------+----------+---------------+----------------------+
 
                                  Table 3*/
-enum class BPSEC_BIB_HMAX_SHA2_SECURITY_RESULTS {
+enum class BPSEC_BIB_HMAC_SHA2_SECURITY_RESULTS {
     EXPECTED_HMAC = 1
 };
 
@@ -220,6 +224,7 @@ enum class BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS : uint64_t {
     INCLUDE_PRIMARY_BLOCK = 1 << (static_cast<uint8_t>(BPSEC_BCB_AES_GCM_AAD_SCOPE_FLAGS::INCLUDE_PRIMARY_BLOCK_FLAG)),
     INCLUDE_TARGET_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BCB_AES_GCM_AAD_SCOPE_FLAGS::INCLUDE_TARGET_HEADER_FLAG)),
     INCLUDE_SECURITY_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BCB_AES_GCM_AAD_SCOPE_FLAGS::INCLUDE_SECURITY_HEADER_FLAG)),
+    ALL_FLAGS_SET = 7
 };
 MAKE_ENUM_SUPPORT_FLAG_OPERATORS(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS);
 MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS);
@@ -303,6 +308,19 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7CbhePrimaryBlock : public PrimaryBlock {
         3 + //reportToEid
         3 + //creation timestamp
         1; //lifetime;
+    static constexpr uint64_t largestSerializedPrimarySize = //uint64_t bufferSize
+        1 + //cbor initial byte denoting cbor array
+        1 + //bundle version 7 byte
+        9 + //m_bundleProcessingControlFlags
+        1 + //crc type code byte
+        1 + 9 + 9 + //destEid
+        1 + 9 + 9 + //srcNodeId
+        1 + 9 + 9 + //reportToEid
+        1 + 9 + 9 + //creation timestamp
+        9 + //lifetime;
+        9 + //fragment offset
+        9 + //Total Application Data Unit Length (for fragments)
+        5; //crc32
 
     BPV7_BUNDLEFLAG m_bundleProcessingControlFlags;
     cbhe_eid_t m_destinationEid;
@@ -384,11 +402,14 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7CanonicalBlock {
     BPCODEC_EXPORT bool operator!=(const Bpv7CanonicalBlock & o) const; //operator !=
     BPCODEC_EXPORT virtual void SetZero();
     BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    BPCODEC_EXPORT uint64_t GetSerializationSize() const;
+    BPCODEC_EXPORT uint64_t GetSerializationSize(const bool isEncrypted) const;
+    BPCODEC_EXPORT uint64_t GetSerializationSizeOfAadPart() const;
+    BPCODEC_EXPORT uint64_t SerializeAadPart(uint8_t* serialization) const;
     BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
     BPCODEC_EXPORT void RecomputeCrcAfterDataModification(uint8_t * serializationBase, const uint64_t sizeSerialized);
     BPCODEC_EXPORT static bool DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & canonicalPtr, uint8_t * serialization,
-        uint64_t & numBytesTakenToDecode, uint64_t bufferSize, const bool skipCrcVerify, const bool isAdminRecord);
+        uint64_t & numBytesTakenToDecode, uint64_t bufferSize, const bool skipCrcVerify, const bool isAdminRecord,
+        std::unique_ptr<Bpv7CanonicalBlock>* blockNumberToRecycledCanonicalBlockArray);
     BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
 };
 
@@ -540,8 +561,12 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7AbstractSecurityBlock : public Bpv7Canonical
     security_results_t m_securityResults;
 
 protected:
-    std::vector<uint8_t> * Protected_AppendAndGetSecurityResultByteStringPtr(uint64_t resultType);
-    std::vector<std::vector<uint8_t>*> Protected_GetAllSecurityResultsByteStringPtrs(uint64_t resultType);
+    BPCODEC_EXPORT std::vector<uint8_t> * Protected_AppendAndGetSecurityResultByteStringPtr(uint64_t resultType);
+    BPCODEC_EXPORT std::vector<std::vector<uint8_t>*> Protected_GetAllSecurityResultsByteStringPtrs(uint64_t resultType);
+    BPCODEC_EXPORT std::vector<uint8_t>* Protected_AddAndGetByteStringParamPtr(parameter_id_t parameter);
+    BPCODEC_EXPORT std::vector<uint8_t>* Protected_GetByteStringParamPtr(parameter_id_t parameter);
+    BPCODEC_EXPORT bool Protected_AddOrUpdateUintValueSecurityParameter(parameter_id_t parameter, uint64_t uintValue);
+    BPCODEC_EXPORT uint64_t Protected_GetUintSecurityParameter(parameter_id_t parameter, bool& success) const;
 };
 
 struct CLASS_VISIBILITY_BPCODEC Bpv7BlockIntegrityBlock : public Bpv7AbstractSecurityBlock {
@@ -557,9 +582,10 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7BlockIntegrityBlock : public Bpv7AbstractSec
     
     BPCODEC_EXPORT bool AddOrUpdateSecurityParameterShaVariant(COSE_ALGORITHMS alg);
     BPCODEC_EXPORT COSE_ALGORITHMS GetSecurityParameterShaVariant(bool & success) const;
-    BPCODEC_EXPORT bool AddSecurityParameterIntegrityScope(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS integrityScope);
-    BPCODEC_EXPORT bool IsSecurityParameterIntegrityScopePresentAndSet(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS integrityScope) const;
-    BPCODEC_EXPORT std::vector<uint8_t> * AddAndGetWrappedKeyPtr();
+    BPCODEC_EXPORT BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS GetSecurityParameterScope() const;
+    BPCODEC_EXPORT bool AddSecurityParameterIntegrityScope(BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS integrityScope);
+    BPCODEC_EXPORT std::vector<uint8_t>* AddAndGetAesWrappedKeyPtr();
+    BPCODEC_EXPORT std::vector<uint8_t>* GetAesWrappedKeyPtr();
     BPCODEC_EXPORT std::vector<uint8_t> * AppendAndGetExpectedHmacPtr();
     BPCODEC_EXPORT std::vector<std::vector<uint8_t>*> GetAllExpectedHmacPtrs();
 };
@@ -578,13 +604,13 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7BlockConfidentialityBlock : public Bpv7Abstr
     BPCODEC_EXPORT bool AddOrUpdateSecurityParameterAesVariant(COSE_ALGORITHMS alg);
     BPCODEC_EXPORT COSE_ALGORITHMS GetSecurityParameterAesVariant(bool & success) const;
     BPCODEC_EXPORT bool AddSecurityParameterScope(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS scope);
-    BPCODEC_EXPORT bool IsSecurityParameterScopePresentAndSet(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS scope) const;
+    BPCODEC_EXPORT BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS GetSecurityParameterScope() const;
     BPCODEC_EXPORT std::vector<uint8_t> * AddAndGetAesWrappedKeyPtr();
+    BPCODEC_EXPORT std::vector<uint8_t> * GetAesWrappedKeyPtr();
     BPCODEC_EXPORT std::vector<uint8_t> * AddAndGetInitializationVectorPtr();
+    BPCODEC_EXPORT std::vector<uint8_t> * GetInitializationVectorPtr();
     BPCODEC_EXPORT std::vector<uint8_t> * AppendAndGetPayloadAuthenticationTagPtr();
     BPCODEC_EXPORT std::vector<std::vector<uint8_t>*> GetAllPayloadAuthenticationTagPtrs();
-private:
-    BPCODEC_NO_EXPORT std::vector<uint8_t> * Private_AddAndGetByteStringParamPtr(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS parameter);
 };
 
 struct CLASS_VISIBILITY_BPCODEC Bpv7AdministrativeRecordContentBase {

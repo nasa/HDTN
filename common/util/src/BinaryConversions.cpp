@@ -38,12 +38,49 @@ void BinaryConversions::EncodeBase64(const std::vector<uint8_t> & binaryMessage,
 #endif //#if (BOOST_VERSION >= 106600)
 
 void BinaryConversions::BytesToHexString(const std::vector<uint8_t> & bytes, std::string & hexString) {
+    BytesToHexString(bytes.data(), bytes.size(), hexString);
+}
+void BinaryConversions::BytesToHexString(const padded_vector_uint8_t& bytes, std::string& hexString) {
+    BytesToHexString(bytes.data(), bytes.size(), hexString);
+}
+void BinaryConversions::BytesToHexString(const void* data, std::size_t size, std::string& hexString) {
     hexString.resize(0);
-    hexString.reserve((bytes.size() * 2) + 2);
-    boost::algorithm::hex(bytes, std::back_inserter(hexString));
+    hexString.reserve((size * 2) + 2);
+    const uint8_t* const ptr = reinterpret_cast<const uint8_t*>(data);
+    boost::algorithm::hex(ptr, ptr + size, std::back_inserter(hexString));
+}
+void BinaryConversions::BytesToHexString(const std::vector<boost::asio::const_buffer>& bytes, std::string& hexString) {
+    hexString.resize(0);
+    std::size_t totalSize = 0;
+    for (std::size_t i = 0; i < bytes.size(); ++i) {
+        totalSize += bytes[i].size();
+    }
+    hexString.reserve((totalSize * 2) + 2);
+    for (std::size_t i = 0; i < bytes.size(); ++i) {
+        const boost::asio::const_buffer& cb = bytes[i];
+        const uint8_t* const ptr = reinterpret_cast<const uint8_t*>(cb.data());
+        boost::algorithm::hex(ptr, ptr + cb.size(), std::back_inserter(hexString));
+    }
+}
+void BinaryConversions::BytesToHexString(const boost::asio::const_buffer& bytes, std::string& hexString) {
+    BytesToHexString(bytes.data(), bytes.size(), hexString);
 }
 
-
+bool BinaryConversions::HexStringToBytes(const std::string& hexString, padded_vector_uint8_t& bytes) {
+    bytes.resize(0);
+    bytes.reserve(hexString.size() / 2);
+    try {
+        boost::algorithm::unhex(hexString, std::back_inserter(bytes));
+    }
+    catch (const boost::algorithm::hex_decode_error&) {
+        return false;
+    }
+    catch (const std::exception& e) {
+        LOG_ERROR(hdtn::Logger::SubProcess::none) << "unknown decode error: " << e.what();
+        return false;
+    }
+    return true;
+}
 bool BinaryConversions::HexStringToBytes(const std::string & hexString, std::vector<uint8_t> & bytes) {
     bytes.resize(0);
     bytes.reserve(hexString.size() / 2);

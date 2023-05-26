@@ -38,17 +38,17 @@ std::size_t Induct::OpportunisticBundleQueue::GetQueueSize() const noexcept {
 }
 void Induct::OpportunisticBundleQueue::PushMove_ThreadSafe(zmq::message_t & msg) {
     boost::mutex::scoped_lock lock(m_mutex);
-    m_dataToSendQueue.emplace(boost::make_unique<zmq::message_t>(std::move(msg)), std::vector<uint8_t>());
+    m_dataToSendQueue.emplace(boost::make_unique<zmq::message_t>(std::move(msg)), padded_vector_uint8_t());
 }
-void Induct::OpportunisticBundleQueue::PushMove_ThreadSafe(std::vector<uint8_t> & msg) {
+void Induct::OpportunisticBundleQueue::PushMove_ThreadSafe(padded_vector_uint8_t& msg) {
     boost::mutex::scoped_lock lock(m_mutex);
     m_dataToSendQueue.emplace(std::unique_ptr<zmq::message_t>(), std::move(msg));
 }
-void Induct::OpportunisticBundleQueue::PushMove_ThreadSafe(std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > & msgPair) {
+void Induct::OpportunisticBundleQueue::PushMove_ThreadSafe(std::pair<std::unique_ptr<zmq::message_t>, padded_vector_uint8_t> & msgPair) {
     boost::mutex::scoped_lock lock(m_mutex);
     m_dataToSendQueue.push(std::move(msgPair));
 }
-bool Induct::OpportunisticBundleQueue::TryPop_ThreadSafe(std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > & msgPair) {
+bool Induct::OpportunisticBundleQueue::TryPop_ThreadSafe(std::pair<std::unique_ptr<zmq::message_t>, padded_vector_uint8_t> & msgPair) {
     {
         boost::mutex::scoped_lock lock(m_mutex);
         if (m_dataToSendQueue.empty()) {
@@ -72,17 +72,17 @@ void Induct::OpportunisticBundleQueue::NotifyAll() {
     m_conditionVariable.notify_all();
 }
     
-bool Induct::ForwardOnOpportunisticLink(const uint64_t remoteNodeId, std::vector<uint8_t> & dataVec, const uint32_t timeoutSeconds) {
+bool Induct::ForwardOnOpportunisticLink(const uint64_t remoteNodeId, padded_vector_uint8_t& dataVec, const uint32_t timeoutSeconds) {
     return ForwardOnOpportunisticLink(remoteNodeId, NULL, &dataVec, timeoutSeconds);
 }
 bool Induct::ForwardOnOpportunisticLink(const uint64_t remoteNodeId, zmq::message_t & dataZmq, const uint32_t timeoutSeconds) {
     return ForwardOnOpportunisticLink(remoteNodeId, &dataZmq, NULL, timeoutSeconds);
 }
 bool Induct::ForwardOnOpportunisticLink(const uint64_t remoteNodeId, const uint8_t* bundleData, const std::size_t size, const uint32_t timeoutSeconds) {
-    std::vector<uint8_t> dataVec(bundleData, bundleData + size);
+    padded_vector_uint8_t dataVec(bundleData, bundleData + size);
     return ForwardOnOpportunisticLink(remoteNodeId, NULL, &dataVec, timeoutSeconds);
 }
-bool Induct::ForwardOnOpportunisticLink(const uint64_t remoteNodeId, zmq::message_t * zmqMsgPtr, std::vector<uint8_t> * vec8Ptr, const uint32_t timeoutSeconds) {
+bool Induct::ForwardOnOpportunisticLink(const uint64_t remoteNodeId, zmq::message_t * zmqMsgPtr, padded_vector_uint8_t* vec8Ptr, const uint32_t timeoutSeconds) {
     m_mapNodeIdToOpportunisticBundleQueueMutex.lock();
     std::map<uint64_t, OpportunisticBundleQueue>::iterator obqIt = m_mapNodeIdToOpportunisticBundleQueue.find(remoteNodeId);
     m_mapNodeIdToOpportunisticBundleQueueMutex.unlock();
@@ -127,7 +127,7 @@ bool Induct::ForwardOnOpportunisticLink(const uint64_t remoteNodeId, zmq::messag
 
 void Induct::Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId) {}
 
-bool Induct::BundleSinkTryGetData_FromIoServiceThread(OpportunisticBundleQueue & opportunisticBundleQueue, std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > & bundleDataPair) {
+bool Induct::BundleSinkTryGetData_FromIoServiceThread(OpportunisticBundleQueue & opportunisticBundleQueue, std::pair<std::unique_ptr<zmq::message_t>, padded_vector_uint8_t> & bundleDataPair) {
     return opportunisticBundleQueue.TryPop_ThreadSafe(bundleDataPair);
 }
 void Induct::BundleSinkNotifyOpportunisticDataAcked_FromIoServiceThread(OpportunisticBundleQueue & opportunisticBundleQueue) {
