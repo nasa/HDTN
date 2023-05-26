@@ -126,6 +126,7 @@ private:
     bool WriteBundle(const PrimaryBlock& bundlePrimaryBlock,
         const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize, uint64_t payloadSizeBytes, cbhe_eid_t *bundleEidMaskPtr = NULL);
     uint64_t PeekOne(const std::vector<eid_plus_isanyserviceid_pair_t>& availableDestLinks);
+    uint64_t PeekOne(const std::vector<eid_plus_isanyserviceid_pair_t> & availableDestLinks, int &priority);
     bool ReleaseOne_NoBlock(const OutductInfo_t& info, const uint64_t maxBundleSizeToRead, uint64_t& returnedBundleSize);
     void RepopulateUpLinksVec();
     void SetLinkDown(OutductInfo_t & info);
@@ -141,6 +142,7 @@ private:
     void SendFromStorage(OutductInfo_t &info, uint64_t maxBundleSizeToRead, long &timeoutPoll);
     void DefaultSend(OutductInfo_t &info, uint64_t maxBundleSizeToRead, long &timeoutPoll);
     void PrioritySend(OutductInfo_t &info, uint64_t maxBundleSizeToRead, long &timeoutPoll);
+    int GetQueueBundlePriority(CutThroughQueueData& qd);
 
 public:
     StorageTelemetry_t m_telem;
@@ -884,17 +886,23 @@ bool ZmqStorageInterface::Impl::WriteBundle(const PrimaryBlock& bundlePrimaryBlo
     return true;
 }
 
-
-//return number of bytes to read for specified links
-uint64_t ZmqStorageInterface::Impl::PeekOne(const std::vector<eid_plus_isanyserviceid_pair_t> & availableDestLinks) {
+uint64_t ZmqStorageInterface::Impl::PeekOne(const std::vector<eid_plus_isanyserviceid_pair_t> & availableDestLinks, int &priority) {
     const uint64_t bytesToReadFromDisk = m_bsmPtr->PopTop(m_sessionRead, availableDestLinks);
     if (bytesToReadFromDisk == 0) { //no more of these links to read
         return 0; //no bytes to read
     }
 
+    priority = m_sessionRead.catalogEntryPtr->GetPriorityIndex();
+
     //this link has a bundle in the fifo
     m_bsmPtr->ReturnTop(m_sessionRead);
     return bytesToReadFromDisk;
+}
+
+//return number of bytes to read for specified links
+uint64_t ZmqStorageInterface::Impl::PeekOne(const std::vector<eid_plus_isanyserviceid_pair_t> & availableDestLinks) {
+    int priority = 0;
+    return PeekOne(availableDestLinks, priority);
 }
 
 static void CustomCleanupToEgressHdr(void *data, void *hint) {
@@ -1761,6 +1769,7 @@ void ZmqStorageInterface::Impl::DoSendBundles(long & timeoutPoll) {
         }
 }
 
+
 void ZmqStorageInterface::Impl::PrioritySend(OutductInfo_t &info, uint64_t maxBundleSizeToRead, long &timeoutPoll) {
     // If nothing at the front of the queue,
     //      send from storage,
@@ -1783,6 +1792,78 @@ void ZmqStorageInterface::Impl::PrioritySend(OutductInfo_t &info, uint64_t maxBu
     //      move queue bundle to storage
     //      Send ack to ingress for queue bundle now in storage
     //      return
+    int storageBundlePriority = -1;
+
+    if(info.cutThroughQueue.empty()) {
+        SendFromStorage(info, maxBundleSizeToRead, timeoutPoll);
+        return;
+    }
+
+    bool queueBundleSmallEnough = (info.cutThroughQueue.front().bundleToEgress.size() <= maxBundleSizeToRead);
+    if(!PeekOne(info.eidVec, storageBundlePriority)) {
+        if(queueBundleSmallEnough) {
+            SendFromCutThroughQueue(info, timeoutPoll);
+        }
+        return;
+    }
+
+    // We have both storage and queue bundles
+
+    int queuePriority = GetQueueBundlePriority(info.cutThroughQueue.front());
+    int storagePriority = storageBundlePriority;
+
+    bool sendFromQueue = false;
+
+    if(queuePriority == storagePriority) {
+        sendFromQueue = info.stateTryCutThrough;
+        info.stateTryCutThrough = !info.stateTryCutThrough; //alternate/multiplex between disk reads and cut-through forwards to prevent one from getting "starved"
+    }
+    else {
+        sendFromQueue = (queuePriority > storagePriority);
+    }
+
+    if(sendFromQueue) {
+        if(queueBundleSmallEnough) {
+            SendFromCutThroughQueue(info, timeoutPoll);
+        }
+    } else {
+        SendFromStorage(info, maxBundleSizeToRead, timeoutPoll);
+
+        // Pop from queue, put in storage, and send ack to ingress
+        // If this queue fills up, ingress won't be able to pass
+        // more bundles to storage
+        CutThroughQueueData& qd = info.cutThroughQueue.front();
+        cbhe_eid_t out;
+        Write(&qd.bundleToEgress, out, true, true);
+        hdtn::StorageAckHdr* storageAckHdr = (hdtn::StorageAckHdr*)qd.ackToIngress.data();
+        if (!m_zmqPushSock_connectingStorageToBoundIngressPtr->send(std::move(qd.ackToIngress), zmq::send_flags::dontwait)) {
+            LOG_ERROR(subprocess) << "zmq could not send ingress an ack from storage";
+        }
+        info.cutThroughQueue.pop();
+    }
+}
+
+int ZmqStorageInterface::Impl::GetQueueBundlePriority(CutThroughQueueData& qd) {
+    const uint8_t firstByte = ((const uint8_t*)qd.bundleToEgress.data())[0];
+    const bool isBpVersion6 = (firstByte == 6);
+    const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));
+
+    if(isBpVersion6) {
+        BundleViewV6 bv;
+        if (!bv.LoadBundle((uint8_t *)qd.bundleToEgress.data(), qd.bundleToEgress.size(), true)) {
+            LOG_ERROR(subprocess) << "malformed bundle";
+            return -1;
+        }
+        return bv.m_primaryBlockView.header.GetPriority();
+    } else if(isBpVersion7) {
+        BundleViewV7 bv;
+        if (!bv.LoadBundle((uint8_t *)qd.bundleToEgress.data(), qd.bundleToEgress.size(), true, true)) {
+            LOG_ERROR(subprocess) << "malformed bundle";
+            return -1;
+        }
+        return bv.m_primaryBlockView.header.GetPriority();
+    }
+    return -1;
 }
 
 void ZmqStorageInterface::Impl::DefaultSend(OutductInfo_t &info, uint64_t maxBundleSizeToRead, long &timeoutPoll) {
