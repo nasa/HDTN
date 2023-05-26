@@ -40,15 +40,18 @@ static bool getPayloadSize(BundleViewV6& bv, uint64_t& sz) {
     return true;
 }
 
-static void copyPrimary(BundleViewV6& orig, BundleViewV6& copy, uint64_t offset, uint64_t aduLength) {
-    Bpv6CbhePrimaryBlock & origHdr = orig.m_primaryBlockView.header;
-    Bpv6CbhePrimaryBlock & copyHdr = orig.m_primaryBlockView.header;
+static void copyPrimary(const BundleViewV6& orig, BundleViewV6& copy, uint64_t offset, uint64_t aduLength) {
+    const Bpv6CbhePrimaryBlock & origHdr = orig.m_primaryBlockView.header;
+    Bpv6CbhePrimaryBlock & copyHdr = copy.m_primaryBlockView.header;
 
     copyHdr = origHdr;
 
     copyHdr.m_bundleProcessingControlFlags |= BPV6_BUNDLEFLAG::ISFRAGMENT;
     copyHdr.m_fragmentOffset = offset;
+    LOG_INFO(subprocess) << "Set fragment offset to " << copyHdr.m_fragmentOffset;
     copyHdr.m_totalApplicationDataUnitLength = aduLength;
+
+    copy.m_primaryBlockView.SetManuallyModified(); // TODO needed?
 }
 
 
@@ -66,6 +69,8 @@ static void appendPayloadBlock(BundleViewV6::Bpv6CanonicalBlockView & block, Bun
     copyBlock.m_blockProcessingControlFlags = origBlock.m_blockProcessingControlFlags;
     copyBlock.m_blockTypeSpecificDataLength = endOffset - startOffset;
     copyBlock.m_blockTypeSpecificDataPtr = origBlock.m_blockTypeSpecificDataPtr + startOffset;
+
+    copyBlockView.SetManuallyModified(); // TODO needed?
 }
 
 static void appendBlock(BundleViewV6::Bpv6CanonicalBlockView & block, BundleViewV6& bv) {
@@ -76,6 +81,8 @@ static void appendBlock(BundleViewV6::Bpv6CanonicalBlockView & block, BundleView
     bool isAdminRecord = /*TODO*/ false;
     Bpv6CanonicalBlock::DeserializeBpv6(copy.headerPtr, static_cast<const uint8_t*>(block.actualSerializedBlockPtr.data()), decodeSize,
             block.actualSerializedBlockPtr.size(), false, bv.m_blockNumberToRecycledCanonicalBlockArray);
+
+    copy.SetManuallyModified(); // TODO needed?
 }
 
 bool fragment(BundleViewV6& orig, uint64_t sz, BundleViewV6& a, BundleViewV6& b) {
@@ -100,8 +107,30 @@ bool fragment(BundleViewV6& orig, uint64_t sz, BundleViewV6& a, BundleViewV6& b)
     }
     // TODO need original to be  freshly rendered
 
-    copyPrimary(orig, a, 0, origPayloadSize);
-    copyPrimary(orig, b, sz, origPayloadSize);
+
+    // The offset and total application data unit values in the primary block
+    // are "global", i.e. if there's already a fragment, then we need to take
+    // the existing offset and total length into account. This is different
+    // than when we later copy over the primary block. Those offsets are relative
+    // to the bundle that we're fragmenting.
+
+    bool origIsFragment = ((flags & BPV6_BUNDLEFLAG::ISFRAGMENT) == BPV6_BUNDLEFLAG::ISFRAGMENT);
+
+    uint64_t firstOffset, secondOffset, totalApplicationDataUnitLength;
+    if(origIsFragment) {
+        uint64_t origOffset = orig.m_primaryBlockView.header.m_fragmentOffset;
+        firstOffset = origOffset;
+        secondOffset = origOffset + sz;
+        totalApplicationDataUnitLength = orig.m_primaryBlockView.header.m_totalApplicationDataUnitLength;
+    } else {
+        firstOffset = 0;
+        secondOffset = sz;
+        totalApplicationDataUnitLength = origPayloadSize;
+
+    }
+
+    copyPrimary(orig, a, firstOffset, totalApplicationDataUnitLength);
+    copyPrimary(orig, b, secondOffset, totalApplicationDataUnitLength);
 
     bool beforePayload = true;
     int i = 0;

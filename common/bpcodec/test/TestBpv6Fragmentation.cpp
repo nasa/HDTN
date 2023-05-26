@@ -27,17 +27,25 @@
 
 BOOST_AUTO_TEST_SUITE(TestBpv6Fragmentation)
 
+static const uint64_t PRIMARY_SRC_NODE = 1;
+static const uint64_t PRIMARY_SRC_SVC = 2;
+static const uint64_t PRIMARY_DEST_NODE = 3;
+static const uint64_t PRIMARY_DEST_SVC = 4;
+static const uint64_t PRIMARY_TIME = 1000;
+static const uint64_t PRIMARY_LIFETIME = 2000;
+static const uint64_t PRIMARY_SEQ = 5;
+
 static void buildPrimaryBlock(Bpv6CbhePrimaryBlock & primary) {
     primary.SetZero();
 
     primary.m_bundleProcessingControlFlags = BPV6_BUNDLEFLAG::SINGLETON;
-    primary.m_sourceNodeId.Set(1, 2);
-    primary.m_destinationEid.Set(3, 4);
+    primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
+    primary.m_destinationEid.Set(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC);
     primary.m_custodianEid.SetZero();
     primary.m_reportToEid.SetZero();
-    primary.m_creationTimestamp.secondsSinceStartOfYear2000 = 1000; //(uint64_t)bpv6_unix_to_5050(curr_time);
-    primary.m_lifetimeSeconds = 2000;
-    primary.m_creationTimestamp.sequenceNumber = 3;
+    primary.m_creationTimestamp.secondsSinceStartOfYear2000 = PRIMARY_TIME; //(uint64_t)bpv6_unix_to_5050(curr_time);
+    primary.m_lifetimeSeconds = PRIMARY_LIFETIME;
+    primary.m_creationTimestamp.sequenceNumber = PRIMARY_SEQ;
 }
 
 static std::unique_ptr<Bpv6CanonicalBlock> buildPrimaryBlock(std::string & blockBody) {
@@ -128,10 +136,28 @@ BOOST_AUTO_TEST_CASE(FragmentPayload)
     BOOST_REQUIRE(ret == true);
 
     // Check a Header
-    //TODO
-
+    Bpv6CbhePrimaryBlock & ap = a.m_primaryBlockView.header;
+    BOOST_REQUIRE(ap.m_bundleProcessingControlFlags == (BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::PRIORITY_NORMAL | BPV6_BUNDLEFLAG::ISFRAGMENT));
+    BOOST_REQUIRE(ap.m_destinationEid == cbhe_eid_t(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC));
+    BOOST_REQUIRE(ap.m_sourceNodeId == cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
+    BOOST_REQUIRE(ap.m_reportToEid == cbhe_eid_t(0, 0));
+    BOOST_REQUIRE(ap.m_custodianEid == cbhe_eid_t(0, 0));
+    BOOST_REQUIRE(ap.m_creationTimestamp == TimestampUtil::bpv6_creation_timestamp_t(PRIMARY_TIME, PRIMARY_SEQ));
+    BOOST_REQUIRE(ap.m_lifetimeSeconds == PRIMARY_LIFETIME);
+    BOOST_REQUIRE(ap.m_fragmentOffset == 0);
+    BOOST_REQUIRE(ap.m_totalApplicationDataUnitLength == 11);
+ 
     // Check b Header
-    // TODO
+    Bpv6CbhePrimaryBlock & bp = b.m_primaryBlockView.header;
+    BOOST_REQUIRE(bp.m_bundleProcessingControlFlags == (BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::PRIORITY_NORMAL | BPV6_BUNDLEFLAG::ISFRAGMENT));
+    BOOST_REQUIRE(bp.m_destinationEid == cbhe_eid_t(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC));
+    BOOST_REQUIRE(bp.m_sourceNodeId == cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
+    BOOST_REQUIRE(bp.m_reportToEid == cbhe_eid_t(0, 0));
+    BOOST_REQUIRE(bp.m_custodianEid == cbhe_eid_t(0, 0));
+    BOOST_REQUIRE(bp.m_creationTimestamp == TimestampUtil::bpv6_creation_timestamp_t(PRIMARY_TIME, PRIMARY_SEQ));
+    BOOST_REQUIRE(bp.m_lifetimeSeconds == PRIMARY_LIFETIME);
+    BOOST_REQUIRE(bp.m_fragmentOffset == 5);
+    BOOST_REQUIRE(bp.m_totalApplicationDataUnitLength == 11);
 
     // Check a num blocks
     BOOST_REQUIRE(a.m_listCanonicalBlockView.size() == 1);
@@ -160,6 +186,12 @@ BOOST_AUTO_TEST_CASE(FragmentPayload)
     BOOST_REQUIRE(bPayloadLen == 6);
     BOOST_REQUIRE(memcmp(bPayloadBuf, "world!", 6) == 0);
 }
+
+
+// TODO add test cases for:
+// + blocks before payload
+// + blocks after payload
+// + repeat-in-all blocks
 
 BOOST_AUTO_TEST_SUITE_END()
 
