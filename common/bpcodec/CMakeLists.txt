@@ -15,6 +15,7 @@ add_library(bpcodec
 		src/codec/BundleViewV6.cpp
 		src/codec/BundleViewV7.cpp
 		src/codec/Bpv7Crc.cpp
+		src/codec/Bpv6Fragment.cpp
 )
 target_compile_options(bpcodec PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 GENERATE_EXPORT_HEADER(bpcodec)

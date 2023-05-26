@@ -131,5 +131,8 @@ public:
     padded_vector_uint8_t m_backBuffer;
 };
 
+/** Fragments bundle into fragments a, b, with a having size sz */
+bool fragment(BundleViewV6& orig, size_t sz, BundleViewV6& a, BundleViewV6& b);
+
 #endif // BUNDLE_VIEW_V6_H
 
