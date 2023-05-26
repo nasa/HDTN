@@ -135,6 +135,7 @@ private:
     bool SendDeletionStatusReport(catalog_entry_t * entry);
     void DoSendBundles(long &timeoutPoll);
     void SendFromCutThroughQueue(OutductInfo_t &info, long & timeoutPoll);
+    void SendFromStorage(OutductInfo_t &info, uint64_t maxBundleSizeToRead, long &timeoutPoll);
 
 public:
     StorageTelemetry_t m_telem;
@@ -1725,7 +1726,6 @@ void ZmqStorageInterface::Impl::DoSendBundles(long & timeoutPoll) {
 
             //TODO maybe use full-max
             const uint64_t maxBundleSizeToRead = info.halfOfMaxBundleSizeBytesInPipeline_StorageToEgressPath - info.bytesInPipeline;
-            uint64_t returnedBundleSizeReadFromDisk;
 
             // TODO maybe use full-max
             if (totalInPipelineStorageToEgressThisLink < info.halfOfMaxBundlesInPipeline_StorageToEgressPath) { //not clogged by bundle count in pipeline
@@ -1735,22 +1735,8 @@ void ZmqStorageInterface::Impl::DoSendBundles(long & timeoutPoll) {
 
                     SendFromCutThroughQueue(info, timeoutPoll);
                 }
-                else if (ReleaseOne_NoBlock(info, maxBundleSizeToRead, returnedBundleSizeReadFromDisk)) { //true => (successfully sent to egress)
-                    if (info.mapOpenCustodyIdToBundleSizeBytes.emplace(m_sessionRead.custodyId, returnedBundleSizeReadFromDisk).second) {
-                        if (m_sessionRead.catalogEntryPtr->HasCustody()) {
-                            // Start custody timer when we receive ack from egress that bundle has been sent
-                            if (!m_custodyIdsWaitingTimerStart.insert(m_sessionRead.custodyId).second) {
-                                LOG_WARNING(subprocess) << "Could not insert into m_custodyIdsWaitingTimerStart";
-                            }
-                        }
-                        info.bytesInPipeline += returnedBundleSizeReadFromDisk;
-                        timeoutPoll = 0; //no timeout as we need to keep feeding to egress
-                        ++m_telem.m_totalBundlesSentToEgressFromStorageReadFromDisk;
-                        m_telem.m_totalBundleBytesSentToEgressFromStorageReadFromDisk += returnedBundleSizeReadFromDisk;
-                    }
-                    else {
-                        LOG_ERROR(subprocess) << "could not insert custody id into finalDestNodeIdToOpenCustIdsMap";
-                    }
+                else {
+                    SendFromStorage(info, maxBundleSizeToRead, timeoutPoll);
                 }
                 info.stateTryCutThrough = !info.stateTryCutThrough; //alternate/multiplex between disk reads and cut-through forwards to prevent one from getting "starved"
             }
@@ -1768,6 +1754,27 @@ void ZmqStorageInterface::Impl::DoSendBundles(long & timeoutPoll) {
                 }
             }
         }
+}
+
+void ZmqStorageInterface::Impl::SendFromStorage(OutductInfo_t &info, uint64_t maxBundleSizeToRead, long &timeoutPoll) {
+    uint64_t returnedBundleSizeReadFromDisk;
+    if (ReleaseOne_NoBlock(info, maxBundleSizeToRead, returnedBundleSizeReadFromDisk)) { //true => (successfully sent to egress)
+        if (info.mapOpenCustodyIdToBundleSizeBytes.emplace(m_sessionRead.custodyId, returnedBundleSizeReadFromDisk).second) {
+            if (m_sessionRead.catalogEntryPtr->HasCustody()) {
+                // Start custody timer when we receive ack from egress that bundle has been sent
+                if (!m_custodyIdsWaitingTimerStart.insert(m_sessionRead.custodyId).second) {
+                    LOG_WARNING(subprocess) << "Could not insert into m_custodyIdsWaitingTimerStart";
+                }
+            }
+            info.bytesInPipeline += returnedBundleSizeReadFromDisk;
+            timeoutPoll = 0; //no timeout as we need to keep feeding to egress
+            ++m_telem.m_totalBundlesSentToEgressFromStorageReadFromDisk;
+            m_telem.m_totalBundleBytesSentToEgressFromStorageReadFromDisk += returnedBundleSizeReadFromDisk;
+        }
+        else {
+            LOG_ERROR(subprocess) << "could not insert custody id into finalDestNodeIdToOpenCustIdsMap";
+        }
+    }
 }
 
 void ZmqStorageInterface::Impl::SendFromCutThroughQueue(OutductInfo_t &info, long & timeoutPoll) {
