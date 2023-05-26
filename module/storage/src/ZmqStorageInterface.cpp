@@ -41,6 +41,9 @@
 #include <atomic>
 #include "codec/Bpv6Fragment.h"
 
+//DBG
+static const std::string SEND_POLICY = "PRIORITY";
+
 typedef std::pair<cbhe_eid_t, bool> eid_plus_isanyserviceid_pair_t;
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
 
@@ -136,6 +139,8 @@ private:
     void DoSendBundles(long &timeoutPoll);
     void SendFromCutThroughQueue(OutductInfo_t &info, long & timeoutPoll);
     void SendFromStorage(OutductInfo_t &info, uint64_t maxBundleSizeToRead, long &timeoutPoll);
+    void DefaultSend(OutductInfo_t &info, uint64_t maxBundleSizeToRead, long &timeoutPoll);
+    void PrioritySend(OutductInfo_t &info, uint64_t maxBundleSizeToRead, long &timeoutPoll);
 
 public:
     StorageTelemetry_t m_telem;
@@ -1721,24 +1726,24 @@ void ZmqStorageInterface::Impl::DoSendBundles(long & timeoutPoll) {
             if (lastIndexToUpLinkVectorOutductInfoRoundRobin >= m_vectorUpLinksOutductInfoPtrs.size()) {
                 lastIndexToUpLinkVectorOutductInfoRoundRobin = 0;
             }
+            // The outduct we're sending on for this iteration
             OutductInfo_t& info = *(m_vectorUpLinksOutductInfoPtrs[lastIndexToUpLinkVectorOutductInfoRoundRobin]);
+            // How many bundles are in-flight to egress?
             const std::size_t totalInPipelineStorageToEgressThisLink = info.mapOpenCustodyIdToBundleSizeBytes.size() + info.mapIngressUniqueIdToIngressAckData.size();
 
             //TODO maybe use full-max
+            // How much space is left in bytes that we can still send to egress
             const uint64_t maxBundleSizeToRead = info.halfOfMaxBundleSizeBytesInPipeline_StorageToEgressPath - info.bytesInPipeline;
 
             // TODO maybe use full-max
+            // Is there room in the pipeline for more bundles (by number, not by size)?
             if (totalInPipelineStorageToEgressThisLink < info.halfOfMaxBundlesInPipeline_StorageToEgressPath) { //not clogged by bundle count in pipeline
-                if (info.stateTryCutThrough && (!info.cutThroughQueue.empty())
-                    && (info.cutThroughQueue.front().bundleToEgress.size() <= maxBundleSizeToRead))
-                { //not clogged by bundle total bytes in pipeline
-
-                    SendFromCutThroughQueue(info, timeoutPoll);
+                // Yes, so we want to try to send bundles
+                if(SEND_POLICY == "DEFAULT") {
+                    DefaultSend(info, maxBundleSizeToRead, timeoutPoll);
+                } else if(SEND_POLICY == "PRIORITY") {
+                    PrioritySend(info, maxBundleSizeToRead, timeoutPoll);
                 }
-                else {
-                    SendFromStorage(info, maxBundleSizeToRead, timeoutPoll);
-                }
-                info.stateTryCutThrough = !info.stateTryCutThrough; //alternate/multiplex between disk reads and cut-through forwards to prevent one from getting "starved"
             }
             if (timeoutPoll == 0) {
                 break; //return to zmq loop with zero timeout
@@ -1754,6 +1759,43 @@ void ZmqStorageInterface::Impl::DoSendBundles(long & timeoutPoll) {
                 }
             }
         }
+}
+
+void ZmqStorageInterface::Impl::PrioritySend(OutductInfo_t &info, uint64_t maxBundleSizeToRead, long &timeoutPoll) {
+    // If nothing at the front of the queue,
+    //      send from storage,
+    //      return
+    // If nothing in storage:
+    //      send from front of queue,
+    //      return
+
+    // (Otherwise, there are bundles at both the front of the queue and front of storage)
+    //
+    //  get storage bundle priority
+    //  get queue bundle priority
+    //
+    //  If queue has highest priority
+    //      send from queue
+    //      return
+    //
+    //  If storage has highest priority
+    //      send from storage
+    //      move queue bundle to storage
+    //      Send ack to ingress for queue bundle now in storage
+    //      return
+}
+
+void ZmqStorageInterface::Impl::DefaultSend(OutductInfo_t &info, uint64_t maxBundleSizeToRead, long &timeoutPoll) {
+                    if (info.stateTryCutThrough && (!info.cutThroughQueue.empty())
+                        && (info.cutThroughQueue.front().bundleToEgress.size() <= maxBundleSizeToRead))
+                    { //not clogged by bundle total bytes in pipeline
+
+                        SendFromCutThroughQueue(info, timeoutPoll);
+                    }
+                    else {
+                        SendFromStorage(info, maxBundleSizeToRead, timeoutPoll);
+                    }
+                    info.stateTryCutThrough = !info.stateTryCutThrough; //alternate/multiplex between disk reads and cut-through forwards to prevent one from getting "starved"
 }
 
 void ZmqStorageInterface::Impl::SendFromStorage(OutductInfo_t &info, uint64_t maxBundleSizeToRead, long &timeoutPoll) {
