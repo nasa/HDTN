@@ -32,9 +32,10 @@
 
 class BpSendPacket : public BpSourcePattern {
 private:
-public:
     BpSendPacket();
-    bool Init(InductsConfig_ptr & inductsConfigPtr, const cbhe_eid_t & myEid, const uint64_t maxBundleSizeBytes);
+public:
+    BpSendPacket(const uint64_t maxBundleSizeBytes);
+    bool Init(InductsConfig_ptr & inductsConfigPtr, const cbhe_eid_t & myEid);
     virtual ~BpSendPacket() override;
 protected:
     virtual bool TryWaitForDataAvailable(const boost::posix_time::time_duration& timeout) override;
@@ -47,6 +48,7 @@ private:
     // m_inductPtr std::unique_ptr<Induct>;
     // UdpBundleSink m_udpSink;
     std::queue<padded_vector_uint8_t> m_queue;
+    uint64_t m_maxBundleSizeBytes;
 };
 #endif //_BP_SEND_PACKET_H
     
