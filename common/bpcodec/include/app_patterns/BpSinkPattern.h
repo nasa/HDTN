@@ -115,6 +115,9 @@ private:
     boost::mutex m_mutexSendBundleQueue;
     uint64_t m_tcpclOpportunisticRemoteNodeId;
     Induct * m_tcpclInductPtr;
+
+    struct BpSecImpl;
+    std::unique_ptr<BpSecImpl> m_bpsecPimpl; // Pointer to the internal implementation
 };
 
 

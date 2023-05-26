@@ -79,6 +79,21 @@ struct BpSecPolicyFilter {
     std::unique_ptr<BpSecPolicyFilter> m_anyEidToNextFilterPtr;
     BpSecPoliciesByRollArray m_policiesByRollArray; //used only by filter leaf node
 };
+struct PolicySearchCache {
+    PolicySearchCache() :
+        securitySourceEid(0, 0),
+        bundleSourceEid(0, 0),
+        bundleFinalDestEid(0, 0),
+        role(BPSEC_ROLE::RESERVED_MAX_ROLE_TYPES),
+        wasCacheHit(false),
+        foundPolicy(NULL) {}
+    cbhe_eid_t securitySourceEid;
+    cbhe_eid_t bundleSourceEid;
+    cbhe_eid_t bundleFinalDestEid;
+    BPSEC_ROLE role;
+    bool wasCacheHit;
+    const BpSecPolicy* foundPolicy;
+};
 struct BpSecPolicyProcessingContext {
     BPSEC_EXPORT BpSecPolicyProcessingContext();
     InitializationVectorsForOneThread m_ivStruct;
@@ -90,7 +105,12 @@ struct BpSecPolicyProcessingContext {
     std::vector<uint64_t> m_bibTargetBlockNumbers;
     uint64_t m_bcbTargetBibBlockNumberPlaceholderIndex;
     std::vector<BundleViewV7::Bpv7CanonicalBlockView*> m_tmpBlocks;
+    PolicySearchCache m_searchCacheBcbAcceptor;
+    PolicySearchCache m_searchCacheBibAcceptor;
+    PolicySearchCache m_searchCacheBibVerifier;
+    PolicySearchCache m_searchCacheSource;
 };
+
 class BpSecPolicyManager {
 public:
 
@@ -128,10 +148,10 @@ public:
     BPSEC_EXPORT const BpSecPolicy* FindPolicy(const cbhe_eid_t& securitySourceEid,
         const cbhe_eid_t& bundleSourceEid, const cbhe_eid_t& bundleFinalDestEid, const BPSEC_ROLE role) const;
 
-    BPSEC_EXPORT const BpSecPolicy* FindPolicyWithThreadLocalCacheSupport(const cbhe_eid_t& securitySourceEid,
-        const cbhe_eid_t& bundleSourceEid, const cbhe_eid_t& bundleFinalDestEid, const BPSEC_ROLE role, bool& wasCacheHit) const;
+    BPSEC_EXPORT const BpSecPolicy* FindPolicyWithCacheSupport(const cbhe_eid_t& securitySourceEid,
+        const cbhe_eid_t& bundleSourceEid, const cbhe_eid_t& bundleFinalDestEid, const BPSEC_ROLE role, PolicySearchCache& searchCache) const;
 
-    BPSEC_EXPORT bool ProcessReceivedBundle_ThreadLocal(BundleViewV7& bv) const;
+    BPSEC_EXPORT bool ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx) const;
 
     BPSEC_EXPORT static bool PopulateTargetArraysForSecuritySource(BundleViewV7& bv,
         BpSecPolicyProcessingContext& ctx,
@@ -144,6 +164,9 @@ public:
 
     BPSEC_EXPORT static bool ProcessOutgoingBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx,
         const BpSecPolicy& policy, const cbhe_eid_t& thisSecuritySourceEid);
+
+    BPSEC_EXPORT bool FindPolicyAndProcessOutgoingBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx,
+        const cbhe_eid_t& thisSecuritySourceEid) const;
 private:
     BpSecPolicyFilter m_policyFilterSecuritySource;
 };

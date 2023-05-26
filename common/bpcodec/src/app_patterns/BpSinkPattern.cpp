@@ -26,10 +26,28 @@
 #include "Logger.h"
 #include "StatsLogger.h"
 #include "ThreadNamer.h"
+#include "BinaryConversions.h"
+#ifdef BPSEC_SUPPORT_ENABLED
+#include "BPSecManager.h"
+#include "BpSecPolicyManager.h"
+# define DO_BPSEC_TEST 1
+
+struct BpSinkPattern::BpSecImpl {
+    BpSecPolicyManager m_bpSecPolicyManager;
+    BpSecPolicyProcessingContext m_policyProcessingCtx;
+};
+#else
+struct BpSinkPattern::BpSecImpl {};
+//std::unique_ptr<BpSecImpl> m_bpsecPimpl;
+#endif
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-BpSinkPattern::BpSinkPattern() : m_timerAcs(m_ioService), m_timerTransferRateStats(m_ioService) {}
+BpSinkPattern::BpSinkPattern() : m_timerAcs(m_ioService), m_timerTransferRateStats(m_ioService)
+#ifdef BPSEC_SUPPORT_ENABLED
+, m_bpsecPimpl(boost::make_unique<BpSecImpl>())
+#endif
+{}
 
 BpSinkPattern::~BpSinkPattern() {
     Stop();
@@ -118,6 +136,32 @@ bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_pt
     m_tcpclInductPtr = NULL;
 
     m_linkIsDown = false;
+
+#ifdef DO_BPSEC_TEST
+    { //simulate loading from policy file
+        BpSecPolicy* p = m_bpsecPimpl->m_bpSecPolicyManager.CreateAndGetNewPolicy(
+            "ipn:10.1",
+            "ipn:*.*",
+            "ipn:*.*",
+            BPSEC_ROLE::ACCEPTOR);
+        p->m_doConfidentiality = true;
+        if (p->m_doConfidentiality) {
+            static const std::string dataEncryptionKeyString(
+                "81776572747975696f70617364666768"
+                "71776572747975696f70617364666768"
+            );
+            BinaryConversions::HexStringToBytes(dataEncryptionKeyString, p->m_dataEncryptionKey);
+        }
+
+        p->m_doIntegrity = true;
+        if (p->m_doIntegrity) {
+            static const std::string hmacKeyString(
+                "8a2b1a2b1a2b1a2b1a2b1a2b1a2b1a2b"
+            );
+            BinaryConversions::HexStringToBytes(hmacKeyString, p->m_hmacKey);
+        }
+    }
+#endif // DO_BPSEC_TEST
 
     M_EXTRA_PROCESSING_TIME_MS = processingLagMs;
     if (inductsConfigPtr) {
@@ -284,7 +328,12 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
         const cbhe_eid_t finalDestEid = primary.m_destinationEid;
         const cbhe_eid_t srcEid = primary.m_sourceNodeId;
 
-
+#ifdef BPSEC_SUPPORT_ENABLED
+        //process acceptor and verifier roles
+        if (!m_bpsecPimpl->m_bpSecPolicyManager.ProcessReceivedBundle(bv, m_bpsecPimpl->m_policyProcessingCtx)) {
+            return false;
+        }
+#endif // BPSEC_SUPPORT_ENABLED
 
 
         static constexpr BPV7_BUNDLEFLAG requiredPrimaryFlagsForEcho = BPV7_BUNDLEFLAG::NO_FLAGS_SET;

@@ -99,13 +99,20 @@ BOOST_AUTO_TEST_CASE(BpSecPolicyManagerTestCase)
     }
     { //cache
         BpSecPolicyManager m;
+        PolicySearchCache searchCache;
         const cbhe_eid_t ss(1, 1), bs(2, 1), bd(3, 1);
-        bool wasCacheHit;
         BOOST_REQUIRE(m.CreateAndGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::ACCEPTOR));
-        const BpSecPolicy* policyAny = m.FindPolicyWithThreadLocalCacheSupport(ss, bs, bd, BPSEC_ROLE::ACCEPTOR, wasCacheHit);
+        const BpSecPolicy* policyAny = m.FindPolicyWithCacheSupport(ss, bs, bd, BPSEC_ROLE::ACCEPTOR, searchCache);
         BOOST_REQUIRE(policyAny);
-        BOOST_REQUIRE(!wasCacheHit);
-        BOOST_REQUIRE(m.FindPolicyWithThreadLocalCacheSupport(ss, bs, bd, BPSEC_ROLE::ACCEPTOR, wasCacheHit) == policyAny);
-        BOOST_REQUIRE(wasCacheHit);
+        BOOST_REQUIRE(!searchCache.wasCacheHit);
+        BOOST_REQUIRE(m.FindPolicyWithCacheSupport(ss, bs, bd, BPSEC_ROLE::ACCEPTOR, searchCache) == policyAny);
+        BOOST_REQUIRE(searchCache.wasCacheHit);
+
+        //new query
+        const cbhe_eid_t ss2(10, 1);
+        BOOST_REQUIRE(m.FindPolicyWithCacheSupport(ss2, bs, bd, BPSEC_ROLE::ACCEPTOR, searchCache) == policyAny);
+        BOOST_REQUIRE(!searchCache.wasCacheHit);
+        BOOST_REQUIRE(m.FindPolicyWithCacheSupport(ss2, bs, bd, BPSEC_ROLE::ACCEPTOR, searchCache) == policyAny);
+        BOOST_REQUIRE(searchCache.wasCacheHit);
     }
 }

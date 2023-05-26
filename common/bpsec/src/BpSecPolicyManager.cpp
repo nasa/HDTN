@@ -179,62 +179,46 @@ const BpSecPolicy* BpSecPolicyManager::FindPolicy(const cbhe_eid_t& securitySour
     return policyFilterRollArraysPtr->m_policiesByRollArray[roleIndex].get();
 }
 
-const BpSecPolicy* BpSecPolicyManager::FindPolicyWithThreadLocalCacheSupport(const cbhe_eid_t& securitySourceEid,
-    const cbhe_eid_t& bundleSourceEid, const cbhe_eid_t& bundleFinalDestEid, const BPSEC_ROLE role, bool& wasCacheHit) const
+const BpSecPolicy* BpSecPolicyManager::FindPolicyWithCacheSupport(const cbhe_eid_t& securitySourceEid,
+    const cbhe_eid_t& bundleSourceEid, const cbhe_eid_t& bundleFinalDestEid, const BPSEC_ROLE role, PolicySearchCache& searchCache) const
 {
-    struct LocalCache {
-        LocalCache() : 
-            securitySourceEid(0, 0),
-            bundleSourceEid(0, 0),
-            bundleFinalDestEid(0, 0),
-            role(BPSEC_ROLE::RESERVED_MAX_ROLE_TYPES),
-            foundPolicy(NULL) {}
-        cbhe_eid_t securitySourceEid;
-        cbhe_eid_t bundleSourceEid;
-        cbhe_eid_t bundleFinalDestEid;
-        BPSEC_ROLE role;
-        const BpSecPolicy* foundPolicy;
-    };
-    static thread_local LocalCache localCache;
-    wasCacheHit = false;
-    if (localCache.foundPolicy && (role == localCache.role)
-        && (securitySourceEid == localCache.securitySourceEid)
-        && (bundleSourceEid == localCache.bundleSourceEid)
-        && (bundleFinalDestEid == localCache.bundleFinalDestEid))
+    searchCache.wasCacheHit = false;
+    if ((role == searchCache.role)
+        && (securitySourceEid == searchCache.securitySourceEid)
+        && (bundleSourceEid == searchCache.bundleSourceEid)
+        && (bundleFinalDestEid == searchCache.bundleFinalDestEid))
     {
-        wasCacheHit = true;
-        return localCache.foundPolicy;
+        if (searchCache.foundPolicy) { //looked this up last time and succeeded
+            searchCache.wasCacheHit = true;
+            return searchCache.foundPolicy;
+        }
+        else { //attempted to look this up last time and failed
+            return NULL;
+        }
     }
-    localCache.foundPolicy = BpSecPolicyManager::FindPolicy(securitySourceEid,
+    //never tried to look this up last time, look it up and cache the [failed or succeeded] result
+    searchCache.foundPolicy = BpSecPolicyManager::FindPolicy(securitySourceEid,
         bundleSourceEid, bundleFinalDestEid, role);
-    if (localCache.foundPolicy) {
-        localCache.role = role;
-        localCache.securitySourceEid = securitySourceEid;
-        localCache.bundleSourceEid = bundleSourceEid;
-        localCache.bundleFinalDestEid = bundleFinalDestEid;
-    }
-    return localCache.foundPolicy;
+    searchCache.role = role;
+    searchCache.securitySourceEid = securitySourceEid;
+    searchCache.bundleSourceEid = bundleSourceEid;
+    searchCache.bundleFinalDestEid = bundleFinalDestEid;
+    return searchCache.foundPolicy;
 }
 
-bool BpSecPolicyManager::ProcessReceivedBundle_ThreadLocal(BundleViewV7& bv) const {
+bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx) const {
     const Bpv7CbhePrimaryBlock& primary = bv.m_primaryBlockView.header;
-    bool wasCacheHit;
     bool decryptionSuccess = false;
-    static thread_local BPSecManager::ReusableElementsInternal bpsecReusableElementsInternal;
-    static thread_local BPSecManager::HmacCtxWrapper hmacCtxWrapper;
-    static thread_local BPSecManager::EvpCipherCtxWrapper evpCtxWrapper;
-    static thread_local BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
-    static thread_local std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
-    bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, blocks);
-    for (std::size_t i = 0; i < blocks.size(); ++i) {
-        BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView = *(blocks[i]);
+    bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, ctx.m_tmpBlocks);
+    for (std::size_t i = 0; i < ctx.m_tmpBlocks.size(); ++i) {
+        BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView = *(ctx.m_tmpBlocks[i]);
         Bpv7BlockConfidentialityBlock* bcbPtr = dynamic_cast<Bpv7BlockConfidentialityBlock*>(bcbBlockView.headerPtr.get());
         if (!bcbPtr) {
             LOG_ERROR(subprocess) << "cast to bcb block failed";
             return false;
         }
-        const BpSecPolicy* bpSecPolicyPtr = FindPolicyWithThreadLocalCacheSupport(
-            bcbPtr->m_securitySource, primary.m_sourceNodeId, primary.m_destinationEid, BPSEC_ROLE::ACCEPTOR, wasCacheHit);
+        const BpSecPolicy* bpSecPolicyPtr = FindPolicyWithCacheSupport(
+            bcbPtr->m_securitySource, primary.m_sourceNodeId, primary.m_destinationEid, BPSEC_ROLE::ACCEPTOR, ctx.m_searchCacheBcbAcceptor);
         if (!bpSecPolicyPtr) {
             continue;
         }
@@ -243,15 +227,15 @@ bool BpSecPolicyManager::ProcessReceivedBundle_ThreadLocal(BundleViewV7& bv) con
         }
 
         //does not rerender in place here, there are more ops to complete after decryption and then a manual render-in-place will be called later
-        if (!BPSecManager::TryDecryptBundleByIndividualBcb(evpCtxWrapper,
-            ctxWrapperKeyWrapOps,
+        if (!BPSecManager::TryDecryptBundleByIndividualBcb(ctx.m_evpCtxWrapper,
+            ctx.m_ctxWrapperKeyWrapOps,
             bv,
             bcbBlockView,
             bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.empty() ? NULL : bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.data(), //NULL if not present (for wrapping DEK only)
             static_cast<unsigned int>(bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.size()),
             bpSecPolicyPtr->m_dataEncryptionKey.empty() ? NULL : bpSecPolicyPtr->m_dataEncryptionKey.data(), //NULL if not present (when no wrapped key is present)
             static_cast<unsigned int>(bpSecPolicyPtr->m_dataEncryptionKey.size()),
-            bpsecReusableElementsInternal))
+            ctx.m_bpsecReusableElementsInternal))
         {
             LOG_ERROR(subprocess) << "Process: version 7 bundle received but cannot decrypt";
             return false;
@@ -271,23 +255,23 @@ bool BpSecPolicyManager::ProcessReceivedBundle_ThreadLocal(BundleViewV7& bv) con
 
     bool integritySuccess = false;
     bool markBibForDeletion = false;
-    bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::INTEGRITY, blocks);
-    for (std::size_t i = 0; i < blocks.size(); ++i) {
-        BundleViewV7::Bpv7CanonicalBlockView& bibBlockView = *(blocks[i]);
+    bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::INTEGRITY, ctx.m_tmpBlocks);
+    for (std::size_t i = 0; i < ctx.m_tmpBlocks.size(); ++i) {
+        BundleViewV7::Bpv7CanonicalBlockView& bibBlockView = *(ctx.m_tmpBlocks[i]);
         Bpv7BlockIntegrityBlock* bibPtr = dynamic_cast<Bpv7BlockIntegrityBlock*>(bibBlockView.headerPtr.get());
         if (!bibPtr) {
             LOG_ERROR(subprocess) << "cast to bib block failed";
             return false;
         }
-        const BpSecPolicy* bpSecPolicyPtr = FindPolicyWithThreadLocalCacheSupport(
-            bibPtr->m_securitySource, primary.m_sourceNodeId, primary.m_destinationEid, BPSEC_ROLE::ACCEPTOR, wasCacheHit);
+        const BpSecPolicy* bpSecPolicyPtr = FindPolicyWithCacheSupport(
+            bibPtr->m_securitySource, primary.m_sourceNodeId, primary.m_destinationEid, BPSEC_ROLE::ACCEPTOR, ctx.m_searchCacheBibAcceptor);
 
         if (bpSecPolicyPtr) {
             markBibForDeletion = true; //true for acceptors
         }
         else {
-            bpSecPolicyPtr = FindPolicyWithThreadLocalCacheSupport(
-                bibPtr->m_securitySource, primary.m_sourceNodeId, primary.m_destinationEid, BPSEC_ROLE::VERIFIER, wasCacheHit);
+            bpSecPolicyPtr = FindPolicyWithCacheSupport(
+                bibPtr->m_securitySource, primary.m_sourceNodeId, primary.m_destinationEid, BPSEC_ROLE::VERIFIER, ctx.m_searchCacheBibVerifier);
             if (!bpSecPolicyPtr) {
                 continue;
             }
@@ -299,15 +283,15 @@ bool BpSecPolicyManager::ProcessReceivedBundle_ThreadLocal(BundleViewV7& bv) con
         }
 
         //does not rerender in place here, there are more ops to complete after decryption and then a manual render-in-place will be called later
-        if (!BPSecManager::TryVerifyBundleIntegrityByIndividualBib(hmacCtxWrapper,
-            ctxWrapperKeyWrapOps,
+        if (!BPSecManager::TryVerifyBundleIntegrityByIndividualBib(ctx.m_hmacCtxWrapper,
+            ctx.m_ctxWrapperKeyWrapOps,
             bv,
             bibBlockView,
             bpSecPolicyPtr->m_hmacKeyEncryptionKey.empty() ? NULL : bpSecPolicyPtr->m_hmacKeyEncryptionKey.data(), //NULL if not present (for unwrapping hmac key only)
             static_cast<unsigned int>(bpSecPolicyPtr->m_hmacKeyEncryptionKey.size()),
             bpSecPolicyPtr->m_hmacKey.empty() ? NULL : bpSecPolicyPtr->m_hmacKey.data(), //NULL if not present (when no wrapped key is present)
             static_cast<unsigned int>(bpSecPolicyPtr->m_hmacKey.size()),
-            bpsecReusableElementsInternal,
+            ctx.m_bpsecReusableElementsInternal,
             markBibForDeletion))
         {
             LOG_ERROR(subprocess) << "Process: version 7 bundle received but cannot check integrity";
@@ -335,20 +319,28 @@ bool BpSecPolicyManager::PopulateTargetArraysForSecuritySource(BundleViewV7& bv,
     ctx.m_bcbTargetBlockNumbers.clear();
     ctx.m_bcbTargetBibBlockNumberPlaceholderIndex = UINT64_MAX;
     if (policy.m_doIntegrity) {
+        static thread_local bool printedMsg = false;
         for (FragmentSet::data_fragment_set_t::const_iterator it = policy.m_bibBlockTypeTargets.cbegin();
             it != policy.m_bibBlockTypeTargets.cend(); ++it)
         {
             const FragmentSet::data_fragment_t& df = *it;
             for (uint64_t blockType = df.beginIndex; blockType <= df.endIndex; ++blockType) {
                 bv.GetCanonicalBlocksByType(static_cast<BPV7_BLOCK_TYPE_CODE>(blockType), ctx.m_tmpBlocks);
+                
                 for (std::size_t i = 0; i < ctx.m_tmpBlocks.size(); ++i) {
                     ctx.m_bibTargetBlockNumbers.push_back(ctx.m_tmpBlocks[i]->headerPtr->m_blockNumber);
-                    LOG_DEBUG(subprocess) << "bpsec add block target integrity " << ctx.m_bibTargetBlockNumbers.back();
+                    if (!printedMsg) {
+                        LOG_DEBUG(subprocess) << "first time bpsec security source adds integrity target for block number "
+                            << ctx.m_bibTargetBlockNumbers.back()
+                            << " ..(This message type will now be suppressed.)";
+                    }
                 }
             }
         }
+        printedMsg = true;
     }
     if (policy.m_doConfidentiality) {
+        static thread_local bool printedMsg = false;
         for (FragmentSet::data_fragment_set_t::const_iterator it = policy.m_bcbBlockTypeTargets.cbegin();
             it != policy.m_bcbBlockTypeTargets.cend(); ++it)
         {
@@ -358,17 +350,24 @@ bool BpSecPolicyManager::PopulateTargetArraysForSecuritySource(BundleViewV7& bv,
                     //integrity block number is auto-assigned later
                     ctx.m_bcbTargetBibBlockNumberPlaceholderIndex = ctx.m_bcbTargetBlockNumbers.size();
                     ctx.m_bcbTargetBlockNumbers.push_back(0);
-                    LOG_DEBUG(subprocess) << "bpsec add block target confidentiality placeholder for bib";
+                    if (!printedMsg) {
+                        LOG_DEBUG(subprocess) << "first time bpsec add block target confidentiality placeholder for bib ..(This message type will now be suppressed.)";
+                    }
                 }
                 else {
                     bv.GetCanonicalBlocksByType(static_cast<BPV7_BLOCK_TYPE_CODE>(blockType), ctx.m_tmpBlocks);
                     for (std::size_t i = 0; i < ctx.m_tmpBlocks.size(); ++i) {
                         ctx.m_bcbTargetBlockNumbers.push_back(ctx.m_tmpBlocks[i]->headerPtr->m_blockNumber);
-                        LOG_DEBUG(subprocess) << "bpsec add block target confidentiality " << ctx.m_bcbTargetBlockNumbers.back();
+                        if (!printedMsg) {
+                            LOG_DEBUG(subprocess) << "first time bpsec security source adds confidentiality target for block number "
+                                << ctx.m_bcbTargetBlockNumbers.back()
+                                << " ..(This message type will now be suppressed.)";
+                        }
                     }
                 }
             }
         }
+        printedMsg = true;
     }
     return true;
 }
@@ -472,6 +471,24 @@ bool BpSecPolicyManager::ProcessOutgoingBundle(BundleViewV7& bv,
             true))
         {
             LOG_ERROR(subprocess) << "cannot encrypt bundle";
+            return false;
+        }
+    }
+    return true;
+}
+
+
+bool BpSecPolicyManager::FindPolicyAndProcessOutgoingBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx,
+    const cbhe_eid_t& thisSecuritySourceEid) const
+{
+    const Bpv7CbhePrimaryBlock& primary = bv.m_primaryBlockView.header;
+    const BpSecPolicy* bpSecPolicyPtr = FindPolicyWithCacheSupport(
+        thisSecuritySourceEid, primary.m_sourceNodeId, primary.m_destinationEid, BPSEC_ROLE::SOURCE, ctx.m_searchCacheSource);
+    if (bpSecPolicyPtr) {
+        if (!BpSecPolicyManager::PopulateTargetArraysForSecuritySource(bv, ctx, *bpSecPolicyPtr)) {
+            return false;
+        }
+        if (!BpSecPolicyManager::ProcessOutgoingBundle(bv, ctx, *bpSecPolicyPtr, thisSecuritySourceEid)) {
             return false;
         }
     }

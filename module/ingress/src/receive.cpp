@@ -139,6 +139,7 @@ private:
     InductManager m_inductManager;
     HdtnConfig m_hdtnConfig;
     cbhe_eid_t M_HDTN_EID_CUSTODY;
+    cbhe_eid_t M_HDTN_EID_SECURITY_SOURCE;
     cbhe_eid_t M_HDTN_EID_ECHO;
     cbhe_eid_t M_HDTN_EID_PING;
     cbhe_eid_t M_HDTN_EID_TO_SCHEDULER_BUNDLES;
@@ -390,6 +391,8 @@ bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConf
     //HDTN shall default m_myCustodialServiceId to 0 although it is changeable in the hdtn config json file
     M_HDTN_EID_CUSTODY.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_myCustodialServiceId);
 
+    M_HDTN_EID_SECURITY_SOURCE.Set(m_hdtnConfig.m_myNodeId, 1); //todo 1 for service id?
+
     M_HDTN_EID_ECHO.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_myBpEchoServiceId);
 
     M_HDTN_EID_PING.Set(m_hdtnConfig.m_myNodeId, MY_PING_SERVICE_ID);
@@ -529,6 +532,54 @@ bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConf
                 "1a2b1a2b1a2b1a2b1a2b1a2b1a2b1a2b"
             );
             BinaryConversions::HexStringToBytes(hmacKeyString, p->m_hmacKey);
+        }
+    }
+    { //simulate loading from policy file
+        BpSecPolicy* p = m_bpSecPolicyManager.CreateAndGetNewPolicy(
+            Uri::GetIpnUriStringAnyServiceNumber(m_hdtnConfig.m_myNodeId),
+            "ipn:1.1",
+            "ipn:2.1",
+            BPSEC_ROLE::SOURCE);
+        p->m_doConfidentiality = true;
+        if (p->m_doConfidentiality) {
+            static const std::string dataEncryptionKeyString(
+                "81776572747975696f70617364666768"
+                "71776572747975696f70617364666768"
+            );
+            BinaryConversions::HexStringToBytes(dataEncryptionKeyString, p->m_dataEncryptionKey);
+            p->m_confidentialityVariant = COSE_ALGORITHMS::A256GCM;
+            p->m_use12ByteIv = true;
+            p->m_aadScopeMask = BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET;
+            p->m_bcbCrcType = BPV7_CRC_TYPE::NONE;
+            FragmentSet::InsertFragment(p->m_bcbBlockTypeTargets,
+                FragmentSet::data_fragment_t(static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PAYLOAD),
+                    static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PAYLOAD))); //just payload block
+        }
+
+        p->m_doIntegrity = true;
+        if (p->m_doIntegrity) {
+            static const std::string hmacKeyString(
+                "8a2b1a2b1a2b1a2b1a2b1a2b1a2b1a2b"
+            );
+            BinaryConversions::HexStringToBytes(hmacKeyString, p->m_hmacKey);
+            p->m_integrityVariant = COSE_ALGORITHMS::HMAC_384_384;
+            p->m_integrityScopeMask = BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::ALL_FLAGS_SET;
+            p->m_bibCrcType = BPV7_CRC_TYPE::NONE;
+            FragmentSet::InsertFragment(p->m_bibBlockTypeTargets,
+                FragmentSet::data_fragment_t(static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PAYLOAD),
+                    static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PAYLOAD)));
+
+            //When adding a BCB to a bundle, if some (or all) of the security
+            //targets of the BCB match all of the security targets of an
+            //existing BIB, then the existing BIB MUST also be encrypted.
+            // A check that this was done shall be performed later.
+            FragmentSet::InsertFragment(p->m_bcbBlockTypeTargets,
+                FragmentSet::data_fragment_t(static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::INTEGRITY),
+                    static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::INTEGRITY))); //just payload block
+        }
+
+        if (!p->ValidateAndFinalize()) {
+            return false;
         }
     }
 #endif // DO_BPSEC_TEST
@@ -1132,12 +1183,14 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             const bool isEcho = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO));
             if (!isAdminRecordForHdtnStorage) {
 #ifdef BPSEC_SUPPORT_ENABLED
-                if (!m_bpSecPolicyManager.ProcessReceivedBundle_ThreadLocal(bv)) {
+                //process acceptor and verifier roles
+                static thread_local BpSecPolicyProcessingContext policyProcessingCtx;
+                if (!m_bpSecPolicyManager.ProcessReceivedBundle(bv, policyProcessingCtx)) {
                     return false;
                 }
 #endif // BPSEC_SUPPORT_ENABLED
                 //get previous node
-                std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+                static thread_local std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
                 bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE, blocks);
                 if (blocks.size() > 1) {
                     LOG_ERROR(subprocess) << "Process: version 7 bundle received has multiple previous node blocks";
@@ -1199,6 +1252,11 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                         return false;
                     }
                 }
+#ifdef BPSEC_SUPPORT_ENABLED
+                if (!m_bpSecPolicyManager.FindPolicyAndProcessOutgoingBundle(bv, policyProcessingCtx, M_HDTN_EID_SECURITY_SOURCE)) {
+                    return false;
+                }
+#endif // BPSEC_SUPPORT_ENABLED
                 if (isEcho) {
                     primary.m_destinationEid = primary.m_sourceNodeId;
                     finalDestEid = primary.m_sourceNodeId;
