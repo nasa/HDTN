@@ -26,6 +26,7 @@
 #if ((BOOST_VERSION >= 107000) && defined(OPENSSL_SUPPORT_ENABLED))
 # define BEAST_WEBSOCKET_SERVER_SUPPORT_SSL 1
 # define BEAST_WEBSOCKET_SERVER_HAS_STREAM_BASE 1
+#include <boost/asio/ssl.hpp>
 #endif
 
 
@@ -39,7 +40,6 @@
 #include <boost/function.hpp>
 #include "zmq.hpp"
 
-#include <boost/asio/ssl.hpp>
 #include "telem_lib_export.h"
 
 #ifndef CLASS_VISIBILITY_TELEM_LIB

@@ -232,8 +232,6 @@ uint64_t BundleStorageManagerBase::PushAllSegments(BundleStorageManagerSession_W
     }
     return totalBytesCopied;
 }
-
-
 uint64_t BundleStorageManagerBase::PopTop(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<cbhe_eid_t> & availableDestinationEids) { //0 if empty, size if entry
 
     session.catalogEntryPtr = m_bundleStorageCatalog.PopEntryFromAwaitingSend(session.custodyId, availableDestinationEids);
@@ -363,6 +361,27 @@ std::size_t BundleStorageManagerBase::TopSegment(BundleStorageManagerSession_Rea
 
     return size;
 }
+bool BundleStorageManagerBase::ReadFirstSegment(BundleStorageManagerSession_ReadFromDisk & session, catalog_entry_t * entry, std::vector<uint8_t> & buf) {
+    if(entry == NULL) {
+        return 0;
+    }
+
+    session.catalogEntryPtr = entry;
+    session.nextLogicalSegment = 0;
+    session.nextLogicalSegmentToCache = 0;
+    session.cacheReadIndex = 0;
+    session.cacheWriteIndex = 0;
+
+    // Sanity check
+    if(session.catalogEntryPtr->segmentIdChainVec.size() == 0) {
+        return false;
+    }
+
+    const uint64_t totalBytesToRead = std::min(session.catalogEntryPtr->bundleSizeBytes, BUNDLE_STORAGE_PER_SEGMENT_SIZE);
+    buf.resize(totalBytesToRead);
+    std::size_t totalBytesRead = TopSegment(session, buf.data());
+    return (totalBytesRead == totalBytesToRead);
+}
 bool BundleStorageManagerBase::ReadAllSegments(BundleStorageManagerSession_ReadFromDisk & session, std::vector<uint8_t> & buf) {
     const std::size_t numSegmentsToRead = session.catalogEntryPtr->segmentIdChainVec.size();
     const uint64_t totalBytesToRead = session.catalogEntryPtr->bundleSizeBytes;
@@ -372,6 +391,12 @@ bool BundleStorageManagerBase::ReadAllSegments(BundleStorageManagerSession_ReadF
         totalBytesRead += TopSegment(session, &buf[i*BUNDLE_STORAGE_PER_SEGMENT_SIZE]);
     }
     return (totalBytesRead == totalBytesToRead);
+}
+bool BundleStorageManagerBase::RemoveBundleFromDisk(const catalog_entry_t *catalogEntryPtr, const uint64_t custodyId) {
+    // "read" the bundle so that we can call RemoveReadBundleFromDisk
+    // don't care if this fails, that just means that it wasn't awaiting send
+    bool err = m_bundleStorageCatalog.RemoveEntryFromAwaitingSend(*catalogEntryPtr, custodyId);
+    return RemoveReadBundleFromDisk(catalogEntryPtr, custodyId);
 }
 bool BundleStorageManagerBase::RemoveReadBundleFromDisk(const uint64_t custodyId) {
     const catalog_entry_t * catalogEntryPtr = m_bundleStorageCatalog.GetEntryFromCustodyId(custodyId);
@@ -429,6 +454,9 @@ uint64_t * BundleStorageManagerBase::GetCustodyIdFromUuid(const cbhe_bundle_uuid
 }
 bool BundleStorageManagerBase::GetStorageExpiringBeforeThresholdTelemetry(StorageExpiringBeforeThresholdTelemetry_t& telem) {
     return m_bundleStorageCatalog.GetStorageExpiringBeforeThresholdTelemetry(telem);
+}
+void BundleStorageManagerBase::GetExpiredBundleIds(const uint64_t expiry, const uint64_t maxNumberToFind, std::vector<uint64_t> & returnedIds) {
+    m_bundleStorageCatalog.GetExpiredBundleIds(expiry, maxNumberToFind, returnedIds);
 }
 //uint64_t BundleStorageManagerMT::TopSegmentCount(BundleStorageManagerSession_ReadFromDisk & session) {
 //	return session.chainInfoVecPtr->front().second.size(); //use the front as new writes will be pushed back

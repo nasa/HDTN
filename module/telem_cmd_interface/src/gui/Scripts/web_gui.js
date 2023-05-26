@@ -24,7 +24,7 @@ var ingressLayout = {
     title: 'Ingress Data Rate',
     paper_bgcolor: "#404040",
     plot_bgcolor: "#404040",
-    width: 700,
+    width: 450,
     height: 450,
     xaxis: {
         title: "Timestamp (s)",
@@ -43,7 +43,7 @@ var egressLayout = {
     title: 'Egress Data Rate',
     paper_bgcolor: "#404040",
     plot_bgcolor: "#404040",
-    width: 700,
+    width: 450,
     height: 450,
     xaxis: {
         title: "Timestamp (s)",
@@ -76,56 +76,50 @@ updateElementWithCommonOutductData = (htmlElement, outductTelem) => {
     htmlElement.querySelector("#totalBundlesFailedToSend").innerHTML = totalBundlesFailedToSend.toFixed();
 }
 
-// Given a data view and a byte index, updates an HTML element with STCP specific data
-updateStcpOutduct = (outductTelem, outductPos) => {
-    // Attempt to find an existing STCP card by the outduct position
-    // If that fails, create a new one by cloning the template
-    const uniqueId = "stcpCard" + outductPos;
-    var card = document.getElementById(uniqueId);
-    if (!card) {
-        const template = document.getElementById("stcpTemplate");
+//Creates data card printing out the data from outducts
+function createOutductCard(outductTelem, outductPos) {
+    switch(outductTelem.convergenceLayer){
+        case "ltp_over_udp":{
+            var convergenceLayer = "LTP";
+            break;}
+        case "stcp":{
+            var convergenceLayer = "STCP";
+            break;}
+        case "tcpcl_v4":{
+            var convergenceLayer = "TCPCLv4";
+            break;}
+        case "tcpcl_v3":{
+            var convergenceLayer = "TCPCLv3";
+            break;}
+        case "udp":{
+            var convergenceLayer = "UDP";
+            break;}
+    }
+    const uniqueId = convergenceLayer + outductPos;
+    var card = document.getElementById(uniqueId);//searches if stats card from that outduct already exists
+    if (!card) { //Creates new card                                    
+        const template = document.getElementById("outductTemplate"); 
         card = template.cloneNode(true);
         card.id = uniqueId;
         card.classList.remove("hidden");
         template.parentNode.append(card);
+        card.querySelector("#convergenceLayer").innerHTML = convergenceLayer;
+        var displayName = "Outduct " + (outductPos + 1).toFixed();
+        card.querySelector("#cardName").innerHTML = displayName;
     }
-    const displayName = "Outduct " + (outductPos +1).toFixed();
-    card.querySelector("#cardName").innerHTML = displayName;
 
-    updateElementWithCommonOutductData(card, outductTelem)
-
-    const totalStcpBytesSent = outductTelem.totalStcpBytesSent;
-    card.querySelector("#totalStcpBytesSent").innerHTML = totalStcpBytesSent.toFixed();
-}
-
-// Given a data view and a byte index, updates an HTML element with LTP specific data
-updateLtpOutduct = (outductTelem, outductPos) => {
-    // Attempt to find an existing LTP card by the outduct position
-    // If that fails, create a new one by cloning the template
-    const uniqueId = "ltpCard" + outductPos;
-    var card = document.getElementById(uniqueId);
-    if (!card) {
-        const template = document.getElementById("ltpTemplate");
-        card = template.cloneNode(true);
-        card.id = uniqueId;
-        card.classList.remove("hidden");
-        template.parentNode.append(card);
+    var newTableData="";
+    for (var key in outductTelem) { //Loop through json printing new data
+        var newRow;
+        if (isNaN(outductTelem[key])) {
+            newRow ="<tr>" + "<td>" + key + "</td>" + "<td>" + (outductTelem[key]).toLocaleString('en') + "</td>" + "</tr>";
+        }
+        else {
+            newRow ="<tr>" + "<td>" + key + "</td>" + "<td>" + (outductTelem[key]).toLocaleString('en') + "</td>" + "</tr>";
+        }
+        newTableData += newRow;
     }
-    const displayName = "Outduct " + (outductPos + 1).toFixed();
-    card.querySelector("#cardName").innerHTML = displayName;
-
-    updateElementWithCommonOutductData(card, outductTelem)
-
-    const numCheckpointsExpired = outductTelem.numCheckpointsExpired;
-    card.querySelector("#numCheckpointsExpired").innerHTML = numCheckpointsExpired.toFixed();
-    const numDiscretionaryCheckpointsNotResent = outductTelem.numDiscretionaryCheckpointsNotResent;
-    card.querySelector("#numDiscretionaryCheckpointsNotResent").innerHTML = numDiscretionaryCheckpointsNotResent.toFixed();
-    const countUdpPacketsSent = outductTelem.countUdpPacketsSent;
-    card.querySelector("#countUdpPacketsSent").innerHTML = countUdpPacketsSent.toFixed();
-    const countRxUdpBufferOverruns = outductTelem.countRxUdpCircularBufferOverruns;
-    card.querySelector("#countRxUdpBufferOverruns").innerHTML = countRxUdpBufferOverruns.toFixed();
-    const countTxUdpPacketsLimitedByRate = outductTelem.countTxUdpPacketsLimitedByRate;
-    card.querySelector("#countTxUdpPacketsLimitedByRate").innerHTML = countTxUdpPacketsLimitedByRate.toFixed();
+    card.querySelector("#cardTableBody").innerHTML = newTableData;
 }
 
 //Launch Data Graphs
@@ -145,7 +139,7 @@ var pie_data = [{
 var pie_layout = {
     title: 'Bundle Destinations',
     height: 450,
-    width:450,
+    width: 450,
     paper_bgcolor: "#404040",
     font:{
         family: "Arial",
@@ -218,12 +212,7 @@ function InternalUpdateWithData(objJson) {
 
         // Handle any outduct data
         objJson.allOutducts.forEach(function(outductTelem, i) {
-            if(outductTelem.convergenceLayer == "stcp") {
-                updateStcpOutduct(outductTelem, i);
-            }
-            else if(outductTelem.convergenceLayer == "ltp_over_udp") {
-                updateLtpOutduct(outductTelem, i);
-            }
+            createOutductCard(outductTelem, i);
         });
     }
     else if("outductCapabilityTelemetryList" in objJson) {

@@ -115,7 +115,7 @@ void StcpBundleSink::HandleTcpReceiveIncomingBundleSize(const boost::system::err
     if (!error) {
         m_telemetry.m_totalStcpBytesReceived += bytesTransferred;
         if (m_incomingBundleSize == 0) { //keepalive (0 is endian agnostic)
-            LOG_INFO(subprocess) << "keepalive packet received";
+            LOG_DEBUG(subprocess) << "keepalive packet received";
             //StartTcpReceiveIncomingBundleSize
             boost::asio::async_read(*m_tcpSocketPtr,
                 boost::asio::buffer(&m_incomingBundleSize, sizeof(m_incomingBundleSize)),
@@ -232,7 +232,7 @@ void StcpBundleSink::HandleSocketShutdown() {
                 LOG_ERROR(subprocess) << "StcpBundleSink::HandleSocketShutdown: " << e.what();
             }
         }
-        LOG_INFO(subprocess) << "deleting TcpclBundleSink TCP Socket";
+        LOG_INFO(subprocess) << "deleting StcpBundleSink TCP Socket";
         if (m_tcpSocketPtr.use_count() != 1) {
             LOG_ERROR(subprocess) << "m_tcpSocketPtr.use_count() != 1";
         }

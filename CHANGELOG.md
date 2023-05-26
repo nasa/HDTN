@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+### Added
+
+### Changed
+
+### Removed
+
+## [1.0.0] - 2023-05-02
+
+### Fixed
+
 * Fix bug where LtpSessionReceiver::NextDataToSend used a reference (reportSegmentIt) after queue.pop().
 * Separate the LtpSessionSender data into high-priority-time-critical and low-priority-first-pass queues.  First pass data is lowest priority compared to time-critical data (e.g. report acks), so this priority separation prevents long first passes from starving and expiring the time-critical data.
 * Static analysis fix for non-throw versions of `boost::property_tree::ptree::get_child` which return a reference to a destroyed second parameter.

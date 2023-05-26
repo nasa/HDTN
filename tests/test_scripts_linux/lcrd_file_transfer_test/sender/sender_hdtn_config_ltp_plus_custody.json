@@ -40,7 +40,7 @@
                 "clientServiceId": 1,
                 "preallocatedRedDataBytes": 10000,
                 "ltpMaxRetriesPerSerialNumber": 500,
-                "ltpRandomNumberSizeBits": 64,
+                "ltpRandomNumberSizeBits": 32,
                 "ltpRemoteUdpHostname": "hdtn_receiver",
                 "ltpRemoteUdpPort": 1113,
                 "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
@@ -108,6 +108,7 @@
         "tryToRestoreFromDisk": false,
         "autoDeleteFilesOnExit": true,
         "totalStorageCapacityBytes": 81920000000,
+        "storageDeletionPolicy" : "never",
         "storageDiskConfigVector": [
             {
                 "name": "d1",

@@ -62,7 +62,10 @@ void TelemetryConnection::SendRequest(bool alwaysRequest)
             SendZmqConstBufferMessage(byteSignalBuf, false);
         }
         else if (!m_apiCallsQueue.empty()) {
-            SendZmqConstBufferMessage(byteSignalBufPlusApi, true);
+            if (!SendZmqConstBufferMessage(byteSignalBufPlusApi, true)) {
+                LOG_WARNING(subprocess) << "delaying sending API call until next interval";
+                return;
+            }
         }
         while (!m_apiCallsQueue.empty()) {
             const bool moreFlag = (m_apiCallsQueue.size() > 1);
@@ -92,12 +95,12 @@ bool TelemetryConnection::SendZmqConstBufferMessage(const zmq::const_buffer& buf
     const zmq::send_flags additionalFlags = (more) ? zmq::send_flags::sndmore : zmq::send_flags::none;
     try {
         if (!m_requestSocket->send(buffer, zmq::send_flags::dontwait | additionalFlags)) {
-            LOG_ERROR(subprocess) << "error sending zmq signal";
+            LOG_ERROR(subprocess) << "error sending zmq signal to socket " << m_addr;
             return false;
         }
     }
     catch (zmq::error_t &) {
-        LOG_INFO(subprocess) << "request already sent";
+        LOG_INFO(subprocess) << "request already sent to socket " << m_addr;
         return false;
     }
     return true;
@@ -107,12 +110,12 @@ bool TelemetryConnection::SendZmqMessage(zmq::message_t&& zmqMessage, bool more)
     const zmq::send_flags additionalFlags = (more) ? zmq::send_flags::sndmore : zmq::send_flags::none;
     try {
         if (!m_requestSocket->send(std::move(zmqMessage), zmq::send_flags::dontwait | additionalFlags)) {
-            LOG_ERROR(subprocess) << "error sending zmq message";
+            LOG_ERROR(subprocess) << "error sending zmq message to socket " << m_addr;
             return false;
         }
     }
     catch (zmq::error_t&) {
-        LOG_INFO(subprocess) << "request already sent";
+        LOG_INFO(subprocess) << "request already sent to socket " << m_addr;
         return false;
     }
     return true;

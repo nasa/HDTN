@@ -59,6 +59,7 @@ struct Ingress::Impl : private boost::noncopyable {
 
 private:
     void ReadZmqAcksThreadFunc();
+    void ZmqTelemThreadFunc();
     void SchedulerEventHandler();
     bool ProcessPaddedData(uint8_t* bundleDataBegin, std::size_t bundleCurrentSize,
         std::unique_ptr<zmq::message_t>& zmqPaddedMessageUnderlyingDataUniquePtr, padded_vector_uint8_t& paddedVecMessageUnderlyingData,
@@ -137,6 +138,7 @@ private:
     boost::posix_time::time_duration M_MAX_INGRESS_BUNDLE_WAIT_ON_EGRESS_TIME_DURATION;
 
     std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
+    std::unique_ptr<boost::thread> m_threadZmqTelemPtr;
     std::unique_ptr<boost::thread> m_threadTcpclOpportunisticBundlesFromEgressReaderPtr;
     std::vector<BundlePipelineAckingSetPtr> m_vectorBundlePipelineAckingSet; //final dest node id to set
     BundlePipelineAckingSet m_singleStorageBundlePipelineAckingSet; //non-cut-through, outduct index of UINT64_MAX
@@ -172,6 +174,16 @@ private:
     volatile bool m_workerThreadStartupInProgress;
     boost::mutex m_workerThreadStartupMutex;
     boost::condition_variable m_workerThreadStartupConditionVariable;
+
+    //for blocking until telem-thread startup
+    volatile bool m_telemThreadStartupInProgress;
+    boost::mutex m_telemThreadStartupMutex;
+    boost::condition_variable m_telemThreadStartupConditionVariable;
+
+    //for preventing telem-thread from accessing inducts until intialized
+    volatile bool m_inductsFullyLoaded;
+    boost::mutex m_inductsFullyLoadedMutex;
+    boost::condition_variable m_inductsFullyLoadedConditionVariable;
 };
 
 Ingress::Impl::BundlePipelineAckingSet::BundlePipelineAckingSet(const uint64_t paramMaxBundlesInPipeline,
@@ -285,7 +297,9 @@ Ingress::Impl::Impl() :
     m_running(false),
     m_egressFullyInitialized(false),
     m_nextBundleUniqueIdAtomic(0),
-    m_workerThreadStartupInProgress(false) {}
+    m_workerThreadStartupInProgress(false),
+    m_telemThreadStartupInProgress(false),
+    m_inductsFullyLoaded(false) {}
 
 Ingress::Ingress() :
     m_pimpl(boost::make_unique<Ingress::Impl>()),
@@ -314,6 +328,15 @@ void Ingress::Impl::Stop() {
 
     m_running = false; //thread stopping criteria
 
+    if (m_threadZmqTelemPtr) {
+        try {
+            m_threadZmqTelemPtr->join();
+            m_threadZmqTelemPtr.reset(); //delete it
+        }
+        catch (boost::thread_resource_error& e) {
+            LOG_ERROR(subprocess) << "unable to stop ingress threadZmqTelemPtr: " << e.what();
+        }
+    }
     if (m_threadZmqAckReaderPtr) {
         try {
             m_threadZmqAckReaderPtr->join();
@@ -499,6 +522,30 @@ bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConf
         //Wait until egress up and running and get the first outduct capabilities telemetry.
         //The m_threadZmqAckReaderPtr will start remaining ingress initialization once egress telemetry received for the first time
     }
+
+    { //start telem thread
+        //m_running = true; //already true
+        boost::mutex::scoped_lock telemThreadStartupLock(m_telemThreadStartupMutex);
+        m_telemThreadStartupInProgress = true;
+
+        m_threadZmqTelemPtr = boost::make_unique<boost::thread>(
+            boost::bind(&Ingress::Impl::ZmqTelemThreadFunc, this)); //create and start the telem thread
+
+        while (m_telemThreadStartupInProgress) { //lock mutex (above) before checking condition
+            //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
+            if (!m_telemThreadStartupConditionVariable.timed_wait(telemThreadStartupLock, boost::posix_time::seconds(3))) {
+                LOG_ERROR(subprocess) << "timed out waiting (for 3 seconds) for telem thread to start up";
+                break;
+            }
+        }
+        if (m_telemThreadStartupInProgress) {
+            LOG_ERROR(subprocess) << "error: telem thread took too long to start up.. exiting";
+            return false;
+        }
+        else {
+            LOG_INFO(subprocess) << "telem thread started";
+        }
+    }
     
     return true;
 }
@@ -529,13 +576,12 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
 
     ThreadNamer::SetThisThreadName("ingressZmqAckReader");
 
-    static constexpr unsigned int NUM_SOCKETS = 4;
+    static constexpr unsigned int NUM_SOCKETS = 3;
 
     zmq::pollitem_t items[NUM_SOCKETS] = {
         {m_zmqPullSock_connectingEgressToBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqPullSock_connectingStorageToBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_zmqSubSock_boundSchedulerToConnectingIngressPtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_zmqRepSock_connectingTelemToFromBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0}
+        {m_zmqSubSock_boundSchedulerToConnectingIngressPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
     std::size_t totalAcksFromEgress = 0;
     std::size_t totalAcksFromStorage = 0;
@@ -668,6 +714,10 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                                         boost::bind(&Ingress::Impl::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
 
                                     m_egressFullyInitialized = true;
+                                    m_inductsFullyLoadedMutex.lock();
+                                    m_inductsFullyLoaded = true;
+                                    m_inductsFullyLoadedMutex.unlock();
+                                    m_inductsFullyLoadedConditionVariable.notify_one();
 
                                     LOG_INFO(subprocess) << "Now running and fully initialized and connected to egress";
                                 }
@@ -697,16 +747,87 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                     ingress_shared_lock_t lockShared(m_sharedMutexFinalDestsToOutductArrayIndexMaps);
                     BundlePipelineAckingSet& bundlePipelineAckingSetObj = (receivedStorageAck.outductIndex == UINT64_MAX) ?
                         m_singleStorageBundlePipelineAckingSet : (*(m_vectorBundlePipelineAckingSet[receivedStorageAck.outductIndex]));
+                    if (receivedStorageAck.error && (receivedStorageAck.outductIndex != UINT64_MAX)) {
+                        //trigger a link down event in ingress more quickly than waiting for scheduler.
+                        //storage shall write the failed bundle to storage.
+                        if (bundlePipelineAckingSetObj.m_linkIsUp) {
+                            bundlePipelineAckingSetObj.m_linkIsUp = false; //no mutex needed as this flag is only set from ReadZmqAcksThreadFunc
+                            LOG_INFO(subprocess) << "Got a link down notification from storage for outductIndex "
+                                << receivedStorageAck.outductIndex;
+                        }
+                    }
                     if (bundlePipelineAckingSetObj.CompareAndPop_ThreadSafe(receivedStorageAck.ingressUniqueId, false)) { //false => is Storage
                         bundlePipelineAckingSetObj.NotifyAll();
                         ++totalAcksFromStorage;
+                    }
+                    else {
+                        LOG_ERROR(subprocess) << "storage ack with ingressUniqueId " << receivedStorageAck.ingressUniqueId << " not found!";
                     }
                 }
             }
             if (items[2].revents & ZMQ_POLLIN) { //events from Scheduler
                 SchedulerEventHandler();
             }
-            if (items[3].revents & ZMQ_POLLIN) { //telem requests data
+            
+        }
+    }
+    LOG_INFO(subprocess) << "totalAcksFromEgress: " << totalAcksFromEgress;
+    LOG_INFO(subprocess) << "totalAcksFromStorage: " << totalAcksFromStorage;
+    LOG_INFO(subprocess) << "m_bundleCountStorage: " << m_bundleCountStorage;
+    LOG_INFO(subprocess) << "m_bundleByteCountStorage: " << m_bundleByteCountStorage;
+    LOG_INFO(subprocess) << "m_bundleCountEgress: " << m_bundleCountEgress;
+    LOG_INFO(subprocess) << "m_bundleByteCountEgress: " << m_bundleByteCountEgress;
+    LOG_INFO(subprocess) << "bundleCount: " << (m_bundleCountStorage + m_bundleCountEgress);
+    LOG_DEBUG(subprocess) << "ReadZmqAcksThreadFunc thread exiting";
+}
+
+//keep telemetry in its own thread to prevent m_inductManager.PopulateAllInductTelemetry's mutex from
+//blocking the egress and storage acks and causing a deadlock, which is noticeable when there is a slow
+//outduct along with a TCP/STCP induct connection getting deleted
+void Ingress::Impl::ZmqTelemThreadFunc() {
+    ThreadNamer::SetThisThreadName("ingressZmqTelem");
+
+    static constexpr unsigned int NUM_SOCKETS = 1;
+
+    zmq::pollitem_t items[NUM_SOCKETS] = {
+        {m_zmqRepSock_connectingTelemToFromBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0}
+    };
+
+    static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
+
+    //notify Init function that worker thread startup is complete
+    m_telemThreadStartupMutex.lock();
+    m_telemThreadStartupInProgress = false;
+    m_telemThreadStartupMutex.unlock();
+    m_telemThreadStartupConditionVariable.notify_one();
+
+    //block until inducts are fully loaded to prevent a data race when populating telemetry
+    {
+        boost::mutex::scoped_lock inductsFullyLoadedLock(m_inductsFullyLoadedMutex);
+        while (!m_inductsFullyLoaded) { //lock mutex (above) before checking condition
+            //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
+            if (!m_inductsFullyLoadedConditionVariable.timed_wait(inductsFullyLoadedLock, boost::posix_time::seconds(20))) {
+                LOG_ERROR(subprocess) << "timed out waiting (for 20 seconds) for inducts to be fully loaded";
+                break;
+            }
+        }
+        if (!m_inductsFullyLoaded) {
+            LOG_ERROR(subprocess) << "timed out waiting for inducts to loaded. Existing telem thread";
+            return;
+        }
+    }
+
+    while (m_running) { //keep thread alive if running
+        int rc = 0;
+        try {
+            rc = zmq::poll(&items[0], NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL);
+        }
+        catch (zmq::error_t& e) {
+            LOG_ERROR(subprocess) << "caught zmq::error_t in Ingress::ReadZmqAcksThreadFunc: " << e.what();
+            continue;
+        }
+        if (rc > 0) {
+            if (items[0].revents & ZMQ_POLLIN) { //telem requests data
                 uint8_t telemMsgByte;
                 const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingTelemToFromBoundIngressPtr->recv(zmq::mutable_buffer(&telemMsgByte, sizeof(telemMsgByte)), zmq::recv_flags::dontwait);
                 if (!res) {
@@ -746,7 +867,7 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                     allInductTelem.m_bundleCountStorage = m_bundleCountStorage;
                     allInductTelem.m_bundleByteCountStorage = m_bundleByteCountStorage;
                     m_ingressToStorageZmqSocketMutex.unlock();
-                    
+
                     std::string* allInductTelemJsonStringPtr = new std::string(allInductTelem.ToJson());
                     std::string& strRef = *allInductTelemJsonStringPtr;
                     zmq::message_t zmqJsonMessage(&strRef[0], allInductTelemJsonStringPtr->size(), CustomCleanupStdString, allInductTelemJsonStringPtr);
@@ -756,16 +877,11 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                     }
                 }
             }
+
         }
+
     }
-    LOG_INFO(subprocess) << "totalAcksFromEgress: " << totalAcksFromEgress;
-    LOG_INFO(subprocess) << "totalAcksFromStorage: " << totalAcksFromStorage;
-    LOG_INFO(subprocess) << "m_bundleCountStorage: " << m_bundleCountStorage;
-    LOG_INFO(subprocess) << "m_bundleByteCountStorage: " << m_bundleByteCountStorage;
-    LOG_INFO(subprocess) << "m_bundleCountEgress: " << m_bundleCountEgress;
-    LOG_INFO(subprocess) << "m_bundleByteCountEgress: " << m_bundleByteCountEgress;
-    LOG_INFO(subprocess) << "bundleCount: " << (m_bundleCountStorage + m_bundleCountEgress);
-    LOG_DEBUG(subprocess) << "BpIngressSyscall::ReadZmqAcksThreadFunc thread exiting";
+    LOG_DEBUG(subprocess) << "ZmqTelemThreadFunc thread exiting";
 }
 
 void Ingress::Impl::ReadTcpclOpportunisticBundlesFromEgressThreadFunc() {

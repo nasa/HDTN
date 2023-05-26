@@ -114,6 +114,17 @@
         <option value="full" selected="">Full System (Centered)</option>
         <option value="native_size">Native Size (Left)</option>
     </select>
+    <label>Animation: </label>
+    <select id="idAnimationSelect">
+        <option value="250">0.25sec</option>
+        <option value="500">0.50sec</option>
+        <option value="750">0.75sec</option>
+        <option value="1000">1.00sec</option>
+        <option value="1250">1.25sec</option>
+        <option value="1500" selected="">1.50sec</option>
+        <option value="1750">1.75sec</option>
+        <option value="2000">2.00sec</option>
+    </select>
     <input type="checkbox" id="id_showBitRate" checked /><Label>Show Bit Rate</Label>
     <input type="checkbox" id="id_showBundleRate" checked /><Label>Show Bundle Rate</Label>
     <div id="mygui"></div>
@@ -125,6 +136,7 @@
     <script src="ParseHdtnConfig.js"></script>
     <script src="RectComponents.js"></script>
     <script src="WireComponents.js"></script>
+    <script src="ImageComponents.js"></script>
     <script src="StraightWire.js"></script>
     <script src="Disk.js"></script>
     <script src="ToolTip.js"></script>
@@ -265,6 +277,7 @@
         var inductsGroup = guiGroup.append("g");
         var storageGroup = guiGroup.append("g");
         var diskGroup = guiGroup.append("g");
+        var trashCanGroup = guiGroup.append("g");
         var nextHopsGroup = guiGroup.append("g");
         var finalDestsGroup = guiGroup.append("g");
         var internalHdtnWiresGroup = guiGroup.append("g");
@@ -331,15 +344,15 @@
         var INGRESS_W = 130;
         var EGRESS_X = 850;
         var EGRESS_W = 130;
-        var STORAGE_W = 120;
+        var STORAGE_W = 100;
         var INGRESS_RIGHT_X = (INGRESS_X + INGRESS_W);
         var INGRESS_EGRESS_DX = (EGRESS_X - INGRESS_RIGHT_X);
         var STORAGE_X = INGRESS_RIGHT_X + INGRESS_EGRESS_DX/2 - (STORAGE_W/2);
         var ABS_POSITION_MAP = {
             "active_induct_conns" : {"Y" : 100, "WIDTH": 300, "HEIGHT": 500},
-            "ingress" : {"X" : INGRESS_X, "Y" : 100, "WIDTH": INGRESS_W, "HEIGHT": 500},
-            "egress" : {"X" : EGRESS_X, "Y" : 100, "WIDTH": EGRESS_W, "HEIGHT": 500},
-            "storage" : {"X" : STORAGE_X, "Y" : (220), "WIDTH": STORAGE_W, "HEIGHT": 100},
+            "ingress" : {"X" : INGRESS_X, "Y" : 100, "WIDTH": INGRESS_W}, //height set later relative to bottom of trash can
+            "egress" : {"X" : EGRESS_X, "Y" : 100, "WIDTH": EGRESS_W}, //height set later relative to bottom of trash can
+            "storage" : {"X" : STORAGE_X, "Y" : (220), "WIDTH": STORAGE_W, "HEIGHT": 50},
             "next_hops" : {"Y" : 100, "WIDTH": 100, "HEIGHT": 500},
             "final_dests" : {"Y" : 100, "WIDTH": 100, "HEIGHT": 500}
         };
@@ -439,19 +452,30 @@
         var wiresComponent = WireComponents(wiresComponentGroup, "wires_group", arrowMarker, speedUpperLimitBps);
 
         var myDisk = Disk(diskGroup,
-                                ABS_POSITION_MAP.storage.X + ABS_POSITION_MAP.storage.WIDTH/2,
-                                ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT + 250,
-                                80,
-                                10,
-                                100,
-                                "Disk");
+            ABS_POSITION_MAP.storage.X + ABS_POSITION_MAP.storage.WIDTH/2,
+            ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT + 250,
+            80,
+            10,
+            100,
+            "Disk");
+        var myTrashCan = ImageComponents(trashCanGroup,
+            ABS_POSITION_MAP.storage.X,
+            myDisk.GetWirePos("bottom").y + 140,
+            ABS_POSITION_MAP.storage.WIDTH,
+            ABS_POSITION_MAP.storage.WIDTH,
+            "garbage_can.svg");
+
+        ABS_POSITION_MAP.ingress.HEIGHT = myTrashCan.GetWirePos("bottom").y - ABS_POSITION_MAP.ingress.Y;
+        ABS_POSITION_MAP.egress.HEIGHT = myTrashCan.GetWirePos("bottom").y - ABS_POSITION_MAP.egress.Y;
+
         var SYSTEM_OUTLINE_MARGIN_X = 0;
-        var SYSTEM_OUTLINE_MARGIN_Y = 50;
+        var SYSTEM_OUTLINE_MARGIN_Y_TOP = 50;
+        var SYSTEM_OUTLINE_MARGIN_Y_BOTTOM = 10;
         var myOutline = SystemOutline(systemOutlineGroup,
                                 ABS_POSITION_MAP.ingress.X - SYSTEM_OUTLINE_MARGIN_X,
-                                ABS_POSITION_MAP.ingress.Y - SYSTEM_OUTLINE_MARGIN_Y,
+                                ABS_POSITION_MAP.ingress.Y - SYSTEM_OUTLINE_MARGIN_Y_TOP,
                                 (2 * SYSTEM_OUTLINE_MARGIN_X) + ABS_POSITION_MAP.egress.X + ABS_POSITION_MAP.egress.WIDTH - ABS_POSITION_MAP.ingress.X,
-                                (2 * SYSTEM_OUTLINE_MARGIN_Y) + myDisk.GetWirePos("bottom").y - ABS_POSITION_MAP.ingress.Y,
+                                (SYSTEM_OUTLINE_MARGIN_Y_TOP + SYSTEM_OUTLINE_MARGIN_Y_BOTTOM) + ABS_POSITION_MAP.ingress.HEIGHT,
                                 "HDTN");
 
 
@@ -474,6 +498,9 @@
         var myWireDiskToStorage = StraightWire(internalHdtnWiresGroup, 90, speedUpperLimitBps,
             myDisk.GetWirePos("top").x + diskWireSepFromMiddlePx, myDisk.GetWirePos("top").y,
             myDisk.GetWirePos("top").x + diskWireSepFromMiddlePx, ABS_POSITION_MAP.storage.Y + ABS_POSITION_MAP.storage.HEIGHT);
+        var myWireDiskToTrash = StraightWire(internalHdtnWiresGroup, 90, speedUpperLimitBps,
+            myDisk.GetWirePos("bottom").x, myDisk.GetWirePos("bottom").y + 10,
+            myTrashCan.GetWirePos("top").x, myTrashCan.GetWirePos("top").y);
 
 
         function GetNodeNumFromIpnString(ipnStr) {
@@ -558,7 +585,10 @@
             }
         }
         function Update(redrawObj, delayMs) {
-            if (typeof delayMs === 'undefined') delayMs = 2000;
+            if (typeof delayMs === 'undefined') {
+                delayMs = parseInt(document.getElementById('idAnimationSelect')
+                    .options[document.getElementById('idAnimationSelect').selectedIndex].value); //2000;
+            }
 
             inTransition = true;
 
@@ -681,6 +711,9 @@
                 myWireDiskToStorage.SetSpeeds(hdtnConfig["diskToStorageRateBitsPerSec"],
                     hdtnConfig["diskToStorageRateBitsPerSecHumanReadable"],
                     hdtnConfig["diskToStorageRateBundlesPerSecHumanReadable"]);
+                myWireDiskToTrash.SetSpeeds(hdtnConfig["diskEraseRateBitsPerSec"],
+                    hdtnConfig["diskEraseRateBitsPerSecHumanReadable"],
+                    hdtnConfig["diskEraseRateBundlesPerSecHumanReadable"]);
                 myWireStorageToEgress.SetSpeeds(hdtnConfig["storageToEgressRateBitsPerSec"],
                     hdtnConfig["storageToEgressRateBitsPerSecHumanReadable"],
                     hdtnConfig["storageToEgressRateBundlesPerSecHumanReadable"]);

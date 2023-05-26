@@ -831,11 +831,20 @@ void Egress::Impl::OnFailedBundleZmqSendCallback(zmq::message_t& movableBundle, 
             //This will allow storage to trigger a link down event more quickly than waiting for scheduler.
             //Since storage already has the bundle, the error flag will prevent deletion and move the bundle back to the "awaiting send" state,
             //but the bundle won't be immediately released again from storage because of the immediate link down event.
+            //IF isResponseToStorageCutThrough is set, then storage needs the bundle back in a multipart message, otherwise, storage already has the bundle.
+            const bool needsBundleBack = egressAckPtr->isResponseToStorageCutThrough;
             boost::mutex::scoped_lock lock(m_mutex_zmqPushSock_boundEgressToConnectingStorage);
-            if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(std::move(zmqUserDataMessageWithDataStolen), zmq::send_flags::dontwait)) {
+            if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(std::move(zmqUserDataMessageWithDataStolen),
+                zmq::send_flags::dontwait | ((needsBundleBack) ? zmq::send_flags::sndmore : zmq::send_flags::none)))
+            {
                 LOG_ERROR(subprocess) << "m_zmqPushSock_boundEgressToConnectingStoragePtr could not send";
             }
-            ++m_totalCustodyTransfersSentToStorage;
+            else if (needsBundleBack && (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(std::move(movableBundle), zmq::send_flags::dontwait))) {
+                LOG_ERROR(subprocess) << "m_zmqPushSock_boundEgressToConnectingStoragePtr could not send bundle";
+            }
+            else {
+                ++m_totalCustodyTransfersSentToStorage;
+            }
         }
     }
 }

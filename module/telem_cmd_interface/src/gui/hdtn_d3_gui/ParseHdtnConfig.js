@@ -24,6 +24,7 @@ function formatHumanReadable(num, decimals, unitStr, thousand) {
        dm = decimals <= 0 ? 0 : decimals || 2,
        sizes = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'],
        i = Math.floor(Math.log(num) / Math.log(k));
+   i = Math.max(i, 0); //prevent i from going negative
    return ((num / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i] + unitStr;
 }
 function ObjToTooltipText(obj) {
@@ -55,7 +56,10 @@ function UpdateStorageTelemetry(paramHdtnConfig, paramStorageTelem) {
             "totalBundleBytesSentToEgressFromStorage": 0,
             //storage to disk wire
             "totalBundleWriteOperationsToDisk": 0,
-            "totalBundleByteWriteOperationsToDisk": 0
+            "totalBundleByteWriteOperationsToDisk": 0,
+            //disk erase (to trash)
+            "totalBundleEraseOperationsFromDisk": 0,
+            "totalBundleByteEraseOperationsFromDisk": 0
         };
     }
     let lastT = paramHdtnConfig["lastStorageTelemetry"];
@@ -73,13 +77,18 @@ function UpdateStorageTelemetry(paramHdtnConfig, paramStorageTelem) {
             + paramStorageTelem.totalBundleBytesSentToEgressFromStorageForwardCutThrough,
         //storage to disk wire
         "totalBundleWriteOperationsToDisk": paramStorageTelem.totalBundleWriteOperationsToDisk,
-        "totalBundleByteWriteOperationsToDisk": paramStorageTelem.totalBundleByteWriteOperationsToDisk
+        "totalBundleByteWriteOperationsToDisk": paramStorageTelem.totalBundleByteWriteOperationsToDisk,
+        //disk erase (to trash)
+        "totalBundleEraseOperationsFromDisk": paramStorageTelem.totalBundleEraseOperationsFromDisk,
+        "totalBundleByteEraseOperationsFromDisk": paramStorageTelem.totalBundleByteEraseOperationsFromDisk
     };
     if(deltaTimestampMilliseconds > 1) {
         paramHdtnConfig["storageToDiskRateBitsPerSec"] = (currT["totalBundleByteWriteOperationsToDisk"] - lastT["totalBundleByteWriteOperationsToDisk"]) * 8000.0 / deltaTimestampMilliseconds;
         paramHdtnConfig["storageToDiskRateBundlesPerSec"] = (currT["totalBundleWriteOperationsToDisk"] - lastT["totalBundleWriteOperationsToDisk"]) * 1000.0 / deltaTimestampMilliseconds;
         paramHdtnConfig["diskToStorageRateBitsPerSec"] = (currT["totalBundleBytesSentToEgressFromStorageReadFromDisk"] - lastT["totalBundleBytesSentToEgressFromStorageReadFromDisk"]) * 8000.0 / deltaTimestampMilliseconds;
         paramHdtnConfig["diskToStorageRateBundlesPerSec"] = (currT["totalBundlesSentToEgressFromStorageReadFromDisk"] - lastT["totalBundlesSentToEgressFromStorageReadFromDisk"]) * 1000.0 / deltaTimestampMilliseconds;
+        paramHdtnConfig["diskEraseRateBitsPerSec"] = (currT["totalBundleByteEraseOperationsFromDisk"] - lastT["totalBundleByteEraseOperationsFromDisk"]) * 8000.0 / deltaTimestampMilliseconds;
+        paramHdtnConfig["diskEraseRateBundlesPerSec"] = (currT["totalBundleEraseOperationsFromDisk"] - lastT["totalBundleEraseOperationsFromDisk"]) * 1000.0 / deltaTimestampMilliseconds;
         paramHdtnConfig["storageToEgressRateBitsPerSec"] = (currT["totalBundleBytesSentToEgressFromStorage"] - lastT["totalBundleBytesSentToEgressFromStorage"]) * 8000.0 / deltaTimestampMilliseconds;
         paramHdtnConfig["storageToEgressRateBundlesPerSec"] = (currT["totalBundlesSentToEgressFromStorage"] - lastT["totalBundlesSentToEgressFromStorage"]) * 1000.0 / deltaTimestampMilliseconds;
     }
@@ -88,6 +97,8 @@ function UpdateStorageTelemetry(paramHdtnConfig, paramStorageTelem) {
         paramHdtnConfig["storageToDiskRateBundlesPerSec"] = 0;
         paramHdtnConfig["diskToStorageRateBitsPerSec"] = 0;
         paramHdtnConfig["diskToStorageRateBundlesPerSec"] = 0;
+        paramHdtnConfig["diskEraseRateBitsPerSec"] = 0;
+        paramHdtnConfig["diskEraseRateBundlesPerSec"] = 0;
         paramHdtnConfig["storageToEgressRateBitsPerSec"] = 0;
         paramHdtnConfig["storageToEgressRateBundlesPerSec"] = 0;
     }
@@ -95,6 +106,8 @@ function UpdateStorageTelemetry(paramHdtnConfig, paramStorageTelem) {
     paramHdtnConfig["storageToDiskRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToDiskRateBundlesPerSec"], paramHdtnConfig["numDecimals"], 'Bun/s', 1000);
     paramHdtnConfig["diskToStorageRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["diskToStorageRateBitsPerSec"], paramHdtnConfig["numDecimals"], 'bit/s', 1000);
     paramHdtnConfig["diskToStorageRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["diskToStorageRateBundlesPerSec"], paramHdtnConfig["numDecimals"], 'Bun/s', 1000);
+    paramHdtnConfig["diskEraseRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["diskEraseRateBitsPerSec"], paramHdtnConfig["numDecimals"], 'bit/s', 1000);
+    paramHdtnConfig["diskEraseRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["diskEraseRateBundlesPerSec"], paramHdtnConfig["numDecimals"], 'Bun/s', 1000);
     paramHdtnConfig["storageToEgressRateBitsPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToEgressRateBitsPerSec"], paramHdtnConfig["numDecimals"], 'bit/s', 1000);
     paramHdtnConfig["storageToEgressRateBundlesPerSecHumanReadable"] = formatHumanReadable(paramHdtnConfig["storageToEgressRateBundlesPerSec"], paramHdtnConfig["numDecimals"], 'Bun/s', 1000);
 
