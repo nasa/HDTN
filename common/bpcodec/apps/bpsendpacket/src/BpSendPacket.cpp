@@ -3,10 +3,16 @@
 #include "app_patterns/BpSinkPattern.h"
 #include "BpSendPacket.h"
 
-bool BpSendPacket::Init(InductsConfig_ptr & inductsConfigPtr, const cbhe_eid_t & myEid, const uint64_t maxBundleSizeBytes) {
+BpSendPacket::BpSendPacket(const uint64_t maxBundleSizeBytes)
+    : BpSourcePattern(),
+      m_maxBundleSizeBytes(maxBundleSizeBytes)
+{
+}
+
+bool BpSendPacket::Init(InductsConfig_ptr & inductsConfigPtr, const cbhe_eid_t & myEid) {
     m_packetInductManager.LoadInductsFromConfig(
         boost::bind(&BpSendPacket::ProcessPacketCallback, this, boost::placeholders::_1),
-        *inductsConfigPtr, myEid.nodeId, UINT16_MAX, maxBundleSizeBytes,
+        *inductsConfigPtr, myEid.nodeId, UINT16_MAX, m_maxBundleSizeBytes,
         boost::bind(&BpSendPacket::NullCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
         boost::bind(&BpSendPacket::NullCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
     return true;
