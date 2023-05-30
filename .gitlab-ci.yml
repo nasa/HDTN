@@ -56,10 +56,6 @@ build-extra-options:
   - linux-x86
   image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
   script:
-    - mkdir -p external
-    - cp -r /home/civetweb/include external/include
-    - mkdir -p external/lib
-    - cp /home/civetweb/libcivetweb.a external/lib
     - mkdir -p build
     - cmake -S . -B build -DUSE_WEB_INTERFACE:BOOL=OFF -DDO_STATS_LOGGING=ON -DENABLE_OPENSSL_SUPPORT=OFF -DENABLE_BPSEC=OFF
     - make -C build/ -j8
