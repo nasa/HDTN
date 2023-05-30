@@ -171,6 +171,7 @@ public:
         zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
 
 private:
+    boost::property_tree::ptree FilterContactsPropertyTree(const boost::property_tree::ptree &contactPlanPt);
     bool ProcessContacts(const boost::property_tree::ptree & pt);
     bool ProcessContactsJsonText(char* jsonText);
     bool ProcessContactsJsonText(const std::string& jsonText);
@@ -954,6 +955,30 @@ uint64_t Router::GetRateBpsFromPtree(const boost::property_tree::ptree::value_ty
     return 0;
 }
 
+boost::property_tree::ptree Router::Impl::FilterContactsPropertyTree(const boost::property_tree::ptree &contactPlanPt) {
+    static const boost::property_tree::ptree EMPTY_PTREE;
+
+    boost::property_tree::ptree pt = contactPlanPt;
+
+    auto it = pt.begin();
+    while(it != pt.end()) {
+        uint64_t src  = it->second.get<int>("source", 0);
+        uint64_t dest = it->second.get<int>("dest", 0);
+        auto prevIt = it;
+        it++;
+
+        if(src == m_hdtnConfig.m_myNodeId) {
+            std::map<uint64_t, uint64_t>::const_iterator mapIt = m_mapNextHopNodeIdToOutductArrayIndex.find(dest);
+            if (mapIt == m_mapNextHopNodeIdToOutductArrayIndex.cend()) {
+                LOG_WARNING(subprocess) << "deleting routing contact with src: " << src << " dest: " << dest  << " : " << " no outduct with next hop";
+                pt.erase(prevIt);
+            }
+        }
+    }
+
+    return pt;
+}
+
 //must only be run from ioService thread because maps unprotected (no mutex)
 bool Router::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
 
@@ -1036,9 +1061,9 @@ bool Router::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
     }
 
     // Contacts for routing
-    //TODO filter out contacts with our node as the source and with a next hop that's not associated
-    //with one of our outducts
-    m_cgrContacts = cgr::cp_load(contactsPt);
+    // Ensure we don't include contacts with our node ID and a next hop that's not in our outducts
+    const boost::property_tree::ptree filteredPtree = FilterContactsPropertyTree(contactsPt);
+    m_cgrContacts = cgr::cp_load(filteredPtree);
 
     LOG_INFO(subprocess) << "Epoch Time:  " << m_epoch;
 
@@ -1172,7 +1197,7 @@ void Router::Impl::PopulateMapsFromAllOutductCapabilitiesTelemetry(const AllOutd
  * If link went up physically and there's an active contact for the link,
  * then send out a link up message
  * If the link wend down physically and there's an active contact for the link,
- * then send out a link down message 
+ * then send out a link down message
  * */
 void Router::Impl::HandlePhysicalLinkStatusChange(const hdtn::LinkStatusHdr& linkStatusHdr) {
     const bool eventLinkIsUpPhysically = (linkStatusHdr.event == 1);
@@ -1243,17 +1268,17 @@ void Router::Impl::DumpRoutes(std::string label) {
         LOG_INFO(subprocess) << "    m_routes[" << kv.first << "] = " << routeToStr(kv.second);
     }
     for(const auto& kv : m_mapOutductArrayIndexToOutductInfo) {
-       LOG_INFO(subprocess) << "  Outduct " << kv.first << ":"; 
+       LOG_INFO(subprocess) << "  Outduct " << kv.first << ":";
        uint64_t nextHop = kv.second.nextHopNodeId;
        for(const auto& dest : kv.second.finalDestNodeIds) {
-           LOG_INFO(subprocess) << "    " << dest << " -> " << routeToStr(nextHop); 
+           LOG_INFO(subprocess) << "    " << dest << " -> " << routeToStr(nextHop);
        }
     }
 
     LOG_INFO(subprocess) << "  Outduct States: ";
     for(const auto& kv : m_mapOutductArrayIndexToOutductInfo) {
        LOG_INFO(subprocess) << "    Outduct " << kv.first << ":"
-                            << " up-physical=" << kv.second.linkIsUpPhysical 
+                            << " up-physical=" << kv.second.linkIsUpPhysical
                             << " up-schedule=" << kv.second.linkIsUpTimeBased
                             << " next-hop=" << kv.second.nextHopNodeId;
     }
