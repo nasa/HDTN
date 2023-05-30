@@ -1068,7 +1068,8 @@ bool Router::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
     LOG_INFO(subprocess) << "Epoch Time:  " << m_epoch;
 
     // Clear any static routes in outducts
-    // TODO only do this the first time?
+    // TODO if we remove the static routes in the outduct config,
+    // then we can get rid of this
     for(std::unordered_map<uint64_t, uint64_t>::iterator it = m_routes.begin();
             it != m_routes.end(); it++) {
         SendRouteUpdate(NOROUTE, it->first);
@@ -1260,7 +1261,7 @@ void Router::Impl::SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNod
     }
 }
 
-//FIXME Debugging only; get rid of this before merge
+//TODO FIXME Debugging only; get rid of this before merge
 void Router::Impl::DumpRoutes(std::string label) {
     LOG_INFO(subprocess) << "Dumping routes " << label << ":";
     LOG_INFO(subprocess) << "  All Routes: ";
@@ -1412,8 +1413,6 @@ void Router::Impl::ComputeAllRoutes(uint64_t sourceNode) {
         uint64_t origNextHop = it->second;
         uint64_t newNextHop = ComputeOptimalRoute(sourceNode, finalDest);
 
-        // TODO make sure the new next hop is associated with an outduct
-
         if (newNextHop == origNextHop) {
             /*DEBUG*/LOG_INFO(subprocess) << "Skipping Computed next hop: " << routeToStr(newNextHop)
                                   << " for final Destination " << finalDest << " because the next hops didn't change.";
@@ -1452,8 +1451,6 @@ void Router::Impl::ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint
     while(destIt!= info.finalDestNodeIds.end()) {
         const uint64_t finalDest = *destIt;
         ++destIt;
-
-        // TODO make sure the new next hop is associated with an outduct
 
         uint64_t newNextHop = ComputeOptimalRoute(sourceNode, finalDest);
 
