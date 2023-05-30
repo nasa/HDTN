@@ -59,6 +59,8 @@
 
 namespace hdtn {
 
+static const std::string SEND_POLICY = "PRIORITY";
+
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::ingress;
 static constexpr uint64_t STORAGE_MAX_BUNDLES_IN_PIPELINE = 5;//"zmq-path-to-storage" up to zmqMaxMessageSizeBytes or 5 bundles,
 static constexpr uint64_t MY_PING_SERVICE_ID = 1;
@@ -1415,8 +1417,10 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             isBpVersion6 && canBeFragmented &&
             (payloadSize >  m_hdtnConfig.m_fragmentBundlesLargerThanBytes));
     bool sentDataOnOpportunisticLink = false;
-    const bool trySendOpportunistic = isOpportunisticLinkUp && (bundleCameFromStorageModule || !(requestsCustody || isAdminRecordForHdtnStorage || needsFragmenting));
-    if (trySendOpportunistic) {
+    bool trySendOnOpportunisticLink = isOpportunisticLinkUp &&
+                                      (bundleCameFromStorageModule || !(requestsCustody || isAdminRecordForHdtnStorage || needsFragmenting)) &&
+                                      (SEND_POLICY != "PRIORITY");
+    if (trySendOnOpportunisticLink) {
         if (tcpclInductIterator->second->ForwardOnOpportunisticLink(finalDestEid.nodeId, *zmqMessageToSendUniquePtr, 3)) { //thread safe forward with 3 second timeout
             sentDataOnOpportunisticLink = true;
         }
@@ -1484,11 +1488,12 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                 useStorage = !shouldTryToUseCustThrough;
 
                 if (shouldTryToUseCustThrough) { //type egress cut through ("while loop" instead of "if statement" to support breaking to storage)
-                    bool reservedEgressPipelineAvailability;
+                    bool reservedEgressPipelineAvailability = false;
+                    const bool shouldCheckEgress = SEND_POLICY != "PRIORITY";
                     static const boost::posix_time::time_duration noDuration = boost::posix_time::seconds(0);
                     const boost::posix_time::time_duration& cutThroughTimeoutRef = (m_hdtnConfig.m_bufferRxToStorageOnLinkUpSaturation)
                         ? noDuration : M_MAX_INGRESS_BUNDLE_WAIT_ON_EGRESS_TIME_DURATION;
-                    const bool foundACutThroughPath = bundleCutThroughPipelineAckingSetObj.WaitForPipelineAvailabilityAndReserve(true, true,
+                    const bool foundACutThroughPath = bundleCutThroughPipelineAckingSetObj.WaitForPipelineAvailabilityAndReserve(shouldCheckEgress, true,
                         cutThroughTimeoutRef, fromIngressUniqueId, zmqMessageToSendUniquePtr->size(),
                         reservedEgressPipelineAvailability, reservedStorageCutThroughPipelineAvailability);
                     if (foundACutThroughPath) {
