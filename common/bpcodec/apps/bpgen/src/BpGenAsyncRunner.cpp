@@ -40,7 +40,7 @@ static void DurationEndedThreadFunction(const boost::system::error_code& e, vola
     *running = false;
 }
 
-BpGenAsyncRunner::BpGenAsyncRunner() {}
+BpGenAsyncRunner::BpGenAsyncRunner(): m_totalBundlesAcked(0), m_runningFromSigHandler(false) {}
 BpGenAsyncRunner::~BpGenAsyncRunner() {}
 
 

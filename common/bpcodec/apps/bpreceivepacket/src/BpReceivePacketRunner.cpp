@@ -143,13 +143,13 @@ bool BpReceivePacketRunner::Run(int argc, const char* const argv[], volatile boo
             sigHandler.Start(false);
         }
         LOG_INFO(subprocess) << "Up and running";
+
         while (running && m_runningFromSigHandler) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
             if (useSignalHandler) {
                 sigHandler.PollOnce();
             }
         }
-
 
         LOG_INFO(subprocess) << "Exiting cleanly..";
         bpReceivePacket.Stop();

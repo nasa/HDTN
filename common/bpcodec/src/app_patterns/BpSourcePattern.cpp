@@ -43,9 +43,7 @@ static void CustomCleanupPaddedVecUint8(void* data, void* hint) {
     delete static_cast<padded_vector_uint8_t*>(hint);
 }
 
-BpSourcePattern::BpSourcePattern() : m_running(false) {
-
-}
+BpSourcePattern::BpSourcePattern() : m_running(false), m_bundleCount(0) {}
 
 BpSourcePattern::~BpSourcePattern() {
     Stop();

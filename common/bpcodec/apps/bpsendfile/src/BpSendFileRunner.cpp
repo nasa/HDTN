@@ -27,10 +27,8 @@ void BpSendFileRunner::MonitorExitKeypressThreadFunction() {
     m_runningFromSigHandler = false; //do this first
 }
 
+BpSendFileRunner::BpSendFileRunner(): m_totalBundlesAcked(0), m_runningFromSigHandler(false) {}
 
-
-
-BpSendFileRunner::BpSendFileRunner() {}
 BpSendFileRunner::~BpSendFileRunner() {}
 
 
