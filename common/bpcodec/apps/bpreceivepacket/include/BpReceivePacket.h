@@ -1,6 +1,7 @@
 /**
  * @file BpSendFile.h
- * @author  Timothy Recker <tjr@berkeley.edu>
+ * @author Timothy Recker University of California Berkeley
+ * @author Nadia Kortas <nadia.kortas@nasa.gov>
  *
  * @copyright Copyright © 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
@@ -30,7 +31,8 @@ class BpReceivePacket : public BpSinkPattern {
 public:
     BpReceivePacket();
     virtual ~BpReceivePacket() override;
-    bool socketInit(OutductsConfig_ptr & outductsConfigPtr, const cbhe_eid_t & myEid, const uint64_t maxBundleSizeBytes);
+    bool socketInit(OutductsConfig_ptr & outductsConfigPtr, const cbhe_eid_t & myEid, 
+		    const uint64_t maxBundleSizeBytes);
 protected:
     virtual bool ProcessPayload(const uint8_t * data, const uint64_t size) override;
 private:
