@@ -56,10 +56,6 @@ build-extra-options:
   - linux-x86
   image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
   script:
-    - mkdir -p external
-    - cp -r /home/civetweb/include external/include
-    - mkdir -p external/lib
-    - cp /home/civetweb/libcivetweb.a external/lib
     - mkdir -p build
     - cmake -S . -B build -DUSE_WEB_INTERFACE:BOOL=OFF -DDO_STATS_LOGGING=ON -DENABLE_OPENSSL_SUPPORT=OFF -DENABLE_BPSEC=OFF
     - make -C build/ -j8
@@ -140,7 +136,7 @@ static-analysis-legacy:
   script:
     - git fetch
     - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
-    - export files_to_scan=$(git diff --name-only origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME | grep '\.cpp')
+    - export files_to_scan=$(git diff --diff-filter=d --name-only origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME | grep '\.cpp')
     - if [ "$files_to_scan" != "" ]; then cov-run-desktop --dir build/idir --url $COV_BUILD_SERVER --auth-key-file /home/hdtn/ci-auth.key --stream HDTN-master --exit1-if-defects true --ignore-uncapturable-inputs true --present-in-reference true --all --enable-constraint-fpp --enable-fnptr --enable-virtual $files_to_scan; else echo "No files to scan"; fi
 
 # Static Analysis New defects  
@@ -155,5 +151,5 @@ static-analysis-new:
   script:
     - git fetch
     - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
-    - export files_to_scan=$(git diff --name-only origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME | grep '\.cpp')
+    - export files_to_scan=$(git diff --diff-filter=d --name-only origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME | grep '\.cpp')
     - if [ "$files_to_scan" != "" ]; then cov-run-desktop --dir build/idir --url $COV_BUILD_SERVER --auth-key-file /home/hdtn/ci-auth.key --stream HDTN-master --exit1-if-defects true --ignore-uncapturable-inputs true --present-in-reference false --all --enable-constraint-fpp --enable-fnptr --enable-virtual $files_to_scan; else echo "No files to scan"; fi
