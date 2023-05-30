@@ -39,7 +39,8 @@ bool BpSendPacketRunner::Run(int argc, const char* const argv[], volatile bool &
         unsigned int recurseDirectoriesDepth;
         uint64_t bundleLifetimeMilliseconds;
         uint64_t bundlePriority;
-        
+        boost::filesystem::path bpSecConfigFilePath;
+
         boost::program_options::options_description desc("Allowed options");
         try {
             desc.add_options()
@@ -49,7 +50,8 @@ bool BpSendPacketRunner::Run(int argc, const char* const argv[], volatile bool &
                 ("dest-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:2.1"), "BpGen sends to this final destination Eid.")
                 ("my-custodian-service-id", boost::program_options::value<uint64_t>()->default_value(0), "Custodian service ID is always 0.")
                 ("outducts-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "Outducts Configuration File.")
-                ("custody-transfer-inducts-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "Inducts Configuration File for custody transfer (use custody if present).")
+                 ("bpsec-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "BpSec Configuration File.")
+		("custody-transfer-inducts-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "Inducts Configuration File for custody transfer (use custody if present).")
                 ("packet-inducts-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "Inducts Configuration File for receiving packets.")
                 ("custody-transfer-use-acs", "Custody transfer should use Aggregate Custody Signals instead of RFC5050.")
                 ("force-disable-custody", "Custody transfer turned off regardless of link bidirectionality.")
@@ -80,6 +82,8 @@ bool BpSendPacketRunner::Run(int argc, const char* const argv[], volatile bool &
                 LOG_ERROR(subprocess) << "error: bad bpsink uri string: " << myFinalDestUriEid;
                 return false;
             }
+
+	    bpSecConfigFilePath = vm["bpsec-config-file"].as<boost::filesystem::path>();
 
             // create induct for receiving packets/payloads
             const boost::filesystem::path packetInductsConfigFileName = vm["packet-inducts-config-file"].as<boost::filesystem::path>();
@@ -163,7 +167,8 @@ bool BpSendPacketRunner::Run(int argc, const char* const argv[], volatile bool &
         bpSendPacket.Start(
             outductsConfigPtr,
             inductsConfigPtr,
-            custodyTransferUseAcs,
+            bpSecConfigFilePath,
+	    custodyTransferUseAcs,
             myEid,
             0,
             finalDestEid,

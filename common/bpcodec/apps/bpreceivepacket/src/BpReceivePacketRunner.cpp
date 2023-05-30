@@ -45,6 +45,7 @@ bool BpReceivePacketRunner::Run(int argc, const char* const argv[], volatile boo
         cbhe_eid_t myEid;
         bool isAcsAware;
         uint64_t maxBundleSizeBytes;
+	boost::filesystem::path bpSecConfigFilePath;
 
         boost::program_options::options_description desc("Allowed options");
         try {
@@ -55,6 +56,7 @@ bool BpReceivePacketRunner::Run(int argc, const char* const argv[], volatile boo
                 ("custody-transfer-outducts-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "Outducts Configuration File for custody transfer (use custody if present).")
                 ("packet-outducts-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "Packet Outducts Configuration File.")
                 ("acs-aware-bundle-agent", "Custody transfer should support Aggregate Custody Signals if valid CTEB present.")
+		("bpsec-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "BpSec Configuration File.")
                 ("max-rx-bundle-size-bytes", boost::program_options::value<uint64_t>()->default_value(10000000), "Max bundle size bytes to receive (default=10MB).")
                 ;
 
@@ -135,7 +137,8 @@ bool BpReceivePacketRunner::Run(int argc, const char* const argv[], volatile boo
 
         LOG_INFO(subprocess) << "starting..";
         BpReceivePacket bpReceivePacket;
-        bpReceivePacket.Init(inductsConfigPtr, outductsConfigPtr, isAcsAware, myEid, 0, maxBundleSizeBytes);
+        bpReceivePacket.Init(inductsConfigPtr, outductsConfigPtr, bpSecConfigFilePath,
+		             isAcsAware, myEid, 0, maxBundleSizeBytes);
         bpReceivePacket.socketInit(packetOutductsConfigPtr, myEid, maxBundleSizeBytes);
 
 
@@ -143,13 +146,13 @@ bool BpReceivePacketRunner::Run(int argc, const char* const argv[], volatile boo
             sigHandler.Start(false);
         }
         LOG_INFO(subprocess) << "Up and running";
+
         while (running && m_runningFromSigHandler) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
             if (useSignalHandler) {
                 sigHandler.PollOnce();
             }
         }
-
 
         LOG_INFO(subprocess) << "Exiting cleanly..";
         bpReceivePacket.Stop();
