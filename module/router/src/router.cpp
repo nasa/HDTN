@@ -591,7 +591,9 @@ void Router::Impl::EgressEventsHandler() {
 
 
     if (linkStatusHdr.base.type == HDTN_MSGTYPE_LINKSTATUS) {
-        //TODO we need the first outduct capabilities message before we can really handle this
+        if(!m_receivedInitialOutductTelem) {
+            LOG_ERROR(subprocess) << "Received link state change before initial outduct telem; link state tracking may break";
+        }
         boost::asio::post(m_ioService, boost::bind(&Router::Impl::HandlePhysicalLinkStatusChange, this, linkStatusHdr));
 
     }
