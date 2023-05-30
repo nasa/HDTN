@@ -1,6 +1,7 @@
 /**
  * @file BpReceivePacketRunner.h
- * @author  Timothy Recker <tjr@berkeley.edu>
+ * @author Timothy Recker University of California Berkeley
+ * @author Nadia Kortas <nadia.kortas@nasa.gov>
  *
  * @copyright Copyright © 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
@@ -31,7 +32,8 @@ class BpReceivePacketRunner {
 public:
     BpReceivePacketRunner();
     ~BpReceivePacketRunner();
-    bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
+    bool Run(int argc, const char* const argv[],
+             volatile bool & running, bool useSignalHandler);
     uint64_t m_totalBytesRx;
 
 private:
@@ -39,6 +41,5 @@ private:
 
     volatile bool m_runningFromSigHandler;
 };
-
 
 #endif //_BP_RECEIVE_PACKET_RUNNER_H

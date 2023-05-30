@@ -1,6 +1,7 @@
 /**
  * @file BpSendFile.h
- * @author  Timothy Recker <tjr@berkeley.edu>
+ * @author Timothy Recker University of California Berkeley
+ * @author Nadia Kortas <nadia.kortas@nasa.gov>
  *
  * @copyright Copyright © 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
@@ -27,8 +28,6 @@
 #include <queue>
 #include <boost/function.hpp>
 #include "app_patterns/BpSourcePattern.h"
-
-
 
 class BpSendPacket : public BpSourcePattern {
 private:
