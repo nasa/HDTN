@@ -72,11 +72,13 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         SignalHandler sigHandler(boost::bind(&HdtnOneProcessRunner::MonitorExitKeypressThreadFunction, this));
 
         HdtnConfig_ptr hdtnConfig;
+	BPSecConfig_ptr bpsecConfig;
+
         HdtnDistributedConfig unusedHdtnDistributedConfig;
-        bool usingUnixTimestamp;
+        
+	bool usingUnixTimestamp;
         bool useMgr;
         boost::filesystem::path contactPlanFilePath;
-
 
 #ifdef RUN_TELEMETRY
         TelemetryRunnerProgramOptions telemetryRunnerOptions;
@@ -87,7 +89,8 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
             desc.add_options()
                 ("help", "Produce help message.")
                 ("hdtn-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
-                ("contact-plan-file", boost::program_options::value<boost::filesystem::path>()->default_value(DEFAULT_CONTACT_FILE), "Contact Plan file that scheduler relies on for link availability.")
+                ("bpsec-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("BPSec3.json"), "BPSec Configuration File.")
+		("contact-plan-file", boost::program_options::value<boost::filesystem::path>()->default_value(DEFAULT_CONTACT_FILE), "Contact Plan file that scheduler relies on for link availability.")
                 ("use-unix-timestamp", "Use unix timestamp in contact plan.")
                 ("use-mgr", "Use Multigraph Routing Algorithm")
     	        ;
@@ -111,6 +114,13 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
             hdtnConfig = HdtnConfig::CreateFromJsonFilePath(configFileName);
             if (!hdtnConfig) {
                 LOG_ERROR(subprocess) << "error loading config file: " << configFileName;
+                return false;
+            }
+
+	     const boost::filesystem::path bpsecConfigFileName = vm["bpsec-config-file"].as<boost::filesystem::path>();
+            bpsecConfig = BPSecConfig::CreateFromJsonFilePath(bpsecConfigFileName);
+            if (!bpsecConfig) {
+                std::cerr << "error loading bpsec config file: " << bpsecConfigFileName << std::endl;
                 return false;
             }
 
@@ -174,13 +184,16 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
 
         LOG_INFO(subprocess) << "starting Ingress..";
         std::unique_ptr<hdtn::Ingress> ingressPtr = boost::make_unique<hdtn::Ingress>();
-        if (!ingressPtr->Init(*hdtnConfig, unusedHdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
+        if (!ingressPtr->Init(*hdtnConfig, *bpsecConfig, 
+				unusedHdtnDistributedConfig, 
+			      hdtnOneProcessZmqInprocContextPtr.get())) {
             return false;
         }
 
         LOG_INFO(subprocess) << "starting Storage..";
         std::unique_ptr<ZmqStorageInterface> storagePtr = boost::make_unique<ZmqStorageInterface>();
-        if (!storagePtr->Init(*hdtnConfig, unusedHdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
+        if (!storagePtr->Init(*hdtnConfig, unusedHdtnDistributedConfig, 
+			      hdtnOneProcessZmqInprocContextPtr.get())) {
             return false;
         }
 
@@ -226,15 +239,15 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         routerPtr.reset();
 
         boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-        LOG_INFO(subprocess) << "Ingress currentTime  " << timeLocal;
-
+        
+	LOG_INFO(subprocess) << "Ingress currentTime  " << timeLocal;
         LOG_INFO(subprocess) << "Ingress: stopping..";
         ingressPtr->Stop();
         m_ingressBundleCountStorage = ingressPtr->m_bundleCountStorage;
         m_ingressBundleCountEgress = ingressPtr->m_bundleCountEgress;
         m_ingressBundleCount = (ingressPtr->m_bundleCountEgress + ingressPtr->m_bundleCountStorage);
         m_ingressBundleData = (ingressPtr->m_bundleByteCountEgress + ingressPtr->m_bundleByteCountStorage);
-        LOG_INFO(subprocess) << "Ingress Bundle Count (M), Bundle Data (MB)";
+	LOG_INFO(subprocess) << "Ingress Bundle Count (M), Bundle Data (MB)";
         LOG_INFO(subprocess) << m_ingressBundleCount << "," << (m_ingressBundleData / (1024.0 * 1024.0));
         LOG_INFO(subprocess) << "Ingress: deleting..";
         ingressPtr.reset();

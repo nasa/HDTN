@@ -1,0 +1,112 @@
+{
+    "bpsecConfigName": "my BPSec Config",
+    "policyRules": [
+        {
+            "desc": " Confidentiality source rule",
+            "securityPolicyruleId": 1,
+            "securityRole": "source",
+            "securitySource": "ipn:1.*",
+            "bundleSource": [
+                "ipn:1.*"
+	    ],
+	    "finalDest": [ 
+                "ipn:*"
+            ],
+            "securityTargetBlockType": "Payload",
+            "securityService": "confidentiality",
+            "securityContextId": "BCB-AES-GCM",
+            "securityFailureEventSetReference": "default_confidentiality",
+            "securityContextParams":  [
+                {
+                    "paramName": "aes_variant",
+                    "value": "A256GCM"
+                },
+                {    "paramName": "iv_generated_size",
+                     "value":   "12Bytes"
+		},
+                {
+                    "paramName": "key",
+                    "value": "C:\/keys\/encryptionKey"
+                },
+                {
+                    "paramName": "crc",
+                    "value": "NONE"
+		},
+                {
+                    "paramName": "aad_scoped_mask",
+                    "value": "ALL_FLAGS_SET"
+                }
+            ]
+        }, 
+	{
+            "desc": " Integrity source rule",
+            "securityPolicyRuleId": 2,
+            "securityRole": "source",
+            "securitySource": "ipn:1.*",
+             "bundleSource": [
+                "ipn:1.*"
+            ],
+            "finalDest": [               
+                "ipn:*"
+            ],
+            "securityTargetBlockType": "Payload",
+            "securityService": "integrity",
+            "securityContextId": "BCB-AES-GCM",
+            "securityFailureEventSetReference": "default_integrity",
+            "securityContextParams":  [
+                {
+                    "paramName": "sha_variant",
+                    "value": "HMAC_384_384"
+                },
+                {    "paramName": "iv_generated_size",
+	             "value": 	"12Bytes"
+		},
+                {
+                    "paramName": "key",
+                    "value": "C:\/keys\/hmacKey"
+                },
+                {
+                    "paramName": "crc",
+                    "value": "NONE"
+		},
+                {
+                    "paramName": "aad_scoped_mask",
+                    "value": "ALL_FLAGS_SET"
+                }
+            ]
+        }
+    ],
+    "securityFailureEventSets": [
+        {
+            "name": "default_confidentiality",
+            "desc": "default bcb confidentiality security operations event set",
+            "securityOperationEvents": [
+                {   
+                    "eventId": "security_operation_corrupted_at_acceptor",
+                    "actions": [
+                        "do_not_forward_bundle",
+                    ]
+                }
+            ]
+        }, 
+	{
+            "name": "default_integrity",
+            "desc": "default bib security operations event set",
+            "securityOperationEvents": [
+                {   
+                    "eventId": "security_operation_corrupted_at_verifier",
+                    "actions": [
+                        "remove_security_operation_target_block",
+                    ]
+                },  
+                {   
+                    "eventId": "security_operation_missing_at_acceptor",
+                    "actions": [
+	                "do_not_forward_bundle",
+                    ]
+                }
+            ]
+        }
+
+    ]
+}    

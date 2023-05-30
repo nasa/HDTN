@@ -1,0 +1,99 @@
+{
+    "bpsecConfigName": "my BPSec Config",
+    "policyRules": [
+        {
+            "desc": " Confidentiality acceptor rule",
+            "securityPolicyruleId": 1,
+            "securityRole": "acceptor",
+            "securitySource": "ipn:1.*",
+            "bundleSource": [
+                "ipn:1.*"
+	    ],
+	    "finalDest": [ 
+                "ipn:*"
+            ],
+            "securityTargetBlockType": "Payload",
+            "securityService": "confidentiality",
+            "securityContextId": "BCB-AES-GCM",
+            "securityFailureEventSetReference": "default_confidentiality",
+            "securityContextParams":  [
+                {
+                    "paramName": "aes_variant",
+                    "value": "3"
+                },
+                {    "paramName": "iv_generated_size",
+                     "value":   "12"
+		},
+                {
+                    "paramName": "key",
+                    "value": "dtnkey"
+                },
+                {
+                    "paramName": "crc",
+                    "value": "none"
+		},
+                {
+                    "paramName": "aad_scoped_mask",
+                    "value": "4"
+                }
+            ]
+        }, 
+	{
+            "desc": " Confidentiality source rule",
+            "securityPolicyRuleId": 2,
+            "securityRole": "source",
+            "securitySource": "ipn:1.*",
+             "bundleSource": [
+                "ipn:.*"
+            ],
+            "finalDest": [               
+                "ipn:6.*"
+            ],
+            "securityTargetBlockType": "Payload",
+            "securityService": "confidentiality",
+            "securityContextId": "BCB-AES-GCM",
+            "securityFailureEventSetReference": "default_confidentiality",
+            "securityContextParams":  [
+                {
+                    "paramName": "aes_variant",
+                    "value": "3"
+                },
+                {    "paramName": "iv_generated_size",
+	             "value": 	"12"
+		},
+                {
+                    "paramName": "wrapped_key",
+                    "value": "dtnkey"
+                },
+                {
+                    "paramName": "crc",
+                    "value": "none"
+		},
+                {
+                    "paramName": "aad_scoped_mask",
+                    "value": "4"
+                }
+            ]
+        }
+    ],
+    "securityFailureEventSets": [
+        {
+            "name": "default_confidentiality",
+            "desc": "default bcb confidentiality security operations event set",
+            "securityOperationEvents": [
+                {   
+                    "eventId": "security_operation_missing_at_acceptor",
+                    "actions": [
+                        "remove_security_operation_target_block",
+                    ]
+                },  
+                {   
+                    "eventId": "security_operation_corrupted_at_acceptor",
+                    "actions": [
+                        "do_not_forward_bundle",
+                    ]
+                }
+            ]
+        }
+    ]
+}    

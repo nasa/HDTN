@@ -26,6 +26,7 @@ BOOST_AUTO_TEST_CASE(OutductsConfigTestCase)
     const boost::filesystem::path jsonFileName = jsonRootDir / "outducts.json";
     OutductsConfig_ptr oc1 = OutductsConfig::CreateFromJsonFilePath(jsonFileName);
     BOOST_REQUIRE(oc1);
+  //  std::cout << oc1->ToJson() << "\n";
     const std::string newJson = boost::trim_copy(oc1->ToJson());
     OutductsConfig_ptr oc2 = OutductsConfig::CreateFromJson(newJson);
     BOOST_REQUIRE(oc2);
