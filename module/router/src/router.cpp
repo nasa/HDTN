@@ -290,9 +290,13 @@ Router::Impl::Impl() :
     m_usingUnixTimestamp(false),
     m_contactPlanTimerIsRunning(false),
     m_subtractMeFromUnixTimeSecondsToConvertToRouterTimeSeconds(0),
+    m_outductInfoInitialized(false),
+    m_receivedInitialOutductTelem(false),
     m_workerThreadStartupInProgress(false),
     m_lastMillisecondsSinceStartOfYear2000(0),
     m_bundleSequence(0),
+    m_usingMGR(false),
+    m_latestTime(0),
     m_contactPlanTimer(m_ioService) {}
 
 Router::Impl::~Impl() {
