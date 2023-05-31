@@ -55,6 +55,7 @@ public:
     struct ReusableElementsInternal {
         std::vector<boost::asio::const_buffer> constBufferVec; //aadParts and ipptParts
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+        std::vector<uint8_t> verifyOnlyDecryptionTemporaryMemory; //will grow to max bundle size received if verify enabled
     };
 
     BPSEC_EXPORT BPSecManager(const bool isSecEnabled);
@@ -269,13 +270,21 @@ public:
         ReusableElementsInternal& reusableElementsInternal,
         const bool renderInPlaceWhenFinished);
 
+    BPSEC_EXPORT static bool TryVerifyDecryptionOfBundle(EvpCipherCtxWrapper& ctxWrapper,
+        EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
+        BundleViewV7& bv,
+        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
+        const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength,
+        ReusableElementsInternal& reusableElementsInternal);
+
     BPSEC_EXPORT static bool TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& ctxWrapper,
         EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
         BundleViewV7& bv,
         BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView,
         const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
         const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength,
-        ReusableElementsInternal& reusableElementsInternal);
+        ReusableElementsInternal& reusableElementsInternal,
+        const bool verifyOnly);
 
     /**
     * Adds a BCB block to the preloaded bundle view and encrypts the targets.  The bundle must be loaded with padded data.

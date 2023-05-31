@@ -106,6 +106,7 @@ struct BpSecPolicyProcessingContext {
     uint64_t m_bcbTargetBibBlockNumberPlaceholderIndex;
     std::vector<BundleViewV7::Bpv7CanonicalBlockView*> m_tmpBlocks;
     PolicySearchCache m_searchCacheBcbAcceptor;
+    PolicySearchCache m_searchCacheBcbVerifier;
     PolicySearchCache m_searchCacheBibAcceptor;
     PolicySearchCache m_searchCacheBibVerifier;
     PolicySearchCache m_searchCacheSource;

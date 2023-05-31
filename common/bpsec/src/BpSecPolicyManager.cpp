@@ -208,7 +208,6 @@ const BpSecPolicy* BpSecPolicyManager::FindPolicyWithCacheSupport(const cbhe_eid
 
 bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx) const {
     const Bpv7CbhePrimaryBlock& primary = bv.m_primaryBlockView.header;
-    bool decryptionSuccess = false;
     bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, ctx.m_tmpBlocks);
     for (std::size_t i = 0; i < ctx.m_tmpBlocks.size(); ++i) {
         BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView = *(ctx.m_tmpBlocks[i]);
@@ -219,8 +218,17 @@ bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProc
         }
         const BpSecPolicy* bpSecPolicyPtr = FindPolicyWithCacheSupport(
             bcbPtr->m_securitySource, primary.m_sourceNodeId, primary.m_destinationEid, BPSEC_ROLE::ACCEPTOR, ctx.m_searchCacheBcbAcceptor);
-        if (!bpSecPolicyPtr) {
-            continue;
+        bool verifyOnly;
+        if (bpSecPolicyPtr) {
+            verifyOnly = false; //false for acceptors
+        }
+        else {
+            bpSecPolicyPtr = FindPolicyWithCacheSupport(
+                bcbPtr->m_securitySource, primary.m_sourceNodeId, primary.m_destinationEid, BPSEC_ROLE::VERIFIER, ctx.m_searchCacheBcbVerifier);
+            if (!bpSecPolicyPtr) {
+                continue;
+            }
+            verifyOnly = true; //true for verifiers
         }
         if (!bpSecPolicyPtr->m_doConfidentiality) {
             continue;
@@ -235,26 +243,36 @@ bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProc
             static_cast<unsigned int>(bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.size()),
             bpSecPolicyPtr->m_dataEncryptionKey.empty() ? NULL : bpSecPolicyPtr->m_dataEncryptionKey.data(), //NULL if not present (when no wrapped key is present)
             static_cast<unsigned int>(bpSecPolicyPtr->m_dataEncryptionKey.size()),
-            ctx.m_bpsecReusableElementsInternal))
+            ctx.m_bpsecReusableElementsInternal,
+            verifyOnly))
         {
             LOG_ERROR(subprocess) << "Process: version 7 bundle received but cannot decrypt";
             return false;
         }
-        decryptionSuccess = true;
-    }
-
-    if (decryptionSuccess) {
-        static thread_local bool printedMsg = false;
-        if (!printedMsg) {
-            LOG_INFO(subprocess) << "first time decrypted bundle successfully from source node "
-                << bv.m_primaryBlockView.header.m_sourceNodeId
-                << " ..(This message type will now be suppressed.)";
-            printedMsg = true;
+        //all decryption ops successful for this bcb block at this point
+        if (verifyOnly) {
+            static thread_local bool printedMsg = false;
+            if (!printedMsg) {
+                LOG_INFO(subprocess) << "first time VERIFIED THE DECRYPTION of a bundle successfully from source node "
+                    << bv.m_primaryBlockView.header.m_sourceNodeId
+                    << " ..(This message type will now be suppressed.)";
+                printedMsg = true;
+            }
+        }
+        else {
+            static thread_local bool printedMsg = false;
+            if (!printedMsg) {
+                LOG_INFO(subprocess) << "first time ACCEPTED/DECRYPTED a bundle successfully from source node "
+                    << bv.m_primaryBlockView.header.m_sourceNodeId
+                    << " ..(This message type will now be suppressed.)";
+                printedMsg = true;
+            }
         }
     }
 
-    bool integritySuccess = false;
-    bool markBibForDeletion = false;
+    
+
+    
     bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::INTEGRITY, ctx.m_tmpBlocks);
     for (std::size_t i = 0; i < ctx.m_tmpBlocks.size(); ++i) {
         BundleViewV7::Bpv7CanonicalBlockView& bibBlockView = *(ctx.m_tmpBlocks[i]);
@@ -265,7 +283,7 @@ bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProc
         }
         const BpSecPolicy* bpSecPolicyPtr = FindPolicyWithCacheSupport(
             bibPtr->m_securitySource, primary.m_sourceNodeId, primary.m_destinationEid, BPSEC_ROLE::ACCEPTOR, ctx.m_searchCacheBibAcceptor);
-
+        bool markBibForDeletion;
         if (bpSecPolicyPtr) {
             markBibForDeletion = true; //true for acceptors
         }
@@ -297,17 +315,27 @@ bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProc
             LOG_ERROR(subprocess) << "Process: version 7 bundle received but cannot check integrity";
             return false;
         }
-        integritySuccess = true;
-    }
-    if (integritySuccess) {
-        static thread_local bool printedMsg = false;
-        if (!printedMsg) {
-            LOG_INFO(subprocess) << "first time " << ((markBibForDeletion) ? "accepted" : "verified") << " a bundle's integrity successfully from source node "
-                << bv.m_primaryBlockView.header.m_sourceNodeId
-                << " ..(This message type will now be suppressed.)";
-            printedMsg = true;
+        //all verification ops successful for this bib block at this point
+        if (markBibForDeletion) {
+            static thread_local bool printedMsg = false;
+            if (!printedMsg) {
+                LOG_INFO(subprocess) << "first time ACCEPTED a bundle's integrity successfully from source node "
+                    << bv.m_primaryBlockView.header.m_sourceNodeId
+                    << " ..(This message type will now be suppressed.)";
+                printedMsg = true;
+            }
+        }
+        else {
+            static thread_local bool printedMsg = false;
+            if (!printedMsg) {
+                LOG_INFO(subprocess) << "first time VERIFIED a bundle's integrity successfully from source node "
+                    << bv.m_primaryBlockView.header.m_sourceNodeId
+                    << " ..(This message type will now be suppressed.)";
+                printedMsg = true;
+            }
         }
     }
+    
     return true;
 }
 

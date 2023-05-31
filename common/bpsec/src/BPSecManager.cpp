@@ -608,7 +608,8 @@ bool BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
             bcbBlockView,
             keyEncryptionKey, keyEncryptionKeyLength,
             dataEncryptionKey, dataEncryptionKeyLength,
-            reusableElementsInternal))
+            reusableElementsInternal,
+            false))
         {
             return false;
         }
@@ -619,13 +620,39 @@ bool BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
     }
     return true;
 }
+bool BPSecManager::TryVerifyDecryptionOfBundle(EvpCipherCtxWrapper& ctxWrapper,
+    EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
+    BundleViewV7& bv,
+    const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
+    const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength,
+    ReusableElementsInternal& reusableElementsInternal)
+{
+    std::vector<BundleViewV7::Bpv7CanonicalBlockView*>& blocks = reusableElementsInternal.blocks;
+    bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, blocks);
+    for (std::size_t i = 0; i < blocks.size(); ++i) {
+        BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView = *(blocks[i]);
+        if (!TryDecryptBundleByIndividualBcb(ctxWrapper,
+            ctxWrapperForKeyUnwrap,
+            bv,
+            bcbBlockView,
+            keyEncryptionKey, keyEncryptionKeyLength,
+            dataEncryptionKey, dataEncryptionKeyLength,
+            reusableElementsInternal,
+            true))
+        {
+            return false;
+        }
+    }
+    return true;
+}
 bool BPSecManager::TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& ctxWrapper,
     EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
     BundleViewV7& bv,
     BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView,
     const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
     const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength,
-    ReusableElementsInternal& reusableElementsInternal)
+    ReusableElementsInternal& reusableElementsInternal,
+    const bool verifyOnly)
 {
     Bpv7BlockConfidentialityBlock* bcbPtr = dynamic_cast<Bpv7BlockConfidentialityBlock*>(bcbBlockView.headerPtr.get());
     if (!bcbPtr) {
@@ -769,6 +796,11 @@ bool BPSecManager::TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& ctxWrapp
         }
 #endif
             
+        uint8_t* decryptedDataOutPtr = targetCanonicalHeader.m_dataPtr;
+        if (verifyOnly) {
+            reusableElementsInternal.verifyOnlyDecryptionTemporaryMemory.resize(targetCanonicalHeader.m_dataLength);
+            decryptedDataOutPtr = reusableElementsInternal.verifyOnlyDecryptionTemporaryMemory.data();
+        }
         //overwrite cyphertext with plaintext in-place and compute crc
         uint64_t decryptedDataOutSize;
         //inplace (same in and out buffers)
@@ -778,14 +810,14 @@ bool BPSecManager::TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& ctxWrapp
             ivPtr->data(), ivPtr->size(),
             aadParts, //affects tag only
             tag.data(),
-            targetCanonicalHeader.m_dataPtr, decryptedDataOutSize))
+            decryptedDataOutPtr, decryptedDataOutSize))
         {
             return false;
         }
 #ifdef BPSEC_MANAGER_PRINT_DEBUG
         {
             std::string hexString;
-            BinaryConversions::BytesToHexString(targetCanonicalHeader.m_dataPtr, targetCanonicalHeader.m_dataLength, hexString);
+            BinaryConversions::BytesToHexString(decryptedDataOutPtr, targetCanonicalHeader.m_dataLength, hexString);
             boost::to_lower(hexString);
             LOG_DEBUG(subprocess) << "block data part decrypted: " << hexString;
         }
@@ -803,29 +835,30 @@ bool BPSecManager::TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& ctxWrapp
             return false;
         }
 
-        //recompute crc at end
-        targetCanonicalHeader.RecomputeCrcAfterDataModification(
-            (uint8_t*)targetCanonicalBlockViewPtr->actualSerializedBlockPtr.data(),
-            targetCanonicalBlockViewPtr->actualSerializedBlockPtr.size()); //recompute crc
+        if (!verifyOnly) {
+            //recompute crc at end
+            targetCanonicalHeader.RecomputeCrcAfterDataModification(
+                (uint8_t*)targetCanonicalBlockViewPtr->actualSerializedBlockPtr.data(),
+                targetCanonicalBlockViewPtr->actualSerializedBlockPtr.size()); //recompute crc
 
-        //parse now-unencrypted block
-        targetCanonicalBlockViewPtr->isEncrypted = false;
-        if (!targetCanonicalHeader.Virtual_DeserializeExtensionBlockDataBpv7()) { //requires m_dataPtr and m_dataLength to be set (which should be already done)
-            return false;
-        }
+            //parse now-unencrypted block
+            targetCanonicalBlockViewPtr->isEncrypted = false;
+            if (!targetCanonicalHeader.Virtual_DeserializeExtensionBlockDataBpv7()) { //requires m_dataPtr and m_dataLength to be set (which should be already done)
+                return false;
+            }
 
 #ifdef BPSEC_MANAGER_PRINT_DEBUG
-        {
-            std::string hexString;
-            BinaryConversions::BytesToHexString(targetCanonicalBlockViewPtr->actualSerializedBlockPtr.data(), targetCanonicalBlockViewPtr->actualSerializedBlockPtr.size(), hexString);
-            boost::to_lower(hexString);
-            LOG_DEBUG(subprocess) << "block decrypted: " << hexString;
-        }
+            {
+                std::string hexString;
+                BinaryConversions::BytesToHexString(targetCanonicalBlockViewPtr->actualSerializedBlockPtr.data(), targetCanonicalBlockViewPtr->actualSerializedBlockPtr.size(), hexString);
+                boost::to_lower(hexString);
+                LOG_DEBUG(subprocess) << "block decrypted: " << hexString;
+            }
 #endif
-            
+        }
             
     }
-    bcbBlockView.markedForDeletion = true;
+    bcbBlockView.markedForDeletion = !verifyOnly;
     
     return true;
 }

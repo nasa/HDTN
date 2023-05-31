@@ -560,6 +560,12 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleWithKeyWrapTestCase)
 
     BPSecManager::EvpCipherCtxWrapper ctxWrapper;
     BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
+    BOOST_REQUIRE(BPSecManager::TryVerifyDecryptionOfBundle(ctxWrapper,
+        ctxWrapperKeyWrapOps,
+        bv,
+        keyEncryptionKeyBytes.data(), static_cast<const unsigned int>(keyEncryptionKeyBytes.size()),
+        NULL, 0, //no DEK (using KEK instead)
+        reusableElementsInternal));
     BOOST_REQUIRE(BPSecManager::TryDecryptBundle(ctxWrapper,
         ctxWrapperKeyWrapOps,
         bv,
@@ -657,6 +663,12 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleFullScopeTestCase)
 
     BPSecManager::EvpCipherCtxWrapper ctxWrapper;
     BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
+    BOOST_REQUIRE(BPSecManager::TryVerifyDecryptionOfBundle(ctxWrapper,
+        ctxWrapperKeyWrapOps,
+        bv,
+        NULL, 0, //not using KEK
+        dataEncryptionKeyBytes.data(), static_cast<const unsigned int>(dataEncryptionKeyBytes.size()),
+        reusableElementsInternal));
     BOOST_REQUIRE(BPSecManager::TryDecryptBundle(ctxWrapper,
         ctxWrapperKeyWrapOps,
         bv,
