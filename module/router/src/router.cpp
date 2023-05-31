@@ -196,7 +196,6 @@ private:
     void RerouteOnLinkDown(uint64_t prevHopNodeId, uint64_t outductArrayIndex);
     void RerouteOnLinkUp(uint64_t prevHopNodeId);
     void HandleBundle();
-    void DumpRoutes(std::string label);
 
     void SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNodeId);
 
@@ -1247,7 +1246,9 @@ void Router::Impl::HandlePhysicalLinkStatusChange(const hdtn::LinkStatusHdr& lin
 void Router::Impl::SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNodeId) {
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
 
-    LOG_INFO(subprocess) << timeLocal << ": Sending RouteUpdate event to Egress ";
+    LOG_INFO(subprocess) << timeLocal << ": Sending RouteUpdate event to Egress "
+                                      << "final dest: " << finalDestNodeId
+                                      << "next hop: " << routeToStr(nextHopNodeId);
 
     hdtn::RouteUpdateHdr routingMsg;
     memset(&routingMsg, 0, sizeof(hdtn::RouteUpdateHdr));
@@ -1265,52 +1266,24 @@ void Router::Impl::SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNod
     }
 }
 
-//TODO FIXME Debugging only; get rid of this before merge
-void Router::Impl::DumpRoutes(std::string label) {
-    LOG_INFO(subprocess) << "Dumping routes " << label << ":";
-    LOG_INFO(subprocess) << "  All Routes: ";
-    for(const auto& kv : m_routes) {
-        LOG_INFO(subprocess) << "    m_routes[" << kv.first << "] = " << routeToStr(kv.second);
-    }
-    for(const auto& kv : m_mapOutductArrayIndexToOutductInfo) {
-       LOG_INFO(subprocess) << "  Outduct " << kv.first << ":";
-       uint64_t nextHop = kv.second.nextHopNodeId;
-       for(const auto& dest : kv.second.finalDestNodeIds) {
-           LOG_INFO(subprocess) << "    " << dest << " -> " << routeToStr(nextHop);
-       }
-    }
-
-    LOG_INFO(subprocess) << "  Outduct States: ";
-    for(const auto& kv : m_mapOutductArrayIndexToOutductInfo) {
-       LOG_INFO(subprocess) << "    Outduct " << kv.first << ":"
-                            << " up-physical=" << kv.second.linkIsUpPhysical
-                            << " up-schedule=" << kv.second.linkIsUpTimeBased
-                            << " next-hop=" << kv.second.nextHopNodeId;
-    }
-}
-
 /* Routing */
 
 void Router::Impl::RerouteOnLinkDown(uint64_t prevHopNodeId, uint64_t outductArrayIndex) {
-    DumpRoutes("before link down reroute");
     m_latestTime = TimestampUtil::GetSecondsSinceEpochUnix() - m_subtractMeFromUnixTimeSecondsToConvertToRouterTimeSeconds;
     if (!m_outductInfoInitialized) {
         LOG_ERROR(subprocess) << "out of order command, received link down before receiving outduct capabilities";
         return;
     }
     ComputeOptimalRoutesForOutductIndex(prevHopNodeId, outductArrayIndex);
-    DumpRoutes("after link down reroute");
 }
 
 void Router::Impl::RerouteOnLinkUp(uint64_t prevHopNodeId) {
-    DumpRoutes("before link up reroute");
     m_latestTime = TimestampUtil::GetSecondsSinceEpochUnix() - m_subtractMeFromUnixTimeSecondsToConvertToRouterTimeSeconds;
     if (!m_outductInfoInitialized) {
         LOG_ERROR(subprocess) << "out of order command, received link up before receiving outduct capabilities";
         return;
     }
     ComputeAllRoutes(prevHopNodeId);
-    DumpRoutes("after link up reroute");
 }
 
 /** Placeholder */
@@ -1360,8 +1333,6 @@ void Router::Impl::FilterContactPlan(uint64_t sourceNode, std::vector<cgr::Conta
 
         // Otherwise: active contact from our node with link DOWN,
         // remove contact from contact plan to re-route around down node
-        /*FIXME remove (DEBUG)*/LOG_INFO(subprocess) << "Filtering contact " << contact << "; outduct "
-                                      << info.outductIndex << " is up?: " << info.linkIsUpPhysical;
         contactPlan.erase(contactPlan.begin() + i);
     }
 }
@@ -1377,7 +1348,6 @@ void Router::Impl::FilterContactPlan(uint64_t sourceNode, std::vector<cgr::Conta
  */
 void Router::Impl::UpdateRouteState(uint64_t oldNextHop, uint64_t newNextHop, uint64_t finalDest) {
     m_routes[finalDest] = newNextHop;
-    LOG_INFO(subprocess) << "Updating m_routes[" << finalDest << "] = " << routeToStr(newNextHop);
     if(oldNextHop != NOROUTE) {
         std::map<uint64_t, uint64_t>::iterator it = m_mapNextHopNodeIdToOutductArrayIndex.find(oldNextHop);
         if(it == m_mapNextHopNodeIdToOutductArrayIndex.end()) {
@@ -1385,7 +1355,6 @@ void Router::Impl::UpdateRouteState(uint64_t oldNextHop, uint64_t newNextHop, ui
         }
         else {
             OutductInfo_t &info = m_mapOutductArrayIndexToOutductInfo[it->second];
-            LOG_INFO(subprocess) << "Removing final dest " << finalDest << " from outduct " << it->second;
             info.finalDestNodeIds.erase(finalDest);
         }
     }
@@ -1396,7 +1365,6 @@ void Router::Impl::UpdateRouteState(uint64_t oldNextHop, uint64_t newNextHop, ui
         }
         else {
             OutductInfo_t &info = m_mapOutductArrayIndexToOutductInfo[it->second];
-            LOG_INFO(subprocess) << "Adding final dest " << finalDest << " to outduct " << it->second;
             info.finalDestNodeIds.insert(finalDest);
         }
     }
@@ -1418,7 +1386,7 @@ void Router::Impl::ComputeAllRoutes(uint64_t sourceNode) {
         uint64_t newNextHop = ComputeOptimalRoute(sourceNode, finalDest);
 
         if (newNextHop == origNextHop) {
-            /*DEBUG*/LOG_INFO(subprocess) << "Skipping Computed next hop: " << routeToStr(newNextHop)
+            LOG_DEBUG(subprocess) << "Skipping Computed next hop: " << routeToStr(newNextHop)
                                   << " for final Destination " << finalDest << " because the next hops didn't change.";
             continue;
         }
@@ -1459,7 +1427,7 @@ void Router::Impl::ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint
         uint64_t newNextHop = ComputeOptimalRoute(sourceNode, finalDest);
 
         if (newNextHop == origNextHop) {
-            /*DEBUG*/LOG_INFO(subprocess) << "Skipping Computed next hop: " << routeToStr(newNextHop)
+            LOG_DEBUG(subprocess) << "Skipping Computed next hop: " << routeToStr(newNextHop)
                                   << " for final Destination " << finalDest << " because the next hops didn't change.";
             continue;
         }
