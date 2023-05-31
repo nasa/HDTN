@@ -1286,7 +1286,7 @@ bool BPSecManager::TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrapper& ctxWr
         if (messageDigestOutSize != expectedHmac.size()) {
             return false;
         }
-        if (memcmp(expectedHmac.data(), messageDigestCalculated, messageDigestOutSize) != 0) {
+        if (CRYPTO_memcmp(expectedHmac.data(), messageDigestCalculated, messageDigestOutSize) != 0) {
             return false;
         }
     }
