@@ -85,15 +85,15 @@ struct security_context_params_config_t {
 typedef std::vector<security_context_params_config_t> security_context_params_vector_t;
 
 struct policy_rules_config_t {
-    std::string desc;
+    std::string description;
     uint64_t securityPolicyRuleId;
     std::string securityRole;
     std::string securitySource;
-    std::string bundleSource;
-    std::string finalDest;
-    std::string securityTargetBlockType;
+    std::set<std::string> bundleSource;
+    std::set<std::string> bundleFinalDestination;
+    std::set<uint64_t>  securityTargetBlockTypes;
     std::string securityService;
-    std::string securityContextId;
+    std::string securityContext;
     std::string securityFailureEventSetReference;
     security_context_params_vector_t securityContextParams;
 

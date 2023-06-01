@@ -23,28 +23,24 @@
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 security_context_params_config_t::security_context_params_config_t() :
-    id(0), 
     paramName(""),
     value(0) {}
 
 security_context_params_config_t::~security_context_params_config_t() {}
 
 security_context_params_config_t::security_context_params_config_t(const security_context_params_config_t& o) :
-    id(o.id),
     paramName(o.paramName),
     value(o.value)
 { }
 
 //a move constructor: X(X&&)
 security_context_params_config_t::security_context_params_config_t(security_context_params_config_t&& o) noexcept :
-    id(std::move(o.id)),
     paramName(std::move(o.paramName)),
     value(std::move(o.value))
 { }
 
 //a copy assignment: operator=(const X&)
 security_context_params_config_t& security_context_params_config_t::operator=(const security_context_params_config_t& o) {
-    id = o.id;
     paramName = o.paramName;
     value = o.value;
     return *this;
@@ -52,15 +48,13 @@ security_context_params_config_t& security_context_params_config_t::operator=(co
 
 //a move assignment: operator=(X&&)
 security_context_params_config_t& security_context_params_config_t::operator=(security_context_params_config_t&& o) noexcept {
-    id = std::move(o.id);
     paramName = std::move(o.paramName);
     value = std::move(o.value);
     return *this;
 }
 
 bool security_context_params_config_t::operator==(const security_context_params_config_t & other) const {
-    return (id == other.id) &&
-           (paramName == other.paramName) && 
+    return (paramName == other.paramName) && 
 	   (value == other.value);
 }
 
@@ -104,15 +98,15 @@ bool security_operation_events_config_t::operator==(const security_operation_eve
 
 //////
 policy_rules_config_t::policy_rules_config_t() :
-    desc(""),
+    description(""),
     securityPolicyRuleId(0),
     securityRole(""),
     securitySource(""),
-    bundleSource(""),
-    finalDest(""),
-    securityTargetBlockType(""),
+    bundleSource(),
+    bundleFinalDestination(),
+    securityTargetBlockTypes(),
     securityService(""),
-    securityContextId(""),
+    securityContext(""),
     securityFailureEventSetReference(""),
     securityContextParams() {}
 
@@ -120,45 +114,45 @@ policy_rules_config_t::~policy_rules_config_t() {}
 
 //a copy constructor: X(const X&)
 policy_rules_config_t::policy_rules_config_t(const policy_rules_config_t& o) :
-    desc(o.desc),
+    description(o.description),
     securityPolicyRuleId(o.securityPolicyRuleId),
     securityRole(o.securityRole),
     securitySource(o.securitySource),
     bundleSource(o.bundleSource),
-    finalDest(o.finalDest),
-    securityTargetBlockType(o.securityTargetBlockType),
+    bundleFinalDestination(o.bundleFinalDestination),
+    securityTargetBlockTypes(o.securityTargetBlockTypes),
     securityService(o.securityService),
-    securityContextId(o.securityContextId),
+    securityContext(o.securityContext),
     securityFailureEventSetReference(o.securityFailureEventSetReference),
     securityContextParams(o.securityContextParams) 
 { }
 
 //a move constructor: X(X&&)
 policy_rules_config_t::policy_rules_config_t(policy_rules_config_t&& o) noexcept :
-    desc(std::move(o.desc)), 
+    description(std::move(o.description)), 
     securityPolicyRuleId(std::move(o.securityPolicyRuleId)), 
     securityRole(std::move(o.securityRole)), 
     securitySource(std::move(o.securitySource)),
     bundleSource(std::move(o.bundleSource)),
-    finalDest(std::move(o.finalDest)),
-    securityTargetBlockType(std::move(o.securityTargetBlockType)),
+    bundleFinalDestination(std::move(o.bundleFinalDestination)),
+    securityTargetBlockTypes(std::move(o.securityTargetBlockTypes)),
     securityService(std::move(o.securityService)),
-    securityContextId(std::move(o.securityContextId)),
+    securityContext(std::move(o.securityContext)),
     securityFailureEventSetReference(std::move(o.securityFailureEventSetReference)),
     securityContextParams(std::move(o.securityContextParams))
 { }
 
 //a copy assignment: operator=(const X&)
 policy_rules_config_t& policy_rules_config_t::operator=(const policy_rules_config_t& o) {
-    desc = o.desc;
+    description = o.description;
     securityPolicyRuleId = o.securityPolicyRuleId;
     securityRole = o.securityRole;
     securitySource = o.securitySource;
     bundleSource = o.bundleSource;
-    finalDest = o.finalDest;
-    securityTargetBlockType = o.securityTargetBlockType;
+    bundleFinalDestination = o.bundleFinalDestination;
+    securityTargetBlockTypes = o.securityTargetBlockTypes;
     securityService = o.securityService;
-    securityContextId = o.securityContextId;
+    securityContext = o.securityContext;
     securityFailureEventSetReference = o.securityFailureEventSetReference;
     securityContextParams = o.securityContextParams;
     return *this;
@@ -166,35 +160,34 @@ policy_rules_config_t& policy_rules_config_t::operator=(const policy_rules_confi
 
 //a move assignment: operator=(X&&)
 policy_rules_config_t& policy_rules_config_t::operator=(policy_rules_config_t&& o) noexcept {
-    desc = std::move(o.desc);
+    description = std::move(o.description);
     securityPolicyRuleId = std::move(o.securityPolicyRuleId);
     securityRole = std::move(o.securityRole);
     securitySource = std::move(o.securitySource);
     bundleSource = std::move(o.bundleSource);
-    finalDest = std::move(o.finalDest);
-    securityTargetBlockType = std::move(o.securityTargetBlockType);
+    bundleFinalDestination = std::move(o.bundleFinalDestination);
+    securityTargetBlockTypes = std::move(o.securityTargetBlockTypes);
     securityService = std::move(o.securityService);
-    securityContextId = std::move(o.securityContextId);
+    securityContext = std::move(o.securityContext);
     securityFailureEventSetReference = std::move(o.securityFailureEventSetReference);
     securityContextParams = std::move(o.securityContextParams);
     return *this;
 }
 
 bool policy_rules_config_t::operator==(const policy_rules_config_t & other) const {
-    return (desc == other.desc) && 
+    return (description == other.description) && 
 	   (securityPolicyRuleId == other.securityPolicyRuleId) &&
 	   (securityRole == other.securityRole) &&
 	   (securitySource == other.securitySource) &&
 	   (bundleSource == other.bundleSource) &&
-	   (finalDest == other.finalDest) &&
-	   (securityTargetBlockType == other.securityTargetBlockType) &&
+	   (bundleFinalDestination == other.bundleFinalDestination) &&
+	   (securityTargetBlockTypes == other.securityTargetBlockTypes) &&
 	   (securityService == other.securityService) &&
-	   (securityContextId == other.securityContextId) &&
+	   (securityContext == other.securityContext) &&
 	   (securityFailureEventSetReference == other.securityFailureEventSetReference) &&
 	   (securityContextParams == other.securityContextParams);
 }
 
-//////
 security_failure_eventSets_config_t::security_failure_eventSets_config_t() :
     name(""),
     desc(""),
@@ -238,7 +231,6 @@ bool security_failure_eventSets_config_t::operator==(const security_failure_even
 	   (securityOperationEvents == other.securityOperationEvents); 
 }
 
-
 BPSecConfig::BPSecConfig() :
     m_bpsecConfigName("unnamed BPSec config"),
     m_policyRulesConfigVector(),
@@ -266,7 +258,6 @@ BPSecConfig::BPSecConfig(BPSecConfig&& o) noexcept :
     m_securityFailureEventSetsConfigVector(std::move(o.m_securityFailureEventSetsConfigVector)), 
     m_securityContextParamsVector(std::move(o.m_securityContextParamsVector)),
     m_securityOperationEventsConfigVector(std::move(o.m_securityOperationEventsConfigVector))
-
 { }
 
 //a copy assignment: operator=(const X&)
@@ -319,21 +310,47 @@ bool BPSecConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & 
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & policyRulesConfigPt, policyRulesConfigVectorPt) {
         policy_rules_config_t & policyRulesConfig = m_policyRulesConfigVector[policyRulesConfigVectorIndex++];
         try {
-            policyRulesConfig.desc = policyRulesConfigPt.second.get<std::string>("desc");
+            policyRulesConfig.description= policyRulesConfigPt.second.get<std::string>("description");
 	    policyRulesConfig.securityPolicyRuleId = policyRulesConfigPt.second.get<uint64_t>("securityPolicyRuleId");
             policyRulesConfig.securityRole = policyRulesConfigPt.second.get<std::string>("securityRole");
 	    policyRulesConfig.securitySource = policyRulesConfigPt.second.get<std::string>("securitySource");
-	    policyRulesConfig.bundleSource = policyRulesConfigPt.second.get<std::string>("bundleSource");
-	    policyRulesConfig.finalDest = policyRulesConfigPt.second.get<std::string>("finalDest");
-	    policyRulesConfig.securityTargetBlockType = policyRulesConfigPt.second.get<std::string>("securityTargetBlockType");
+	    const boost::property_tree::ptree & bundleSourcePt = policyRulesConfigPt.second.get_child("bundleSource", EMPTY_PTREE); //non-throw version
+            policyRulesConfig.bundleSource.clear();
+            BOOST_FOREACH(const boost::property_tree::ptree::value_type & bundleSourceValuePt, bundleSourcePt) {
+                const std::string bundleSourceStr = bundleSourceValuePt.second.get_value<std::string>();
+                if (policyRulesConfig.bundleSource.insert(bundleSourceStr).second == false) { //not inserted
+                    LOG_ERROR(subprocess) << "error parsing JSON policy rules[" << (policyRulesConfigVectorIndex - 1) << "]: " << "duplicate bundle Source " << bundleSourceStr;
+                    return false;
+                }
+	    }
+	    const boost::property_tree::ptree & bundleFinalDestPt = policyRulesConfigPt.second.get_child("bundleFinalDestination", EMPTY_PTREE); //non-throw version
+            policyRulesConfig.bundleFinalDestination.clear();
+            BOOST_FOREACH(const boost::property_tree::ptree::value_type & bundleFinalDestValuePt, bundleFinalDestPt) {
+                const std::string bundleFinalDestStr = bundleFinalDestValuePt.second.get_value<std::string>();
+		if (policyRulesConfig.bundleFinalDestination.insert(bundleFinalDestStr).second == false) { //not inserted
+                    LOG_ERROR(subprocess) << "error parsing JSON policy rules[" << (policyRulesConfigVectorIndex - 1) << "]: " << "duplicate bundle final Destination " << bundleFinalDestStr;
+                    return false;
+                }
+            }
+
+	    const boost::property_tree::ptree & securityTargetBlockTypesPt = policyRulesConfigPt.second.get_child("securityTargetBlockTypes", EMPTY_PTREE); //non-throw version
+            policyRulesConfig.securityTargetBlockTypes.clear();
+            BOOST_FOREACH(const boost::property_tree::ptree::value_type & securityTargetBlockTypesValuePt, securityTargetBlockTypesPt) {
+                const uint64_t securityTargetBlockTypes_uint = securityTargetBlockTypesValuePt.second.get_value<uint64_t>();
+                if (policyRulesConfig.securityTargetBlockTypes.insert(securityTargetBlockTypes_uint).second == false) { //not inserted
+                    LOG_ERROR(subprocess) << "error parsing JSON policy rules[" << (policyRulesConfigVectorIndex - 1) << "]: " << "duplicate securityTargetBlockTypes " << securityTargetBlockTypes_uint;
+                    return false;
+                }
+
+	    }
+
 	    policyRulesConfig.securityService = policyRulesConfigPt.second.get<std::string>("securityService");
-	    policyRulesConfig.securityContextId = policyRulesConfigPt.second.get<std::string>("securityContextId");
+	    policyRulesConfig.securityContext = policyRulesConfigPt.second.get<std::string>("securityContext");
 	    policyRulesConfig.securityFailureEventSetReference = policyRulesConfigPt.second.get<std::string>("securityFailureEventSetReference");
             const boost::property_tree::ptree & securityContextParamsVectorPt = policyRulesConfigPt.second.get_child("securityContextParams", EMPTY_PTREE); //non-throw version
             unsigned int securityContextParamsVectorIndex = 0;
 	    BOOST_FOREACH(const boost::property_tree::ptree::value_type & securityContextParamsConfigPt, securityContextParamsVectorPt) {
                 security_context_params_config_t & securityContextParamsConfig = m_securityContextParamsVector[securityContextParamsVectorIndex++];
-                securityContextParamsConfig.id = securityContextParamsConfigPt.second.get<uint64_t>("id");
 		securityContextParamsConfig.paramName = securityContextParamsConfigPt.second.get<std::string>("paramName");
 		securityContextParamsConfig.value= securityContextParamsConfigPt.second.get<uint64_t>("value");
 	    }
@@ -342,7 +359,6 @@ bool BPSecConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & 
             LOG_ERROR(subprocess) << "error parsing JSON PolicyRulesConfigVector[" << (policyRulesConfigVectorIndex++ - 1) << "]: " << e.what();
             return false;
        }
-
     }
 
     const boost::property_tree::ptree & eventSetsConfigVectorPt = pt.get_child("securityFailureEventSets", EMPTY_PTREE); //non-throw version
@@ -433,22 +449,39 @@ boost::property_tree::ptree BPSecConfig::GetNewPropertyTree() const {
     for (policy_rules_config_vector_t::const_iterator policyRulesConfigVectorIt = m_policyRulesConfigVector.cbegin(); policyRulesConfigVectorIt != m_policyRulesConfigVector.cend(); ++policyRulesConfigVectorIt) {
         const policy_rules_config_t & policyRulesConfig = *policyRulesConfigVectorIt;
         boost::property_tree::ptree & policyRulesConfigPt = (policyRulesConfigVectorPt.push_back(std::make_pair("", boost::property_tree::ptree())))->second; //using "" as key creates json array
-        policyRulesConfigPt.put("desc", policyRulesConfig.desc);
+        policyRulesConfigPt.put("description", policyRulesConfig.description);
         policyRulesConfigPt.put("securityPolicyRuleId", policyRulesConfig.securityPolicyRuleId);
         policyRulesConfigPt.put("securityRole", policyRulesConfig.securityRole);
         policyRulesConfigPt.put("securitySource", policyRulesConfig.securitySource);
-        policyRulesConfigPt.put("bundleSource", policyRulesConfig.bundleSource);
-        policyRulesConfigPt.put("finalDest", policyRulesConfig.finalDest);
-        policyRulesConfigPt.put("securityTargetBlockType", policyRulesConfig.securityTargetBlockType);
+	boost::property_tree::ptree & bundleSourcePt = policyRulesConfigPt.put_child("bundleSource",
+        policyRulesConfig.bundleSource.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
+        for (std::set<std::string>::const_iterator bundleSourceIt = policyRulesConfig.bundleSource.cbegin(); 
+		       bundleSourceIt != policyRulesConfig.bundleSource.cend(); ++bundleSourceIt) {
+            bundleSourcePt.push_back(std::make_pair("", boost::property_tree::ptree(*bundleSourceIt))); //using "" as key creates json array
+        }
+
+	boost::property_tree::ptree & bundleFinalDestPt = policyRulesConfigPt.put_child("bundleFinalDestination",
+        policyRulesConfig.bundleFinalDestination.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
+        for (std::set<std::string>::const_iterator bundleFinalDestIt = policyRulesConfig.bundleFinalDestination.cbegin();
+                       bundleFinalDestIt != policyRulesConfig.bundleFinalDestination.cend(); ++bundleFinalDestIt) {
+            bundleFinalDestPt.push_back(std::make_pair("", boost::property_tree::ptree(*bundleFinalDestIt))); //using "" as key creates json array
+        }
+	
+	boost::property_tree::ptree & securityTargetBlockTypesPt = policyRulesConfigPt.put_child("securityTargetBlockTypes",
+        policyRulesConfig.securityTargetBlockTypes.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
+        for (std::set<uint64_t>::const_iterator securityTargetBlockTypesIt = policyRulesConfig.securityTargetBlockTypes.cbegin();
+            securityTargetBlockTypesIt != policyRulesConfig.securityTargetBlockTypes.cend(); ++securityTargetBlockTypesIt) {
+            securityTargetBlockTypesPt.push_back(std::make_pair("", boost::property_tree::ptree(*securityTargetBlockTypesIt)));
+        }
+
 	policyRulesConfigPt.put("securityService", policyRulesConfig.securityService);
-	policyRulesConfigPt.put("securityContextId", policyRulesConfig.securityContextId);
+	policyRulesConfigPt.put("securityContext", policyRulesConfig.securityContext);
 	policyRulesConfigPt.put("securityFailureEventSetReference", policyRulesConfig.securityFailureEventSetReference);
         boost::property_tree::ptree & securityContextParamsVectorPt =  policyRulesConfigPt.put_child("securityContextParams", m_securityContextParamsVector.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
  
 	for (security_context_params_vector_t::const_iterator securityContextParamsVectorIt = m_securityContextParamsVector.cbegin(); securityContextParamsVectorIt != m_securityContextParamsVector.cend(); ++securityContextParamsVectorIt) {
 	    const security_context_params_config_t & securityContextParams = *securityContextParamsVectorIt;
             boost::property_tree::ptree & securityContextParamsPt = (securityContextParamsVectorPt.push_back(std::make_pair("", boost::property_tree::ptree())))->second; //using "" as key creates json array
-            securityContextParamsPt.put("id", securityContextParams.id);
 	    securityContextParamsPt.put("paramName", securityContextParams.paramName);
 	    securityContextParamsPt.put("value", securityContextParams.value);
 	}

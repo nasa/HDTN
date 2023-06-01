@@ -2,15 +2,21 @@
     "bpsecConfigName": "my BPSec Config",
     "policyRules": [
         {
-            "desc": " Confidentiality acceptor rule",
+            "description": " Confidentiality acceptor rule",
             "securityPolicyRuleId": 1,
             "securityRole": "acceptor",
             "securitySource": "ipn:1.*",
-            "bundleSource": "ipn:1.*",
-            "finalDest": "ipn:*",
-            "securityTargetBlockType": "Payload",
+            "bundleSource": [
+		    "ipn:1.*"
+	    ],
+            "bundleFinalDestination": [
+		    "ipn:*"
+	    ],
+            "securityTargetBlockTypes": [
+		    1
+	    ],
             "securityService": "confidentiality",
-            "securityContextId": "BCB-AES-GCM",
+            "securityContext": "aesGcm",
             "securityFailureEventSetReference": "default_confidentiality",
             "securityContextParams": [
                 {
