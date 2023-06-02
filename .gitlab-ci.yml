@@ -172,7 +172,6 @@ static-analysis-new:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
 
-
 # Static Analysis Development Defects
 static-analysis-development:
   stage: scan-stage
@@ -189,7 +188,6 @@ static-analysis-development:
     - cov-commit-defects --dir build/idir --url $COV_BUILD_SERVER --stream HDTN-development --auth-key-file /home/hdtn/auth-gitlab.key
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
-
 
 # Code test coverage
 code-test-coverage:
