@@ -25,19 +25,16 @@ BOOST_AUTO_TEST_CASE(BPSecConfigTestCase)
     const boost::filesystem::path jsonFileName = jsonRootDir / "BPSec3.json";
     BPSecConfig_ptr bpsec1 = BPSecConfig::CreateFromJsonFilePath(jsonFileName);
     BOOST_REQUIRE(bpsec1);
-    std::cout << bpsec1->ToJson() << "\n";
+    //std::cout << bpsec1->ToJson() << "\n";
 
-    
-    BPSecConfig bpsecConfig;
-    bpsecConfig.m_bpsecConfigName = "my BPSec config";
-    BOOST_REQUIRE(bpsecConfig.ToJsonFile(jsonFileName));
-    std::string bpsecJson = bpsecConfig.ToJson();
-    std::cout << bpsecJson << "\n";
-    BPSecConfig_ptr bpsecConfigFromJsonPtr = BPSecConfig::CreateFromJson(bpsecJson);
-    BOOST_REQUIRE(bpsecConfigFromJsonPtr);
-    BOOST_REQUIRE(bpsecConfig == *bpsecConfigFromJsonPtr);
-    BOOST_REQUIRE_EQUAL(bpsecJson, bpsecConfigFromJsonPtr->ToJson());
-    BOOST_REQUIRE(boost::filesystem::remove(jsonFileName));
+    const std::string newJson = boost::trim_copy(bpsec1->ToJson());
+    BPSecConfig_ptr bpsec2 = BPSecConfig::CreateFromJson(newJson);
+    BOOST_REQUIRE(bpsec2);
+    BOOST_REQUIRE(*bpsec2 == *bpsec1);
 
+    std::string fileContentsAsString;
+    BOOST_REQUIRE(JsonSerializable::LoadTextFileIntoString(jsonFileName, fileContentsAsString));
+    boost::trim(fileContentsAsString);
+    BOOST_REQUIRE_EQUAL(fileContentsAsString, newJson);
 }
 

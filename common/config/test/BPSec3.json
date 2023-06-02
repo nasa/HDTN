@@ -7,37 +7,37 @@
             "securityRole": "acceptor",
             "securitySource": "ipn:1.*",
             "bundleSource": [
-		    "ipn:1.*"
-	    ],
+                "ipn:1.*"
+            ],
             "bundleFinalDestination": [
-		    "ipn:*"
-	    ],
+                "ipn:*.*"
+            ],
             "securityTargetBlockTypes": [
-		    1
-	    ],
+                1
+            ],
             "securityService": "confidentiality",
             "securityContext": "aesGcm",
             "securityFailureEventSetReference": "default_confidentiality",
             "securityContextParams": [
                 {
-                    "paramName": "aes_variant",
-                    "value": "3"
+                    "paramName": "aesVariant",
+                    "value": 256
                 },
                 {
-                    "paramName": "iv_generated_size",
-                    "value": "12"
+                    "paramName": "ivSizeBytes",
+                    "value": 12
                 },
                 {
-                    "paramName": "key",
-                    "value": "dtnkey"
+                    "paramName": "keyFile",
+                    "value": "c:\/mykey.txt"
                 },
                 {
-                    "paramName": "crc",
-                    "value": "none"
+                    "paramName": "securityBlockCrc",
+                    "value": 0
                 },
                 {
-                    "paramName": "aad_scoped_mask",
-                    "value": "4"
+                    "paramName": "scopeFlags",
+                    "value": 7
                 }
             ]
         }

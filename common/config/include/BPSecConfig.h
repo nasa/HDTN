@@ -59,10 +59,28 @@ struct security_operation_events_config_t {
 
 typedef std::vector<security_operation_events_config_t> security_operation_events_config_vector_t;
 
-struct security_context_params_config_t {
-    uint64_t id;
-    std::string paramName;
-    uint64_t value;
+
+enum class BPSEC_SECURITY_CONTEXT_PARAM_NAME : uint8_t {
+    UNDEFINED = 0,
+    AES_VARIANT,
+    SHA_VARIANT,
+    IV_SIZE_BYTES,
+    SCOPE_FLAGS,
+    SECURITY_BLOCK_CRC,
+    KEY_ENCRYPTION_KEY_FILE,
+    KEY_FILE,
+    RESERVED_MAX_PARAM_NAMES
+};
+enum class BPSEC_SECURITY_CONTEXT_PARAM_TYPE : uint8_t {
+    UNDEFINED = 0,
+    U64,
+    PATH
+};
+
+struct security_context_params_config_t : public JsonSerializable {
+    BPSEC_SECURITY_CONTEXT_PARAM_NAME m_paramName;
+    uint64_t m_valueUint;
+    boost::filesystem::path m_valuePath;
 
     CONFIG_LIB_EXPORT security_context_params_config_t();
     CONFIG_LIB_EXPORT ~security_context_params_config_t();
@@ -80,22 +98,25 @@ struct security_context_params_config_t {
 
     //a move assignment: operator=(X&&)
     CONFIG_LIB_EXPORT security_context_params_config_t& operator=(security_context_params_config_t&& o) noexcept;
+
+    CONFIG_LIB_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CONFIG_LIB_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 };
 
 typedef std::vector<security_context_params_config_t> security_context_params_vector_t;
 
-struct policy_rules_config_t {
-    std::string description;
-    uint64_t securityPolicyRuleId;
-    std::string securityRole;
-    std::string securitySource;
-    std::set<std::string> bundleSource;
-    std::set<std::string> bundleFinalDestination;
-    std::set<uint64_t>  securityTargetBlockTypes;
-    std::string securityService;
-    std::string securityContext;
-    std::string securityFailureEventSetReference;
-    security_context_params_vector_t securityContextParams;
+struct policy_rules_config_t : public JsonSerializable {
+    std::string m_description;
+    uint64_t m_securityPolicyRuleId;
+    std::string m_securityRole;
+    std::string m_securitySource;
+    std::set<std::string> m_bundleSource;
+    std::set<std::string> m_bundleFinalDestination;
+    std::set<uint64_t> m_securityTargetBlockTypes;
+    std::string m_securityService;
+    std::string m_securityContext;
+    std::string m_securityFailureEventSetReference;
+    security_context_params_vector_t m_securityContextParamsVec;
 
     CONFIG_LIB_EXPORT policy_rules_config_t();
     CONFIG_LIB_EXPORT ~policy_rules_config_t();
@@ -112,6 +133,9 @@ struct policy_rules_config_t {
 
     //a move assignment: operator=(X&&)
     CONFIG_LIB_EXPORT policy_rules_config_t& operator=(policy_rules_config_t&& o) noexcept;
+
+    CONFIG_LIB_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CONFIG_LIB_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 };
 
 typedef std::vector<policy_rules_config_t> policy_rules_config_vector_t;
@@ -178,7 +202,6 @@ public:
     std::string m_bpsecConfigName;
     policy_rules_config_vector_t m_policyRulesConfigVector;
     security_failure_eventSets_config_vector_t m_securityFailureEventSetsConfigVector;
-    security_context_params_vector_t m_securityContextParamsVector;
     security_operation_events_config_vector_t m_securityOperationEventsConfigVector;
     
 };
