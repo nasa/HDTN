@@ -177,6 +177,7 @@ static-analysis-development:
   needs:
     - build-static-analysis
   script:
+    - export HDTN_SOURCE_ROOT=$PWD
     - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
     - cov-analyze --dir idir --all --enable-constraint-fpp --enable-fnptr --enable-virtual --strip-path $HDTN_SOURCE_ROOT
     - cov-commit-defects --dir idir --url $COV_BUILD_SERVER --stream HDTN-development --auth-key-file /home/hdtn/auth.key
