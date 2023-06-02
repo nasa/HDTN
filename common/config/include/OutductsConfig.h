@@ -41,7 +41,6 @@ struct outduct_element_config_t {
     uint16_t remotePort;
     uint32_t maxNumberOfBundlesInPipeline;
     uint64_t maxSumOfBundleBytesInPipeline;
-    std::set<std::string> finalDestinationEidUris;
     
 
     //specific to ltp

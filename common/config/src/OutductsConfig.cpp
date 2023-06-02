@@ -34,7 +34,6 @@ outduct_element_config_t::outduct_element_config_t() :
     remotePort(0),
     maxNumberOfBundlesInPipeline(0),
     maxSumOfBundleBytesInPipeline(0),
-    finalDestinationEidUris(),
     
     thisLtpEngineId(0),
     remoteLtpEngineId(0),
@@ -81,7 +80,6 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     remotePort(o.remotePort),
     maxNumberOfBundlesInPipeline(o.maxNumberOfBundlesInPipeline),
     maxSumOfBundleBytesInPipeline(o.maxSumOfBundleBytesInPipeline),
-    finalDestinationEidUris(o.finalDestinationEidUris),
     
     thisLtpEngineId(o.thisLtpEngineId),
     remoteLtpEngineId(o.remoteLtpEngineId),
@@ -125,7 +123,6 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     remotePort(o.remotePort),
     maxNumberOfBundlesInPipeline(o.maxNumberOfBundlesInPipeline),
     maxSumOfBundleBytesInPipeline(o.maxSumOfBundleBytesInPipeline),
-    finalDestinationEidUris(std::move(o.finalDestinationEidUris)),
     
     thisLtpEngineId(o.thisLtpEngineId),
     remoteLtpEngineId(o.remoteLtpEngineId),
@@ -169,7 +166,6 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
     remotePort = o.remotePort;
     maxNumberOfBundlesInPipeline = o.maxNumberOfBundlesInPipeline;
     maxSumOfBundleBytesInPipeline = o.maxSumOfBundleBytesInPipeline;
-    finalDestinationEidUris = o.finalDestinationEidUris;
     
     thisLtpEngineId = o.thisLtpEngineId;
     remoteLtpEngineId = o.remoteLtpEngineId;
@@ -216,7 +212,6 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
     remotePort = o.remotePort;
     maxNumberOfBundlesInPipeline = o.maxNumberOfBundlesInPipeline;
     maxSumOfBundleBytesInPipeline = o.maxSumOfBundleBytesInPipeline;
-    finalDestinationEidUris = std::move(o.finalDestinationEidUris);
 
     thisLtpEngineId = o.thisLtpEngineId;
     remoteLtpEngineId = o.remoteLtpEngineId;
@@ -262,7 +257,6 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
         (remotePort == o.remotePort) &&
         (maxNumberOfBundlesInPipeline == o.maxNumberOfBundlesInPipeline) &&
         (maxSumOfBundleBytesInPipeline == o.maxSumOfBundleBytesInPipeline) &&
-        (finalDestinationEidUris == o.finalDestinationEidUris) &&
         
         (thisLtpEngineId == o.thisLtpEngineId) &&
         (remoteLtpEngineId == o.remoteLtpEngineId) &&
@@ -375,21 +369,6 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
             }
             outductElementConfig.maxNumberOfBundlesInPipeline = outductElementConfigPt.second.get<uint32_t>("maxNumberOfBundlesInPipeline");
             outductElementConfig.maxSumOfBundleBytesInPipeline = outductElementConfigPt.second.get<uint64_t>("maxSumOfBundleBytesInPipeline");
-            const boost::property_tree::ptree & finalDestinationEidUrisPt = outductElementConfigPt.second.get_child("finalDestinationEidUris", EMPTY_PTREE); //non-throw version
-            outductElementConfig.finalDestinationEidUris.clear();
-            BOOST_FOREACH(const boost::property_tree::ptree::value_type & finalDestinationEidUriValuePt, finalDestinationEidUrisPt) {
-                const std::string uriStr = finalDestinationEidUriValuePt.second.get_value<std::string>();
-                uint64_t node, svc;
-                bool serviceNumberIsWildCard;
-                if (!Uri::ParseIpnUriString(uriStr, node, svc, &serviceNumberIsWildCard)) {
-                    LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid final destination eid uri " << uriStr;
-                    return false;
-                }
-                else if (outductElementConfig.finalDestinationEidUris.insert(uriStr).second == false) { //not inserted
-                    LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "duplicate final destination eid uri " << uriStr;
-                    return false;
-                }
-            }
 
             if ((outductElementConfig.convergenceLayer == "ltp_over_udp") || (outductElementConfig.convergenceLayer == "ltp_over_ipc")) {
                 outductElementConfig.thisLtpEngineId = outductElementConfigPt.second.get<uint64_t>("thisLtpEngineId");
@@ -572,10 +551,6 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
         outductElementConfigPt.put("remotePort", outductElementConfig.remotePort);
         outductElementConfigPt.put("maxNumberOfBundlesInPipeline", outductElementConfig.maxNumberOfBundlesInPipeline);
         outductElementConfigPt.put("maxSumOfBundleBytesInPipeline", outductElementConfig.maxSumOfBundleBytesInPipeline);
-        boost::property_tree::ptree & finalDestinationEidUrisPt = outductElementConfigPt.put_child("finalDestinationEidUris", outductElementConfig.finalDestinationEidUris.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
-        for (std::set<std::string>::const_iterator finalDestinationEidUriIt = outductElementConfig.finalDestinationEidUris.cbegin(); finalDestinationEidUriIt != outductElementConfig.finalDestinationEidUris.cend(); ++finalDestinationEidUriIt) {
-            finalDestinationEidUrisPt.push_back(std::make_pair("", boost::property_tree::ptree(*finalDestinationEidUriIt))); //using "" as key creates json array
-        }
         
         if ((outductElementConfig.convergenceLayer == "ltp_over_udp") || (outductElementConfig.convergenceLayer == "ltp_over_ipc")) {
             outductElementConfigPt.put("thisLtpEngineId", outductElementConfig.thisLtpEngineId);

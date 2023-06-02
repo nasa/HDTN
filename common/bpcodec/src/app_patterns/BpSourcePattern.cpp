@@ -267,10 +267,6 @@ void BpSourcePattern::BpSourcePatternThreadFunc(double bundleRate, const boost::
         }
         else {
             if (outduct) {
-                if (outduct != m_outductManager.GetOutductByFinalDestinationEid_ThreadSafe(m_finalDestinationEid)) {
-                    LOG_ERROR(subprocess) << "outduct 0 does not support finalDestinationEid " << m_finalDestinationEid;
-                    return;
-                }
                 LOG_INFO(subprocess) << "bundle rate of zero used.. Going as fast as possible by allowing up to " << outductMaxBundlesInPipeline << " unacked bundles";
             }
             else {
