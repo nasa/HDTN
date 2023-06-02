@@ -180,7 +180,7 @@ static-analysis-development:
     - export HDTN_SOURCE_ROOT=$PWD
     - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
     - cov-analyze --dir build/idir --all --enable-constraint-fpp --enable-fnptr --enable-virtual --strip-path $HDTN_SOURCE_ROOT
-    - cov-commit-defects --dir build/idir --url $COV_BUILD_SERVER --stream HDTN-development --auth-key-file /home/hdtn/auth.key
+    - cov-commit-defects --dir build/idir --url $COV_BUILD_SERVER --stream HDTN-development --auth-key-file /home/hdtn/ci-auth.key
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
 
