@@ -7,11 +7,6 @@ stages:
 variables:
   HDTN_SOURCE_ROOT: "$PWD"
 
-# Set the pipleline to run for merge request events only
-workflow:
-  rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-
 # Build HDTN with the default configuration
 # Use this for unit and integrated tests
 build-default:
@@ -31,6 +26,8 @@ build-default:
   artifacts:
     paths:
       - build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
 
 # Build HDTN with C++11 only
 build-cpp11:
@@ -47,6 +44,8 @@ build-cpp11:
     key: build-cpp11-$CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
     paths:
       - build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
 
 # Build HDTN with extra compile options
 build-extra-options:
@@ -63,6 +62,8 @@ build-extra-options:
     key: build-without-gui-$CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
     paths:
       - build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
 
 
 build-static-analysis:
@@ -83,6 +84,9 @@ build-static-analysis:
   artifacts:
     paths:
       - build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
 
 # Run unit tests and generate a test report
 unit-test:
@@ -103,6 +107,8 @@ unit-test:
       - report.xml
     reports:
       junit: report.xml
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
 
 # Run unit tests and generate a test report
 integrated-test:
@@ -123,6 +129,8 @@ integrated-test:
       - report.xml
     reports:
       junit: report.xml
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       
 # Static Analysis Legacy defects  
 static-analysis-legacy:
@@ -137,7 +145,9 @@ static-analysis-legacy:
     - git fetch
     - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
     - export files_to_scan=$(git diff --diff-filter=d --name-only origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME | grep '\.cpp')
-    - if [ "$files_to_scan" != "" ]; then cov-run-desktop --dir build/idir --url $COV_BUILD_SERVER --auth-key-file /home/hdtn/ci-auth.key --stream HDTN-master --exit1-if-defects true --ignore-uncapturable-inputs true --present-in-reference true --all --enable-constraint-fpp --enable-fnptr --enable-virtual $files_to_scan; else echo "No files to scan"; fi
+    - if [ "$files_to_scan" != "" ]; then cov-run-desktop --dir build/idir --url $COV_BUILD_SERVER --auth-key-file /home/hdtn/ci-auth.key --stream HDTN-development --exit1-if-defects true --ignore-uncapturable-inputs true --present-in-reference true --all --enable-constraint-fpp --enable-fnptr --enable-virtual $files_to_scan; else echo "No files to scan"; fi
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
 
 # Static Analysis New defects  
 static-analysis-new:
@@ -152,4 +162,24 @@ static-analysis-new:
     - git fetch
     - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
     - export files_to_scan=$(git diff --diff-filter=d --name-only origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME | grep '\.cpp')
-    - if [ "$files_to_scan" != "" ]; then cov-run-desktop --dir build/idir --url $COV_BUILD_SERVER --auth-key-file /home/hdtn/ci-auth.key --stream HDTN-master --exit1-if-defects true --ignore-uncapturable-inputs true --present-in-reference false --all --enable-constraint-fpp --enable-fnptr --enable-virtual $files_to_scan; else echo "No files to scan"; fi
+    - if [ "$files_to_scan" != "" ]; then cov-run-desktop --dir build/idir --url $COV_BUILD_SERVER --auth-key-file /home/hdtn/ci-auth.key --stream HDTN-development --exit1-if-defects true --ignore-uncapturable-inputs true --present-in-reference false --all --enable-constraint-fpp --enable-fnptr --enable-virtual $files_to_scan; else echo "No files to scan"; fi
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+
+
+# Static Analysis Development Defects
+static-analysis-development:
+  stage: test-stage
+  tags:
+    - cov-analysis
+  dependencies:
+    - build-static-analysis
+  needs:
+    - build-static-analysis
+  script:
+    - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
+    - cov-analyze --dir idir --all --enable-constraint-fpp --enable-fnptr --enable-virtual --strip-path $HDTN_SOURCE_ROOT
+    - cov-commit-defects --dir idir --url $COV_BUILD_SERVER --stream HDTN-development --auth-key-file /home/hdtn/auth.key
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
