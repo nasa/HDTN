@@ -13,10 +13,12 @@
  */
 
 #include "Outduct.h"
+#include "Logger.h"
 #include <iostream>
 #include <boost/make_unique.hpp>
 #include <memory>
 
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 Outduct::Outduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid, const bool hasInitLinkState) :
     m_outductConfig(outductConfig),
@@ -53,13 +55,13 @@ std::string Outduct::GetConvergenceLayerName() const {
 bool Outduct::GetHasInitLinkState() const {
     return m_hasInitLinkState;
 }
-uint64_t Outduct::GetStartingMaxSendRateBitsPerSec() const noexcept {
-    return 0;
-}
-
 void Outduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {}
 void Outduct::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {}
 void Outduct::SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback) {}
 void Outduct::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {}
 void Outduct::SetUserAssignedUuid(uint64_t userAssignedUuid) {}
-void Outduct::SetRate(uint64_t maxSendRateBitsPerSecOrZeroToDisable) {}
+void Outduct::SetRate(uint64_t maxSendRateBitsPerSecOrZeroToDisable) {
+    if(maxSendRateBitsPerSecOrZeroToDisable) {
+        LOG_WARNING(subprocess) <<"outduct " << m_outductUuid << " does not support rate limits";
+    }
+}

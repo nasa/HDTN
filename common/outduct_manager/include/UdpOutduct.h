@@ -46,7 +46,6 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT virtual bool ReadyToForward() override;
     OUTDUCT_MANAGER_LIB_EXPORT virtual void Stop() override;
     OUTDUCT_MANAGER_LIB_EXPORT virtual void GetOutductFinalStats(OutductFinalStats & finalStats) override;
-    OUTDUCT_MANAGER_LIB_EXPORT virtual uint64_t GetStartingMaxSendRateBitsPerSec() const noexcept override;
 
 private:
     UdpOutduct();

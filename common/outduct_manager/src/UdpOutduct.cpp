@@ -70,9 +70,6 @@ void UdpOutduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
     finalStats.m_totalDataSegmentsOrPacketsAcked = m_udpBundleSource.GetTotalUdpPacketsAcked();
     finalStats.m_totalDataSegmentsOrPacketsSent = m_udpBundleSource.GetTotalUdpPacketsSent();
 }
-uint64_t UdpOutduct::GetStartingMaxSendRateBitsPerSec() const noexcept {
-    return m_outductConfig.udpRateBps;
-}
 void UdpOutduct::PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& outductTelem) {
     outductTelem = boost::make_unique<UdpOutductTelemetry_t>(m_udpBundleSource.m_udpOutductTelemetry);
     outductTelem->m_linkIsUpPerTimeSchedule = m_linkIsUpPerTimeSchedule;

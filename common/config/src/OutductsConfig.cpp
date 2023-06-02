@@ -46,7 +46,6 @@ outduct_element_config_t::outduct_element_config_t() :
     ltpCheckpointEveryNthDataSegment(0),
     ltpRandomNumberSizeBits(0),
     ltpSenderBoundPort(0),
-    ltpMaxSendRateBitsPerSecOrZeroToDisable(0),
     ltpMaxUdpPacketsToSendPerSystemCall(0),
     ltpSenderPingSecondsOrZeroToDisable(0),
     delaySendingOfDataSegmentsTimeMsOrZeroToDisable(20),
@@ -92,7 +91,6 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     ltpCheckpointEveryNthDataSegment(o.ltpCheckpointEveryNthDataSegment),
     ltpRandomNumberSizeBits(o.ltpRandomNumberSizeBits),
     ltpSenderBoundPort(o.ltpSenderBoundPort),
-    ltpMaxSendRateBitsPerSecOrZeroToDisable(o.ltpMaxSendRateBitsPerSecOrZeroToDisable),
     ltpMaxUdpPacketsToSendPerSystemCall(o.ltpMaxUdpPacketsToSendPerSystemCall),
     ltpSenderPingSecondsOrZeroToDisable(o.ltpSenderPingSecondsOrZeroToDisable),
     delaySendingOfDataSegmentsTimeMsOrZeroToDisable(o.delaySendingOfDataSegmentsTimeMsOrZeroToDisable),
@@ -135,7 +133,6 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     ltpCheckpointEveryNthDataSegment(o.ltpCheckpointEveryNthDataSegment),
     ltpRandomNumberSizeBits(o.ltpRandomNumberSizeBits),
     ltpSenderBoundPort(o.ltpSenderBoundPort),
-    ltpMaxSendRateBitsPerSecOrZeroToDisable(o.ltpMaxSendRateBitsPerSecOrZeroToDisable),
     ltpMaxUdpPacketsToSendPerSystemCall(o.ltpMaxUdpPacketsToSendPerSystemCall),
     ltpSenderPingSecondsOrZeroToDisable(o.ltpSenderPingSecondsOrZeroToDisable),
     delaySendingOfDataSegmentsTimeMsOrZeroToDisable(o.delaySendingOfDataSegmentsTimeMsOrZeroToDisable),
@@ -178,7 +175,6 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
     ltpCheckpointEveryNthDataSegment = o.ltpCheckpointEveryNthDataSegment;
     ltpRandomNumberSizeBits = o.ltpRandomNumberSizeBits;
     ltpSenderBoundPort = o.ltpSenderBoundPort;
-    ltpMaxSendRateBitsPerSecOrZeroToDisable = o.ltpMaxSendRateBitsPerSecOrZeroToDisable;
     ltpMaxUdpPacketsToSendPerSystemCall = o.ltpMaxUdpPacketsToSendPerSystemCall;
     ltpSenderPingSecondsOrZeroToDisable = o.ltpSenderPingSecondsOrZeroToDisable;
     delaySendingOfDataSegmentsTimeMsOrZeroToDisable = o.delaySendingOfDataSegmentsTimeMsOrZeroToDisable;
@@ -224,7 +220,6 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
     ltpCheckpointEveryNthDataSegment = o.ltpCheckpointEveryNthDataSegment;
     ltpRandomNumberSizeBits = o.ltpRandomNumberSizeBits;
     ltpSenderBoundPort = o.ltpSenderBoundPort;
-    ltpMaxSendRateBitsPerSecOrZeroToDisable = o.ltpMaxSendRateBitsPerSecOrZeroToDisable;
     ltpMaxUdpPacketsToSendPerSystemCall = o.ltpMaxUdpPacketsToSendPerSystemCall;
     ltpSenderPingSecondsOrZeroToDisable = o.ltpSenderPingSecondsOrZeroToDisable;
     delaySendingOfDataSegmentsTimeMsOrZeroToDisable = o.delaySendingOfDataSegmentsTimeMsOrZeroToDisable;
@@ -269,7 +264,6 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
         (ltpCheckpointEveryNthDataSegment == o.ltpCheckpointEveryNthDataSegment) &&
         (ltpRandomNumberSizeBits == o.ltpRandomNumberSizeBits) &&
         (ltpSenderBoundPort == o.ltpSenderBoundPort) &&
-        (ltpMaxSendRateBitsPerSecOrZeroToDisable == o.ltpMaxSendRateBitsPerSecOrZeroToDisable) &&
         (ltpMaxUdpPacketsToSendPerSystemCall == o.ltpMaxUdpPacketsToSendPerSystemCall) &&
         (ltpSenderPingSecondsOrZeroToDisable == o.ltpSenderPingSecondsOrZeroToDisable) &&
         (delaySendingOfDataSegmentsTimeMsOrZeroToDisable == o.delaySendingOfDataSegmentsTimeMsOrZeroToDisable) &&
@@ -387,7 +381,6 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                     return false;
                 }
                 outductElementConfig.ltpSenderBoundPort = outductElementConfigPt.second.get<uint16_t>("ltpSenderBoundPort");
-                outductElementConfig.ltpMaxSendRateBitsPerSecOrZeroToDisable = outductElementConfigPt.second.get<uint64_t>("ltpMaxSendRateBitsPerSecOrZeroToDisable");
                 outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall = outductElementConfigPt.second.get<uint64_t>("ltpMaxUdpPacketsToSendPerSystemCall");
                 if (outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall == 0) {
                     LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: ltpMaxUdpPacketsToSendPerSystemCall ("
@@ -564,7 +557,6 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
             outductElementConfigPt.put("ltpCheckpointEveryNthDataSegment", outductElementConfig.ltpCheckpointEveryNthDataSegment);
             outductElementConfigPt.put("ltpRandomNumberSizeBits", outductElementConfig.ltpRandomNumberSizeBits);
             outductElementConfigPt.put("ltpSenderBoundPort", outductElementConfig.ltpSenderBoundPort);
-            outductElementConfigPt.put("ltpMaxSendRateBitsPerSecOrZeroToDisable", outductElementConfig.ltpMaxSendRateBitsPerSecOrZeroToDisable);
             outductElementConfigPt.put("ltpMaxUdpPacketsToSendPerSystemCall", outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall);
             outductElementConfigPt.put("ltpSenderPingSecondsOrZeroToDisable", outductElementConfig.ltpSenderPingSecondsOrZeroToDisable);
             outductElementConfigPt.put("delaySendingOfDataSegmentsTimeMsOrZeroToDisable", outductElementConfig.delaySendingOfDataSegmentsTimeMsOrZeroToDisable);

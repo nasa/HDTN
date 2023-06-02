@@ -98,7 +98,7 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
     bool custodyTransferUseAcs,
     const cbhe_eid_t & myEid, double bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId,
     const unsigned int bundleSendTimeoutSeconds, const uint64_t bundleLifetimeMilliseconds, const uint64_t bundlePriority,
-    const bool requireRxBundleBeforeNextTx, const bool forceDisableCustody, const bool useBpVersion7) {
+    const bool requireRxBundleBeforeNextTx, const bool forceDisableCustody, const bool useBpVersion7, const uint64_t claRate) {
     if (m_running) {
         LOG_ERROR(subprocess) << "BpSourcePattern::Start called while BpSourcePattern is already running";
         return;
@@ -115,6 +115,7 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
     m_detectedNextCustodianSupportsCteb = false;
     m_requireRxBundleBeforeNextTx = requireRxBundleBeforeNextTx;
     m_useBpVersion7 = useBpVersion7;
+    m_claRate = claRate;
     m_linkIsDown = false;
     m_nextBundleId = 0;
     m_hopCounts.assign(256, 0);
@@ -170,6 +171,10 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
             boost::bind(&BpSourcePattern::OnOutductLinkStatusChangedCallback, this, boost::placeholders::_1, boost::placeholders::_2)))
         {
             return;
+        }
+        Outduct *outduct = m_outductManager.GetOutductByOutductUuid(0);
+        if(outduct) {
+            outduct->SetRate(m_claRate);
         }
     }
     else {

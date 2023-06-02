@@ -58,7 +58,8 @@ public:
         bool custodyTransferUseAcs,
         const cbhe_eid_t & myEid, double bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId,
         const unsigned int bundleSendTimeoutSeconds, const uint64_t bundleLifetimeMilliseconds, const uint64_t bundlePriority,
-        const bool requireRxBundleBeforeNextTx = false, const bool forceDisableCustody = false, const bool useBpVersion7 = false);
+        const bool requireRxBundleBeforeNextTx = false, const bool forceDisableCustody = false, const bool useBpVersion7 = false,
+        const uint64_t claRate = 0);
 
     uint64_t m_bundleCount;
     uint64_t m_numRfc5050CustodyTransfers;
@@ -97,6 +98,7 @@ private:
     bool m_custodyTransferUseAcs;
     bool m_useInductForSendingBundles;
     bool m_useBpVersion7;
+    uint64_t m_claRate;
     unsigned int m_bundleSendTimeoutSeconds;
     boost::posix_time::time_duration m_bundleSendTimeoutTimeDuration;
     uint64_t m_bundleLifetimeMilliseconds;

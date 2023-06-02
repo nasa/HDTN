@@ -923,14 +923,6 @@ void Egress::Impl::RouterEventHandler(hdtn::IreleaseChangeHdr& releaseChangeHdr)
             return;
         }
         outduct->m_linkIsUpPerTimeSchedule = true;
-        const uint64_t startingRateBitsPerSec = outduct->GetStartingMaxSendRateBitsPerSec();
-        if (startingRateBitsPerSec == 0) {
-            // If the starting rate is 0 ("unlimited"), never override it
-            LOG_INFO(subprocess) << "not updating max rate for contact. max rate was initiliazed to 0 (unlimited) "
-                << "or isn't supported by convergence layer";
-            return;
-        }
-
         LOG_INFO(subprocess) << "setting rate to " << releaseChangeHdr.rateBps << " bps for new contact";
         outduct->SetRate(releaseChangeHdr.rateBps);
     }
