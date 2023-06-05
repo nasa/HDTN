@@ -30,7 +30,6 @@
 #ifdef BPSEC_SUPPORT_ENABLED
 #include "BpSecManager.h"
 #include "BpSecPolicyManager.h"
-# define DO_BPSEC_TEST 1
 
 struct BpSinkPattern::BpSecImpl {
     BpSecPolicyManager m_bpSecPolicyManager;
@@ -112,6 +111,7 @@ void BpSinkPattern::Stop() {
 }
 
 bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_ptr & outductsConfigPtr,
+    const boost::filesystem::path& bpSecConfigFilePath,
     bool isAcsAware, const cbhe_eid_t & myEid, uint32_t processingLagMs, const uint64_t maxBundleSizeBytes, const uint64_t myBpEchoServiceId)
 {
     m_tcpclOpportunisticRemoteNodeId = 0;
@@ -137,31 +137,22 @@ bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_pt
 
     m_linkIsDown = false;
 
-#ifdef DO_BPSEC_TEST
-    { //simulate loading from policy file
-        BpSecPolicy* p = m_bpsecPimpl->m_bpSecPolicyManager.CreateAndGetNewPolicy(
-            "ipn:10.1",
-            "ipn:*.*",
-            "ipn:*.*",
-            BPSEC_ROLE::ACCEPTOR);
-        p->m_doConfidentiality = true;
-        if (p->m_doConfidentiality) {
-            static const std::string dataEncryptionKeyString(
-                "81776572747975696f70617364666768"
-                "71776572747975696f70617364666768"
-            );
-            BinaryConversions::HexStringToBytes(dataEncryptionKeyString, p->m_dataEncryptionKey);
+    if (!bpSecConfigFilePath.empty()) {
+#ifdef BPSEC_SUPPORT_ENABLED
+        BpSecConfig_ptr bpSecConfigPtr = BpSecConfig::CreateFromJsonFilePath(bpSecConfigFilePath);
+        if (!bpSecConfigPtr) {
+            LOG_FATAL(subprocess) << "Error loading BpSec config file: " << bpSecConfigFilePath;
+            return false;
         }
-
-        p->m_doIntegrity = true;
-        if (p->m_doIntegrity) {
-            static const std::string hmacKeyString(
-                "8a2b1a2b1a2b1a2b1a2b1a2b1a2b1a2b"
-            );
-            BinaryConversions::HexStringToBytes(hmacKeyString, p->m_hmacKey);
+        if (!m_bpsecPimpl->m_bpSecPolicyManager.LoadFromConfig(*bpSecConfigPtr)) {
+            return false;
         }
+        LOG_INFO(subprocess) << "BpSec enabled.  Using config file: " << bpSecConfigFilePath;
+#else
+        LOG_FATAL(subprocess) << "A BpSec config file was specified but BpSec support was not enabled at compile time";
+        return false;
+#endif
     }
-#endif // DO_BPSEC_TEST
 
     M_EXTRA_PROCESSING_TIME_MS = processingLagMs;
     if (inductsConfigPtr) {

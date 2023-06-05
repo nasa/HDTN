@@ -45,6 +45,7 @@ bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool 
         bool isAcsAware;
         boost::filesystem::path saveDirectory;
         uint64_t maxBundleSizeBytes;
+        boost::filesystem::path bpSecConfigFilePath;
 
         boost::program_options::options_description desc("Allowed options");
         try {
@@ -55,6 +56,7 @@ bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool 
                 ("my-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:2.1"), "BpReceiveFile Eid.")
                 ("custody-transfer-outducts-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "Outducts Configuration File for custody transfer (use custody if present).")
                 ("acs-aware-bundle-agent", "Custody transfer should support Aggregate Custody Signals if valid CTEB present.")
+                ("bpsec-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "BpSec Configuration File.")
                 ("max-rx-bundle-size-bytes", boost::program_options::value<uint64_t>()->default_value(10000000), "Max bundle size bytes to receive (default=10MB).")
                 ;
 
@@ -71,6 +73,8 @@ bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool 
                 LOG_ERROR(subprocess) << "bad BpReceiveFile uri string: " << myUriEid;
                 return false;
             }
+
+            bpSecConfigFilePath = vm["bpsec-config-file"].as<boost::filesystem::path>();
 
             const boost::filesystem::path configFileNameInducts = vm["inducts-config-file"].as<boost::filesystem::path>();
             if (!configFileNameInducts.empty()) {
@@ -122,7 +126,10 @@ bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool 
 
         LOG_INFO(subprocess) << "starting..";
         BpReceiveFile bpReceiveFile(saveDirectory);
-        bpReceiveFile.Init(inductsConfigPtr, outductsConfigPtr, isAcsAware, myEid, 0, maxBundleSizeBytes);
+        if (!bpReceiveFile.Init(inductsConfigPtr, outductsConfigPtr, bpSecConfigFilePath, isAcsAware, myEid, 0, maxBundleSizeBytes)) {
+            LOG_FATAL(subprocess) << "Cannot Init BpReceiveFile!";
+            return false;
+        }
 
 
         if (useSignalHandler) {

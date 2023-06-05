@@ -22,36 +22,54 @@
 
 BOOST_AUTO_TEST_CASE(BpSecPolicyManagerTestCase)
 {
+    bool isNewPolicy;
     { //bad syntax
         BpSecPolicyManager m;
-        BOOST_REQUIRE(m.CreateAndGetNewPolicy("ipn:**.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::ACCEPTOR) == NULL);
-        BOOST_REQUIRE(m.CreateAndGetNewPolicy("ipn:*.*", "ipn:*.**", "ipn:*.*", BPSEC_ROLE::ACCEPTOR) == NULL);
-        BOOST_REQUIRE(m.CreateAndGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:***.*", BPSEC_ROLE::ACCEPTOR) == NULL);
-        BOOST_REQUIRE(m.CreateAndGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::RESERVED_MAX_ROLE_TYPES) == NULL);
+        BOOST_REQUIRE(m.CreateOrGetNewPolicy("ipn:**.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::ACCEPTOR, isNewPolicy) == NULL);
+        BOOST_REQUIRE(m.CreateOrGetNewPolicy("ipn:*.*", "ipn:*.**", "ipn:*.*", BPSEC_ROLE::ACCEPTOR, isNewPolicy) == NULL);
+        BOOST_REQUIRE(m.CreateOrGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:***.*", BPSEC_ROLE::ACCEPTOR, isNewPolicy) == NULL);
+        BOOST_REQUIRE(m.CreateOrGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::RESERVED_MAX_ROLE_TYPES, isNewPolicy) == NULL);
     }
     { //duplication
         BpSecPolicyManager m;
-        BOOST_REQUIRE(m.CreateAndGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::ACCEPTOR));
-        BOOST_REQUIRE(m.CreateAndGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::ACCEPTOR) == NULL);
-        BOOST_REQUIRE(m.CreateAndGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::ACCEPTOR) == NULL);
-        BOOST_REQUIRE(m.CreateAndGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::SOURCE));
-        BOOST_REQUIRE(m.CreateAndGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::SOURCE) == NULL);
-        BOOST_REQUIRE(m.CreateAndGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::VERIFIER));
-        BOOST_REQUIRE(m.CreateAndGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::VERIFIER) == NULL);
+        BpSecPolicy* pA = m.CreateOrGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::ACCEPTOR, isNewPolicy);
+        BOOST_REQUIRE(pA);
+        BOOST_REQUIRE(isNewPolicy);
+        BOOST_REQUIRE(m.CreateOrGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::ACCEPTOR, isNewPolicy) == pA);
+        BOOST_REQUIRE(!isNewPolicy);
+        BOOST_REQUIRE(m.CreateOrGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::ACCEPTOR, isNewPolicy) == pA);
+        BOOST_REQUIRE(!isNewPolicy);
+        BpSecPolicy* pS = m.CreateOrGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::SOURCE, isNewPolicy);
+        BOOST_REQUIRE(pS);
+        BOOST_REQUIRE(pS != pA);
+        BOOST_REQUIRE(isNewPolicy);
+        BOOST_REQUIRE(m.CreateOrGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::SOURCE, isNewPolicy) == pS);
+        BOOST_REQUIRE(!isNewPolicy);
+        BpSecPolicy* pV = m.CreateOrGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::VERIFIER, isNewPolicy);
+        BOOST_REQUIRE(pV);
+        BOOST_REQUIRE(pV != pA);
+        BOOST_REQUIRE(pV != pS);
+        BOOST_REQUIRE(isNewPolicy);
+        BOOST_REQUIRE(m.CreateOrGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::VERIFIER, isNewPolicy) == pV);
+        BOOST_REQUIRE(!isNewPolicy);
     }
     { //create and find
         BpSecPolicyManager m;
         const cbhe_eid_t ss(1, 1), bs(2, 1), bd(3, 1);
         BOOST_REQUIRE(m.FindPolicy(ss, bs, bd, BPSEC_ROLE::ACCEPTOR) == NULL);
         BOOST_REQUIRE(m.FindPolicy(ss, bs, bd, BPSEC_ROLE::ACCEPTOR) == NULL);
-        BOOST_REQUIRE(m.CreateAndGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::ACCEPTOR));
+        BpSecPolicy* pAcceptor = m.CreateOrGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::ACCEPTOR, isNewPolicy);
+        BOOST_REQUIRE(pAcceptor);
+        BOOST_REQUIRE(isNewPolicy);
         const BpSecPolicy* policyAny = m.FindPolicy(ss, bs, bd, BPSEC_ROLE::ACCEPTOR);
         BOOST_REQUIRE(policyAny);
+        BOOST_REQUIRE(policyAny == pAcceptor);
         BOOST_REQUIRE(m.FindPolicy(ss, bs, bd, BPSEC_ROLE::ACCEPTOR) == policyAny);
 
         {
-            const BpSecPolicy* pNew = m.CreateAndGetNewPolicy("ipn:1.1", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::ACCEPTOR);
+            const BpSecPolicy* pNew = m.CreateOrGetNewPolicy("ipn:1.1", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::ACCEPTOR, isNewPolicy);
             BOOST_REQUIRE(pNew);
+            BOOST_REQUIRE(isNewPolicy);
             BOOST_REQUIRE(pNew != policyAny);
             const BpSecPolicy* pFound = m.FindPolicy(ss, bs, bd, BPSEC_ROLE::ACCEPTOR);
             BOOST_REQUIRE(pNew == pFound);
@@ -84,8 +102,9 @@ BOOST_AUTO_TEST_CASE(BpSecPolicyManagerTestCase)
         BpSecPolicyManager m;
         for (std::size_t i = 0; i < testCases.size(); ++i) {
             const std::vector<std::string>& testCase = testCases[i];
-            const BpSecPolicy* pNew = m.CreateAndGetNewPolicy(testCase[0], testCase[1], testCase[2], BPSEC_ROLE::ACCEPTOR);
+            const BpSecPolicy* pNew = m.CreateOrGetNewPolicy(testCase[0], testCase[1], testCase[2], BPSEC_ROLE::ACCEPTOR, isNewPolicy);
             BOOST_REQUIRE(pNew);
+            BOOST_REQUIRE(isNewPolicy);
             BOOST_REQUIRE(ptrSet.emplace(pNew).second); //was inserted (new ptr)
             BOOST_REQUIRE(caseToPtrMap.emplace(testCase[0] + testCase[1] + testCase[2], pNew).second);
         }
@@ -101,7 +120,8 @@ BOOST_AUTO_TEST_CASE(BpSecPolicyManagerTestCase)
         BpSecPolicyManager m;
         PolicySearchCache searchCache;
         const cbhe_eid_t ss(1, 1), bs(2, 1), bd(3, 1);
-        BOOST_REQUIRE(m.CreateAndGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::ACCEPTOR));
+        BOOST_REQUIRE(m.CreateOrGetNewPolicy("ipn:*.*", "ipn:*.*", "ipn:*.*", BPSEC_ROLE::ACCEPTOR, isNewPolicy));
+        BOOST_REQUIRE(isNewPolicy);
         const BpSecPolicy* policyAny = m.FindPolicyWithCacheSupport(ss, bs, bd, BPSEC_ROLE::ACCEPTOR, searchCache);
         BOOST_REQUIRE(policyAny);
         BOOST_REQUIRE(!searchCache.wasCacheHit);

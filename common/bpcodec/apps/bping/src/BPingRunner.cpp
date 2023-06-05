@@ -171,6 +171,7 @@ bool BPingRunner::Run(int argc, const char* const argv[], volatile bool & runnin
         bping.Start(
             outductsConfigPtr,
             inductsConfigPtr,
+            "",
             custodyTransferUseAcs,
             myEid,
             bundleRate,

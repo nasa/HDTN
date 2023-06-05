@@ -42,7 +42,7 @@ enum class BPSEC_ROLE {
     RESERVED_MAX_ROLE_TYPES
 };
 struct BpSecPolicy {
-    BpSecPolicy() : m_doIntegrity(false), m_doConfidentiality(false), m_use12ByteIv(true) {}
+    BPSEC_EXPORT BpSecPolicy();
     BPSEC_EXPORT bool ValidateAndFinalize();
 
     bool m_doIntegrity;
@@ -81,13 +81,7 @@ struct BpSecPolicyFilter {
     BpSecPoliciesByRollArray m_policiesByRollArray; //used only by filter leaf node
 };
 struct PolicySearchCache {
-    PolicySearchCache() :
-        securitySourceEid(0, 0),
-        bundleSourceEid(0, 0),
-        bundleFinalDestEid(0, 0),
-        role(BPSEC_ROLE::RESERVED_MAX_ROLE_TYPES),
-        wasCacheHit(false),
-        foundPolicy(NULL) {}
+    BPSEC_EXPORT PolicySearchCache();
     cbhe_eid_t securitySourceEid;
     cbhe_eid_t bundleSourceEid;
     cbhe_eid_t bundleFinalDestEid;
@@ -127,10 +121,12 @@ public:
     * @param bundleSourceEidUri The uri to match of the bundle source field of the primary block.
     * @param bundleFinalDestEidUri The uri to match of the bundle destination field of the primary block.
     * @param role The Bpsec role of this policy.
-    * @return A pointer of the newly allocated policy that needs modified (does not need deleted, handled internally).  NULL if the policy already exists. 
+    * @param isNewPolicy On return, this value is set to false if the policy already exists, or true if the policy was newly created
+    * @return A pointer of the newly allocated policy that needs modified (does not need deleted, handled internally).  NULL if a URI was invalid.
     */
-    BPSEC_EXPORT BpSecPolicy* CreateAndGetNewPolicy(const std::string& securitySourceEidUri,
-        const std::string& bundleSourceEidUri, const std::string& bundleFinalDestEidUri, const BPSEC_ROLE role);
+    BPSEC_EXPORT BpSecPolicy* CreateOrGetNewPolicy(const std::string& securitySourceEidUri,
+        const std::string& bundleSourceEidUri, const std::string& bundleFinalDestEidUri,
+        const BPSEC_ROLE role, bool& isNewPolicy);
 
     /**
     * Finds an existing BpSecPolicy using the fully-qualified eid fields of the bundle.
@@ -169,6 +165,8 @@ public:
 
     BPSEC_EXPORT bool FindPolicyAndProcessOutgoingBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx,
         const cbhe_eid_t& thisSecuritySourceEid) const;
+
+    BPSEC_EXPORT bool LoadFromConfig(const BpSecConfig& config);
 private:
     BpSecPolicyFilter m_policyFilterSecuritySource;
 };

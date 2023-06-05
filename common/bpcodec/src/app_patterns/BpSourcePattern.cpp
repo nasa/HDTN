@@ -35,7 +35,6 @@
 #include "BpSecManager.h"
 #include "InitializationVectors.h"
 #include "BpSecPolicyManager.h"
-# define DO_BPSEC_TEST 1
 #endif
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
@@ -95,7 +94,9 @@ void BpSourcePattern::Stop() {
     
 }
 
-void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfig_ptr & inductsConfigPtr, bool custodyTransferUseAcs,
+void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfig_ptr & inductsConfigPtr,
+    const boost::filesystem::path& bpSecConfigFilePath,
+    bool custodyTransferUseAcs,
     const cbhe_eid_t & myEid, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId,
     const unsigned int bundleSendTimeoutSeconds, const uint64_t bundleLifetimeMilliseconds, const uint64_t bundlePriority,
     const bool requireRxBundleBeforeNextTx, const bool forceDisableCustody, const bool useBpVersion7) {
@@ -181,17 +182,39 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
    
     
     m_bpSourcePatternThreadPtr = boost::make_unique<boost::thread>(
-        boost::bind(&BpSourcePattern::BpSourcePatternThreadFunc, this, bundleRate)); //create and start the worker thread
+        boost::bind(&BpSourcePattern::BpSourcePatternThreadFunc, this, bundleRate, bpSecConfigFilePath)); //create and start the worker thread
     
 
 
 }
 
 
-void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
+void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate, const boost::filesystem::path& bpSecConfigFilePath) {
 
     ThreadNamer::SetThisThreadName("BpSourcePattern");
 
+#ifdef BPSEC_SUPPORT_ENABLED
+    BpSecConfig_ptr bpSecConfigPtr;
+    BpSecPolicyManager bpSecPolicyManager;
+    BpSecPolicyProcessingContext policyProcessingCtx;
+    
+    if (!bpSecConfigFilePath.empty()) {
+        bpSecConfigPtr = BpSecConfig::CreateFromJsonFilePath(bpSecConfigFilePath);
+        if (!bpSecConfigPtr) {
+            LOG_FATAL(subprocess) << "Error loading BpSec config file: " << bpSecConfigFilePath;
+            return;
+        }
+        else if (!bpSecPolicyManager.LoadFromConfig(*bpSecConfigPtr)) {
+            return;
+        }
+        LOG_INFO(subprocess) << "BpSec enabled.  Using config file: " << bpSecConfigFilePath;
+    }
+#else
+    if (!bpSecConfigFilePath.empty()) {
+        LOG_FATAL(subprocess) << "A BpSec config file was specified but BpSec support was not enabled at compile time";
+        return;
+    }
+#endif
     while (m_running) {
         if (m_useInductForSendingBundles) {
             LOG_INFO(subprocess) << "Waiting for Tcpcl opportunistic link on the induct to become available for forwarding bundles...";
@@ -295,64 +318,11 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
     bpv7BlockTypeToManuallyAssignedBlockNumberLut[static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PAYLOAD)] = 1; //must be 1
     
 #ifdef BPSEC_SUPPORT_ENABLED
-    BpSecPolicyManager m_bpSecPolicyManager;
-    BpSecPolicyProcessingContext m_policyProcessingCtx;
-# ifdef DO_BPSEC_TEST
-    
-    { //simulate loading from policy file
-        BpSecPolicy* p = m_bpSecPolicyManager.CreateAndGetNewPolicy(
-            Uri::GetIpnUriString(m_myEid.nodeId, m_myEid.serviceId),
-            Uri::GetIpnUriString(m_myEid.nodeId, m_myEid.serviceId),
-            Uri::GetIpnUriString(m_finalDestinationEid.nodeId, m_finalDestinationEid.serviceId),
-            BPSEC_ROLE::SOURCE);
-        p->m_doConfidentiality = true;
-        if (p->m_doConfidentiality) {
-            static const std::string dataEncryptionKeyString(
-                "71776572747975696f70617364666768"
-                "71776572747975696f70617364666768"
-            );
-            BinaryConversions::HexStringToBytes(dataEncryptionKeyString, p->m_dataEncryptionKey);
-            p->m_confidentialityVariant = COSE_ALGORITHMS::A256GCM;
-            p->m_use12ByteIv = true;
-            p->m_aadScopeMask = BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET;
-            p->m_bcbCrcType = BPV7_CRC_TYPE::NONE;
-            FragmentSet::InsertFragment(p->m_bcbBlockTypeTargets,
-                FragmentSet::data_fragment_t(static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PAYLOAD),
-                    static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PAYLOAD))); //just payload block
-        }
-
-        p->m_doIntegrity = true;
-        if (p->m_doIntegrity) {
-            static const std::string hmacKeyString(
-                "1a2b1a2b1a2b1a2b1a2b1a2b1a2b1a2b"
-            );
-            BinaryConversions::HexStringToBytes(hmacKeyString, p->m_hmacKey);
-            p->m_integrityVariant = COSE_ALGORITHMS::HMAC_384_384;
-            p->m_integrityScopeMask = BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::ALL_FLAGS_SET;
-            p->m_bibCrcType = BPV7_CRC_TYPE::NONE;
-            FragmentSet::InsertFragment(p->m_bibBlockTypeTargets,
-                FragmentSet::data_fragment_t(static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PAYLOAD),
-                    static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PAYLOAD)));
-
-            //When adding a BCB to a bundle, if some (or all) of the security
-            //targets of the BCB match all of the security targets of an
-            //existing BIB, then the existing BIB MUST also be encrypted.
-            // A check that this was done shall be performed later.
-            FragmentSet::InsertFragment(p->m_bcbBlockTypeTargets,
-                FragmentSet::data_fragment_t(static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::INTEGRITY),
-                    static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::INTEGRITY))); //just payload block
-        }
-
-        if (!p->ValidateAndFinalize()) {
-            return;
-        }
-    }
-# endif // DO_BPSEC_TEST
-    const BpSecPolicy* bpSecPolicyPtr = m_bpSecPolicyManager.FindPolicy(m_myEid, m_myEid, m_finalDestinationEid, BPSEC_ROLE::SOURCE);
+    const BpSecPolicy* bpSecPolicyPtr = bpSecPolicyManager.FindPolicy(m_myEid, m_myEid, m_finalDestinationEid, BPSEC_ROLE::SOURCE);
     if (bpSecPolicyPtr) {
         if (!BpSecPolicyManager::PopulateTargetArraysForSecuritySource(
             bpv7BlockTypeToManuallyAssignedBlockNumberLut,
-            m_policyProcessingCtx,
+            policyProcessingCtx,
             *bpSecPolicyPtr))
         {
             return;
@@ -517,7 +487,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                 }
 #ifdef BPSEC_SUPPORT_ENABLED
                 if (bpSecPolicyPtr) {
-                    if (!BpSecPolicyManager::ProcessOutgoingBundle(bv7, m_policyProcessingCtx, *bpSecPolicyPtr, m_myEid)) {
+                    if (!BpSecPolicyManager::ProcessOutgoingBundle(bv7, policyProcessingCtx, *bpSecPolicyPtr, m_myEid)) {
                         m_running = false;
                         continue;
                     }

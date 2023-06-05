@@ -17,10 +17,32 @@
 #include "BpSecManager.h"
 #include <boost/make_unique.hpp>
 #include "Uri.h"
+#include "BinaryConversions.h"
 #include "Logger.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
+BpSecPolicy::BpSecPolicy() :
+    m_doIntegrity(false),
+    m_doConfidentiality(false),
+    //fields set by ValidateAndFinalize()
+    m_bcbTargetsPayloadBlock(false),
+    m_bibMustBeEncrypted(false),
+    //integrity only variables
+    m_integrityVariant(COSE_ALGORITHMS::HMAC_384_384),
+    m_integrityScopeMask(BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::ALL_FLAGS_SET),
+    m_bibCrcType(BPV7_CRC_TYPE::NONE),
+    m_bibBlockTypeTargets(),
+    m_hmacKeyEncryptionKey(),
+    m_hmacKey(),
+    //confidentiality only variables
+    m_confidentialityVariant(COSE_ALGORITHMS::A256GCM),
+    m_use12ByteIv(true),
+    m_aadScopeMask(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET),
+    m_bcbCrcType(BPV7_CRC_TYPE::NONE),
+    m_bcbBlockTypeTargets(),
+    m_confidentialityKeyEncryptionKey(),
+    m_dataEncryptionKey() {}
 bool BpSecPolicy::ValidateAndFinalize() {
     m_bcbTargetsPayloadBlock = false;
     m_bibMustBeEncrypted = false;
@@ -60,6 +82,14 @@ bool BpSecPolicy::ValidateAndFinalize() {
     return true;
 }
 
+PolicySearchCache::PolicySearchCache() :
+    securitySourceEid(0, 0),
+    bundleSourceEid(0, 0),
+    bundleFinalDestEid(0, 0),
+    role(BPSEC_ROLE::RESERVED_MAX_ROLE_TYPES),
+    wasCacheHit(false),
+    foundPolicy(NULL) {}
+
 BpSecPolicyProcessingContext::BpSecPolicyProcessingContext() :
     m_ivStruct(InitializationVectorsForOneThread::Create()),
     m_bcbTargetBibBlockNumberPlaceholderIndex(UINT64_MAX) {}
@@ -90,9 +120,11 @@ static BpSecPolicyFilter* Internal_AddPolicyFilterToThisFilter(const std::string
     }
     return newFilterPtr;
 }
-BpSecPolicy* BpSecPolicyManager::CreateAndGetNewPolicy(const std::string& securitySourceEidUri,
-    const std::string& bundleSourceEidUri, const std::string& bundleFinalDestEidUri, const BPSEC_ROLE role)
+BpSecPolicy* BpSecPolicyManager::CreateOrGetNewPolicy(const std::string& securitySourceEidUri,
+    const std::string& bundleSourceEidUri, const std::string& bundleFinalDestEidUri,
+    const BPSEC_ROLE role, bool& isNewPolicy)
 {
+    isNewPolicy = true;
     BpSecPolicyFilter* policyFilterBundleSourcePtr = Internal_AddPolicyFilterToThisFilter(securitySourceEidUri, m_policyFilterSecuritySource);
     if (!policyFilterBundleSourcePtr) {
         return NULL;
@@ -111,7 +143,9 @@ BpSecPolicy* BpSecPolicyManager::CreateAndGetNewPolicy(const std::string& securi
     }
     BpSecPolicySharedPtr& policyPtr = policyFilterRollArraysPtr->m_policiesByRollArray[roleIndex];
     if (policyPtr) {
-        return NULL; //already exists
+        //policy already exists
+        isNewPolicy = false;
+        return policyPtr.get(); 
     }
     policyPtr = std::make_shared<BpSecPolicy>();
     return policyPtr.get();
@@ -518,6 +552,245 @@ bool BpSecPolicyManager::FindPolicyAndProcessOutgoingBundle(BundleViewV7& bv, Bp
         }
         if (!BpSecPolicyManager::ProcessOutgoingBundle(bv, ctx, *bpSecPolicyPtr, thisSecuritySourceEid)) {
             return false;
+        }
+    }
+    return true;
+}
+
+bool BpSecPolicyManager::LoadFromConfig(const BpSecConfig& config) {
+    const policy_rules_config_vector_t& rulesVec = config.m_policyRulesConfigVector;
+    for (std::size_t ruleI = 0; ruleI < rulesVec.size(); ++ruleI) {
+        const policy_rules_config_t& rule = rulesVec[ruleI];
+        BPSEC_ROLE role;
+        if (rule.m_securityRole == "source") {
+            role = BPSEC_ROLE::SOURCE;
+        }
+        else if (rule.m_securityRole == "verifier") {
+            role = BPSEC_ROLE::VERIFIER;
+        }
+        else if (rule.m_securityRole == "acceptor") {
+            role = BPSEC_ROLE::ACCEPTOR;
+        }
+        else {
+            LOG_ERROR(subprocess) << "Error loading BpSec config file: security role ("
+                << rule.m_securityRole << ") is not any of the following: [source, verifier, acceptor].";
+            return false;
+        }
+        bool isConfidentiality;
+        if (rule.m_securityService == "confidentiality") {
+            isConfidentiality = true;
+        }
+        else if (rule.m_securityService == "integrity") {
+            isConfidentiality = false;
+        }
+        else {
+            LOG_ERROR(subprocess) << "Error loading BpSec config file: securityService ("
+                << rule.m_securityService << ") must be confidentiality or integrity";
+            return false;
+        }
+        const bool isIntegrity = !isConfidentiality;
+
+        BpSecPolicy policyToCopy; //initialized with defaults
+        FragmentSet::data_fragment_set_t& blockTypeTargets = (isConfidentiality) ? policyToCopy.m_bcbBlockTypeTargets : policyToCopy.m_bibBlockTypeTargets;
+        for (std::set<uint64_t>::const_iterator itBlockType = rule.m_securityTargetBlockTypes.cbegin();
+            itBlockType != rule.m_securityTargetBlockTypes.cend(); ++itBlockType)
+        {
+            FragmentSet::InsertFragment(blockTypeTargets, FragmentSet::data_fragment_t(*itBlockType, *itBlockType));
+        }
+
+        for (std::size_t paramI = 0; paramI < rule.m_securityContextParamsVec.size(); ++paramI) {
+            const security_context_params_config_t& param = rule.m_securityContextParamsVec[paramI];
+            const BPSEC_SECURITY_CONTEXT_PARAM_NAME name = param.m_paramName;
+            if (name == BPSEC_SECURITY_CONTEXT_PARAM_NAME::AES_VARIANT) {
+                if (isIntegrity) {
+                    LOG_ERROR(subprocess) << "Error loading BpSec config file: AES_VARIANT cannot be applied to integrity";
+                    return false;
+                }
+                if (param.m_valueUint == 128) {
+                    policyToCopy.m_confidentialityVariant = COSE_ALGORITHMS::A128GCM;
+                }
+                else if (param.m_valueUint == 256) {
+                    policyToCopy.m_confidentialityVariant = COSE_ALGORITHMS::A256GCM;
+                }
+                else {
+                    LOG_ERROR(subprocess) << "Error loading BpSec config file: aesVariant must be either 128 or 256";
+                    return false;
+                }
+            }
+            else if (name == BPSEC_SECURITY_CONTEXT_PARAM_NAME::SHA_VARIANT) {
+                if (isConfidentiality) {
+                    LOG_ERROR(subprocess) << "Error loading BpSec config file: SHA_VARIANT cannot be applied to confidentiality";
+                    return false;
+                }
+                if (param.m_valueUint == 256) {
+                    policyToCopy.m_integrityVariant = COSE_ALGORITHMS::HMAC_256_256;
+                }
+                else if (param.m_valueUint == 384) {
+                    policyToCopy.m_integrityVariant = COSE_ALGORITHMS::HMAC_384_384;
+                }
+                else if (param.m_valueUint == 512) {
+                    policyToCopy.m_integrityVariant = COSE_ALGORITHMS::HMAC_512_512;
+                }
+                else {
+                    LOG_ERROR(subprocess) << "Error loading BpSec config file: shaVariant must be either 256 or 384 or 512";
+                    return false;
+                }
+            }
+            else if (name == BPSEC_SECURITY_CONTEXT_PARAM_NAME::IV_SIZE_BYTES) {
+                if (isIntegrity) {
+                    LOG_ERROR(subprocess) << "Error loading BpSec config file: IV_SIZE_BYTES cannot be applied to integrity";
+                    return false;
+                }
+                if ((param.m_valueUint != 12) && (param.m_valueUint != 16))
+                {
+                    LOG_ERROR(subprocess) << "Error loading BpSec config file: IV_SIZE_BYTES must be either 12 or 16";
+                    return false;
+                }
+                policyToCopy.m_use12ByteIv = (param.m_valueUint == 12);
+            }
+            else if (name == BPSEC_SECURITY_CONTEXT_PARAM_NAME::SCOPE_FLAGS) {
+                if (isIntegrity) {
+                    policyToCopy.m_integrityScopeMask = static_cast<BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS>(param.m_valueUint);
+                    if (param.m_valueUint > (static_cast<uint64_t>(BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::ALL_FLAGS_SET))) {
+                        LOG_ERROR(subprocess) << "Error loading BpSec config file: BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS is invalid";
+                        return false;
+                    }
+                }
+                else {
+                    policyToCopy.m_aadScopeMask = static_cast<BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS>(param.m_valueUint);
+                    if (param.m_valueUint > (static_cast<uint64_t>(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET))) {
+                        LOG_ERROR(subprocess) << "Error loading BpSec config file: BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS is invalid";
+                        return false;
+                    }
+                }
+            }
+            else if (name == BPSEC_SECURITY_CONTEXT_PARAM_NAME::SECURITY_BLOCK_CRC) {
+                if (param.m_valueUint > (static_cast<uint64_t>(BPV7_CRC_TYPE::CRC32C))) {
+                    LOG_ERROR(subprocess) << "Error loading BpSec config file: BPV7_CRC_TYPE is invalid";
+                    return false;
+                }
+                if (isIntegrity) {
+                    policyToCopy.m_bibCrcType = static_cast<BPV7_CRC_TYPE>(param.m_valueUint);
+                }
+                else {
+                    policyToCopy.m_bcbCrcType = static_cast<BPV7_CRC_TYPE>(param.m_valueUint);
+                }
+            }
+            else if ((name == BPSEC_SECURITY_CONTEXT_PARAM_NAME::KEY_ENCRYPTION_KEY_FILE) || (name == BPSEC_SECURITY_CONTEXT_PARAM_NAME::KEY_FILE)) {
+                std::string fileContentsAsString;
+                if (!JsonSerializable::LoadTextFileIntoString(param.m_valuePath, fileContentsAsString)) {
+                    LOG_ERROR(subprocess) << "Error loading BpSec config file: cannot load key file: " << param.m_valuePath;
+                    return false;
+                }
+                boost::trim(fileContentsAsString);
+                std::vector<uint8_t> keyBytes;
+                if ((!BinaryConversions::HexStringToBytes(fileContentsAsString, keyBytes)) || keyBytes.empty()) {
+                    LOG_ERROR(subprocess) << "Error loading BpSec config file: invalid key inside file: " << param.m_valuePath;
+                    return false;
+                }
+                if (name == BPSEC_SECURITY_CONTEXT_PARAM_NAME::KEY_ENCRYPTION_KEY_FILE) {
+                    if (isIntegrity) {
+                        policyToCopy.m_hmacKeyEncryptionKey = std::move(keyBytes);
+                    }
+                    else {
+                        policyToCopy.m_confidentialityKeyEncryptionKey = std::move(keyBytes);
+                    }
+
+                }
+                else { //KEY_FILE
+                    if (isIntegrity) {
+                        policyToCopy.m_hmacKey = std::move(keyBytes);
+                    }
+                    else {
+                        policyToCopy.m_dataEncryptionKey = std::move(keyBytes);
+                    }
+                }
+            }
+            else {
+                LOG_ERROR(subprocess) << "Error loading BpSec config file: invalid BPSEC_SECURITY_CONTEXT_PARAM_NAME " << ((int)name);
+                return false;
+            }
+        }
+
+        if (role == BPSEC_ROLE::SOURCE) {
+            if (!policyToCopy.ValidateAndFinalize()) {
+                LOG_ERROR(subprocess) << "Error loading BpSec config file: security source invalid";
+                return false;
+            }
+        }
+        if (isIntegrity) {
+            if (policyToCopy.m_hmacKeyEncryptionKey.empty() && policyToCopy.m_hmacKey.empty()) {
+                LOG_ERROR(subprocess) << "Error loading BpSec config file: no key specified for integrity";
+                return false;
+            }
+            else if (policyToCopy.m_hmacKeyEncryptionKey.size() && policyToCopy.m_hmacKey.size()) {
+                LOG_ERROR(subprocess) << "Error loading BpSec config file: both key and keyEncryptionKey specified for integrity.. ONLY SPECIFY ONE!";
+                return false;
+            }
+        }
+        else {
+            if (policyToCopy.m_confidentialityKeyEncryptionKey.empty() && policyToCopy.m_dataEncryptionKey.empty()) {
+                LOG_ERROR(subprocess) << "Error loading BpSec config file: no key specified for confidentiality";
+                return false;
+            }
+            else if (policyToCopy.m_confidentialityKeyEncryptionKey.size() && policyToCopy.m_dataEncryptionKey.size()) {
+                LOG_ERROR(subprocess) << "Error loading BpSec config file: both dataEncryptionKey and keyEncryptionKey specified for confidentiality.. ONLY SPECIFY ONE!";
+                return false;
+            }
+        }
+
+        for (std::set<std::string>::const_iterator itBundleSource = rule.m_bundleSource.cbegin();
+            itBundleSource != rule.m_bundleSource.cend(); ++itBundleSource)
+        {
+            for (std::set<std::string>::const_iterator itBundleFinalDest = rule.m_bundleFinalDestination.cbegin();
+                itBundleFinalDest != rule.m_bundleFinalDestination.cend(); ++itBundleFinalDest)
+            {
+                bool isNewPolicy;
+                BpSecPolicy* policyPtr = CreateOrGetNewPolicy(
+                    rule.m_securitySource,
+                    *itBundleSource,
+                    *itBundleFinalDest,
+                    role, isNewPolicy);
+                if (policyPtr == NULL) {
+                    LOG_ERROR(subprocess) << "Error loading BpSec config file: cannot create new policy due to IPN syntax errors.";
+                    return false;
+                }
+                if (!isNewPolicy) {
+                    if (isConfidentiality && policyPtr->m_doConfidentiality) {
+                        LOG_ERROR(subprocess) << "Error loading BpSec config file: a duplicate confidentiality policy rule was detected.";
+                        return false;
+                    }
+                    else if (isIntegrity && policyPtr->m_doIntegrity) {
+                        LOG_ERROR(subprocess) << "Error loading BpSec config file: a duplicate integrity policy rule was detected.";
+                        return false;
+                    }
+                }
+                
+                if (isConfidentiality) {
+                    policyPtr->m_doConfidentiality = true;
+                    //confidentiality only variables
+                    policyPtr->m_confidentialityVariant = policyToCopy.m_confidentialityVariant;
+                    policyPtr->m_use12ByteIv = policyToCopy.m_use12ByteIv;
+                    policyPtr->m_aadScopeMask = policyToCopy.m_aadScopeMask;
+                    policyPtr->m_bcbCrcType = policyToCopy.m_bcbCrcType;
+                    policyPtr->m_bcbBlockTypeTargets = policyToCopy.m_bcbBlockTypeTargets;
+                    policyPtr->m_confidentialityKeyEncryptionKey = policyToCopy.m_confidentialityKeyEncryptionKey;
+                    policyPtr->m_dataEncryptionKey = policyToCopy.m_dataEncryptionKey;
+                }
+                else {
+                    policyPtr->m_doIntegrity = true;
+                    //integrity only variables
+                    policyPtr->m_integrityVariant = policyToCopy.m_integrityVariant;
+                    policyPtr->m_integrityScopeMask = policyToCopy.m_integrityScopeMask;
+                    policyPtr->m_bibCrcType = policyToCopy.m_bibCrcType;
+                    policyPtr->m_bibBlockTypeTargets = policyToCopy.m_bibBlockTypeTargets;
+                    policyPtr->m_hmacKeyEncryptionKey = policyToCopy.m_hmacKeyEncryptionKey;
+                    policyPtr->m_hmacKey = policyToCopy.m_hmacKey;
+                }
+                //fields set by ValidateAndFinalize()
+                policyPtr->m_bcbTargetsPayloadBlock = policyToCopy.m_bcbTargetsPayloadBlock;
+                policyPtr->m_bibMustBeEncrypted = policyToCopy.m_bibMustBeEncrypted;
+            }
         }
     }
     return true;
