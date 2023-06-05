@@ -50,10 +50,20 @@ public:
             bool isFloat;
     };
 
+    typedef boost::log::sinks::synchronous_sink< boost::log::sinks::text_file_backend > sink_t;
+
+    /**
+     * Logs a set of metrics to the specified file. A new file is created if it doesn't yet exist. 
+     */
     STATS_LIB_EXPORT static void Log(
         const std::string& fileName,
         const std::vector<StatsLogger::metric_t>& metrics
     );
+
+    /**
+     * Clears all of the file sinks associated with this logger
+     */
+    STATS_LIB_EXPORT static void Reset();
 
     STATS_LIB_EXPORT ~StatsLogger();
 private:
@@ -70,7 +80,7 @@ private:
      * Creates a file sink for the given file name. Used
      * to split stats into separate files. 
      */
-    STATS_LIB_NO_EXPORT void createFileSink(
+    STATS_LIB_NO_EXPORT boost::shared_ptr< StatsLogger::sink_t > createFileSink(
         const std::string &fileName,
         const std::vector<StatsLogger::metric_t>& metrics
     );
@@ -114,7 +124,7 @@ private:
     static std::unique_ptr<StatsLogger> StatsLogger_; //singleton instance
     static boost::mutex mutexSingletonInstance_;
     static volatile bool StatsLoggerSingletonFullyInitialized_;
-    static std::map<std::string, bool> m_initializedFiles;
+    static std::map<std::string, boost::shared_ptr<StatsLogger::sink_t>> m_initializedFiles;
 
     /**
      * Log formatters 

@@ -2,7 +2,7 @@
  * @file BpSinkPattern.h
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -52,6 +52,8 @@ public:
     BP_APP_PATTERNS_LIB_EXPORT bool Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_ptr & outductsConfigPtr,
         const boost::filesystem::path& bpSecConfigFilePath,
         bool isAcsAware, const cbhe_eid_t & myEid, uint32_t processingLagMs, const uint64_t maxBundleSizeBytes, const uint64_t myBpEchoServiceId = 2047);
+    BP_APP_PATTERNS_LIB_EXPORT void LogStats(PrimaryBlock& primaryBlock,
+        bool isBpVersion6);
 protected:
     virtual bool ProcessPayload(const uint8_t * data, const uint64_t size) = 0;
 private:
