@@ -14,7 +14,7 @@
  */
 
 #include "BpSecPolicyManager.h"
-#include "BPSecManager.h"
+#include "BpSecManager.h"
 #include <boost/make_unique.hpp>
 #include "Uri.h"
 #include "Logger.h"
@@ -235,7 +235,7 @@ bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProc
         }
 
         //does not rerender in place here, there are more ops to complete after decryption and then a manual render-in-place will be called later
-        if (!BPSecManager::TryDecryptBundleByIndividualBcb(ctx.m_evpCtxWrapper,
+        if (!BpSecManager::TryDecryptBundleByIndividualBcb(ctx.m_evpCtxWrapper,
             ctx.m_ctxWrapperKeyWrapOps,
             bv,
             bcbBlockView,
@@ -301,7 +301,7 @@ bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProc
         }
 
         //does not rerender in place here, there are more ops to complete after decryption and then a manual render-in-place will be called later
-        if (!BPSecManager::TryVerifyBundleIntegrityByIndividualBib(ctx.m_hmacCtxWrapper,
+        if (!BpSecManager::TryVerifyBundleIntegrityByIndividualBib(ctx.m_hmacCtxWrapper,
             ctx.m_ctxWrapperKeyWrapOps,
             bv,
             bibBlockView,
@@ -456,7 +456,7 @@ bool BpSecPolicyManager::ProcessOutgoingBundle(BundleViewV7& bv,
     const cbhe_eid_t& thisSecuritySourceEid)
 {
     if (policy.m_doIntegrity) {
-        if (!BPSecManager::TryAddBundleIntegrity(ctx.m_hmacCtxWrapper,
+        if (!BpSecManager::TryAddBundleIntegrity(ctx.m_hmacCtxWrapper,
             ctx.m_ctxWrapperKeyWrapOps,
             bv,
             policy.m_integrityScopeMask,
@@ -481,7 +481,7 @@ bool BpSecPolicyManager::ProcessOutgoingBundle(BundleViewV7& bv,
     }
     if (policy.m_doConfidentiality) {
         ctx.m_ivStruct.SerializeAndIncrement(policy.m_use12ByteIv);
-        if (!BPSecManager::TryEncryptBundle(ctx.m_evpCtxWrapper,
+        if (!BpSecManager::TryEncryptBundle(ctx.m_evpCtxWrapper,
             ctx.m_ctxWrapperKeyWrapOps,
             bv,
             policy.m_aadScopeMask,

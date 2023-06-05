@@ -11,4 +11,4 @@ BPv6 and BPv7
 
 ## Other ##
 Other known issues:
-* Changing operating system time while HDTN is running may cause stability issues.  Security issues may result as BPSec initialization vectors use system time to guarantee uniqueness.
+* Changing operating system time while HDTN is running may cause stability issues.  Security issues may result as BpSec initialization vectors use system time to guarantee uniqueness.

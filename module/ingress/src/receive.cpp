@@ -46,7 +46,7 @@
 
 #include "BinaryConversions.h"
 #ifdef BPSEC_SUPPORT_ENABLED
-#include "BPSecManager.h"
+#include "BpSecManager.h"
 #include "BpSecPolicyManager.h"
 # define DO_BPSEC_TEST 1
 #endif
@@ -62,7 +62,7 @@ struct Ingress::Impl : private boost::noncopyable {
     Impl();
     ~Impl();
     void Stop();
-    bool Init(const HdtnConfig& hdtnConfig, const BPSecConfig& bpsecConfig, 
+    bool Init(const HdtnConfig& hdtnConfig, const BpSecConfig& bpsecConfig, 
            const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
 
 private:
@@ -139,7 +139,7 @@ private:
 
     InductManager m_inductManager;
     HdtnConfig m_hdtnConfig;
-    BPSecConfig m_bpsecConfig;
+    BpSecConfig m_bpsecConfig;
     cbhe_eid_t M_HDTN_EID_CUSTODY;
     cbhe_eid_t M_HDTN_EID_SECURITY_SOURCE;
     cbhe_eid_t M_HDTN_EID_ECHO;
@@ -376,11 +376,11 @@ void Ingress::Impl::Stop() {
     LOG_DEBUG(subprocess) << "m_eventsTooManyInAllCutThroughQueues: " << m_eventsTooManyInAllCutThroughQueues;
 }
 
-bool Ingress::Init(const HdtnConfig& hdtnConfig, const BPSecConfig& bpsecConfig, 
+bool Ingress::Init(const HdtnConfig& hdtnConfig, const BpSecConfig& bpsecConfig, 
 		   const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr) {
     return m_pimpl->Init(hdtnConfig, bpsecConfig, hdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr);
 }
-bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const BPSecConfig& bpsecConfig,
+bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const BpSecConfig& bpsecConfig,
 		         const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
 
     if (m_running) {

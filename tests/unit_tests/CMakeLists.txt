@@ -47,7 +47,7 @@ add_executable(unit-tests
 	../../common/config/test/TestStorageConfig.cpp
 	../../common/config/test/TestHdtnConfig.cpp
 	../../common/config/test/TestHdtnDistributedConfig.cpp
-	$<$<BOOL:${ENABLE_BPSEC}>:../../common/config/test/TestBPSecConfig.cpp>
+	$<$<BOOL:${ENABLE_BPSEC}>:../../common/config/test/TestBpSecConfig.cpp>
 	../../common/cgr/test/TestDijkstra.cpp
 	../../common/logger/unit_tests/LoggerTests.cpp
 	../../common/stats_logger/unit_tests/StatsLoggerTests.cpp

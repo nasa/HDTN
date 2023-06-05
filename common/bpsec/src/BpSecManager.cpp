@@ -1,5 +1,5 @@
 /**
- * @file BPSecManager.cpp
+ * @file BpSecManager.cpp
  * @author  Nadia Kortas <nadia.kortas@nasa.gov>
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
@@ -13,7 +13,7 @@
  * See LICENSE.md in the source root directory for more information.
  */
 
-#include "BPSecManager.h"
+#include "BpSecManager.h"
 #include <boost/make_unique.hpp>
 #include "BinaryConversions.h"
 #include "PaddedVectorUint8.h"
@@ -39,12 +39,12 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 
 //#define BPSEC_MANAGER_PRINT_DEBUG
 
-BPSecManager::BPSecManager(const bool isSecEnabled) : 
+BpSecManager::BpSecManager(const bool isSecEnabled) : 
 m_isSecEnabled(isSecEnabled)
 {
 }
 
-BPSecManager::~BPSecManager() {}
+BpSecManager::~BpSecManager() {}
 
 
 
@@ -58,7 +58,7 @@ to prefetch an algorithm once initially,
 and then pass this created object to any operations that are currently using "Implicit fetching".
 See an example of Explicit fetching in "USING ALGORITHMS IN APPLICATIONS".*/
 
-struct BPSecManager::EvpCipherCtxWrapper::Impl : private boost::noncopyable {
+struct BpSecManager::EvpCipherCtxWrapper::Impl : private boost::noncopyable {
     Impl() : m_ctx(EVP_CIPHER_CTX_new()) {}
     ~Impl() {
         if (m_ctx) {
@@ -69,11 +69,11 @@ struct BPSecManager::EvpCipherCtxWrapper::Impl : private boost::noncopyable {
     EVP_CIPHER_CTX* m_ctx;
 };
 
-BPSecManager::EvpCipherCtxWrapper::EvpCipherCtxWrapper() : m_pimpl(boost::make_unique<BPSecManager::EvpCipherCtxWrapper::Impl>()) {}
-BPSecManager::EvpCipherCtxWrapper::~EvpCipherCtxWrapper() {}
+BpSecManager::EvpCipherCtxWrapper::EvpCipherCtxWrapper() : m_pimpl(boost::make_unique<BpSecManager::EvpCipherCtxWrapper::Impl>()) {}
+BpSecManager::EvpCipherCtxWrapper::~EvpCipherCtxWrapper() {}
 
 
-struct BPSecManager::HmacCtxWrapper::Impl : private boost::noncopyable {
+struct BpSecManager::HmacCtxWrapper::Impl : private boost::noncopyable {
 #ifdef BPSEC_USE_SSL3
     Impl() :
         m_mac(EVP_MAC_fetch(NULL, "HMAC", NULL)),
@@ -99,8 +99,8 @@ struct BPSecManager::HmacCtxWrapper::Impl : private boost::noncopyable {
     HMAC_CTX* m_ctx;
 #endif
 };
-BPSecManager::HmacCtxWrapper::HmacCtxWrapper() : m_pimpl(boost::make_unique<BPSecManager::HmacCtxWrapper::Impl>()) {}
-BPSecManager::HmacCtxWrapper::~HmacCtxWrapper() {}
+BpSecManager::HmacCtxWrapper::HmacCtxWrapper() : m_pimpl(boost::make_unique<BpSecManager::HmacCtxWrapper::Impl>()) {}
+BpSecManager::HmacCtxWrapper::~HmacCtxWrapper() {}
 
 static const uint8_t ALG_MINUS_5_TO_BYTE_LENGTH_LUT[3] = { //7 is highest index in COSE_ALGORITHMS
     256 / 8, //HMAC_256_256 = 5,
@@ -131,7 +131,7 @@ static const EVP_MD* ALG_MINUS_5_TO_EVPMD_LUT[3] = { //7 is highest index in COS
 
 //https://www.openssl.org/docs/man1.1.1/man3/HMAC_Init_ex.html
 
-bool BPSecManager::HmacSha(HmacCtxWrapper& ctxWrapper,
+bool BpSecManager::HmacSha(HmacCtxWrapper& ctxWrapper,
     const COSE_ALGORITHMS variant,
     const std::vector<boost::asio::const_buffer>& ipptParts,
     const uint8_t* key, const uint64_t keyLength,
@@ -218,7 +218,7 @@ bool BPSecManager::HmacSha(HmacCtxWrapper& ctxWrapper,
 //https://www.openssl.org/docs/man1.1.1/man3/EVP_EncryptUpdate.html
     
 //buffer size of cipherTextOut must be at least (unencryptedDataLength + EVP_MAX_BLOCK_LENGTH)
-bool BPSecManager::AesGcmEncrypt(EvpCipherCtxWrapper& ctxWrapper,
+bool BpSecManager::AesGcmEncrypt(EvpCipherCtxWrapper& ctxWrapper,
     const uint8_t* unencryptedData, const uint64_t unencryptedDataLength,
     const uint8_t* key, const uint64_t keyLength,
     const uint8_t* iv, const uint64_t ivLength,
@@ -344,7 +344,7 @@ bool BPSecManager::AesGcmEncrypt(EvpCipherCtxWrapper& ctxWrapper,
     return true;
 }
 
-bool BPSecManager::AesGcmDecrypt(EvpCipherCtxWrapper& ctxWrapper,
+bool BpSecManager::AesGcmDecrypt(EvpCipherCtxWrapper& ctxWrapper,
     const uint8_t* encryptedData, const uint64_t encryptedDataLength,
     const uint8_t* key, const uint64_t keyLength,
     const uint8_t* iv, const uint64_t ivLength,
@@ -448,7 +448,7 @@ bool BPSecManager::AesGcmDecrypt(EvpCipherCtxWrapper& ctxWrapper,
     return true;
 }
 
-bool BPSecManager::AesWrapKey(EvpCipherCtxWrapper& ctxWrapper,
+bool BpSecManager::AesWrapKey(EvpCipherCtxWrapper& ctxWrapper,
     const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
     const uint8_t* keyToWrap, const unsigned int keyToWrapLength,
     uint8_t* wrappedKeyOut, unsigned int& wrappedKeyOutSize)
@@ -517,7 +517,7 @@ bool BPSecManager::AesWrapKey(EvpCipherCtxWrapper& ctxWrapper,
 #endif
 }
 
-bool BPSecManager::AesUnwrapKey(EvpCipherCtxWrapper& ctxWrapper,
+bool BpSecManager::AesUnwrapKey(EvpCipherCtxWrapper& ctxWrapper,
     const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
     const uint8_t* keyToUnwrap, const unsigned int keyToUnwrapLength,
     uint8_t* unwrappedKeyOut, unsigned int& unwrappedKeyOutSize)
@@ -590,7 +590,7 @@ bool BPSecManager::AesUnwrapKey(EvpCipherCtxWrapper& ctxWrapper,
 //User of this function provided KEK (key encryption key).
 //Bundle provides AES wrapped key, AES variant, IV, tag, and cipherText.
 //This function must unwrap key with KEK to get the DEK (data encryption key), then decrypt cipherText.
-bool BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
+bool BpSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
     EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
     BundleViewV7& bv,
     const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping DEK only)
@@ -620,7 +620,7 @@ bool BPSecManager::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
     }
     return true;
 }
-bool BPSecManager::TryVerifyDecryptionOfBundle(EvpCipherCtxWrapper& ctxWrapper,
+bool BpSecManager::TryVerifyDecryptionOfBundle(EvpCipherCtxWrapper& ctxWrapper,
     EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
     BundleViewV7& bv,
     const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
@@ -645,7 +645,7 @@ bool BPSecManager::TryVerifyDecryptionOfBundle(EvpCipherCtxWrapper& ctxWrapper,
     }
     return true;
 }
-bool BPSecManager::TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& ctxWrapper,
+bool BpSecManager::TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& ctxWrapper,
     EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
     BundleViewV7& bv,
     BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView,
@@ -727,7 +727,7 @@ bool BPSecManager::TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& ctxWrapp
             return false;
         }
         //unwrap key:
-        if (!BPSecManager::AesUnwrapKey(ctxWrapperForKeyUnwrap,
+        if (!BpSecManager::AesUnwrapKey(ctxWrapperForKeyUnwrap,
             keyEncryptionKey, keyEncryptionKeyLength,
             wrappedKeyPtr->data(), static_cast<const unsigned int>(wrappedKeyPtr->size()),
             unwrappedKeyBytes, unwrappedKeyOutSize))
@@ -804,7 +804,7 @@ bool BPSecManager::TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& ctxWrapp
         //overwrite cyphertext with plaintext in-place and compute crc
         uint64_t decryptedDataOutSize;
         //inplace (same in and out buffers)
-        if (!BPSecManager::AesGcmDecrypt(ctxWrapper,
+        if (!BpSecManager::AesGcmDecrypt(ctxWrapper,
             targetCanonicalHeader.m_dataPtr, targetCanonicalHeader.m_dataLength,
             dataEncryptionKeyToUse, dataEncryptionKeySizeToUse,
             ivPtr->data(), ivPtr->size(),
@@ -867,7 +867,7 @@ bool BPSecManager::TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& ctxWrapp
 //Function generates AES wrapped key, tag, and cipherText.
 //Bundle provides AAD data.
 //This function must unwrap key with KEK to get the DEK (data encryption key), then decrypt cipherText.
-bool BPSecManager::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
+bool BpSecManager::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
     EvpCipherCtxWrapper& ctxWrapperForKeyWrap,
     BundleViewV7& bv,
     BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS aadScopeMask,
@@ -951,7 +951,7 @@ bool BPSecManager::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
         std::vector<uint8_t>* wrappedKeyPtr = bcb.AddAndGetAesWrappedKeyPtr();
         wrappedKeyPtr->resize(32 + 10); //32+8 worse case for 32*8=256bit (KEKlen + 8)
         unsigned int wrappedKeyOutSize;
-        if (!BPSecManager::AesWrapKey(ctxWrapperForKeyWrap,
+        if (!BpSecManager::AesWrapKey(ctxWrapperForKeyWrap,
             keyEncryptionKey, keyEncryptionKeyLength,
             dataEncryptionKey, dataEncryptionKeyLength, //Wrapping this key
             wrappedKeyPtr->data(), wrappedKeyOutSize))
@@ -1020,7 +1020,7 @@ bool BPSecManager::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
         //overwrite plaintext with cyphertext in-place and compute crc
         uint64_t encryptedDataOutSize;
         //inplace (same in and out buffers)
-        if (!BPSecManager::AesGcmEncrypt(ctxWrapper,
+        if (!BpSecManager::AesGcmEncrypt(ctxWrapper,
             targetCanonicalHeader.m_dataPtr, targetCanonicalHeader.m_dataLength,
             dataEncryptionKey, dataEncryptionKeyLength,
             ivPtr->data(), ivPtr->size(),
@@ -1078,7 +1078,7 @@ bool BPSecManager::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
 //User of this function provided KEK (key encryption key).
 //Bundle provides AES wrapped key, AES variant, IV, tag, and cipherText.
 //This function must unwrap key with KEK to get the DEK (data encryption key), then decrypt cipherText.
-bool BPSecManager::TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
+bool BpSecManager::TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
     EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
     BundleViewV7& bv,
     const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping hmac key only)
@@ -1111,7 +1111,7 @@ bool BPSecManager::TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
     return true;
 }
 
-bool BPSecManager::TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrapper& ctxWrapper,
+bool BpSecManager::TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrapper& ctxWrapper,
     EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
     BundleViewV7& bv,
     BundleViewV7::Bpv7CanonicalBlockView& bibBlockView,
@@ -1173,7 +1173,7 @@ bool BPSecManager::TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrapper& ctxWr
             return false;
         }
         //unwrap key:
-        if (!BPSecManager::AesUnwrapKey(ctxWrapperForKeyUnwrap,
+        if (!BpSecManager::AesUnwrapKey(ctxWrapperForKeyUnwrap,
             keyEncryptionKey, keyEncryptionKeyLength,
             wrappedKeyPtr->data(), static_cast<const unsigned int>(wrappedKeyPtr->size()),
             unwrappedKeyBytes, unwrappedKeyOutSize))
@@ -1289,7 +1289,7 @@ bool BPSecManager::TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrapper& ctxWr
         uint8_t messageDigestCalculated[64 + 10]; //64*8 = 512bits worse case (with some extra padding)
         unsigned int messageDigestOutSize;
         //not inplace test (separate in and out buffers)
-        if (!BPSecManager::HmacSha(ctxWrapper,
+        if (!BpSecManager::HmacSha(ctxWrapper,
             variant,
             ipptParts,
             hmacKeyToUse, hmacKeySizeToUse,
@@ -1329,7 +1329,7 @@ bool BPSecManager::TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrapper& ctxWr
     return true;
 }
 
-bool BPSecManager::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
+bool BpSecManager::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
     EvpCipherCtxWrapper& ctxWrapperForKeyWrap,
     BundleViewV7& bv,
     BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS integrityScopeMask,
@@ -1396,7 +1396,7 @@ bool BPSecManager::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
         std::vector<uint8_t>* wrappedKeyPtr = bib.AddAndGetAesWrappedKeyPtr();
         wrappedKeyPtr->resize(32 + 10); //32+8 worse case for 32*8=256bit (KEKlen + 8)
         unsigned int wrappedKeyOutSize;
-        if (!BPSecManager::AesWrapKey(ctxWrapperForKeyWrap,
+        if (!BpSecManager::AesWrapKey(ctxWrapperForKeyWrap,
             keyEncryptionKey, keyEncryptionKeyLength,
             hmacKey, hmacKeyLength, //Wrapping this key
             wrappedKeyPtr->data(), wrappedKeyOutSize))
@@ -1498,7 +1498,7 @@ bool BPSecManager::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
 
         unsigned int messageDigestOutSize;
         //not inplace test (separate in and out buffers)
-        if (!BPSecManager::HmacSha(ctxWrapper,
+        if (!BpSecManager::HmacSha(ctxWrapper,
             variant,
             ipptParts,
             hmacKey, hmacKeyLength,

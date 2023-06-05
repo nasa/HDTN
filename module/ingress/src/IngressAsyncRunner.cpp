@@ -50,7 +50,7 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
         m_runningFromSigHandler = true;
         SignalHandler sigHandler(boost::bind(&IngressAsyncRunner::MonitorExitKeypressThreadFunction, this));
         HdtnConfig_ptr hdtnConfig;
-	BPSecConfig_ptr bpsecConfig;
+        BpSecConfig_ptr bpsecConfig;
         HdtnDistributedConfig_ptr hdtnDistributedConfig;
 
         boost::program_options::options_description desc("Allowed options");
@@ -58,8 +58,8 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
             desc.add_options()
                 ("help", "Produce help message.")
                 ("hdtn-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
-		("bpsec-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("BPSec3.json"), "BPSec Configuration File.")
-		("hdtn-distributed-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn_distributed.json"), "HDTN Distributed Mode Configuration File.")
+                ("bpsec-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("BPSec3.json"), "BpSec Configuration File.")
+                ("hdtn-distributed-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn_distributed.json"), "HDTN Distributed Mode Configuration File.")
                 ;
 
             boost::program_options::variables_map vm;
@@ -78,8 +78,8 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
                 return false;
             }
 
-	    const boost::filesystem::path bpsecConfigFileName = vm["bpsec-config-file"].as<boost::filesystem::path>();
-	    bpsecConfig = BPSecConfig::CreateFromJsonFilePath(bpsecConfigFileName);
+            const boost::filesystem::path bpsecConfigFileName = vm["bpsec-config-file"].as<boost::filesystem::path>();
+            bpsecConfig = BpSecConfig::CreateFromJsonFilePath(bpsecConfigFileName);
             if (!bpsecConfig) {
                 std::cerr << "error loading bpsec config file: " << bpsecConfigFileName << std::endl;
                 return false;

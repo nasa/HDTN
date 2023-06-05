@@ -1,5 +1,5 @@
 /**
- * @file BPSecConfig.h
+ * @file BpSecConfig.h
  * @author  Nadia Kortas <nadia.kortas@nasa.gov>
  *
  * @copyright Copyright © 2021 United States Government as represented by
@@ -13,7 +13,7 @@
  *
  * @section DESCRIPTION
  *
- * The BPSecConfig class contains all the config parameters to run BPSec
+ * The BpSecConfig class contains all the config parameters to run BpSec
  *
  */
 
@@ -29,7 +29,7 @@
 #include <utility>
 #include <tuple>
 #include "JsonSerializable.h"
-#include "BPSecConfig.h"
+#include "BpSecConfig.h"
 #include "config_lib_export.h"
 #include <map>
 #include "Logger.h"
@@ -169,32 +169,32 @@ struct security_failure_eventSets_config_t {
 
 typedef std::vector<security_failure_eventSets_config_t> security_failure_eventSets_config_vector_t;
 
-class BPSecConfig;
-typedef std::shared_ptr<BPSecConfig> BPSecConfig_ptr;
+class BpSecConfig;
+typedef std::shared_ptr<BpSecConfig> BpSecConfig_ptr;
 
-class BPSecConfig : public JsonSerializable {
+class BpSecConfig : public JsonSerializable {
 
 public:
-    CONFIG_LIB_EXPORT BPSecConfig();
-    CONFIG_LIB_EXPORT ~BPSecConfig();
+    CONFIG_LIB_EXPORT BpSecConfig();
+    CONFIG_LIB_EXPORT ~BpSecConfig();
 
     //a copy constructor: X(const X&)
-    CONFIG_LIB_EXPORT BPSecConfig(const BPSecConfig& o);
+    CONFIG_LIB_EXPORT BpSecConfig(const BpSecConfig& o);
 
     //a move constructor: X(X&&)
-    CONFIG_LIB_EXPORT BPSecConfig(BPSecConfig&& o) noexcept;
+    CONFIG_LIB_EXPORT BpSecConfig(BpSecConfig&& o) noexcept;
 
     //a copy assignment: operator=(const X&)
-    CONFIG_LIB_EXPORT BPSecConfig& operator=(const BPSecConfig& o);
+    CONFIG_LIB_EXPORT BpSecConfig& operator=(const BpSecConfig& o);
 
     //a move assignment: operator=(X&&)
-    CONFIG_LIB_EXPORT BPSecConfig& operator=(BPSecConfig&& o) noexcept;
+    CONFIG_LIB_EXPORT BpSecConfig& operator=(BpSecConfig&& o) noexcept;
 
-    CONFIG_LIB_EXPORT bool operator==(const BPSecConfig & other) const;
+    CONFIG_LIB_EXPORT bool operator==(const BpSecConfig & other) const;
 
-    CONFIG_LIB_EXPORT static BPSecConfig_ptr CreateFromPtree(const boost::property_tree::ptree & pt);
-    CONFIG_LIB_EXPORT static BPSecConfig_ptr CreateFromJson(const std::string & jsonString, bool verifyNoUnusedJsonKeys = true);
-    CONFIG_LIB_EXPORT static BPSecConfig_ptr CreateFromJsonFilePath(const boost::filesystem::path& jsonFilePath, bool verifyNoUnusedJsonKeys = true);
+    CONFIG_LIB_EXPORT static BpSecConfig_ptr CreateFromPtree(const boost::property_tree::ptree & pt);
+    CONFIG_LIB_EXPORT static BpSecConfig_ptr CreateFromJson(const std::string & jsonString, bool verifyNoUnusedJsonKeys = true);
+    CONFIG_LIB_EXPORT static BpSecConfig_ptr CreateFromJsonFilePath(const boost::filesystem::path& jsonFilePath, bool verifyNoUnusedJsonKeys = true);
     CONFIG_LIB_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
     CONFIG_LIB_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree & pt) override;
 

@@ -26,12 +26,13 @@
 #include "codec/Cbhe.h"
 #include "codec/bpv7.h"
 #include "codec/BundleViewV7.h"
-#include "BPSecManager.h"
+#include "BpSecManager.h"
 #include "InitializationVectors.h"
 #include "FragmentSet.h"
 #include <map>
 #include <vector>
 #include <array>
+#include "BpSecConfig.h"
 #include "bpsec_export.h"
 
 enum class BPSEC_ROLE {
@@ -97,10 +98,10 @@ struct PolicySearchCache {
 struct BpSecPolicyProcessingContext {
     BPSEC_EXPORT BpSecPolicyProcessingContext();
     InitializationVectorsForOneThread m_ivStruct;
-    BPSecManager::ReusableElementsInternal m_bpsecReusableElementsInternal;
-    BPSecManager::HmacCtxWrapper m_hmacCtxWrapper;
-    BPSecManager::EvpCipherCtxWrapper m_evpCtxWrapper;
-    BPSecManager::EvpCipherCtxWrapper m_ctxWrapperKeyWrapOps;
+    BpSecManager::ReusableElementsInternal m_bpsecReusableElementsInternal;
+    BpSecManager::HmacCtxWrapper m_hmacCtxWrapper;
+    BpSecManager::EvpCipherCtxWrapper m_evpCtxWrapper;
+    BpSecManager::EvpCipherCtxWrapper m_ctxWrapperKeyWrapOps;
     std::vector<uint64_t> m_bcbTargetBlockNumbers;
     std::vector<uint64_t> m_bibTargetBlockNumbers;
     uint64_t m_bcbTargetBibBlockNumberPlaceholderIndex;

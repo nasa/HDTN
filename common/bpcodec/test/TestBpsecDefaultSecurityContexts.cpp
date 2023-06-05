@@ -33,7 +33,7 @@ BOOST_AUTO_TEST_CASE(TestBpsecDefaultSecurityContextsSimpleIntegrityTestCase)
 
    This appendix is informative.
 
-   This appendix presents a series of examples of constructing BPSec
+   This appendix presents a series of examples of constructing BpSec
    security blocks (using the security contexts defined in this
    document) and adding those blocks to a sample bundle.
 
@@ -48,7 +48,7 @@ BOOST_AUTO_TEST_CASE(TestBpsecDefaultSecurityContextsSimpleIntegrityTestCase)
    NOTES:
 
    *  The bundle diagrams in this appendix are patterned after the
-      bundle diagrams used in Section 3.11 ("BPSec Block Examples") of
+      bundle diagrams used in Section 3.11 ("BpSec Block Examples") of
       [RFC9172].
 
    *  Figures in this appendix identified as "(CBOR Diagnostic
@@ -57,7 +57,7 @@ BOOST_AUTO_TEST_CASE(TestBpsecDefaultSecurityContextsSimpleIntegrityTestCase)
       structures in a manner that enables visual inspection.  The
       bundles, security blocks, and security context contents in these
       figures are represented using CBOR structures.  In cases where BP
-      blocks (to include BPSec security blocks) are comprised of a
+      blocks (to include BpSec security blocks) are comprised of a
       sequence of CBOR objects, these objects are represented as a CBOR
       sequence as defined in [RFC8742].
 

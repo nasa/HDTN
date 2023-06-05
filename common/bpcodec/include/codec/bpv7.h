@@ -208,7 +208,7 @@ enum class BPSEC_BIB_HMAC_SHA2_SECURITY_RESULTS {
     EXPECTED_HMAC = 1
 };
 
-enum class BPSEC_BCB_AES_GCM_AAD_SCOPE_FLAGS { //BPSec BCB-AES-GCM AAD Scope Flag
+enum class BPSEC_BCB_AES_GCM_AAD_SCOPE_FLAGS { //BpSec BCB-AES-GCM AAD Scope Flag
     //name = value                       Description
     //------------                       -----------
     INCLUDE_PRIMARY_BLOCK_FLAG = 0, //   [RFC-ietf-dtn-bpsec-default-sc-11]

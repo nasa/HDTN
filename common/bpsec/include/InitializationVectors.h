@@ -13,7 +13,7 @@
  *
  * @section DESCRIPTION
  *
- * This BPSecManager generates initialization vectors for
+ * This BpSecManager generates initialization vectors for
  * the AES-GCM cipher per RFC9173 section 4.3.1.
  *
  */

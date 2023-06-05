@@ -72,11 +72,11 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         SignalHandler sigHandler(boost::bind(&HdtnOneProcessRunner::MonitorExitKeypressThreadFunction, this));
 
         HdtnConfig_ptr hdtnConfig;
-	BPSecConfig_ptr bpsecConfig;
+        BpSecConfig_ptr bpsecConfig;
 
         HdtnDistributedConfig unusedHdtnDistributedConfig;
         
-	bool usingUnixTimestamp;
+        bool usingUnixTimestamp;
         bool useMgr;
         boost::filesystem::path contactPlanFilePath;
 
@@ -89,7 +89,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
             desc.add_options()
                 ("help", "Produce help message.")
                 ("hdtn-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
-                ("bpsec-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("BPSec3.json"), "BPSec Configuration File.")
+                ("bpsec-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("BPSec3.json"), "BpSec Configuration File.")
 		("contact-plan-file", boost::program_options::value<boost::filesystem::path>()->default_value(DEFAULT_CONTACT_FILE), "Contact Plan file that scheduler relies on for link availability.")
                 ("use-unix-timestamp", "Use unix timestamp in contact plan.")
                 ("use-mgr", "Use Multigraph Routing Algorithm")
@@ -117,8 +117,8 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
                 return false;
             }
 
-	     const boost::filesystem::path bpsecConfigFileName = vm["bpsec-config-file"].as<boost::filesystem::path>();
-            bpsecConfig = BPSecConfig::CreateFromJsonFilePath(bpsecConfigFileName);
+            const boost::filesystem::path bpsecConfigFileName = vm["bpsec-config-file"].as<boost::filesystem::path>();
+            bpsecConfig = BpSecConfig::CreateFromJsonFilePath(bpsecConfigFileName);
             if (!bpsecConfig) {
                 std::cerr << "error loading bpsec config file: " << bpsecConfigFileName << std::endl;
                 return false;

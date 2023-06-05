@@ -147,7 +147,7 @@ if (DO_STATS_LOGGING OR USE_WEB_INTERFACE)
 endif()
 
 OPTION(ENABLE_OPENSSL_SUPPORT "TcpclV4 and GUI Web Server can use OpenSSL" ON)
-OPTION(ENABLE_BPSEC "Enable BPSec" ON)
+OPTION(ENABLE_BPSEC "Enable BpSec" ON)
 if(ENABLE_BPSEC AND (NOT ENABLE_OPENSSL_SUPPORT))
 	message(FATAL_ERROR "ENABLE_BPSEC is set to ON, but ENABLE_OPENSSL_SUPPORT is set to OFF. Bpsec requires OpenSSL to be enabled")
 endif()

@@ -1,5 +1,5 @@
 add_library(bpsec 
-	    src/BPSecManager.cpp
+	    src/BpSecManager.cpp
 		src/BpSecPolicyManager.cpp
 		src/InitializationVectors.cpp
 )
@@ -15,6 +15,7 @@ target_link_libraries(bpsec
 	PUBLIC
 		hdtn_util
 		bpcodec
+		config_lib
 		log_lib
 )
 
@@ -26,7 +27,7 @@ target_include_directories(bpsec
 )	
 
 set(MY_PUBLIC_HEADERS
-	include/BPSecManager.h
+	include/BpSecManager.h
 	include/BpSecPolicyManager.h
 	include/InitializationVectors.h
 	${CMAKE_CURRENT_BINARY_DIR}/bpsec_export.h

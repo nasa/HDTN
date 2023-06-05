@@ -25,7 +25,7 @@
 #include "zmq.hpp"
 #include <memory>
 #include "HdtnConfig.h"
-#include "BPSecConfig.h"
+#include "BpSecConfig.h"
 #include "HdtnDistributedConfig.h"
 #include <boost/atomic.hpp>
 #include <boost/core/noncopyable.hpp>
@@ -41,7 +41,7 @@ public:
     INGRESS_ASYNC_LIB_EXPORT ~Ingress();
     INGRESS_ASYNC_LIB_EXPORT void Stop();
     INGRESS_ASYNC_LIB_EXPORT bool Init(const HdtnConfig& hdtnConfig,
-        const BPSecConfig& bpsecConfig, const HdtnDistributedConfig& hdtnDistributedConfig,
+        const BpSecConfig& bpsecConfig, const HdtnDistributedConfig& hdtnDistributedConfig,
         zmq::context_t* hdtnOneProcessZmqInprocContextPtr = NULL);
 private:
 

@@ -4,7 +4,7 @@ add_library(config_lib
     src/StorageConfig.cpp
     src/HdtnConfig.cpp
     src/HdtnDistributedConfig.cpp
-    src/BPSecConfig.cpp
+    src/BpSecConfig.cpp
 )
 GENERATE_EXPORT_HEADER(config_lib)
 get_target_property(target_type config_lib TYPE)
@@ -18,7 +18,7 @@ set(MY_PUBLIC_HEADERS
 	include/InductsConfig.h
 	include/OutductsConfig.h
 	include/StorageConfig.h
-	include/BPSecConfig.h
+	include/BpSecConfig.h
 	${CMAKE_CURRENT_BINARY_DIR}/config_lib_export.h
 )
 set_target_properties(config_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list

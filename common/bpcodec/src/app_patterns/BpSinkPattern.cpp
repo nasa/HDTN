@@ -28,7 +28,7 @@
 #include "ThreadNamer.h"
 #include "BinaryConversions.h"
 #ifdef BPSEC_SUPPORT_ENABLED
-#include "BPSecManager.h"
+#include "BpSecManager.h"
 #include "BpSecPolicyManager.h"
 # define DO_BPSEC_TEST 1
 

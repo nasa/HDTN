@@ -1,5 +1,5 @@
 /**
- * @file TestBPSecConfig.cpp
+ * @file TestBpSecConfig.cpp
  * @author  Nadia Kortas <nadia.kortas@nasa.gov>
  *
  * @copyright Copyright © 2021 United States Government as represented by
@@ -13,22 +13,22 @@
  */
 
 #include <boost/test/unit_test.hpp>
-#include "BPSecConfig.h"
+#include "BpSecConfig.h"
 #include <memory>
 #include "Environment.h"
 #include <boost/algorithm/string.hpp>
 
-BOOST_AUTO_TEST_CASE(BPSecConfigTestCase)
+BOOST_AUTO_TEST_CASE(BpSecConfigTestCase)
 {
     const boost::filesystem::path jsonRootDir = Environment::GetPathHdtnSourceRoot() / "common" / "config" / "test";
 
     const boost::filesystem::path jsonFileName = jsonRootDir / "BPSec3.json";
-    BPSecConfig_ptr bpsec1 = BPSecConfig::CreateFromJsonFilePath(jsonFileName);
+    BpSecConfig_ptr bpsec1 = BpSecConfig::CreateFromJsonFilePath(jsonFileName);
     BOOST_REQUIRE(bpsec1);
     //std::cout << bpsec1->ToJson() << "\n";
 
     const std::string newJson = boost::trim_copy(bpsec1->ToJson());
-    BPSecConfig_ptr bpsec2 = BPSecConfig::CreateFromJson(newJson);
+    BpSecConfig_ptr bpsec2 = BpSecConfig::CreateFromJson(newJson);
     BOOST_REQUIRE(bpsec2);
     BOOST_REQUIRE(*bpsec2 == *bpsec1);
 

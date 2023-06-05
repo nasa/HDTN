@@ -1,5 +1,5 @@
 /**
- * @file BPSecManager.h
+ * @file BpSecManager.h
  * @author  Nadia Kortas <nadia.kortas@nasa.gov>
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
@@ -14,7 +14,7 @@
  *
  * @section DESCRIPTION
  *
- * This BPSecManager defines the methods for adding and processing 
+ * This BpSecManager defines the methods for adding and processing 
  * BCB confidentiality and BIB integrity blocks based on the security
  * policy Rules. It also includes the implementation of the cryptographic 
  * functions using OpenSSL APIs.
@@ -32,9 +32,9 @@
 #include "codec/bpv7.h"
 #include "bpsec_export.h"
 
-class BPSecManager { 
+class BpSecManager { 
 private:
-      BPSecManager();
+      BpSecManager();
 public:
     struct EvpCipherCtxWrapper {
         BPSEC_EXPORT EvpCipherCtxWrapper();
@@ -58,8 +58,8 @@ public:
         std::vector<uint8_t> verifyOnlyDecryptionTemporaryMemory; //will grow to max bundle size received if verify enabled
     };
 
-    BPSEC_EXPORT BPSecManager(const bool isSecEnabled);
-    BPSEC_EXPORT ~BPSecManager();
+    BPSEC_EXPORT BpSecManager(const bool isSecEnabled);
+    BPSEC_EXPORT ~BpSecManager();
 
     
     const bool m_isSecEnabled;

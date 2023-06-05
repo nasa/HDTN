@@ -1,5 +1,5 @@
 /**
- * @file BPSecConfig.cpp
+ * @file BpSecConfig.cpp
  * @author Nadia Kortas <nadia.kortas@nasa.gov>
  *
  * @copyright Copyright © 2021 United States Government as represented by
@@ -12,7 +12,7 @@
  * See LICENSE.md in the source root directory for more information.
  */
 
-#include "BPSecConfig.h"
+#include "BpSecConfig.h"
 #include "Logger.h"
 #include <memory>
 #include <boost/foreach.hpp>
@@ -450,18 +450,18 @@ bool security_failure_eventSets_config_t::operator==(const security_failure_even
         (securityOperationEvents == other.securityOperationEvents);
 }
 
-BPSecConfig::BPSecConfig() :
-    m_bpsecConfigName("unnamed BPSec config"),
+BpSecConfig::BpSecConfig() :
+    m_bpsecConfigName("unnamed BpSec config"),
     m_policyRulesConfigVector(),
     m_securityFailureEventSetsConfigVector(),
     m_securityOperationEventsConfigVector()
 {}
 
-BPSecConfig::~BPSecConfig() {
+BpSecConfig::~BpSecConfig() {
 }
 
 //a copy constructor: X(const X&)
-BPSecConfig::BPSecConfig(const BPSecConfig& o) :
+BpSecConfig::BpSecConfig(const BpSecConfig& o) :
     m_bpsecConfigName(o.m_bpsecConfigName),
     m_policyRulesConfigVector(o.m_policyRulesConfigVector),
     m_securityFailureEventSetsConfigVector(o.m_securityFailureEventSetsConfigVector),
@@ -469,7 +469,7 @@ BPSecConfig::BPSecConfig(const BPSecConfig& o) :
 { }
 
 //a move constructor: X(X&&)
-BPSecConfig::BPSecConfig(BPSecConfig&& o) noexcept :
+BpSecConfig::BpSecConfig(BpSecConfig&& o) noexcept :
     m_bpsecConfigName(std::move(o.m_bpsecConfigName)),
     m_policyRulesConfigVector(std::move(o.m_policyRulesConfigVector)),
     m_securityFailureEventSetsConfigVector(std::move(o.m_securityFailureEventSetsConfigVector)),
@@ -477,7 +477,7 @@ BPSecConfig::BPSecConfig(BPSecConfig&& o) noexcept :
 { }
 
 //a copy assignment: operator=(const X&)
-BPSecConfig& BPSecConfig::operator=(const BPSecConfig& o) {
+BpSecConfig& BpSecConfig::operator=(const BpSecConfig& o) {
     m_bpsecConfigName = o.m_bpsecConfigName;
     m_policyRulesConfigVector = o.m_policyRulesConfigVector;
     m_securityFailureEventSetsConfigVector = o.m_securityFailureEventSetsConfigVector;
@@ -486,7 +486,7 @@ BPSecConfig& BPSecConfig::operator=(const BPSecConfig& o) {
 }
 
 //a move assignment: operator=(X&&)
-BPSecConfig& BPSecConfig::operator=(BPSecConfig&& o) noexcept {
+BpSecConfig& BpSecConfig::operator=(BpSecConfig&& o) noexcept {
     m_bpsecConfigName = std::move(o.m_bpsecConfigName);
     m_policyRulesConfigVector = std::move(o.m_policyRulesConfigVector);
     m_securityFailureEventSetsConfigVector = std::move(o.m_securityFailureEventSetsConfigVector);
@@ -494,18 +494,18 @@ BPSecConfig& BPSecConfig::operator=(BPSecConfig&& o) noexcept {
     return *this;
 }
 
-bool BPSecConfig::operator==(const BPSecConfig& o) const {
+bool BpSecConfig::operator==(const BpSecConfig& o) const {
     return (m_bpsecConfigName == o.m_bpsecConfigName) &&
         (m_policyRulesConfigVector == o.m_policyRulesConfigVector) &&
         (m_securityFailureEventSetsConfigVector == o.m_securityFailureEventSetsConfigVector) &&
         (m_securityOperationEventsConfigVector == o.m_securityOperationEventsConfigVector);
 }
 
-bool BPSecConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+bool BpSecConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
     try {
         m_bpsecConfigName = pt.get<std::string>("bpsecConfigName");
         if (m_bpsecConfigName == "") {
-            LOG_ERROR(subprocess) << "parsing JSON BPSec config: bpsecConfigName must be defined and not empty string";
+            LOG_ERROR(subprocess) << "parsing JSON BpSec config: bpsecConfigName must be defined and not empty string";
             return false;
         }
     }
@@ -563,9 +563,9 @@ bool BPSecConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree& p
     return true;
 }
 
-BPSecConfig_ptr BPSecConfig::CreateFromJson(const std::string& jsonString, bool verifyNoUnusedJsonKeys) {
+BpSecConfig_ptr BpSecConfig::CreateFromJson(const std::string& jsonString, bool verifyNoUnusedJsonKeys) {
     boost::property_tree::ptree pt;
-    BPSecConfig_ptr config; //NULL
+    BpSecConfig_ptr config; //NULL
     if (GetPropertyTreeFromJsonString(jsonString, pt)) { //prints message if failed
         config = CreateFromPtree(pt);
         //verify that there are no unused variables within the original json
@@ -581,9 +581,9 @@ BPSecConfig_ptr BPSecConfig::CreateFromJson(const std::string& jsonString, bool 
     return config;
 }
 
-BPSecConfig_ptr BPSecConfig::CreateFromJsonFilePath(const boost::filesystem::path& jsonFilePath, bool verifyNoUnusedJsonKeys) {
+BpSecConfig_ptr BpSecConfig::CreateFromJsonFilePath(const boost::filesystem::path& jsonFilePath, bool verifyNoUnusedJsonKeys) {
     boost::property_tree::ptree pt;
-    BPSecConfig_ptr config; //NULL
+    BpSecConfig_ptr config; //NULL
     if (GetPropertyTreeFromJsonFilePath(jsonFilePath, pt)) { //prints message if failed
         config = CreateFromPtree(pt);
         //verify that there are no unused variables within the original json
@@ -598,16 +598,16 @@ BPSecConfig_ptr BPSecConfig::CreateFromJsonFilePath(const boost::filesystem::pat
     return config;
 }
 
-BPSecConfig_ptr BPSecConfig::CreateFromPtree(const boost::property_tree::ptree& pt) {
+BpSecConfig_ptr BpSecConfig::CreateFromPtree(const boost::property_tree::ptree& pt) {
 
-    BPSecConfig_ptr ptrBPSecConfig = std::make_shared<BPSecConfig>();
-    if (!ptrBPSecConfig->SetValuesFromPropertyTree(pt)) {
-        ptrBPSecConfig = BPSecConfig_ptr(); //failed, so delete and set it NULL
+    BpSecConfig_ptr ptrBpSecConfig = std::make_shared<BpSecConfig>();
+    if (!ptrBpSecConfig->SetValuesFromPropertyTree(pt)) {
+        ptrBpSecConfig = BpSecConfig_ptr(); //failed, so delete and set it NULL
     }
-    return ptrBPSecConfig;
+    return ptrBpSecConfig;
 }
 
-boost::property_tree::ptree BPSecConfig::GetNewPropertyTree() const {
+boost::property_tree::ptree BpSecConfig::GetNewPropertyTree() const {
     boost::property_tree::ptree pt;
     pt.put("bpsecConfigName", m_bpsecConfigName);
 
