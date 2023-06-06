@@ -420,7 +420,7 @@ boost::property_tree::ptree policy_rules_config_t::GetNewPropertyTree() const {
         securityContextParamsVectorIt != m_securityContextParamsVec.cend(); ++securityContextParamsVectorIt)
     {
         const security_context_params_config_t& securityContextParam = *securityContextParamsVectorIt;
-        boost::property_tree::ptree::iterator backIt = securityContextParamsVectorPt.push_back(std::make_pair("", securityContextParam.GetNewPropertyTree())); //using "" as key creates json array
+        securityContextParamsVectorPt.push_back(std::make_pair("", securityContextParam.GetNewPropertyTree())); //using "" as key creates json array
     }
     
     return pt;

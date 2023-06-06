@@ -132,15 +132,15 @@ BpSecPolicy* BpSecPolicyManager::CreateOrGetNewPolicy(const std::string& securit
     if (!policyFilterBundleFinalDestPtr) {
         return NULL;
     }
-    BpSecPolicyFilter* policyFilterRollArraysPtr = Internal_AddPolicyFilterToThisFilter(bundleFinalDestEidUri, *policyFilterBundleFinalDestPtr);
-    if (!policyFilterRollArraysPtr) {
+    BpSecPolicyFilter* policyFilterRoleArraysPtr = Internal_AddPolicyFilterToThisFilter(bundleFinalDestEidUri, *policyFilterBundleFinalDestPtr);
+    if (!policyFilterRoleArraysPtr) {
         return NULL;
     }
     const std::size_t roleIndex = static_cast<std::size_t>(role);
     if (roleIndex >= static_cast<std::size_t>(BPSEC_ROLE::RESERVED_MAX_ROLE_TYPES)) {
         return NULL;
     }
-    BpSecPolicySharedPtr& policyPtr = policyFilterRollArraysPtr->m_policiesByRollArray[roleIndex];
+    BpSecPolicySharedPtr& policyPtr = policyFilterRoleArraysPtr->m_policiesByRoleArray[roleIndex];
     if (policyPtr) {
         //policy already exists
         isNewPolicy = false;
@@ -201,15 +201,15 @@ const BpSecPolicy* BpSecPolicyManager::FindPolicy(const cbhe_eid_t& securitySour
     if (!policyFilterBundleFinalDestPtr) {
         return NULL;
     }
-    const BpSecPolicyFilter* policyFilterRollArraysPtr = Internal_GetPolicyFilterFromThisFilter(bundleFinalDestEid, *policyFilterBundleFinalDestPtr);
-    if (!policyFilterRollArraysPtr) {
+    const BpSecPolicyFilter* policyFilterRoleArraysPtr = Internal_GetPolicyFilterFromThisFilter(bundleFinalDestEid, *policyFilterBundleFinalDestPtr);
+    if (!policyFilterRoleArraysPtr) {
         return NULL;
     }
     const std::size_t roleIndex = static_cast<std::size_t>(role);
     if (roleIndex >= static_cast<std::size_t>(BPSEC_ROLE::RESERVED_MAX_ROLE_TYPES)) {
         return NULL;
     }
-    return policyFilterRollArraysPtr->m_policiesByRollArray[roleIndex].get();
+    return policyFilterRoleArraysPtr->m_policiesByRoleArray[roleIndex].get();
 }
 
 const BpSecPolicy* BpSecPolicyManager::FindPolicyWithCacheSupport(const cbhe_eid_t& securitySourceEid,

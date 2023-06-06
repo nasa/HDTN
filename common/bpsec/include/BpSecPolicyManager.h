@@ -70,7 +70,7 @@ struct BpSecPolicy {
     std::vector<uint8_t> m_dataEncryptionKey;
 };
 typedef std::shared_ptr<BpSecPolicy> BpSecPolicySharedPtr;
-typedef std::array<BpSecPolicySharedPtr, static_cast<std::size_t>(BPSEC_ROLE::RESERVED_MAX_ROLE_TYPES)> BpSecPoliciesByRollArray;
+typedef std::array<BpSecPolicySharedPtr, static_cast<std::size_t>(BPSEC_ROLE::RESERVED_MAX_ROLE_TYPES)> BpSecPoliciesByRoleArray;
 struct BpSecPolicyFilter {
     typedef std::map<uint64_t, BpSecPolicyFilter> map_node_id_to_next_filter_t;
     typedef std::map<cbhe_eid_t, BpSecPolicyFilter> map_eid_to_next_filter_t;
@@ -78,7 +78,7 @@ struct BpSecPolicyFilter {
     map_node_id_to_next_filter_t m_nodeIdToNextFilterMap;
     map_eid_to_next_filter_t m_eidToNextFilterMap;
     std::unique_ptr<BpSecPolicyFilter> m_anyEidToNextFilterPtr;
-    BpSecPoliciesByRollArray m_policiesByRollArray; //used only by filter leaf node
+    BpSecPoliciesByRoleArray m_policiesByRoleArray; //used only by filter leaf node
 };
 struct PolicySearchCache {
     BPSEC_EXPORT PolicySearchCache();
