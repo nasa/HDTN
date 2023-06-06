@@ -22,7 +22,7 @@ BOOST_AUTO_TEST_CASE(BpSecConfigTestCase)
 {
     const boost::filesystem::path jsonRootDir = Environment::GetPathHdtnSourceRoot() / "common" / "config" / "test";
 
-    const boost::filesystem::path jsonFileName = jsonRootDir / "BPSec3.json";
+    const boost::filesystem::path jsonFileName = jsonRootDir / "bpsec_test.json";
     BpSecConfig_ptr bpsec1 = BpSecConfig::CreateFromJsonFilePath(jsonFileName);
     BOOST_REQUIRE(bpsec1);
     //std::cout << bpsec1->ToJson() << "\n";

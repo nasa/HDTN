@@ -2,12 +2,12 @@
     "bpsecConfigName": "my BPSec Config",
     "policyRules": [
         {
-            "description": " Confidentiality acceptor rule",
+            "description": " Confidentiality source rule",
             "securityPolicyRuleId": 1,
-            "securityRole": "acceptor",
-            "securitySource": "ipn:1.*",
+            "securityRole": "source",
+            "securitySource": "ipn:10.*",
             "bundleSource": [
-                "ipn:1.*"
+                "ipn:*.*"
             ],
             "bundleFinalDestination": [
                 "ipn:*.*"
@@ -38,6 +38,27 @@
                 {
                     "paramName": "scopeFlags",
                     "value": 7
+                }
+            ]
+        },
+        {
+            "description": " Confidentiality acceptor rule",
+            "securityPolicyRuleId": 1,
+            "securityRole": "acceptor",
+            "securitySource": "ipn:1.*",
+            "bundleSource": [
+                "ipn:1.*"
+            ],
+            "bundleFinalDestination": [
+                "ipn:*.*"
+            ],
+            "securityService": "confidentiality",
+            "securityContext": "aesGcm",
+            "securityFailureEventSetReference": "default_confidentiality",
+            "securityContextParams": [
+                {
+                    "paramName": "keyFile",
+                    "value": "c:\/mykey.txt"
                 }
             ]
         }

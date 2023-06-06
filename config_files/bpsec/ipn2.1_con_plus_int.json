@@ -2,7 +2,7 @@
     "bpsecConfigName": "my BPSec Config",
     "policyRules": [
         {
-            "description": "Bpsource confidentiality",
+            "description": "Bpsink confidentiality acceptor",
             "securityPolicyRuleId": 1,
             "securityRole": "acceptor",
             "securitySource": "ipn:10.1",
@@ -11,9 +11,6 @@
             ],
             "bundleFinalDestination": [
                 "ipn:*.*"
-            ],
-            "securityTargetBlockTypes": [
-                1
             ],
             "securityService": "confidentiality",
             "securityContext": "aesGcm",
@@ -26,7 +23,7 @@
             ]
         },
         {
-            "description": "Bpsource integrity",
+            "description": "Bpsink integrity acceptor",
             "securityPolicyRuleId": 2,
             "securityRole": "acceptor",
             "securitySource": "ipn:10.1",
@@ -35,9 +32,6 @@
             ],
             "bundleFinalDestination": [
                 "ipn:*.*"
-            ],
-            "securityTargetBlockTypes": [
-                1
             ],
             "securityService": "integrity",
             "securityContext": "hmacSha",
