@@ -33,6 +33,8 @@
 //different keys.  For example, if each encryption operation using BCB-
 //AES-GCM uses a newly generated key, then the same IV can be reused.
 
+constexpr uint64_t InitializationVectorsForOneThread::MIN_DIFF_MICROSECONDS;
+
 InitializationVector12Byte::InitializationVector12Byte() :
     InitializationVector12Byte(TimestampUtil::GetMicrosecondsSinceEpochRfc5050()) {} //good for 584,868 years
 InitializationVector12Byte::InitializationVector12Byte(const uint64_t timePart) :
