@@ -26,7 +26,7 @@
 #include "codec/Cbhe.h"
 #include "codec/bpv7.h"
 #include "codec/BundleViewV7.h"
-#include "BpSecManager.h"
+#include "BpSecBundleProcessor.h"
 #include "InitializationVectors.h"
 #include "FragmentSet.h"
 #include <map>
@@ -92,10 +92,10 @@ struct PolicySearchCache {
 struct BpSecPolicyProcessingContext {
     BPSEC_EXPORT BpSecPolicyProcessingContext();
     InitializationVectorsForOneThread m_ivStruct;
-    BpSecManager::ReusableElementsInternal m_bpsecReusableElementsInternal;
-    BpSecManager::HmacCtxWrapper m_hmacCtxWrapper;
-    BpSecManager::EvpCipherCtxWrapper m_evpCtxWrapper;
-    BpSecManager::EvpCipherCtxWrapper m_ctxWrapperKeyWrapOps;
+    BpSecBundleProcessor::ReusableElementsInternal m_bpsecReusableElementsInternal;
+    BpSecBundleProcessor::HmacCtxWrapper m_hmacCtxWrapper;
+    BpSecBundleProcessor::EvpCipherCtxWrapper m_evpCtxWrapper;
+    BpSecBundleProcessor::EvpCipherCtxWrapper m_ctxWrapperKeyWrapOps;
     std::vector<uint64_t> m_bcbTargetBlockNumbers;
     std::vector<uint64_t> m_bibTargetBlockNumbers;
     uint64_t m_bcbTargetBibBlockNumberPlaceholderIndex;

@@ -13,7 +13,7 @@
  *
  * @section DESCRIPTION
  *
- * This BpSecManager generates initialization vectors for
+ * These classes enable generation of 12 or 16 byte initialization vectors for
  * the AES-GCM cipher per RFC9173 section 4.3.1.
  *
  */

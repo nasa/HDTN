@@ -32,7 +32,6 @@
 #include "BinaryConversions.h"
 
 #ifdef BPSEC_SUPPORT_ENABLED
-#include "BpSecManager.h"
 #include "InitializationVectors.h"
 #include "BpSecPolicyManager.h"
 #endif
