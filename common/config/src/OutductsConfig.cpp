@@ -53,8 +53,6 @@ outduct_element_config_t::outduct_element_config_t() :
     activeSessionDataOnDiskNewFileDurationMs(2000),
     activeSessionDataOnDiskDirectory("./"),
 
-    udpRateBps(0),
-
     keepAliveIntervalSeconds(0),
     tcpclV3MyMaxTxSegmentSizeBytes(0),
     tcpclAllowOpportunisticReceiveBundles(true),
@@ -98,8 +96,6 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     activeSessionDataOnDiskNewFileDurationMs(o.activeSessionDataOnDiskNewFileDurationMs),
     activeSessionDataOnDiskDirectory(o.activeSessionDataOnDiskDirectory),
 
-    udpRateBps(o.udpRateBps),
-
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
     tcpclV3MyMaxTxSegmentSizeBytes(o.tcpclV3MyMaxTxSegmentSizeBytes),
     tcpclAllowOpportunisticReceiveBundles(o.tcpclAllowOpportunisticReceiveBundles),
@@ -140,8 +136,6 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     activeSessionDataOnDiskNewFileDurationMs(o.activeSessionDataOnDiskNewFileDurationMs),
     activeSessionDataOnDiskDirectory(std::move(o.activeSessionDataOnDiskDirectory)),
 
-    udpRateBps(o.udpRateBps),
-
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
     tcpclV3MyMaxTxSegmentSizeBytes(o.tcpclV3MyMaxTxSegmentSizeBytes),
     tcpclAllowOpportunisticReceiveBundles(o.tcpclAllowOpportunisticReceiveBundles),
@@ -181,8 +175,6 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
     keepActiveSessionDataOnDisk = o.keepActiveSessionDataOnDisk;
     activeSessionDataOnDiskNewFileDurationMs = o.activeSessionDataOnDiskNewFileDurationMs;
     activeSessionDataOnDiskDirectory = o.activeSessionDataOnDiskDirectory;
-
-    udpRateBps = o.udpRateBps;
 
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
 
@@ -227,8 +219,6 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
     activeSessionDataOnDiskNewFileDurationMs = o.activeSessionDataOnDiskNewFileDurationMs;
     activeSessionDataOnDiskDirectory = std::move(o.activeSessionDataOnDiskDirectory);
 
-    udpRateBps = o.udpRateBps;
-
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
 
     tcpclV3MyMaxTxSegmentSizeBytes = o.tcpclV3MyMaxTxSegmentSizeBytes;
@@ -270,8 +260,6 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
         (keepActiveSessionDataOnDisk == o.keepActiveSessionDataOnDisk) &&
         (activeSessionDataOnDiskNewFileDurationMs == o.activeSessionDataOnDiskNewFileDurationMs) &&
         (activeSessionDataOnDiskDirectory == o.activeSessionDataOnDiskDirectory) &&
-
-        (udpRateBps == o.udpRateBps) &&
 
         (keepAliveIntervalSeconds == o.keepAliveIntervalSeconds) &&
         
@@ -414,15 +402,6 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 }
             }
 
-            if (outductElementConfig.convergenceLayer == "udp") {
-                outductElementConfig.udpRateBps = outductElementConfigPt.second.get<uint64_t>("udpRateBps");
-            }
-            else if (outductElementConfigPt.second.count("udpRateBps") != 0) {
-                LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
-                    << " has a udp outduct only configuration parameter of \"udpRateBps\".. please remove";
-                return false;
-            }
-
             if ((outductElementConfig.convergenceLayer == "stcp") || (outductElementConfig.convergenceLayer == "tcpcl_v3") || (outductElementConfig.convergenceLayer == "tcpcl_v4")) {
                 outductElementConfig.keepAliveIntervalSeconds = outductElementConfigPt.second.get<uint32_t>("keepAliveIntervalSeconds");
             }
@@ -563,9 +542,6 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
             outductElementConfigPt.put("keepActiveSessionDataOnDisk", outductElementConfig.keepActiveSessionDataOnDisk);
             outductElementConfigPt.put("activeSessionDataOnDiskNewFileDurationMs", outductElementConfig.activeSessionDataOnDiskNewFileDurationMs);
             outductElementConfigPt.put("activeSessionDataOnDiskDirectory", outductElementConfig.activeSessionDataOnDiskDirectory.string()); //.string() prevents nested quotes in json file
-        }
-        if (outductElementConfig.convergenceLayer == "udp") {
-            outductElementConfigPt.put("udpRateBps", outductElementConfig.udpRateBps);
         }
         if ((outductElementConfig.convergenceLayer == "stcp") || (outductElementConfig.convergenceLayer == "tcpcl_v3") || (outductElementConfig.convergenceLayer == "tcpcl_v4")) {
             outductElementConfigPt.put("keepAliveIntervalSeconds", outductElementConfig.keepAliveIntervalSeconds);

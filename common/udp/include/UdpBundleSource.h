@@ -40,7 +40,7 @@ class UdpBundleSource {
 private:
     UdpBundleSource();
 public:
-    UDP_LIB_EXPORT UdpBundleSource(const uint64_t rateBps, const unsigned int maxUnacked); //const uint64_t rateBps = 50, const unsigned int maxUnacked = 100
+    UDP_LIB_EXPORT UdpBundleSource(const unsigned int maxUnacked); //const unsigned int maxUnacked = 100
 
     UDP_LIB_EXPORT ~UdpBundleSource();
     UDP_LIB_EXPORT void Stop();

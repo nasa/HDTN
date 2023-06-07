@@ -62,9 +62,6 @@ struct outduct_element_config_t {
     uint64_t activeSessionDataOnDiskNewFileDurationMs;
     boost::filesystem::path activeSessionDataOnDiskDirectory;
 
-    //specific to udp
-    uint64_t udpRateBps;
-
     //specific to stcp and tcpcl
     uint32_t keepAliveIntervalSeconds;
 

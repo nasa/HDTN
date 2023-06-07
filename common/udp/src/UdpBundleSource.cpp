@@ -26,7 +26,7 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 static const boost::posix_time::time_duration static_tokenMaxLimitDurationWindow(boost::posix_time::milliseconds(100));
 static const boost::posix_time::time_duration static_tokenRefreshTimeDurationWindow(boost::posix_time::milliseconds(20));
 
-UdpBundleSource::UdpBundleSource(const uint64_t rateBps, const unsigned int maxUnacked) :
+UdpBundleSource::UdpBundleSource(const unsigned int maxUnacked) :
 m_work(m_ioService), //prevent stopping of ioservice until destructor
 m_resolver(m_ioService),
 m_tokenRefreshTimer(m_ioService),
@@ -44,10 +44,10 @@ m_userAssignedUuid(0)
     //m_rateManagerAsync.SetPacketsSentCallback(boost::bind(&UdpBundleSource::PacketsSentCallback, this));
     //const uint64_t minimumRateBytesPerSecond = 655360;
     //const uint64_t minimumRateBitsPerSecond = 655360 << 3;
-    UpdateRate(rateBps);
+    UpdateRate(0);
     
     const uint64_t tokenLimit = m_tokenRateLimiter.GetRemainingTokens();
-    LOG_INFO(subprocess) << "UdpBundleSource: rate bitsPerSec = " << rateBps << "  token limit = " << tokenLimit;
+    LOG_INFO(subprocess) << "UdpBundleSource: rate bitsPerSec = " << 0 << "  token limit = " << tokenLimit;
 
     //The following error message should no longer be relevant since the Token Bucket is allowed to go negative if there is at least 1 token in the bucket.
     //if (tokenLimit < 65536u) {
