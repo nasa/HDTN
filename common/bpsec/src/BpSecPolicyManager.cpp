@@ -557,9 +557,9 @@ bool BpSecPolicyManager::FindPolicyAndProcessOutgoingBundle(BundleViewV7& bv, Bp
 }
 
 bool BpSecPolicyManager::LoadFromConfig(const BpSecConfig& config) {
-    const policy_rules_config_vector_t& rulesVec = config.m_policyRulesConfigVector;
+    const policy_rules_vector_t& rulesVec = config.m_policyRulesVector;
     for (std::size_t ruleI = 0; ruleI < rulesVec.size(); ++ruleI) {
-        const policy_rules_config_t& rule = rulesVec[ruleI];
+        const policy_rules_t& rule = rulesVec[ruleI];
         BPSEC_ROLE role;
         if (rule.m_securityRole == "source") {
             role = BPSEC_ROLE::SOURCE;
@@ -598,7 +598,7 @@ bool BpSecPolicyManager::LoadFromConfig(const BpSecConfig& config) {
         }
 
         for (std::size_t paramI = 0; paramI < rule.m_securityContextParamsVec.size(); ++paramI) {
-            const security_context_params_config_t& param = rule.m_securityContextParamsVec[paramI];
+            const security_context_param_t& param = rule.m_securityContextParamsVec[paramI];
             const BPSEC_SECURITY_CONTEXT_PARAM_NAME name = param.m_paramName;
             if (name == BPSEC_SECURITY_CONTEXT_PARAM_NAME::AES_VARIANT) {
                 if (isIntegrity) {

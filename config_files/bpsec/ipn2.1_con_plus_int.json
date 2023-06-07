@@ -47,12 +47,12 @@
     "securityFailureEventSets": [
         {
             "name": "default_confidentiality",
-            "desc": "default bcb confidentiality security operations event set",
+            "description": "default bcb confidentiality security operations event set",
             "securityOperationEvents": [
                 {
-                    "eventId": "security_operation_missing_at_acceptor",
+                    "eventId": "sopMissingAtAcceptor",
                     "actions": [
-                        "remove_security_operation_target_block"
+                        "removeSecurityOperationTargetBlock"
                     ]
                 }
             ]
