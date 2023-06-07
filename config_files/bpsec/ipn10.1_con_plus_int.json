@@ -133,6 +133,18 @@
                     ]
                 }
             ]
+        },
+        {
+            "name": "default_integrity",
+            "description": "default bcb confidentiality security operations event set",
+            "securityOperationEvents": [
+                {
+                    "eventId": "sopMissingAtAcceptor",
+                    "actions": [
+                        "removeSecurityOperationTargetBlock"
+                    ]
+                }
+            ]
         }
     ]
 }
