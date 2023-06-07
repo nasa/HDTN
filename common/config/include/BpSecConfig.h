@@ -78,6 +78,40 @@ struct security_operation_event_plus_actions_pair_t : public JsonSerializable {
 
 typedef std::vector<security_operation_event_plus_actions_pair_t> security_operation_event_plus_actions_pairs_vec_t;
 
+struct security_failure_event_sets_t : public JsonSerializable {
+    //common to all outducts
+    std::string m_name;
+    std::string m_description;
+    security_operation_event_plus_actions_pairs_vec_t m_securityOperationEventsVec;
+
+    //boost::filesystem::path certificationAuthorityPemFileForVerification;
+
+    CONFIG_LIB_EXPORT security_failure_event_sets_t();
+    CONFIG_LIB_EXPORT ~security_failure_event_sets_t();
+
+    CONFIG_LIB_EXPORT bool operator==(const security_failure_event_sets_t& o) const;
+    CONFIG_LIB_EXPORT bool operator<(const security_failure_event_sets_t& o) const;
+
+
+    //a copy constructor: X(const X&)
+    CONFIG_LIB_EXPORT security_failure_event_sets_t(const security_failure_event_sets_t& o);
+
+    //a move constructor: X(X&&)
+    CONFIG_LIB_EXPORT security_failure_event_sets_t(security_failure_event_sets_t&& o) noexcept;
+
+    //a copy assignment: operator=(const X&)
+    CONFIG_LIB_EXPORT security_failure_event_sets_t& operator=(const security_failure_event_sets_t& o);
+
+    //a move assignment: operator=(X&&)
+    CONFIG_LIB_EXPORT security_failure_event_sets_t& operator=(security_failure_event_sets_t&& o) noexcept;
+
+    CONFIG_LIB_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CONFIG_LIB_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+};
+
+typedef std::set<security_failure_event_sets_t> security_failure_event_sets_set_t;
+
+
 
 enum class BPSEC_SECURITY_CONTEXT_PARAM_NAME : uint8_t {
     UNDEFINED = 0,
@@ -134,7 +168,8 @@ struct policy_rules_t : public JsonSerializable {
     std::set<uint64_t> m_securityTargetBlockTypes;
     std::string m_securityService;
     std::string m_securityContext;
-    std::string m_securityFailureEventSetReference;
+    std::string m_securityFailureEventSetReferenceName;
+    const security_failure_event_sets_t* m_securityFailureEventSetReferencePtr;
     security_context_params_vector_t m_securityContextParamsVec;
 
     CONFIG_LIB_EXPORT policy_rules_t();
@@ -159,37 +194,7 @@ struct policy_rules_t : public JsonSerializable {
 
 typedef std::vector<policy_rules_t> policy_rules_vector_t;
 
-struct security_failure_event_sets_t : public JsonSerializable {
-    //common to all outducts
-    std::string m_name;
-    std::string m_description;
-    security_operation_event_plus_actions_pairs_vec_t m_securityOperationEventsVec;
 
-    //boost::filesystem::path certificationAuthorityPemFileForVerification;
-
-    CONFIG_LIB_EXPORT security_failure_event_sets_t();
-    CONFIG_LIB_EXPORT ~security_failure_event_sets_t();
-
-    CONFIG_LIB_EXPORT bool operator==(const security_failure_event_sets_t& o) const;
-
-
-    //a copy constructor: X(const X&)
-    CONFIG_LIB_EXPORT security_failure_event_sets_t(const security_failure_event_sets_t& o);
-
-    //a move constructor: X(X&&)
-    CONFIG_LIB_EXPORT security_failure_event_sets_t(security_failure_event_sets_t&& o) noexcept;
-
-    //a copy assignment: operator=(const X&)
-    CONFIG_LIB_EXPORT security_failure_event_sets_t& operator=(const security_failure_event_sets_t& o);
-
-    //a move assignment: operator=(X&&)
-    CONFIG_LIB_EXPORT security_failure_event_sets_t& operator=(security_failure_event_sets_t&& o) noexcept;
-
-    CONFIG_LIB_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    CONFIG_LIB_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
-};
-
-typedef std::vector<security_failure_event_sets_t> security_failure_event_sets_vec_t;
 
 class BpSecConfig;
 typedef std::shared_ptr<BpSecConfig> BpSecConfig_ptr;
@@ -223,7 +228,7 @@ public:
 public:
     std::string m_bpsecConfigName;
     policy_rules_vector_t m_policyRulesVector;
-    security_failure_event_sets_vec_t m_securityFailureEventSetsVector;
+    security_failure_event_sets_set_t m_securityFailureEventSetsSet;
 };
 
 #endif // BPSEC_CONFIG_H

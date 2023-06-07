@@ -307,7 +307,8 @@ policy_rules_t::policy_rules_t() :
     m_securityTargetBlockTypes(),
     m_securityService(""),
     m_securityContext(""),
-    m_securityFailureEventSetReference(""),
+    m_securityFailureEventSetReferenceName(""),
+    m_securityFailureEventSetReferencePtr(NULL),
     m_securityContextParamsVec() {}
 
 policy_rules_t::~policy_rules_t() {}
@@ -323,7 +324,8 @@ policy_rules_t::policy_rules_t(const policy_rules_t& o) :
     m_securityTargetBlockTypes(o.m_securityTargetBlockTypes),
     m_securityService(o.m_securityService),
     m_securityContext(o.m_securityContext),
-    m_securityFailureEventSetReference(o.m_securityFailureEventSetReference),
+    m_securityFailureEventSetReferenceName(o.m_securityFailureEventSetReferenceName),
+    m_securityFailureEventSetReferencePtr(o.m_securityFailureEventSetReferencePtr),
     m_securityContextParamsVec(o.m_securityContextParamsVec)
 { }
 
@@ -338,7 +340,8 @@ policy_rules_t::policy_rules_t(policy_rules_t&& o) noexcept :
     m_securityTargetBlockTypes(std::move(o.m_securityTargetBlockTypes)),
     m_securityService(std::move(o.m_securityService)),
     m_securityContext(std::move(o.m_securityContext)),
-    m_securityFailureEventSetReference(std::move(o.m_securityFailureEventSetReference)),
+    m_securityFailureEventSetReferenceName(std::move(o.m_securityFailureEventSetReferenceName)),
+    m_securityFailureEventSetReferencePtr(o.m_securityFailureEventSetReferencePtr),
     m_securityContextParamsVec(std::move(o.m_securityContextParamsVec))
 { }
 
@@ -353,7 +356,8 @@ policy_rules_t& policy_rules_t::operator=(const policy_rules_t& o) {
     m_securityTargetBlockTypes = o.m_securityTargetBlockTypes;
     m_securityService = o.m_securityService;
     m_securityContext = o.m_securityContext;
-    m_securityFailureEventSetReference = o.m_securityFailureEventSetReference;
+    m_securityFailureEventSetReferenceName = o.m_securityFailureEventSetReferenceName;
+    m_securityFailureEventSetReferencePtr = o.m_securityFailureEventSetReferencePtr;
     m_securityContextParamsVec = o.m_securityContextParamsVec;
     return *this;
 }
@@ -369,7 +373,8 @@ policy_rules_t& policy_rules_t::operator=(policy_rules_t&& o) noexcept {
     m_securityTargetBlockTypes = std::move(o.m_securityTargetBlockTypes);
     m_securityService = std::move(o.m_securityService);
     m_securityContext = std::move(o.m_securityContext);
-    m_securityFailureEventSetReference = std::move(o.m_securityFailureEventSetReference);
+    m_securityFailureEventSetReferenceName = std::move(o.m_securityFailureEventSetReferenceName);
+    m_securityFailureEventSetReferencePtr = o.m_securityFailureEventSetReferencePtr;
     m_securityContextParamsVec = std::move(o.m_securityContextParamsVec);
     return *this;
 }
@@ -384,7 +389,8 @@ bool policy_rules_t::operator==(const policy_rules_t& o) const {
         (m_securityTargetBlockTypes == o.m_securityTargetBlockTypes) &&
         (m_securityService == o.m_securityService) &&
         (m_securityContext == o.m_securityContext) &&
-        (m_securityFailureEventSetReference == o.m_securityFailureEventSetReference) &&
+        (m_securityFailureEventSetReferenceName == o.m_securityFailureEventSetReferenceName) &&
+        //don't check m_securityFailureEventSetReferencePtr
         (m_securityContextParamsVec == o.m_securityContextParamsVec);
 }
 
@@ -473,7 +479,7 @@ bool policy_rules_t::SetValuesFromPropertyTree(const boost::property_tree::ptree
         }
         
 
-        m_securityFailureEventSetReference = pt.get<std::string>("securityFailureEventSetReference");
+        m_securityFailureEventSetReferenceName = pt.get<std::string>("securityFailureEventSetReference");
         const boost::property_tree::ptree& securityContextParamsVectorPt = pt.get_child("securityContextParams", EMPTY_PTREE); //non-throw version
         m_securityContextParamsVec.resize(securityContextParamsVectorPt.size());
         unsigned int securityContextParamsVectorIndex = 0;
@@ -534,7 +540,7 @@ boost::property_tree::ptree policy_rules_t::GetNewPropertyTree() const {
 
     pt.put("securityService", m_securityService);
     pt.put("securityContext", m_securityContext);
-    pt.put("securityFailureEventSetReference", m_securityFailureEventSetReference);
+    pt.put("securityFailureEventSetReference", m_securityFailureEventSetReferenceName);
     boost::property_tree::ptree& securityContextParamsVectorPt = pt.put_child("securityContextParams", m_securityContextParamsVec.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
 
     for (security_context_params_vector_t::const_iterator securityContextParamsVectorIt = m_securityContextParamsVec.cbegin();
@@ -589,6 +595,9 @@ bool security_failure_event_sets_t::operator==(const security_failure_event_sets
         (m_description == o.m_description) &&
         (m_securityOperationEventsVec == o.m_securityOperationEventsVec);
 }
+bool security_failure_event_sets_t::operator<(const security_failure_event_sets_t& o) const {
+    return (m_name < o.m_name);
+}
 bool security_failure_event_sets_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
 
     try {
@@ -630,7 +639,7 @@ boost::property_tree::ptree security_failure_event_sets_t::GetNewPropertyTree() 
 BpSecConfig::BpSecConfig() :
     m_bpsecConfigName("unnamed BpSec config"),
     m_policyRulesVector(),
-    m_securityFailureEventSetsVector()
+    m_securityFailureEventSetsSet()
 {}
 
 BpSecConfig::~BpSecConfig() {
@@ -640,18 +649,18 @@ BpSecConfig::~BpSecConfig() {
 BpSecConfig::BpSecConfig(const BpSecConfig& o) :
     m_bpsecConfigName(o.m_bpsecConfigName),
     m_policyRulesVector(o.m_policyRulesVector),
-    m_securityFailureEventSetsVector(o.m_securityFailureEventSetsVector) {}
+    m_securityFailureEventSetsSet(o.m_securityFailureEventSetsSet) {}
 //a move constructor: X(X&&)
 BpSecConfig::BpSecConfig(BpSecConfig&& o) noexcept :
     m_bpsecConfigName(std::move(o.m_bpsecConfigName)),
     m_policyRulesVector(std::move(o.m_policyRulesVector)),
-    m_securityFailureEventSetsVector(std::move(o.m_securityFailureEventSetsVector)) {}
+    m_securityFailureEventSetsSet(std::move(o.m_securityFailureEventSetsSet)) {}
 
 //a copy assignment: operator=(const X&)
 BpSecConfig& BpSecConfig::operator=(const BpSecConfig& o) {
     m_bpsecConfigName = o.m_bpsecConfigName;
     m_policyRulesVector = o.m_policyRulesVector;
-    m_securityFailureEventSetsVector = o.m_securityFailureEventSetsVector;
+    m_securityFailureEventSetsSet = o.m_securityFailureEventSetsSet;
     return *this;
 }
 
@@ -659,14 +668,14 @@ BpSecConfig& BpSecConfig::operator=(const BpSecConfig& o) {
 BpSecConfig& BpSecConfig::operator=(BpSecConfig&& o) noexcept {
     m_bpsecConfigName = std::move(o.m_bpsecConfigName);
     m_policyRulesVector = std::move(o.m_policyRulesVector);
-    m_securityFailureEventSetsVector = std::move(o.m_securityFailureEventSetsVector);
+    m_securityFailureEventSetsSet = std::move(o.m_securityFailureEventSetsSet);
     return *this;
 }
 
 bool BpSecConfig::operator==(const BpSecConfig& o) const {
     return (m_bpsecConfigName == o.m_bpsecConfigName) &&
         (m_policyRulesVector == o.m_policyRulesVector) &&
-        (m_securityFailureEventSetsVector == o.m_securityFailureEventSetsVector);
+        (m_securityFailureEventSetsSet == o.m_securityFailureEventSetsSet);
 }
 
 bool BpSecConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
@@ -693,15 +702,36 @@ bool BpSecConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree& p
         }
     }
 
-    const boost::property_tree::ptree& eventSetsVectorPt = pt.get_child("securityFailureEventSets", EMPTY_PTREE); //non-throw version
-    m_securityFailureEventSetsVector.resize(eventSetsVectorPt.size());
+    const boost::property_tree::ptree& eventSetsSetPt = pt.get_child("securityFailureEventSets", EMPTY_PTREE); //non-throw version
+    m_securityFailureEventSetsSet.clear();
     unsigned int eventSetsVectorIndex = 0;
-    BOOST_FOREACH(const boost::property_tree::ptree::value_type & eventSetsPt, eventSetsVectorPt) {
-        security_failure_event_sets_t& eventSets = m_securityFailureEventSetsVector[eventSetsVectorIndex++];
+    BOOST_FOREACH(const boost::property_tree::ptree::value_type & eventSetsPt, eventSetsSetPt) {
+        security_failure_event_sets_t eventSets;
         if (!eventSets.SetValuesFromPropertyTree(eventSetsPt.second)) {
-            LOG_ERROR(subprocess) << "error parsing JSON securityFailureEventSets[" << (eventSetsVectorIndex - 1) << "]";
+            LOG_ERROR(subprocess) << "error parsing JSON securityFailureEventSets[" << eventSetsVectorIndex << "]";
             return false;
         }
+        std::pair<security_failure_event_sets_set_t::iterator, bool> ret = m_securityFailureEventSetsSet.emplace(std::move(eventSets));
+        if (ret.second == false) {
+            LOG_ERROR(subprocess) << "error parsing JSON securityFailureEventSets[" << eventSetsVectorIndex
+                << "]: name (" << ret.first->m_name << ") already exists";
+            return false;
+        }
+        ++eventSetsVectorIndex;
+    }
+
+    security_failure_event_sets_t tmpSop;
+    for (std::size_t i = 0; i < m_policyRulesVector.size(); ++i) {
+        policy_rules_t& rule = m_policyRulesVector[i];
+        tmpSop.m_name = rule.m_securityFailureEventSetReferenceName;
+        security_failure_event_sets_set_t::const_iterator it = m_securityFailureEventSetsSet.find(tmpSop);
+        if (it == m_securityFailureEventSetsSet.cend()) {
+            LOG_ERROR(subprocess) << "error parsing JSON policyRules[" 
+                << i << "]: securityFailureEventSetReference (" << rule.m_securityFailureEventSetReferenceName
+                << ") does not match a name in the securityFailureEventSets";
+            return false;
+        }
+        rule.m_securityFailureEventSetReferencePtr = &(*it);
     }
 
     return true;
@@ -765,12 +795,12 @@ boost::property_tree::ptree BpSecConfig::GetNewPropertyTree() const {
     }
 
     boost::property_tree::ptree& securityFailureEventSetsVectorPt = pt.put_child("securityFailureEventSets",
-        m_securityFailureEventSetsVector.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
+        m_securityFailureEventSetsSet.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
 
-    for (security_failure_event_sets_vec_t::const_iterator eventSetsVectorIt = m_securityFailureEventSetsVector.cbegin();
-        eventSetsVectorIt != m_securityFailureEventSetsVector.cend(); ++eventSetsVectorIt)
+    for (security_failure_event_sets_set_t::const_iterator eventSetsSetIt = m_securityFailureEventSetsSet.cbegin();
+        eventSetsSetIt != m_securityFailureEventSetsSet.cend(); ++eventSetsSetIt)
     {
-        const security_failure_event_sets_t& eventSets = *eventSetsVectorIt;
+        const security_failure_event_sets_t& eventSets = *eventSetsSetIt;
         securityFailureEventSetsVectorPt.push_back(std::make_pair("", eventSets.GetNewPropertyTree())); //using "" as key creates json array
     }
 

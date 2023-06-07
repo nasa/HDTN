@@ -82,6 +82,24 @@
                     ]
                 }
             ]
+        },
+        {
+            "name": "default_integrity",
+            "description": "default bib integrity security operations event set",
+            "securityOperationEvents": [
+                {
+                    "eventId": "sopCorruptedAtVerifier",
+                    "actions": [
+                        "overrideSecurityTargetBlockBpcf"
+                    ]
+                },
+                {
+                    "eventId": "sopMisconfiguredAtAcceptor",
+                    "actions": [
+                        "removeAllSecurityTargetOperations"
+                    ]
+                }
+            ]
         }
     ]
 }
