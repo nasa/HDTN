@@ -556,7 +556,10 @@ boost::property_tree::ptree policy_rules_t::GetNewPropertyTree() const {
 security_failure_event_sets_t::security_failure_event_sets_t() :
     m_name(""),
     m_description(""),
-    m_securityOperationEventsVec() {}
+    m_securityOperationEventsVec()
+{
+    m_eventTypeToEventSetPtrLut.fill(NULL);
+}
 
 security_failure_event_sets_t::~security_failure_event_sets_t() {}
 
@@ -564,21 +567,22 @@ security_failure_event_sets_t::~security_failure_event_sets_t() {}
 security_failure_event_sets_t::security_failure_event_sets_t(const security_failure_event_sets_t& o) :
     m_name(o.m_name),
     m_description(o.m_description),
-    m_securityOperationEventsVec(o.m_securityOperationEventsVec)
-{ }
+    m_securityOperationEventsVec(o.m_securityOperationEventsVec),
+    m_eventTypeToEventSetPtrLut(o.m_eventTypeToEventSetPtrLut) {}
 
 //a move constructor: X(X&&)
 security_failure_event_sets_t::security_failure_event_sets_t(security_failure_event_sets_t&& o) noexcept :
     m_name(std::move(o.m_name)),
     m_description(std::move(o.m_description)),
-    m_securityOperationEventsVec(std::move(o.m_securityOperationEventsVec))
-{ }
+    m_securityOperationEventsVec(std::move(o.m_securityOperationEventsVec)),
+    m_eventTypeToEventSetPtrLut(o.m_eventTypeToEventSetPtrLut) {}
 
 //a copy assignment: operator=(const X&)
 security_failure_event_sets_t& security_failure_event_sets_t::operator=(const security_failure_event_sets_t& o) {
     m_name = o.m_name;
     m_description = o.m_description;
     m_securityOperationEventsVec = o.m_securityOperationEventsVec;
+    m_eventTypeToEventSetPtrLut = o.m_eventTypeToEventSetPtrLut;
     return *this;
 }
 
@@ -587,6 +591,7 @@ security_failure_event_sets_t& security_failure_event_sets_t::operator=(security
     m_name = std::move(o.m_name);
     m_description = std::move(o.m_description);
     m_securityOperationEventsVec = std::move(o.m_securityOperationEventsVec);
+    m_eventTypeToEventSetPtrLut = o.m_eventTypeToEventSetPtrLut;
     return *this;
 }
 
@@ -613,6 +618,14 @@ bool security_failure_event_sets_t::SetValuesFromPropertyTree(const boost::prope
                 LOG_ERROR(subprocess) << "error parsing JSON securityOperationEvents[" << (m_securityOperationEventsVectorIndex - 1) << "]";
                 return false;
             }
+            const unsigned int eventAsIndex = static_cast<unsigned int>(sopEventActionPair.m_event);
+            if (m_eventTypeToEventSetPtrLut[eventAsIndex] != NULL) {
+                LOG_ERROR(subprocess) << "error parsing JSON securityOperationEvents["
+                    << (m_securityOperationEventsVectorIndex - 1) << "]: duplicate events: "
+                    << failureEventToStringNameLut[eventAsIndex];
+                return false;
+            }
+            m_eventTypeToEventSetPtrLut[eventAsIndex] = &sopEventActionPair;
         }
     }
     catch (const boost::property_tree::ptree_error& e) {

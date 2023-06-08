@@ -24,6 +24,7 @@
 #include <memory>
 #include <boost/filesystem.hpp>
 #include <set>
+#include <array>
 #include <vector>
 #include <utility>
 #include <tuple>
@@ -77,12 +78,15 @@ struct security_operation_event_plus_actions_pair_t : public JsonSerializable {
 };
 
 typedef std::vector<security_operation_event_plus_actions_pair_t> security_operation_event_plus_actions_pairs_vec_t;
+typedef std::array<const security_operation_event_plus_actions_pair_t*,
+    static_cast<uint8_t>(BPSEC_SECURITY_FAILURE_EVENT::RESERVED_MAX_EVENTS)> event_type_to_event_set_ptr_lut_t;
 
 struct security_failure_event_sets_t : public JsonSerializable {
     //common to all outducts
     std::string m_name;
     std::string m_description;
     security_operation_event_plus_actions_pairs_vec_t m_securityOperationEventsVec;
+    event_type_to_event_set_ptr_lut_t m_eventTypeToEventSetPtrLut;
 
     //boost::filesystem::path certificationAuthorityPemFileForVerification;
 
