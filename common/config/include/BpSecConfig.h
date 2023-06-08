@@ -74,7 +74,7 @@ struct security_operation_event_plus_actions_pair_t : public JsonSerializable {
     CONFIG_LIB_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
     CONFIG_LIB_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
-    CONFIG_LIB_EXPORT static const unsigned int ActionMaskToBitPosition(const BPSEC_SECURITY_FAILURE_PROCESSING_ACTION_MASKS actionMask);
+    CONFIG_LIB_EXPORT static unsigned int ActionMaskToBitPosition(const BPSEC_SECURITY_FAILURE_PROCESSING_ACTION_MASKS actionMask);
 };
 
 typedef std::vector<security_operation_event_plus_actions_pair_t> security_operation_event_plus_actions_pairs_vec_t;

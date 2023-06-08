@@ -178,7 +178,7 @@ static const std::map<std::string, BPSEC_SECURITY_FAILURE_EVENT> failureEventStr
     }
 };
 
-const unsigned int security_operation_event_plus_actions_pair_t::ActionMaskToBitPosition(const BPSEC_SECURITY_FAILURE_PROCESSING_ACTION_MASKS actionMask) {
+unsigned int security_operation_event_plus_actions_pair_t::ActionMaskToBitPosition(const BPSEC_SECURITY_FAILURE_PROCESSING_ACTION_MASKS actionMask) {
     return boost::multiprecision::detail::find_lsb<uint16_t>(static_cast<uint16_t>(actionMask));
 }
 static constexpr uint8_t MAX_ACTION_MASKS = static_cast<uint8_t>(BPSEC_SECURITY_FAILURE_PROCESSING_ACTION_MASKS::RESERVED_NUM_MASKS);

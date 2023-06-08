@@ -675,7 +675,11 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate, const boost
                 boost::this_thread::sleep(boost::posix_time::seconds(1));
             }
             else { //link is not down, proceed
-                m_isWaitingForRxBundleBeforeNextTx = true;
+                if (m_requireRxBundleBeforeNextTx) {
+                    m_waitingForRxBundleBeforeNextTxMutex.lock();
+                    m_isWaitingForRxBundleBeforeNextTx = true; //set this now before forwarding bundle
+                    m_waitingForRxBundleBeforeNextTxMutex.unlock();
+                }
                 bool successForward = false;
 
 
