@@ -20,7 +20,6 @@
             "ltpCheckpointEveryNthDataSegment": 0,
             "ltpRandomNumberSizeBits": 64,
             "ltpSenderBoundPort": 1113,
-            "ltpMaxSendRateBitsPerSecOrZeroToDisable": 50000000,
             "ltpMaxUdpPacketsToSendPerSystemCall": 1,
             "ltpSenderPingSecondsOrZeroToDisable": 15,
             "delaySendingOfDataSegmentsTimeMsOrZeroToDisable": 20,
