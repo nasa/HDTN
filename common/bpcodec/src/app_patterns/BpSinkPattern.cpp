@@ -705,7 +705,7 @@ void BpSinkPattern::SenderReaderThreadFunc() {
             }
         }
         else { //outduct for forwarding bundles
-            if(destEid.nodeId != outduct->GetOutductNextHopNodeId()) {
+            if(outduct && (destEid.nodeId != outduct->GetOutductNextHopNodeId())) {
                 LOG_WARNING(subprocess) << "node id " << destEid.nodeId<< " does not match outduct next hop node id "
                                         << outduct->GetOutductNextHopNodeId();
             }
