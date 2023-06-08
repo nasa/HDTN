@@ -39,7 +39,8 @@ m_userDataCbVec(m_maxPacketsBeingSent + 10),
 m_readyToForward(false),
 m_useLocalConditionVariableAckReceived(false), //for destructor only
 m_tokenRefreshTimerIsRunning(false),
-m_userAssignedUuid(0)
+m_userAssignedUuid(0),
+m_rateBpsOrZeroToDisable(0)
 {
     //m_rateManagerAsync.SetPacketsSentCallback(boost::bind(&UdpBundleSource::PacketsSentCallback, this));
     //const uint64_t minimumRateBytesPerSecond = 655360;
@@ -120,6 +121,7 @@ void UdpBundleSource::Stop() {
 }
 
 void UdpBundleSource::UpdateRate(uint64_t rateBitsPerSec) {
+    m_rateBpsOrZeroToDisable = rateBitsPerSec;
     const uint64_t rateBytesPerSecond = rateBitsPerSec >> 3;
     m_tokenRateLimiter.SetRate(
         rateBytesPerSecond, // 20ms per token
@@ -251,7 +253,7 @@ void UdpBundleSource::HandlePostForUdpSendVecMessage(std::shared_ptr<padded_vect
     m_queueVecDataToSendPtrs.emplace(std::move(vecDataToSendPtr)); //put on the queue first (there might be other packets in there that need to be sent first)
     std::shared_ptr<padded_vector_uint8_t>& vecDataToSendFrontOfQueuePtr = m_queueVecDataToSendPtrs.front();
     //try to remove the front of the queue if tokens available
-    if (m_tokenRateLimiter.TakeTokens(vecDataToSendFrontOfQueuePtr->size())) { //there are tokens available for the packet at the front of the queue, send this now
+    if (!m_rateBpsOrZeroToDisable || m_tokenRateLimiter.TakeTokens(vecDataToSendFrontOfQueuePtr->size())) { //there are tokens available for the packet at the front of the queue, send this now
         boost::asio::const_buffer bufToSend = boost::asio::buffer(*vecDataToSendFrontOfQueuePtr);
         m_udpSocket.async_send_to(bufToSend, m_udpDestinationEndpoint,
             boost::bind(&UdpBundleSource::HandleUdpSendVecMessage, this, std::move(vecDataToSendFrontOfQueuePtr),
@@ -270,7 +272,7 @@ void UdpBundleSource::HandlePostForUdpSendZmqMessage(std::shared_ptr<zmq::messag
     m_queueZmqDataToSendPtrs.emplace(std::move(zmqDataToSendPtr)); //put on the queue first (there might be other packets in there that need to be sent first)
     std::shared_ptr<zmq::message_t> & zmqDataToSendFrontOfQueuePtr = m_queueZmqDataToSendPtrs.front();
     //try to remove the front of the queue if tokens available
-    if (m_tokenRateLimiter.TakeTokens(zmqDataToSendFrontOfQueuePtr->size())) { //there are tokens available, send this now
+    if (!m_rateBpsOrZeroToDisable || m_tokenRateLimiter.TakeTokens(zmqDataToSendFrontOfQueuePtr->size())) { //there are tokens available, send this now
         boost::asio::const_buffer bufToSend = boost::asio::buffer(zmqDataToSendFrontOfQueuePtr->data(), zmqDataToSendFrontOfQueuePtr->size());
         m_udpSocket.async_send_to(bufToSend, m_udpDestinationEndpoint,
             boost::bind(&UdpBundleSource::HandleUdpSendZmqMessage, this, std::move(zmqDataToSendFrontOfQueuePtr),
@@ -399,7 +401,7 @@ void UdpBundleSource::OnTokenRefresh_TimerExpired(const boost::system::error_cod
         while (!m_queueVecDataToSendPtrs.empty()) {
             std::shared_ptr<padded_vector_uint8_t>& vecDataToSendPtr = m_queueVecDataToSendPtrs.front();
             //empty the queue of rate limited packets
-            if (m_tokenRateLimiter.TakeTokens(vecDataToSendPtr->size())) { //there are tokens available, send this now
+            if (!m_rateBpsOrZeroToDisable || m_tokenRateLimiter.TakeTokens(vecDataToSendPtr->size())) { //there are tokens available, send this now
                 boost::asio::const_buffer bufToSend = boost::asio::buffer(*vecDataToSendPtr);
                 m_udpSocket.async_send_to(bufToSend, m_udpDestinationEndpoint,
                     boost::bind(&UdpBundleSource::HandleUdpSendVecMessage, this, std::move(vecDataToSendPtr),
@@ -416,7 +418,7 @@ void UdpBundleSource::OnTokenRefresh_TimerExpired(const boost::system::error_cod
         while (!m_queueZmqDataToSendPtrs.empty()) {
             std::shared_ptr<zmq::message_t> & zmqDataToSendPtr = m_queueZmqDataToSendPtrs.front();
             //empty the queue of rate limited packets
-            if (m_tokenRateLimiter.TakeTokens(zmqDataToSendPtr->size())) { //there are tokens available, send this now
+            if (!m_rateBpsOrZeroToDisable || m_tokenRateLimiter.TakeTokens(zmqDataToSendPtr->size())) { //there are tokens available, send this now
                 boost::asio::const_buffer bufToSend = boost::asio::buffer(zmqDataToSendPtr->data(), zmqDataToSendPtr->size());
                 m_udpSocket.async_send_to(bufToSend, m_udpDestinationEndpoint,
                     boost::bind(&UdpBundleSource::HandleUdpSendZmqMessage, this, std::move(zmqDataToSendPtr),

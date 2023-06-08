@@ -109,6 +109,7 @@ private:
     OnOutductLinkStatusChangedCallback_t m_onOutductLinkStatusChangedCallback;
     uint64_t m_userAssignedUuid;
 
+    uint64_t m_rateBpsOrZeroToDisable;
 public:
     UdpOutductTelemetry_t m_udpOutductTelemetry;
 };
