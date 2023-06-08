@@ -59,6 +59,7 @@ struct BpSecPolicy {
     FragmentSet::data_fragment_set_t m_bibBlockTypeTargets;
     std::vector<uint8_t> m_hmacKeyEncryptionKey;
     std::vector<uint8_t> m_hmacKey;
+    const security_failure_event_sets_t* m_integritySecurityFailureEventSetReferencePtr;
     
     //confidentiality only variables
     COSE_ALGORITHMS m_confidentialityVariant;
@@ -68,6 +69,7 @@ struct BpSecPolicy {
     FragmentSet::data_fragment_set_t m_bcbBlockTypeTargets;
     std::vector<uint8_t> m_confidentialityKeyEncryptionKey;
     std::vector<uint8_t> m_dataEncryptionKey;
+    const security_failure_event_sets_t* m_confidentialitySecurityFailureEventSetReferencePtr;
 };
 typedef std::shared_ptr<BpSecPolicy> BpSecPolicySharedPtr;
 typedef std::array<BpSecPolicySharedPtr, static_cast<std::size_t>(BPSEC_ROLE::RESERVED_MAX_ROLE_TYPES)> BpSecPoliciesByRoleArray;

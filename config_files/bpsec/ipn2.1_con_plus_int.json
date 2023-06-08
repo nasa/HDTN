@@ -50,7 +50,7 @@
             "description": "default bcb confidentiality security operations event set",
             "securityOperationEvents": [
                 {
-                    "eventId": "sopMissingAtAcceptor",
+                    "eventId": "sopCorruptedAtAcceptor",
                     "actions": [
                         "removeSecurityOperationTargetBlock"
                     ]
@@ -62,7 +62,7 @@
             "description": "default bcb confidentiality security operations event set",
             "securityOperationEvents": [
                 {
-                    "eventId": "sopMissingAtAcceptor",
+                    "eventId": "sopCorruptedAtAcceptor",
                     "actions": [
                         "removeSecurityOperationTargetBlock"
                     ]
