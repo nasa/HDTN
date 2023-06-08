@@ -26,10 +26,26 @@
 #include "Logger.h"
 #include "StatsLogger.h"
 #include "ThreadNamer.h"
+#include "BinaryConversions.h"
+#ifdef BPSEC_SUPPORT_ENABLED
+#include "BpSecPolicyManager.h"
+
+struct BpSinkPattern::BpSecImpl {
+    BpSecPolicyManager m_bpSecPolicyManager;
+    BpSecPolicyProcessingContext m_policyProcessingCtx;
+};
+#else
+struct BpSinkPattern::BpSecImpl {};
+//std::unique_ptr<BpSecImpl> m_bpsecPimpl;
+#endif
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-BpSinkPattern::BpSinkPattern() : m_timerAcs(m_ioService), m_timerTransferRateStats(m_ioService) {}
+BpSinkPattern::BpSinkPattern() : m_timerAcs(m_ioService), m_timerTransferRateStats(m_ioService)
+#ifdef BPSEC_SUPPORT_ENABLED
+, m_bpsecPimpl(boost::make_unique<BpSecImpl>())
+#endif
+{}
 
 BpSinkPattern::~BpSinkPattern() {
     Stop();
@@ -94,6 +110,7 @@ void BpSinkPattern::Stop() {
 }
 
 bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_ptr & outductsConfigPtr,
+    const boost::filesystem::path& bpSecConfigFilePath,
     bool isAcsAware, const cbhe_eid_t & myEid, uint32_t processingLagMs, const uint64_t maxBundleSizeBytes, const uint64_t myBpEchoServiceId)
 {
     m_tcpclOpportunisticRemoteNodeId = 0;
@@ -118,6 +135,23 @@ bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_pt
     m_tcpclInductPtr = NULL;
 
     m_linkIsDown = false;
+
+    if (!bpSecConfigFilePath.empty()) {
+#ifdef BPSEC_SUPPORT_ENABLED
+        BpSecConfig_ptr bpSecConfigPtr = BpSecConfig::CreateFromJsonFilePath(bpSecConfigFilePath);
+        if (!bpSecConfigPtr) {
+            LOG_FATAL(subprocess) << "Error loading BpSec config file: " << bpSecConfigFilePath;
+            return false;
+        }
+        if (!m_bpsecPimpl->m_bpSecPolicyManager.LoadFromConfig(*bpSecConfigPtr)) {
+            return false;
+        }
+        LOG_INFO(subprocess) << "BpSec enabled.  Using config file: " << bpSecConfigFilePath;
+#else
+        LOG_FATAL(subprocess) << "A BpSec config file was specified but BpSec support was not enabled at compile time";
+        return false;
+#endif
+    }
 
     M_EXTRA_PROCESSING_TIME_MS = processingLagMs;
     if (inductsConfigPtr) {
@@ -284,7 +318,12 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
         const cbhe_eid_t finalDestEid = primary.m_destinationEid;
         const cbhe_eid_t srcEid = primary.m_sourceNodeId;
 
-
+#ifdef BPSEC_SUPPORT_ENABLED
+        //process acceptor and verifier roles
+        if (!m_bpsecPimpl->m_bpSecPolicyManager.ProcessReceivedBundle(bv, m_bpsecPimpl->m_policyProcessingCtx)) {
+            return false;
+        }
+#endif // BPSEC_SUPPORT_ENABLED
 
 
         static constexpr BPV7_BUNDLEFLAG requiredPrimaryFlagsForEcho = BPV7_BUNDLEFLAG::NO_FLAGS_SET;

@@ -200,9 +200,18 @@ public:
      * latter function checks only for the strict case where both left and right bounds of the overlap are entirely contained within the existing overlapping fragment.
      * @param fragmentSet The fragment set.
      * @param key The fragment to query.
-     * @return True if the fragment overlaps with an existing fragment in the fragment set, or False otherwise.
+     * @return True if the fragment DOES NOT overlap with an existing fragment in the fragment set,
+     *         False if the fragment overlaps with an existing fragment in the fragment set.
      */
     static bool DoesNotContainFragmentEntirely(const data_fragment_set_t& fragmentSet, const data_fragment_t& key);
+
+    /** Query whether there is any overlap between the two fragment sets.
+     *
+     * @param fragmentSet1 The first fragment set.
+     * @param fragmentSet2 The second fragment set.
+     * @return True if the fragment sets overlap each other, or False otherwise.
+     */
+    static bool FragmentSetsHaveOverlap(const data_fragment_set_t& fragmentSet1, const data_fragment_set_t& fragmentSet2);
 
     /** Remove fragment from fragment set.
      *

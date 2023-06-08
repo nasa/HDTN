@@ -1,0 +1,73 @@
+{
+    "bpsecConfigName": "my BPSec Config",
+    "policyRules": [
+        {
+            "description": "Bpsink confidentiality acceptor",
+            "securityPolicyRuleId": 1,
+            "securityRole": "acceptor",
+            "securitySource": "ipn:10.1",
+            "bundleSource": [
+                "ipn:*.*"
+            ],
+            "bundleFinalDestination": [
+                "ipn:*.*"
+            ],
+            "securityService": "confidentiality",
+            "securityContext": "aesGcm",
+            "securityFailureEventSetReference": "default_confidentiality",
+            "securityContextParams": [
+                {
+                    "paramName": "keyFile",
+                    "value": "config_files/bpsec/ipn10.1_confidentiality.key"
+                }
+            ]
+        },
+        {
+            "description": "Bpsink integrity acceptor",
+            "securityPolicyRuleId": 2,
+            "securityRole": "acceptor",
+            "securitySource": "ipn:10.1",
+            "bundleSource": [
+                "ipn:*.*"
+            ],
+            "bundleFinalDestination": [
+                "ipn:*.*"
+            ],
+            "securityService": "integrity",
+            "securityContext": "hmacSha",
+            "securityFailureEventSetReference": "default_integrity",
+            "securityContextParams": [
+                {
+                    "paramName": "keyFile",
+                    "value": "config_files/bpsec/ipn10.1_integrity.key"
+                }
+            ]
+        }
+    ],
+    "securityFailureEventSets": [
+        {
+            "name": "default_confidentiality",
+            "description": "default bcb confidentiality security operations event set",
+            "securityOperationEvents": [
+                {
+                    "eventId": "sopCorruptedAtAcceptor",
+                    "actions": [
+                        "removeSecurityOperationTargetBlock"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "default_integrity",
+            "description": "default bcb confidentiality security operations event set",
+            "securityOperationEvents": [
+                {
+                    "eventId": "sopCorruptedAtAcceptor",
+                    "actions": [
+                        "removeSecurityOperationTargetBlock"
+                    ]
+                }
+            ]
+        }
+    ]
+}

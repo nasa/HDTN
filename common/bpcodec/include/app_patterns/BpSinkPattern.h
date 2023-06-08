@@ -50,6 +50,7 @@ public:
     BP_APP_PATTERNS_LIB_EXPORT void Stop();
     BP_APP_PATTERNS_LIB_EXPORT virtual ~BpSinkPattern();
     BP_APP_PATTERNS_LIB_EXPORT bool Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_ptr & outductsConfigPtr,
+        const boost::filesystem::path& bpSecConfigFilePath,
         bool isAcsAware, const cbhe_eid_t & myEid, uint32_t processingLagMs, const uint64_t maxBundleSizeBytes, const uint64_t myBpEchoServiceId = 2047);
 protected:
     virtual bool ProcessPayload(const uint8_t * data, const uint64_t size) = 0;
@@ -115,6 +116,9 @@ private:
     boost::mutex m_mutexSendBundleQueue;
     uint64_t m_tcpclOpportunisticRemoteNodeId;
     Induct * m_tcpclInductPtr;
+
+    struct BpSecImpl;
+    std::unique_ptr<BpSecImpl> m_bpsecPimpl; // Pointer to the internal implementation
 };
 
 

@@ -23,10 +23,10 @@
 static void VerifyVector(const padded_vector_uint8_unit_test_t & v) {
     static const std::vector<std::string> testStringsVec = { "padding_start", "before_data", "after_reserved", "padding_end" };
     //std::cout << "capacity " << v.capacity() << "\n";
-    const uint8_t * paddingStart = v.data() - PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE;
+    const uint8_t * paddingStart = v.data() - PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE;
     const uint8_t * dataStart = v.data();
     const uint8_t * rightAfterReservedSpace = v.data() + v.capacity();
-    const uint8_t * paddingEnd = v.data() + (PaddedMallocator<uint8_t>::PADDING_ELEMENTS_AFTER + v.capacity());
+    const uint8_t * paddingEnd = v.data() + (PaddedMallocatorConstants::PADDING_ELEMENTS_AFTER + v.capacity());
     std::string s0(((char*)paddingStart), testStringsVec[0].size());//start of padding
     std::string s1(((char*)dataStart) - testStringsVec[1].size(), testStringsVec[1].size());//right before data
     std::string s2(((char*)rightAfterReservedSpace), testStringsVec[2].size());//right after reserved size

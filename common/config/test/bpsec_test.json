@@ -1,0 +1,105 @@
+{
+    "bpsecConfigName": "my BPSec Config",
+    "policyRules": [
+        {
+            "description": " Confidentiality source rule",
+            "securityPolicyRuleId": 1,
+            "securityRole": "source",
+            "securitySource": "ipn:10.*",
+            "bundleSource": [
+                "ipn:*.*"
+            ],
+            "bundleFinalDestination": [
+                "ipn:*.*"
+            ],
+            "securityTargetBlockTypes": [
+                1
+            ],
+            "securityService": "confidentiality",
+            "securityContext": "aesGcm",
+            "securityFailureEventSetReference": "default_confidentiality",
+            "securityContextParams": [
+                {
+                    "paramName": "aesVariant",
+                    "value": 256
+                },
+                {
+                    "paramName": "ivSizeBytes",
+                    "value": 12
+                },
+                {
+                    "paramName": "keyFile",
+                    "value": "c:\/mykey.txt"
+                },
+                {
+                    "paramName": "securityBlockCrc",
+                    "value": 0
+                },
+                {
+                    "paramName": "scopeFlags",
+                    "value": 7
+                }
+            ]
+        },
+        {
+            "description": " Confidentiality acceptor rule",
+            "securityPolicyRuleId": 1,
+            "securityRole": "acceptor",
+            "securitySource": "ipn:1.*",
+            "bundleSource": [
+                "ipn:1.*"
+            ],
+            "bundleFinalDestination": [
+                "ipn:*.*"
+            ],
+            "securityService": "confidentiality",
+            "securityContext": "aesGcm",
+            "securityFailureEventSetReference": "default_confidentiality",
+            "securityContextParams": [
+                {
+                    "paramName": "keyFile",
+                    "value": "c:\/mykey.txt"
+                }
+            ]
+        }
+    ],
+    "securityFailureEventSets": [
+        {
+            "name": "default_confidentiality",
+            "description": "default bcb confidentiality security operations event set",
+            "securityOperationEvents": [
+                {
+                    "eventId": "sopCorruptedAtAcceptor",
+                    "actions": [
+                        "removeSecurityOperation"
+                    ]
+                },
+                {
+                    "eventId": "sopMisconfiguredAtVerifier",
+                    "actions": [
+                        "failBundleForwarding",
+                        "reportReasonCode"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "default_integrity",
+            "description": "default bib integrity security operations event set",
+            "securityOperationEvents": [
+                {
+                    "eventId": "sopCorruptedAtVerifier",
+                    "actions": [
+                        "overrideSecurityTargetBlockBpcf"
+                    ]
+                },
+                {
+                    "eventId": "sopMisconfiguredAtAcceptor",
+                    "actions": [
+                        "removeAllSecurityTargetOperations"
+                    ]
+                }
+            ]
+        }
+    ]
+}

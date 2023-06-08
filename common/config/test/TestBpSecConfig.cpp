@@ -1,6 +1,6 @@
 /**
- * @file TestOutductsConfig.cpp
- * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ * @file TestBpSecConfig.cpp
+ * @author  Nadia Kortas <nadia.kortas@nasa.gov>
  *
  * @copyright Copyright © 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
@@ -13,24 +13,24 @@
  */
 
 #include <boost/test/unit_test.hpp>
-#include "OutductsConfig.h"
+#include "BpSecConfig.h"
 #include <memory>
 #include "Environment.h"
-#include <boost/filesystem/fstream.hpp>
 #include <boost/algorithm/string.hpp>
-#include <fstream>
 
-BOOST_AUTO_TEST_CASE(OutductsConfigTestCase)
+BOOST_AUTO_TEST_CASE(BpSecConfigTestCase)
 {
     const boost::filesystem::path jsonRootDir = Environment::GetPathHdtnSourceRoot() / "common" / "config" / "test";
-    const boost::filesystem::path jsonFileName = jsonRootDir / "outducts.json";
-    OutductsConfig_ptr oc1 = OutductsConfig::CreateFromJsonFilePath(jsonFileName);
-    BOOST_REQUIRE(oc1);
-  //  std::cout << oc1->ToJson() << "\n";
-    const std::string newJson = boost::trim_copy(oc1->ToJson());
-    OutductsConfig_ptr oc2 = OutductsConfig::CreateFromJson(newJson);
-    BOOST_REQUIRE(oc2);
-    BOOST_REQUIRE(*oc2 == *oc1);
+
+    const boost::filesystem::path jsonFileName = jsonRootDir / "bpsec_test.json";
+    BpSecConfig_ptr bpsec1 = BpSecConfig::CreateFromJsonFilePath(jsonFileName);
+    BOOST_REQUIRE(bpsec1);
+    //std::cout << bpsec1->ToJson() << "\n";
+
+    const std::string newJson = boost::trim_copy(bpsec1->ToJson());
+    BpSecConfig_ptr bpsec2 = BpSecConfig::CreateFromJson(newJson);
+    BOOST_REQUIRE(bpsec2);
+    BOOST_REQUIRE(*bpsec2 == *bpsec1);
 
     std::string fileContentsAsString;
     BOOST_REQUIRE(JsonSerializable::LoadTextFileIntoString(jsonFileName, fileContentsAsString));

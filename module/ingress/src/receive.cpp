@@ -24,6 +24,7 @@
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
 #include "InductManager.h"
+#include "BpSecConfig.h"
 #include <list>
 #include <queue>
 #include <boost/bind/bind.hpp>
@@ -46,8 +47,7 @@
 
 #include "BinaryConversions.h"
 #ifdef BPSEC_SUPPORT_ENABLED
-#include "BPSecManager.h"
-//# define DO_BPSEC_TEST 1
+#include "BpSecPolicyManager.h"
 #endif
 
 namespace hdtn {
@@ -61,7 +61,8 @@ struct Ingress::Impl : private boost::noncopyable {
     Impl();
     ~Impl();
     void Stop();
-    bool Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
+    bool Init(const HdtnConfig& hdtnConfig, const boost::filesystem::path& bpSecConfigFilePath,
+           const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
 
 private:
     void ReadZmqAcksThreadFunc();
@@ -138,6 +139,7 @@ private:
     InductManager m_inductManager;
     HdtnConfig m_hdtnConfig;
     cbhe_eid_t M_HDTN_EID_CUSTODY;
+    cbhe_eid_t M_HDTN_EID_SECURITY_SOURCE;
     cbhe_eid_t M_HDTN_EID_ECHO;
     cbhe_eid_t M_HDTN_EID_PING;
     cbhe_eid_t M_HDTN_EID_TO_SCHEDULER_BUNDLES;
@@ -190,6 +192,11 @@ private:
     volatile bool m_inductsFullyLoaded;
     boost::mutex m_inductsFullyLoadedMutex;
     boost::condition_variable m_inductsFullyLoadedConditionVariable;
+
+#ifdef BPSEC_SUPPORT_ENABLED
+    BpSecConfig_ptr m_bpSecConfigPtr;
+    BpSecPolicyManager m_bpSecPolicyManager;
+#endif
 };
 
 Ingress::Impl::BundlePipelineAckingSet::BundlePipelineAckingSet(const uint64_t paramMaxBundlesInPipeline,
@@ -368,10 +375,12 @@ void Ingress::Impl::Stop() {
     LOG_DEBUG(subprocess) << "m_eventsTooManyInAllCutThroughQueues: " << m_eventsTooManyInAllCutThroughQueues;
 }
 
-bool Ingress::Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr) {
-    return m_pimpl->Init(hdtnConfig, hdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr);
+bool Ingress::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::path& bpSecConfigFilePath,
+		   const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr) {
+    return m_pimpl->Init(hdtnConfig, bpSecConfigFilePath, hdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr);
 }
-bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
+bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::path& bpSecConfigFilePath,
+		         const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
 
     if (m_running) {
         LOG_ERROR(subprocess) << "Ingress::Init called while Ingress is already running";
@@ -379,11 +388,31 @@ bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConf
     }
 
     m_hdtnConfig = hdtnConfig;
+
+    if (!bpSecConfigFilePath.empty()) {
+#ifdef BPSEC_SUPPORT_ENABLED
+        m_bpSecConfigPtr = BpSecConfig::CreateFromJsonFilePath(bpSecConfigFilePath);
+        if (!m_bpSecConfigPtr) {
+            LOG_FATAL(subprocess) << "Error loading BpSec config file: " << bpSecConfigFilePath;
+            return false;
+        }
+        if (!m_bpSecPolicyManager.LoadFromConfig(*m_bpSecConfigPtr)) {
+            return false;
+        }
+        LOG_INFO(subprocess) << "BpSec enabled.  Using config file: " << bpSecConfigFilePath;
+#else
+        LOG_FATAL(subprocess) << "A BpSec config file was specified but BpSec support was not enabled at compile time";
+        return false;
+#endif
+    }
+
     //according to ION.pdf v4.0.1 on page 100 it says:
     //  Remember that the format for this argument is ipn:element_number.0 and that
     //  the final 0 is required, as custodial/administration service is always service 0.
     //HDTN shall default m_myCustodialServiceId to 0 although it is changeable in the hdtn config json file
     M_HDTN_EID_CUSTODY.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_myCustodialServiceId);
+
+    M_HDTN_EID_SECURITY_SOURCE.Set(m_hdtnConfig.m_myNodeId, 1); //todo 1 for service id?
 
     M_HDTN_EID_ECHO.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_myBpEchoServiceId);
 
@@ -509,7 +538,7 @@ bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConf
 
         m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
             boost::bind(&Ingress::Impl::ReadZmqAcksThreadFunc, this)); //create and start the worker thread
-
+        
         while (m_workerThreadStartupInProgress) { //lock mutex (above) before checking condition
             //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
             if (!m_workerThreadStartupConditionVariable.timed_wait(workerThreadStartupLock, boost::posix_time::seconds(3))) {
@@ -927,9 +956,9 @@ void Ingress::Impl::ReadTcpclOpportunisticBundlesFromEgressThreadFunc() {
             else {
                 if (messageFlags) { //1 => from egress and needs processing (is padded from the convergence layer)
                     uint8_t * paddedDataBegin = (uint8_t *)zmqPotentiallyPaddedMessage->data();
-                    uint8_t * bundleDataBegin = paddedDataBegin + PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE;
+                    uint8_t * bundleDataBegin = paddedDataBegin + PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE;
 
-                    std::size_t bundleCurrentSize = zmqPotentiallyPaddedMessage->size() - PaddedMallocator<uint8_t>::TOTAL_PADDING_ELEMENTS;
+                    std::size_t bundleCurrentSize = zmqPotentiallyPaddedMessage->size() - PaddedMallocatorConstants::TOTAL_PADDING_ELEMENTS;
                     ProcessPaddedData(bundleDataBegin, bundleCurrentSize, zmqPotentiallyPaddedMessage, unusedPaddedVec, true, true);
                     ++totalOpportunisticBundlesFromEgress;
                 }
@@ -1100,44 +1129,15 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             static constexpr BPV7_BUNDLEFLAG requiredPrimaryFlagsForEcho = BPV7_BUNDLEFLAG::NO_FLAGS_SET;
             const bool isEcho = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO));
             if (!isAdminRecordForHdtnStorage) {
-#ifdef DO_BPSEC_TEST
-                static thread_local std::vector<uint8_t> dataEncryptionKeyBytes; //DEK
-                static const std::string dataEncryptionKeyString(
-                    "71776572747975696f70617364666768"
-                    "71776572747975696f70617364666768"
-                );
-                if (dataEncryptionKeyBytes.empty()) {
-                    BinaryConversions::HexStringToBytes(dataEncryptionKeyString, dataEncryptionKeyBytes);
-                }
-
-                static thread_local BPSecManager::ReusableElementsInternal bpsecReusableElementsInternal;
-                static thread_local BPSecManager::EvpCipherCtxWrapper ctxWrapper;
-                static thread_local BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
-
-                if (!BPSecManager::TryDecryptBundle(ctxWrapper,
-                    ctxWrapperKeyWrapOps,
-                    bv,
-                    NULL, 0, //not using KEK
-                    dataEncryptionKeyBytes.data(), static_cast<const unsigned int>(dataEncryptionKeyBytes.size()),
-                    bpsecReusableElementsInternal,
-                    false)) //false => don't rerender in place here, there are more ops to complete after decryption and then a manual render-in-place will be called later
-                {
-                    LOG_ERROR(subprocess) << "Process: version 7 bundle received but cannot decrypt";
+#ifdef BPSEC_SUPPORT_ENABLED
+                //process acceptor and verifier roles
+                static thread_local BpSecPolicyProcessingContext policyProcessingCtx;
+                if (!m_bpSecPolicyManager.ProcessReceivedBundle(bv, policyProcessingCtx)) {
                     return false;
                 }
-                else {
-                    static thread_local bool printedMsg = false;
-                    if (!printedMsg) {
-                        LOG_INFO(subprocess) << "first time ingress decrypted bundle successfully from source node " 
-                            << bv.m_primaryBlockView.header.m_sourceNodeId
-                            << " ..(This message type will now be suppressed.)";
-                        printedMsg = true;
-                    }
-                    //LOG_INFO(subprocess) << "ingress decrypted bundle successfully";
-                }
-#endif // DO_BPSEC_TEST
+#endif // BPSEC_SUPPORT_ENABLED
                 //get previous node
-                std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+                static thread_local std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
                 bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE, blocks);
                 if (blocks.size() > 1) {
                     LOG_ERROR(subprocess) << "Process: version 7 bundle received has multiple previous node blocks";
@@ -1199,6 +1199,11 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                         return false;
                     }
                 }
+#ifdef BPSEC_SUPPORT_ENABLED
+                if (!m_bpSecPolicyManager.FindPolicyAndProcessOutgoingBundle(bv, policyProcessingCtx, M_HDTN_EID_SECURITY_SOURCE)) {
+                    return false;
+                }
+#endif // BPSEC_SUPPORT_ENABLED
                 if (isEcho) {
                     primary.m_destinationEid = primary.m_sourceNodeId;
                     finalDestEid = primary.m_sourceNodeId;
@@ -1207,7 +1212,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                     bv.m_primaryBlockView.SetManuallyModified();
                 }
 
-                if (!bv.RenderInPlace(PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE)) {
+                if (!bv.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE)) {
                     LOG_ERROR(subprocess) << "Process: bpv7 RenderInPlace failed";
                     return false;
                 }

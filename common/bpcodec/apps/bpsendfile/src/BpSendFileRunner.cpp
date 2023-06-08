@@ -56,6 +56,7 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
         unsigned int recurseDirectoriesDepth;
         uint64_t bundleLifetimeMilliseconds;
         uint64_t bundlePriority;
+        boost::filesystem::path bpSecConfigFilePath;
 
         boost::program_options::options_description desc("Allowed options");
         try {
@@ -68,6 +69,7 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
                 ("my-custodian-service-id", boost::program_options::value<uint64_t>()->default_value(0), "Custodian service ID is always 0.")
                 ("outducts-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "Outducts Configuration File.")
                 ("custody-transfer-inducts-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "Inducts Configuration File for custody transfer (use custody if present).")
+                ("bpsec-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "BpSec Configuration File.")
                 ("skip-upload-existing-files", "Do not upload existing files in the directory if and only if file-or-folder-path is a directory.")
                 ("upload-new-files", "Upload new files copied or moved into the directory if and only if file-or-folder-path is a directory.")
                 ("recurse-directories-depth", boost::program_options::value<unsigned int>()->default_value(3), "Upload all files within max specified depth of subdirectories if file-or-folder-path is a directory (0->no recursion).")
@@ -103,6 +105,8 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
                     LOG_ERROR(subprocess) << "error: bad bpsink uri string: " << myFinalDestUriEid;
                     return false;
                 }
+
+                bpSecConfigFilePath = vm["bpsec-config-file"].as<boost::filesystem::path>();
 
                 const boost::filesystem::path outductsConfigFileName = vm["outducts-config-file"].as<boost::filesystem::path>();
 
@@ -176,6 +180,7 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
         bpSendFile.Start(
             outductsConfigPtr,
             inductsConfigPtr,
+            bpSecConfigFilePath,
             custodyTransferUseAcs,
             myEid,
             0,

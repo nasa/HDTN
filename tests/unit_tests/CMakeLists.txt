@@ -40,12 +40,14 @@ add_executable(unit-tests
 	../../common/bpcodec/test/TestBpsecDefaultSecurityContexts.cpp
 	$<$<BOOL:${ENABLE_BPSEC}>:../../common/bpsec/test/TestBpsecDefault.cpp>
 	$<$<BOOL:${ENABLE_BPSEC}>:../../common/bpsec/test/TestInitializationVectors.cpp>
+	$<$<BOOL:${ENABLE_BPSEC}>:../../common/bpsec/test/TestBpSecPolicyManager.cpp>
 	../../common/bpcodec/test/TestBpv7Crc.cpp
 	../../common/config/test/TestInductsConfig.cpp
 	../../common/config/test/TestOutductsConfig.cpp
 	../../common/config/test/TestStorageConfig.cpp
 	../../common/config/test/TestHdtnConfig.cpp
 	../../common/config/test/TestHdtnDistributedConfig.cpp
+	$<$<BOOL:${ENABLE_BPSEC}>:../../common/config/test/TestBpSecConfig.cpp>
 	../../common/cgr/test/TestDijkstra.cpp
 	../../common/logger/unit_tests/LoggerTests.cpp
 	../../common/stats_logger/unit_tests/StatsLoggerTests.cpp

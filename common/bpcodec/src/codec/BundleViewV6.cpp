@@ -134,7 +134,7 @@ bool BundleViewV6::Render(uint8_t * serialization, uint64_t & sizeSerialized) {
     }
     else {
         const std::size_t size = m_primaryBlockView.actualSerializedPrimaryBlockPtr.size();
-        memcpy(serialization, m_primaryBlockView.actualSerializedPrimaryBlockPtr.data(), size);
+        std::memmove(serialization, m_primaryBlockView.actualSerializedPrimaryBlockPtr.data(), size);
         m_primaryBlockView.actualSerializedPrimaryBlockPtr = boost::asio::buffer(serialization, size);
         serialization += size;
     }
@@ -172,8 +172,14 @@ bool BundleViewV6::Render(uint8_t * serialization, uint64_t & sizeSerialized) {
             it->dirty = false;
         }
         else {
+            //update it->headerPtr->m_blockTypeSpecificDataPtr to point to new serialization location
+            const uint8_t* const originalBlockPtr = (const uint8_t*)it->actualSerializedBlockPtr.data();
+            const uint8_t* const originalBlockDataPtr = it->headerPtr->m_blockTypeSpecificDataPtr;
+            const std::uintptr_t headerPartSize = originalBlockDataPtr - originalBlockPtr;
+            it->headerPtr->m_blockTypeSpecificDataPtr = serialization + headerPartSize;
+
             currentBlockSizeSerialized = it->actualSerializedBlockPtr.size();
-            memcpy(serialization, it->actualSerializedBlockPtr.data(), currentBlockSizeSerialized);
+            std::memmove(serialization, it->actualSerializedBlockPtr.data(), currentBlockSizeSerialized);
         }
         it->actualSerializedBlockPtr = boost::asio::buffer(serialization, currentBlockSizeSerialized);
         serialization += currentBlockSizeSerialized;

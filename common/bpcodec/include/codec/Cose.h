@@ -13,7 +13,7 @@
  *
  * @section DESCRIPTION
  *
- * The Cose.h file contains some defines used for BPV7 BPSec.
+ * The Cose.h file contains some defines used for BPV7 BpSec.
  */
 
 #ifndef COSE_H

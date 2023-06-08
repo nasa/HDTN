@@ -22,7 +22,7 @@
 #include "Uri.h"
 #include "PaddedVectorUint8.h"
 #include "BinaryConversions.h"
-#include "BPSecManager.h"
+#include "BpSecBundleProcessor.h"
 #include <boost/algorithm/string.hpp>
 #include <openssl/evp.h>
 
@@ -76,14 +76,14 @@ BOOST_AUTO_TEST_CASE(HmacShaTestCase)
 
     static constexpr unsigned int expectedShaLengthBytes = 64; //64*8 = 512bits
 
-    BPSecManager::HmacCtxWrapper ctxWrapper; //reuse this in loop below
+    BpSecBundleProcessor::HmacCtxWrapper ctxWrapper; //reuse this in loop below
 
     for (unsigned int i = 0; i < 3; ++i) { //Get message digest
         std::vector<uint8_t> messageDigestBytes(expectedShaLengthBytes + 10, 'b'); //paint extra bytes (should be unmodified)
 
         unsigned int messageDigestOutSize = 0;
         //not inplace test (separate in and out buffers)
-        BOOST_REQUIRE(BPSecManager::HmacSha(ctxWrapper,
+        BOOST_REQUIRE(BpSecBundleProcessor::HmacSha(ctxWrapper,
             COSE_ALGORITHMS::HMAC_512_512,
             ipptParts,
             keyBytes.data(), keyBytes.size(),
@@ -119,9 +119,9 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
     );
     BOOST_REQUIRE(BinaryConversions::HexStringToBytes(hmacKeyString, hmacKeyBytes));
 
-    BPSecManager::HmacCtxWrapper ctxWrapper;
-    BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
-    BPSecManager::ReusableElementsInternal reusableElementsInternal;
+    BpSecBundleProcessor::HmacCtxWrapper ctxWrapper;
+    BpSecBundleProcessor::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
+    BpSecBundleProcessor::ReusableElementsInternal reusableElementsInternal;
 
     std::string nobibSerializedBundleString; //used later when bib is removed
 
@@ -131,7 +131,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
         BundleViewV7 bv;
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(toSwapIn, false));
 
-        BOOST_REQUIRE(BPSecManager::TryVerifyBundleIntegrity(ctxWrapper,
+        BOOST_REQUIRE(BpSecBundleProcessor::TryVerifyBundleIntegrity(ctxWrapper,
             ctxWrapperKeyWrapOps,
             bv,
             NULL, 0, //NULL if not present (for unwrapping hmac key only)
@@ -153,7 +153,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(nobibSerializedBundle, false));
 
         static const uint64_t targetBlockNumbers[1] = { 1 };
-        BOOST_REQUIRE(BPSecManager::TryAddBundleIntegrity(ctxWrapper,
+        BOOST_REQUIRE(BpSecBundleProcessor::TryAddBundleIntegrity(ctxWrapper,
             ctxWrapperKeyWrapOps,
             bv,
             BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE,
@@ -194,9 +194,9 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleMultipleSourcesTestCase)
     );
     BOOST_REQUIRE(BinaryConversions::HexStringToBytes(hmacKeyString, hmacKeyBytes));
 
-    BPSecManager::HmacCtxWrapper ctxWrapper;
-    BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
-    BPSecManager::ReusableElementsInternal reusableElementsInternal;
+    BpSecBundleProcessor::HmacCtxWrapper ctxWrapper;
+    BpSecBundleProcessor::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
+    BpSecBundleProcessor::ReusableElementsInternal reusableElementsInternal;
 
     std::string nobibSerializedBundleString; //used later when bib is removed
 
@@ -206,7 +206,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleMultipleSourcesTestCase)
         BundleViewV7 bv;
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(toSwapIn, false));
 
-        BOOST_REQUIRE(BPSecManager::TryVerifyBundleIntegrity(ctxWrapper,
+        BOOST_REQUIRE(BpSecBundleProcessor::TryVerifyBundleIntegrity(ctxWrapper,
             ctxWrapperKeyWrapOps,
             bv,
             NULL, 0, //NULL if not present (for unwrapping hmac key only)
@@ -228,7 +228,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleMultipleSourcesTestCase)
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(nobibSerializedBundle, false));
 
         static const uint64_t targetBlockNumbers[2] = { 0, 2 };
-        BOOST_REQUIRE(BPSecManager::TryAddBundleIntegrity(ctxWrapper,
+        BOOST_REQUIRE(BpSecBundleProcessor::TryAddBundleIntegrity(ctxWrapper,
             ctxWrapperKeyWrapOps,
             bv,
             BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE,
@@ -268,9 +268,9 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
     );
     BOOST_REQUIRE(BinaryConversions::HexStringToBytes(hmacKeyString, hmacKeyBytes));
 
-    BPSecManager::HmacCtxWrapper ctxWrapper;
-    BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
-    BPSecManager::ReusableElementsInternal reusableElementsInternal;
+    BpSecBundleProcessor::HmacCtxWrapper ctxWrapper;
+    BpSecBundleProcessor::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
+    BpSecBundleProcessor::ReusableElementsInternal reusableElementsInternal;
 
     std::string nobibSerializedBundleString; //used later when bib is removed
 
@@ -280,7 +280,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
         BundleViewV7 bv;
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(toSwapIn, false));
 
-        BOOST_REQUIRE(BPSecManager::TryVerifyBundleIntegrity(ctxWrapper,
+        BOOST_REQUIRE(BpSecBundleProcessor::TryVerifyBundleIntegrity(ctxWrapper,
             ctxWrapperKeyWrapOps,
             bv,
             NULL, 0, //NULL if not present (for unwrapping hmac key only)
@@ -313,7 +313,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
             lastPayloadBlockPtr = bvRecycled.m_listCanonicalBlockView.back().headerPtr.get();
             lastIntegrityBlockPtr = bvRecycled.m_listCanonicalBlockView.front().headerPtr.get();
 
-            BOOST_REQUIRE(BPSecManager::TryVerifyBundleIntegrity(ctxWrapper,
+            BOOST_REQUIRE(BpSecBundleProcessor::TryVerifyBundleIntegrity(ctxWrapper,
                 ctxWrapperKeyWrapOps,
                 bvRecycled,
                 NULL, 0, //NULL if not present (for unwrapping hmac key only)
@@ -338,7 +338,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
 
         static const uint64_t targetBlockNumbers[1] = { 1 };
         bv.ReserveBlockNumber(2); //force bib block number to be 3 to match test
-        BOOST_REQUIRE(BPSecManager::TryAddBundleIntegrity(ctxWrapper,
+        BOOST_REQUIRE(BpSecBundleProcessor::TryAddBundleIntegrity(ctxWrapper,
             ctxWrapperKeyWrapOps,
             bv,
             BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::ALL_FLAGS_SET,
@@ -361,7 +361,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
 
 BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
 {
-    BPSecManager::EvpCipherCtxWrapper ctxWrapper;
+    BpSecBundleProcessor::EvpCipherCtxWrapper ctxWrapper;
     static const std::string payloadString("Ready to generate a 32-byte payload");
     
 
@@ -395,7 +395,7 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
     //wrap key
     std::vector<uint8_t> aesWrappedKeyBytes(expectedAesWrappedKeyBytes.size() + 100);
     unsigned int wrappedKeyOutSize;
-    BOOST_REQUIRE(BPSecManager::AesWrapKey(ctxWrapper,
+    BOOST_REQUIRE(BpSecBundleProcessor::AesWrapKey(ctxWrapper,
         keyEncryptionKeyBytes.data(), static_cast<const unsigned int>(keyEncryptionKeyBytes.size()),
         keyBytes.data(), static_cast<const unsigned int>(keyBytes.size()),
         aesWrappedKeyBytes.data(), wrappedKeyOutSize));
@@ -406,7 +406,7 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
     //unwrap key: https://gchq.github.io/CyberChef/#recipe=AES_Key_Unwrap(%7B'option':'Hex','string':'6162636465666768696a6b6c6d6e6f70'%7D,%7B'option':'Hex','string':'a6a6a6a6a6a6a6a6'%7D,'Hex','Hex')&input=NjljNDExMjc2ZmVjZGRjNDc4MGRmNDJjOGEyYWY4OTI5NmZhYmYzNGQ3ZmFlNzAw
     std::vector<uint8_t> unwrappedKeyBytes(keyBytes.size() + 100);
     unsigned int unwrappedKeyOutSize;
-    BOOST_REQUIRE(BPSecManager::AesUnwrapKey(ctxWrapper,
+    BOOST_REQUIRE(BpSecBundleProcessor::AesUnwrapKey(ctxWrapper,
         keyEncryptionKeyBytes.data(), static_cast<const unsigned int>(keyEncryptionKeyBytes.size()),
         aesWrappedKeyBytes.data(), static_cast<const unsigned int>(aesWrappedKeyBytes.size()),
         unwrappedKeyBytes.data(), unwrappedKeyOutSize));
@@ -426,7 +426,7 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
     std::vector<uint8_t> tagBytes(EVP_GCM_TLS_TAG_LEN + 10, 'a'); //paint/add 10 extra bytes to make sure they are unmodified
     uint64_t cipherTextOutSize = 0;
     //not inplace test (separate in and out buffers)
-    BOOST_REQUIRE(BPSecManager::AesGcmEncrypt(ctxWrapper,
+    BOOST_REQUIRE(BpSecBundleProcessor::AesGcmEncrypt(ctxWrapper,
         (const uint8_t *)payloadString.data(), payloadString.size(),
         keyBytes.data(), keyBytes.size(),
         initializationVectorBytes.data(), initializationVectorBytes.size(),
@@ -462,7 +462,7 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
     tagBytes.assign(EVP_GCM_TLS_TAG_LEN + 10, 'a'); //add 10 extra bytes to make sure they are unmodified
     cipherTextOutSize = 0;
     //inplace test (same in and out buffers)
-    BOOST_REQUIRE(BPSecManager::AesGcmEncrypt(ctxWrapper,
+    BOOST_REQUIRE(BpSecBundleProcessor::AesGcmEncrypt(ctxWrapper,
         inplaceData.data(), inplaceData.size(),
         keyBytes.data(), keyBytes.size(),
         initializationVectorBytes.data(), initializationVectorBytes.size(),
@@ -491,7 +491,7 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
         std::vector<uint8_t> decryptedBytes(payloadString.size() + EVP_MAX_BLOCK_LENGTH, 0);
         uint64_t decryptedDataOutSize = 0;
         //not inplace test (separate in and out buffers)
-        BOOST_REQUIRE(BPSecManager::AesGcmDecrypt(ctxWrapper,
+        BOOST_REQUIRE(BpSecBundleProcessor::AesGcmDecrypt(ctxWrapper,
             cipherTextBytes.data(), cipherTextBytes.size(),
             keyBytes.data(), keyBytes.size(),
             initializationVectorBytes.data(), initializationVectorBytes.size(),
@@ -517,7 +517,7 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
         std::vector<boost::asio::const_buffer> aadParts;
         aadParts.emplace_back(boost::asio::buffer(gcmAadBytes));
         //not inplace test (separate in and out buffers)
-        BOOST_REQUIRE(BPSecManager::AesGcmDecrypt(ctxWrapper,
+        BOOST_REQUIRE(BpSecBundleProcessor::AesGcmDecrypt(ctxWrapper,
             inplaceDataToDecrypt.data(), inplaceDataToDecrypt.size(),
             keyBytes.data(), keyBytes.size(),
             initializationVectorBytes.data(), initializationVectorBytes.size(),
@@ -556,11 +556,17 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleWithKeyWrapTestCase)
     );
     BOOST_REQUIRE(BinaryConversions::HexStringToBytes(keyEncryptionKeyString, keyEncryptionKeyBytes));
 
-    BPSecManager::ReusableElementsInternal reusableElementsInternal;
+    BpSecBundleProcessor::ReusableElementsInternal reusableElementsInternal;
 
-    BPSecManager::EvpCipherCtxWrapper ctxWrapper;
-    BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
-    BOOST_REQUIRE(BPSecManager::TryDecryptBundle(ctxWrapper,
+    BpSecBundleProcessor::EvpCipherCtxWrapper ctxWrapper;
+    BpSecBundleProcessor::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
+    BOOST_REQUIRE(BpSecBundleProcessor::TryVerifyDecryptionOfBundle(ctxWrapper,
+        ctxWrapperKeyWrapOps,
+        bv,
+        keyEncryptionKeyBytes.data(), static_cast<const unsigned int>(keyEncryptionKeyBytes.size()),
+        NULL, 0, //no DEK (using KEK instead)
+        reusableElementsInternal));
+    BOOST_REQUIRE(BpSecBundleProcessor::TryDecryptBundle(ctxWrapper,
         ctxWrapperKeyWrapOps,
         bv,
         keyEncryptionKeyBytes.data(), static_cast<const unsigned int>(keyEncryptionKeyBytes.size()),
@@ -602,7 +608,7 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleWithKeyWrapTestCase)
         static const uint64_t targetBlockNumbers[1] = { 1 };
 
         const uint64_t insertBcbBeforeThisBlockNumber = 1;
-        BOOST_REQUIRE(BPSecManager::TryEncryptBundle(ctxWrapper,
+        BOOST_REQUIRE(BpSecBundleProcessor::TryEncryptBundle(ctxWrapper,
             ctxWrapperKeyWrapOps,
             bv2,
             BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::NO_ADDITIONAL_SCOPE,
@@ -653,11 +659,17 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleFullScopeTestCase)
     );
     BOOST_REQUIRE(BinaryConversions::HexStringToBytes(dataEncryptionKeyString, dataEncryptionKeyBytes));
 
-    BPSecManager::ReusableElementsInternal reusableElementsInternal;
+    BpSecBundleProcessor::ReusableElementsInternal reusableElementsInternal;
 
-    BPSecManager::EvpCipherCtxWrapper ctxWrapper;
-    BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
-    BOOST_REQUIRE(BPSecManager::TryDecryptBundle(ctxWrapper,
+    BpSecBundleProcessor::EvpCipherCtxWrapper ctxWrapper;
+    BpSecBundleProcessor::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
+    BOOST_REQUIRE(BpSecBundleProcessor::TryVerifyDecryptionOfBundle(ctxWrapper,
+        ctxWrapperKeyWrapOps,
+        bv,
+        NULL, 0, //not using KEK
+        dataEncryptionKeyBytes.data(), static_cast<const unsigned int>(dataEncryptionKeyBytes.size()),
+        reusableElementsInternal));
+    BOOST_REQUIRE(BpSecBundleProcessor::TryDecryptBundle(ctxWrapper,
         ctxWrapperKeyWrapOps,
         bv,
         NULL, 0, //not using KEK
@@ -743,7 +755,7 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleFullScopeTestCase)
         static const uint64_t targetBlockNumbers[2] = { 3, 1 };
 
         const uint64_t insertBcbBeforeThisBlockNumber = 1;
-        BOOST_REQUIRE(BPSecManager::TryEncryptBundle(ctxWrapper,
+        BOOST_REQUIRE(BpSecBundleProcessor::TryEncryptBundle(ctxWrapper,
             ctxWrapperKeyWrapOps,
             bv2,
             BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET,

@@ -1,5 +1,5 @@
 /**
- * @file BPSecManager.h
+ * @file BpSecBundleProcessor.h
  * @author  Nadia Kortas <nadia.kortas@nasa.gov>
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
@@ -14,7 +14,7 @@
  *
  * @section DESCRIPTION
  *
- * This BPSecManager defines the methods for adding and processing 
+ * This BpSecBundleProcessor static class defines the methods for adding and processing 
  * BCB confidentiality and BIB integrity blocks based on the security
  * policy Rules. It also includes the implementation of the cryptographic 
  * functions using OpenSSL APIs.
@@ -22,8 +22,8 @@
  */
 
 
-#ifndef BPSECMANAGER_H
-#define BPSECMANAGER_H 1
+#ifndef BPSEC_BUNDLE_PROCESSOR_H
+#define BPSEC_BUNDLE_PROCESSOR_H 1
 
 #include <string>
 #include <cstdint>
@@ -32,9 +32,8 @@
 #include "codec/bpv7.h"
 #include "bpsec_export.h"
 
-class BPSecManager { 
-private:
-      BPSecManager();
+class BpSecBundleProcessor {
+    BpSecBundleProcessor() = delete;
 public:
     struct EvpCipherCtxWrapper {
         BPSEC_EXPORT EvpCipherCtxWrapper();
@@ -55,13 +54,9 @@ public:
     struct ReusableElementsInternal {
         std::vector<boost::asio::const_buffer> constBufferVec; //aadParts and ipptParts
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+        std::vector<uint8_t> verifyOnlyDecryptionTemporaryMemory; //will grow to max bundle size received if verify enabled
     };
 
-    BPSEC_EXPORT BPSecManager(const bool isSecEnabled);
-    BPSEC_EXPORT ~BPSecManager();
-
-    
-    const bool m_isSecEnabled;
     
     /**
     * Generates Keyed Hash for integrity
@@ -109,6 +104,15 @@ public:
         ReusableElementsInternal& reusableElementsInternal,
         const bool markBibForDeletion,
         const bool renderInPlaceWhenFinished);
+
+    BPSEC_EXPORT static bool TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrapper& ctxWrapper,
+        EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
+        BundleViewV7& bv,
+        BundleViewV7::Bpv7CanonicalBlockView& bibBlockView,
+        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping hmac key only)
+        const uint8_t* hmacKey, const unsigned int hmacKeyLength, //NULL if not present (when no wrapped key is present)
+        ReusableElementsInternal& reusableElementsInternal,
+        const bool markBibForDeletion);
 
     /**
     * Adds a BIB block to the preloaded bundle view.  The bundle must be loaded with padded data.
@@ -260,6 +264,22 @@ public:
         ReusableElementsInternal& reusableElementsInternal,
         const bool renderInPlaceWhenFinished);
 
+    BPSEC_EXPORT static bool TryVerifyDecryptionOfBundle(EvpCipherCtxWrapper& ctxWrapper,
+        EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
+        BundleViewV7& bv,
+        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
+        const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength,
+        ReusableElementsInternal& reusableElementsInternal);
+
+    BPSEC_EXPORT static bool TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& ctxWrapper,
+        EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
+        BundleViewV7& bv,
+        BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView,
+        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
+        const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength,
+        ReusableElementsInternal& reusableElementsInternal,
+        const bool verifyOnly);
+
     /**
     * Adds a BCB block to the preloaded bundle view and encrypts the targets.  The bundle must be loaded with padded data.
     *
@@ -305,5 +325,5 @@ public:
 };
 
 
-#endif // BPSECMANAGER_H
+#endif // BPSEC_BUNDLE_PROCESSOR_H
 

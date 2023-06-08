@@ -32,9 +32,8 @@
 #include "BinaryConversions.h"
 
 #ifdef BPSEC_SUPPORT_ENABLED
-#include "BPSecManager.h"
 #include "InitializationVectors.h"
-//# define DO_BPSEC_TEST 1
+#include "BpSecPolicyManager.h"
 #endif
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
@@ -94,7 +93,9 @@ void BpSourcePattern::Stop() {
     
 }
 
-void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfig_ptr & inductsConfigPtr, bool custodyTransferUseAcs,
+void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfig_ptr & inductsConfigPtr,
+    const boost::filesystem::path& bpSecConfigFilePath,
+    bool custodyTransferUseAcs,
     const cbhe_eid_t & myEid, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId,
     const unsigned int bundleSendTimeoutSeconds, const uint64_t bundleLifetimeMilliseconds, const uint64_t bundlePriority,
     const bool requireRxBundleBeforeNextTx, const bool forceDisableCustody, const bool useBpVersion7) {
@@ -180,17 +181,39 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
    
     
     m_bpSourcePatternThreadPtr = boost::make_unique<boost::thread>(
-        boost::bind(&BpSourcePattern::BpSourcePatternThreadFunc, this, bundleRate)); //create and start the worker thread
+        boost::bind(&BpSourcePattern::BpSourcePatternThreadFunc, this, bundleRate, bpSecConfigFilePath)); //create and start the worker thread
     
 
 
 }
 
 
-void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
+void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate, const boost::filesystem::path& bpSecConfigFilePath) {
 
     ThreadNamer::SetThisThreadName("BpSourcePattern");
 
+#ifdef BPSEC_SUPPORT_ENABLED
+    BpSecConfig_ptr bpSecConfigPtr;
+    BpSecPolicyManager bpSecPolicyManager;
+    BpSecPolicyProcessingContext policyProcessingCtx;
+    
+    if (!bpSecConfigFilePath.empty()) {
+        bpSecConfigPtr = BpSecConfig::CreateFromJsonFilePath(bpSecConfigFilePath);
+        if (!bpSecConfigPtr) {
+            LOG_FATAL(subprocess) << "Error loading BpSec config file: " << bpSecConfigFilePath;
+            return;
+        }
+        else if (!bpSecPolicyManager.LoadFromConfig(*bpSecConfigPtr)) {
+            return;
+        }
+        LOG_INFO(subprocess) << "BpSec enabled.  Using config file: " << bpSecConfigFilePath;
+    }
+#else
+    if (!bpSecConfigFilePath.empty()) {
+        LOG_FATAL(subprocess) << "A BpSec config file was specified but BpSec support was not enabled at compile time";
+        return;
+    }
+#endif
     while (m_running) {
         if (m_useInductForSendingBundles) {
             LOG_INFO(subprocess) << "Waiting for Tcpcl opportunistic link on the induct to become available for forwarding bundles...";
@@ -287,25 +310,24 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
     boost::posix_time::ptime startTime = boost::posix_time::microsec_clock::universal_time();
     bool isGeneratingNewBundles = true;
     bool inWaitForNewBundlesState = false;
-#ifdef DO_BPSEC_TEST
-    std::vector<uint8_t> dataEncryptionKeyBytes; //DEK
-    static const std::string dataEncryptionKeyString(
-        "71776572747975696f70617364666768"
-        "71776572747975696f70617364666768"
-    );
-    BinaryConversions::HexStringToBytes(dataEncryptionKeyString, dataEncryptionKeyBytes);
-
-    //support 12 or 16 byte iv's
-    const bool use12ByteIv = true;
-    InitializationVector12Byte iv12;
-    InitializationVector16Byte iv16;
-    std::vector<uint8_t> initializationVector(use12ByteIv ? 12 : 16);
-
-    static const uint64_t targetBlockNumbers[1] = { 1 }; //just encrypt payload block
-    BPSecManager::ReusableElementsInternal bpsecReusableElementsInternal;
-    BPSecManager::EvpCipherCtxWrapper ctxWrapper;
-    BPSecManager::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
-#endif // DO_BPSEC_TEST
+    static constexpr std::size_t MAX_NUM_BPV7_BLOCK_TYPE_CODES = static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::RESERVED_MAX_BLOCK_TYPES);
+    uint8_t bpv7BlockTypeToManuallyAssignedBlockNumberLut[MAX_NUM_BPV7_BLOCK_TYPE_CODES] = { 0 };
+    bpv7BlockTypeToManuallyAssignedBlockNumberLut[static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::HOP_COUNT)] = 2;
+    bpv7BlockTypeToManuallyAssignedBlockNumberLut[static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PRIORITY)] = 3;
+    bpv7BlockTypeToManuallyAssignedBlockNumberLut[static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PAYLOAD)] = 1; //must be 1
+    
+#ifdef BPSEC_SUPPORT_ENABLED
+    const BpSecPolicy* bpSecPolicyPtr = bpSecPolicyManager.FindPolicy(m_myEid, m_myEid, m_finalDestinationEid, BPSEC_ROLE::SOURCE);
+    if (bpSecPolicyPtr) {
+        if (!BpSecPolicyManager::PopulateTargetArraysForSecuritySource(
+            bpv7BlockTypeToManuallyAssignedBlockNumberLut,
+            policyProcessingCtx,
+            *bpSecPolicyPtr))
+        {
+            return;
+        }
+    }
+#endif // BPSEC_SUPPORT_ENABLED
     zmq::message_t zmqMessageToSendWrapper;
     BundleViewV7 bv7;
     BundleViewV6 bv6;
@@ -398,7 +420,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                     Bpv7HopCountCanonicalBlock& block = *(reinterpret_cast<Bpv7HopCountCanonicalBlock*>(blockPtr.get()));
 
                     block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
-                    block.m_blockNumber = 2;
+                    block.m_blockNumber = bpv7BlockTypeToManuallyAssignedBlockNumberLut[static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::HOP_COUNT)];
                     block.m_crcType = BPV7_CRC_TYPE::CRC32C;
                     block.m_hopLimit = 100; //Hop limit MUST be in the range 1 through 255.
                     block.m_hopCount = 0; //the hop count value SHOULD initially be zero and SHOULD be increased by 1 on each hop.
@@ -419,7 +441,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                     Bpv7PriorityCanonicalBlock& block = *(reinterpret_cast<Bpv7PriorityCanonicalBlock*>(blockPtr.get()));
 
                     block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
-                    block.m_blockNumber = 3;
+                    block.m_blockNumber = bpv7BlockTypeToManuallyAssignedBlockNumberLut[static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PRIORITY)];
                     block.m_crcType = BPV7_CRC_TYPE::CRC32C;
                     block.m_bundlePriority = m_bundlePriority; // MUST be 0 = Bulk, 1 = Normal, or 2 = Expedited
                     bv7.AppendMoveCanonicalBlock(std::move(blockPtr));
@@ -441,7 +463,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
 
                     payloadBlock.m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PAYLOAD;
                     payloadBlock.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET;
-                    payloadBlock.m_blockNumber = 1; //must be 1
+                    payloadBlock.m_blockNumber = bpv7BlockTypeToManuallyAssignedBlockNumberLut[static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PAYLOAD)]; //must be 1
                     payloadBlock.m_crcType = BPV7_CRC_TYPE::CRC32C;
                     payloadBlock.m_dataLength = payloadSizeBytes;
                     payloadBlock.m_dataPtr = NULL; //NULL will preallocate (won't copy or compute crc, user must do that manually below)
@@ -462,45 +484,52 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                     m_running = false;
                     continue;
                 }
-#ifdef DO_BPSEC_TEST
-                if (use12ByteIv) {
-                    iv12.Serialize(initializationVector.data());
-                    iv12.Increment();
+#ifdef BPSEC_SUPPORT_ENABLED
+                if (bpSecPolicyPtr) {
+                    if (!BpSecPolicyManager::ProcessOutgoingBundle(bv7, policyProcessingCtx, *bpSecPolicyPtr, m_myEid)) {
+                        m_running = false;
+                        continue;
+                    }
+                }
+                const bool payloadAlreadyHasCrcComputed = (bpSecPolicyPtr && bpSecPolicyPtr->m_bcbTargetsPayloadBlock);
+#else
+                static constexpr bool payloadAlreadyHasCrcComputed = false;
+#endif
+                if (payloadAlreadyHasCrcComputed) {
+                    //payload already has crc recomputed because encrypt automatically recomputes crcs for the blocks it targets
                 }
                 else {
-                    iv16.Serialize(initializationVector.data());
-                    iv16.Increment();
+                    payloadBlockView.headerPtr->RecomputeCrcAfterDataModification(
+                        (uint8_t*)payloadBlockView.actualSerializedBlockPtr.data(),
+                        payloadBlockView.actualSerializedBlockPtr.size()); //recompute crc
                 }
-                if (!BPSecManager::TryEncryptBundle(ctxWrapper,
-                    ctxWrapperKeyWrapOps,
-                    bv7,
-                    BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET,
-                    COSE_ALGORITHMS::A256GCM,
-                    BPV7_CRC_TYPE::NONE,
-                    m_myEid,
-                    targetBlockNumbers, 1,
-                    initializationVector.data(), static_cast<unsigned int>(initializationVector.size()),
-                    NULL, 0, //NULL if not present (for wrapping DEK only)
-                    dataEncryptionKeyBytes.data(), static_cast<unsigned int>(dataEncryptionKeyBytes.size()), //NULL if not present (when no wrapped key is present)
-                    bpsecReusableElementsInternal,
-                    NULL,
-                    true))
-                {
-                    LOG_ERROR(subprocess) << "cannot encrypt bundle";
-                    m_running = false;
-                    continue;
-                }
-#endif
-                payloadBlockView.headerPtr->RecomputeCrcAfterDataModification((uint8_t*)payloadBlockView.actualSerializedBlockPtr.data(), payloadBlockView.actualSerializedBlockPtr.size()); //recompute crc
-
                 //move the bundle out of bundleView
                 bundleToSend = std::move(bv7.m_frontBuffer);
                 bundleLength = bv7.m_renderedBundle.size();
-#ifdef DO_BPSEC_TEST
-                bundleToSendStartPtr = (uint8_t*)bv7.m_renderedBundle.data();
-                padded_vector_uint8_t* rxBufRawPointer = new padded_vector_uint8_t(std::move(bundleToSend));
-                zmqMessageToSendWrapper.rebuild(bundleToSendStartPtr, bundleLength, CustomCleanupPaddedVecUint8, rxBufRawPointer);
-#endif
+                if ((bundleToSend.data() != ((uint8_t*)bv7.m_renderedBundle.data())) || (bundleToSend.size() != bv7.m_renderedBundle.size())) {
+                    //bundle was rendered in place, wrap inside a zmq message
+                    bundleToSendStartPtr = (uint8_t*)bv7.m_renderedBundle.data();
+                    if (bundleToSend.data() > bundleToSendStartPtr) {
+                        const std::uintptr_t diff = bundleToSend.data() - bundleToSendStartPtr;
+                        if (diff > PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE) {
+                            LOG_FATAL(subprocess) << "used " << ((unsigned int)diff) 
+                                << " bytes of prepadded data from render in place, exceeding the limit of "
+                                << PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE << " bytes!";
+                        }
+                        else {
+                            //LOG_DEBUG(subprocess) << "using " << ((unsigned int)diff) << " bytes of prepadded data from render in place";
+                        }
+                    }
+                    /*{
+                        std::string hexString;
+                        BinaryConversions::BytesToHexString(bundleToSendStartPtr, bundleLength, hexString);
+                        boost::to_lower(hexString);
+                        LOG_DEBUG(subprocess) << "bundle start ptr: " << ((uintptr_t)bundleToSendStartPtr) << " len=" << bundleLength;
+                        LOG_DEBUG(subprocess) << "bundle encrypted: " << hexString;
+                    }*/
+                    padded_vector_uint8_t* rxBufRawPointer = new padded_vector_uint8_t(std::move(bundleToSend));
+                    zmqMessageToSendWrapper.rebuild(bundleToSendStartPtr, bundleLength, CustomCleanupPaddedVecUint8, rxBufRawPointer);
+                }
             }
             else { //bp version 6
                 bv6.Reset(); //when reusing bv, it must be Reset since not calling any Load functions (loading calls Reset)
@@ -646,7 +675,11 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                 boost::this_thread::sleep(boost::posix_time::seconds(1));
             }
             else { //link is not down, proceed
-                m_isWaitingForRxBundleBeforeNextTx = true;
+                if (m_requireRxBundleBeforeNextTx) {
+                    m_waitingForRxBundleBeforeNextTxMutex.lock();
+                    m_isWaitingForRxBundleBeforeNextTx = true; //set this now before forwarding bundle
+                    m_waitingForRxBundleBeforeNextTxMutex.unlock();
+                }
                 bool successForward = false;
 
 
