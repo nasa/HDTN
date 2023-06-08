@@ -9,11 +9,6 @@
             "remotePort": 4556,
             "maxNumberOfBundlesInPipeline": 5,
             "maxSumOfBundleBytesInPipeline": 50000000,
-            "finalDestinationEidUris": [
-                "ipn:1.*",
-                "ipn:2.*",
-                "ipn:3.*"
-            ],
             "udpRateBps": 50000
         }
     ]

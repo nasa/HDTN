@@ -81,9 +81,6 @@
                 "remotePort": 4557,
                 "maxNumberOfBundlesInPipeline": 50,
                 "maxSumOfBundleBytesInPipeline": 50000000,
-                "finalDestinationEidUris": [
-                    "ipn:1.*"
-                ],
                 "thisLtpEngineId": 20004557,
                 "remoteLtpEngineId": 10004557,
                 "ltpDataSegmentMtu": 60000,
@@ -111,9 +108,6 @@
                 "remotePort": 4558,
                 "maxNumberOfBundlesInPipeline": 50,
                 "maxSumOfBundleBytesInPipeline": 50000000,
-                "finalDestinationEidUris": [
-                    "ipn:2.*"
-                ],
                 "thisLtpEngineId": 20004558,
                 "remoteLtpEngineId": 10004558,
                 "ltpDataSegmentMtu": 60000,

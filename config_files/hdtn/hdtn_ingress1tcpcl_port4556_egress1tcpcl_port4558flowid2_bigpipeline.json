@@ -42,9 +42,6 @@
                 "remotePort": 4558,
                 "maxNumberOfBundlesInPipeline": 80,
                 "maxSumOfBundleBytesInPipeline": 8000000,
-                "finalDestinationEidUris": [
-                    "ipn:2.*"
-                ],
                 "keepAliveIntervalSeconds": 17,
                 "tcpclV3MyMaxTxSegmentSizeBytes": 200000,
                 "tcpclAllowOpportunisticReceiveBundles": true

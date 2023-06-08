@@ -40,10 +40,6 @@
                 "remotePort": 4560,
                 "maxNumberOfBundlesInPipeline": 500,
                 "maxSumOfBundleBytesInPipeline": 50000000,
-                "finalDestinationEidUris": [
-                    "ipn:200.*",
-                    "ipn:4.*"
-                ],
                 "keepAliveIntervalSeconds": 17
             }
         ]
