@@ -184,4 +184,3 @@ static-analysis-development:
 
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
-
