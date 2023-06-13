@@ -111,6 +111,7 @@ private:
     bool Write(zmq::message_t* message,
         cbhe_eid_t& finalDestEidReturned, bool dontWriteIfCustodyFlagSet,
         bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord);
+    int TryProcessBundleCustody(BundleViewV6 &bv, uint64_t newCustodyId, size_t size);
     bool ProcessBundleCustody(BundleViewV6 &bv, uint64_t newCustodyId, size_t size);
     bool ProcessAdminRecord(BundleViewV6 &bv);
     bool WriteBundle(const PrimaryBlock& bundlePrimaryBlock,
@@ -535,7 +536,36 @@ static BpVersion GetBpVersion(const uint8_t *bundle) {
     return BpVersion::UNKNOWN;
 }
 
+static BundleViewV6 GenerateFailedCustodySignal() {
+    return BundleViewV6();
+}
+
 bool ZmqStorageInterface::Impl::ProcessBundleCustody(BundleViewV6 &bv, uint64_t newCustodyId, size_t size) {
+    int reason = TryProcessBundleCustody(bv, newCustodyId, size);
+    if(reason == 0) {
+        return true;
+    }
+    BundleViewV6 signal = GenerateFailedCustodySignal();
+
+    const cbhe_eid_t& hdtnSrcEid = m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header.m_sourceNodeId;
+    const uint64_t newCustodyIdFor5050CustodySignal = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(hdtnSrcEid);
+
+    uint64_t newCustodyIdSignal = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(
+            signal.m_primaryBlockView.header.m_sourceNodeId);
+
+    bool wroteSignal = WriteBundle(
+            signal.m_primaryBlockView.header,
+            newCustodyIdSignal,
+            (const uint8_t*)signal.m_renderedBundle.data(),
+            signal.m_renderedBundle.size());
+
+    if(!wroteSignal) {
+        LOG_ERROR(subprocess) << "Failed to write failed custody signal to disk";
+    }
+    return false;
+}
+
+int ZmqStorageInterface::Impl::TryProcessBundleCustody(BundleViewV6 &bv, uint64_t newCustodyId, size_t size) {
     if (!m_ctmPtr->ProcessCustodyOfBundle(bv, true, newCustodyId, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION,
         m_custodySignalRfc5050RenderedBundleView)) {
         LOG_ERROR(subprocess) << "error unable to process custody";
