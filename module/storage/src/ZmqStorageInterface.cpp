@@ -539,33 +539,37 @@ bool ZmqStorageInterface::Impl::ProcessBundleCustody(BundleViewV6 &bv, uint64_t 
     if (!m_ctmPtr->ProcessCustodyOfBundle(bv, true, newCustodyId, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION,
         m_custodySignalRfc5050RenderedBundleView)) {
         LOG_ERROR(subprocess) << "error unable to process custody";
+        return false;
     }
-    else if (!bv.Render(size + 200)) { //hdtn modifies bundle for next hop
+    if (!bv.Render(size + 200)) { //hdtn modifies bundle for next hop
         LOG_ERROR(subprocess) << "error unable to render new bundle";
+        return false;
     }
-    else {
-        if (m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()) {
-            const cbhe_eid_t& hdtnSrcEid = m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header.m_sourceNodeId;
-            const uint64_t newCustodyIdFor5050CustodySignal = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(hdtnSrcEid);
 
-            //write custody signal to disk
-            BundleStorageManagerSession_WriteToDisk sessionWrite;
-            const uint64_t totalSegmentsRequired = m_bsmPtr->Push(sessionWrite,
-                m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header,
-                m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size());
-            if (totalSegmentsRequired == 0) {
-                LOG_ERROR(subprocess) << "out of space for custody signal";
-                return false;
-            }
+    if (!m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()) {
+        LOG_ERROR(subprocess) << "Failed to make custody signal for bundle";
+        return false;
+    }
 
-            const uint64_t totalBytesPushed = m_bsmPtr->PushAllSegments(sessionWrite, m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header,
-                newCustodyIdFor5050CustodySignal, (const uint8_t*)m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.data(),
-                m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size());
-            if (totalBytesPushed != m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()) {
-                LOG_ERROR(subprocess) << "totalBytesPushed != custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()";
-                return false;
-            }
-        }
+    bool wroteBundle = WriteBundle(bv.m_primaryBlockView.header, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size());
+    if(!wroteBundle) {
+        LOG_ERROR(subprocess) << "Failed to write bundle with custody to disk";
+        return false;
+    }
+
+    const cbhe_eid_t& hdtnSrcEid = m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header.m_sourceNodeId;
+    const uint64_t newCustodyIdFor5050CustodySignal = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(hdtnSrcEid);
+
+    bool wroteCustody = WriteBundle(
+            m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header,
+            newCustodyIdFor5050CustodySignal,
+            (const uint8_t*)m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.data(),
+            m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size());
+
+    if(!wroteCustody) {
+        LOG_ERROR(subprocess) << "Failed to write custody signal to disk; deleting bundle";
+        DeleteBundleById(newCustodyId);
+        return false;
     }
     return true;
 }
@@ -609,10 +613,8 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
 
             //write non admin records to disk (unless newly generated below)
             if (bpv6CustodyIsRequested) {
-                bool success = ProcessBundleCustody(bv, newCustodyId, message->size());
-                if(!success) {
-                    return false;
-                }
+                // return here because this writes bundle to disk
+                return ProcessBundleCustody(bv, newCustodyId, message->size());
             }
         }
 
