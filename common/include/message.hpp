@@ -74,6 +74,7 @@
 #define HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS (0x5556)
 #define HDTN_MSGTYPE_STORAGE_ACK_TO_INGRESS (0x5557)
 #define HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY (0x5558)
+#define HDTN_MSGTYPE_DEPLETED_STORAGE_REPORT (0x5559)
 
 namespace hdtn {
 //#pragma pack (push, 1)
@@ -203,6 +204,11 @@ struct ContactPlanReloadHdr {
     CommonHdr base;
     uint8_t unusedPadding[4];
  };
+
+struct DepletedStorageReportHdr {
+    CommonHdr base;
+    uint64_t nodeId;
+};
 
 };  // namespace hdtn
 //#pragma pack (pop)

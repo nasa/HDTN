@@ -185,6 +185,7 @@ private:
     void SendLinkDown(uint64_t outductArrayIndex);
 
     void EgressEventsHandler();
+    void StorageEventsHandler();
     bool SendBundle(const uint8_t* payloadData, const uint64_t payloadSizeBytes, const cbhe_eid_t& finalDestEid);
     void TelemEventsHandler();
     void ReadZmqAcksThreadFunc();
@@ -220,6 +221,7 @@ private:
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingRouterToBoundEgressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqXPubSock_boundRouterToConnectingSubsPtr;
     std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingTelemToFromBoundRouterPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundRouterPtr;
     boost::mutex m_mutexZmqPubSock;
 
     // Outduct state tracking
@@ -399,10 +401,12 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
         m_zmqPullSock_boundEgressToConnectingRouterPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         m_zmqPushSock_connectingRouterToBoundEgressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         m_zmqRepSock_connectingTelemToFromBoundRouterPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+        m_zmqPullSock_connectingStorageToBoundRouterPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         try {
             m_zmqPullSock_boundEgressToConnectingRouterPtr->connect(std::string("inproc://bound_egress_to_connecting_router"));
             m_zmqPushSock_connectingRouterToBoundEgressPtr->connect(std::string("inproc://connecting_router_to_bound_egress"));
             m_zmqRepSock_connectingTelemToFromBoundRouterPtr->bind(std::string("inproc://connecting_telem_to_from_bound_router"));
+            m_zmqPullSock_connectingStorageToBoundRouterPtr->bind(std::string("inproc://connecting_storage_to_bound_router"));
         }
         catch (const zmq::error_t& ex) {
             LOG_ERROR(subprocess) << "error in Router::Impl::Init: cannot connect inproc socket: " << ex.what();
@@ -450,6 +454,19 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
         }
         catch (const zmq::error_t& ex) {
             LOG_ERROR(subprocess) << "error: router cannot connect to telem socket: " << ex.what();
+            return false;
+        }
+        m_zmqPullSock_connectingStorageToBoundRouterPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
+        const std::string connect_connectingStorageFromBoundRouterPath(
+                std::string("tcp://*") + 
+                hdtnDistributedConfig.m_zmqRouterAddress +
+                std::string(":") +
+                boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingStorageToBoundRouterPortPath));
+        try {
+            m_zmqPullSock_connectingStorageToBoundRouterPtr->bind(connect_connectingStorageFromBoundRouterPath);
+        }
+        catch (const zmq::error_t& ex) {
+            LOG_ERROR(subprocess) << "error: router cannot bind to storage socket : " << ex.what();
             return false;
         }
     }
@@ -678,6 +695,10 @@ void Router::Impl::EgressEventsHandler() {
     }
 }
 
+void Router::Impl::StorageEventsHandler() {
+    LOG_INFO(subprocess) << "Storage event handler called";
+}
+
 static void CustomCleanupPaddedVecUint8(void* data, void* hint) {
     delete static_cast<padded_vector_uint8_t*>(hint);
 }
@@ -816,12 +837,13 @@ void Router::Impl::TelemEventsHandler() {
 void Router::Impl::ReadZmqAcksThreadFunc() {
     ThreadNamer::SetThisThreadName("routerZmqReader");
 
-    static constexpr unsigned int NUM_SOCKETS = 3;
+    static constexpr unsigned int NUM_SOCKETS = 4;
 
     zmq::pollitem_t items[NUM_SOCKETS] = {
         {m_zmqPullSock_boundEgressToConnectingRouterPtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqRepSock_connectingTelemToFromBoundRouterPtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_zmqXPubSock_boundRouterToConnectingSubsPtr->handle(), 0, ZMQ_POLLIN, 0}
+        {m_zmqXPubSock_boundRouterToConnectingSubsPtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_zmqPullSock_connectingStorageToBoundRouterPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
     std::size_t totalAcksFromEgress = 0;
     bool routerFullyInitialized = false;
@@ -898,6 +920,15 @@ void Router::Impl::ReadZmqAcksThreadFunc() {
                     else {
                         LOG_ERROR(subprocess) << "invalid subscriber message received: length=" << zmqSubscriberDataReceived.size();
                     }
+                }
+            }
+            if (items[3].revents & ZMQ_POLLIN) { //events from Storage
+                LOG_INFO(subprocess) << "Received event from storage";
+                if(routerFullyInitialized) {
+                    StorageEventsHandler();
+                }
+                else {
+                    LOG_WARNING(subprocess) << "Skipping storage event; not fully initialized";
                 }
             }
 

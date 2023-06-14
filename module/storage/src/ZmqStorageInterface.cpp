@@ -113,6 +113,7 @@ private:
         bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord);
     BPV6_ACS_STATUS_REASON_INDICES TryProcessBundleCustody(BundleViewV6 &bv, uint64_t newCustodyId, size_t size);
     bool ProcessBundleCustody(BundleViewV6 &bv, uint64_t newCustodyId, size_t size);
+    void ReportDepletedStorage(cbhe_eid_t &eid);
     bool ProcessAdminRecord(BundleViewV6 &bv);
     bool WriteBundle(const PrimaryBlock& bundlePrimaryBlock,
         const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize);
@@ -134,12 +135,20 @@ public:
 
 private:
     std::unique_ptr<zmq::context_t> m_zmqContextPtr;
+    // ingress -> storage
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingStoragePtr;
+    // todo -> storage
     std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundReleaseToConnectingStoragePtr;
+    // storage -> egress
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingStorageToBoundEgressPtr;
+    // egress -> storage
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundEgressToConnectingStoragePtr;
+    // storage -> ingress
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingStorageToBoundIngressPtr;
+    // storage -> router
+    std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingStorageToBoundRouterPtr;
 
+    // telem -> storage
     std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingTelemToFromBoundStoragePtr;
 
     HdtnConfig m_hdtnConfig;
@@ -244,12 +253,14 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDi
         m_zmqPullSock_boundEgressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         m_zmqPushSock_connectingStorageToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         m_zmqPullSock_boundIngressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+        m_zmqPushSock_connectingStorageToBoundRouterPtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         m_zmqRepSock_connectingTelemToFromBoundStoragePtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         try {
             m_zmqPushSock_connectingStorageToBoundEgressPtr->connect(std::string("inproc://connecting_storage_to_bound_egress")); // egress should bind
             m_zmqPullSock_boundEgressToConnectingStoragePtr->connect(std::string("inproc://bound_egress_to_connecting_storage")); // egress should bind
             m_zmqPushSock_connectingStorageToBoundIngressPtr->connect(std::string("inproc://connecting_storage_to_bound_ingress"));
             m_zmqPullSock_boundIngressToConnectingStoragePtr->connect(std::string("inproc://bound_ingress_to_connecting_storage"));
+            m_zmqPushSock_connectingStorageToBoundRouterPtr->connect(std::string("inproc://connecting_storage_to_bound_router"));
             m_zmqRepSock_connectingTelemToFromBoundStoragePtr->bind(std::string("inproc://connecting_telem_to_from_bound_storage"));
         }
         catch (const zmq::error_t & ex) {
@@ -286,6 +297,12 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDi
             std::string(":") +
             boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqBoundIngressToConnectingStoragePortPath));
 
+        m_zmqPushSock_connectingStorageToBoundRouterPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::push);
+        const std::string connect_connectingStorageToBoundRouterPath(
+                std::string("tcp://") +
+                hdtnDistributedConfig.m_zmqRouterAddress +
+                std::string(":") +
+                boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingStorageToBoundRouterPortPath));
         //from telemetry socket
         m_zmqRepSock_connectingTelemToFromBoundStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::rep);
         const std::string bind_connectingTelemToFromBoundStoragePath(
@@ -296,6 +313,7 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDi
             m_zmqPullSock_boundEgressToConnectingStoragePtr->connect(connect_boundEgressToConnectingStoragePath); // egress should bind
             m_zmqPushSock_connectingStorageToBoundIngressPtr->connect(connect_connectingStorageToBoundIngressPath);
             m_zmqPullSock_boundIngressToConnectingStoragePtr->connect(connect_boundIngressToConnectingStoragePath);
+            m_zmqPushSock_connectingStorageToBoundRouterPtr->connect(connect_connectingStorageToBoundRouterPath);
             m_zmqRepSock_connectingTelemToFromBoundStoragePtr->bind(bind_connectingTelemToFromBoundStoragePath);
         }
         catch (const zmq::error_t & ex) {
@@ -394,6 +412,26 @@ bool ZmqStorageInterface::Impl::WriteAcsBundle(const Bpv6CbhePrimaryBlock & prim
     return true;
 }
 
+static void CustomCleanupDepletedStorageReportHdr(void *data, void *hint) {
+    delete static_cast<hdtn::DepletedStorageReportHdr*>(hint);
+}
+
+void ZmqStorageInterface::Impl::ReportDepletedStorage(cbhe_eid_t &eid) {
+    uint64_t nodeId = eid.nodeId;
+
+    LOG_INFO(subprocess) << "Node " << nodeId << " storage is depleted; sending message to router";
+
+    hdtn::DepletedStorageReportHdr * report = new hdtn::DepletedStorageReportHdr();
+    report->base.type = HDTN_MSGTYPE_DEPLETED_STORAGE_REPORT;
+    report->base.flags = 0;
+    report->nodeId = nodeId;
+    zmq::message_t msg(report, sizeof(*report), CustomCleanupDepletedStorageReportHdr, report);
+
+    if (!m_zmqPushSock_connectingStorageToBoundRouterPtr->send(std::move(msg), zmq::send_flags::dontwait)) {
+        LOG_ERROR(subprocess) << "Failed to send depleted storage report to router";
+    }
+}
+
 bool ZmqStorageInterface::Impl::ProcessAdminRecord(BundleViewV6 &bv)
 {
 
@@ -420,6 +458,9 @@ bool ZmqStorageInterface::Impl::ProcessAdminRecord(BundleViewV6 &bv)
         }
         Bpv6AdministrativeRecordContentAggregateCustodySignal& acs = *(reinterpret_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(acsPtr));
         if (!acs.DidCustodyTransferSucceed()) {
+            if (acs.GetReasonCode() == BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::DEPLETED_STORAGE) {
+                ReportDepletedStorage(bv.m_primaryBlockView.header.m_sourceNodeId);
+            }
             //a failure with a reason code of redundant reception means that
             // the receiver already has that bundle in custody so it can be
             // released even though it is a "failure".
@@ -459,6 +500,9 @@ bool ZmqStorageInterface::Impl::ProcessAdminRecord(BundleViewV6 &bv)
         }
         Bpv6AdministrativeRecordContentCustodySignal& cs = *(reinterpret_cast<Bpv6AdministrativeRecordContentCustodySignal*>(csPtr));
         if (!cs.DidCustodyTransferSucceed()) {
+            if (cs.GetReasonCode() == BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::DEPLETED_STORAGE) {
+                ReportDepletedStorage(bv.m_primaryBlockView.header.m_sourceNodeId);
+            }
             //a failure with a reason code of redundant reception means that
             // the receiver already has that bundle in custody so it can be
             // released even though it is a "failure".
