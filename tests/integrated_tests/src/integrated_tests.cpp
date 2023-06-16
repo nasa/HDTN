@@ -1069,7 +1069,7 @@ bool TestHDTNCutThroughModeUDP() {
     //HDTN One Process
     //HdtnOneProcessRunner hdtn;
     static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "hdtn" / "hdtn_ingress1udp_port4556_egress1udp_port4558flowid2_0.8Mbps.json").string();
-    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode.json";
+    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode_0.8Mbps.json";
     const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
     const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
     //std::thread threadHdtn(&HdtnOneProcessRunner::Run, &hdtn, 3,  argsHdtnOneProcess, std::ref(runningHdtnOneProcess), true);
@@ -1082,7 +1082,7 @@ bool TestHDTNCutThroughModeUDP() {
     static const std::string bpgenConfigArg = 
 	"--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_udp_port4556_0.05Mbps.json").string();
 
-    static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1","--duration=40", bpgenConfigArg.c_str(), NULL };
+    static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1","--duration=40", "--cla-rate=50000", bpgenConfigArg.c_str(), NULL };
     std::thread threadBpgen(RunBpgenAsync,argsBpgen, 6, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
 
     // Allow time for data to flow
@@ -1170,7 +1170,7 @@ bool TestHDTNStorageModeUDP() {
     //HDTN One Process
     //HdtnOneProcessRunner hdtn;
     static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "hdtn" / "hdtn_ingress1udp_port4556_egress1udp_port4558flowid2_0.8Mbps.json").string();
-    const boost::filesystem::path contactsFile = "contactPlanStorageMode.json";
+    const boost::filesystem::path contactsFile = "contactPlanStorageMode_0.8Mbps.json";
     const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
     const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
     //std::thread threadHdtn(&HdtnOneProcessRunner::Run, &hdtn, 3,  argsHdtnOneProcess, std::ref(runningHdtnOneProcess), true);
@@ -1183,7 +1183,7 @@ bool TestHDTNStorageModeUDP() {
     static const std::string bpgenConfigArg = 
 	"--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_udp_port4556_0.05Mbps.json").string();
 
-    static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1","--duration=40", bpgenConfigArg.c_str(), NULL };
+    static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1","--duration=40", "--cla-rate=50000", bpgenConfigArg.c_str(), NULL };
     std::thread threadBpgen(RunBpgenAsync,argsBpgen, 6, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
 
     // Allow time for data to flow
@@ -1270,7 +1270,7 @@ bool TestHDTNFileTransferUDP() {
 
     //HDTN One Process
     static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "hdtn" / "hdtn_ingress1udp_port4556_egress1udp_port4558flowid2_0.8Mbps.json").string();
-    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode.json";
+    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode_0.8Mbps.json";
     const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
     const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
     std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, 3, std::ref(runningHdtnOneProcess), &bundleCountStorage,
@@ -1284,7 +1284,7 @@ bool TestHDTNFileTransferUDP() {
     static const std::string testFile = 
 	"--file-or-folder-path=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "integrated_tests" / "src" / "test.txt" ).string();
    
-    static const char * argsBpSendFile[] = { "bpsendfile",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", testFile.c_str(), bpgenConfigArg.c_str(), NULL };
+    static const char * argsBpSendFile[] = { "bpsendfile",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", "--cla-rate=50000", testFile.c_str(), bpgenConfigArg.c_str(), NULL };
     std::thread threadBpSendFile(RunBpSendFile,argsBpSendFile, 6, std::ref(runningBpsend), &bundlesSentBpsend[0] );
 
     // Allow time for data to flow
