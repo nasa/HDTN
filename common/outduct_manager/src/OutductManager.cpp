@@ -255,7 +255,7 @@ void OutductManager::GetAllOutductCapabilitiesTelemetry_ThreadSafe(AllOutductCap
         oct.maxBundleSizeBytesInPipeline = outductPtr->GetOutductMaxSumOfBundleBytesInPipeline();
         oct.outductArrayIndex = i;
         oct.nextHopNodeId = outductPtr->GetOutductNextHopNodeId();
-        oct.hasInitLinkState = outductPtr->GetHasInitLinkState();
+        oct.assumedInitiallyDown = outductPtr->GetAssumedInitiallyDown();
         allOutductCapabilitiesTelemetry.outductCapabilityTelemetryList.emplace_back(std::move(oct));
     }
 }

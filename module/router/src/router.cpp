@@ -1185,7 +1185,7 @@ void Router::Impl::PopulateMapsFromAllOutductCapabilitiesTelemetry(const AllOutd
         const OutductCapabilityTelemetry_t& oct = *itAoct;
         m_mapNextHopNodeIdToOutductArrayIndex[oct.nextHopNodeId] = oct.outductArrayIndex;
         // Assume that links that do not have an initial state are up
-        bool initLinkIsUpPhysical = !oct.hasInitLinkState;
+        bool initLinkIsUpPhysical = !oct.assumedInitiallyDown;
         m_mapOutductArrayIndexToOutductInfo.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(oct.outductArrayIndex),

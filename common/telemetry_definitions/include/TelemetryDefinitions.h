@@ -94,7 +94,7 @@ struct OutductCapabilityTelemetry_t : public JsonSerializable {
     uint64_t maxBundlesInPipeline;
     uint64_t maxBundleSizeBytesInPipeline;
     uint64_t nextHopNodeId;
-    bool hasInitLinkState;
+    bool assumedInitiallyDown;
     std::list<cbhe_eid_t> finalDestinationEidList;
     std::list<uint64_t> finalDestinationNodeIdList;
 

@@ -20,10 +20,10 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-Outduct::Outduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid, const bool hasInitLinkState) :
+Outduct::Outduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid, const bool assumedInitiallyDown) :
     m_outductConfig(outductConfig),
     m_outductUuid(outductUuid),
-    m_hasInitLinkState(hasInitLinkState),
+    m_assumedInitiallyDown(assumedInitiallyDown),
     m_linkIsUpPerTimeSchedule(false),
     m_physicalLinkStatusIsKnown(false),
     m_linkIsUpPhysically(false) //don't care, set properly when m_physicalLinkStatusIsKnown gets set to true
@@ -52,8 +52,8 @@ uint64_t Outduct::GetOutductNextHopNodeId() const {
 std::string Outduct::GetConvergenceLayerName() const {
     return m_outductConfig.convergenceLayer;
 }
-bool Outduct::GetHasInitLinkState() const {
-    return m_hasInitLinkState;
+bool Outduct::GetAssumedInitiallyDown() const {
+    return m_assumedInitiallyDown;
 }
 void Outduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {}
 void Outduct::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {}
