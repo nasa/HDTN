@@ -11,6 +11,6 @@ cd $HDTN_SOURCE_ROOT
 sleep 10
 
 #router
-./build/module/scheduler/hdtn-router --contact-plan-file=contactPlan_RoutingTest.json --hdtn-config-file=$hdtn_config &
+./build/module/router/hdtn-router --contact-plan-file=contactPlan_RoutingTest.json --hdtn-config-file=$hdtn_config &
 sleep 1
 
