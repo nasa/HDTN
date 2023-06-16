@@ -42,6 +42,14 @@ static void CustomCleanupPaddedVecUint8(void* data, void* hint) {
     delete static_cast<padded_vector_uint8_t*>(hint);
 }
 
+static bool IsZero(double x) {
+    // This won't work for super small numbers, but should be fine, epsilon is something like 2.22045e-16
+    // See here for an example: https://en.cppreference.com/w/cpp/types/numeric_limits/epsilon
+    // This is similar to the almost equal function, except we assume it's positive, and implicitly set the scaling
+    // to 1.0
+    return x <= std::numeric_limits<double>::epsilon();
+}
+
 BpSourcePattern::BpSourcePattern() : m_running(false) {
 
 }
@@ -252,7 +260,11 @@ void BpSourcePattern::BpSourcePatternThreadFunc(double bundleRate, const boost::
     if (outduct) {
         outductMaxBundlesInPipeline = outduct->GetOutductMaxNumberOfBundlesInPipeline();
     }
-    if(bundleRate) {
+    if(bundleRate < 0) {
+        LOG_ERROR(subprocess) << "Bundle rate must be non-negative";
+        return;
+    }
+    if(!IsZero(bundleRate)) {
         LOG_INFO(subprocess) << "Generating up to " << bundleRate << " bundles / second";
         const double sval = 1000000.0 / bundleRate;   // sleep val in usec
         ////sval *= BP_MSG_NBUF;
