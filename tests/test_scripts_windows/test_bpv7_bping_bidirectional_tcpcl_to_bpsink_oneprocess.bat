@@ -1,6 +1,6 @@
 @Echo off
 SET HDTN_CONFIG_FILE_PARAM="--hdtn-config-file=%HDTN_SOURCE_ROOT%\config_files\hdtn\hdtn_ingress1tcpcl_port4556_egress1tcpcl_port4558flowid2.json"
-SET CONTACT_PLAN_FILE_PARAM="--contact-plan-file=%HDTN_SOURCE_ROOT%\module\scheduler\src\contactPlanCutThroughMode.json"
+SET CONTACT_PLAN_FILE_PARAM="--contact-plan-file=%HDTN_SOURCE_ROOT%\module\router\contact_plans\contactPlanCutThroughMode.json"
 REM INITIALIZE ANACONDA PYTHON NEXT LINE (requires activate.bat in PATH)
 REM CALL activate.bat
 REM bpsink needs custody-transfer-outducts-config-file because it has no routing capability to resolve ipn:1.2047 "--custody-transfer-outducts-config-file=%HDTN_SOURCE_ROOT%\config_files\outducts\bpsink_one_tcpcl_port4556.json"

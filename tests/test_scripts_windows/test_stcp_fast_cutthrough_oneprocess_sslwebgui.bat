@@ -1,6 +1,6 @@
 @Echo off
 SET HDTN_CONFIG_FILE_PARAM="--hdtn-config-file=%HDTN_SOURCE_ROOT%\config_files\hdtn\hdtn_ingress1stcp_port4556_egress1stcp_port4558flowid2.json"
-SET CONTACT_PLAN_FILE_PARAM="--contact-plan-file=%HDTN_SOURCE_ROOT%\module\scheduler\src\contactPlanCutThroughMode.json"
+SET CONTACT_PLAN_FILE_PARAM="--contact-plan-file=%HDTN_SOURCE_ROOT%\module\router\contact_plans\contactPlanCutThroughMode.json"
 SET WEB_SSL_CERT="--gui-certificate-pem-file=C:\hdtn_ssl_certificates\cert_ipn10.0.pem"
 SET WEB_SSL_KEY="--gui-private-key-pem-file=C:\hdtn_ssl_certificates\privatekey_ipn10.0.pem"
 SET WEB_SSL_DH="--gui-dh-pem-file=C:\hdtn_ssl_certificates\dh4096_ipn10.0.pem"

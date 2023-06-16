@@ -12,7 +12,7 @@ socket = context.socket(zmq.REQ)
 port = 10305
 socket.connect("tcp://127.0.0.1:%s" % port) 
 
-payload = "../../module/scheduler/src/contactPlanCutThroughMode.json"
+payload = "../../module/router/contact_plans/contactPlanCutThroughMode.json"
 
 #open text file in read mode
 text_file = open(payload, "r")

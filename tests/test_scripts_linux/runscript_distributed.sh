@@ -26,10 +26,6 @@ sleep 3
 ./build/module/storage/hdtn-storage --hdtn-config-file=$hdtn_config --hdtn-distributed-config-file=$hdtn_distributed_config &
 sleep 3
 
-#Scheduler
-./build/module/scheduler/hdtn-scheduler --hdtn-config-file=$hdtn_config --contact-plan-file=contactPlanCutThroughMode.json --hdtn-distributed-config-file=$hdtn_distributed_config &
-sleep 4
-
 #Router
 ./build/module/router/hdtn-router --hdtn-config-file=$hdtn_config --contact-plan-file=contactPlanCutThroughMode.json --hdtn-distributed-config-file=$hdtn_distributed_config &
 sleep 4

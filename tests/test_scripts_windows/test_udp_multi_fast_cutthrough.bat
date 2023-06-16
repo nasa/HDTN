@@ -1,6 +1,6 @@
 @Echo off
 SET HDTN_CONFIG_FILE_PARAM="--hdtn-config-file=%HDTN_SOURCE_ROOT%\config_files\hdtn\hdtn_ingress1udp_port4556_egress2udp_port4557flowid1_port4558flowid2_0.8Mbps.json --hdtn-distributed-config-file=%HDTN_SOURCE_ROOT%\config_files\hdtn\hdtn_distributed_defaults.json"
-SET CONTACT_PLAN_FILE_PARAM="--contact-plan-file=%HDTN_SOURCE_ROOT%\module\scheduler\src\contactPlanCutThroughMode_0.8Mbps.json"
+SET CONTACT_PLAN_FILE_PARAM="--contact-plan-file=%HDTN_SOURCE_ROOT%\module\router\contact_plans\contactPlanCutThroughMode_0.8Mbps.json"
 REM INITIALIZE ANACONDA PYTHON NEXT LINE (requires activate.bat in PATH)
 REM CALL activate.bat
 START "BpSink1" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\common\bpcodec\apps\bpsink-async.exe" "--my-uri-eid=ipn:1.1" "--inducts-config-file=%HDTN_SOURCE_ROOT%\config_files\inducts\bpsink_one_udp_port4557.json"
