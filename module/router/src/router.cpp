@@ -1355,7 +1355,10 @@ void Router::Impl::UpdateRouteState(uint64_t oldNextHop, uint64_t newNextHop, ui
         }
         else {
             OutductInfo_t &info = m_mapOutductArrayIndexToOutductInfo[it->second];
-            info.finalDestNodeIds.erase(finalDest);
+            size_t numErased = info.finalDestNodeIds.erase(finalDest);
+            if(numErased == 0) {
+                LOG_ERROR(subprocess) << "Failed to erase " << finalDest << " from outduct " << info.outductIndex;
+            }
         }
     }
     if(newNextHop != NOROUTE) {
