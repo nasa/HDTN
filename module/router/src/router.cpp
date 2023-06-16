@@ -963,11 +963,11 @@ boost::property_tree::ptree Router::Impl::FilterContactsPropertyTree(const boost
 
     boost::property_tree::ptree pt = contactPlanPt;
 
-    auto it = pt.begin();
+    boost::property_tree::ptree::iterator it = pt.begin();
     while(it != pt.end()) {
         uint64_t src  = it->second.get<int>("source", 0);
         uint64_t dest = it->second.get<int>("dest", 0);
-        auto prevIt = it;
+        boost::property_tree::ptree::iterator prevIt = it;
         it++;
 
         if(src == m_hdtnConfig.m_myNodeId) {
