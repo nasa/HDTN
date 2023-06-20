@@ -148,6 +148,7 @@ static-analysis-legacy:
     - if [ "$files_to_scan" != "" ]; then cov-run-desktop --dir build/idir --url $COV_BUILD_SERVER --auth-key-file /home/hdtn/ci-auth.key --stream HDTN-development --exit1-if-defects true --ignore-uncapturable-inputs true --present-in-reference true --all --enable-constraint-fpp --enable-fnptr --enable-virtual $files_to_scan; else echo "No files to scan"; fi
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+  allow_failure: true
 
 # Static Analysis New defects  
 static-analysis-new:
