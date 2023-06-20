@@ -47,7 +47,7 @@ static bool IsZero(double x) {
     // See here for an example: https://en.cppreference.com/w/cpp/types/numeric_limits/epsilon
     // This is similar to the almost equal function, except we assume it's positive, and implicitly set the scaling
     // to 1.0
-    return x <= std::numeric_limits<double>::epsilon();
+    return std::fabs(x) <= std::numeric_limits<double>::epsilon();
 }
 
 BpSourcePattern::BpSourcePattern() : m_running(false) {
