@@ -195,7 +195,7 @@ bool TestHDTNCutThroughModeLTP() {
     //HDTN One Process
     //HdtnOneProcessRunner hdtn;
     static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "hdtn" / "hdtn_ingress1ltp_port4556_egress1ltp_port4558flowid2.json").string();
-    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode.json";
+    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode_unlimitedRate.json";
     const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
     const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
     //std::thread threadHdtn(&HdtnOneProcessRunner::Run, &hdtn, 3,  argsHdtnOneProcess, std::ref(runningHdtnOneProcess), true);
@@ -291,7 +291,7 @@ bool TestHDTNCutThroughModeLTPv7() {
     //HDTN One Process
     //HdtnOneProcessRunner hdtn;
     static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "hdtn" / "hdtn_ingress1ltp_port4556_egress1ltp_port4558flowid2.json").string();
-    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode.json";
+    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode_unlimitedRate.json";
     const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
     const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
     //std::thread threadHdtn(&HdtnOneProcessRunner::Run, &hdtn, 3,  argsHdtnOneProcess, std::ref(runningHdtnOneProcess), true);
@@ -582,7 +582,7 @@ bool TestHDTNFileTransferLTP() {
 
     //HDTN One Process
     static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "hdtn" / "hdtn_ingress1ltp_port4556_egress1ltp_port4558flowid2.json").string();
-    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode.json";
+    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode_unlimitedRate.json";
     const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
     const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
     std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, ARGS_SZ(argsHdtnOneProcess), std::ref(runningHdtnOneProcess), &bundleCountStorage,
@@ -713,7 +713,7 @@ bool TestHDTNFileTransferLTPv7() {
 
     //HDTN One Process
     static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "hdtn" / "hdtn_ingress1ltp_port4556_egress1ltp_port4558flowid2.json").string();
-    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode.json";
+    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode_unlimitedRate.json";
     const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
     const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
     std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, ARGS_SZ(argsHdtnOneProcess), std::ref(runningHdtnOneProcess), &bundleCountStorage,
@@ -843,7 +843,7 @@ bool TestHDTNFileTransferTCPCL() {
 
     //HDTN One Process
     static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "hdtn" / "hdtn_ingress1ltp_port4556_egress1ltp_port4558flowid2.json").string();
-    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode.json";
+    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode_unlimitedRate.json";
     const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
     const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
     std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, ARGS_SZ(argsHdtnOneProcess), std::ref(runningHdtnOneProcess), &bundleCountStorage,
@@ -976,7 +976,7 @@ bool TestHDTNCutThroughModeTCPCL() {
 
     //HDTN One Process
     static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "hdtn" / "hdtn_ingress1tcpclv4_port4556_egress1tcpclv4_port4558flowid2.json").string();
-    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode.json";
+    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode_unlimitedRate.json";
     const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
     const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
     std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, ARGS_SZ(argsHdtnOneProcess), std::ref(runningHdtnOneProcess), &bundleCountStorage,

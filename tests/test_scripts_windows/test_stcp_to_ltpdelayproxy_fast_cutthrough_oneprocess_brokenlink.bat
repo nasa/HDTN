@@ -1,6 +1,6 @@
 @Echo off
 SET HDTN_CONFIG_FILE_PARAM="--hdtn-config-file=%HDTN_SOURCE_ROOT%\config_files\hdtn\hdtn_ingress1stcp_port4556_egress1ltpdelayproxy_flowid2.json"
-SET CONTACT_PLAN_FILE_PARAM="--contact-plan-file=%HDTN_SOURCE_ROOT%\module\router\contact_plans\contactPlanCutThroughMode.json"
+SET CONTACT_PLAN_FILE_PARAM="--contact-plan-file=%HDTN_SOURCE_ROOT%\module\router\contact_plans\contactPlanCutThroughMode_unlimitedRate.json"
 REM INITIALIZE ANACONDA PYTHON NEXT LINE (requires activate.bat in PATH)
 REM CALL activate.bat
 START "UDP delay sim For Sender" /D "C:/hdtn_tmp" "cmd /k" "%HDTN_BUILD_ROOT%\module\udp_delay_sim\udp-delay-sim.exe" "--remote-udp-hostname=localhost" "--remote-udp-port=4558" "--my-bound-udp-port=1114" "--num-rx-udp-packets-buffer-size=10000" "--max-rx-udp-packet-size-bytes=65000" "--send-delay-ms=100000"

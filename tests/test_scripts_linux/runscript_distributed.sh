@@ -27,7 +27,7 @@ sleep 3
 sleep 3
 
 #Router
-./build/module/router/hdtn-router --hdtn-config-file=$hdtn_config --contact-plan-file=contactPlanCutThroughMode.json --hdtn-distributed-config-file=$hdtn_distributed_config &
+./build/module/router/hdtn-router --hdtn-config-file=$hdtn_config --contact-plan-file=contactPlanCutThroughMode_unlimitedRate.json --hdtn-distributed-config-file=$hdtn_distributed_config &
 sleep 4
 
 #Telemetry
