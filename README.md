@@ -13,9 +13,8 @@ Architecture
 =============
 HDTN is written in C++, and is designed to be modular. These modules include:
 * Ingress - Processes incoming bundles.
-* Scheduler - Determines if outgoing bundles can be forwarded or must be stored based on the contact plan.
 * Storage - Stores bundles to disk.
-* Router - Calculates the next hop for the bundle.
+* Router - Calculates the next hop for the bundle and sets links up/down based on contact plan.
 * Egress - Forwards bundles to the proper outduct and next hop.
 * Telemetry Command Interface - Web interface that displays the operations and data for HDTN.
 
@@ -141,7 +140,7 @@ You can use tcpdump to test the HDTN ingress storage and egress. The generated p
 In another terminal, run:
 * ./runscript.sh
 
-Note: The contact Plan which has a list of all forthcoming contacts for each node is located under module/scheduler/src/contactPlan.json and includes source/destination nodes, start/end time and data rate. Based on the schedule in the contactPlan the scheduler sends events on link availability to Ingress and Storage. When the Ingress receives Link Available event for a given destination, it sends the bundles directly to egress and when the Link is Unavailable it sends the bundles to storage. Upon receiving Link Available event, Storage releases the bundles for the corresponding destination  and when receiving Link Available event it stops releasing the budles. 
+Note: The contact Plan which has a list of all forthcoming contacts for each node is located under module/router/contact\_plans/contactPlan.json and includes source/destination nodes, start/end time and data rate. Based on the schedule in the contactPlan the Router sends events on link availability to Ingress and Storage. When the Ingress receives Link Available event for a given destination, it sends the bundles directly to egress and when the Link is Unavailable it sends the bundles to storage. Upon receiving Link Available event, Storage releases the bundles for the corresponding destination  and when receiving Link Available event it stops releasing the budles. 
 
 There are additional test scripts located under the directories test_scripts_linux and test_scripts_windows that can be used to test different scenarios for all convergence layers.   
 

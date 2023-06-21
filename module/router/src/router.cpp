@@ -436,7 +436,7 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
             LOG_INFO(subprocess) << "Router connected to Egress for sending events " << connect_connectingRouterToBoundEgressPath;
         }
         catch (const zmq::error_t& ex) {
-            LOG_ERROR(subprocess) << "error: Router cannot connect to egress socket: " << connect_connectingRouterToBoundEgressPath;
+            LOG_ERROR(subprocess) << "error: Router cannot connect to egress socket: " << connect_connectingRouterToBoundEgressPath << ": " << ex.what();
             return false;
         }
 
@@ -1306,7 +1306,7 @@ void Router::Impl::FilterContactPlan(uint64_t sourceNode, std::vector<cgr::Conta
 
         // Don't remove if not "active"
         // TODO should these time bounds be inclusive or not?
-        if(!(contact.start <= m_latestTime && m_latestTime <= contact.end)) {
+        if(!(static_cast<uint64_t>(contact.start) <= m_latestTime && m_latestTime <= static_cast<uint64_t>(contact.end))) {
             ++i;
             continue;
         }

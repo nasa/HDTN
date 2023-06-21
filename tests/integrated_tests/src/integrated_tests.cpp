@@ -56,7 +56,7 @@
 #define MAX_RATE_DIV_3 "--stcp-rate-bits-per-sec=10000"
 #define MAX_RATE_DIV_6 "--stcp-rate-bits-per-sec=5000"
 
-#define ARGS_SZ(a) ((sizeof((a)) / sizeof(*(a))) - 1)
+#define ARGS_SZ(a) ((int) ((sizeof((a)) / sizeof(*(a))) - 1))
 
 // Prototypes
 static void GetSha1(const uint8_t * data, const std::size_t size, std::string & sha1Str);
