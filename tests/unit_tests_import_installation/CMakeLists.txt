@@ -83,6 +83,7 @@ add_executable(unit-tests-from-install
 	../../common/bpcodec/test/TestBundleViewV7.cpp
 	../../common/bpcodec/test/TestBpsecDefaultSecurityContexts.cpp
 	../../common/bpcodec/test/TestBpv7Crc.cpp
+	../../common/bpcodec/test/TestBpSinkPattern.cpp
 	../../common/config/test/TestInductsConfig.cpp
 	../../common/config/test/TestOutductsConfig.cpp
 	../../common/config/test/TestStorageConfig.cpp
@@ -119,6 +120,7 @@ target_link_libraries(unit-tests-from-install
 	HDTN::UdpLib
 	HDTN::UdpDelaySimLib
 	HDTN::HdtnTelemLib
+	HDTN::OutductManagerLib
 	Boost::unit_test_framework
 	Boost::timer
 )

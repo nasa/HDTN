@@ -303,9 +303,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
         }
 
         #ifdef DO_STATS_LOGGING
-            std::vector<hdtn::StatsLogger::metric_t> metrics;
-            metrics.push_back(hdtn::StatsLogger::metric_t("bundle_source_to_sink_latency_s", primary.GetSecondsSinceCreate()));
-            hdtn::StatsLogger::Log("bundle_source_to_sink_latency_s", metrics);
+            LogStats(primary, true);
         #endif
     }
     else if (isBpVersion7) {
@@ -461,13 +459,58 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
         }
 
         #ifdef DO_STATS_LOGGING
-            std::vector<hdtn::StatsLogger::metric_t> metrics;
-            metrics.push_back(hdtn::StatsLogger::metric_t("bundle_source_to_sink_latency_ms", primary.GetMillisecondsSinceCreate()));
-            hdtn::StatsLogger::Log("bundle_source_to_sink_latency_ms", metrics);
+            LogStats(primary, false);
         #endif
     }
 
     return true;
+}
+
+void BpSinkPattern::LogStats(PrimaryBlock& primaryBlock, bool isBpVersion6) {
+    std::vector<hdtn::StatsLogger::metric_t> metrics;
+    metrics.push_back(hdtn::StatsLogger::metric_t(
+        "priority", (uint64_t)primaryBlock.GetPriority()
+    ));
+    metrics.push_back(hdtn::StatsLogger::metric_t(
+        "expiration_ms", (uint64_t)primaryBlock.GetExpirationMilliseconds()
+    ));
+
+    cbhe_eid_t dest = primaryBlock.GetFinalDestinationEid();
+    metrics.push_back(hdtn::StatsLogger::metric_t("destination_node_id", (uint64_t)dest.nodeId));
+    metrics.push_back(hdtn::StatsLogger::metric_t("destination_service_id", (uint64_t)dest.serviceId));
+
+    cbhe_eid_t src = primaryBlock.GetSourceEid();
+    metrics.push_back(hdtn::StatsLogger::metric_t("source_node_id", (uint64_t)src.nodeId));
+    metrics.push_back(hdtn::StatsLogger::metric_t("source_service_id", (uint64_t)src.serviceId));
+
+    if (isBpVersion6) {
+        Bpv6CbhePrimaryBlock& primaryBlock6 = static_cast<Bpv6CbhePrimaryBlock&>(primaryBlock);
+        metrics.push_back(hdtn::StatsLogger::metric_t(
+            "bundle_source_to_sink_latency_s", primaryBlock6.GetSecondsSinceCreate()
+        ));
+        metrics.push_back(hdtn::StatsLogger::metric_t(
+            "lifetime_seconds",
+            (uint64_t)primaryBlock6.m_lifetimeSeconds
+        ));
+        metrics.push_back(hdtn::StatsLogger::metric_t(
+            "creation_seconds_since_2000",
+            (uint64_t)primaryBlock6.m_creationTimestamp.secondsSinceStartOfYear2000
+        ));
+    } else {
+        Bpv7CbhePrimaryBlock& primaryBlock7 = static_cast<Bpv7CbhePrimaryBlock&>(primaryBlock);
+        metrics.push_back(hdtn::StatsLogger::metric_t(
+            "bundle_source_to_sink_latency_ms", primaryBlock7.GetMillisecondsSinceCreate()
+        ));
+        metrics.push_back(hdtn::StatsLogger::metric_t(
+            "lifetime_ms",
+            (uint64_t)primaryBlock7.m_lifetimeMilliseconds
+        ));
+        metrics.push_back(hdtn::StatsLogger::metric_t(
+            "creation_ms_since_2000",
+            (uint64_t)primaryBlock7.m_creationTimestamp.millisecondsSinceStartOfYear2000
+        ));
+    }
+    hdtn::StatsLogger::Log("bundle_stats", metrics);
 }
 
 void BpSinkPattern::WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec) {

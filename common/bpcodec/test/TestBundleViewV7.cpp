@@ -2,7 +2,7 @@
  * @file TestBundleViewV7.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -1194,4 +1194,13 @@ BOOST_AUTO_TEST_CASE(BundleViewGetNextBlockTestCase) {
             BOOST_REQUIRE_EQUAL(bv.GetNextFreeCanonicalBlockNumber(), 55);
         }
     }
+}
+
+BOOST_AUTO_TEST_CASE(BundleView7SourceEidTestCase) {
+    Bpv7CbhePrimaryBlock primary;
+    primary.m_sourceNodeId.nodeId = 1;
+    primary.m_sourceNodeId.serviceId = 1;
+    cbhe_eid_t sourceId = primary.GetSourceEid();
+    BOOST_REQUIRE_EQUAL(sourceId.nodeId, 1);
+    BOOST_REQUIRE_EQUAL(sourceId.serviceId, 1);
 }

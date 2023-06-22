@@ -2,7 +2,7 @@
  * @file PrimaryBlock.h
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -31,6 +31,7 @@ struct PrimaryBlock {
     virtual cbhe_bundle_uuid_t GetCbheBundleUuidFromPrimary() const = 0;
     virtual cbhe_bundle_uuid_nofragment_t GetCbheBundleUuidNoFragmentFromPrimary() const = 0;
     virtual cbhe_eid_t GetFinalDestinationEid() const = 0;
+    virtual cbhe_eid_t GetSourceEid() const = 0;
     virtual uint8_t GetPriority() const = 0;
     virtual uint64_t GetExpirationSeconds() const = 0;
     virtual uint64_t GetSequenceForSecondsScale() const = 0;

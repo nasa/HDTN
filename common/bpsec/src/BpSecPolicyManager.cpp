@@ -15,6 +15,7 @@
 
 #include "BpSecPolicyManager.h"
 #include <boost/make_unique.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include "Uri.h"
 #include "BinaryConversions.h"
 #include "Logger.h"

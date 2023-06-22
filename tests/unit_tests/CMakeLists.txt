@@ -42,6 +42,7 @@ add_executable(unit-tests
 	$<$<BOOL:${ENABLE_BPSEC}>:../../common/bpsec/test/TestInitializationVectors.cpp>
 	$<$<BOOL:${ENABLE_BPSEC}>:../../common/bpsec/test/TestBpSecPolicyManager.cpp>
 	../../common/bpcodec/test/TestBpv7Crc.cpp
+	../../common/bpcodec/test/TestBpSinkPattern.cpp
 	../../common/config/test/TestInductsConfig.cpp
 	../../common/config/test/TestOutductsConfig.cpp
 	../../common/config/test/TestStorageConfig.cpp
@@ -83,6 +84,8 @@ target_link_libraries(unit-tests
 	stats_lib
 	$<$<BOOL:${RUN_TELEMETRY}>:telem_lib>
 	scheduler_lib
+	outduct_manager_lib
+	bp_app_patterns_lib
 	Boost::unit_test_framework
 	Boost::timer
 )
