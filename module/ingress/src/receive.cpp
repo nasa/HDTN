@@ -158,10 +158,12 @@ private:
     std::shared_mutex m_sharedMutexFinalDestsToOutductArrayIndexMaps;
     typedef std::shared_lock<std::shared_mutex> ingress_shared_lock_t;
     typedef std::unique_lock<std::shared_mutex> ingress_exclusive_lock_t;
+    #define ingress_adopt_lock std::adopt_lock
 #else
     boost::shared_mutex m_sharedMutexFinalDestsToOutductArrayIndexMaps;
     typedef boost::shared_lock<boost::shared_mutex> ingress_shared_lock_t;
     typedef boost::unique_lock<boost::shared_mutex> ingress_exclusive_lock_t;
+    #define ingress_adopt_lock boost::adopt_lock
 #endif
 
 
@@ -625,10 +627,89 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
     m_workerThreadStartupMutex.unlock();
     m_workerThreadStartupConditionVariable.notify_one();
 
+    //outduct capabilities updates
+    AllOutductCapabilitiesTelemetry_t aoct;
+    bool aoctNeedsProcessing = false;
+
     while (m_running) { //keep thread alive if running
+
+        if (aoctNeedsProcessing && m_sharedMutexFinalDestsToOutductArrayIndexMaps.try_lock()) { //try to gain exclusive access
+            ingress_exclusive_lock_t lockExclusive(m_sharedMutexFinalDestsToOutductArrayIndexMaps, ingress_adopt_lock);
+            aoctNeedsProcessing = false;
+            const bool isInitial = m_vectorBundlePipelineAckingSet.empty();
+            if (isInitial) {
+                LOG_INFO(subprocess) << "Ingress received initial " << aoct.outductCapabilityTelemetryList.size() << " outduct telemetries from egress";
+                m_vectorBundlePipelineAckingSet.reserve(aoct.outductCapabilityTelemetryList.size());
+            }
+
+
+            if ((!isInitial) && (m_vectorBundlePipelineAckingSet.size() != aoct.outductCapabilityTelemetryList.size())) {
+                LOG_ERROR(subprocess) << "outduct capability update but m_vectorEgressToIngressAckingSet.size() != aoct.outductCapabilityTelemetryList.size()";
+            }
+            else {
+                m_mapNextHopNodeIdToOutductArrayIndex.clear();
+                m_mapFinalDestNodeIdToOutductArrayIndex.clear();
+                m_mapFinalDestEidToOutductArrayIndex.clear();
+
+                bool foundError = false;
+                uint64_t expectedIndex = 0;
+                for (std::list<OutductCapabilityTelemetry_t>::const_iterator itAoct = aoct.outductCapabilityTelemetryList.cbegin();
+                    itAoct != aoct.outductCapabilityTelemetryList.cend();
+                    ++itAoct, ++expectedIndex)
+                {
+                    const OutductCapabilityTelemetry_t& oct = *itAoct;
+                    if (oct.outductArrayIndex != expectedIndex) {
+                        foundError = true;
+                        LOG_ERROR(subprocess) << "outduct capability update but out of order outductArrayIndex received";
+                        break;
+                    }
+
+                    if (isInitial) {
+                        m_vectorBundlePipelineAckingSet.emplace_back(boost::make_unique<BundlePipelineAckingSet>(oct.maxBundlesInPipeline, oct.maxBundleSizeBytesInPipeline, oct.nextHopNodeId, false));
+                    }
+                    else {
+                        LOG_INFO(subprocess) << "Received updated outduct telemetries from egress";
+                        BundlePipelineAckingSet& ackingSet = *(m_vectorBundlePipelineAckingSet[oct.outductArrayIndex]);
+                        ackingSet.Update(oct.maxBundlesInPipeline,
+                            oct.maxBundleSizeBytesInPipeline, oct.nextHopNodeId, ackingSet.m_linkIsUp);
+                    }
+                    m_mapNextHopNodeIdToOutductArrayIndex[oct.nextHopNodeId] = oct.outductArrayIndex;
+                    for (std::list<cbhe_eid_t>::const_iterator it = oct.finalDestinationEidList.cbegin(); it != oct.finalDestinationEidList.cend(); ++it) {
+                        const cbhe_eid_t& eid = *it;
+                        m_mapFinalDestEidToOutductArrayIndex[eid] = oct.outductArrayIndex;
+                    }
+                    for (std::list<uint64_t>::const_iterator it = oct.finalDestinationNodeIdList.cbegin(); it != oct.finalDestinationNodeIdList.cend(); ++it) {
+                        const uint64_t nodeId = *it;
+                        m_mapFinalDestNodeIdToOutductArrayIndex[nodeId] = oct.outductArrayIndex;
+                    }
+                }
+
+                if ((!foundError) && (!m_egressFullyInitialized)) { //first time this outduct capabilities telemetry received, start remaining ingress threads
+                    m_singleStorageBundlePipelineAckingSet.Update(STORAGE_MAX_BUNDLES_IN_PIPELINE * 2, //*2 because egress map ignored and the acking set divides by 2
+                        m_hdtnConfig.m_maxBundleSizeBytes * 2, UINT64_MAX, false);
+
+                    m_threadTcpclOpportunisticBundlesFromEgressReaderPtr = boost::make_unique<boost::thread>(
+                        boost::bind(&Ingress::Impl::ReadTcpclOpportunisticBundlesFromEgressThreadFunc, this)); //create and start the worker thread
+
+                    m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::Impl::WholeBundleReadyCallback, this, boost::placeholders::_1), m_hdtnConfig.m_inductsConfig,
+                        m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes, m_hdtnConfig.m_maxBundleSizeBytes,
+                        boost::bind(&Ingress::Impl::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
+                        boost::bind(&Ingress::Impl::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
+
+                    m_egressFullyInitialized = true;
+                    m_inductsFullyLoadedMutex.lock();
+                    m_inductsFullyLoaded = true;
+                    m_inductsFullyLoadedMutex.unlock();
+                    m_inductsFullyLoadedConditionVariable.notify_one();
+
+                    LOG_INFO(subprocess) << "Now running and fully initialized and connected to egress";
+                }
+            }
+        }
+
         int rc = 0;
         try {
-            rc = zmq::poll(&items[0], NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL);
+            rc = zmq::poll(&items[0], NUM_SOCKETS, aoctNeedsProcessing ? 1L : DEFAULT_BIG_TIMEOUT_POLL);
         }
         catch (zmq::error_t & e) {
             LOG_ERROR(subprocess) << "caught zmq::error_t in Ingress::ReadZmqAcksThreadFunc: " << e.what();
@@ -667,7 +748,7 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
 
                 }
                 else if (receivedEgressAckHdr.base.type == HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY) {
-                    AllOutductCapabilitiesTelemetry_t aoct;
+                    
                     
                     zmq::message_t zmqMessageOutductTelem;
                     //message guaranteed to be there due to the zmq::send_flags::sndmore
@@ -683,76 +764,7 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                             LOG_ERROR(subprocess) << "received outductCapabilityTelemetryList is empty!";
                         }
                         else {
-                            ingress_exclusive_lock_t lockExclusive(m_sharedMutexFinalDestsToOutductArrayIndexMaps);
-                            const bool isInitial = m_vectorBundlePipelineAckingSet.empty();
-                            if (isInitial) {
-                                LOG_INFO(subprocess) << "Ingress received initial " << aoct.outductCapabilityTelemetryList.size() << " outduct telemetries from egress";
-                                m_vectorBundlePipelineAckingSet.reserve(aoct.outductCapabilityTelemetryList.size());
-                            }
-
-
-                            if ((!isInitial) && (m_vectorBundlePipelineAckingSet.size() != aoct.outductCapabilityTelemetryList.size())) {
-                                LOG_ERROR(subprocess) << "outduct capability update but m_vectorEgressToIngressAckingSet.size() != aoct.outductCapabilityTelemetryList.size()";
-                            }
-                            else {
-                                m_mapNextHopNodeIdToOutductArrayIndex.clear();
-                                m_mapFinalDestNodeIdToOutductArrayIndex.clear();
-                                m_mapFinalDestEidToOutductArrayIndex.clear();
-
-                                bool foundError = false;
-                                uint64_t expectedIndex = 0;
-                                for (std::list<OutductCapabilityTelemetry_t>::const_iterator itAoct = aoct.outductCapabilityTelemetryList.cbegin();
-                                    itAoct != aoct.outductCapabilityTelemetryList.cend();
-                                    ++itAoct, ++expectedIndex)
-                                {
-                                    const OutductCapabilityTelemetry_t& oct = *itAoct;
-                                    if (oct.outductArrayIndex != expectedIndex) {
-                                        foundError = true;
-                                        LOG_ERROR(subprocess) << "outduct capability update but out of order outductArrayIndex received";
-                                        break;
-                                    }
-
-                                    if (isInitial) {
-                                        m_vectorBundlePipelineAckingSet.emplace_back(boost::make_unique<BundlePipelineAckingSet>(oct.maxBundlesInPipeline, oct.maxBundleSizeBytesInPipeline, oct.nextHopNodeId, false));
-                                    }
-                                    else {
-                                        LOG_INFO(subprocess) << "Received updated outduct telemetries from egress";
-                                        BundlePipelineAckingSet& ackingSet = *(m_vectorBundlePipelineAckingSet[oct.outductArrayIndex]);
-                                        ackingSet.Update(oct.maxBundlesInPipeline,
-                                            oct.maxBundleSizeBytesInPipeline, oct.nextHopNodeId, ackingSet.m_linkIsUp);
-                                    }
-                                    m_mapNextHopNodeIdToOutductArrayIndex[oct.nextHopNodeId] = oct.outductArrayIndex;
-                                    for (std::list<cbhe_eid_t>::const_iterator it = oct.finalDestinationEidList.cbegin(); it != oct.finalDestinationEidList.cend(); ++it) {
-                                        const cbhe_eid_t& eid = *it;
-                                        m_mapFinalDestEidToOutductArrayIndex[eid] = oct.outductArrayIndex;
-                                    }
-                                    for (std::list<uint64_t>::const_iterator it = oct.finalDestinationNodeIdList.cbegin(); it != oct.finalDestinationNodeIdList.cend(); ++it) {
-                                        const uint64_t nodeId = *it;
-                                        m_mapFinalDestNodeIdToOutductArrayIndex[nodeId] = oct.outductArrayIndex;
-                                    }
-                                }
-
-                                if ((!foundError) && (!m_egressFullyInitialized)) { //first time this outduct capabilities telemetry received, start remaining ingress threads
-                                    m_singleStorageBundlePipelineAckingSet.Update(STORAGE_MAX_BUNDLES_IN_PIPELINE * 2, //*2 because egress map ignored and the acking set divides by 2
-                                        m_hdtnConfig.m_maxBundleSizeBytes * 2, UINT64_MAX, false);
-
-                                    m_threadTcpclOpportunisticBundlesFromEgressReaderPtr = boost::make_unique<boost::thread>(
-                                        boost::bind(&Ingress::Impl::ReadTcpclOpportunisticBundlesFromEgressThreadFunc, this)); //create and start the worker thread
-
-                                    m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::Impl::WholeBundleReadyCallback, this, boost::placeholders::_1), m_hdtnConfig.m_inductsConfig,
-                                        m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes, m_hdtnConfig.m_maxBundleSizeBytes,
-                                        boost::bind(&Ingress::Impl::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
-                                        boost::bind(&Ingress::Impl::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
-
-                                    m_egressFullyInitialized = true;
-                                    m_inductsFullyLoadedMutex.lock();
-                                    m_inductsFullyLoaded = true;
-                                    m_inductsFullyLoadedMutex.unlock();
-                                    m_inductsFullyLoadedConditionVariable.notify_one();
-
-                                    LOG_INFO(subprocess) << "Now running and fully initialized and connected to egress";
-                                }
-                            }
+                            aoctNeedsProcessing = true;
                         }
                     }
                 }
