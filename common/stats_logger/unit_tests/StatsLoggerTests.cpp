@@ -44,8 +44,11 @@ static std::string findFirstEntry(std::string inputDir) {
 #ifdef DO_STATS_LOGGING
 BOOST_AUTO_TEST_CASE(StatsLoggerLogMetrics)
 {
+    hdtn::StatsLogger::Reset();
     // Start with a clean stats directory
-    boost::filesystem::remove_all("stats");
+    if (boost::filesystem::exists("stats/foo")) {
+        boost::filesystem::remove_all("stats/foo");
+    }
 
     std::vector<hdtn::StatsLogger::metric_t> metrics;
     metrics.push_back(hdtn::StatsLogger::metric_t("foo", double(1)));

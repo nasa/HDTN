@@ -2,6 +2,7 @@
 stages:
   - build-stage
   - test-stage
+  - scan-stage
 
 # Set global environment variables
 variables:
@@ -134,7 +135,7 @@ integrated-test:
       
 # Static Analysis Legacy defects  
 static-analysis-legacy:
-  stage: test-stage
+  stage: scan-stage
   tags:
   - cov-analysis
   dependencies:
@@ -152,7 +153,7 @@ static-analysis-legacy:
 
 # Static Analysis New defects  
 static-analysis-new:
-  stage: test-stage
+  stage: scan-stage
   tags:
   - cov-analysis
   dependencies:
@@ -170,7 +171,7 @@ static-analysis-new:
 
 # Static Analysis Development Defects
 static-analysis-development:
-  stage: test-stage
+  stage: scan-stage
   tags:
     - cov-analysis
   dependencies:
@@ -182,6 +183,54 @@ static-analysis-development:
     - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
     - cov-analyze --dir build/idir --all --enable-constraint-fpp --enable-fnptr --enable-virtual --strip-path $HDTN_SOURCE_ROOT
     - cov-commit-defects --dir build/idir --url $COV_BUILD_SERVER --stream HDTN-development --auth-key-file /home/hdtn/auth-gitlab.key
-
   rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+
+# Code test coverage
+code-test-coverage:
+  stage: scan-stage
+  tags:
+    - docker
+    - linux-x86
+  image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
+  script:
+    - export HDTN_SOURCE_ROOT=$PWD
+    - mkdir -p build
+    - cmake -S . -B build -DCMAKE_BUILD_TYPE=Coverage -DDO_STATS_LOGGING:BOOL=ON
+    - make -C build/ -j8
+    - cd build
+    # Clean up lcov
+    - lcov --gcov-tool /usr/bin/gcov -directory $HDTN_SOURCE_ROOT -b . --zerocounters
+    # Create baseline
+    - lcov --gcov-tool /usr/bin/gcov -c -i -d $HDTN_SOURCE_ROOT -b . -o coverage.base --no-external --rc lcov_branch_coverage=1
+    # Run tests
+    - ./tests/unit_tests/unit-tests
+    - ./tests/integrated_tests/integrated-tests
+    # Capture lcov counters and generate report
+    - lcov --gcov-tool /usr/bin/gcov --directory $HDTN_SOURCE_ROOT -b . --capture --output-file coverage.capture --no-external --rc lcov_branch_coverage=1
+    # Add baseline counters
+    - lcov --gcov-tool /usr/bin/gcov -a coverage.base -a coverage.capture --output-file coverage.total --no-external --rc lcov_branch_coverage=1
+    # Filter collected data
+    - lcov --gcov-tool /usr/bin/gcov --remove coverage.total "**/unit_tests/**" "**/integrated_tests/**" "**/test/**" "**/CMakeCXXCompilerId.cpp" --output-file coverage.info --no-external --rc lcov_branch_coverage=1
+    # Generate reports
+    - genhtml -o coverage coverage.info --ignore-errors source --branch-coverage
+    - gcovr --xml coverage.xml -r $HDTN_SOURCE_ROOT -e .*/unit_tests/.* -e .*/integrated_tests/.* -e .*/test/.* -e .*/CMakeCXXCompilerId.cpp --object-directory=.
+  dependencies: []
+  needs: []
+  cache:
+    key: code-coverage-$CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
+    paths:
+      - build
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: build/coverage.xml
+    paths:
+      - build/coverage
+    expire_in: 1 week
+  coverage: '/^  lines.*: (\d+\.\d+\%).*$/'
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_PIPELINE_SOURCE == "schedule"

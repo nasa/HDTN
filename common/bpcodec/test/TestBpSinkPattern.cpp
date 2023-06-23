@@ -60,8 +60,10 @@ void BpSinkPatternMockChild::LogStats(PrimaryBlock& primaryBlock, bool isBpVersi
 
 BOOST_AUTO_TEST_CASE(BpSinkPatterLogStatsV6TestCase)
 {
-    boost::filesystem::remove_all("stats/bundle_stats");
     hdtn::StatsLogger::Reset();
+    if (boost::filesystem::exists("stats/bundle_stats")) {
+        boost::filesystem::remove_all("stats/bundle_stats");
+    }
 
     Bpv6CbhePrimaryBlock primaryBlock;
     primaryBlock.SetZero();
@@ -87,8 +89,10 @@ BOOST_AUTO_TEST_CASE(BpSinkPatterLogStatsV6TestCase)
 
 BOOST_AUTO_TEST_CASE(BpSinkPatterLogStatsV7TestCase)
 {
-    boost::filesystem::remove_all("stats/bundle_stats");
     hdtn::StatsLogger::Reset();
+    if (boost::filesystem::exists("stats/bundle_stats")) {
+        boost::filesystem::remove_all("stats/bundle_stats");
+    }
 
     Bpv7CbhePrimaryBlock primaryBlock;
     primaryBlock.SetZero();
