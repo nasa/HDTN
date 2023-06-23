@@ -70,7 +70,7 @@ private:
     void RouterEventHandler();
     bool ProcessPaddedData(uint8_t* bundleDataBegin, std::size_t bundleCurrentSize,
         std::unique_ptr<zmq::message_t>& zmqPaddedMessageUnderlyingDataUniquePtr, padded_vector_uint8_t& paddedVecMessageUnderlyingData,
-        const bool usingZmqData, const bool needsProcessing);
+        const bool usingZmqData, const bool needsProcessing, const bool isSafeToYieldThisThread);
     void ReadTcpclOpportunisticBundlesFromEgressThreadFunc();
     void WholeBundleReadyCallback(padded_vector_uint8_t& wholeBundleVec);
     void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtr);
@@ -971,16 +971,18 @@ void Ingress::Impl::ReadTcpclOpportunisticBundlesFromEgressThreadFunc() {
                 LOG_ERROR(subprocess) << "ReadTcpclOpportunisticBundlesFromEgressThreadFunc: cannot receive zmq";
             }
             else {
+                static constexpr bool isSafeToYieldThisThread = true; //can yield
                 if (messageFlags) { //1 => from egress and needs processing (is padded from the convergence layer)
                     uint8_t * paddedDataBegin = (uint8_t *)zmqPotentiallyPaddedMessage->data();
                     uint8_t * bundleDataBegin = paddedDataBegin + PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE;
 
                     std::size_t bundleCurrentSize = zmqPotentiallyPaddedMessage->size() - PaddedMallocatorConstants::TOTAL_PADDING_ELEMENTS;
-                    ProcessPaddedData(bundleDataBegin, bundleCurrentSize, zmqPotentiallyPaddedMessage, unusedPaddedVec, true, true);
+                    ProcessPaddedData(bundleDataBegin, bundleCurrentSize, zmqPotentiallyPaddedMessage, unusedPaddedVec, true, true, isSafeToYieldThisThread);
                     ++totalOpportunisticBundlesFromEgress;
                 }
                 else { //0 => from storage and needs no processing (is not padded)
-                    ProcessPaddedData((uint8_t *)zmqPotentiallyPaddedMessage->data(), zmqPotentiallyPaddedMessage->size(), zmqPotentiallyPaddedMessage, unusedPaddedVec, true, false);
+                    ProcessPaddedData((uint8_t *)zmqPotentiallyPaddedMessage->data(), zmqPotentiallyPaddedMessage->size(),
+                        zmqPotentiallyPaddedMessage, unusedPaddedVec, true, false, isSafeToYieldThisThread);
                 }
             }
         }
@@ -1032,8 +1034,9 @@ void Ingress::Impl::RouterEventHandler() {
         }
         else {
             static padded_vector_uint8_t unusedPaddedVecMessage;
+            static constexpr bool isSafeToYieldThisThread = false; //not safe to yield since called by the ReadZmqAcksThreadFunc
             ProcessPaddedData((uint8_t*)zmqMessageBundleFromRouterPtr->data(), zmqMessageBundleFromRouterPtr->size(),
-                zmqMessageBundleFromRouterPtr, unusedPaddedVecMessage, true, false); //last param => does not need processing because it came from router
+                zmqMessageBundleFromRouterPtr, unusedPaddedVecMessage, true, false, isSafeToYieldThisThread); //second to last param => does not need processing because it came from router
         }
     }
     else {
@@ -1043,7 +1046,8 @@ void Ingress::Impl::RouterEventHandler() {
 
 bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCurrentSize,
     std::unique_ptr<zmq::message_t> & zmqPaddedMessageUnderlyingDataUniquePtr,
-    padded_vector_uint8_t & paddedVecMessageUnderlyingData, const bool usingZmqData, const bool needsProcessing)
+    padded_vector_uint8_t & paddedVecMessageUnderlyingData,
+    const bool usingZmqData, const bool needsProcessing, const bool isSafeToYieldThisThread)
 {
     std::unique_ptr<zmq::message_t> zmqMessageToSendUniquePtr; //create on heap as zmq default constructor costly
     if (bundleCurrentSize > m_hdtnConfig.m_maxBundleSizeBytes) { //should never reach here as this is handled by induct
@@ -1375,13 +1379,15 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             // In other words, this thread knows (per the m_aoctNeedsProcessing boolean) that ReadZmqAcksThreadFunc is
             // trying to obtain an exclusive lock, so make sure these induct threads don't try to obtain a shared lock and starve
             // the ReadZmqAcksThread.
-            for (unsigned int yieldAttempt = 0; m_aoctNeedsProcessing; ++yieldAttempt) {
-                LOG_DEBUG(subprocess) << "rx bundle thread yield for AOCT processing\n";
-                if (yieldAttempt >= 400) {
-                    LOG_ERROR(subprocess) << "dropping bundle because AOCT not processed within 4 seconds of being received";
-                    return false;
+            if (isSafeToYieldThisThread) { //prevent thread yielding when ProcessPaddedData is called by the ReadZmqAcksThreadFunc itself
+                for (unsigned int yieldAttempt = 0; m_aoctNeedsProcessing; ++yieldAttempt) {
+                    LOG_DEBUG(subprocess) << "rx bundle thread yield for AOCT processing\n";
+                    if (yieldAttempt >= 400) {
+                        LOG_ERROR(subprocess) << "dropping bundle because AOCT not processed within 4 seconds of being received";
+                        return false;
+                    }
+                    boost::this_thread::sleep(boost::posix_time::milliseconds(10));
                 }
-                boost::this_thread::sleep(boost::posix_time::milliseconds(10));
             }
 
             ingress_shared_lock_t lockShared(m_sharedMutexFinalDestsToOutductArrayIndexMaps);
@@ -1524,7 +1530,8 @@ void Ingress::Impl::WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundle
     //if more than 1 BpSinkAsync context, must protect shared resources with mutex.  Each BpSinkAsync context has
     //its own processing thread that calls this callback
     static std::unique_ptr<zmq::message_t> unusedZmqPtr;
-    ProcessPaddedData(wholeBundleVec.data(), wholeBundleVec.size(), unusedZmqPtr, wholeBundleVec, false, true);
+    static constexpr bool isSafeToYieldThisThread = true; //can yield ingress threads
+    ProcessPaddedData(wholeBundleVec.data(), wholeBundleVec.size(), unusedZmqPtr, wholeBundleVec, false, true, isSafeToYieldThisThread);
 }
 
 void Ingress::Impl::SendOpportunisticLinkMessages(const uint64_t remoteNodeId, bool isAvailable) {
@@ -1728,9 +1735,10 @@ void Ingress::Impl::SendPing(const uint64_t remoteNodeId, const uint64_t remoteP
         zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupPaddedVecUint8, rxBufRawPointer)));
     }
     static padded_vector_uint8_t unusedPaddedVecMessage;
+    static constexpr bool isSafeToYieldThisThread = false; //not safe to yield since called by the ReadZmqAcksThreadFunc
     ProcessPaddedData((uint8_t*)zmqMessageToSendUniquePtr->data(), zmqMessageToSendUniquePtr->size(),
         zmqMessageToSendUniquePtr, unusedPaddedVecMessage,
-        true, false); //last param false => does not need processing because it came from here (also needed because not padded data!)
+        true, false, isSafeToYieldThisThread); //second to last param false => does not need processing because it came from here (also needed because not padded data!)
 }
 
 void Ingress::Impl::ProcessReceivedPingPayload(const uint8_t* data, const uint64_t size, const uint64_t bpVersion) {
