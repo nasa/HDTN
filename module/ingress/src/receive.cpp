@@ -180,6 +180,10 @@ private:
     std::map<uint64_t, Induct*> m_availableDestOpportunisticNodeIdToTcpclInductMap;
     boost::mutex m_availableDestOpportunisticNodeIdToTcpclInductMapMutex;
 
+    //prevent thread starving when obtaining exclusive lock
+    //of m_sharedMutexFinalDestsToOutductArrayIndexMaps
+    volatile bool m_aoctNeedsProcessing;
+
     //for blocking until worker-thread startup
     volatile bool m_workerThreadStartupInProgress;
     boost::mutex m_workerThreadStartupMutex;
@@ -312,6 +316,7 @@ Ingress::Impl::Impl() :
     m_running(false),
     m_egressFullyInitialized(false),
     m_nextBundleUniqueIdAtomic(0),
+    m_aoctNeedsProcessing(false),
     m_workerThreadStartupInProgress(false),
     m_telemThreadStartupInProgress(false),
     m_inductsFullyLoaded(false) {}
@@ -629,13 +634,13 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
 
     //outduct capabilities updates
     AllOutductCapabilitiesTelemetry_t aoct;
-    bool aoctNeedsProcessing = false;
+    m_aoctNeedsProcessing = false;
 
     while (m_running) { //keep thread alive if running
 
-        if (aoctNeedsProcessing && m_sharedMutexFinalDestsToOutductArrayIndexMaps.try_lock()) { //try to gain exclusive access
+        if (m_aoctNeedsProcessing && m_sharedMutexFinalDestsToOutductArrayIndexMaps.try_lock()) { //try to gain exclusive access
             ingress_exclusive_lock_t lockExclusive(m_sharedMutexFinalDestsToOutductArrayIndexMaps, ingress_adopt_lock);
-            aoctNeedsProcessing = false;
+            m_aoctNeedsProcessing = false;
             const bool isInitial = m_vectorBundlePipelineAckingSet.empty();
             if (isInitial) {
                 LOG_INFO(subprocess) << "Ingress received initial " << aoct.outductCapabilityTelemetryList.size() << " outduct telemetries from egress";
@@ -709,7 +714,7 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
 
         int rc = 0;
         try {
-            rc = zmq::poll(&items[0], NUM_SOCKETS, aoctNeedsProcessing ? 1L : DEFAULT_BIG_TIMEOUT_POLL);
+            rc = zmq::poll(&items[0], NUM_SOCKETS, m_aoctNeedsProcessing ? 1L : DEFAULT_BIG_TIMEOUT_POLL);
         }
         catch (zmq::error_t & e) {
             LOG_ERROR(subprocess) << "caught zmq::error_t in Ingress::ReadZmqAcksThreadFunc: " << e.what();
@@ -764,7 +769,7 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                             LOG_ERROR(subprocess) << "received outductCapabilityTelemetryList is empty!";
                         }
                         else {
-                            aoctNeedsProcessing = true;
+                            m_aoctNeedsProcessing = true;
                         }
                     }
                 }
@@ -1364,6 +1369,21 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
         const uint64_t fromIngressUniqueId = m_nextBundleUniqueIdAtomic.fetch_add(1, boost::memory_order_relaxed);
         { //begin scope for cut-through shared mutex lock
             uint64_t outductIndex = UINT64_MAX;
+
+            //Prevent thread starving of writer thread trying to obtain exclusive lock
+            // of m_sharedMutexFinalDestsToOutductArrayIndexMaps in order to process a received aoct (from routing update).
+            // In other words, this thread knows (per the m_aoctNeedsProcessing boolean) that ReadZmqAcksThreadFunc is
+            // trying to obtain an exclusive lock, so make sure these induct threads don't try to obtain a shared lock and starve
+            // the ReadZmqAcksThread.
+            for (unsigned int yieldAttempt = 0; m_aoctNeedsProcessing; ++yieldAttempt) {
+                LOG_DEBUG(subprocess) << "rx bundle thread yield for AOCT processing\n";
+                if (yieldAttempt >= 400) {
+                    LOG_ERROR(subprocess) << "dropping bundle because AOCT not processed within 4 seconds of being received";
+                    return false;
+                }
+                boost::this_thread::sleep(boost::posix_time::milliseconds(10));
+            }
+
             ingress_shared_lock_t lockShared(m_sharedMutexFinalDestsToOutductArrayIndexMaps);
             std::map<cbhe_eid_t, uint64_t>::const_iterator itEid = m_mapFinalDestEidToOutductArrayIndex.find(finalDestEid);
             if (itEid != m_mapFinalDestEidToOutductArrayIndex.cend()) {
