@@ -1,5 +1,5 @@
 /**
- * @file SchedulerTests.cpp
+ * @file RouterTests.cpp
  * @author Ethan Schweinsberg <ethan.e.schweinsberg@nasa.gov>
  *
  * @copyright Copyright © 2023 United States Government as represented by
@@ -13,13 +13,13 @@
  */
 
 #include "JsonSerializable.h"
-#include "scheduler.h"
+#include "router.h"
 
 #include <boost/test/unit_test.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/foreach.hpp>
 
-BOOST_AUTO_TEST_CASE(SchedulerGetRateBpsTestCase)
+BOOST_AUTO_TEST_CASE(RouterGetRateBpsTestCase)
 {
     // It's compatible with the deprecated rate field
     std::string message = "[{\"rate\": 20}]";
@@ -28,7 +28,7 @@ BOOST_AUTO_TEST_CASE(SchedulerGetRateBpsTestCase)
     BOOST_REQUIRE_EQUAL(success, true);
 
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & eventPt, pt) {
-        uint64_t rate = Scheduler::GetRateBpsFromPtree(eventPt);
+        uint64_t rate = Router::GetRateBpsFromPtree(eventPt);
         BOOST_REQUIRE_EQUAL(rate, 20000000);
     }
 
@@ -38,7 +38,7 @@ BOOST_AUTO_TEST_CASE(SchedulerGetRateBpsTestCase)
     BOOST_REQUIRE_EQUAL(success, true);
 
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & eventPt, pt) {
-        uint64_t rate = Scheduler::GetRateBpsFromPtree(eventPt);
+        uint64_t rate = Router::GetRateBpsFromPtree(eventPt);
         BOOST_REQUIRE_EQUAL(rate, 20000000);
     }
 
@@ -48,7 +48,7 @@ BOOST_AUTO_TEST_CASE(SchedulerGetRateBpsTestCase)
     BOOST_REQUIRE_EQUAL(success, true);
 
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & eventPt, pt) {
-        uint64_t rate = Scheduler::GetRateBpsFromPtree(eventPt);
+        uint64_t rate = Router::GetRateBpsFromPtree(eventPt);
         BOOST_REQUIRE_EQUAL(rate, 20000000);
     }
 }

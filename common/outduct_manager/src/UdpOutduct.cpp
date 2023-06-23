@@ -19,8 +19,8 @@
 #include <boost/lexical_cast.hpp>
 
 UdpOutduct::UdpOutduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid) :
-    Outduct(outductConfig, outductUuid),
-    m_udpBundleSource(outductConfig.udpRateBps, outductConfig.maxNumberOfBundlesInPipeline + 5)
+    Outduct(outductConfig, outductUuid, false),
+    m_udpBundleSource(outductConfig.maxNumberOfBundlesInPipeline + 5)
 {}
 UdpOutduct::~UdpOutduct() {}
 
@@ -69,9 +69,6 @@ void UdpOutduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
     finalStats.m_convergenceLayer = m_outductConfig.convergenceLayer;
     finalStats.m_totalDataSegmentsOrPacketsAcked = m_udpBundleSource.GetTotalUdpPacketsAcked();
     finalStats.m_totalDataSegmentsOrPacketsSent = m_udpBundleSource.GetTotalUdpPacketsSent();
-}
-uint64_t UdpOutduct::GetStartingMaxSendRateBitsPerSec() const noexcept {
-    return m_outductConfig.udpRateBps;
 }
 void UdpOutduct::PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& outductTelem) {
     outductTelem = boost::make_unique<UdpOutductTelemetry_t>(m_udpBundleSource.m_udpOutductTelemetry);

@@ -1,7 +1,7 @@
 export HDTN_BUILD_ROOT=/home/btomko/hdtn/build
 export HDTN_SOURCE_ROOT=/home/btomko/hdtn
 
-$HDTN_BUILD_ROOT/module/hdtn_one_process/hdtn-one-process --contact-plan-file=contactPlanCutThroughMode.json --hdtn-config-file=./rho_hdtn_config_ltp.json &
+$HDTN_BUILD_ROOT/module/hdtn_one_process/hdtn-one-process --contact-plan-file=contactPlanCutThroughMode_unlimitedRate.json --hdtn-config-file=./rho_hdtn_config_ltp.json &
 hdtn_PID=$!
 sleep 3
 

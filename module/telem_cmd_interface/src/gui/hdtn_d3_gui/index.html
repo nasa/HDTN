@@ -630,12 +630,11 @@
             DoTransitionEnd();
         }
 
-
-        function HandleReceivedNewHdtnConfig(newHdtnConfig) {
+        //requires hdtnConfig to be set first
+        function HandleReceivedNewHdtnConfig() {
             let svgTextMeasurerStyle = window.getComputedStyle(svgTextMeasurer.node(), null).getPropertyValue('font-size');
             let svgTextMeasurerFontSize = parseFloat(svgTextMeasurerStyle);
             const numDecimals = parseInt(document.getElementById('idDecimalsSelect').options[document.getElementById('idDecimalsSelect').selectedIndex].value);
-            hdtnConfig = newHdtnConfig;
             let redrawObj = ParseHdtnConfig(
                 wireConnectionsOldMap,
                 hdtnOldDrawHash,
@@ -669,17 +668,25 @@
         function InternalUpdateWithData(objJson) {
             //console.log(objJson);
             if(objJson == null) { //something like a font size update
-                if(hdtnConfig != null) {
-                    HandleReceivedNewHdtnConfig(hdtnConfig);
+                if((hdtnConfig != null) && hdtnConfig.hasOwnProperty("didReceiveInitialAoct")) {
+                    HandleReceivedNewHdtnConfig();
                 }
             }
             else if("hdtnConfigName" in objJson) {
                 myOutline.UpdateName("HDTN v" + objJson.hdtnVersionString + " - Node " + objJson.myNodeId + "");
                 InitActiveInductConnections(objJson);
-                HandleReceivedNewHdtnConfig(objJson);
+                hdtnConfig = objJson;
+                //HandleReceivedNewHdtnConfig(); //cannot do this yet until aoct received
             }
             else if(hdtnConfig == null) {
                 console.log("error, out of order command, hdtnConfig must be received first");
+            }
+            else if("outductCapabilityTelemetryList" in objJson) {
+                UpdateAllOutductCapabilities(hdtnConfig, objJson);
+                HandleReceivedNewHdtnConfig();
+            }
+            else if(!hdtnConfig.hasOwnProperty("didReceiveInitialAoct")) {
+                console.log("ignoring out of order command, outduct capabilities not yet received");
             }
             else if("allInducts" in objJson) {
                 UpdateActiveInductConnections(hdtnConfig, objJson);
@@ -689,7 +696,7 @@
                 myWireIngressToStorage.SetSpeeds(hdtnConfig["ingressToStorageRateBitsPerSec"],
                     hdtnConfig["ingressToStorageRateBitsPerSecHumanReadable"],
                     hdtnConfig["ingressToStorageRateBundlesPerSecHumanReadable"]);
-                HandleReceivedNewHdtnConfig(hdtnConfig);
+                HandleReceivedNewHdtnConfig();
 
             }
             else if("allOutducts" in objJson) {
@@ -697,11 +704,7 @@
                 myWireEgressToIngress.SetSpeeds(hdtnConfig["egressToIngressRateBitsPerSec"],
                     hdtnConfig["egressToIngressRateBitsPerSecHumanReadable"],
                     hdtnConfig["egressToIngressRateBundlesPerSecHumanReadable"]);
-                HandleReceivedNewHdtnConfig(hdtnConfig); //in case linkIsUpPhysically changes
-            }
-            else if("outductCapabilityTelemetryList" in objJson) {
-                UpdateAllOutductCapabilities(hdtnConfig, objJson);
-                HandleReceivedNewHdtnConfig(hdtnConfig);
+                HandleReceivedNewHdtnConfig(); //in case linkIsUpPhysically changes
             }
             else if("usedSpaceBytes" in objJson) {
                 UpdateStorageTelemetry(hdtnConfig, objJson);
@@ -725,7 +728,7 @@
                 UpdateLite();
             }
             else {
-                //HandleReceivedNewHdtnConfig(objJson);
+                //HandleReceivedNewHdtnConfig();
             }
         }
         return {

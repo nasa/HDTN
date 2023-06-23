@@ -680,12 +680,6 @@ void BpSinkPattern::SenderReaderThreadFunc() {
             continue;
         }
 
-        if ((!m_hasSendCapabilityOverTcpclBidirectionalInduct) && (outduct != m_outductManager.GetOutductByFinalDestinationEid_ThreadSafe(destEid))) { //outduct
-            LOG_ERROR(subprocess) << destEid << " does not match outduct.. dropping bundle to be sent";
-            bundleToSend.clear();
-            continue;
-        }
-
         std::vector<uint8_t> bundleToSendUserData(sizeof(bundleid_finaldesteid_pair_t));
         bundleid_finaldesteid_pair_t* bundleToSendUserDataPairPtr = (bundleid_finaldesteid_pair_t*)bundleToSendUserData.data();
         bundleToSendUserDataPairPtr->first = thisBundleId;
@@ -711,6 +705,10 @@ void BpSinkPattern::SenderReaderThreadFunc() {
             }
         }
         else { //outduct for forwarding bundles
+            if(outduct && (destEid.nodeId != outduct->GetOutductNextHopNodeId())) {
+                LOG_WARNING(subprocess) << "node id " << destEid.nodeId<< " does not match outduct next hop node id "
+                                        << outduct->GetOutductNextHopNodeId();
+            }
             boost::posix_time::ptime timeoutExpiry(boost::posix_time::special_values::not_a_date_time);
             bool timeout = false;
             while (m_runningSenderThread && (m_currentlySendingBundleIdSet.size() >= outductMaxBundlesInPipeline)) {

@@ -104,7 +104,6 @@ BOOST_AUTO_TEST_CASE(LoggerToStringTestCase)
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::unittest), "unittest");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::ingress), "ingress");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::router), "router");
-    BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::scheduler), "scheduler");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::storage), "storage");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::releasemessagesender), "releasemessagesender");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::storagespeedtest), "storagespeedtest");
@@ -115,7 +114,6 @@ BOOST_AUTO_TEST_CASE(LoggerToStringTestCase)
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::SubProcess::egress), "egress");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::SubProcess::ingress), "ingress");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::SubProcess::router), "router");
-    BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::SubProcess::scheduler), "scheduler");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::SubProcess::storage), "storage");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::SubProcess::telem), "telem");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::SubProcess::gui), "gui");
@@ -134,7 +132,6 @@ BOOST_AUTO_TEST_CASE(LoggerStdoutTestCase)
     _LOG_INTERNAL(hdtn::Logger::SubProcess::egress, boost::log::trivial::severity_level::trace) << "Egress foo bar";
     _LOG_INTERNAL(hdtn::Logger::SubProcess::ingress, boost::log::trivial::severity_level::debug) << "Ingress foo bar";
     _LOG_INTERNAL(hdtn::Logger::SubProcess::router, boost::log::trivial::severity_level::info) << "Router foo bar";
-    _LOG_INTERNAL(hdtn::Logger::SubProcess::scheduler, boost::log::trivial::severity_level::warning) << "Scheduler foo bar";
     _LOG_INTERNAL(hdtn::Logger::SubProcess::egress, boost::log::trivial::severity_level::error) << "Egress foo bar!";
     _LOG_INTERNAL(hdtn::Logger::SubProcess::ingress, boost::log::trivial::severity_level::fatal) << "Ingress foo bar!";
 
@@ -146,7 +143,6 @@ BOOST_AUTO_TEST_CASE(LoggerStdoutTestCase)
         std::string("[ egress   ][ trace]: Egress foo bar\n") +
         std::string("[ ingress  ][ debug]: Ingress foo bar\n") +
         std::string("[ router   ][ info ]: Router foo bar\n") +
-        std::string("[ scheduler][ warning]: Scheduler foo bar\n") +
         std::string("[ egress   ][ error]: Egress foo bar!\n") +
         std::string("[ ingress  ][ fatal]: Ingress foo bar!\n")
     );

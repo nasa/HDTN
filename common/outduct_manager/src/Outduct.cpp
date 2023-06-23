@@ -13,17 +13,23 @@
  */
 
 #include "Outduct.h"
+#include "Logger.h"
 #include <iostream>
 #include <boost/make_unique.hpp>
 #include <memory>
 
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-Outduct::Outduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid) :
+Outduct::Outduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid, const bool assumedInitiallyDown) :
     m_outductConfig(outductConfig),
     m_outductUuid(outductUuid),
+    m_assumedInitiallyDown(assumedInitiallyDown),
     m_linkIsUpPerTimeSchedule(false),
     m_physicalLinkStatusIsKnown(false),
     m_linkIsUpPhysically(false) //don't care, set properly when m_physicalLinkStatusIsKnown gets set to true
+{}
+Outduct::Outduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid) :
+    Outduct(outductConfig, outductUuid, true)
 {}
 Outduct::~Outduct() {}
 
@@ -46,13 +52,16 @@ uint64_t Outduct::GetOutductNextHopNodeId() const {
 std::string Outduct::GetConvergenceLayerName() const {
     return m_outductConfig.convergenceLayer;
 }
-uint64_t Outduct::GetStartingMaxSendRateBitsPerSec() const noexcept {
-    return 0;
+bool Outduct::GetAssumedInitiallyDown() const {
+    return m_assumedInitiallyDown;
 }
-
 void Outduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {}
 void Outduct::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {}
 void Outduct::SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback) {}
 void Outduct::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {}
 void Outduct::SetUserAssignedUuid(uint64_t userAssignedUuid) {}
-void Outduct::SetRate(uint64_t maxSendRateBitsPerSecOrZeroToDisable) {}
+void Outduct::SetRate(uint64_t maxSendRateBitsPerSecOrZeroToDisable) {
+    if(maxSendRateBitsPerSecOrZeroToDisable) {
+        LOG_WARNING(subprocess) <<"outduct " << m_outductUuid << " does not support rate limits";
+    }
+}

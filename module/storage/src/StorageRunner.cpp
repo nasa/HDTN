@@ -101,8 +101,8 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         //hdtn::storageConfig config;
         //config.regsvr = HDTN_REG_SERVER_PATH;
         //config.local = HDTN_CONNECTING_STORAGE_TO_BOUND_EGRESS_PATH;
-        //config.releaseWorker = HDTN_BOUND_SCHEDULER_PUBSUB_PATH;
-        //telem(HDTN_STORAGE_TELEM_PATH), worker(HDTN_STORAGE_WORKER_PATH), releaseWorker(HDTN_BOUND_SCHEDULER_PUBSUB_PATH) {}
+        //config.releaseWorker = HDTN_BOUND_ROUTER_PUBSUB_PATH;
+        //telem(HDTN_STORAGE_TELEM_PATH), worker(HDTN_STORAGE_WORKER_PATH), releaseWorker(HDTN_BOUND_ROUTER_PUBSUB_PATH) {}
         //config.storePath = storePath;
         ZmqStorageInterface storage;
         LOG_INFO(subprocess) << "Initializing storage manager ...";

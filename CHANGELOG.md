@@ -9,7 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
++ Routing library now uses reloaded contact plans from the telemetry API.
++ Fixed bug where router link state information would become out of sync with
+  actual link state.
+
 ### Added
+
+* Added `--cla-rate` command-line argument to bpgen. This argument, defaulting to zero
+  for unlimited, can be used to set the rate for LTP and UDP connections.
 
 ### Changed
 
@@ -18,8 +25,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - the outduct `Forward` calls
     - the internal buffers of `BundleViewV6` and `BundleViewV7`
 * Added support for `BundleViewV6` and `BundleViewV7` to recycle their canonical block header objects whenever the bundle view object is reused in the creation or loading of bundles.
+* Combined router and scheduler into one module.
++ Updated routing logic. Minor bug fixes and improved handling of interrupted/failed contacts.
+  Upon a "failed" contact, HDTN will attempt to calculate a new route avoiding the failed node.
++ Changed `--bundle-rate` argument to floating point type to allow for rates slower than one 
+  bundle-per-second.
 
 ### Removed
+
+* Removed `finalDestinationEidUris`, `udpRateBps`, and `ltpMaxSendRateBitsPerSecOrZeroToDisable`
+  fields from the HDTN configuration. These values now come from the contact plan or command-line
+  arguments.
 
 ## [1.0.0] - 2023-05-02
 

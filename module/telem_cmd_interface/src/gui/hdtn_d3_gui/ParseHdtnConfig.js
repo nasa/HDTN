@@ -221,6 +221,7 @@ function UpdateAllOutductCapabilities(paramHdtnConfig, paramAoct) {
         }
         od["finalDestinationEidUris"] = oct.finalDestinationEidsList;
     });
+    paramHdtnConfig["didReceiveInitialAoct"] = true;
 }
 
 function UpdateAllOutductTelemetry(paramHdtnConfig, paramAot) {
@@ -671,6 +672,13 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         //console.log(outduct);
         paramHdtnConfig.egressD3Obj.d3ChildArray.push(outduct);
 
+        var finalDestinationEidUris = outduct["finalDestinationEidUris"];
+
+        //prevent first outduct from overlapping egress label if finalDestinationEidUris is empty
+        if((i == 0) && (finalDestinationEidUris.length <= 1)) {
+            nextHopsAbsPositionY += PARENT_TOP_HEADER_PX;
+        }
+
         ///////////next hop
         var nextHopObj = {};
         nextHopObj.topHeaderHeight = PARENT_TOP_HEADER_PX;
@@ -688,8 +696,9 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
 
 
 
-        var finalDestinationEidUris = outduct["finalDestinationEidUris"];
+
         var nextHopRelY =  PARENT_TOP_HEADER_PX;// + CHILD_HEIGHT_PX/2;
+        nextHopObj.height = nextHopRelY + CHILD_BOTTOM_MARGIN_PX; //in the event that final dests list is empty
         finalDestinationEidUris.forEach(function(fd, j) {
 
             ///////////next hop out port

@@ -49,7 +49,7 @@ private:
     void OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData, uint64_t outductUuid);
     void OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid);
     void ResendOutductCapabilities();
-    void SchedulerEventHandler(hdtn::IreleaseChangeHdr& releaseChangeHdr);
+    void RouterEventHandler(hdtn::IreleaseChangeHdr& releaseChangeHdr);
 
 public:
     //telemetry
@@ -68,9 +68,9 @@ private:
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundEgressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundEgressToConnectingStoragePtr;
     boost::mutex m_mutex_zmqPushSock_boundEgressToConnectingStorage;
-    std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundEgressToConnectingSchedulerPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundEgressToConnectingRouterPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingRouterToBoundEgressPtr;
-    std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundSchedulerToConnectingEgressPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundRouterToConnectingEgressPtr;
 
     std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingTelemToFromBoundEgressPtr;
 
@@ -146,7 +146,7 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDistributedConf
     m_hdtnConfig = hdtnConfig;
 
 
-    m_zmqCtxPtr = boost::make_unique<zmq::context_t>(); //needed at least by scheduler pubsub (and if one-process is not used)
+    m_zmqCtxPtr = boost::make_unique<zmq::context_t>(); //needed at least by router pubsub (and if one-process is not used)
     try {
         if (hdtnOneProcessZmqInprocContextPtr) {
             // socket for cut-through mode straight to egress
@@ -169,9 +169,9 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDistributedConf
             m_zmqRepSock_connectingTelemToFromBoundEgressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
             m_zmqRepSock_connectingTelemToFromBoundEgressPtr->bind(std::string("inproc://connecting_telem_to_from_bound_egress"));
 
-            //socket for sending LinkStatus events from Egress to Scheduler
-            m_zmqPushSock_boundEgressToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-            m_zmqPushSock_boundEgressToConnectingSchedulerPtr->bind(std::string("inproc://bound_egress_to_connecting_scheduler"));
+            //socket for sending LinkStatus events from Egress to Router
+            m_zmqPushSock_boundEgressToConnectingRouterPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+            m_zmqPushSock_boundEgressToConnectingRouterPtr->bind(std::string("inproc://bound_egress_to_connecting_router"));
 
             //socket for getting Route Update events from Router to Egress
             m_zmqPullSock_connectingRouterToBoundEgressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
@@ -218,11 +218,11 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDistributedConf
                 std::string("tcp://*:") + boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingTelemToFromBoundEgressPortPath));
             m_zmqRepSock_connectingTelemToFromBoundEgressPtr->bind(bind_connectingTelemToFromBoundEgressPath);
 
-            //socket for sending LinkStatus events from Egress to Scheduler
-            m_zmqPushSock_boundEgressToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::push);
-            const std::string bind_boundEgressToConnectingSchedulerPath(
-                std::string("tcp://*:") + boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqBoundEgressToConnectingSchedulerPortPath));
-            m_zmqPushSock_boundEgressToConnectingSchedulerPtr->bind(bind_boundEgressToConnectingSchedulerPath);
+            //socket for sending LinkStatus events from Egress to Router
+            m_zmqPushSock_boundEgressToConnectingRouterPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::push);
+            const std::string bind_boundEgressToConnectingRouterPath(
+                std::string("tcp://*:") + boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqBoundEgressToConnectingRouterPortPath));
+            m_zmqPushSock_boundEgressToConnectingRouterPtr->bind(bind_boundEgressToConnectingRouterPath);
 
             //socket for getting Route Update events from Router to Egress
             m_zmqPullSock_connectingRouterToBoundEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
@@ -231,32 +231,32 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDistributedConf
             m_zmqPullSock_connectingRouterToBoundEgressPtr->bind(bind_connectingRouterToBoundEgressPath);
         }
 
-        // socket for receiving events from scheduler
-        m_zmqSubSock_boundSchedulerToConnectingEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::sub);
-        const std::string connect_boundSchedulerPubSubPath(
+        // socket for receiving events from router
+        m_zmqSubSock_boundRouterToConnectingEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::sub);
+        const std::string connect_boundRouterPubSubPath(
             std::string("tcp://") +
-            ((hdtnOneProcessZmqInprocContextPtr == NULL) ? hdtnDistributedConfig.m_zmqSchedulerAddress : std::string("localhost")) +
+            ((hdtnOneProcessZmqInprocContextPtr == NULL) ? hdtnDistributedConfig.m_zmqRouterAddress : std::string("localhost")) +
             std::string(":") +
-            boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
+            boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundRouterPubSubPortPath));
 
         try {
-            m_zmqSubSock_boundSchedulerToConnectingEgressPtr->connect(connect_boundSchedulerPubSubPath);
-            m_zmqSubSock_boundSchedulerToConnectingEgressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
-            LOG_INFO(subprocess) << "Connected to scheduler at " << connect_boundSchedulerPubSubPath << " , subscribing...";
+            m_zmqSubSock_boundRouterToConnectingEgressPtr->connect(connect_boundRouterPubSubPath);
+            m_zmqSubSock_boundRouterToConnectingEgressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
+            LOG_INFO(subprocess) << "Connected to router at " << connect_boundRouterPubSubPath << " , subscribing...";
         }
         catch (const zmq::error_t & ex) {
-            LOG_ERROR(subprocess) << "Cannot connect to scheduler socket at " << connect_boundSchedulerPubSubPath << " : " << ex.what();
+            LOG_ERROR(subprocess) << "Cannot connect to router socket at " << connect_boundRouterPubSubPath << " : " << ex.what();
             return false;
         }
         try {
-            //Sends one-byte 0x1 message to scheduler XPub socket plus strlen of subscription
+            //Sends one-byte 0x1 message to router XPub socket plus strlen of subscription
             //All release messages shall be prefixed by "aaaaaaaa" before the common header
             //Egress unique subscription shall be "b" (gets all messages that start with "b")
-            m_zmqSubSock_boundSchedulerToConnectingEgressPtr->set(zmq::sockopt::subscribe, "b");
-            LOG_INFO(subprocess) << "Subscribed to all events from scheduler";
+            m_zmqSubSock_boundRouterToConnectingEgressPtr->set(zmq::sockopt::subscribe, "b");
+            LOG_INFO(subprocess) << "Subscribed to all events from router";
         }
         catch (const zmq::error_t& ex) {
-            LOG_ERROR(subprocess) << "Cannot subscribe to all events from scheduler: " << ex.what();
+            LOG_ERROR(subprocess) << "Cannot subscribe to all events from router: " << ex.what();
             return false;
         }
 
@@ -273,7 +273,7 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDistributedConf
         m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
         m_zmqPushSock_boundEgressToConnectingStoragePtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
         m_zmqPushSock_connectingEgressToBoundIngressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
-        m_zmqPushSock_boundEgressToConnectingSchedulerPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
+        m_zmqPushSock_boundEgressToConnectingRouterPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
         
         //The ZMQ_SNDHWM option shall set the high water mark for outbound messages on the specified socket.
         //The high water mark is a hard limit on the maximum number of outstanding messages MQ shall queue 
@@ -378,7 +378,7 @@ void Egress::Impl::RouterEventHandler() {
 void Egress::Impl::ReadZmqThreadFunc() {
     ThreadNamer::SetThisThreadName("egressZmqReader");
 
-#if 0 //not needed because scheduler will alert when link available
+#if 0 //not needed because router will alert when link available
     while (m_running) {
         LOG_INFO(subprocess) << "Waiting for Outduct to become ready to forward...";
         boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
@@ -411,7 +411,7 @@ void Egress::Impl::ReadZmqThreadFunc() {
         {m_zmqPullSock_connectingRouterToBoundEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqRepSock_connectingTelemToFromBoundEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqPairSock_LinkStatusWaitPtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_zmqSubSock_boundSchedulerToConnectingEgressPtr->handle(), 0, ZMQ_POLLIN, 0}
+        {m_zmqSubSock_boundRouterToConnectingEgressPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
     zmq::socket_t * const firstTwoSockets[2] = {
         m_zmqPullSock_boundIngressToConnectingEgressPtr.get(),
@@ -467,24 +467,24 @@ void Egress::Impl::ReadZmqThreadFunc() {
                     availableDestOpportunisticNodeIdsSet.erase(toEgressHeader.finalDestEid.nodeId);
                     continue;
                 }
-                else if ((itemIndex == 0) && (toEgressHeader.base.type == HDTN_MSGTYPE_BUNDLES_TO_SCHEDULER)) {
-                    LOG_INFO(subprocess) << "forwarding bundle to scheduler";
-                    zmq::message_t zmqMessageBundleToScheduler;
+                else if ((itemIndex == 0) && (toEgressHeader.base.type == HDTN_MSGTYPE_BUNDLES_TO_ROUTER)) {
+                    LOG_INFO(subprocess) << "forwarding bundle to router";
+                    zmq::message_t zmqMessageBundleToRouter;
                     //message guaranteed to be there due to the zmq::send_flags::sndmore
-                    if (!firstTwoSockets[itemIndex]->recv(zmqMessageBundleToScheduler, zmq::recv_flags::none)) {
-                        LOG_ERROR(subprocess) << "error receiving zmqMessageBundleToScheduler";
+                    if (!firstTwoSockets[itemIndex]->recv(zmqMessageBundleToRouter, zmq::recv_flags::none)) {
+                        LOG_ERROR(subprocess) << "error receiving zmqMessageBundleToRouter";
                     }
                     else {
                         hdtn::LinkStatusHdr linkStatusMsg;
-                        linkStatusMsg.base.type = HDTN_MSGTYPE_BUNDLES_TO_SCHEDULER;
-                        while (m_running && !m_zmqPushSock_boundEgressToConnectingSchedulerPtr->send(
+                        linkStatusMsg.base.type = HDTN_MSGTYPE_BUNDLES_TO_ROUTER;
+                        while (m_running && !m_zmqPushSock_boundEgressToConnectingRouterPtr->send(
                             zmq::const_buffer(&linkStatusMsg, sizeof(linkStatusMsg)), zmq::send_flags::sndmore | zmq::send_flags::dontwait))
                         {
-                            LOG_INFO(subprocess) << "waiting for scheduler to become available to send HDTN_MSGTYPE_BUNDLES_TO_SCHEDULER header";
+                            LOG_INFO(subprocess) << "waiting for router to become available to send HDTN_MSGTYPE_BUNDLES_TO_ROUTER header";
                             boost::this_thread::sleep(boost::posix_time::seconds(1));
                         }
-                        while (m_running && !m_zmqPushSock_boundEgressToConnectingSchedulerPtr->send(zmqMessageBundleToScheduler, zmq::send_flags::dontwait)) {
-                            LOG_INFO(subprocess) << "waiting for scheduler to become available to send it a scheduler-only bundle received by ingress";
+                        while (m_running && !m_zmqPushSock_boundEgressToConnectingRouterPtr->send(zmqMessageBundleToRouter, zmq::send_flags::dontwait)) {
+                            LOG_INFO(subprocess) << "waiting for router to become available to send it a router-only bundle received by ingress";
                             boost::this_thread::sleep(boost::posix_time::seconds(1));
                         }
                     }
@@ -630,16 +630,16 @@ void Egress::Impl::ReadZmqThreadFunc() {
                     LOG_ERROR(subprocess) << "cannot read inproc link status message";
                 }
                 //TODO PREVENT DUPLICATE MESSAGES
-                LOG_INFO(subprocess) << "Sending LinkStatus update event to Scheduler";
-                while (m_running && !m_zmqPushSock_boundEgressToConnectingSchedulerPtr->send(linkStatusMessage, zmq::send_flags::dontwait)) {
-                    LOG_INFO(subprocess) << "waiting for scheduler to become available to send a link status change from an outduct";
+                LOG_INFO(subprocess) << "Sending LinkStatus update event to Router";
+                while (m_running && !m_zmqPushSock_boundEgressToConnectingRouterPtr->send(linkStatusMessage, zmq::send_flags::dontwait)) {
+                    LOG_INFO(subprocess) << "waiting for router to become available to send a link status change from an outduct";
                     boost::this_thread::sleep(boost::posix_time::seconds(1));
                 }
             }
 
-            if (items[5].revents & ZMQ_POLLIN) { //events from scheduler
+            if (items[5].revents & ZMQ_POLLIN) { //events from router
                 hdtn::IreleaseChangeHdr releaseChangeHdr;
-                const zmq::recv_buffer_result_t res = m_zmqSubSock_boundSchedulerToConnectingEgressPtr->recv(zmq::mutable_buffer(&releaseChangeHdr, sizeof(releaseChangeHdr)), zmq::recv_flags::none);
+                const zmq::recv_buffer_result_t res = m_zmqSubSock_boundRouterToConnectingEgressPtr->recv(zmq::mutable_buffer(&releaseChangeHdr, sizeof(releaseChangeHdr)), zmq::recv_flags::none);
                 if (!res) {
                     LOG_ERROR(subprocess) << "unable to receive IreleaseChangeHdr message";
                 }
@@ -648,7 +648,7 @@ void Egress::Impl::ReadZmqThreadFunc() {
                         << " truncated = " << res->size << " expected = " << sizeof(releaseChangeHdr);
                 }
                 else {
-                    SchedulerEventHandler(releaseChangeHdr);
+                    RouterEventHandler(releaseChangeHdr);
                 }
             }
         }
@@ -659,7 +659,7 @@ void Egress::Impl::ReadZmqThreadFunc() {
     LOG_DEBUG(subprocess) << "m_totalCustodyTransfersSentToIngress: " << m_totalCustodyTransfersSentToIngress;
 }
 
-//must be called from within ReadZmqThreadFunc to protect m_zmqPushSock_boundEgressToConnectingSchedulerPtr
+//must be called from within ReadZmqThreadFunc to protect m_zmqPushSock_boundEgressToConnectingRouterPtr
 void Egress::Impl::ResendOutductCapabilities() {
     AllOutductCapabilitiesTelemetry_t allOutductCapabilitiesTelemetry;
     m_outductManager.GetAllOutductCapabilitiesTelemetry_ThreadSafe(allOutductCapabilitiesTelemetry);
@@ -685,7 +685,7 @@ void Egress::Impl::ResendOutductCapabilities() {
 
     std::shared_ptr<std::string>* jsonRawPtrToSharedPtr3 = new std::shared_ptr<std::string>(sharedPtrRef); //ref count 3
     m_lastJsonAoctSharedPtr = sharedPtrRef; //for sending the latest on telemetry request (ref count 4)
-    zmq::message_t zmqMsgToScheduler(
+    zmq::message_t zmqMsgToRouter(
         &strRef[0],
         strRef.size(),
         CustomCleanupSharedPtrStdString,
@@ -731,15 +731,15 @@ void Egress::Impl::ResendOutductCapabilities() {
         }
     }
 
-    { //scheduler
-        while (m_running && !m_zmqPushSock_boundEgressToConnectingSchedulerPtr->send(headerMessageLinkStatus, zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
-            LOG_INFO(subprocess) << "waiting for scheduler to become available to send outduct capabilities header";
+    { //router
+        while (m_running && !m_zmqPushSock_boundEgressToConnectingRouterPtr->send(headerMessageLinkStatus, zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+            LOG_INFO(subprocess) << "waiting for router to become available to send outduct capabilities header";
             boost::this_thread::sleep(boost::posix_time::seconds(1));
-            //LOG_FATAL(subprocess) << "m_zmqPubSock_boundEgressToConnectingSchedulerPtr could not send outduct capabilities header";
+            //LOG_FATAL(subprocess) << "m_zmqPubSock_boundEgressToConnectingRouterPtr could not send outduct capabilities header";
             //return;
         }
-        if (m_running && !m_zmqPushSock_boundEgressToConnectingSchedulerPtr->send(std::move(zmqMsgToScheduler), zmq::send_flags::dontwait)) {
-            LOG_FATAL(subprocess) << "m_zmqPubSock_boundEgressToConnectingSchedulerPtr could not send outduct capabilities";
+        if (m_running && !m_zmqPushSock_boundEgressToConnectingRouterPtr->send(std::move(zmqMsgToRouter), zmq::send_flags::dontwait)) {
+            LOG_FATAL(subprocess) << "m_zmqPubSock_boundEgressToConnectingRouterPtr could not send outduct capabilities";
             return;
         }
         
@@ -800,7 +800,7 @@ void Egress::Impl::OnFailedBundleZmqSendCallback(zmq::message_t& movableBundle, 
 
         if (egressAckPtr->base.type == HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS) {
             //If the type is HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS, then the bundle came from ingress.  Send the ack to ingress with the error flag set.
-            //This will allow ingress to trigger a link down event more quickly than waiting for scheduler.
+            //This will allow ingress to trigger a link down event more quickly than waiting for router.
             //Then generate a HDTN_MSGTYPE_EGRESS_FAILED_BUNDLE_TO_STORAGE message plus the bundle and send to storage.
 
 
@@ -831,7 +831,7 @@ void Egress::Impl::OnFailedBundleZmqSendCallback(zmq::message_t& movableBundle, 
         }
         else { //HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE
             //If the type is HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE, then the bundle came from storage.  Send the ack to storage with the error flag set.
-            //This will allow storage to trigger a link down event more quickly than waiting for scheduler.
+            //This will allow storage to trigger a link down event more quickly than waiting for router.
             //Since storage already has the bundle, the error flag will prevent deletion and move the bundle back to the "awaiting send" state,
             //but the bundle won't be immediately released again from storage because of the immediate link down event.
             //IF isResponseToStorageCutThrough is set, then storage needs the bundle back in a multipart message, otherwise, storage already has the bundle.
@@ -885,7 +885,7 @@ void Egress::Impl::OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData
         ++m_totalCustodyTransfersSentToIngress;
     }
 }
-//Inform scheduler only if the physical link status actually changes or the physical link status is initially unknown.
+//Inform router only if the physical link status actually changes or the physical link status is initially unknown.
 //Note: LTP "ping" maintains its own physical link status and will also only call this function if the physical link status actually changes
 void Egress::Impl::OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid) {
     
@@ -895,10 +895,10 @@ void Egress::Impl::OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint
         return;
     }
     const bool linkIsUpPhysically = !isLinkDownEvent;
-    const bool informScheduler = ((!outduct->m_physicalLinkStatusIsKnown) || (outduct->m_linkIsUpPhysically != linkIsUpPhysically));
+    const bool informRouter = ((!outduct->m_physicalLinkStatusIsKnown) || (outduct->m_linkIsUpPhysically != linkIsUpPhysically));
     outduct->m_physicalLinkStatusIsKnown = true;
     outduct->m_linkIsUpPhysically = linkIsUpPhysically;
-    if (informScheduler) {
+    if (informRouter) {
         hdtn::LinkStatusHdr linkStatusMsg;
         memset(&linkStatusMsg, 0, sizeof(hdtn::LinkStatusHdr));
         linkStatusMsg.base.type = HDTN_MSGTYPE_LINKSTATUS;
@@ -915,29 +915,21 @@ void Egress::Impl::OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint
     }
 }
 
-void Egress::Impl::SchedulerEventHandler(hdtn::IreleaseChangeHdr& releaseChangeHdr) {
+void Egress::Impl::RouterEventHandler(hdtn::IreleaseChangeHdr& releaseChangeHdr) {
     if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKUP) {
         Outduct* outduct = m_outductManager.GetOutductByOutductUuid(releaseChangeHdr.outductArrayIndex);
         if (!outduct) {
-            LOG_ERROR(subprocess) << "could not find outduct from scheduler link up event; not adjusting rate";
+            LOG_ERROR(subprocess) << "could not find outduct from router link up event; not adjusting rate";
             return;
         }
         outduct->m_linkIsUpPerTimeSchedule = true;
-        const uint64_t startingRateBitsPerSec = outduct->GetStartingMaxSendRateBitsPerSec();
-        if (startingRateBitsPerSec == 0) {
-            // If the starting rate is 0 ("unlimited"), never override it
-            LOG_INFO(subprocess) << "not updating max rate for contact. max rate was initiliazed to 0 (unlimited) "
-                << "or isn't supported by convergence layer";
-            return;
-        }
-
         LOG_INFO(subprocess) << "setting rate to " << releaseChangeHdr.rateBps << " bps for new contact";
         outduct->SetRate(releaseChangeHdr.rateBps);
     }
     else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKDOWN) {
         Outduct* outduct = m_outductManager.GetOutductByOutductUuid(releaseChangeHdr.outductArrayIndex);
         if (!outduct) {
-            LOG_ERROR(subprocess) << "could not find outduct from scheduler link down event";
+            LOG_ERROR(subprocess) << "could not find outduct from router link down event";
             return;
         }
         outduct->m_linkIsUpPerTimeSchedule = false;

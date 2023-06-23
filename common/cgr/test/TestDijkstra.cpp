@@ -13,7 +13,7 @@ BOOST_AUTO_TEST_CASE(DijkstraRoutingTestCase)
 {
 	// Route from node 1 to node 4 using the "RoutingTest" contact plan
 	std::cout << "Reading contact plan..." << std::endl;
-	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "router" / "contact_plans";
 	const boost::filesystem::path contactFile = contactRootDir / "contactPlan_RoutingTest.json";
 
 	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
@@ -52,7 +52,7 @@ BOOST_AUTO_TEST_CASE(Dijkstra10NodesTestCase)
 {
         // Route from node 20 to node 40 using the "10Nodes" contact plan
         std::cout << "Reading contact plan..." << std::endl;
-        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "router" / "contact_plans";
         const boost::filesystem::path contactFile = contactRootDir / "10nodes.json";
 
         std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
@@ -84,7 +84,7 @@ BOOST_AUTO_TEST_CASE(CMR10NodesTestCase)
 {
         // Route from node 20 to node 40 using the "10Nodes" contact plan
         std::cout << "Reading contact plan..." << std::endl;
-        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "router" / "contact_plans";
         const boost::filesystem::path contactFile = contactRootDir / "10nodes.json";
 
         std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
@@ -117,7 +117,7 @@ BOOST_AUTO_TEST_CASE(Dijkstra50NodesTestCase)
 {
         // Route from node 20 to node 40 using the "50Nodes" contact plan
         std::cout << "Reading contact plan..." << std::endl;
-        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "router" / "contact_plans";
         const boost::filesystem::path contactFile = contactRootDir / "50nodes.json";
 
         std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
@@ -150,7 +150,7 @@ BOOST_AUTO_TEST_CASE(CMR50NodesTestCase)
 {
         // Route from node 20 to node 40 using the "50Nodes" contact plan
         std::cout << "Reading contact plan..." << std::endl;
-        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "router" / "contact_plans";
         const boost::filesystem::path contactFile = contactRootDir / "50nodes.json";
 
         std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
@@ -182,7 +182,7 @@ BOOST_AUTO_TEST_CASE(CMR100NodesTestCase)
 {
         // Route from node 20 to node 40 using the "100Nodes" contact plan
         std::cout << "Reading contact plan..." << std::endl;
-        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "router" / "contact_plans";
         const boost::filesystem::path contactFile = contactRootDir / "100nodes.json";
 
         std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
@@ -214,7 +214,7 @@ BOOST_AUTO_TEST_CASE(CMR200NodesTestCase)
 {
         // Route from node 20 to node 40 using the "200Nodes" contact plan
         std::cout << "Reading contact plan..." << std::endl;
-        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "router" / "contact_plans";
         const boost::filesystem::path contactFile = contactRootDir / "200nodes.json";
 
         std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
@@ -246,7 +246,7 @@ BOOST_AUTO_TEST_CASE(Dijkstra100NodesTestCase)
 {
         // Route from node 20 to node 40 using the "100Nodes" contact plan
         std::cout << "Reading contact plan..." << std::endl;
-        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "router" / "contact_plans";
         const boost::filesystem::path contactFile = contactRootDir / "100nodes.json";
 
         std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
@@ -278,7 +278,7 @@ BOOST_AUTO_TEST_CASE(Dijkstra200NodesTestCase)
 {
         // Route from node 20 to node 40 using the "200Nodes" contact plan
         std::cout << "Reading contact plan..." << std::endl;
-        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "router" / "contact_plans";
         const boost::filesystem::path contactFile = contactRootDir / "200nodes.json";
 
         std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
@@ -312,7 +312,7 @@ BOOST_AUTO_TEST_CASE(DijkstraRoutingNoPathTestCase)
 	// Dijkstra's should return a NULL route (i.e. shared nullptr) since no path from
 	// 4 to 1 exists in the contact plan.
 	std::cout << "Reading contact plan..." << std::endl;
-	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "router" / "contact_plans";
 	const boost::filesystem::path contactFile = contactRootDir / "contactPlan_RoutingTest.json";
 
 	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
@@ -334,7 +334,7 @@ BOOST_AUTO_TEST_CASE(DijkstraPyCGRTutorialTestCase)
 {
 	// Route from node 1 to node 5 using the contact plan from the pyCGR tutorial
 	std::cout << "Reading contact plan..." << std::endl;
-	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "router" / "contact_plans";
 	const boost::filesystem::path contactFile = contactRootDir / "cgrTutorial.json";
 
 	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
@@ -380,7 +380,7 @@ BOOST_AUTO_TEST_CASE(CMR_DijkstraRoutingTestCase)
 {
 	// Route from node 1 to node 4 using the "RoutingTest" contact plan
 	std::cout << "Reading contact plan..." << std::endl;
-	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "router" / "contact_plans";
 	const boost::filesystem::path contactFile = contactRootDir / "contactPlan_RoutingTest.json";
 
 	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
@@ -421,7 +421,7 @@ BOOST_AUTO_TEST_CASE(CMR_DijkstraPyCGRTutorialTestCase)
 {
 	// Route from node 1 to node 5 using the contact plan from the pyCGR tutorial
 	std::cout << "Reading contact plan..." << std::endl;
-	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "router" / "contact_plans";
 	const boost::filesystem::path contactFile = contactRootDir / "cgrTutorial.json";
 
 	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
@@ -460,7 +460,7 @@ BOOST_AUTO_TEST_CASE(CMR_DijkstraPyCGRTutorialTestCase)
 
 BOOST_AUTO_TEST_CASE(TimingTest_RoutingTest, *boost::unit_test::disabled())
 {
-	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "router" / "contact_plans";
 	const boost::filesystem::path contactFile = contactRootDir / "contactPlan_RoutingTest.json";
 	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
 	cgr::Contact rootContact = cgr::Contact(1, 1, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
@@ -493,7 +493,7 @@ BOOST_AUTO_TEST_CASE(TimingTest_RoutingTest, *boost::unit_test::disabled())
 
 BOOST_AUTO_TEST_CASE(TimingTest_10nodesTest, *boost::unit_test::disabled())
 {
-        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "router" / "contact_plans";
         const boost::filesystem::path contactFile = contactRootDir / "10nodes.json";
         std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
         cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
@@ -527,7 +527,7 @@ BOOST_AUTO_TEST_CASE(TimingTest_10nodesTest, *boost::unit_test::disabled())
 
 BOOST_AUTO_TEST_CASE(TimingTest_50nodesTest, *boost::unit_test::disabled())
 {
-        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "router" / "contact_plans";
         const boost::filesystem::path contactFile = contactRootDir / "50nodes.json";
         std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
         cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
@@ -560,7 +560,7 @@ BOOST_AUTO_TEST_CASE(TimingTest_50nodesTest, *boost::unit_test::disabled())
 
 BOOST_AUTO_TEST_CASE(TimingTest_100nodesTest, *boost::unit_test::disabled())
 {
-        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "router" / "contact_plans";
         const boost::filesystem::path contactFile = contactRootDir / "100nodes.json";
         std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
         cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
@@ -594,7 +594,7 @@ BOOST_AUTO_TEST_CASE(TimingTest_100nodesTest, *boost::unit_test::disabled())
 
 BOOST_AUTO_TEST_CASE(TimingTest_CMConstruction, *boost::unit_test::disabled())
 {
-	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "router" / "contact_plans";
 	const boost::filesystem::path contactFile = contactRootDir / "contactPlan_RoutingTest.json";
 	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
 	cgr::Contact rootContact = cgr::Contact(1, 1, 0, cgr::MAX_TIME_T, 100, 1.0, 0);

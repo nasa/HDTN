@@ -20,6 +20,7 @@
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 
+// NOTE: Scheduler used a different one as default: contactPlan.json
 static const boost::filesystem::path DEFAULT_FILE = "contactPlan_RoutingTest.json";
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::router;
 
@@ -55,7 +56,7 @@ bool RouterRunner::Run(int argc, const char* const argv[], volatile bool & runni
                 ("use-mgr", "Use Multigraph Routing Algorithm")
                 ("hdtn-config-file", opt::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
                 ("hdtn-distributed-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn_distributed.json"), "HDTN Distributed Mode Configuration File.")
-                ("contact-plan-file", opt::value<boost::filesystem::path>()->default_value(DEFAULT_FILE), "Contact Plan file needed by CGR to compute the optimal route.");
+                ("contact-plan-file", opt::value<boost::filesystem::path>()->default_value(DEFAULT_FILE), "Contact Plan file for link availability and routing.");
 
             opt::variables_map vm;
             opt::store(boost::program_options::parse_command_line(argc, argv, desc, opt::command_line_style::unix_style | opt::command_line_style::case_insensitive), vm);
@@ -115,7 +116,7 @@ bool RouterRunner::Run(int argc, const char* const argv[], volatile bool & runni
         }
 
 
-        LOG_INFO(subprocess) << "Starting Router..";
+        LOG_INFO(subprocess) << "Starting router..";
         
         Router router;
         if (!router.Init(*hdtnConfig, *hdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp, useMgr)) {
@@ -125,7 +126,7 @@ bool RouterRunner::Run(int argc, const char* const argv[], volatile bool & runni
         if (useSignalHandler) {
             sigHandler.Start(false);
         }
-        LOG_INFO(subprocess) << "Router up and running";
+        LOG_INFO(subprocess) << "router up and running";
         while (running && m_runningFromSigHandler) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
             if (useSignalHandler) {

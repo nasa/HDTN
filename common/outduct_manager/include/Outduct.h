@@ -75,12 +75,14 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT virtual uint64_t GetOutductMaxNumberOfBundlesInPipeline() const;
     OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetOutductMaxSumOfBundleBytesInPipeline() const;
     OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetOutductNextHopNodeId() const;
-    OUTDUCT_MANAGER_LIB_EXPORT virtual uint64_t GetStartingMaxSendRateBitsPerSec() const noexcept;
     OUTDUCT_MANAGER_LIB_EXPORT std::string GetConvergenceLayerName() const;
+    OUTDUCT_MANAGER_LIB_EXPORT bool GetAssumedInitiallyDown() const;
 
 protected:
+    OUTDUCT_MANAGER_LIB_EXPORT Outduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid, const bool assumedInitiallyDown);
     const outduct_element_config_t m_outductConfig;
     const uint64_t m_outductUuid;
+    const bool m_assumedInitiallyDown;
 public:
     bool m_linkIsUpPerTimeSchedule;
     bool m_physicalLinkStatusIsKnown;

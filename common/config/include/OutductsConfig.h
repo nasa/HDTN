@@ -41,7 +41,6 @@ struct outduct_element_config_t {
     uint16_t remotePort;
     uint32_t maxNumberOfBundlesInPipeline;
     uint64_t maxSumOfBundleBytesInPipeline;
-    std::set<std::string> finalDestinationEidUris;
     
 
     //specific to ltp
@@ -56,16 +55,12 @@ struct outduct_element_config_t {
     uint32_t ltpCheckpointEveryNthDataSegment;
     uint32_t ltpRandomNumberSizeBits;
     uint16_t ltpSenderBoundPort;
-    uint64_t ltpMaxSendRateBitsPerSecOrZeroToDisable;
     uint64_t ltpMaxUdpPacketsToSendPerSystemCall;
     uint64_t ltpSenderPingSecondsOrZeroToDisable;
     uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable;
     bool keepActiveSessionDataOnDisk;
     uint64_t activeSessionDataOnDiskNewFileDurationMs;
     boost::filesystem::path activeSessionDataOnDiskDirectory;
-
-    //specific to udp
-    uint64_t udpRateBps;
 
     //specific to stcp and tcpcl
     uint32_t keepAliveIntervalSeconds;

@@ -18,9 +18,12 @@
 #include <memory>
 #include <boost/lexical_cast.hpp>
 
+static constexpr bool hasPing(const outduct_element_config_t& cfg) {
+    return cfg.ltpSenderPingSecondsOrZeroToDisable != 0;
+}
 
 LtpOutduct::LtpOutduct(const outduct_element_config_t& outductConfig, const uint64_t outductUuid) :
-    Outduct(outductConfig, outductUuid),
+    Outduct(outductConfig, outductUuid, hasPing(outductConfig)),
     m_ltpBundleSourcePtr(NULL)
 {
 
@@ -42,7 +45,7 @@ LtpOutduct::LtpOutduct(const outduct_element_config_t& outductConfig, const uint
     m_ltpTxCfg.checkpointEveryNthDataPacketSender = outductConfig.ltpCheckpointEveryNthDataSegment;
     m_ltpTxCfg.maxRetriesPerSerialNumber = outductConfig.ltpMaxRetriesPerSerialNumber;
     m_ltpTxCfg.force32BitRandomNumbers = (outductConfig.ltpRandomNumberSizeBits == 32);
-    m_ltpTxCfg.maxSendRateBitsPerSecOrZeroToDisable = m_outductConfig.ltpMaxSendRateBitsPerSecOrZeroToDisable;
+    m_ltpTxCfg.maxSendRateBitsPerSecOrZeroToDisable = 0; // Set by contact plan (or commandline arg for apps)
     m_ltpTxCfg.maxSimultaneousSessions = m_outductConfig.maxNumberOfBundlesInPipeline;
     m_ltpTxCfg.rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable = 0; //unused for outducts
     m_ltpTxCfg.maxUdpPacketsToSendPerSystemCall = m_outductConfig.ltpMaxUdpPacketsToSendPerSystemCall;
@@ -93,9 +96,6 @@ void LtpOutduct::SetRate(uint64_t maxSendRateBitsPerSecOrZeroToDisable) {
 }
 uint64_t LtpOutduct::GetOutductMaxNumberOfBundlesInPipeline() const {
     return m_ltpBundleSourcePtr->GetOutductMaxNumberOfBundlesInPipeline();
-}
-uint64_t LtpOutduct::GetStartingMaxSendRateBitsPerSec() const noexcept {
-    return m_outductConfig.ltpMaxSendRateBitsPerSecOrZeroToDisable;
 }
 
 void LtpOutduct::Connect() {

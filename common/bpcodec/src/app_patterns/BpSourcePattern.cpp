@@ -42,6 +42,14 @@ static void CustomCleanupPaddedVecUint8(void* data, void* hint) {
     delete static_cast<padded_vector_uint8_t*>(hint);
 }
 
+static bool IsZero(double x) {
+    // This won't work for super small numbers, but should be fine, epsilon is something like 2.22045e-16
+    // See here for an example: https://en.cppreference.com/w/cpp/types/numeric_limits/epsilon
+    // This is similar to the almost equal function, except we assume it's positive, and implicitly set the scaling
+    // to 1.0
+    return std::fabs(x) <= std::numeric_limits<double>::epsilon();
+}
+
 BpSourcePattern::BpSourcePattern() : m_running(false) {
 
 }
@@ -96,9 +104,9 @@ void BpSourcePattern::Stop() {
 void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfig_ptr & inductsConfigPtr,
     const boost::filesystem::path& bpSecConfigFilePath,
     bool custodyTransferUseAcs,
-    const cbhe_eid_t & myEid, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId,
+    const cbhe_eid_t & myEid, double bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId,
     const unsigned int bundleSendTimeoutSeconds, const uint64_t bundleLifetimeMilliseconds, const uint64_t bundlePriority,
-    const bool requireRxBundleBeforeNextTx, const bool forceDisableCustody, const bool useBpVersion7) {
+    const bool requireRxBundleBeforeNextTx, const bool forceDisableCustody, const bool useBpVersion7, const uint64_t claRate) {
     if (m_running) {
         LOG_ERROR(subprocess) << "BpSourcePattern::Start called while BpSourcePattern is already running";
         return;
@@ -115,6 +123,7 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
     m_detectedNextCustodianSupportsCteb = false;
     m_requireRxBundleBeforeNextTx = requireRxBundleBeforeNextTx;
     m_useBpVersion7 = useBpVersion7;
+    m_claRate = claRate;
     m_linkIsDown = false;
     m_nextBundleId = 0;
     m_hopCounts.assign(256, 0);
@@ -171,6 +180,10 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
         {
             return;
         }
+        Outduct *outduct = m_outductManager.GetOutductByOutductUuid(0);
+        if(outduct) {
+            outduct->SetRate(m_claRate);
+        }
     }
     else {
         m_useInductForSendingBundles = true;
@@ -188,7 +201,7 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
 }
 
 
-void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate, const boost::filesystem::path& bpSecConfigFilePath) {
+void BpSourcePattern::BpSourcePatternThreadFunc(double bundleRate, const boost::filesystem::path& bpSecConfigFilePath) {
 
     ThreadNamer::SetThisThreadName("BpSourcePattern");
 
@@ -247,7 +260,11 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate, const boost
     if (outduct) {
         outductMaxBundlesInPipeline = outduct->GetOutductMaxNumberOfBundlesInPipeline();
     }
-    if(bundleRate) {
+    if(bundleRate < 0) {
+        LOG_ERROR(subprocess) << "Bundle rate must be non-negative";
+        return;
+    }
+    if(!IsZero(bundleRate)) {
         LOG_INFO(subprocess) << "Generating up to " << bundleRate << " bundles / second";
         const double sval = 1000000.0 / bundleRate;   // sleep val in usec
         ////sval *= BP_MSG_NBUF;
@@ -267,10 +284,6 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate, const boost
         }
         else {
             if (outduct) {
-                if (outduct != m_outductManager.GetOutductByFinalDestinationEid_ThreadSafe(m_finalDestinationEid)) {
-                    LOG_ERROR(subprocess) << "outduct 0 does not support finalDestinationEid " << m_finalDestinationEid;
-                    return;
-                }
                 LOG_INFO(subprocess) << "bundle rate of zero used.. Going as fast as possible by allowing up to " << outductMaxBundlesInPipeline << " unacked bundles";
             }
             else {

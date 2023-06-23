@@ -57,9 +57,7 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT void PopulateAllOutductTelemetry(AllOutductTelemetry_t& allOutductTelem);
 private:
 
-    std::map<cbhe_eid_t, std::shared_ptr<Outduct> > m_finalDestEidToOutductMap;
     std::map<uint64_t, std::shared_ptr<Outduct> > m_finalDestNodeIdToOutductMap;
-    boost::mutex m_finalDestEidToOutductMapMutex;
     boost::mutex m_finalDestNodeIdToOutductMapMutex;
     std::map<uint64_t, std::shared_ptr<Outduct> > m_nextHopNodeIdToOutductMap;
     std::vector<std::shared_ptr<Outduct> > m_outductsVec;

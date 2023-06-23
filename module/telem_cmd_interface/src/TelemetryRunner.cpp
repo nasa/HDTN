@@ -91,7 +91,7 @@ class TelemetryRunner::Impl : private boost::noncopyable {
         std::unique_ptr<TelemetryConnection> m_ingressConnection;
         std::unique_ptr<TelemetryConnection> m_egressConnection;
         std::unique_ptr<TelemetryConnection> m_storageConnection;
-        std::unique_ptr<TelemetryConnection> m_schedulerConnection;
+        std::unique_ptr<TelemetryConnection> m_routerConnection;
         std::unique_ptr<TelemetryConnection> m_apiConnection;
 
         typedef boost::function<bool (std::string& movablePayload, ApiSource_t src)> ApiCommandFunction_t;
@@ -213,7 +213,7 @@ bool TelemetryRunner::Impl::HandlePingCommand(std::string& movablePayload, ApiSo
 }
 
 bool TelemetryRunner::Impl::HandleUploadContactPlanCommand(std::string& movablePayload, ApiSource_t src) {
-    return m_schedulerConnection->EnqueueApiPayload(std::move(movablePayload), src);
+    return m_routerConnection->EnqueueApiPayload(std::move(movablePayload), src);
 }
 
 bool TelemetryRunner::Impl::HandleGetExpiringStorageCommand(std::string& movablePayload, ApiSource_t src) {
@@ -264,8 +264,8 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
             m_storageConnection = boost::make_unique<TelemetryConnection>(
                 "inproc://connecting_telem_to_from_bound_storage",
                 inprocContextPtr);
-            m_schedulerConnection = boost::make_unique<TelemetryConnection>(
-                "inproc://connecting_telem_to_from_bound_scheduler",
+            m_routerConnection = boost::make_unique<TelemetryConnection>(
+                "inproc://connecting_telem_to_from_bound_router",
                 inprocContextPtr);
         }
         else {
@@ -284,16 +284,16 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
                 hdtnDistributedConfigPtr->m_zmqStorageAddress +
                 std::string(":") +
                 boost::lexical_cast<std::string>(hdtnDistributedConfigPtr->m_zmqConnectingTelemToFromBoundStoragePortPath));
-            const std::string connect_connectingTelemToFromBoundSchedulerPath(
+            const std::string connect_connectingTelemToFromBoundRouterPath(
                 std::string("tcp://") +
-                hdtnDistributedConfigPtr->m_zmqSchedulerAddress +
+                hdtnDistributedConfigPtr->m_zmqRouterAddress +
                 std::string(":") +
-                boost::lexical_cast<std::string>(hdtnDistributedConfigPtr->m_zmqConnectingTelemToFromBoundSchedulerPortPath));
+                boost::lexical_cast<std::string>(hdtnDistributedConfigPtr->m_zmqConnectingTelemToFromBoundRouterPortPath));
 
             m_ingressConnection = boost::make_unique<TelemetryConnection>(connect_connectingTelemToFromBoundIngressPath, nullptr);
             m_egressConnection = boost::make_unique<TelemetryConnection>(connect_connectingTelemToFromBoundEgressPath, nullptr);
             m_storageConnection = boost::make_unique<TelemetryConnection>(connect_connectingTelemToFromBoundStoragePath, nullptr);
-            m_schedulerConnection = boost::make_unique<TelemetryConnection>(connect_connectingTelemToFromBoundSchedulerPath, nullptr);
+            m_routerConnection = boost::make_unique<TelemetryConnection>(connect_connectingTelemToFromBoundRouterPath, nullptr);
         }
 
         const std::string connect_connectingTelemToApi(
@@ -315,7 +315,7 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
     poller.AddConnection(*m_ingressConnection);
     poller.AddConnection(*m_egressConnection);
     poller.AddConnection(*m_storageConnection);
-    poller.AddConnection(*m_schedulerConnection);
+    poller.AddConnection(*m_routerConnection);
     poller.AddConnection(*m_apiConnection);
 
     // Start loop to begin polling
@@ -329,7 +329,7 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
         m_storageConnection->SendRequest();
         m_egressConnection->SendRequest();
         m_ingressConnection->SendRequest();
-        m_schedulerConnection->SendRequest(false);
+        m_routerConnection->SendRequest(false);
 
         // Poll for telemetry from all modules
         // Poll for new API requests
@@ -405,12 +405,12 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
                     m_apiConnection->SendZmqMessage(std::move(msg2), false);
                 }
             }
-            if (poller.HasNewMessage(*m_schedulerConnection)) {
-                // We only get this response if we sent an API command to scheduler.
-                // Scheduler does not currently send data, so throw away the message content.
-                m_schedulerConnection->ReadMessage();
-                if (m_schedulerConnection->m_apiSocketAwaitingResponse) {
-                    m_schedulerConnection->m_apiSocketAwaitingResponse = false;
+            if (poller.HasNewMessage(*m_routerConnection)) {
+                // We only get this response if we sent an API command to router.
+                // Router does not currently send data, so throw away the message content.
+                m_routerConnection->ReadMessage();
+                if (m_routerConnection->m_apiSocketAwaitingResponse) {
+                    m_routerConnection->m_apiSocketAwaitingResponse = false;
                     zmq::message_t msg;
                     m_apiConnection->SendZmqMessage(std::move(msg), false);
                 }

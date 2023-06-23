@@ -9,11 +9,6 @@
             "remotePort": 4556,
             "maxNumberOfBundlesInPipeline": 5,
             "maxSumOfBundleBytesInPipeline": 50000000,
-            "finalDestinationEidUris": [
-                "ipn:1.*",
-                "ipn:2.*",
-                "ipn:3.*"
-            ],
             "thisLtpEngineId": 200,
             "remoteLtpEngineId": 100,
             "ltpDataSegmentMtu": 1000,
@@ -25,7 +20,6 @@
             "ltpCheckpointEveryNthDataSegment": 0,
             "ltpRandomNumberSizeBits": 64,
             "ltpSenderBoundPort": 1113,
-            "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0,
             "ltpMaxUdpPacketsToSendPerSystemCall": 1,
             "ltpSenderPingSecondsOrZeroToDisable": 15,
             "delaySendingOfDataSegmentsTimeMsOrZeroToDisable": 20,
