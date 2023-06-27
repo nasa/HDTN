@@ -29,6 +29,11 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 OutductManager::OutductManager() : m_numEventsTooManyUnackedBundles(0) {}
 
 OutductManager::~OutductManager() {
+    // The outducts run threads that call callbacks which may
+    // interact with this OutductManager. Stop the outducts (and thus
+    // the associated threads) to prevent them from trying to interact
+    // with this OutductManager while it is being destroyed.
+    StopAllOutducts();
     LOG_INFO(subprocess) << "m_numEventsTooManyUnackedBundles " << m_numEventsTooManyUnackedBundles;
 }
 
