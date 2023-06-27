@@ -77,7 +77,6 @@ private:
     std::unique_ptr<zmq::socket_t> m_zmqPairSock_LinkStatusWaitPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPairSock_LinkStatusNotifyOnePtr;
 
-    OutductManager m_outductManager;
     HdtnConfig m_hdtnConfig;
 
     boost::mutex m_mutexPushBundleToIngress;
@@ -92,6 +91,10 @@ private:
     boost::condition_variable m_workerThreadStartupConditionVariable;
 
     std::shared_ptr<std::string> m_lastJsonAoctSharedPtr; //for all outduct capabilities telem to be sent to telem_cmd_interface
+
+    // Keep this at the end so that it's destroyed first;
+    // its outducts may call callbacks and try to access the above member variables
+    OutductManager m_outductManager;
 };
 
 Egress::Impl::Impl() :
