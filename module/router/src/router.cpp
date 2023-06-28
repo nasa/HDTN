@@ -697,6 +697,31 @@ void Router::Impl::EgressEventsHandler() {
 
 void Router::Impl::StorageEventsHandler() {
     LOG_INFO(subprocess) << "Storage event handler called";
+
+    hdtn::DepletedStorageReportHdr hdr;
+    const zmq::recv_buffer_result_t res = m_zmqPullSock_connectingStorageToBoundRouterPtr->recv(zmq::mutable_buffer(&hdr, sizeof(hdr)), zmq::recv_flags::none);
+    if (!res) {
+        LOG_ERROR(subprocess) << "[StorageEventsHandler] message not received";
+        return;
+    }
+    else if (res->size != sizeof(hdr)) {
+        LOG_ERROR(subprocess) << "[StorageEventsHdr] res->size != sizeof(hdr)";
+        return;
+    }
+
+    if(hdr.base.type != HDTN_MSGTYPE_DEPLETED_STORAGE_REPORT) {
+        LOG_ERROR(subprocess) << "Unknown message type from storage";
+        return;
+    }
+
+    if(!m_receivedInitialOutductTelem) {
+        LOG_ERROR(subprocess) << "Cannot process depleted storage message; no outduct info yet";
+        return;
+    }
+
+    LOG_INFO(subprocess) << "Storage full on node " << hdr.nodeId;
+
+    // TODO post to IO thread to update failed state
 }
 
 static void CustomCleanupPaddedVecUint8(void* data, void* hint) {
