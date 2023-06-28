@@ -594,6 +594,7 @@ bool ZmqStorageInterface::Impl::ProcessBundleCustody(BundleViewV6 &bv, uint64_t 
 
     // If we've reached here, we failed to accept custody for some reason,
     // so try to send a failed custody signal
+    m_custodySignalRfc5050RenderedBundleView.Reset();
     bool success = m_ctmPtr->GenerateCustodySignalBundle(m_custodySignalRfc5050RenderedBundleView, origPrimary, status);
     if(!success) {
         LOG_ERROR(subprocess) << "Failed to make failed custody signal";
@@ -631,6 +632,8 @@ ZmqStorageInterface::Impl::TryProcessBundleCustody(BundleViewV6 &bv, uint64_t ne
         return BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE; // TODO not best code?
     }
 
+    // TODO not necessarily an error, if we're doing ACS, then we don't actually write/send the bundle now
+    // TODO handle ACS
     if (!m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()) {
         LOG_ERROR(subprocess) << "Failed to make custody signal for bundle";
         return BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE; // TODO not best code?
