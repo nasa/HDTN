@@ -27,6 +27,7 @@ build-default:
   artifacts:
     paths:
       - build
+    expire_in: 2 days
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
 
@@ -85,6 +86,7 @@ build-static-analysis:
   artifacts:
     paths:
       - build
+    expire_in: 2 days
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
@@ -108,10 +110,11 @@ unit-test:
       - report.xml
     reports:
       junit: report.xml
+    expire_in: 1 week
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
 
-# Run unit tests and generate a test report
+# Run integrated tests and generate a test report
 integrated-test:
   stage: test-stage
   tags:
@@ -130,6 +133,7 @@ integrated-test:
       - report.xml
     reports:
       junit: report.xml
+    expire_in: 1 week
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       
