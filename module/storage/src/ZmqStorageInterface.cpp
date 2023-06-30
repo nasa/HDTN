@@ -438,7 +438,7 @@ bool ZmqStorageInterface::Impl::ProcessAdminRecord(BundleViewV6 &bv)
     std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
     bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
     if (blocks.size() != 1) {
-        LOG_ERROR(subprocess) << "error admin record does not have a payload block";
+        LOG_ERROR(subprocess) << "error admin record has " << blocks.size() << " payload block(s), but expected 1";
         return false;
     }
     Bpv6AdministrativeRecord* adminRecordBlockPtr = dynamic_cast<Bpv6AdministrativeRecord*>(blocks[0]->headerPtr.get());
@@ -594,6 +594,7 @@ bool ZmqStorageInterface::Impl::ProcessBundleCustody(BundleViewV6 &bv, uint64_t 
 
     // If we've reached here, we failed to accept custody for some reason,
     // so try to send a failed custody signal
+    // TODO if ACS aware, we need to do something else here
     m_custodySignalRfc5050RenderedBundleView.Reset();
     bool success = m_ctmPtr->GenerateCustodySignalBundle(m_custodySignalRfc5050RenderedBundleView, origPrimary, status);
     if(!success) {
@@ -632,32 +633,28 @@ ZmqStorageInterface::Impl::TryProcessBundleCustody(BundleViewV6 &bv, uint64_t ne
         return BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE; // TODO not best code?
     }
 
-    // TODO not necessarily an error, if we're doing ACS, then we don't actually write/send the bundle now
-    // TODO handle ACS
-    if (!m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()) {
-        LOG_ERROR(subprocess) << "Failed to make custody signal for bundle";
-        return BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE; // TODO not best code?
-    }
-
     bool wroteBundle = WriteBundle(bv.m_primaryBlockView.header, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size());
     if(!wroteBundle) {
         LOG_ERROR(subprocess) << "Failed to write bundle with custody to disk";
         return BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE;
     }
 
-    const cbhe_eid_t& hdtnSrcEid = m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header.m_sourceNodeId;
-    const uint64_t newCustodyIdFor5050CustodySignal = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(hdtnSrcEid);
+    // This will only be non-zero if NOT usign ACS
+    if(m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()) {
+        const cbhe_eid_t& hdtnSrcEid = m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header.m_sourceNodeId;
+        const uint64_t newCustodyIdFor5050CustodySignal = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(hdtnSrcEid);
 
-    bool wroteCustody = WriteBundle(
-            m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header,
-            newCustodyIdFor5050CustodySignal,
-            (const uint8_t*)m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.data(),
-            m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size());
+        bool wroteCustody = WriteBundle(
+                m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header,
+                newCustodyIdFor5050CustodySignal,
+                (const uint8_t*)m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.data(),
+                m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size());
 
-    if(!wroteCustody) {
-        LOG_ERROR(subprocess) << "Failed to write custody signal to disk; deleting bundle";
-        DeleteBundleById(newCustodyId);
-        return BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE;
+        if(!wroteCustody) {
+            LOG_ERROR(subprocess) << "Failed to write custody signal to disk; deleting bundle";
+            DeleteBundleById(newCustodyId);
+            return BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE;
+        }
     }
     return BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION;
 }
