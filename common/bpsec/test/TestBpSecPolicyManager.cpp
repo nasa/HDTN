@@ -16,8 +16,10 @@
 #include "BpSecPolicyManager.h"
 #include "Logger.h"
 #include <set>
-
-
+#include "codec/BundleViewV7.h"
+#include <boost/make_unique.hpp>
+#include <boost/regex.hpp>
+#include "Environment.h"
 
 
 BOOST_AUTO_TEST_CASE(BpSecPolicyManagerTestCase)
@@ -134,5 +136,240 @@ BOOST_AUTO_TEST_CASE(BpSecPolicyManagerTestCase)
         BOOST_REQUIRE(!searchCache.wasCacheHit);
         BOOST_REQUIRE(m.FindPolicyWithCacheSupport(ss2, bs, bd, BPSEC_ROLE::ACCEPTOR, searchCache) == policyAny);
         BOOST_REQUIRE(searchCache.wasCacheHit);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(BpSecPolicyManager2TestCase)
+{
+    static const cbhe_eid_t BUNDLE_SRC(1, 1);
+    static const cbhe_eid_t BUNDLE_FINAL_DEST(2, 1);
+    const std::string payloadString = { "This is the data inside the bpv7 payload block!!!" };
+    const std::string customExtensionBlockString = { "My custom extension block." };
+    padded_vector_uint8_t bundleSerializedOriginal;
+    {
+        BundleViewV7 bv;
+        Bpv7CbhePrimaryBlock& primary = bv.m_primaryBlockView.header;
+        primary.SetZero();
+
+
+        primary.m_bundleProcessingControlFlags = BPV7_BUNDLEFLAG::NOFRAGMENT;  //All BP endpoints identified by ipn-scheme endpoint IDs are singleton endpoints.
+        primary.m_sourceNodeId = BUNDLE_SRC;
+        primary.m_destinationEid = BUNDLE_FINAL_DEST;
+        primary.m_reportToEid.Set(0, 0);
+        primary.m_creationTimestamp.millisecondsSinceStartOfYear2000 = 1000;
+        primary.m_lifetimeMilliseconds = 1000;
+        primary.m_creationTimestamp.sequenceNumber = 1;
+        primary.m_crcType = BPV7_CRC_TYPE::NONE;
+        bv.m_primaryBlockView.SetManuallyModified();
+
+        
+        { //add custom extension block
+            std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7CanonicalBlock>();
+            Bpv7CanonicalBlock& block = *blockPtr;
+            //block.SetZero();
+
+            block.m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::UNUSED_4;
+            block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+            block.m_blockNumber = 2;
+            block.m_crcType = BPV7_CRC_TYPE::NONE;
+            block.m_dataLength = customExtensionBlockString.size();
+            block.m_dataPtr = (uint8_t*)customExtensionBlockString.data(); //customExtensionBlockString must remain in scope until after render
+            bv.AppendMoveCanonicalBlock(std::move(blockPtr));
+
+        }
+        
+        { //add payload block
+            std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7CanonicalBlock>();
+            Bpv7CanonicalBlock& block = *blockPtr;
+            //block.SetZero();
+
+            block.m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PAYLOAD;
+            block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+            block.m_blockNumber = 1; //must be 1
+            block.m_crcType = BPV7_CRC_TYPE::NONE;
+            block.m_dataLength = payloadString.size();
+            block.m_dataPtr = (uint8_t*)payloadString.data(); //payloadString must remain in scope until after render
+            bv.AppendMoveCanonicalBlock(std::move(blockPtr));
+
+        }
+
+        BOOST_REQUIRE(bv.Render(5000));
+
+        bundleSerializedOriginal = bv.m_frontBuffer;
+    }
+    std::string keyDir = (Environment::GetPathHdtnSourceRoot() / "config_files" / "bpsec").string();
+    std::replace(keyDir.begin(), keyDir.end(), '\\', '/'); // replace all '\' to '/'
+    const std::string securitySourcePolicyJson = std::string(
+R"({
+    "bpsecConfigName": "my BPSec Config",
+    "policyRules": [
+        {
+            "description": " Confidentiality source rule",
+            "securityPolicyRuleId": 1,
+            "securityRole": "source",
+            "securitySource": "ipn:10.*",
+            "bundleSource": [
+                "ipn:*.*"
+            ],
+            "bundleFinalDestination": [
+                "ipn:*.*"
+            ],
+            "securityTargetBlockTypes": [
+                1
+            ],
+            "securityService": "confidentiality",
+            "securityContext": "aesGcm",
+            "securityFailureEventSetReference": "default_confidentiality",
+            "securityContextParams": [
+                {
+                    "paramName": "aesVariant",
+                    "value": 256
+                },
+                {
+                    "paramName": "ivSizeBytes",
+                    "value": 12
+                },
+                {
+                    "paramName": "keyFile",
+                    "value": ")") + keyDir + std::string(R"(/ipn10.1_confidentiality.key"
+                },
+                {
+                    "paramName": "securityBlockCrc",
+                    "value": 0
+                },
+                {
+                    "paramName": "scopeFlags",
+                    "value": 7
+                }
+            ]
+        }
+    ],
+    "securityFailureEventSets": [
+        {
+            "name": "default_confidentiality",
+            "description": "default bcb confidentiality security operations event set",
+            "securityOperationEvents": [
+                {
+                    "eventId": "sopCorruptedAtAcceptor",
+                    "actions": [
+                        "removeSecurityOperation"
+                    ]
+                },
+                {
+                    "eventId": "sopMisconfiguredAtVerifier",
+                    "actions": [
+                        "failBundleForwarding",
+                        "reportReasonCode"
+                    ]
+                }
+            ]
+        }
+    ]
+})");
+
+    const std::string securityAcceptorPolicyJson = std::string(
+R"({
+    "bpsecConfigName": "my BPSec Config",
+    "policyRules": [
+        {
+            "description": " Confidentiality acceptor rule",
+            "securityPolicyRuleId": 1,
+            "securityRole": "acceptor",
+            "securitySource": "ipn:10.1",
+            "bundleSource": [
+                "ipn:*.*"
+            ],
+            "bundleFinalDestination": [
+                "ipn:*.*"
+            ],
+            "securityService": "confidentiality",
+            "securityContext": "aesGcm",
+            "securityFailureEventSetReference": "default_confidentiality",
+            "securityContextParams": [
+                {
+                    "paramName": "keyFile",
+                    "value": ")") + keyDir + std::string(R"(/ipn10.1_confidentiality.key"
+                }
+            ]
+        }
+    ],
+    "securityFailureEventSets": [
+        {
+            "name": "default_confidentiality",
+            "description": "default bcb confidentiality security operations event set",
+            "securityOperationEvents": [
+                {
+                    "eventId": "sopCorruptedAtAcceptor",
+                    "actions": [
+                        "removeSecurityOperation"
+                    ]
+                }
+            ]
+        }
+    ]
+})");
+    //std::cout << mystring << "\n";
+    const cbhe_eid_t THIS_EID_SECURITY_SOURCE(10, 1);
+    
+    padded_vector_uint8_t encryptedBundle;
+    { //simple confidentiality success from security source ipn:10.1 (which encrypts) to an acceptor which decrypts
+        //security source read config and encrypt bundle
+        BpSecConfig_ptr bpSecConfigPtrTx = BpSecConfig::CreateFromJson(securitySourcePolicyJson);
+        BOOST_REQUIRE(bpSecConfigPtrTx);
+        BpSecPolicyManager bpSecPolicyManagerTx;
+        BpSecPolicyProcessingContext policyProcessingCtxTx;
+        BOOST_REQUIRE(bpSecPolicyManagerTx.LoadFromConfig(*bpSecConfigPtrTx));
+        BOOST_REQUIRE(bpSecPolicyManagerTx.FindPolicy(THIS_EID_SECURITY_SOURCE, cbhe_eid_t(1, 1), cbhe_eid_t(2, 1), BPSEC_ROLE::SOURCE));
+        BundleViewV7 bvTx;
+        BOOST_REQUIRE(bvTx.CopyAndLoadBundle(bundleSerializedOriginal.data(), bundleSerializedOriginal.size()));
+        BOOST_REQUIRE(bpSecPolicyManagerTx.FindPolicyAndProcessOutgoingBundle(bvTx, policyProcessingCtxTx, THIS_EID_SECURITY_SOURCE));
+        BOOST_REQUIRE(bvTx.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE));
+        BOOST_REQUIRE_GT(bvTx.m_renderedBundle.size(), bundleSerializedOriginal.size()); //bundle gets bigger with added security
+        encryptedBundle.assign((const uint8_t*)bvTx.m_renderedBundle.data(), ((const uint8_t*)bvTx.m_renderedBundle.data()) + bvTx.m_renderedBundle.size());
+
+        //security acceptor read config and decrypt bundle
+        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyJson);
+        BOOST_REQUIRE(bpSecConfigPtrRx);
+        BpSecPolicyManager bpSecPolicyManagerRx;
+        BpSecPolicyProcessingContext policyProcessingCtxRx;
+        BOOST_REQUIRE(bpSecPolicyManagerRx.LoadFromConfig(*bpSecConfigPtrRx));
+        BOOST_REQUIRE(bpSecPolicyManagerRx.FindPolicy(THIS_EID_SECURITY_SOURCE, cbhe_eid_t(1, 1), cbhe_eid_t(2, 1), BPSEC_ROLE::ACCEPTOR));
+        BundleViewV7 bvRx;
+        BOOST_REQUIRE(bvRx.CopyAndLoadBundle(encryptedBundle.data(), encryptedBundle.size()));
+        { //get payload encrypted
+            std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+            bvRx.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+            BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+            BOOST_REQUIRE(blocks[0]->isEncrypted); //encrypted
+        }
+        BOOST_REQUIRE(bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx));
+        { //get payload decrypted
+            std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+            bvRx.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+            BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+            const char* strPtr = (const char*)blocks[0]->headerPtr->m_dataPtr;
+            std::string s(strPtr, strPtr + blocks[0]->headerPtr->m_dataLength);
+            //LOG_INFO(subprocess) << "s: " << s;
+            BOOST_REQUIRE_EQUAL(s, payloadString);
+            BOOST_REQUIRE(!blocks[0]->isEncrypted); //not encrypted
+        }
+    }
+    
+    { //simple confidentiality failure (corruption) which has a bad key at acceptor
+        //alter the key file (10.1 changes to 1.1)
+        static const boost::regex regexMatch("ipn10.1_confidentiality.key");
+        const std::string securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, "ipn1.1_confidentiality.key");
+        //std::cout << securityAcceptorPolicyBadKeyJson << "\n";
+
+        //security acceptor read config and decrypt bundle
+        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadKeyJson);
+        BOOST_REQUIRE(bpSecConfigPtrRx);
+        BpSecPolicyManager bpSecPolicyManagerRx;
+        BpSecPolicyProcessingContext policyProcessingCtxRx;
+        BOOST_REQUIRE(bpSecPolicyManagerRx.LoadFromConfig(*bpSecConfigPtrRx));
+        BOOST_REQUIRE(bpSecPolicyManagerRx.FindPolicy(THIS_EID_SECURITY_SOURCE, cbhe_eid_t(1, 1), cbhe_eid_t(2, 1), BPSEC_ROLE::ACCEPTOR));
+        BundleViewV7 bvRx;
+        BOOST_REQUIRE(bvRx.CopyAndLoadBundle(encryptedBundle.data(), encryptedBundle.size()));
+        BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx)); //bundle must be dropped (payload cannot be decrypted)
     }
 }

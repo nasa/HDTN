@@ -35,6 +35,14 @@ security_context_param_t::security_context_param_t() :
     m_paramName(BPSEC_SECURITY_CONTEXT_PARAM_NAME::UNDEFINED),
     m_valueUint(0),
     m_valuePath() {}
+security_context_param_t::security_context_param_t(BPSEC_SECURITY_CONTEXT_PARAM_NAME paramName, uint64_t valueUint) :
+    m_paramName(paramName),
+    m_valueUint(valueUint),
+    m_valuePath() {}
+security_context_param_t::security_context_param_t(BPSEC_SECURITY_CONTEXT_PARAM_NAME paramName, const boost::filesystem::path& valuePath) :
+    m_paramName(paramName),
+    m_valueUint(0),
+    m_valuePath(valuePath) {}
 security_context_param_t::~security_context_param_t() {}
 security_context_param_t::security_context_param_t(const security_context_param_t& o) :
     m_paramName(o.m_paramName),

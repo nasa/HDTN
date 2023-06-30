@@ -242,10 +242,14 @@ const BpSecPolicy* BpSecPolicyManager::FindPolicyWithCacheSupport(const cbhe_eid
     return searchCache.foundPolicy;
 }
 
+
 static bool DoFailureEvent(BundleViewV7& bv, const BpSecPolicy* bpSecPolicyPtr,
-    BundleViewV7::Bpv7CanonicalBlockView& asbBlockView, Bpv7AbstractSecurityBlock* asbPtr, const bool isAcceptor)
+    BundleViewV7::Bpv7CanonicalBlockView& asbBlockView, Bpv7AbstractSecurityBlock* asbPtr, const bool isAcceptor, const bool isIntegrity)
 {
-    const event_type_to_event_set_ptr_lut_t& evtLut = bpSecPolicyPtr->m_integritySecurityFailureEventSetReferencePtr->m_eventTypeToEventSetPtrLut;
+    const event_type_to_event_set_ptr_lut_t& evtLut = (isIntegrity) ?
+        bpSecPolicyPtr->m_integritySecurityFailureEventSetReferencePtr->m_eventTypeToEventSetPtrLut :
+        bpSecPolicyPtr->m_confidentialitySecurityFailureEventSetReferencePtr->m_eventTypeToEventSetPtrLut;
+    const char* securityServiceStr = (isIntegrity) ? "integrity" : "confidentiality";
     typedef BPSEC_SECURITY_FAILURE_EVENT event_t;
     typedef BPSEC_SECURITY_FAILURE_PROCESSING_ACTION_MASKS action_mask_t;
     bool asbTargetsPayloadBlock = false;
@@ -257,10 +261,30 @@ static bool DoFailureEvent(BundleViewV7& bv, const BpSecPolicy* bpSecPolicyPtr,
             break;
         }
     }
+
+    //
+    //
     if (isAcceptor) { //acceptor
+        //5.1.1.  Receiving BCBs
+        //If an encrypted payload block cannot be decrypted (i.e., the
+        //ciphertext cannot be authenticated), then the bundle MUST be
+        //discarded and processed no further.
+        if ((!isIntegrity) && asbTargetsPayloadBlock) {
+            static thread_local bool printedMsg = false;
+            if (!printedMsg) {
+                LOG_WARNING(subprocess) << "first time encrypted payload block cannot be decrypted by acceptor from source node "
+                    << bv.m_primaryBlockView.header.m_sourceNodeId
+                    << ".. bundle shall be dropped..(This message type will now be suppressed.)";
+                printedMsg = true;
+            }
+            return false; //drop bundle
+        }
+
         if (evtLut[static_cast<uint8_t>(BPSEC_SECURITY_FAILURE_EVENT::SECURITY_OPERATION_CORRUPTED_AT_ACCEPTOR)]) {
             //required actions: remove SOp
             asbBlockView.markedForDeletion = true;
+
+            
 
             action_mask_t actionMask = evtLut[static_cast<uint8_t>(event_t::SECURITY_OPERATION_CORRUPTED_AT_ACCEPTOR)]->m_actionMasks;
             if ((actionMask & action_mask_t::FAIL_BUNDLE_FORWARDING) != action_mask_t::NO_ACTIONS_SET) { //optional action
@@ -302,11 +326,11 @@ static bool DoFailureEvent(BundleViewV7& bv, const BpSecPolicy* bpSecPolicyPtr,
                 }
             }
             else {
-                LOG_WARNING(subprocess) << "Process: version 7 bundle received but cannot accept integrity (no failure actions taken)";
+                LOG_WARNING(subprocess) << "Process: version 7 bundle received but cannot accept " << securityServiceStr << " (no failure actions taken)";
             }
         }
         else {
-            LOG_ERROR(subprocess) << "Process: version 7 bundle received but cannot accept integrity (no failure events specified)";
+            LOG_ERROR(subprocess) << "Process: version 7 bundle received but cannot accept " << securityServiceStr << " (no failure events specified)";
             return false;
         }
     }
@@ -418,7 +442,7 @@ bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProc
             verifyOnly))
         {
             hadError = true;
-            bool dontDropBundle = DoFailureEvent(bv, bpSecPolicyPtr, bcbBlockView, bcbPtr, !verifyOnly);
+            bool dontDropBundle = DoFailureEvent(bv, bpSecPolicyPtr, bcbBlockView, bcbPtr, !verifyOnly, false);
 
             static thread_local bool printedMsg = false;
             if (!printedMsg) {
@@ -495,7 +519,7 @@ bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProc
             markBibForDeletion))
         {
             hadError = true;
-            bool dontDropBundle = DoFailureEvent(bv, bpSecPolicyPtr, bibBlockView, bibPtr, markBibForDeletion);
+            bool dontDropBundle = DoFailureEvent(bv, bpSecPolicyPtr, bibBlockView, bibPtr, markBibForDeletion, true);
 
             static thread_local bool printedMsg = false;
             if (!printedMsg) {
