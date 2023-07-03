@@ -140,21 +140,65 @@ struct contactPlan_t {
 };
 
 /** State for an outduct */
-struct OutductInfo_t {
+class OutductInfo_t {
+    public:
     OutductInfo_t()
-        : outductIndex(UINT64_MAX), nextHopNodeId(UINT64_MAX), linkIsUpTimeBased(false), linkIsUpPhysical(false) {}
+        : outductIndex(UINT64_MAX), nextHopNodeId(UINT64_MAX), linkIsUpTimeBased(false), linkIsUpPhysical(false), linkIsUpStorage(false) {}
     OutductInfo_t(uint64_t paramOutductIndex, uint64_t paramNextHopNodeId, bool paramLinkIsUpTimeBased,
-                  bool paramLinkIsUpPhysical)
+                  bool paramLinkIsUpPhysical, bool paramLinkIsUpStorage)
         : outductIndex(paramOutductIndex), nextHopNodeId(paramNextHopNodeId), linkIsUpTimeBased(paramLinkIsUpTimeBased),
-          linkIsUpPhysical(paramLinkIsUpPhysical) {}
+          linkIsUpPhysical(paramLinkIsUpPhysical), linkIsUpStorage(paramLinkIsUpStorage) {}
 
-    uint64_t outductIndex;
-    uint64_t nextHopNodeId;
-    bool linkIsUpTimeBased;
-    bool linkIsUpPhysical;
+    bool IsInFailedState() const {
+        return !linkIsUpPhysical || !linkIsUpStorage;
+    }
+
+    bool updateLinkStateTimeBased(bool val) {
+        bool previouslyUp = IsUp();
+        linkIsUpTimeBased = val;
+        return previouslyUp != IsUp();
+    }
+
+    bool updateLinkStatePhysical(bool val) {
+        bool previouslyUp = IsUp();
+        linkIsUpPhysical = val;
+        return previouslyUp != IsUp();
+    }
+    bool updateLinkStateStorage(bool val) {
+        bool previouslyUp = IsUp();
+        linkIsUpStorage = val;
+        return previouslyUp != IsUp();
+    }
+
+    // For logging
+    std::string getLinkStateString() {
+        std::string s;
+        s += linkIsUpPhysical ? "[up physical]" : "[down physical]";
+        s += linkIsUpTimeBased ? "[have contact]" : "[no contact]";
+        s += linkIsUpStorage ? "[storage ok]" : "[storage full]";
+        return s;
+    }
+
+    private:
+
+    bool IsUp() {
+        return linkIsUpTimeBased && linkIsUpPhysical && !linkIsUpStorage;
+    }
+
+    public:
+
+    const uint64_t outductIndex;
+    const uint64_t nextHopNodeId;
 
     /** Routes; the final destinations associated with this outduct */
     std::unordered_set<uint64_t> finalDestNodeIds;
+
+    private:
+
+    bool linkIsUpTimeBased;
+    bool linkIsUpPhysical;
+    bool linkIsUpStorage;
+
 };
 
 /** Router private implementation class */
@@ -186,6 +230,7 @@ private:
 
     void EgressEventsHandler();
     void StorageEventsHandler();
+    void HandleNodeWithDepletedStorage(uint64_t nodeId);
     bool SendBundle(const uint8_t* payloadData, const uint64_t payloadSizeBytes, const cbhe_eid_t& finalDestEid);
     void TelemEventsHandler();
     void ReadZmqAcksThreadFunc();
@@ -205,6 +250,12 @@ private:
     void ComputeAllRoutes(uint64_t sourceNode);
     uint64_t ComputeOptimalRoute(uint64_t sourceNode, uint64_t finalDestNodeId);
     void ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint64_t outductIndex);
+
+
+    // Storage Full
+    void TryRestartStorageTimer();
+    void OnStorageFull_TimerExpired(const boost::system::error_code& e);
+    void AddStorageExpirationTime(uint64_t index, boost::posix_time::ptime expiry);
 
 private:
 
@@ -263,6 +314,11 @@ private:
     std::vector<cgr::Contact> m_cgrContacts;
     // Map of final destination node ids to next hops
     std::unordered_map<uint64_t, uint64_t> m_routes;
+
+    // Storage full tracking
+    boost::bimap <ptime_index_pair_t, uint64_t> m_storageExpirationTimes;
+    boost::asio::deadline_timer m_storageFullTimer;
+    bool m_storageFullTimerIsRunning;
 };
 
 boost::filesystem::path Router::GetFullyQualifiedFilename(const boost::filesystem::path& filename) {
@@ -298,7 +354,9 @@ Router::Impl::Impl() :
     m_bundleSequence(0),
     m_usingMGR(false),
     m_latestTime(0),
-    m_contactPlanTimer(m_ioService) {}
+    m_contactPlanTimer(m_ioService),
+    m_storageFullTimerIsRunning(false),
+    m_storageFullTimer(m_ioService) {}
 
 Router::Impl::~Impl() {
     Stop();
@@ -338,6 +396,7 @@ void Router::Impl::Stop() {
 
     try {
         m_contactPlanTimer.cancel();
+        m_storageFullTimer.cancel();
     }
     catch (const boost::system::system_error&) {
         LOG_ERROR(subprocess) << "error cancelling contact plan timer ";
@@ -391,6 +450,7 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
     m_ioService.reset();
     m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioService);
     m_contactPlanTimerIsRunning = false;
+    m_storageFullTimerIsRunning = false;
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
     ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceRouter");
 
@@ -695,6 +755,115 @@ void Router::Impl::EgressEventsHandler() {
     }
 }
 
+void Router::Impl::OnStorageFull_TimerExpired(const boost::system::error_code& e) {
+    LOG_INFO(subprocess) << "storage full timer expired";
+    m_storageFullTimerIsRunning = false;
+    if (e == boost::asio::error::operation_aborted) {
+        return;
+    }
+
+    auto it = m_storageExpirationTimes.left.begin();
+    if(it == m_storageExpirationTimes.left.end()) {
+        LOG_ERROR(subprocess) << "No entries in storage full expiration map";
+        return;
+    }
+
+    boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+    auto expiry = it->first.first;
+
+    // May have been updated after the timer was started; if so
+    // we need to restart the timer and wait for it to be triggered again
+    if(expiry > now) {
+        LOG_INFO(subprocess) << "Restarting storage full timer because expiration in future";
+        TryRestartStorageTimer();
+    }
+
+    uint64_t index = it->second;
+    OutductInfo_t &info = m_mapOutductArrayIndexToOutductInfo[index];
+
+    LOG_INFO(subprocess) << "Setting storage link state for " << index << " to up (timer expiry)";
+    bool changed = info.updateLinkStateStorage(true);
+    if(changed) {
+        LOG_INFO(subprocess) << "Setting link up and rerouting due to expired storage full on " << info.nextHopNodeId;
+        SendLinkUp(index);
+        RerouteOnLinkUp(m_hdtnConfig.m_myNodeId);
+    }
+
+    m_storageExpirationTimes.left.erase(it);
+    TryRestartStorageTimer();
+
+}
+
+void Router::Impl::TryRestartStorageTimer() {
+        if (!m_storageFullTimerIsRunning) {
+            LOG_INFO(subprocess) << "restarting storage timer";
+            boost::bimap<ptime_index_pair_t, uint64_t>::left_iterator it = m_storageExpirationTimes.left.begin();
+            if (it != m_storageExpirationTimes.left.end()) {
+                const boost::posix_time::ptime& expiry = it->first.first;
+                m_storageFullTimer.expires_at(expiry);
+                m_storageFullTimer.async_wait(boost::bind(&Router::Impl::OnStorageFull_TimerExpired, this, boost::asio::placeholders::error));
+                m_storageFullTimerIsRunning = true;
+            }
+        } else {
+            LOG_INFO(subprocess) << "storage timer already running; no need to restart";
+        }
+}
+
+void Router::Impl::AddStorageExpirationTime(uint64_t index, boost::posix_time::ptime expiry) {
+
+    // Get a unique tmime
+    ptime_index_pair_t pipStart(expiry, 0);
+    while (m_storageExpirationTimes.left.count(pipStart)) {
+        pipStart.second += 1; //in case of events that occur at the same time
+    }
+    boost::bimap<ptime_index_pair_t, uint64_t>::right_iterator it
+         = m_storageExpirationTimes.right.find(index);
+    if(it != m_storageExpirationTimes.right.end()) {
+        // Exists; update
+        if(!m_storageExpirationTimes.right.replace_data(it, pipStart)) {
+            LOG_ERROR(subprocess) << "Failed to update storage times bimap";
+            return;
+        }
+        LOG_INFO(subprocess) << "Updated storage expiry time for " << index << " to " << expiry;
+    } else {
+        // Doesn't exist; insert
+        if(!m_storageExpirationTimes.insert(boost::bimap<ptime_index_pair_t, uint64_t>::value_type(pipStart, index)).second) {
+            LOG_ERROR(subprocess) << "Failed to insert into storage times bimap";
+            return;
+        }
+        LOG_INFO(subprocess) << "Inserted storage expiry time for " << index << " to " << expiry;
+    }
+}
+
+void Router::Impl::HandleNodeWithDepletedStorage(uint64_t nodeId) {
+    LOG_INFO(subprocess) << "Node " << nodeId << " storage full";
+
+    std::map<uint64_t, uint64_t>::const_iterator mapIt = m_mapNextHopNodeIdToOutductArrayIndex.find(nodeId);
+    if (mapIt == m_mapNextHopNodeIdToOutductArrayIndex.cend()) {
+        LOG_INFO(subprocess) << "Node with full storage not a neighbor: " << nodeId;
+        return;
+    }
+    uint64_t index = mapIt->second;
+    OutductInfo_t & info = m_mapOutductArrayIndexToOutductInfo[index];
+
+    boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+
+    bool changed = info.updateLinkStateStorage(false);
+    // TODO make an actual constant for the expiration time
+    AddStorageExpirationTime(index, now + boost::posix_time::seconds(1));
+    TryRestartStorageTimer();
+
+
+    if(changed) {
+        LOG_INFO(subprocess) << "Setting link down and rerouting due to full storage on " << nodeId;
+        SendLinkDown(index);
+        RerouteOnLinkDown(m_hdtnConfig.m_myNodeId, index);
+    }
+    else {
+        LOG_INFO(subprocess) << "Node " << nodeId << " with full storage already down: " << info.getLinkStateString();
+    }
+}
+
 void Router::Impl::StorageEventsHandler() {
     LOG_INFO(subprocess) << "Storage event handler called";
 
@@ -721,7 +890,7 @@ void Router::Impl::StorageEventsHandler() {
 
     LOG_INFO(subprocess) << "Storage full on node " << hdr.nodeId;
 
-    // TODO post to IO thread to update failed state
+    boost::asio::post(m_ioService, boost::bind(&Router::Impl::HandleNodeWithDepletedStorage, this, hdr.nodeId));
 }
 
 static void CustomCleanupPaddedVecUint8(void* data, void* hint) {
@@ -1047,11 +1216,11 @@ bool Router::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
     //cancel any existing contacts (make them all link down) (ignore link up) in preparation for new contact plan
     for (std::map<uint64_t, OutductInfo_t>::iterator it = m_mapOutductArrayIndexToOutductInfo.begin(); it != m_mapOutductArrayIndexToOutductInfo.end(); ++it) {
         OutductInfo_t& outductInfo = it->second;
-        if (outductInfo.linkIsUpTimeBased) {
+        bool changed = outductInfo.updateLinkStateTimeBased(false);
+        if (changed) {
             LOG_INFO(subprocess) << "Reloading contact plan: changing time based link up to link down for source "
                 << m_hdtnConfig.m_myNodeId << " destination " << outductInfo.nextHopNodeId << " outductIndex " << outductInfo.outductIndex;
             SendLinkDown(outductInfo.outductIndex);
-            outductInfo.linkIsUpTimeBased = false;
         }
         outductInfo.finalDestNodeIds.clear();
     }
@@ -1175,14 +1344,14 @@ void Router::Impl::OnContactPlan_TimerExpired(const boost::system::error_code& e
             else {
                 //update linkIsUpTimeBased in the outductInfo
                 OutductInfo_t& outductInfo = outductInfoIt->second;
-                outductInfo.linkIsUpTimeBased = contactPlan.isLinkUp;
+                bool changed = outductInfo.updateLinkStateTimeBased(contactPlan.isLinkUp);
 
                 // Always tell egress; it needs this for telemetry and the rate even if physically down
-                NotifyEgressOfTimeBasedLinkChange(contactPlan.outductArrayIndex, contactPlan.rateBps, outductInfo.linkIsUpTimeBased);
+                NotifyEgressOfTimeBasedLinkChange(contactPlan.outductArrayIndex, contactPlan.rateBps, contactPlan.isLinkUp);
 
                 // Don't send updates or re-route if the link is not up physically
-                if(outductInfo.linkIsUpPhysical) {
-                    if (outductInfo.linkIsUpTimeBased) {
+                if(changed) {
+                    if (contactPlan.isLinkUp) {
                         SendLinkUp(contactPlan.outductArrayIndex);
                         RerouteOnLinkUp(contactPlan.source);
                     }
@@ -1245,7 +1414,7 @@ void Router::Impl::PopulateMapsFromAllOutductCapabilitiesTelemetry(const AllOutd
         m_mapOutductArrayIndexToOutductInfo.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(oct.outductArrayIndex),
-            std::forward_as_tuple(oct.outductArrayIndex, oct.nextHopNodeId, false, initLinkIsUpPhysical));
+            std::forward_as_tuple(oct.outductArrayIndex, oct.nextHopNodeId, false, initLinkIsUpPhysical, true));
     }
     m_outductInfoInitialized = true;
 }
@@ -1274,10 +1443,9 @@ void Router::Impl::HandlePhysicalLinkStatusChange(const hdtn::LinkStatusHdr& lin
     }
     OutductInfo_t& outductInfo = it->second;
 
-    bool changedState = outductInfo.linkIsUpPhysical != eventLinkIsUpPhysically;
-    outductInfo.linkIsUpPhysical = eventLinkIsUpPhysically;
+    bool changed = outductInfo.updateLinkStatePhysical(eventLinkIsUpPhysically);
 
-    if (outductInfo.linkIsUpTimeBased && changedState) {
+    if (changed) {
         LOG_INFO(subprocess) << "Sending Link " << (eventLinkIsUpPhysically ? "UP" : "DOWN") << " and rerouting";
         if (eventLinkIsUpPhysically) {
                 SendLinkUp(outductArrayIndex);
@@ -1288,9 +1456,7 @@ void Router::Impl::HandlePhysicalLinkStatusChange(const hdtn::LinkStatusHdr& lin
             RerouteOnLinkDown(m_hdtnConfig.m_myNodeId, outductArrayIndex);
         }
     } else {
-        std::string reason = std::string(outductInfo.linkIsUpTimeBased ? "" : "[no contact]")
-                             + std::string(changedState ? "" : "[no state change]");
-        LOG_INFO(subprocess) << "Not sending link update due to physical change: " << reason;
+        LOG_INFO(subprocess) << "Not sending link update due to physical change: " << outductInfo.getLinkStateString();
     }
 }
 
@@ -1381,13 +1547,14 @@ void Router::Impl::FilterContactPlan(uint64_t sourceNode, std::vector<cgr::Conta
         uint64_t outduct_index = m_mapNextHopNodeIdToOutductArrayIndex[contact.to];
         const OutductInfo_t & info = m_mapOutductArrayIndexToOutductInfo[outduct_index];
 
-        // Don't remove if link is up
-        if(info.linkIsUpPhysical) {
+        // Skip if not "failed"
+        if(!info.IsInFailedState()) {
             ++i;
             continue;
         }
 
-        // Otherwise: active contact from our node with link DOWN,
+        // Otherwise: active contact that's "failed" due to either
+        // physical link down or storage full
         // remove contact from contact plan to re-route around down node
         contactPlan.erase(contactPlan.begin() + i);
     }
