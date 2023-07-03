@@ -9,10 +9,10 @@
             <a href="./hdtn_d3_gui/"> <span class="icon"><img src="./resources/home.svg" alt="Home icon" /></span><span class="title"> System View GUI</span></a>
             <a href="./index.html"><img src="./resources/statistics.svg" alt="Pie chart icon" /> Statistics</a>
             <div class="configDropdown">
-                <button>Config</button>
+                <button class="configDropBtn"><img src="./resources/config.svg" alt="Wrench icon" />Config</button>
                 <div class="configContents">
-                    <a href="./config_page.html"><img src="./resources/config.svg" alt="Wrench icon" /> Config</a>
-                    <a href="./bpsec_page.html">BPSec Configs</a>
+                    <a href="./config_page.html">System</a>
+                    <a href="./bpsec_page.html">BPSec</a>
                 </div>
             </div>
             <a onclick="toggleModes()"><img src="./resources/sun.svg" alt="Sun icon" /></a>
@@ -28,5 +28,20 @@
                 <button class="bpSecEditPolicies">Edit</button>
             </div>
         </div>
+
+        <div class="bpSecAddPolicyForm">
+            <div class="formPopup" id="popup">
+                <form></form>
+            </div>
+        </div>
+        <script>
+            function openForm() {
+                document.getElementById("popup").style.display = "block";
+            }
+
+            function closeForm() {
+                document.getElementById("popup").style.display = "none";
+            }
+        </script>
     </body>
 </html>

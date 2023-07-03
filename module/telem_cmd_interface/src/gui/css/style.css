@@ -16,7 +16,6 @@ body {
 }
 
 .topnav {
-    position: relative;
     width: auto;
     height: auto;
     overflow: hidden;
@@ -24,8 +23,6 @@ body {
 }
 
 .topnav a {
-    position: relative;
-    display: block;
     float: left;
     color: #f2f2f2;
     text-align: center;
@@ -34,14 +31,56 @@ body {
     font-size: 30px;
 }
 
-.topnav a:hover {
+.configDropdown {
+    float: left;
+    overflow: hidden;
+}
+
+.configDropdown .configDropBtn {
+    color: #f2f2f2;
+    background-color: inherit;
+    font-family: inherit;
+    text-align: center;
+    padding: 14px 16px;
+    font-size: 30px;
+    border: none;
+    outline: none;
+}
+
+.topnav a:hover, .configDropdown:hover, .configDropBtn {
     background-color: #ddd;
     color: black;
+}
+
+.configContents{
+    display: none;
+    position: absolute;
+    background-color: #7f7f7f;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    min-width: 160px;
+    z-index: 1;
+}
+
+.configContents a{
+    float: none;
+    color: black;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    text-align: left;
 }
 
 .topnav a.active {
     background-color: #04AA6D;
     color: black;
+}
+
+.configContents a:hover {
+    background-color: #ddd;
+}
+
+.configDropdown:hover .configContents {
+    display: block;
 }
 
 .box {
