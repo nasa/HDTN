@@ -1,47 +1,123 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <meta http-equiv="Content-Type" content="charset=UTF-8, width=device-width, initial-scale=1">
-        <title>HDTN BPSEC CONFIG</title>
-    </head>
-    <body>
-        <div class="topnav">
-            <a href="./hdtn_d3_gui/"> <span class="icon"><img src="./resources/home.svg" alt="Home icon" /></span><span class="title"> System View GUI</span></a>
-            <a href="./index.html"><img src="./resources/statistics.svg" alt="Pie chart icon" /> Statistics</a>
-            <div class="configDropdown">
-                <button class="configDropBtn"><img src="./resources/config.svg" alt="Wrench icon" />Config</button>
-                <div class="configContents">
-                    <a href="./config_page.html">System</a>
-                    <a href="./bpsec_page.html">BPSec</a>
+
+<head>
+    <meta http-equiv="Content-Type" content="charset=UTF-8, width=device-width, initial-scale=1">
+    <title>HDTN BPSEC CONFIG</title>
+</head>
+
+<body>
+    <div class="topnav">
+        <a href="./hdtn_d3_gui/"> <span class="icon"><img src="./resources/home.svg" alt="Home icon" /></span><span
+                class="title"> System View GUI</span></a>
+        <a href="./index.html"><img src="./resources/statistics.svg" alt="Pie chart icon" /> Statistics</a>
+        <div class="configDropdown">
+            <button class="configDropBtn"><img src="./resources/config.svg" alt="Wrench icon" />Config</button>
+            <div class="configContents">
+                <a href="./config_page.html">System</a>
+                <a href="./bpsec_page.html">BPSec</a>
+            </div>
+        </div>
+        <a onclick="toggleModes()"><img src="./resources/sun.svg" alt="Sun icon" /></a>
+    </div>
+    <div class="bpsecBody">
+        <div class="bpsecTitle">
+            <h1 class="bpSecConfigTitle">BPSec Config</h1>
+            <button class="bpSecAddPolicy" onclick="openForm()">Add Policy</button>
+        </div>
+        <div class="bpsecPolicies">
+            <h2 class="bpSecPoliciesTitle">Current Policies</h2>
+            <div class="bpSecList" id="listBPSecJSON"></div>
+            <button class="bpSecEditPolicies">Edit</button>
+        </div>
+    </div>
+
+    <div class="bpSecAddPolicyForm">
+        <div class="formPopup" id="popupForm">
+            <div class="formLayout">
+                <div>
+                    <h2 class="popupTitle">Create New Policy</h2>
+                    <button onclick="closeForm()">Quit</button>
                 </div>
-            </div>
-            <a onclick="toggleModes()"><img src="./resources/sun.svg" alt="Sun icon" /></a>
-        </div>
-        <div class="bpsecBody">
-            <div class="bpsecTitle">
-                <h1 class="bpSecConfigTitle">BPSec Config</h1>
-                <button class="bpSecAddPolicy"></button>
-            </div>
-            <div class="bpsecPolicies">
-                <h2 class="bpSecPoliciesTitle">Current Policies</h2>
-                <div class="bpSecList" id="listBPSecJSON"></div>
-                <button class="bpSecEditPolicies">Edit</button>
-            </div>
-        </div>
 
-        <div class="bpSecAddPolicyForm">
-            <div class="formPopup" id="popup">
-                <form></form>
+                <label for="description">Description</label>
+                <input type="text" id="description">
+                <label for="securityPolicyRuleID">Security Policy ID</label>
+                <input type="number" id="securityPolicyRuleID">
+                <label for="securityRole">Security Role</label>
+                <select id="roleType" required>
+                    <option value="acceptor">acceptor</option>
+                    <option value="verifier">verifier</option>
+                    <option value="source">source</option>
+                </select>
+                <label>Security Source</label>
+                <input type="number">
+                <label>Bundle Source</label>
+                <label>Bundle Final Destination</label>
+                <label>Target Block Type</label>
+                <input type="range" min="0" max="13">
+                <label>Security Service</label>
+                <select required>
+                    <option>Confidentuality - AES GCM</option>
+                    <option>Integrity - HMAC SHA</option>
+                </select>
+
+                <div class="sourceType" id="sourceType" style="display: none;">
+                    <h3>Security Parameters</h3>
+                    <label>AES Variant</label>
+                    <select required>
+                        <option>128</option>
+                        <option>256</option>
+                    </select>
+                    <label>SHA Varient</label>
+                    <select>
+                        <option>256</option>
+                        <option>384</option>
+                        <option>512</option>
+                    </select>
+                    <label>IV Size(Bytes)</label>
+                    <select>
+                        <option>12</option>
+                        <option>16</option>
+                    </select>
+                    <label>Scope Flags</label>
+                    <input type="number" min="0" max="7">
+                    <label>Security Block CRC</label>
+                    <select>
+                        <option>0</option>
+                        <option>16</option>
+                        <option>32</option>
+                    </select>
+                </div>
+                    <label>Key File</label>
+                    <input type="file">
+                    <button>Add Policy</button>
+                
             </div>
         </div>
-        <script>
-            function openForm() {
-                document.getElementById("popup").style.display = "block";
-            }
+    </div>
 
-            function closeForm() {
-                document.getElementById("popup").style.display = "none";
+    <link type="text/css" rel="stylesheet" href="./css/style.css" />
+
+    <script>
+        function openForm() {
+            document.getElementById("popupForm").style.display = "flex";
+        }
+
+        function closeForm() {
+            document.getElementById("popupForm").style.display = "none";
+        }
+
+        var roleField = document.getElementById('roleType');
+        var sourceExtraFields = document.getElementById('sourceType');
+        roleField.addEventListener('change', function() {
+            if(roleField.value === "source") {
+                sourceExtraFields.style.display = 'flex';
+            } else {
+                sourceExtraFields.style.display = 'none';
             }
-        </script>
-    </body>
+        });
+    </script>
+</body>
+
 </html>

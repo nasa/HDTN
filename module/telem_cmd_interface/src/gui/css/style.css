@@ -315,3 +315,42 @@ caption {
     font-size: 40px;
     font-weight: bold;
 }
+
+/*BPSec page*/
+.bpsecBody{
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.bpsecTitle{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.bpSecAddPolicyForm {
+    position: relative;
+    text-align: center;
+    width: 100%;
+
+}
+.formPopup {
+    display: none;
+    position: fixed;
+    background-color: #7f7f7f;
+    color: white;
+    left: 45%;
+    top: 15%;
+    transform: translate(-50%, 5%);
+    border: 3px solid #999999;
+    z-index: 9;
+    width: 450px;
+    justify-content: center;
+}
+
+.formLayout {
+    display: flex;
+    flex-direction: column;
+}
