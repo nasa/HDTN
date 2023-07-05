@@ -409,6 +409,9 @@ static void CustomCleanupDepletedStorageReportHdr(void *data, void *hint) {
 }
 
 void ZmqStorageInterface::Impl::ReportDepletedStorage(cbhe_eid_t &eid) {
+    if(!m_hdtnConfig.m_neighborDepletedStorageDelaySeconds) {
+        return;
+    }
     uint64_t nodeId = eid.nodeId;
 
     LOG_INFO(subprocess) << "Node " << nodeId << " storage is depleted; sending message to router";

@@ -850,7 +850,7 @@ void Router::Impl::HandleNodeWithDepletedStorage(uint64_t nodeId) {
 
     bool changed = info.updateLinkStateStorage(false);
     // TODO make an actual constant for the expiration time
-    AddStorageExpirationTime(index, now + boost::posix_time::seconds(1));
+    AddStorageExpirationTime(index, now + boost::posix_time::seconds(m_hdtnConfig.m_neighborDepletedStorageDelaySeconds));
     TryRestartStorageTimer();
 
 
@@ -880,6 +880,11 @@ void Router::Impl::StorageEventsHandler() {
 
     if(hdr.base.type != HDTN_MSGTYPE_DEPLETED_STORAGE_REPORT) {
         LOG_ERROR(subprocess) << "Unknown message type from storage";
+        return;
+    }
+
+    if(!m_hdtnConfig.m_neighborDepletedStorageDelaySeconds) {
+        LOG_WARNING(subprocess) << "Ignoring depleted storage message; config disables rerouting due to depletion";
         return;
     }
 
