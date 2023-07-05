@@ -182,7 +182,7 @@ class OutductInfo_t {
     private:
 
     bool IsUp() {
-        return linkIsUpTimeBased && linkIsUpPhysical && !linkIsUpStorage;
+        return linkIsUpTimeBased && linkIsUpPhysical && linkIsUpStorage;
     }
 
     public:
