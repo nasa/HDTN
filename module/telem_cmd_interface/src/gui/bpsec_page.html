@@ -28,71 +28,96 @@
         <div class="bpsecPolicies">
             <h2 class="bpSecPoliciesTitle">Current Policies</h2>
             <div class="bpSecList" id="listBPSecJSON"></div>
-            <button class="bpSecEditPolicies">Edit</button>
+            <button class="bpSecEditPolicies" style="width: 40px; display: flex; justify-content: right;">Edit</button>
         </div>
     </div>
 
     <div class="bpSecAddPolicyForm">
         <div class="formPopup" id="popupForm">
             <div class="formLayout">
-                <div>
+                <div class="popupTitle">
                     <h2 class="popupTitle">Create New Policy</h2>
-                    <button onclick="closeForm()">Quit</button>
+                    <button class="policyQuitBtn" onclick="closeForm()">X</button>
                 </div>
-
-                <label for="description">Description</label>
-                <input type="text" id="description">
-                <label for="securityPolicyRuleID">Security Policy ID</label>
-                <input type="number" id="securityPolicyRuleID">
-                <label for="securityRole">Security Role</label>
-                <select id="roleType" required>
-                    <option value="acceptor">acceptor</option>
-                    <option value="verifier">verifier</option>
-                    <option value="source">source</option>
-                </select>
-                <label>Security Source</label>
-                <input type="number">
-                <label>Bundle Source</label>
-                <label>Bundle Final Destination</label>
-                <label>Target Block Type</label>
-                <input type="range" min="0" max="13">
-                <label>Security Service</label>
-                <select required>
-                    <option>Confidentuality - AES GCM</option>
-                    <option>Integrity - HMAC SHA</option>
-                </select>
-
-                <div class="sourceType" id="sourceType" style="display: none;">
+                <div class="input">
+                    <label for="description">Description</label>
+                    <input type="text" id="description">
+                </div>
+                <div class="input">
+                    <label for="securityPolicyRuleID">Security Policy ID</label>
+                    <input type="number" id="securityPolicyRuleID">
+                </div>
+                <div class="input">
+                    <label for="securityRole">Security Role</label>
+                    <select id="roleType" required>
+                        <option value="acceptor">acceptor</option>
+                        <option value="verifier">verifier</option>
+                        <option value="source">source</option>
+                    </select>
+                </div>
+                <div class="input">
+                    <label>Security Source</label>
+                    <input type="number" id="securitySource" required>
+                </div>
+                <div class="input">
+                    <label>Bundle Source</label>
+                    <input type="number" id="bundleSource" required>
+                </div>
+                <div class="input">
+                    <label>Bundle Final Destination</label>
+                    <input type="number" id="bundleDestination" required>
+                </div>
+                <div class="input">
+                    <label>Target Block Type</label>
+                    <input type="range" min="0" max="13" step="1" id="targetBlockType" required>
+                </div>
+                <div class="input">
+                    <label>Security Service</label>
+                    <select id="securityService" required>
+                        <option value="aes">Confidentuality - AES GCM</option>
+                        <option value="sha">Integrity - HMAC SHA</option>
+                    </select>
+                </div>
+                <div class="sourceType" id="sourceType" style="display: none; flex-direction: column;">
                     <h3>Security Parameters</h3>
-                    <label>AES Variant</label>
-                    <select required>
-                        <option>128</option>
-                        <option>256</option>
-                    </select>
-                    <label>SHA Varient</label>
-                    <select>
-                        <option>256</option>
-                        <option>384</option>
-                        <option>512</option>
-                    </select>
-                    <label>IV Size(Bytes)</label>
-                    <select>
-                        <option>12</option>
-                        <option>16</option>
-                    </select>
-                    <label>Scope Flags</label>
-                    <input type="number" min="0" max="7">
-                    <label>Security Block CRC</label>
-                    <select>
-                        <option>0</option>
-                        <option>16</option>
-                        <option>32</option>
-                    </select>
+                    <div class="aesVariant" id="aesVariantDiv" style="display: flex; flex-direction: row; justify-content: space-between;">
+                        <label>AES Variant</label>
+                        <select id="aesVariant">
+                            <option>128</option>
+                            <option>256</option>
+                        </select>
+                    </div>
+                    <div class="shaVariant" id="shaVariantDiv" style="display: none; flex-direction: row; justify-content: space-between;">
+                        <label>SHA Varient</label>
+                        <select id="shaVariant">
+                            <option>256</option>
+                            <option>384</option>
+                            <option>512</option>
+                        </select>
+                    </div>
+                    <div class="input">
+                        <label>IV Size(Bytes)</label>
+                        <select id="ivSize">
+                            <option>12</option>
+                            <option>16</option>
+                        </select>
+                    </div>
+                    <div class="input">
+                        <label>Scope Flags</label>
+                        <input type="number" min="0" max="7" id="scopeFlags">
+                    </div>
+                    <div class="input">
+                        <label>Security Block CRC</label>
+                        <select id="securityBlockCRC">
+                            <option>0</option>
+                            <option>16</option>
+                            <option>32</option>
+                        </select>
+                    </div>
                 </div>
-                    <label>Key File</label>
-                    <input type="file">
-                    <button>Add Policy</button>
-                
+                <label>Key File</label>
+                <input type="file" id="keyFile" required>
+                <button onclick="checkNewPolicy()">Add Policy</button>
             </div>
         </div>
     </div>
@@ -100,6 +125,7 @@
     <link type="text/css" rel="stylesheet" href="./css/style.css" />
 
     <script>
+        let bpsec_config = null;
         function openForm() {
             document.getElementById("popupForm").style.display = "flex";
         }
@@ -110,12 +136,142 @@
 
         var roleField = document.getElementById('roleType');
         var sourceExtraFields = document.getElementById('sourceType');
-        roleField.addEventListener('change', function() {
-            if(roleField.value === "source") {
+        roleField.addEventListener('change', function () {
+            if (roleField.value === "source") {
                 sourceExtraFields.style.display = 'flex';
             } else {
                 sourceExtraFields.style.display = 'none';
             }
+        });
+
+        var securityService = document.getElementById('securityService');
+        securityService.addEventListener('change', function () {
+            if (securityService.value === 'aes') {
+                document.getElementById('aesVariantDiv').style.display = 'flex';
+                document.getElementById('shaVariantDiv').style.display = 'none';
+            } else {
+                document.getElementById('shaVariantDiv').style.display = 'flex';
+                document.getElementById('aesVariantDiv').style.display = 'none';
+            }
+        });
+
+        function HandleReceivedNewHdtnConfig(hdtnConfig) {
+            //Separate data for each module
+            var bpsecConfig = hdtnConfig.bpsecConfig;
+
+            //Delete module data from overall config
+            delete hdtnConfig.bpsecConfig;
+
+            createTable(bpsecConfig, 'listBPSecJSON');
+        }
+
+        function createTable(json, tag) {
+            var div = document.getElementById(tag);
+            newTable = "<table class=\"styled-table\" style=\"width:100%\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>"
+            for (var key in json) {
+                if (Array.isArray(json[key])) {
+                    //Creates subtables for each induct, outduct, and storage object
+                    for (var i = 0; i < json[key].length; ++i) {
+                        var newSubTable = "<table class=\"styled-table\" style=\"margin:15px 0px\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>";
+                        for (var subKey in json[key][i]) {
+                            newSubTable += "<tr>" + "<td>" + subKey + "</td>";
+                            if (isNaN(json[key][i][subKey])) {
+                                newSubTable += "<td>" + json[key][i][subKey] + "</td>" + "</tr>";
+                            }
+                            else {
+                                newSubTable += "<td>" + (json[key][i][subKey]).toLocaleString('en') + "</td>" + "</tr>";
+                            }
+                        }
+                        newSubTable += "</table>";
+                        newTable += newSubTable;
+                    }
+                }
+                else {
+                    if (isNaN(json[key])) {
+                        var newRow = "<tr>" + "<td>" + key + "</td>" + "<td>" + json[key] + "</td>" + "</tr>";
+                    }
+                    else {
+                        //if data is a number, adds commas
+                        var newRow = "<tr>" + "<td>" + key + "</td>" + "<td>" + (json[key]).toLocaleString('en') + "</td>" + "</tr>";
+                    }
+                    newTable += newRow;
+                }
+            }
+            newTable += "</table>";
+            div.innerHTML = newTable;
+        }
+
+        function UpdateWithData(objJson) {
+            if ("hdtnConfigName" in objJson) {
+                HandleReceivedNewHdtnConfig(objJson);
+            }
+            else if (hdtnConfig == null) {
+                console.log("error, out of order command, hdtnConfig must be received first");
+            }
+            else {
+            }
+        }
+
+        function checkNewPolicy() {
+            console.log("New Policy for a " + roleField.value);
+            var securitySource = document.getElementById("securitySource");
+            var ipRegex = /^\d+(\.\d{1,2})?|1+(\.[1])|1+(\.\d{1,2})$/; //for ips of *.*, 1.*, 1.1
+
+            var fileInput = getElementById("keyFile");
+            var filePath = fileInput.value;
+
+            var fileRegex = /\.key$/i;
+            if (!fileRegex.exec(filePath)) {
+                alert('Invalid file type');
+                fileInput.value = '';
+            }
+        }
+
+        var connection = null;
+        window.addEventListener("load", function (event) {
+            console.log("All resources finished loading!");
+            if (!("WebSocket" in window)) {
+                alert("WebSocket is not supported by your Browser!");
+            }
+            else {
+                var wsproto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
+                connection = new WebSocket(wsproto + '//' + window.location.host + '/websocket');
+                connection.binaryType = "arraybuffer";
+
+
+                //This event occurs when socket connection is established.
+                connection.onopen = function () {
+                    console.log("ws opened");
+                }
+
+                //This event occurs when connection is closed.
+                connection.onclose = function () {
+                    console.log("ws closed");
+                }
+
+                //This event occurs when client receives data from server.
+                connection.onmessage = function (e) {
+                    if (e.data instanceof ArrayBuffer) { //this is binary data
+                        console.log("binary data received.. ignoring");
+                    }
+                    else { //this is text data such as json
+                        if (e.data === "Hello websocket") {
+                            console.log(e.data);
+                        }
+                        else { //json data
+                            var obj = JSON.parse(e.data); //this could error based on encodings
+                            UpdateWithData(obj);
+
+                        }
+                    }
+                }
+
+                //This event occurs when there is any error in communication.
+                connection.onerror = function (error) {
+                    connection.close();
+                }
+            } //running http(s)
+
         });
     </script>
 </body>
