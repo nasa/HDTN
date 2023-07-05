@@ -322,12 +322,19 @@ caption {
     display: flex;
     flex-direction: column;
     justify-content: center;
+    overflow: visible;
 }
 
 .bpsecTitle{
     display: flex;
     flex-direction: row;
-    justify-content: space-between;
+    justify-content: space-around;
+    align-items: center;
+}
+
+.bpSecAddPolicy{
+    width: 100px;
+    height: 20px;
 }
 
 .bpSecAddPolicyForm {
@@ -336,13 +343,20 @@ caption {
     width: 100%;
 
 }
+
+.bpsecPolicies{
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+}
+
 .formPopup {
     display: none;
     position: fixed;
     background-color: #7f7f7f;
     color: white;
     left: 45%;
-    top: 15%;
+    top: 5%;
     transform: translate(-50%, 5%);
     border: 3px solid #999999;
     z-index: 9;
@@ -353,4 +367,25 @@ caption {
 .formLayout {
     display: flex;
     flex-direction: column;
+}
+
+.popupTitle{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+}
+
+.policyQuitBtn{
+    width: 20px;
+    height: 20px;
+    margin: 10px;
+    color: red;
+}
+
+.input{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
 }
