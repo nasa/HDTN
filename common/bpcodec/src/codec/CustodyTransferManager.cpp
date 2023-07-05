@@ -212,8 +212,7 @@ bool CustodyTransferManager::UpdateBundleCustodyFields(BundleViewV6 & bv, bool a
     prevCustodyInfo.primary = primary;
 
     if (m_isAcsAware) {
-        bool validCtebPresent = false;
-        uint64_t receivedCtebCustodyId;
+        prevCustodyInfo.validCtebPresent = false;
         std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
         Bpv6CustodyTransferEnhancementBlock* ctebBlockPtr;
         bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT, blocks);
