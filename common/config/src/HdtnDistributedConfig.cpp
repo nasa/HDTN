@@ -249,6 +249,7 @@ boost::property_tree::ptree HdtnDistributedConfig::GetNewPropertyTree() const {
     pt.put("zmqConnectingStorageToBoundIngressPortPath", m_zmqConnectingStorageToBoundIngressPortPath);
     pt.put("zmqConnectingStorageToBoundEgressPortPath", m_zmqConnectingStorageToBoundEgressPortPath);
     pt.put("zmqBoundEgressToConnectingStoragePortPath", m_zmqBoundEgressToConnectingStoragePortPath);
+    pt.put("zmqConnectingStorageToBoundRouterPortPath", m_zmqConnectingStorageToBoundRouterPortPath);
     pt.put("zmqConnectingRouterToBoundEgressPortPath", m_zmqConnectingRouterToBoundEgressPortPath);
     pt.put("zmqConnectingTelemToFromBoundIngressPortPath", m_zmqConnectingTelemToFromBoundIngressPortPath);
     pt.put("zmqConnectingTelemToFromBoundEgressPortPath", m_zmqConnectingTelemToFromBoundEgressPortPath);
