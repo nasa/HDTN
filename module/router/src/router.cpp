@@ -518,7 +518,7 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
         }
         m_zmqPullSock_connectingStorageToBoundRouterPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
         const std::string connect_connectingStorageFromBoundRouterPath(
-                std::string("tcp://*") + 
+                std::string("tcp://*") +
                 hdtnDistributedConfig.m_zmqRouterAddress +
                 std::string(":") +
                 boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingStorageToBoundRouterPortPath));

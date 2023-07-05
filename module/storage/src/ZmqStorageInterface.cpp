@@ -111,7 +111,6 @@ private:
     bool Write(zmq::message_t* message,
         cbhe_eid_t& finalDestEidReturned, bool dontWriteIfCustodyFlagSet,
         bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord);
-    BPV6_ACS_STATUS_REASON_INDICES TryProcessBundleCustody(BundleViewV6 &bv, uint64_t newCustodyId, size_t size);
     bool ProcessBundleCustody(BundleViewV6 &bv, uint64_t newCustodyId, size_t size);
     void ReportDepletedStorage(cbhe_eid_t &eid);
     bool ProcessAdminRecord(BundleViewV6 &bv);
@@ -135,20 +134,13 @@ public:
 
 private:
     std::unique_ptr<zmq::context_t> m_zmqContextPtr;
-    // ingress -> storage
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingStoragePtr;
-    // todo -> storage
     std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundReleaseToConnectingStoragePtr;
-    // storage -> egress
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingStorageToBoundEgressPtr;
-    // egress -> storage
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundEgressToConnectingStoragePtr;
-    // storage -> ingress
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingStorageToBoundIngressPtr;
-    // storage -> router
-    std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingStorageToBoundRouterPtr;
 
-    // telem -> storage
+    std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingStorageToBoundRouterPtr;
     std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingTelemToFromBoundStoragePtr;
 
     HdtnConfig m_hdtnConfig;
@@ -581,62 +573,39 @@ static BpVersion GetBpVersion(const uint8_t *bundle) {
 }
 
 bool ZmqStorageInterface::Impl::ProcessBundleCustody(BundleViewV6 &bv, uint64_t newCustodyId, size_t size) {
+    // Update bundle -> Try to write to disk
+    // If either fails, send a failed custody signal; otherwise, send success custody signal
 
-    // Need an unmodified copy of the header to handle failure case
-    Bpv6CbhePrimaryBlock origPrimary = bv.m_primaryBlockView.header;
+    CustodyTransferManager::CustodyTransferContext prev;
 
-    BPV6_ACS_STATUS_REASON_INDICES status = TryProcessBundleCustody(bv, newCustodyId, size);
+    BPV6_ACS_STATUS_REASON_INDICES reason = BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION;
+    bool acceptedCustody = true;
 
-    // if status is success then custody signal was successfully queued, so we're done
-    if(status == BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION) {
-        return true;
+    if(!m_ctmPtr->UpdateBundleCustodyFields(bv, true, newCustodyId, prev)) {
+        LOG_ERROR(subprocess) << "Unable to update bundle custody fields";
+        acceptedCustody = false;
+        reason = BPV6_ACS_STATUS_REASON_INDICES::FAIL__BLOCK_UNINTELLIGIBLE;
     }
 
-    // If we've reached here, we failed to accept custody for some reason,
-    // so try to send a failed custody signal
-    // TODO if ACS aware, we need to do something else here
-    m_custodySignalRfc5050RenderedBundleView.Reset();
-    bool success = m_ctmPtr->GenerateCustodySignalBundle(m_custodySignalRfc5050RenderedBundleView, origPrimary, status);
-    if(!success) {
-        LOG_ERROR(subprocess) << "Failed to make failed custody signal";
-        return false;
-    }
-
-    const cbhe_eid_t &hdtnSrcEid = m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header.m_sourceNodeId;
-    const uint64_t newCustodyIdFor5050CustodySignal =
-        m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(hdtnSrcEid);
-
-    uint64_t newCustodyIdSignal = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(
-        m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header.m_sourceNodeId);
-
-    bool wroteSignal =
-        WriteBundle(m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header, newCustodyIdSignal,
-                    (const uint8_t *)m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.data(),
-                    m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size());
-
-    if(!wroteSignal) {
-        LOG_ERROR(subprocess) << "Failed to write failed custody signal to disk";
-    }
-    return false;
-}
-
-BPV6_ACS_STATUS_REASON_INDICES
-ZmqStorageInterface::Impl::TryProcessBundleCustody(BundleViewV6 &bv, uint64_t newCustodyId, size_t size) {
-
-    if (!m_ctmPtr->ProcessCustodyOfBundle(bv, true, newCustodyId, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION,
-        m_custodySignalRfc5050RenderedBundleView)) {
-        LOG_ERROR(subprocess) << "error unable to process custody";
-        return BPV6_ACS_STATUS_REASON_INDICES::FAIL__BLOCK_UNINTELLIGIBLE; // TODO code?
-    }
-    if (!bv.Render(size + 200)) { //hdtn modifies bundle for next hop
+    if (acceptedCustody && !bv.Render(size + 200)) { //hdtn modifies bundle for next hop
         LOG_ERROR(subprocess) << "error unable to render new bundle";
-        return BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE; // TODO not best code?
+        acceptedCustody = false;
+        reason = BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE; // TODO not best code?
     }
 
-    bool wroteBundle = WriteBundle(bv.m_primaryBlockView.header, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size());
-    if(!wroteBundle) {
-        LOG_ERROR(subprocess) << "Failed to write bundle with custody to disk";
-        return BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE;
+    if(acceptedCustody) {
+        bool wroteBundle = WriteBundle(bv.m_primaryBlockView.header, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size());
+        if(!wroteBundle) {
+            LOG_ERROR(subprocess) << "Failed to write bundle with custody to disk";
+            acceptedCustody = false;
+            reason = BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE;
+        }
+    }
+
+    if (!m_ctmPtr->GenerateCustodySignal(prev, acceptedCustody, newCustodyId, reason,
+        m_custodySignalRfc5050RenderedBundleView)) {
+        LOG_ERROR(subprocess) << "error unable to generate custody signal";
+        return false;
     }
 
     // This will only be non-zero if NOT usign ACS
@@ -653,10 +622,10 @@ ZmqStorageInterface::Impl::TryProcessBundleCustody(BundleViewV6 &bv, uint64_t ne
         if(!wroteCustody) {
             LOG_ERROR(subprocess) << "Failed to write custody signal to disk; deleting bundle";
             DeleteBundleById(newCustodyId);
-            return BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE;
+            return false;
         }
     }
-    return BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION;
+    return true;
 }
 
 static bool IsAdminForThisNode(const Bpv6CbhePrimaryBlock &primary, cbhe_eid_t thisEid) {
