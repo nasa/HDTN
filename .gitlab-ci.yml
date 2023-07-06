@@ -172,6 +172,7 @@ static-analysis-new:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
 
+
 # Static Analysis Development Defects
 static-analysis-development:
   stage: scan-stage
@@ -186,9 +187,9 @@ static-analysis-development:
     - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
     - cov-analyze --dir build/idir --all --enable-constraint-fpp --enable-fnptr --enable-virtual --strip-path $HDTN_SOURCE_ROOT
     - cov-commit-defects --dir build/idir --url $COV_BUILD_SERVER --stream HDTN-development --auth-key-file /home/hdtn/auth-gitlab.key
-<<<<<<< HEAD
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
+
 
 # Code test coverage
 code-test-coverage:
