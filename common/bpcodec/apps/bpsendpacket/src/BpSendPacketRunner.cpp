@@ -13,10 +13,7 @@ void BpSendPacketRunner::MonitorExitKeypressThreadFunction() {
     m_runningFromSigHandler = false; //do this first
 }
 
-
-
-
-BpSendPacketRunner::BpSendPacketRunner() {}
+BpSendPacketRunner::BpSendPacketRunner(): m_bundleCount(0), m_totalBundlesAcked(0), m_runningFromSigHandler(false) {}
 BpSendPacketRunner::~BpSendPacketRunner() {}
 
 bool BpSendPacketRunner::Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler) {
