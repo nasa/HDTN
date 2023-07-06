@@ -28,8 +28,7 @@ void BpReceivePacketRunner::MonitorExitKeypressThreadFunction() {
     m_runningFromSigHandler = false; //do this first
 }
 
-
-BpReceivePacketRunner::BpReceivePacketRunner() {}
+BpReceivePacketRunner::BpReceivePacketRunner(): m_totalBytesRx(0), m_runningFromSigHandler(false) {}
 BpReceivePacketRunner::~BpReceivePacketRunner() {}
 
 
