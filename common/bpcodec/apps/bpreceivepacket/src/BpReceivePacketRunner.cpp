@@ -74,6 +74,8 @@ bool BpReceivePacketRunner::Run(int argc, const char* const argv[], volatile boo
                 return false;
             }
 
+	    bpSecConfigFilePath = vm["bpsec-config-file"].as<boost::filesystem::path>();
+
             const boost::filesystem::path configFileNameInducts = vm["inducts-config-file"].as<boost::filesystem::path>();
             if (!configFileNameInducts.empty()) {
                 inductsConfigPtr = InductsConfig::CreateFromJsonFilePath(configFileNameInducts);

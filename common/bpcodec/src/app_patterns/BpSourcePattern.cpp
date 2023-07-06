@@ -49,7 +49,6 @@ static bool IsZero(double x) {
     // to 1.0
     return std::fabs(x) <= std::numeric_limits<double>::epsilon();
 }
-
 BpSourcePattern::BpSourcePattern() : m_running(false), m_bundleCount(0) {}
 
 BpSourcePattern::~BpSourcePattern() {

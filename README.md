@@ -38,6 +38,16 @@ HDTN is written in C++, and is designed to be modular. These modules include:
 * Egress - Forwards bundles to the proper outduct and next hop.
 * Telemetry Command Interface - Web interface that displays the operations and data for HDTN.
 
+Architecture
+=============
+HDTN is written in C++, and is designed to be modular. These modules include:
+* Ingress - Processes incoming bundles.
+* Scheduler - Determines if outgoing bundles can be forwarded or must be stored based on the contact plan.
+* Storage - Stores bundles to disk.
+* Router - Calculates the next hop for the bundle.
+* Egress - Forwards bundles to the proper outduct and next hop.
+* Telemetry Command Interface - Web interface that displays the operations and data for HDTN.
+
 Build Environment
 ==================
 ## Tested Platforms ##
