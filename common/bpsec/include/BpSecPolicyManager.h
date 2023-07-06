@@ -151,7 +151,7 @@ public:
     BPSEC_EXPORT const BpSecPolicy* FindPolicyWithCacheSupport(const cbhe_eid_t& securitySourceEid,
         const cbhe_eid_t& bundleSourceEid, const cbhe_eid_t& bundleFinalDestEid, const BPSEC_ROLE role, PolicySearchCache& searchCache) const;
 
-    BPSEC_EXPORT bool ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx) const;
+    BPSEC_EXPORT bool ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx, BpSecBundleProcessor::ReturnResult& res) const;
 
     BPSEC_EXPORT static bool PopulateTargetArraysForSecuritySource(BundleViewV7& bv,
         BpSecPolicyProcessingContext& ctx,

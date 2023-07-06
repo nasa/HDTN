@@ -282,13 +282,32 @@ R"({
             "bundleFinalDestination": [
                 "ipn:*.*"
             ],
+            "securityTargetBlockTypes": [
+                1
+            ],
             "securityService": "confidentiality",
             "securityContext": "aesGcm",
             "securityFailureEventSetReference": "default_confidentiality",
             "securityContextParams": [
                 {
+                    "paramName": "aesVariant",
+                    "value": 256
+                },
+                {
+                    "paramName": "ivSizeBytes",
+                    "value": 12
+                },
+                {
                     "paramName": "keyFile",
                     "value": ")") + keyDir + std::string(R"(/ipn10.1_confidentiality.key"
+                },
+                {
+                    "paramName": "securityBlockCrc",
+                    "value": 0
+                },
+                {
+                    "paramName": "scopeFlags",
+                    "value": 7
                 }
             ]
         }
@@ -342,7 +361,9 @@ R"({
             BOOST_REQUIRE_EQUAL(blocks.size(), 1);
             BOOST_REQUIRE(blocks[0]->isEncrypted); //encrypted
         }
-        BOOST_REQUIRE(bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx));
+        BpSecBundleProcessor::ReturnResult res;
+        BOOST_REQUIRE(bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res));
+        BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS);
         { //get payload decrypted
             std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
             bvRx.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
@@ -370,6 +391,126 @@ R"({
         BOOST_REQUIRE(bpSecPolicyManagerRx.FindPolicy(THIS_EID_SECURITY_SOURCE, cbhe_eid_t(1, 1), cbhe_eid_t(2, 1), BPSEC_ROLE::ACCEPTOR));
         BundleViewV7 bvRx;
         BOOST_REQUIRE(bvRx.CopyAndLoadBundle(encryptedBundle.data(), encryptedBundle.size()));
-        BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx)); //bundle must be dropped (payload cannot be decrypted)
+        BpSecBundleProcessor::ReturnResult res;
+        BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res)); //bundle must be dropped (payload cannot be decrypted)
+        BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::CORRUPTED);
+        BOOST_REQUIRE(res.errorStringPtr);
+        BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "unable to decrypt the target block number 1");
+        //std::cout << *res.errorStringPtr << "\n";
+    }
+
+    { //simple confidentiality failure (misconfigured) which has the wrong aes variant
+        //alter the key file (10.1 changes to 1.1)
+        static const boost::regex regexMatch("256");
+        const std::string securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, "128");
+        //std::cout << securityAcceptorPolicyBadKeyJson << "\n";
+
+        //security acceptor read config and decrypt bundle
+        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadKeyJson);
+        BOOST_REQUIRE(bpSecConfigPtrRx);
+        BpSecPolicyManager bpSecPolicyManagerRx;
+        BpSecPolicyProcessingContext policyProcessingCtxRx;
+        BOOST_REQUIRE(bpSecPolicyManagerRx.LoadFromConfig(*bpSecConfigPtrRx));
+        BOOST_REQUIRE(bpSecPolicyManagerRx.FindPolicy(THIS_EID_SECURITY_SOURCE, cbhe_eid_t(1, 1), cbhe_eid_t(2, 1), BPSEC_ROLE::ACCEPTOR));
+        BundleViewV7 bvRx;
+        BOOST_REQUIRE(bvRx.CopyAndLoadBundle(encryptedBundle.data(), encryptedBundle.size()));
+        BpSecBundleProcessor::ReturnResult res;
+        BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res)); //bundle must be dropped (payload cannot be decrypted)
+        BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED);
+        BOOST_REQUIRE(res.errorStringPtr);
+        BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "BCB AES variant received (A256GCM), does not match the expected variant in the policy (A128GCM)");
+        //std::cout << *res.errorStringPtr << "\n";
+    }
+
+    { //simple confidentiality failure (misconfigured) which has the wrong iv size bytes
+        //alter the key file (10.1 changes to 1.1)
+        static const boost::regex regexMatch(": 12");
+        const std::string securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, ": 16");
+        //std::cout << securityAcceptorPolicyBadKeyJson << "\n";
+
+        //security acceptor read config and decrypt bundle
+        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadKeyJson);
+        BOOST_REQUIRE(bpSecConfigPtrRx);
+        BpSecPolicyManager bpSecPolicyManagerRx;
+        BpSecPolicyProcessingContext policyProcessingCtxRx;
+        BOOST_REQUIRE(bpSecPolicyManagerRx.LoadFromConfig(*bpSecConfigPtrRx));
+        BOOST_REQUIRE(bpSecPolicyManagerRx.FindPolicy(THIS_EID_SECURITY_SOURCE, cbhe_eid_t(1, 1), cbhe_eid_t(2, 1), BPSEC_ROLE::ACCEPTOR));
+        BundleViewV7 bvRx;
+        BOOST_REQUIRE(bvRx.CopyAndLoadBundle(encryptedBundle.data(), encryptedBundle.size()));
+        BpSecBundleProcessor::ReturnResult res;
+        BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res)); //bundle must be dropped (payload cannot be decrypted)
+        BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED);
+        BOOST_REQUIRE(res.errorStringPtr);
+        BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "BCB AES IV received length(12), does not match the expected IV length to receive in the policy (16)");
+        //std::cout << *res.errorStringPtr << "\n";
+    }
+
+    { //simple confidentiality failure (misconfigured) which has the wrong scope flags
+        //alter the key file (10.1 changes to 1.1)
+        static const boost::regex regexMatch(": 7");
+        const std::string securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, ": 0");
+        //std::cout << securityAcceptorPolicyBadKeyJson << "\n";
+
+        //security acceptor read config and decrypt bundle
+        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadKeyJson);
+        BOOST_REQUIRE(bpSecConfigPtrRx);
+        BpSecPolicyManager bpSecPolicyManagerRx;
+        BpSecPolicyProcessingContext policyProcessingCtxRx;
+        BOOST_REQUIRE(bpSecPolicyManagerRx.LoadFromConfig(*bpSecConfigPtrRx));
+        BOOST_REQUIRE(bpSecPolicyManagerRx.FindPolicy(THIS_EID_SECURITY_SOURCE, cbhe_eid_t(1, 1), cbhe_eid_t(2, 1), BPSEC_ROLE::ACCEPTOR));
+        BundleViewV7 bvRx;
+        BOOST_REQUIRE(bvRx.CopyAndLoadBundle(encryptedBundle.data(), encryptedBundle.size()));
+        BpSecBundleProcessor::ReturnResult res;
+        BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res)); //bundle must be dropped (payload cannot be decrypted)
+        BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED);
+        BOOST_REQUIRE(res.errorStringPtr);
+        BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "BCB AES aad scope mask received (7), does not match the expected aad scope mask in the policy (0)");
+        //std::cout << *res.errorStringPtr << "\n";
+    }
+
+    { //simple confidentiality failure (misconfigured) which has a policy that has MORE securityTargetBlockTypes than the block
+        //alter the key file (10.1 changes to 1.1)
+        static const boost::regex regexMatch("        1");
+        const std::string securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, "1, 2");
+        //std::cout << securityAcceptorPolicyBadKeyJson << "\n";
+
+        //security acceptor read config and decrypt bundle
+        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadKeyJson);
+        BOOST_REQUIRE(bpSecConfigPtrRx);
+        BpSecPolicyManager bpSecPolicyManagerRx;
+        BpSecPolicyProcessingContext policyProcessingCtxRx;
+        BOOST_REQUIRE(bpSecPolicyManagerRx.LoadFromConfig(*bpSecConfigPtrRx));
+        BOOST_REQUIRE(bpSecPolicyManagerRx.FindPolicy(THIS_EID_SECURITY_SOURCE, cbhe_eid_t(1, 1), cbhe_eid_t(2, 1), BPSEC_ROLE::ACCEPTOR));
+        BundleViewV7 bvRx;
+        BOOST_REQUIRE(bvRx.CopyAndLoadBundle(encryptedBundle.data(), encryptedBundle.size()));
+        BpSecBundleProcessor::ReturnResult res;
+        BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res)); //bundle must be dropped (payload cannot be decrypted)
+        BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED);
+        BOOST_REQUIRE(res.errorStringPtr);
+        BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "the BCB AES failed to target all of the canonical block types within the policy (missing_mask=4d)"); //4=0b100 => block type 2 missing
+        //std::cout << *res.errorStringPtr << "\n";
+    }
+
+    { //simple confidentiality failure (misconfigured) which has a policy that has LESS securityTargetBlockTypes than the block
+        //alter the key file (10.1 changes to 1.1)
+        static const boost::regex regexMatch("        1");
+        const std::string securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, " ");
+        //std::cout << securityAcceptorPolicyBadKeyJson << "\n";
+
+        //security acceptor read config and decrypt bundle
+        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadKeyJson);
+        BOOST_REQUIRE(bpSecConfigPtrRx);
+        BpSecPolicyManager bpSecPolicyManagerRx;
+        BpSecPolicyProcessingContext policyProcessingCtxRx;
+        BOOST_REQUIRE(bpSecPolicyManagerRx.LoadFromConfig(*bpSecConfigPtrRx));
+        BOOST_REQUIRE(bpSecPolicyManagerRx.FindPolicy(THIS_EID_SECURITY_SOURCE, cbhe_eid_t(1, 1), cbhe_eid_t(2, 1), BPSEC_ROLE::ACCEPTOR));
+        BundleViewV7 bvRx;
+        BOOST_REQUIRE(bvRx.CopyAndLoadBundle(encryptedBundle.data(), encryptedBundle.size()));
+        BpSecBundleProcessor::ReturnResult res;
+        BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res)); //bundle must be dropped (payload cannot be decrypted)
+        BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED);
+        BOOST_REQUIRE(res.errorStringPtr);
+        BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "BCB AES security target (1) targets a canonical block type code (1) that was unexpected per the policy");
+        //std::cout << *res.errorStringPtr << "\n";
     }
 }

@@ -452,17 +452,17 @@ bool policy_rules_t::SetValuesFromPropertyTree(const boost::property_tree::ptree
             }
         }
 
-        if (m_securityRole == "source") {
-            const boost::property_tree::ptree& securityTargetBlockTypesPt = pt.get_child("securityTargetBlockTypes", EMPTY_PTREE); //non-throw version
-            m_securityTargetBlockTypes.clear();
-            BOOST_FOREACH(const boost::property_tree::ptree::value_type & securityTargetBlockTypesValuePt, securityTargetBlockTypesPt) {
-                const uint64_t securityTargetBlockTypeU64 = securityTargetBlockTypesValuePt.second.get_value<uint64_t>();
-                if (m_securityTargetBlockTypes.insert(securityTargetBlockTypeU64).second == false) { //not inserted
-                    LOG_ERROR(subprocess) << "error parsing JSON policy rules: duplicate securityTargetBlockType " << securityTargetBlockTypeU64;
-                    return false;
-                }
+        //if (m_securityRole == "source") {
+        const boost::property_tree::ptree& securityTargetBlockTypesPt = pt.get_child("securityTargetBlockTypes", EMPTY_PTREE); //non-throw version
+        m_securityTargetBlockTypes.clear();
+        BOOST_FOREACH(const boost::property_tree::ptree::value_type & securityTargetBlockTypesValuePt, securityTargetBlockTypesPt) {
+            const uint64_t securityTargetBlockTypeU64 = securityTargetBlockTypesValuePt.second.get_value<uint64_t>();
+            if (m_securityTargetBlockTypes.insert(securityTargetBlockTypeU64).second == false) { //not inserted
+                LOG_ERROR(subprocess) << "error parsing JSON policy rules: duplicate securityTargetBlockType " << securityTargetBlockTypeU64;
+                return false;
             }
         }
+        
 
         m_securityService = pt.get<std::string>("securityService");
         m_securityContext = pt.get<std::string>("securityContext");
@@ -496,6 +496,7 @@ bool policy_rules_t::SetValuesFromPropertyTree(const boost::property_tree::ptree
             if (!securityContextParam.SetValuesFromPropertyTree(securityContextParamsConfigPt.second)) {
                 return false;
             }
+#if 0 //verifiers and acceptors should allow all params to compare that they are expected to detect misconfigurations
             static const std::set<BPSEC_SECURITY_CONTEXT_PARAM_NAME> allowedVerifierAcceptorParamNames = {
                 BPSEC_SECURITY_CONTEXT_PARAM_NAME::KEY_ENCRYPTION_KEY_FILE,
                 BPSEC_SECURITY_CONTEXT_PARAM_NAME::KEY_FILE 
@@ -505,6 +506,7 @@ bool policy_rules_t::SetValuesFromPropertyTree(const boost::property_tree::ptree
                     << paramToStringNameLut[static_cast<uint64_t>(securityContextParam.m_paramName)] << " param name was found";
                 return false;
             }
+#endif
         }
     }
     catch (const boost::property_tree::ptree_error& e) {
@@ -536,15 +538,15 @@ boost::property_tree::ptree policy_rules_t::GetNewPropertyTree() const {
         bundleFinalDestPt.push_back(std::make_pair("", boost::property_tree::ptree(*bundleFinalDestIt))); //using "" as key creates json array
     }
 
-    if (m_securityRole == "source") {
-        boost::property_tree::ptree& securityTargetBlockTypesPt = pt.put_child("securityTargetBlockTypes",
-            m_securityTargetBlockTypes.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
-        for (std::set<uint64_t>::const_iterator securityTargetBlockTypesIt = m_securityTargetBlockTypes.cbegin();
-            securityTargetBlockTypesIt != m_securityTargetBlockTypes.cend(); ++securityTargetBlockTypesIt)
-        {
-            securityTargetBlockTypesPt.push_back(std::make_pair("", boost::property_tree::ptree(boost::lexical_cast<std::string>(*securityTargetBlockTypesIt))));
-        }
+    //if (m_securityRole == "source") {
+    boost::property_tree::ptree& securityTargetBlockTypesPt = pt.put_child("securityTargetBlockTypes",
+        m_securityTargetBlockTypes.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
+    for (std::set<uint64_t>::const_iterator securityTargetBlockTypesIt = m_securityTargetBlockTypes.cbegin();
+        securityTargetBlockTypesIt != m_securityTargetBlockTypes.cend(); ++securityTargetBlockTypesIt)
+    {
+        securityTargetBlockTypesPt.push_back(std::make_pair("", boost::property_tree::ptree(boost::lexical_cast<std::string>(*securityTargetBlockTypesIt))));
     }
+    
 
     pt.put("securityService", m_securityService);
     pt.put("securityContext", m_securityContext);

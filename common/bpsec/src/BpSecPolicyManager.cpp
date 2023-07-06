@@ -243,14 +243,13 @@ const BpSecPolicy* BpSecPolicyManager::FindPolicyWithCacheSupport(const cbhe_eid
 }
 
 
-static bool DoFailureEvent(BundleViewV7& bv, const BpSecPolicy* bpSecPolicyPtr,
+static bool DoFailureEvent(BundleViewV7& bv, const BpSecPolicy* bpSecPolicyPtr, const BpSecBundleProcessor::ReturnResult& res,
     BundleViewV7::Bpv7CanonicalBlockView& asbBlockView, Bpv7AbstractSecurityBlock* asbPtr, const bool isAcceptor, const bool isIntegrity)
 {
     const event_type_to_event_set_ptr_lut_t& evtLut = (isIntegrity) ?
         bpSecPolicyPtr->m_integritySecurityFailureEventSetReferencePtr->m_eventTypeToEventSetPtrLut :
         bpSecPolicyPtr->m_confidentialitySecurityFailureEventSetReferencePtr->m_eventTypeToEventSetPtrLut;
     const char* securityServiceStr = (isIntegrity) ? "integrity" : "confidentiality";
-    typedef BPSEC_SECURITY_FAILURE_EVENT event_t;
     typedef BPSEC_SECURITY_FAILURE_PROCESSING_ACTION_MASKS action_mask_t;
     bool asbTargetsPayloadBlock = false;
     for (Bpv7AbstractSecurityBlock::security_targets_t::const_iterator it = asbPtr->m_securityTargets.cbegin();
@@ -280,17 +279,27 @@ static bool DoFailureEvent(BundleViewV7& bv, const BpSecPolicy* bpSecPolicyPtr,
             return false; //drop bundle
         }
 
-        if (evtLut[static_cast<uint8_t>(BPSEC_SECURITY_FAILURE_EVENT::SECURITY_OPERATION_CORRUPTED_AT_ACCEPTOR)]) {
+        BPSEC_SECURITY_FAILURE_EVENT evt = BPSEC_SECURITY_FAILURE_EVENT::UNDEFINED;
+        const char* evtString = "";
+        if (res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::CORRUPTED) {
+            evt = BPSEC_SECURITY_FAILURE_EVENT::SECURITY_OPERATION_CORRUPTED_AT_ACCEPTOR;
+            evtString = "SECURITY_OPERATION_CORRUPTED_AT_ACCEPTOR";
+        }
+        else if (res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED) {
+            evt = BPSEC_SECURITY_FAILURE_EVENT::SECURITY_OPERATION_MISCONFIGURED_AT_ACCEPTOR;
+            evtString = "SECURITY_OPERATION_MISCONFIGURED_AT_ACCEPTOR";
+        }
+        if(evtLut[static_cast<uint8_t>(evt)]) {
             //required actions: remove SOp
             asbBlockView.markedForDeletion = true;
 
             
 
-            action_mask_t actionMask = evtLut[static_cast<uint8_t>(event_t::SECURITY_OPERATION_CORRUPTED_AT_ACCEPTOR)]->m_actionMasks;
+            action_mask_t actionMask = evtLut[static_cast<uint8_t>(evt)]->m_actionMasks;
             if ((actionMask & action_mask_t::FAIL_BUNDLE_FORWARDING) != action_mask_t::NO_ACTIONS_SET) { //optional action
                 static thread_local bool printedMsg = false;
                 if (!printedMsg) {
-                    LOG_WARNING(subprocess) << "first time SECURITY_OPERATION_CORRUPTED_AT_ACCEPTOR from source node "
+                    LOG_WARNING(subprocess) << "first time " << evtString << " from source node "
                         << bv.m_primaryBlockView.header.m_sourceNodeId
                         << ".. FAIL_BUNDLE_FORWARDING specified (bundle shall be dropped)..(This message type will now be suppressed.)";
                     printedMsg = true;
@@ -301,7 +310,7 @@ static bool DoFailureEvent(BundleViewV7& bv, const BpSecPolicy* bpSecPolicyPtr,
                 if (asbTargetsPayloadBlock) {
                     static thread_local bool printedMsg = false;
                     if (!printedMsg) {
-                        LOG_WARNING(subprocess) << "first time SECURITY_OPERATION_CORRUPTED_AT_ACCEPTOR from source node "
+                        LOG_WARNING(subprocess) << "first time " << evtString << " from source node "
                             << bv.m_primaryBlockView.header.m_sourceNodeId
                             << ".. REMOVE_SECURITY_OPERATION_TARGET_BLOCK specified but target(s) includes payload block, (bundle shall be dropped)..(This message type will now be suppressed.)";
                         printedMsg = true;
@@ -311,7 +320,7 @@ static bool DoFailureEvent(BundleViewV7& bv, const BpSecPolicy* bpSecPolicyPtr,
                 else {
                     static thread_local bool printedMsg = false;
                     if (!printedMsg) {
-                        LOG_WARNING(subprocess) << "first time SECURITY_OPERATION_CORRUPTED_AT_ACCEPTOR from source node "
+                        LOG_WARNING(subprocess) << "first time " << evtString << " from source node "
                             << bv.m_primaryBlockView.header.m_sourceNodeId
                             << ".. REMOVE_SECURITY_OPERATION_TARGET_BLOCK specified ..(This message type will now be suppressed.)";
                         printedMsg = true;
@@ -335,13 +344,25 @@ static bool DoFailureEvent(BundleViewV7& bv, const BpSecPolicy* bpSecPolicyPtr,
         }
     }
     else { //verifier
-        if (evtLut[static_cast<uint8_t>(BPSEC_SECURITY_FAILURE_EVENT::SECURITY_OPERATION_CORRUPTED_AT_VERIFIER)]) {
-            action_mask_t actionMask = evtLut[static_cast<uint8_t>(event_t::SECURITY_OPERATION_CORRUPTED_AT_VERIFIER)]->m_actionMasks;
+        //SOp corrupted and SOp misconfigured
+        BPSEC_SECURITY_FAILURE_EVENT evt = BPSEC_SECURITY_FAILURE_EVENT::UNDEFINED;
+        const char* evtString = "";
+        if (res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::CORRUPTED) {
+            evt = BPSEC_SECURITY_FAILURE_EVENT::SECURITY_OPERATION_CORRUPTED_AT_VERIFIER;
+            evtString = "SECURITY_OPERATION_CORRUPTED_AT_VERIFIER";
+        }
+        else if (res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED) {
+            evt = BPSEC_SECURITY_FAILURE_EVENT::SECURITY_OPERATION_MISCONFIGURED_AT_VERIFIER;
+            evtString = "SECURITY_OPERATION_MISCONFIGURED_AT_VERIFIER";
+        }
+        if (evtLut[static_cast<uint8_t>(evt)]) {
+        
+            action_mask_t actionMask = evtLut[static_cast<uint8_t>(evt)]->m_actionMasks;
             bool tookAction = false;
             if ((actionMask & action_mask_t::REMOVE_SECURITY_OPERATION) != action_mask_t::NO_ACTIONS_SET) { //optional action
                 static thread_local bool printedMsg = false;
                 if (!printedMsg) {
-                    LOG_WARNING(subprocess) << "first time SECURITY_OPERATION_CORRUPTED_AT_VERIFIER from source node "
+                    LOG_WARNING(subprocess) << "first time " << evtString << " from source node "
                         << bv.m_primaryBlockView.header.m_sourceNodeId
                         << ".. REMOVE_SECURITY_OPERATION specified..(This message type will now be suppressed.)";
                     printedMsg = true;
@@ -352,7 +373,7 @@ static bool DoFailureEvent(BundleViewV7& bv, const BpSecPolicy* bpSecPolicyPtr,
             if ((actionMask & action_mask_t::FAIL_BUNDLE_FORWARDING) != action_mask_t::NO_ACTIONS_SET) { //optional action
                 static thread_local bool printedMsg = false;
                 if (!printedMsg) {
-                    LOG_WARNING(subprocess) << "first time SECURITY_OPERATION_CORRUPTED_AT_VERIFIER from source node "
+                    LOG_WARNING(subprocess) << "first time " << evtString << " from source node "
                         << bv.m_primaryBlockView.header.m_sourceNodeId
                         << ".. FAIL_BUNDLE_FORWARDING specified (bundle shall be dropped)..(This message type will now be suppressed.)";
                     printedMsg = true;
@@ -364,7 +385,7 @@ static bool DoFailureEvent(BundleViewV7& bv, const BpSecPolicy* bpSecPolicyPtr,
                 if (asbTargetsPayloadBlock) {
                     static thread_local bool printedMsg = false;
                     if (!printedMsg) {
-                        LOG_WARNING(subprocess) << "first time SECURITY_OPERATION_CORRUPTED_AT_VERIFIER from source node "
+                        LOG_WARNING(subprocess) << "first time " << evtString << " from source node "
                             << bv.m_primaryBlockView.header.m_sourceNodeId
                             << ".. REMOVE_SECURITY_OPERATION_TARGET_BLOCK specified but target(s) includes payload block, (bundle shall be dropped)..(This message type will now be suppressed.)";
                         printedMsg = true;
@@ -374,7 +395,7 @@ static bool DoFailureEvent(BundleViewV7& bv, const BpSecPolicy* bpSecPolicyPtr,
                 else {
                     static thread_local bool printedMsg = false;
                     if (!printedMsg) {
-                        LOG_WARNING(subprocess) << "first time SECURITY_OPERATION_CORRUPTED_AT_VERIFIER from source node "
+                        LOG_WARNING(subprocess) << "first time " << evtString << " from source node "
                             << bv.m_primaryBlockView.header.m_sourceNodeId
                             << ".. REMOVE_SECURITY_OPERATION_TARGET_BLOCK specified ..(This message type will now be suppressed.)";
                         printedMsg = true;
@@ -400,7 +421,7 @@ static bool DoFailureEvent(BundleViewV7& bv, const BpSecPolicy* bpSecPolicyPtr,
     return true;
 }
 
-bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx) const {
+bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx, BpSecBundleProcessor::ReturnResult& res) const {
     bool hadError = false;
     const Bpv7CbhePrimaryBlock& primary = bv.m_primaryBlockView.header;
     bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, ctx.m_tmpBlocks);
@@ -429,20 +450,38 @@ bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProc
             continue;
         }
 
+        BpSecBundleProcessor::ConfidentialityReceivedParameters crp;
+        crp.keyEncryptionKey = bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.empty() ?
+            NULL : bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.data(), //NULL if not present (for wrapping DEK only)
+        crp.keyEncryptionKeyLength = static_cast<unsigned int>(bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.size());
+        crp.dataEncryptionKey = bpSecPolicyPtr->m_dataEncryptionKey.empty() ?
+            NULL : bpSecPolicyPtr->m_dataEncryptionKey.data(); //NULL if not present (when no wrapped key is present)
+        crp.dataEncryptionKeyLength = static_cast<unsigned int>(bpSecPolicyPtr->m_dataEncryptionKey.size());
+        crp.expectedIvLength = bpSecPolicyPtr->m_use12ByteIv ? 12 : 16;
+        crp.expectedVariant = bpSecPolicyPtr->m_confidentialityVariant;
+        crp.expectedAadScopeMask = bpSecPolicyPtr->m_aadScopeMask;
+        crp.expectedTargetBlockTypesMask = 0;
+        for (FragmentSet::data_fragment_set_t::const_iterator it = bpSecPolicyPtr->m_bcbBlockTypeTargets.cbegin();
+            it != bpSecPolicyPtr->m_bcbBlockTypeTargets.cend(); ++it)
+        {
+            const FragmentSet::data_fragment_t& df = *it;
+            for (uint64_t blockType = df.beginIndex; blockType <= df.endIndex; ++blockType) {
+                crp.expectedTargetBlockTypesMask |= ((uint64_t)(1)) << blockType;
+            }
+        }
+
         //does not rerender in place here, there are more ops to complete after decryption and then a manual render-in-place will be called later
-        if (!BpSecBundleProcessor::TryDecryptBundleByIndividualBcb(ctx.m_evpCtxWrapper,
+        res = BpSecBundleProcessor::TryDecryptBundleByIndividualBcb(ctx.m_evpCtxWrapper,
             ctx.m_ctxWrapperKeyWrapOps,
             bv,
             bcbBlockView,
-            bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.empty() ? NULL : bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.data(), //NULL if not present (for wrapping DEK only)
-            static_cast<unsigned int>(bpSecPolicyPtr->m_confidentialityKeyEncryptionKey.size()),
-            bpSecPolicyPtr->m_dataEncryptionKey.empty() ? NULL : bpSecPolicyPtr->m_dataEncryptionKey.data(), //NULL if not present (when no wrapped key is present)
-            static_cast<unsigned int>(bpSecPolicyPtr->m_dataEncryptionKey.size()),
+            crp,
             ctx.m_bpsecReusableElementsInternal,
-            verifyOnly))
-        {
+            verifyOnly);
+        if (res.errorCode != BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS) {
             hadError = true;
-            bool dontDropBundle = DoFailureEvent(bv, bpSecPolicyPtr, bcbBlockView, bcbPtr, !verifyOnly, false);
+            bool dontDropBundle = DoFailureEvent(bv, bpSecPolicyPtr, res,
+                bcbBlockView, bcbPtr, !verifyOnly, false);
 
             static thread_local bool printedMsg = false;
             if (!printedMsg) {
@@ -506,20 +545,35 @@ bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProc
             continue;
         }
 
+        BpSecBundleProcessor::IntegrityReceivedParameters irp;
+        irp.keyEncryptionKey = bpSecPolicyPtr->m_hmacKeyEncryptionKey.empty() ?
+            NULL : bpSecPolicyPtr->m_hmacKeyEncryptionKey.data(); //NULL if not present (for unwrapping hmac key only)
+        irp.keyEncryptionKeyLength = static_cast<unsigned int>(bpSecPolicyPtr->m_hmacKeyEncryptionKey.size());
+        irp.hmacKey = bpSecPolicyPtr->m_hmacKey.empty() ?
+            NULL : bpSecPolicyPtr->m_hmacKey.data(), //NULL if not present (when no wrapped key is present)
+            irp.hmacKeyLength = static_cast<unsigned int>(bpSecPolicyPtr->m_hmacKey.size());
+        irp.expectedVariant = bpSecPolicyPtr->m_integrityVariant;
+        irp.expectedScopeMask = bpSecPolicyPtr->m_integrityScopeMask;
+        irp.expectedTargetBlockTypesMask = 0;
+        for (FragmentSet::data_fragment_set_t::const_iterator it = bpSecPolicyPtr->m_bibBlockTypeTargets.cbegin();
+            it != bpSecPolicyPtr->m_bibBlockTypeTargets.cend(); ++it)
+        {
+            const FragmentSet::data_fragment_t& df = *it;
+            for (uint64_t blockType = df.beginIndex; blockType <= df.endIndex; ++blockType) {
+                irp.expectedTargetBlockTypesMask |= ((uint64_t)(1)) << blockType;;
+            }
+        }
         //does not rerender in place here, there are more ops to complete after decryption and then a manual render-in-place will be called later
-        if (!BpSecBundleProcessor::TryVerifyBundleIntegrityByIndividualBib(ctx.m_hmacCtxWrapper,
+        res = BpSecBundleProcessor::TryVerifyBundleIntegrityByIndividualBib(ctx.m_hmacCtxWrapper,
             ctx.m_ctxWrapperKeyWrapOps,
             bv,
             bibBlockView,
-            bpSecPolicyPtr->m_hmacKeyEncryptionKey.empty() ? NULL : bpSecPolicyPtr->m_hmacKeyEncryptionKey.data(), //NULL if not present (for unwrapping hmac key only)
-            static_cast<unsigned int>(bpSecPolicyPtr->m_hmacKeyEncryptionKey.size()),
-            bpSecPolicyPtr->m_hmacKey.empty() ? NULL : bpSecPolicyPtr->m_hmacKey.data(), //NULL if not present (when no wrapped key is present)
-            static_cast<unsigned int>(bpSecPolicyPtr->m_hmacKey.size()),
+            irp,
             ctx.m_bpsecReusableElementsInternal,
-            markBibForDeletion))
-        {
+            markBibForDeletion);
+        if (res.errorCode != BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS) {
             hadError = true;
-            bool dontDropBundle = DoFailureEvent(bv, bpSecPolicyPtr, bibBlockView, bibPtr, markBibForDeletion, true);
+            bool dontDropBundle = DoFailureEvent(bv, bpSecPolicyPtr, res, bibBlockView, bibPtr, markBibForDeletion, true);
 
             static thread_local bool printedMsg = false;
             if (!printedMsg) {

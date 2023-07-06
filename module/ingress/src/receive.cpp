@@ -1151,8 +1151,19 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
 #ifdef BPSEC_SUPPORT_ENABLED
                 //process acceptor and verifier roles
                 static thread_local BpSecPolicyProcessingContext policyProcessingCtx;
-                if (!m_bpSecPolicyManager.ProcessReceivedBundle(bv, policyProcessingCtx)) {
-                    return false;
+                BpSecBundleProcessor::ReturnResult res;
+                const bool dontDropBundle = m_bpSecPolicyManager.ProcessReceivedBundle(bv, policyProcessingCtx, res);
+                if (res.errorCode != BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS) {
+                    static thread_local bool printedMsg = false;
+                    if (!printedMsg) {
+                        LOG_WARNING(subprocess) << "first time this induct thread got bpsec error from source node "
+                            << bv.m_primaryBlockView.header.m_sourceNodeId
+                            << ": " << *res.errorStringPtr << ".. (This message type will now be suppressed.)";
+                        printedMsg = true;
+                    }
+                }
+                if(!dontDropBundle) {
+                    return false; //drop bundle
                 }
 #endif // BPSEC_SUPPORT_ENABLED
                 //get previous node
