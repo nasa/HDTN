@@ -40,15 +40,15 @@
                     <button class="policyQuitBtn" onclick="closeForm()">X</button>
                 </div>
                 <div class="input">
-                    <label for="description">Description</label>
+                    <label>Description</label>
                     <input type="text" id="description">
                 </div>
                 <div class="input">
-                    <label for="securityPolicyRuleID">Security Policy ID</label>
+                    <label>Security Policy ID</label>
                     <input type="number" id="securityPolicyRuleID">
                 </div>
                 <div class="input">
-                    <label for="securityRole">Security Role</label>
+                    <label>Security Role</label>
                     <select id="roleType" required>
                         <option value="acceptor">acceptor</option>
                         <option value="verifier">verifier</option>
@@ -57,19 +57,15 @@
                 </div>
                 <div class="input">
                     <label>Security Source</label>
-                    <input type="number" id="securitySource" required>
+                    <input type="number" id="securitySource" step=".01" required>
                 </div>
                 <div class="input">
                     <label>Bundle Source</label>
-                    <input type="number" id="bundleSource" required>
+                    <input type="number" id="bundleSource" step=".01" required>
                 </div>
                 <div class="input">
                     <label>Bundle Final Destination</label>
-                    <input type="number" id="bundleDestination" required>
-                </div>
-                <div class="input">
-                    <label>Target Block Type</label>
-                    <input type="range" min="0" max="13" step="1" id="targetBlockType" required>
+                    <input type="number" id="bundleDestination" step=".01" required>
                 </div>
                 <div class="input">
                     <label>Security Service</label>
@@ -79,37 +75,44 @@
                     </select>
                 </div>
                 <div class="sourceType" id="sourceType" style="display: none; flex-direction: column;">
-                    <h3>Security Parameters</h3>
-                    <div class="aesVariant" id="aesVariantDiv" style="display: flex; flex-direction: row; justify-content: space-between;">
+                    <div class="input">
+                        <label>Security Target Block Type</label>
+                        <input type="range" min="0" max="13" step="1" value="0" id="targetBlockType" oninput="this.nextElementSibling.value = this.value" required>
+                        <output>0</output>
+                    </div>
+                    <h3>Security Parameters for Source</h3>
+                    <div class="aesVariant" id="aesVariantDiv"
+                        style="display: flex; flex-direction: row; justify-content: space-between;">
                         <label>AES Variant</label>
                         <select id="aesVariant">
                             <option>128</option>
-                            <option>256</option>
+                            <option selected>256</option>
                         </select>
                     </div>
-                    <div class="shaVariant" id="shaVariantDiv" style="display: none; flex-direction: row; justify-content: space-between;">
+                    <div class="shaVariant" id="shaVariantDiv"
+                        style="display: none; flex-direction: row; justify-content: space-between;">
                         <label>SHA Varient</label>
                         <select id="shaVariant">
                             <option>256</option>
-                            <option>384</option>
+                            <option selected>384</option>
                             <option>512</option>
                         </select>
                     </div>
                     <div class="input">
                         <label>IV Size(Bytes)</label>
                         <select id="ivSize">
-                            <option>12</option>
+                            <option selected>12</option>
                             <option>16</option>
                         </select>
                     </div>
                     <div class="input">
                         <label>Scope Flags</label>
-                        <input type="number" min="0" max="7" id="scopeFlags">
+                        <input type="number" min="0" max="7" value="7" id="scopeFlags">
                     </div>
                     <div class="input">
                         <label>Security Block CRC</label>
                         <select id="securityBlockCRC">
-                            <option>0</option>
+                            <option selected>0</option>
                             <option>16</option>
                             <option>32</option>
                         </select>
@@ -117,21 +120,75 @@
                 </div>
                 <label>Key File</label>
                 <input type="file" id="keyFile" required>
-                <button onclick="checkNewPolicy()">Add Policy</button>
+                <button type="submit" onclick="checkNewPolicy()">Add Policy</button>
             </div>
         </div>
     </div>
 
     <link type="text/css" rel="stylesheet" href="./css/style.css" />
 
+    <script type="text/javascript" src="./Scripts/jquery-3.6.0.slim.min.js"></script>
     <script>
-        let bpsec_config = null;
         function openForm() {
             document.getElementById("popupForm").style.display = "flex";
         }
 
         function closeForm() {
             document.getElementById("popupForm").style.display = "none";
+
+        }
+
+        function checkNewPolicy(event) {
+            console.log("New Policy for a " + roleField.value);
+
+            //check the node ids for the policies
+            var securitySource = document.getElementById("securitySource");
+            var ipRegex = /\d{1,2}\.(\d{1,2}[^1])|1\.1|1\.\d{1,2}$/g; //for ips of *.*, 1.*, 1.1
+
+            if (!ipRegex.test(securitySource.value)) {
+                alert('Invalid Security Source\nValid Security Source are 1.*, *.*, or 1.1')
+                console.log("Error: Wrong value for security source");
+                securitySource.value = '';
+            }
+
+            var bundleSource = document.getElementById('bundleSource');
+            var ipRegex2 = /\d{1,2}\.(\d{1,2}[^1])|1\.1|1\.\d{1,2}$/g; //for ips of *.*, 1.*, 1.1
+
+            if (!ipRegex2.test(bundleSource.value)) {
+                alert('Invalid Bundle Source\nValid Bundle Source are 1.*, *.*, or 1.1')
+                console.log("Error: Wrong value for bundle source");
+                bundleSource.value = '';
+            }
+
+            var bundleDestination = document.getElementById('bundleDestination');
+            var ipRegex3 = /\d{1,2}\.(\d{1,2}[^1])|1\.1|1\.\d{1,2}$/g; //for ips of *.*, 1.*, 1.1
+
+            if (!ipRegex3.test(bundleDestination.value)) {
+                alert('Invalid Bundle Destination\nValid Bundle Destination are 1.*, *.*, or 1.1')
+                console.log("Error: Wrong value for bundle Destination");
+                bundleDestination.value = '';
+            }
+
+            //check the security params for security role source
+            if (roleField.value === 'source') {
+                var scopeFlags = document.getElementById('scopeFlags');
+                if (((scopeFlags.value) % 1) != 0) {
+                    alert('Invalid Scope Flag\nValid Scope Flag is whole numbers between 0-7');
+                    console.log('Invalid scope flag. Decmial');
+                    scopeFlags.value = '7';
+                }
+            }
+
+            //check the file type of the form
+            var fileInput = document.getElementById("keyFile");
+            var filePath = fileInput.value;
+
+            var fileRegex = /\.key$/i;
+            if (!fileRegex.test(filePath)) {
+                alert('Invalid file type');
+                console.log("Error: Wrong File Type.");
+                fileInput.value = '';
+            }
         }
 
         var roleField = document.getElementById('roleType');
@@ -147,6 +204,7 @@
         var securityService = document.getElementById('securityService');
         securityService.addEventListener('change', function () {
             if (securityService.value === 'aes') {
+                console.log("switch tabs");
                 document.getElementById('aesVariantDiv').style.display = 'flex';
                 document.getElementById('shaVariantDiv').style.display = 'none';
             } else {
@@ -155,15 +213,9 @@
             }
         });
 
-        function HandleReceivedNewHdtnConfig(hdtnConfig) {
-            //Separate data for each module
-            var bpsecConfig = hdtnConfig.bpsecConfig;
-
-            //Delete module data from overall config
-            delete hdtnConfig.bpsecConfig;
-
-            createTable(bpsecConfig, 'listBPSecJSON');
-        }
+        $(document).on('submit', '#form', function (event) {
+            checkNewPolicy();
+        });
 
         function createTable(json, tag) {
             var div = document.getElementById(tag);
@@ -200,79 +252,6 @@
             newTable += "</table>";
             div.innerHTML = newTable;
         }
-
-        function UpdateWithData(objJson) {
-            if ("hdtnConfigName" in objJson) {
-                HandleReceivedNewHdtnConfig(objJson);
-            }
-            else if (hdtnConfig == null) {
-                console.log("error, out of order command, hdtnConfig must be received first");
-            }
-            else {
-            }
-        }
-
-        function checkNewPolicy() {
-            console.log("New Policy for a " + roleField.value);
-            var securitySource = document.getElementById("securitySource");
-            var ipRegex = /^\d+(\.\d{1,2})?|1+(\.[1])|1+(\.\d{1,2})$/; //for ips of *.*, 1.*, 1.1
-
-            var fileInput = getElementById("keyFile");
-            var filePath = fileInput.value;
-
-            var fileRegex = /\.key$/i;
-            if (!fileRegex.exec(filePath)) {
-                alert('Invalid file type');
-                fileInput.value = '';
-            }
-        }
-
-        var connection = null;
-        window.addEventListener("load", function (event) {
-            console.log("All resources finished loading!");
-            if (!("WebSocket" in window)) {
-                alert("WebSocket is not supported by your Browser!");
-            }
-            else {
-                var wsproto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
-                connection = new WebSocket(wsproto + '//' + window.location.host + '/websocket');
-                connection.binaryType = "arraybuffer";
-
-
-                //This event occurs when socket connection is established.
-                connection.onopen = function () {
-                    console.log("ws opened");
-                }
-
-                //This event occurs when connection is closed.
-                connection.onclose = function () {
-                    console.log("ws closed");
-                }
-
-                //This event occurs when client receives data from server.
-                connection.onmessage = function (e) {
-                    if (e.data instanceof ArrayBuffer) { //this is binary data
-                        console.log("binary data received.. ignoring");
-                    }
-                    else { //this is text data such as json
-                        if (e.data === "Hello websocket") {
-                            console.log(e.data);
-                        }
-                        else { //json data
-                            var obj = JSON.parse(e.data); //this could error based on encodings
-                            UpdateWithData(obj);
-
-                        }
-                    }
-                }
-
-                //This event occurs when there is any error in communication.
-                connection.onerror = function (error) {
-                    connection.close();
-                }
-            } //running http(s)
-
-        });
     </script>
 </body>
 
