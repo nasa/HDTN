@@ -1,0 +1,20 @@
+{
+    "outductConfigName": "myconfig",
+    "outductVector": [
+        {
+            "name": "bpgen",
+            "convergenceLayer": "udp",
+            "nextHopNodeId": 10,
+            "remoteHostname": "localhost",
+            "remotePort": 7132,
+            "maxNumberOfBundlesInPipeline": 5,
+            "maxSumOfBundleBytesInPipeline": 50000000,
+            "finalDestinationEidUris": [
+                "ipn:1.*",
+                "ipn:2.*",
+                "ipn:3.*"
+            ],
+            "udpRateBps": 500000
+        }
+    ]
+}
