@@ -144,8 +144,10 @@ bool BpReceivePacketRunner::Run(int argc, const char* const argv[], volatile boo
 	    return false;
         }
 
-        bpReceivePacket.socketInit(packetOutductsConfigPtr, myEid, maxBundleSizeBytes);
-
+        if (!bpReceivePacket.socketInit(packetOutductsConfigPtr, myEid, maxBundleSizeBytes)) {
+	    LOG_FATAL(subprocess) << "Cannot initialize Packet outduct!";
+	    return false;
+	}
 
         if (useSignalHandler) {
             sigHandler.Start(false);
