@@ -81,6 +81,7 @@ public:
     uint64_t m_maxIngressBundleWaitOnEgressMilliseconds;
     bool m_bufferRxToStorageOnLinkUpSaturation;
     uint64_t m_maxLtpReceiveUdpPacketSizeBytes;
+    bool m_enforceBundlePriority;
 
     uint64_t m_neighborDepletedStorageDelaySeconds;
     uint64_t m_fragmentBundlesLargerThanBytes;

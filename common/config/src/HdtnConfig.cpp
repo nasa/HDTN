@@ -41,6 +41,7 @@ HdtnConfig::HdtnConfig() :
     m_maxLtpReceiveUdpPacketSizeBytes(65536),
     m_neighborDepletedStorageDelaySeconds(0),
     m_fragmentBundlesLargerThanBytes(0),
+    m_enforceBundlePriority(false),
     m_zmqBoundRouterPubSubPortPath(10200),
     m_zmqBoundTelemApiPortPath(10305),
     m_inductsConfig(),
@@ -71,6 +72,7 @@ HdtnConfig::HdtnConfig(const HdtnConfig& o) :
     m_maxLtpReceiveUdpPacketSizeBytes(o.m_maxLtpReceiveUdpPacketSizeBytes),
     m_neighborDepletedStorageDelaySeconds(o.m_neighborDepletedStorageDelaySeconds),
     m_fragmentBundlesLargerThanBytes(o.m_fragmentBundlesLargerThanBytes),
+    m_enforceBundlePriority(o.m_enforceBundlePriority),
     m_zmqBoundRouterPubSubPortPath(o.m_zmqBoundRouterPubSubPortPath),
     m_zmqBoundTelemApiPortPath(o.m_zmqBoundTelemApiPortPath),
     m_inductsConfig(o.m_inductsConfig),
@@ -98,6 +100,7 @@ HdtnConfig::HdtnConfig(HdtnConfig&& o) noexcept :
     m_maxLtpReceiveUdpPacketSizeBytes(o.m_maxLtpReceiveUdpPacketSizeBytes),
     m_neighborDepletedStorageDelaySeconds(o.m_neighborDepletedStorageDelaySeconds),
     m_fragmentBundlesLargerThanBytes(o.m_fragmentBundlesLargerThanBytes),
+    m_enforceBundlePriority(o.m_enforceBundlePriority),
     m_zmqBoundRouterPubSubPortPath(o.m_zmqBoundRouterPubSubPortPath),
     m_zmqBoundTelemApiPortPath(o.m_zmqBoundTelemApiPortPath),
     m_inductsConfig(std::move(o.m_inductsConfig)),
@@ -125,6 +128,7 @@ HdtnConfig& HdtnConfig::operator=(const HdtnConfig& o) {
     m_maxLtpReceiveUdpPacketSizeBytes = o.m_maxLtpReceiveUdpPacketSizeBytes;
     m_neighborDepletedStorageDelaySeconds = o.m_neighborDepletedStorageDelaySeconds;
     m_fragmentBundlesLargerThanBytes = o.m_fragmentBundlesLargerThanBytes;
+    m_enforceBundlePriority = o.m_enforceBundlePriority;
     m_zmqBoundRouterPubSubPortPath = o.m_zmqBoundRouterPubSubPortPath;
     m_zmqBoundTelemApiPortPath = o.m_zmqBoundTelemApiPortPath;
     m_inductsConfig = o.m_inductsConfig;
@@ -153,6 +157,7 @@ HdtnConfig& HdtnConfig::operator=(HdtnConfig&& o) noexcept {
     m_maxLtpReceiveUdpPacketSizeBytes = o.m_maxLtpReceiveUdpPacketSizeBytes;
     m_neighborDepletedStorageDelaySeconds = o.m_neighborDepletedStorageDelaySeconds;
     m_fragmentBundlesLargerThanBytes = o.m_fragmentBundlesLargerThanBytes;
+    m_enforceBundlePriority = o.m_enforceBundlePriority;
     m_zmqBoundRouterPubSubPortPath = o.m_zmqBoundRouterPubSubPortPath;
     m_zmqBoundTelemApiPortPath = o.m_zmqBoundTelemApiPortPath;
     m_inductsConfig = std::move(o.m_inductsConfig);
@@ -180,6 +185,7 @@ bool HdtnConfig::operator==(const HdtnConfig & o) const {
         (m_maxLtpReceiveUdpPacketSizeBytes == o.m_maxLtpReceiveUdpPacketSizeBytes) &&
         (m_neighborDepletedStorageDelaySeconds == o.m_neighborDepletedStorageDelaySeconds) &&
         (m_fragmentBundlesLargerThanBytes == o.m_fragmentBundlesLargerThanBytes) &&
+        (m_enforceBundlePriority == o.m_enforceBundlePriority) &&
         (m_zmqBoundRouterPubSubPortPath == o.m_zmqBoundRouterPubSubPortPath) &&
         (m_zmqBoundTelemApiPortPath == o.m_zmqBoundTelemApiPortPath) &&
         (m_inductsConfig == o.m_inductsConfig) &&
@@ -215,6 +221,7 @@ bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & p
         m_maxLtpReceiveUdpPacketSizeBytes = pt.get<uint64_t>("maxLtpReceiveUdpPacketSizeBytes");
         m_neighborDepletedStorageDelaySeconds = pt.get<uint64_t>("neighborDepletedStorageDelaySeconds");
         m_fragmentBundlesLargerThanBytes = pt.get<uint64_t>("fragmentBundlesLargerThanBytes");
+        m_enforceBundlePriority = pt.get<bool>("enforceBundlePriority");
 
         m_zmqBoundRouterPubSubPortPath = pt.get<uint16_t>("zmqBoundRouterPubSubPortPath");
         m_zmqBoundTelemApiPortPath = pt.get<uint16_t>("zmqBoundTelemApiPortPath");
@@ -314,6 +321,7 @@ boost::property_tree::ptree HdtnConfig::GetNewPropertyTree() const {
     pt.put("maxLtpReceiveUdpPacketSizeBytes", m_maxLtpReceiveUdpPacketSizeBytes);
     pt.put("neighborDepletedStorageDelaySeconds", m_neighborDepletedStorageDelaySeconds);
     pt.put("fragmentBundlesLargerThanBytes", m_fragmentBundlesLargerThanBytes);
+    pt.put("enforceBundlePriority", m_enforceBundlePriority);
 
     pt.put("zmqBoundRouterPubSubPortPath", m_zmqBoundRouterPubSubPortPath);
     pt.put("zmqBoundTelemApiPortPath", m_zmqBoundTelemApiPortPath);
