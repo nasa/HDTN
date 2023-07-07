@@ -404,11 +404,13 @@ bool ZmqStorageInterface::Impl::WriteAcsBundle(const Bpv6CbhePrimaryBlock & prim
     return true;
 }
 
-static void CustomCleanupDepletedStorageReportHdr(void *data, void *hint) {
+static void CustomCleanupDepletedStorageReportHdr(void *data, void *hint)
+{
     delete static_cast<hdtn::DepletedStorageReportHdr*>(hint);
 }
 
-void ZmqStorageInterface::Impl::ReportDepletedStorage(cbhe_eid_t &eid) {
+void ZmqStorageInterface::Impl::ReportDepletedStorage(cbhe_eid_t &eid)
+{
     if(!m_hdtnConfig.m_neighborDepletedStorageDelaySeconds) {
         return;
     }
@@ -563,7 +565,8 @@ enum class BpVersion {
     UNKNOWN
 };
 
-static BpVersion GetBpVersion(const uint8_t *bundle) {
+static BpVersion GetBpVersion(const uint8_t *bundle)
+{
     const uint8_t firstByte = bundle[0];
     if(firstByte == 6) {
         return BpVersion::BPV6;
@@ -575,7 +578,8 @@ static BpVersion GetBpVersion(const uint8_t *bundle) {
     return BpVersion::UNKNOWN;
 }
 
-bool ZmqStorageInterface::Impl::ProcessBundleCustody(BundleViewV6 &bv, uint64_t newCustodyId, size_t size) {
+bool ZmqStorageInterface::Impl::ProcessBundleCustody(BundleViewV6 &bv, uint64_t newCustodyId, size_t size)
+{
     // Update bundle -> Try to write to disk
     // If either fails, send a failed custody signal; otherwise, send success custody signal
 
@@ -631,7 +635,8 @@ bool ZmqStorageInterface::Impl::ProcessBundleCustody(BundleViewV6 &bv, uint64_t 
     return true;
 }
 
-static bool IsAdminForThisNode(const Bpv6CbhePrimaryBlock &primary, cbhe_eid_t thisEid) {
+static bool IsAdminForThisNode(const Bpv6CbhePrimaryBlock &primary, cbhe_eid_t thisEid)
+{
     static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForAdminRecord =
         BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::ADMINRECORD;
     return ((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForAdminRecord) ==

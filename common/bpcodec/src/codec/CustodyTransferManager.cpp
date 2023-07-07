@@ -191,8 +191,10 @@ CustodyTransferManager::CustodyTransferManager(const bool isAcsAware, const uint
 CustodyTransferManager::~CustodyTransferManager() {}
 
 
+
 bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acceptCustody, const uint64_t custodyId,
-    const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex, BundleViewV6 & custodySignalRfc5050RenderedBundleView) {
+    const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex, BundleViewV6 & custodySignalRfc5050RenderedBundleView)
+{
 
     CustodyTransferContext prevCustodyInfo;
     if(!UpdateBundleCustodyFields(bv, acceptCustody, custodyId, prevCustodyInfo)) {
@@ -256,7 +258,7 @@ bool CustodyTransferManager::UpdateBundleCustodyFields(BundleViewV6 & bv, bool a
         primary.m_custodianEid.Set(m_myCustodianNodeId, m_myCustodianServiceId);
         bv.m_primaryBlockView.SetManuallyModified(); //will update after render
 
-                    
+
         if (blocks.size() == 1) { //cteb present
             //update (reuse existing) CTEB with new custodian
             blocks[0]->markedForDeletion = false;
@@ -277,7 +279,6 @@ bool CustodyTransferManager::UpdateBundleCustodyFields(BundleViewV6 & bv, bool a
             bv.AppendMoveCanonicalBlock(std::move(blockPtr)); //bundle needs rerendered
         }
 
-            
     }
     else { //not acs aware
         if(!acceptCustody) {
