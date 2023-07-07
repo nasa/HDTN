@@ -138,8 +138,12 @@ bool BpReceivePacketRunner::Run(int argc, const char* const argv[], volatile boo
 
         LOG_INFO(subprocess) << "starting..";
         BpReceivePacket bpReceivePacket;
-        bpReceivePacket.Init(inductsConfigPtr, outductsConfigPtr, bpSecConfigFilePath,
-		             isAcsAware, myEid, 0, maxBundleSizeBytes);
+        if (!bpReceivePacket.Init(inductsConfigPtr, outductsConfigPtr, bpSecConfigFilePath,
+		             isAcsAware, myEid, 0, maxBundleSizeBytes)) {
+	    LOG_FATAL(subprocess) << "Cannot Init BpReceivePacket!";
+	    return false;
+        }
+
         bpReceivePacket.socketInit(packetOutductsConfigPtr, myEid, maxBundleSizeBytes);
 
 
