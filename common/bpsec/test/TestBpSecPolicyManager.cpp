@@ -649,4 +649,38 @@ R"({
         BOOST_REQUIRE(res.errorStringPtr);
         BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "unable to decrypt the target block number 2");
     }
+
+    { //simple confidentiality failure (missing at acceptor) which has the wrong security source, add an sopMissingAtAcceptor policy
+        static const boost::regex regexMatch("ipn:10.1");
+        std::string securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, "ipn:20.1");
+        static const boost::regex regexMatch3("sopCorruptedAtAcceptor");
+        securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyBadKeyJson, regexMatch3,
+            "sopMissingAtAcceptor");
+        static const boost::regex regexMatch4("removeSecurityOperation"); //prohibited operation for missing at acceptor
+        securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyBadKeyJson, regexMatch4,
+            "removeSecurityOperationTargetBlock");
+
+        //security acceptor read config and decrypt bundle
+        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadKeyJson);
+        BOOST_REQUIRE(bpSecConfigPtrRx);
+        BpSecPolicyManager bpSecPolicyManagerRx;
+        BpSecPolicyProcessingContext policyProcessingCtxRx;
+        BOOST_REQUIRE(bpSecPolicyManagerRx.LoadFromConfig(*bpSecConfigPtrRx));
+        BOOST_REQUIRE(bpSecPolicyManagerRx.FindPolicy(cbhe_eid_t(20, 1), cbhe_eid_t(1, 1), THIS_EID_FINAL_DEST, BPSEC_ROLE::ACCEPTOR));
+        { //acceptor node id matches bundle final dest
+            BundleViewV7 bvRx;
+            BOOST_REQUIRE(bvRx.CopyAndLoadBundle(encryptedBundle.data(), encryptedBundle.size()));
+            BpSecBundleProcessor::ReturnResult res;
+            BOOST_REQUIRE(bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId)); //bundle need NOT be dropped
+            BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISSING);
+            BOOST_REQUIRE(res.errorStringPtr);
+            BOOST_REQUIRE_EQUAL(*res.errorStringPtr,
+                "Bundle is at final destination but an acceptor policy could not be found for "
+                "BCB with securitySource=ipn:10.1,bundleSource=ipn:1.1,bundleFinalDest=ipn:2.1"
+            );
+            BOOST_REQUIRE_EQUAL(bvRx.GetNumCanonicalBlocks(), 3);
+            BOOST_REQUIRE(bvRx.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE));
+            BOOST_REQUIRE_EQUAL(bvRx.GetNumCanonicalBlocks(), 2); //SOp removed per sopMissingAtAcceptor policy
+        }
+    }
 }

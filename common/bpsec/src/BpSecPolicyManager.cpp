@@ -533,6 +533,9 @@ bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProc
             if (!dontDropBundle) {
                 return false; //drop bundle
             }
+            else {
+                continue;
+            }
         }
         else {
             bpSecPolicyPtr = FindPolicyWithCacheSupport(
@@ -640,6 +643,9 @@ bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProc
                 bibBlockView, bibPtr, true);
             if (!dontDropBundle) {
                 return false; //drop bundle
+            }
+            else {
+                continue;
             }
         }
         else {
