@@ -70,15 +70,29 @@
                 <div class="input">
                     <label>Security Service</label>
                     <select id="securityService" required>
-                        <option value="aes">Confidentuality - AES GCM</option>
+                        <option value="aes">Confidentiality - AES GCM</option>
                         <option value="sha">Integrity - HMAC SHA</option>
                     </select>
                 </div>
                 <div class="sourceType" id="sourceType" style="display: none; flex-direction: column;">
-                    <div class="input">
+                    <div style="display: flex; flex-wrap: wrap;">
                         <label>Security Target Block Type</label>
-                        <input type="range" min="0" max="13" step="1" value="0" id="targetBlockType" oninput="this.nextElementSibling.value = this.value" required>
-                        <output>0</output>
+                        <select multiple>
+                            <option>0</option>
+                            <option>1</option>
+                            <option>2</option>
+                            <option>3</option>
+                            <option>4</option>
+                            <option>5</option>
+                            <option>6</option>
+                            <option>7</option>
+                            <option>8</option>
+                            <option>9</option>
+                            <option>10</option>
+                            <option>11</option>
+                            <option>12</option>
+                            <option>13</option>
+                        </select>
                     </div>
                     <h3>Security Parameters for Source</h3>
                     <div class="aesVariant" id="aesVariantDiv"
@@ -91,7 +105,7 @@
                     </div>
                     <div class="shaVariant" id="shaVariantDiv"
                         style="display: none; flex-direction: row; justify-content: space-between;">
-                        <label>SHA Varient</label>
+                        <label>SHA Variant</label>
                         <select id="shaVariant">
                             <option>256</option>
                             <option selected>384</option>
@@ -107,7 +121,16 @@
                     </div>
                     <div class="input">
                         <label>Scope Flags</label>
-                        <input type="number" min="0" max="7" value="7" id="scopeFlags">
+                        <select>
+                            <option>0</option>
+                            <option>1</option>
+                            <option>2</option>
+                            <option>3</option>
+                            <option>4</option>
+                            <option>5</option>
+                            <option>6</option>
+                            <option selected>7</option>
+                        </select>
                     </div>
                     <div class="input">
                         <label>Security Block CRC</label>
@@ -129,6 +152,17 @@
 
     <script type="text/javascript" src="./Scripts/jquery-3.6.0.slim.min.js"></script>
     <script>
+        var description = document.getElementById("description");
+        var securityPolicyRuleID = document.getElementById("securityPolicyRuleID");
+        var securitySource = document.getElementById("securitySource");
+        var bundleSource = document.getElementById('bundleSource');
+        var bundleDestination = document.getElementById('bundleDestination');
+        var fileInput = document.getElementById("keyFile");
+        var roleField = document.getElementById('roleType');
+        var securityService = document.getElementById('securityService');
+
+        var currentPolicies = {"bpsecConfigName": "myBPSecConfig", "policyRules":[]};
+
         function openForm() {
             document.getElementById("popupForm").style.display = "flex";
         }
@@ -138,60 +172,76 @@
 
         }
 
+        function createNewPolicy(){
+            var newPolicy = new Object();
+            newPolicy.description = description.value;
+            newPolicy.securityPolicyRuleId = securityPolicyRuleID.value;
+            newPolicy.securityRole = roleField.value;
+            newPolicy.securitySource = securitySource.value;
+            newPolicy.bundleSource = bundleSource.value;
+            newPolicy.bundleDestination = bundleDestination.value;
+            newPolicy.securityTargetBlockTypes
+            if(securityService.value === "Confidentiality - AES GCM"){
+                newPolicy.securityService = 'confidentiality';
+                newPolicy.securityContext = 'aesGcm';
+            }else{
+                newPolicy.securityService = 'integrity';
+                newPolicy.securityContext = 'hmacSha';
+            }
+            if(roleField.value === 'source'){
+                if(securityService.value === "Confidentiality - AES GCM"){
+                    
+                }else{}
+            }
+        }
+
         function checkNewPolicy(event) {
+            var valid = 1;
             console.log("New Policy for a " + roleField.value);
 
             //check the node ids for the policies
-            var securitySource = document.getElementById("securitySource");
             var ipRegex = /\d{1,2}\.(\d{1,2}[^1])|1\.1|1\.\d{1,2}$/g; //for ips of *.*, 1.*, 1.1
 
             if (!ipRegex.test(securitySource.value)) {
                 alert('Invalid Security Source\nValid Security Source are 1.*, *.*, or 1.1')
                 console.log("Error: Wrong value for security source");
                 securitySource.value = '';
+                valid = 0;
             }
 
-            var bundleSource = document.getElementById('bundleSource');
             var ipRegex2 = /\d{1,2}\.(\d{1,2}[^1])|1\.1|1\.\d{1,2}$/g; //for ips of *.*, 1.*, 1.1
 
             if (!ipRegex2.test(bundleSource.value)) {
                 alert('Invalid Bundle Source\nValid Bundle Source are 1.*, *.*, or 1.1')
                 console.log("Error: Wrong value for bundle source");
                 bundleSource.value = '';
+                valid = 0;
             }
 
-            var bundleDestination = document.getElementById('bundleDestination');
             var ipRegex3 = /\d{1,2}\.(\d{1,2}[^1])|1\.1|1\.\d{1,2}$/g; //for ips of *.*, 1.*, 1.1
 
             if (!ipRegex3.test(bundleDestination.value)) {
                 alert('Invalid Bundle Destination\nValid Bundle Destination are 1.*, *.*, or 1.1')
                 console.log("Error: Wrong value for bundle Destination");
                 bundleDestination.value = '';
-            }
-
-            //check the security params for security role source
-            if (roleField.value === 'source') {
-                var scopeFlags = document.getElementById('scopeFlags');
-                if (((scopeFlags.value) % 1) != 0) {
-                    alert('Invalid Scope Flag\nValid Scope Flag is whole numbers between 0-7');
-                    console.log('Invalid scope flag. Decmial');
-                    scopeFlags.value = '7';
-                }
+                valid = 0;
             }
 
             //check the file type of the form
-            var fileInput = document.getElementById("keyFile");
             var filePath = fileInput.value;
-
             var fileRegex = /\.key$/i;
             if (!fileRegex.test(filePath)) {
                 alert('Invalid file type');
                 console.log("Error: Wrong File Type.");
                 fileInput.value = '';
+                valid = 0;
+            }
+
+            if(valid){
+                createNewPolicy();
             }
         }
 
-        var roleField = document.getElementById('roleType');
         var sourceExtraFields = document.getElementById('sourceType');
         roleField.addEventListener('change', function () {
             if (roleField.value === "source") {
@@ -211,10 +261,6 @@
                 document.getElementById('shaVariantDiv').style.display = 'flex';
                 document.getElementById('aesVariantDiv').style.display = 'none';
             }
-        });
-
-        $(document).on('submit', '#form', function (event) {
-            checkNewPolicy();
         });
 
         function createTable(json, tag) {
