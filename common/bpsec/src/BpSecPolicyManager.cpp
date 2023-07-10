@@ -243,6 +243,92 @@ const BpSecPolicy* BpSecPolicyManager::FindPolicyWithCacheSupport(const cbhe_eid
 }
 
 
+static bool DoesAsbTargetPayloadBlock(const Bpv7AbstractSecurityBlock* asbPtr) {
+    for (Bpv7AbstractSecurityBlock::security_targets_t::const_iterator it = asbPtr->m_securityTargets.cbegin();
+        it != asbPtr->m_securityTargets.cend(); ++it)
+    {
+        if (*it == 1) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool DoFailureEventSopMissingAtAcceptor(BundleViewV7& bv,
+    BPSEC_SECURITY_FAILURE_PROCESSING_ACTION_MASKS actionMaskSopMissingAtAcceptor,
+    BundleViewV7::Bpv7CanonicalBlockView& asbBlockView, Bpv7AbstractSecurityBlock* asbPtr, const bool isIntegrity)
+{
+    const char* securityServiceStr = (isIntegrity) ? "integrity" : "confidentiality";
+    typedef BPSEC_SECURITY_FAILURE_PROCESSING_ACTION_MASKS action_mask_t;
+    const bool asbTargetsPayloadBlock = DoesAsbTargetPayloadBlock(asbPtr);
+
+    //acceptor
+    //5.1.1.  Receiving BCBs
+    //If an encrypted payload block cannot be decrypted (i.e., the
+    //ciphertext cannot be authenticated), then the bundle MUST be
+    //discarded and processed no further.
+    if ((!isIntegrity) && asbTargetsPayloadBlock) {
+        static thread_local bool printedMsg = false;
+        if (!printedMsg) {
+            LOG_WARNING(subprocess) << "first time encrypted payload block cannot be decrypted by acceptor from source node "
+                << bv.m_primaryBlockView.header.m_sourceNodeId
+                << ".. bundle shall be dropped..(This message type will now be suppressed.)";
+            printedMsg = true;
+        }
+        return false; //drop bundle
+    }
+
+    //prohibited action: remove SOp (checked by JSON config file)
+    //asbBlockView.markedForDeletion = true;
+
+
+    static const char* evtString = "sopMissingAtAcceptor";
+    const action_mask_t actionMask = actionMaskSopMissingAtAcceptor;
+    if ((actionMask & action_mask_t::FAIL_BUNDLE_FORWARDING) != action_mask_t::NO_ACTIONS_SET) { //optional action
+        static thread_local bool printedMsg = false;
+        if (!printedMsg) {
+            LOG_WARNING(subprocess) << "first time " << evtString << " from source node "
+                << bv.m_primaryBlockView.header.m_sourceNodeId
+                << ".. FAIL_BUNDLE_FORWARDING specified (bundle shall be dropped)..(This message type will now be suppressed.)";
+            printedMsg = true;
+        }
+        return false; //drop bundle
+    }
+    else if ((actionMask & action_mask_t::REMOVE_SECURITY_OPERATION_TARGET_BLOCK) != action_mask_t::NO_ACTIONS_SET) { //optional action
+        if (asbTargetsPayloadBlock) {
+            static thread_local bool printedMsg = false;
+            if (!printedMsg) {
+                LOG_WARNING(subprocess) << "first time " << evtString << " from source node "
+                    << bv.m_primaryBlockView.header.m_sourceNodeId
+                    << ".. REMOVE_SECURITY_OPERATION_TARGET_BLOCK specified but target(s) includes payload block, (bundle shall be dropped)..(This message type will now be suppressed.)";
+                printedMsg = true;
+            }
+            return false; //drop bundle
+        }
+        else {
+            static thread_local bool printedMsg = false;
+            if (!printedMsg) {
+                LOG_WARNING(subprocess) << "first time " << evtString << " from source node "
+                    << bv.m_primaryBlockView.header.m_sourceNodeId
+                    << ".. REMOVE_SECURITY_OPERATION_TARGET_BLOCK specified ..(This message type will now be suppressed.)";
+                printedMsg = true;
+            }
+            for (Bpv7AbstractSecurityBlock::security_targets_t::const_iterator it = asbPtr->m_securityTargets.cbegin();
+                it != asbPtr->m_securityTargets.cend(); ++it)
+            {
+                if (BundleViewV7::Bpv7CanonicalBlockView* view = bv.GetCanonicalBlockByBlockNumber(*it)) {
+                    view->markedForDeletion = true;
+                }
+            }
+        }
+    }
+    else {
+        LOG_WARNING(subprocess) << "Process: version 7 bundle received but cannot accept " << securityServiceStr << " (no failure actions taken)";
+    }
+
+    return true;
+}
+
 static bool DoFailureEvent(BundleViewV7& bv, const BpSecPolicy* bpSecPolicyPtr, const BpSecBundleProcessor::ReturnResult& res,
     BundleViewV7::Bpv7CanonicalBlockView& asbBlockView, Bpv7AbstractSecurityBlock* asbPtr, const bool isAcceptor, const bool isIntegrity)
 {
@@ -251,15 +337,7 @@ static bool DoFailureEvent(BundleViewV7& bv, const BpSecPolicy* bpSecPolicyPtr, 
         bpSecPolicyPtr->m_confidentialitySecurityFailureEventSetReferencePtr->m_eventTypeToEventSetPtrLut;
     const char* securityServiceStr = (isIntegrity) ? "integrity" : "confidentiality";
     typedef BPSEC_SECURITY_FAILURE_PROCESSING_ACTION_MASKS action_mask_t;
-    bool asbTargetsPayloadBlock = false;
-    for (Bpv7AbstractSecurityBlock::security_targets_t::const_iterator it = asbPtr->m_securityTargets.cbegin();
-        it != asbPtr->m_securityTargets.cend(); ++it)
-    {
-        if (*it == 1) {
-            asbTargetsPayloadBlock = true;
-            break;
-        }
-    }
+    const bool asbTargetsPayloadBlock = DoesAsbTargetPayloadBlock(asbPtr);
 
     //
     //
@@ -421,9 +499,12 @@ static bool DoFailureEvent(BundleViewV7& bv, const BpSecPolicy* bpSecPolicyPtr, 
     return true;
 }
 
-bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx, BpSecBundleProcessor::ReturnResult& res) const {
+bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx,
+    BpSecBundleProcessor::ReturnResult& res, const uint64_t myNodeId) const
+{
     bool hadError = false;
     const Bpv7CbhePrimaryBlock& primary = bv.m_primaryBlockView.header;
+    const bool bundleIsAtFinalDest = (primary.m_destinationEid.nodeId == myNodeId);
     bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, ctx.m_tmpBlocks);
     for (std::size_t i = 0; i < ctx.m_tmpBlocks.size(); ++i) {
         BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView = *(ctx.m_tmpBlocks[i]);
@@ -437,6 +518,21 @@ bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProc
         bool verifyOnly;
         if (bpSecPolicyPtr) {
             verifyOnly = false; //false for acceptors
+        }
+        else if (bundleIsAtFinalDest) {
+            const std::string asbInfoStr = std::string("securitySource=")
+                + Uri::GetIpnUriString(bcbPtr->m_securitySource.nodeId, bcbPtr->m_securitySource.serviceId)
+                + ",bundleSource=" + Uri::GetIpnUriString(primary.m_sourceNodeId.nodeId, primary.m_sourceNodeId.serviceId)
+                + ",bundleFinalDest=" + Uri::GetIpnUriString(primary.m_destinationEid.nodeId, primary.m_destinationEid.serviceId);
+            res = BpSecBundleProcessor::ReturnResult(BpSecBundleProcessor::BPSEC_ERROR_CODES::MISSING, boost::make_unique<std::string>(
+                std::string("Bundle is at final destination but an acceptor policy could not be found for BCB with ")
+                + asbInfoStr)); //null for some reason
+
+            bool dontDropBundle = DoFailureEventSopMissingAtAcceptor(bv, m_actionMaskSopMissingAtAcceptor,
+                bcbBlockView, bcbPtr, false);
+            if (!dontDropBundle) {
+                return false; //drop bundle
+            }
         }
         else {
             bpSecPolicyPtr = FindPolicyWithCacheSupport(
@@ -531,6 +627,20 @@ bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProc
         bool markBibForDeletion;
         if (bpSecPolicyPtr) {
             markBibForDeletion = true; //true for acceptors
+        }
+        else if (bundleIsAtFinalDest) {
+            const std::string asbInfoStr = std::string("securitySource=")
+                + Uri::GetIpnUriString(bibPtr->m_securitySource.nodeId, bibPtr->m_securitySource.serviceId)
+                + ",bundleSource=" + Uri::GetIpnUriString(primary.m_sourceNodeId.nodeId, primary.m_sourceNodeId.serviceId)
+                + ",bundleFinalDest=" + Uri::GetIpnUriString(primary.m_destinationEid.nodeId, primary.m_destinationEid.serviceId);
+            res = BpSecBundleProcessor::ReturnResult(BpSecBundleProcessor::BPSEC_ERROR_CODES::MISSING, boost::make_unique<std::string>(
+                std::string("Bundle is at final destination but an acceptor policy could not be found for BIB with ")
+                + asbInfoStr)); //null for some reason
+            bool dontDropBundle = DoFailureEventSopMissingAtAcceptor(bv, m_actionMaskSopMissingAtAcceptor,
+                bibBlockView, bibPtr, true);
+            if (!dontDropBundle) {
+                return false; //drop bundle
+            }
         }
         else {
             bpSecPolicyPtr = FindPolicyWithCacheSupport(
@@ -795,6 +905,7 @@ bool BpSecPolicyManager::FindPolicyAndProcessOutgoingBundle(BundleViewV7& bv, Bp
 }
 
 bool BpSecPolicyManager::LoadFromConfig(const BpSecConfig& config) {
+    m_actionMaskSopMissingAtAcceptor = config.m_actionMaskSopMissingAtAcceptor;
     const policy_rules_vector_t& rulesVec = config.m_policyRulesVector;
     for (std::size_t ruleI = 0; ruleI < rulesVec.size(); ++ruleI) {
         const policy_rules_t& rule = rulesVec[ruleI];

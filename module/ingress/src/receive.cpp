@@ -1152,7 +1152,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                 //process acceptor and verifier roles
                 static thread_local BpSecPolicyProcessingContext policyProcessingCtx;
                 BpSecBundleProcessor::ReturnResult res;
-                const bool dontDropBundle = m_bpSecPolicyManager.ProcessReceivedBundle(bv, policyProcessingCtx, res);
+                const bool dontDropBundle = m_bpSecPolicyManager.ProcessReceivedBundle(bv, policyProcessingCtx, res, m_hdtnConfig.m_myNodeId);
                 if (res.errorCode != BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS) {
                     static thread_local bool printedMsg = false;
                     if (!printedMsg) {

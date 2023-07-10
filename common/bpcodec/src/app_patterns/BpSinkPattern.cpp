@@ -319,7 +319,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
 #ifdef BPSEC_SUPPORT_ENABLED
         //process acceptor and verifier roles
         BpSecBundleProcessor::ReturnResult res;
-        const bool dontDropBundle = m_bpsecPimpl->m_bpSecPolicyManager.ProcessReceivedBundle(bv, m_bpsecPimpl->m_policyProcessingCtx, res);
+        const bool dontDropBundle = m_bpsecPimpl->m_bpSecPolicyManager.ProcessReceivedBundle(bv, m_bpsecPimpl->m_policyProcessingCtx, res, m_myEid.nodeId);
         if (res.errorCode != BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS) {
             static thread_local bool printedMsg = false;
             if (!printedMsg) {

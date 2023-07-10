@@ -662,7 +662,8 @@ boost::property_tree::ptree security_failure_event_sets_t::GetNewPropertyTree() 
 BpSecConfig::BpSecConfig() :
     m_bpsecConfigName("unnamed BpSec config"),
     m_policyRulesVector(),
-    m_securityFailureEventSetsSet()
+    m_securityFailureEventSetsSet(),
+    m_actionMaskSopMissingAtAcceptor(BPSEC_SECURITY_FAILURE_PROCESSING_ACTION_MASKS::NO_ACTIONS_SET)
 {}
 
 BpSecConfig::~BpSecConfig() {
@@ -728,6 +729,7 @@ bool BpSecConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree& p
     const boost::property_tree::ptree& eventSetsSetPt = pt.get_child("securityFailureEventSets", EMPTY_PTREE); //non-throw version
     m_securityFailureEventSetsSet.clear();
     unsigned int eventSetsVectorIndex = 0;
+    bool foundSopMissingAtAcceptor = false;
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & eventSetsPt, eventSetsSetPt) {
         security_failure_event_sets_t eventSets;
         if (!eventSets.SetValuesFromPropertyTree(eventSetsPt.second)) {
@@ -739,6 +741,26 @@ bool BpSecConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree& p
             LOG_ERROR(subprocess) << "error parsing JSON securityFailureEventSets[" << eventSetsVectorIndex
                 << "]: name (" << ret.first->m_name << ") already exists";
             return false;
+        }
+        //TODO? search for zero or one eventId=sopMissingAtAcceptor events within securityFailureEventSets
+        const security_operation_event_plus_actions_pair_t* eaMissing =
+            eventSets.m_eventTypeToEventSetPtrLut[
+                (int)BPSEC_SECURITY_FAILURE_EVENT::SECURITY_OPERATION_MISSING_AT_ACCEPTOR];
+        if (eaMissing) {
+            if (foundSopMissingAtAcceptor) {
+                LOG_ERROR(subprocess) << "error parsing JSON securityFailureEventSets[" << eventSetsVectorIndex
+                    << "]: more than 1 sopMissingAtAcceptor event was defined";
+                return false;
+            }
+            foundSopMissingAtAcceptor = true;
+            m_actionMaskSopMissingAtAcceptor = eaMissing->m_actionMasks;
+            if ((m_actionMaskSopMissingAtAcceptor & BPSEC_SECURITY_FAILURE_PROCESSING_ACTION_MASKS::REMOVE_SECURITY_OPERATION) !=
+                BPSEC_SECURITY_FAILURE_PROCESSING_ACTION_MASKS::NO_ACTIONS_SET)
+            {
+                //prohibited action: remove SOp
+                LOG_ERROR(subprocess) << "error parsing JSON securityFailureEventSets[" << eventSetsVectorIndex
+                    << "]: the sopMissingAtAcceptor event defines a prohibited action removeSecurityOperation";
+            }
         }
         ++eventSetsVectorIndex;
     }

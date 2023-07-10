@@ -61,6 +61,7 @@ public:
         NO_ERRORS = 0,
         CORRUPTED,
         MISCONFIGURED,
+        MISSING,
         FATAL_ERROR
     };
     struct ReturnResult {

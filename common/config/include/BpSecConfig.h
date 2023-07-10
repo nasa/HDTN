@@ -235,6 +235,7 @@ public:
     std::string m_bpsecConfigName;
     policy_rules_vector_t m_policyRulesVector;
     security_failure_event_sets_set_t m_securityFailureEventSetsSet;
+    BPSEC_SECURITY_FAILURE_PROCESSING_ACTION_MASKS m_actionMaskSopMissingAtAcceptor;
 };
 
 #endif // BPSEC_CONFIG_H
