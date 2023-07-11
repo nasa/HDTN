@@ -143,8 +143,8 @@ BOOST_AUTO_TEST_CASE(BpSecPolicyManager2TestCase)
 {
     static const cbhe_eid_t BUNDLE_SRC(1, 1);
     static const cbhe_eid_t BUNDLE_FINAL_DEST(2, 1);
-    const std::string payloadString = { "This is the data inside the bpv7 payload block!!!" };
-    const std::string customExtensionBlockString = { "My custom extension block." };
+    static const std::string payloadString = { "This is the data inside the bpv7 payload block!!!" };
+    static const std::string customExtensionBlockString = { "My custom extension block." };
     padded_vector_uint8_t bundleSerializedOriginal;
     {
         BundleViewV7 bv;
@@ -380,11 +380,11 @@ R"({
     { //simple confidentiality failure (corruption) which has a bad key at acceptor
         //alter the key file (10.1 changes to 1.1)
         static const boost::regex regexMatch("ipn10.1_confidentiality.key");
-        const std::string securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, "ipn1.1_confidentiality.key");
-        //std::cout << securityAcceptorPolicyBadKeyJson << "\n";
+        const std::string securityAcceptorPolicyBadJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, "ipn1.1_confidentiality.key");
+        //std::cout << securityAcceptorPolicyBadJson << "\n";
 
         //security acceptor read config and decrypt bundle
-        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadKeyJson);
+        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadJson);
         BOOST_REQUIRE(bpSecConfigPtrRx);
         BpSecPolicyManager bpSecPolicyManagerRx;
         BpSecPolicyProcessingContext policyProcessingCtxRx;
@@ -396,17 +396,18 @@ R"({
         BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId)); //bundle must be dropped (payload cannot be decrypted)
         BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::CORRUPTED);
         BOOST_REQUIRE(res.errorStringPtr);
-        BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "unable to decrypt the target block number 1");
-        //std::cout << *res.errorStringPtr << "\n";
+        if (res.errorStringPtr) {
+            BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "unable to decrypt the target block number 1");
+        }
     }
 
     { //simple confidentiality failure (misconfigured) which has the wrong aes variant
         static const boost::regex regexMatch("256");
-        const std::string securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, "128");
-        //std::cout << securityAcceptorPolicyBadKeyJson << "\n";
+        const std::string securityAcceptorPolicyBadJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, "128");
+        //std::cout << securityAcceptorPolicyBadJson << "\n";
 
         //security acceptor read config and decrypt bundle
-        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadKeyJson);
+        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadJson);
         BOOST_REQUIRE(bpSecConfigPtrRx);
         BpSecPolicyManager bpSecPolicyManagerRx;
         BpSecPolicyProcessingContext policyProcessingCtxRx;
@@ -418,17 +419,18 @@ R"({
         BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId)); //bundle must be dropped (payload cannot be decrypted)
         BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED);
         BOOST_REQUIRE(res.errorStringPtr);
-        BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "BCB AES variant received (A256GCM), does not match the expected variant in the policy (A128GCM)");
-        //std::cout << *res.errorStringPtr << "\n";
+        if (res.errorStringPtr) {
+            BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "BCB AES variant received (A256GCM), does not match the expected variant in the policy (A128GCM)");
+        }
     }
 
     { //simple confidentiality failure (misconfigured) which has the wrong iv size bytes
         static const boost::regex regexMatch(": 12");
-        const std::string securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, ": 16");
-        //std::cout << securityAcceptorPolicyBadKeyJson << "\n";
+        const std::string securityAcceptorPolicyBadJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, ": 16");
+        //std::cout << securityAcceptorPolicyBadJson << "\n";
 
         //security acceptor read config and decrypt bundle
-        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadKeyJson);
+        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadJson);
         BOOST_REQUIRE(bpSecConfigPtrRx);
         BpSecPolicyManager bpSecPolicyManagerRx;
         BpSecPolicyProcessingContext policyProcessingCtxRx;
@@ -440,17 +442,18 @@ R"({
         BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId)); //bundle must be dropped (payload cannot be decrypted)
         BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED);
         BOOST_REQUIRE(res.errorStringPtr);
-        BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "BCB AES IV received length(12), does not match the expected IV length to receive in the policy (16)");
-        //std::cout << *res.errorStringPtr << "\n";
+        if (res.errorStringPtr) {
+            BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "BCB AES IV received length(12), does not match the expected IV length to receive in the policy (16)");
+        }
     }
 
     { //simple confidentiality failure (misconfigured) which has the wrong scope flags
         static const boost::regex regexMatch(": 7");
-        const std::string securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, ": 0");
-        //std::cout << securityAcceptorPolicyBadKeyJson << "\n";
+        const std::string securityAcceptorPolicyBadJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, ": 0");
+        //std::cout << securityAcceptorPolicyBadJson << "\n";
 
         //security acceptor read config and decrypt bundle
-        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadKeyJson);
+        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadJson);
         BOOST_REQUIRE(bpSecConfigPtrRx);
         BpSecPolicyManager bpSecPolicyManagerRx;
         BpSecPolicyProcessingContext policyProcessingCtxRx;
@@ -462,17 +465,18 @@ R"({
         BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId)); //bundle must be dropped (payload cannot be decrypted)
         BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED);
         BOOST_REQUIRE(res.errorStringPtr);
-        BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "BCB AES aad scope mask received (7), does not match the expected aad scope mask in the policy (0)");
-        //std::cout << *res.errorStringPtr << "\n";
+        if (res.errorStringPtr) {
+            BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "BCB AES aad scope mask received (7), does not match the expected aad scope mask in the policy (0)");
+        }
     }
 
     { //simple confidentiality failure (misconfigured) which has a policy that has MORE securityTargetBlockTypes than the block
         static const boost::regex regexMatch("        1");
-        const std::string securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, "1, 2");
-        //std::cout << securityAcceptorPolicyBadKeyJson << "\n";
+        const std::string securityAcceptorPolicyBadJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, "1, 2");
+        //std::cout << securityAcceptorPolicyBadJson << "\n";
 
         //security acceptor read config and decrypt bundle
-        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadKeyJson);
+        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadJson);
         BOOST_REQUIRE(bpSecConfigPtrRx);
         BpSecPolicyManager bpSecPolicyManagerRx;
         BpSecPolicyProcessingContext policyProcessingCtxRx;
@@ -484,17 +488,18 @@ R"({
         BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId)); //bundle must be dropped (payload cannot be decrypted)
         BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED);
         BOOST_REQUIRE(res.errorStringPtr);
-        BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "the BCB AES failed to target all of the canonical block types within the policy (missing_mask=4d)"); //4=0b100 => block type 2 missing
-        //std::cout << *res.errorStringPtr << "\n";
+        if (res.errorStringPtr) {
+            BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "the BCB AES failed to target all of the canonical block types within the policy (missing_mask=4d)"); //4=0b100 => block type 2 missing
+        }
     }
 
     { //simple confidentiality failure (misconfigured) which has a policy that has LESS securityTargetBlockTypes than the block
         static const boost::regex regexMatch("        1");
-        const std::string securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, " ");
-        //std::cout << securityAcceptorPolicyBadKeyJson << "\n";
+        const std::string securityAcceptorPolicyBadJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, " ");
+        //std::cout << securityAcceptorPolicyBadJson << "\n";
 
         //security acceptor read config and decrypt bundle
-        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadKeyJson);
+        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadJson);
         BOOST_REQUIRE(bpSecConfigPtrRx);
         BpSecPolicyManager bpSecPolicyManagerRx;
         BpSecPolicyProcessingContext policyProcessingCtxRx;
@@ -506,18 +511,20 @@ R"({
         BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId)); //bundle must be dropped (payload cannot be decrypted)
         BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED);
         BOOST_REQUIRE(res.errorStringPtr);
-        BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "BCB AES security target (1) targets a canonical block type code (1) that was unexpected per the policy");
+        if (res.errorStringPtr) {
+            BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "BCB AES security target (1) targets a canonical block type code (1) that was unexpected per the policy");
+        }
         //std::cout << *res.errorStringPtr << "\n";
     }
 
     { //simple confidentiality failure (missing at acceptor) which has the wrong security source
         //alter the key file (10.1 changes to 1.1)
         static const boost::regex regexMatch("ipn:10.1");
-        const std::string securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, "ipn:20.1");
-        //std::cout << securityAcceptorPolicyBadKeyJson << "\n";
+        const std::string securityAcceptorPolicyBadJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, "ipn:20.1");
+        //std::cout << securityAcceptorPolicyBadJson << "\n";
 
         //security acceptor read config and decrypt bundle
-        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadKeyJson);
+        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadJson);
         BOOST_REQUIRE(bpSecConfigPtrRx);
         BpSecPolicyManager bpSecPolicyManagerRx;
         BpSecPolicyProcessingContext policyProcessingCtxRx;
@@ -530,10 +537,12 @@ R"({
             BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId)); //bundle must be dropped (payload cannot be decrypted)
             BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISSING);
             BOOST_REQUIRE(res.errorStringPtr);
-            BOOST_REQUIRE_EQUAL(*res.errorStringPtr,
-                "Bundle is at final destination but an acceptor policy could not be found for "
-                "BCB with securitySource=ipn:10.1,bundleSource=ipn:1.1,bundleFinalDest=ipn:2.1"
-            );
+            if (res.errorStringPtr) {
+                BOOST_REQUIRE_EQUAL(*res.errorStringPtr,
+                    "Bundle is at final destination but an acceptor policy could not be found for "
+                    "BCB with securitySource=ipn:10.1,bundleSource=ipn:1.1,bundleFinalDest=ipn:2.1"
+                );
+            }
         }
         { //acceptor node id does not match bundle final dest (bundle is simply forwarded as encrypted)
             BundleViewV7 bvRx;
@@ -572,12 +581,12 @@ R"({
         //alter the key file (10.1 changes to 1.1)
         static const boost::regex regexMatch("ipn10.1_confidentiality.key");
         static const boost::regex regexMatch2("        1");
-        std::string securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, "ipn1.1_confidentiality.key");
-        securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyBadKeyJson, regexMatch2, "        4");
-        //std::cout << securityAcceptorPolicyBadKeyJson << "\n";
+        std::string securityAcceptorPolicyBadJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, "ipn1.1_confidentiality.key");
+        securityAcceptorPolicyBadJson = boost::regex_replace(securityAcceptorPolicyBadJson, regexMatch2, "        4");
+        //std::cout << securityAcceptorPolicyBadJson << "\n";
 
         //security acceptor read config and decrypt bundle
-        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadKeyJson);
+        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadJson);
         BOOST_REQUIRE(bpSecConfigPtrRx);
         BpSecPolicyManager bpSecPolicyManagerRx;
         BpSecPolicyProcessingContext policyProcessingCtxRx;
@@ -592,21 +601,23 @@ R"({
         BOOST_REQUIRE(bvRx.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE));
         BOOST_REQUIRE_EQUAL(bvRx.GetNumCanonicalBlocks(), 2); //SOp removed per sopCorruptedAtAcceptor policy
         BOOST_REQUIRE(res.errorStringPtr);
-        BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "unable to decrypt the target block number 2");
+        if (res.errorStringPtr) {
+            BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "unable to decrypt the target block number 2");
+        }
     }
 
     { //simple confidentiality failure (corruption) which has a bad key at acceptor, SOp + Target removed per sopCorruptedAtAcceptor policy
         //alter the key file (10.1 changes to 1.1)
         static const boost::regex regexMatch("ipn10.1_confidentiality.key");
         static const boost::regex regexMatch2("        1");
-        std::string securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, "ipn1.1_confidentiality.key");
-        securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyBadKeyJson, regexMatch2, "        4");
+        std::string securityAcceptorPolicyBadJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, "ipn1.1_confidentiality.key");
+        securityAcceptorPolicyBadJson = boost::regex_replace(securityAcceptorPolicyBadJson, regexMatch2, "        4");
         static const boost::regex regexMatch3("removeSecurityOperation");
-        securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyBadKeyJson, regexMatch3,
+        securityAcceptorPolicyBadJson = boost::regex_replace(securityAcceptorPolicyBadJson, regexMatch3,
             "removeSecurityOperation\", \"removeSecurityOperationTargetBlock");
 
         //security acceptor read config and decrypt bundle
-        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadKeyJson);
+        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadJson);
         BOOST_REQUIRE(bpSecConfigPtrRx);
         BpSecPolicyManager bpSecPolicyManagerRx;
         BpSecPolicyProcessingContext policyProcessingCtxRx;
@@ -621,21 +632,23 @@ R"({
         BOOST_REQUIRE(bvRx.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE));
         BOOST_REQUIRE_EQUAL(bvRx.GetNumCanonicalBlocks(), 1); //SOp + Target removed per sopCorruptedAtAcceptor policy
         BOOST_REQUIRE(res.errorStringPtr);
-        BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "unable to decrypt the target block number 2");
+        if (res.errorStringPtr) {
+            BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "unable to decrypt the target block number 2");
+        }
     }
 
     { //simple confidentiality failure (corruption) which has a bad key at acceptor, drop bundle per failBundleForwarding policy
         //alter the key file (10.1 changes to 1.1)
         static const boost::regex regexMatch("ipn10.1_confidentiality.key");
         static const boost::regex regexMatch2("        1");
-        std::string securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, "ipn1.1_confidentiality.key");
-        securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyBadKeyJson, regexMatch2, "        4");
+        std::string securityAcceptorPolicyBadJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, "ipn1.1_confidentiality.key");
+        securityAcceptorPolicyBadJson = boost::regex_replace(securityAcceptorPolicyBadJson, regexMatch2, "        4");
         static const boost::regex regexMatch3("removeSecurityOperation");
-        securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyBadKeyJson, regexMatch3,
+        securityAcceptorPolicyBadJson = boost::regex_replace(securityAcceptorPolicyBadJson, regexMatch3,
             "failBundleForwarding");
 
         //security acceptor read config and decrypt bundle
-        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadKeyJson);
+        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadJson);
         BOOST_REQUIRE(bpSecConfigPtrRx);
         BpSecPolicyManager bpSecPolicyManagerRx;
         BpSecPolicyProcessingContext policyProcessingCtxRx;
@@ -647,21 +660,23 @@ R"({
         BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId)); //drop bundle per failBundleForwarding policy
         BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::CORRUPTED);
         BOOST_REQUIRE(res.errorStringPtr);
-        BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "unable to decrypt the target block number 2");
+        if (res.errorStringPtr) {
+            BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "unable to decrypt the target block number 2");
+        }
     }
 
     { //simple confidentiality failure (missing at acceptor) which has the wrong security source, add an sopMissingAtAcceptor policy
         static const boost::regex regexMatch("ipn:10.1");
-        std::string securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, "ipn:20.1");
+        std::string securityAcceptorPolicyBadJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, "ipn:20.1");
         static const boost::regex regexMatch3("sopCorruptedAtAcceptor");
-        securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyBadKeyJson, regexMatch3,
+        securityAcceptorPolicyBadJson = boost::regex_replace(securityAcceptorPolicyBadJson, regexMatch3,
             "sopMissingAtAcceptor");
         static const boost::regex regexMatch4("removeSecurityOperation"); //prohibited operation for missing at acceptor
-        securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyBadKeyJson, regexMatch4,
+        securityAcceptorPolicyBadJson = boost::regex_replace(securityAcceptorPolicyBadJson, regexMatch4,
             "removeSecurityOperationTargetBlock");
 
         //security acceptor read config and decrypt bundle
-        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadKeyJson);
+        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadJson);
         BOOST_REQUIRE(bpSecConfigPtrRx);
         BpSecPolicyManager bpSecPolicyManagerRx;
         BpSecPolicyProcessingContext policyProcessingCtxRx;
@@ -674,10 +689,12 @@ R"({
             BOOST_REQUIRE(bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId)); //bundle need NOT be dropped
             BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISSING);
             BOOST_REQUIRE(res.errorStringPtr);
-            BOOST_REQUIRE_EQUAL(*res.errorStringPtr,
-                "Bundle is at final destination but an acceptor policy could not be found for "
-                "BCB with securitySource=ipn:10.1,bundleSource=ipn:1.1,bundleFinalDest=ipn:2.1"
-            );
+            if (res.errorStringPtr) {
+                BOOST_REQUIRE_EQUAL(*res.errorStringPtr,
+                    "Bundle is at final destination but an acceptor policy could not be found for "
+                    "BCB with securitySource=ipn:10.1,bundleSource=ipn:1.1,bundleFinalDest=ipn:2.1"
+                );
+            }
             BOOST_REQUIRE_EQUAL(bvRx.GetNumCanonicalBlocks(), 3);
             BOOST_REQUIRE(bvRx.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE));
             BOOST_REQUIRE_EQUAL(bvRx.GetNumCanonicalBlocks(), 2); //SOp removed per sopMissingAtAcceptor policy
