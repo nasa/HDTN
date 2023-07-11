@@ -377,7 +377,7 @@ R"({
         }
     }
     
-    { //simple confidentiality failure (corruption) which has a bad key at acceptor
+    { //simple confidentiality failure (corruption) which has a bad key at acceptor (key was sent and was corrupted at acceptor)
         //alter the key file (10.1 changes to 1.1)
         static const boost::regex regexMatch("ipn10.1_confidentiality.key");
         const std::string securityAcceptorPolicyBadKeyJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, "ipn1.1_confidentiality.key");
