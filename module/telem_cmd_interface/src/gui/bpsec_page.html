@@ -77,7 +77,7 @@
                 <div class="sourceType" id="sourceType" style="display: none; flex-direction: column;">
                     <div style="display: flex; flex-wrap: wrap;">
                         <label>Security Target Block Type</label>
-                        <select multiple>
+                        <select id="securityTargets" multiple>
                             <option>0</option>
                             <option>1</option>
                             <option>2</option>
@@ -102,6 +102,13 @@
                             <option>128</option>
                             <option selected>256</option>
                         </select>
+                        <div class="input">
+                            <label>IV Size(Bytes)</label>
+                            <select id="ivSize">
+                                <option selected>12</option>
+                                <option>16</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="shaVariant" id="shaVariantDiv"
                         style="display: none; flex-direction: row; justify-content: space-between;">
@@ -113,15 +120,8 @@
                         </select>
                     </div>
                     <div class="input">
-                        <label>IV Size(Bytes)</label>
-                        <select id="ivSize">
-                            <option selected>12</option>
-                            <option>16</option>
-                        </select>
-                    </div>
-                    <div class="input">
                         <label>Scope Flags</label>
-                        <select>
+                        <select id="scopeFlags">
                             <option>0</option>
                             <option>1</option>
                             <option>2</option>
@@ -149,8 +149,6 @@
     </div>
 
     <link type="text/css" rel="stylesheet" href="./css/style.css" />
-
-    <script type="text/javascript" src="./Scripts/jquery-3.6.0.slim.min.js"></script>
     <script>
         var description = document.getElementById("description");
         var securityPolicyRuleID = document.getElementById("securityPolicyRuleID");
@@ -160,8 +158,13 @@
         var fileInput = document.getElementById("keyFile");
         var roleField = document.getElementById('roleType');
         var securityService = document.getElementById('securityService');
+        var aesVariant = document.getElementById('aesVariant');
+        var shaVariant = document.getElementById('shaVariant');
+        var ivSize = document.getElementById('ivSize');
+        var scopeFlags = document.getElementById('scopeFlags');
+        var scopeCRC = document.getElementById('securityBlockCRC');
 
-        var currentPolicies = {"bpsecConfigName": "myBPSecConfig", "policyRules":[]};
+        var currentPolicies = { "bpsecConfigName": "myBPSecConfig", "policyRules": [] };
 
         function openForm() {
             document.getElementById("popupForm").style.display = "flex";
@@ -172,7 +175,22 @@
 
         }
 
-        function createNewPolicy(){
+        function getSelected(tagName) {
+            var options = document.getElementById(tagName).options,
+                result = [];
+
+            for (var i = 0, len = options.length; i < len; i++) {
+                var opt = options[i];
+
+                if (opt.selected) {
+                    result.push(opt.value);
+                }
+            }
+
+            console.log(result);
+        }
+
+        function createNewPolicy() {
             var newPolicy = new Object();
             newPolicy.description = description.value;
             newPolicy.securityPolicyRuleId = securityPolicyRuleID.value;
@@ -180,19 +198,61 @@
             newPolicy.securitySource = securitySource.value;
             newPolicy.bundleSource = bundleSource.value;
             newPolicy.bundleDestination = bundleDestination.value;
-            newPolicy.securityTargetBlockTypes
-            if(securityService.value === "Confidentiality - AES GCM"){
+
+            if (securityService.value === "Confidentiality - AES GCM") {
                 newPolicy.securityService = 'confidentiality';
                 newPolicy.securityContext = 'aesGcm';
-            }else{
+            } else {
                 newPolicy.securityService = 'integrity';
                 newPolicy.securityContext = 'hmacSha';
             }
-            if(roleField.value === 'source'){
-                if(securityService.value === "Confidentiality - AES GCM"){
-                    
-                }else{}
+
+            console.log(newPolicy);
+            var securityContextParams = [];
+            if (roleField.value === 'source') {
+                var securityTargets = getSelected("securityTargets");
+                newPolicy.securityTargetBlockTypes = securityTargets;
+                if (securityService.value === "Confidentiality - AES GCM") {
+                    var newParam = {
+                        "paramName": "aesVariant",
+                        "value": aesVariant.value
+                    }
+                    securityContextParams.push(newParam);
+                    var ivParam = {
+                        "paramName": "ivSizeBytes",
+                        "value": ivSize.value
+                    }
+                    securityContextParams.push(ivParam);
+                } else {
+                    var newParam = {
+                        "paramName": "shaVariant",
+                        "value": shaVariant.value
+                    }
+                    securityContextParams.push(newParam);
+                }
+
+                //all the following params are required for source
+                var scopeParam = {
+                    "paramName": "scopeFlags",
+                    "value": scopeFlags.value
+                }
+                securityContextParams.push(scopeParam);
+
+                var securityBlockParam = {
+                    "paramName": "securityBlockCrc",
+                    "value": scopeCRC.value
+                }
+                securityContextParams.push(securityBlockParam);
             }
+
+            var fileParam = {
+                "paramName": "keyFile",
+                "value": filePath.value
+            }
+            securityBlockParam.push(fileParam);
+
+            newPolicy.securityContextParams = securityContextParams;
+            console.log(newPolicy);
         }
 
         function checkNewPolicy(event) {
@@ -237,7 +297,7 @@
                 valid = 0;
             }
 
-            if(valid){
+            if (valid) {
                 createNewPolicy();
             }
         }
