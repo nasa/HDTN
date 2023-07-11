@@ -673,18 +673,21 @@ BpSecConfig::~BpSecConfig() {
 BpSecConfig::BpSecConfig(const BpSecConfig& o) :
     m_bpsecConfigName(o.m_bpsecConfigName),
     m_policyRulesVector(o.m_policyRulesVector),
-    m_securityFailureEventSetsSet(o.m_securityFailureEventSetsSet) {}
+    m_securityFailureEventSetsSet(o.m_securityFailureEventSetsSet),
+    m_actionMaskSopMissingAtAcceptor(o.m_actionMaskSopMissingAtAcceptor) {}
 //a move constructor: X(X&&)
 BpSecConfig::BpSecConfig(BpSecConfig&& o) noexcept :
     m_bpsecConfigName(std::move(o.m_bpsecConfigName)),
     m_policyRulesVector(std::move(o.m_policyRulesVector)),
-    m_securityFailureEventSetsSet(std::move(o.m_securityFailureEventSetsSet)) {}
+    m_securityFailureEventSetsSet(std::move(o.m_securityFailureEventSetsSet)),
+    m_actionMaskSopMissingAtAcceptor(o.m_actionMaskSopMissingAtAcceptor) {}
 
 //a copy assignment: operator=(const X&)
 BpSecConfig& BpSecConfig::operator=(const BpSecConfig& o) {
     m_bpsecConfigName = o.m_bpsecConfigName;
     m_policyRulesVector = o.m_policyRulesVector;
     m_securityFailureEventSetsSet = o.m_securityFailureEventSetsSet;
+    m_actionMaskSopMissingAtAcceptor = o.m_actionMaskSopMissingAtAcceptor;
     return *this;
 }
 
@@ -693,13 +696,15 @@ BpSecConfig& BpSecConfig::operator=(BpSecConfig&& o) noexcept {
     m_bpsecConfigName = std::move(o.m_bpsecConfigName);
     m_policyRulesVector = std::move(o.m_policyRulesVector);
     m_securityFailureEventSetsSet = std::move(o.m_securityFailureEventSetsSet);
+    m_actionMaskSopMissingAtAcceptor = o.m_actionMaskSopMissingAtAcceptor;
     return *this;
 }
 
 bool BpSecConfig::operator==(const BpSecConfig& o) const {
     return (m_bpsecConfigName == o.m_bpsecConfigName) &&
         (m_policyRulesVector == o.m_policyRulesVector) &&
-        (m_securityFailureEventSetsSet == o.m_securityFailureEventSetsSet);
+        (m_securityFailureEventSetsSet == o.m_securityFailureEventSetsSet) &&
+        (m_actionMaskSopMissingAtAcceptor == o.m_actionMaskSopMissingAtAcceptor);
 }
 
 bool BpSecConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
@@ -736,12 +741,6 @@ bool BpSecConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree& p
             LOG_ERROR(subprocess) << "error parsing JSON securityFailureEventSets[" << eventSetsVectorIndex << "]";
             return false;
         }
-        std::pair<security_failure_event_sets_set_t::iterator, bool> ret = m_securityFailureEventSetsSet.emplace(std::move(eventSets));
-        if (ret.second == false) {
-            LOG_ERROR(subprocess) << "error parsing JSON securityFailureEventSets[" << eventSetsVectorIndex
-                << "]: name (" << ret.first->m_name << ") already exists";
-            return false;
-        }
         //TODO? search for zero or one eventId=sopMissingAtAcceptor events within securityFailureEventSets
         const security_operation_event_plus_actions_pair_t* eaMissing =
             eventSets.m_eventTypeToEventSetPtrLut[
@@ -761,6 +760,12 @@ bool BpSecConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree& p
                 LOG_ERROR(subprocess) << "error parsing JSON securityFailureEventSets[" << eventSetsVectorIndex
                     << "]: the sopMissingAtAcceptor event defines a prohibited action removeSecurityOperation";
             }
+        }
+        std::pair<security_failure_event_sets_set_t::iterator, bool> ret = m_securityFailureEventSetsSet.emplace(std::move(eventSets));
+        if (ret.second == false) {
+            LOG_ERROR(subprocess) << "error parsing JSON securityFailureEventSets[" << eventSetsVectorIndex
+                << "]: name (" << ret.first->m_name << ") already exists";
+            return false;
         }
         ++eventSetsVectorIndex;
     }
