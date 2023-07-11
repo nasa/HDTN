@@ -140,6 +140,8 @@ struct security_context_param_t : public JsonSerializable {
     boost::filesystem::path m_valuePath;
 
     CONFIG_LIB_EXPORT security_context_param_t();
+    CONFIG_LIB_EXPORT security_context_param_t(BPSEC_SECURITY_CONTEXT_PARAM_NAME paramName, uint64_t valueUint);
+    CONFIG_LIB_EXPORT security_context_param_t(BPSEC_SECURITY_CONTEXT_PARAM_NAME paramName, const boost::filesystem::path& valuePath);
     CONFIG_LIB_EXPORT ~security_context_param_t();
 
     CONFIG_LIB_EXPORT bool operator==(const security_context_param_t & other) const;
@@ -233,6 +235,7 @@ public:
     std::string m_bpsecConfigName;
     policy_rules_vector_t m_policyRulesVector;
     security_failure_event_sets_set_t m_securityFailureEventSetsSet;
+    BPSEC_SECURITY_FAILURE_PROCESSING_ACTION_MASKS m_actionMaskSopMissingAtAcceptor;
 };
 
 #endif // BPSEC_CONFIG_H

@@ -35,6 +35,14 @@ security_context_param_t::security_context_param_t() :
     m_paramName(BPSEC_SECURITY_CONTEXT_PARAM_NAME::UNDEFINED),
     m_valueUint(0),
     m_valuePath() {}
+security_context_param_t::security_context_param_t(BPSEC_SECURITY_CONTEXT_PARAM_NAME paramName, uint64_t valueUint) :
+    m_paramName(paramName),
+    m_valueUint(valueUint),
+    m_valuePath() {}
+security_context_param_t::security_context_param_t(BPSEC_SECURITY_CONTEXT_PARAM_NAME paramName, const boost::filesystem::path& valuePath) :
+    m_paramName(paramName),
+    m_valueUint(0),
+    m_valuePath(valuePath) {}
 security_context_param_t::~security_context_param_t() {}
 security_context_param_t::security_context_param_t(const security_context_param_t& o) :
     m_paramName(o.m_paramName),
@@ -444,17 +452,17 @@ bool policy_rules_t::SetValuesFromPropertyTree(const boost::property_tree::ptree
             }
         }
 
-        if (m_securityRole == "source") {
-            const boost::property_tree::ptree& securityTargetBlockTypesPt = pt.get_child("securityTargetBlockTypes", EMPTY_PTREE); //non-throw version
-            m_securityTargetBlockTypes.clear();
-            BOOST_FOREACH(const boost::property_tree::ptree::value_type & securityTargetBlockTypesValuePt, securityTargetBlockTypesPt) {
-                const uint64_t securityTargetBlockTypeU64 = securityTargetBlockTypesValuePt.second.get_value<uint64_t>();
-                if (m_securityTargetBlockTypes.insert(securityTargetBlockTypeU64).second == false) { //not inserted
-                    LOG_ERROR(subprocess) << "error parsing JSON policy rules: duplicate securityTargetBlockType " << securityTargetBlockTypeU64;
-                    return false;
-                }
+        //if (m_securityRole == "source") {
+        const boost::property_tree::ptree& securityTargetBlockTypesPt = pt.get_child("securityTargetBlockTypes", EMPTY_PTREE); //non-throw version
+        m_securityTargetBlockTypes.clear();
+        BOOST_FOREACH(const boost::property_tree::ptree::value_type & securityTargetBlockTypesValuePt, securityTargetBlockTypesPt) {
+            const uint64_t securityTargetBlockTypeU64 = securityTargetBlockTypesValuePt.second.get_value<uint64_t>();
+            if (m_securityTargetBlockTypes.insert(securityTargetBlockTypeU64).second == false) { //not inserted
+                LOG_ERROR(subprocess) << "error parsing JSON policy rules: duplicate securityTargetBlockType " << securityTargetBlockTypeU64;
+                return false;
             }
         }
+        
 
         m_securityService = pt.get<std::string>("securityService");
         m_securityContext = pt.get<std::string>("securityContext");
@@ -488,6 +496,7 @@ bool policy_rules_t::SetValuesFromPropertyTree(const boost::property_tree::ptree
             if (!securityContextParam.SetValuesFromPropertyTree(securityContextParamsConfigPt.second)) {
                 return false;
             }
+#if 0 //verifiers and acceptors should allow all params to compare that they are expected to detect misconfigurations
             static const std::set<BPSEC_SECURITY_CONTEXT_PARAM_NAME> allowedVerifierAcceptorParamNames = {
                 BPSEC_SECURITY_CONTEXT_PARAM_NAME::KEY_ENCRYPTION_KEY_FILE,
                 BPSEC_SECURITY_CONTEXT_PARAM_NAME::KEY_FILE 
@@ -497,6 +506,7 @@ bool policy_rules_t::SetValuesFromPropertyTree(const boost::property_tree::ptree
                     << paramToStringNameLut[static_cast<uint64_t>(securityContextParam.m_paramName)] << " param name was found";
                 return false;
             }
+#endif
         }
     }
     catch (const boost::property_tree::ptree_error& e) {
@@ -528,15 +538,15 @@ boost::property_tree::ptree policy_rules_t::GetNewPropertyTree() const {
         bundleFinalDestPt.push_back(std::make_pair("", boost::property_tree::ptree(*bundleFinalDestIt))); //using "" as key creates json array
     }
 
-    if (m_securityRole == "source") {
-        boost::property_tree::ptree& securityTargetBlockTypesPt = pt.put_child("securityTargetBlockTypes",
-            m_securityTargetBlockTypes.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
-        for (std::set<uint64_t>::const_iterator securityTargetBlockTypesIt = m_securityTargetBlockTypes.cbegin();
-            securityTargetBlockTypesIt != m_securityTargetBlockTypes.cend(); ++securityTargetBlockTypesIt)
-        {
-            securityTargetBlockTypesPt.push_back(std::make_pair("", boost::property_tree::ptree(boost::lexical_cast<std::string>(*securityTargetBlockTypesIt))));
-        }
+    //if (m_securityRole == "source") {
+    boost::property_tree::ptree& securityTargetBlockTypesPt = pt.put_child("securityTargetBlockTypes",
+        m_securityTargetBlockTypes.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
+    for (std::set<uint64_t>::const_iterator securityTargetBlockTypesIt = m_securityTargetBlockTypes.cbegin();
+        securityTargetBlockTypesIt != m_securityTargetBlockTypes.cend(); ++securityTargetBlockTypesIt)
+    {
+        securityTargetBlockTypesPt.push_back(std::make_pair("", boost::property_tree::ptree(boost::lexical_cast<std::string>(*securityTargetBlockTypesIt))));
     }
+    
 
     pt.put("securityService", m_securityService);
     pt.put("securityContext", m_securityContext);
@@ -652,7 +662,8 @@ boost::property_tree::ptree security_failure_event_sets_t::GetNewPropertyTree() 
 BpSecConfig::BpSecConfig() :
     m_bpsecConfigName("unnamed BpSec config"),
     m_policyRulesVector(),
-    m_securityFailureEventSetsSet()
+    m_securityFailureEventSetsSet(),
+    m_actionMaskSopMissingAtAcceptor(BPSEC_SECURITY_FAILURE_PROCESSING_ACTION_MASKS::NO_ACTIONS_SET)
 {}
 
 BpSecConfig::~BpSecConfig() {
@@ -662,18 +673,21 @@ BpSecConfig::~BpSecConfig() {
 BpSecConfig::BpSecConfig(const BpSecConfig& o) :
     m_bpsecConfigName(o.m_bpsecConfigName),
     m_policyRulesVector(o.m_policyRulesVector),
-    m_securityFailureEventSetsSet(o.m_securityFailureEventSetsSet) {}
+    m_securityFailureEventSetsSet(o.m_securityFailureEventSetsSet),
+    m_actionMaskSopMissingAtAcceptor(o.m_actionMaskSopMissingAtAcceptor) {}
 //a move constructor: X(X&&)
 BpSecConfig::BpSecConfig(BpSecConfig&& o) noexcept :
     m_bpsecConfigName(std::move(o.m_bpsecConfigName)),
     m_policyRulesVector(std::move(o.m_policyRulesVector)),
-    m_securityFailureEventSetsSet(std::move(o.m_securityFailureEventSetsSet)) {}
+    m_securityFailureEventSetsSet(std::move(o.m_securityFailureEventSetsSet)),
+    m_actionMaskSopMissingAtAcceptor(o.m_actionMaskSopMissingAtAcceptor) {}
 
 //a copy assignment: operator=(const X&)
 BpSecConfig& BpSecConfig::operator=(const BpSecConfig& o) {
     m_bpsecConfigName = o.m_bpsecConfigName;
     m_policyRulesVector = o.m_policyRulesVector;
     m_securityFailureEventSetsSet = o.m_securityFailureEventSetsSet;
+    m_actionMaskSopMissingAtAcceptor = o.m_actionMaskSopMissingAtAcceptor;
     return *this;
 }
 
@@ -682,13 +696,15 @@ BpSecConfig& BpSecConfig::operator=(BpSecConfig&& o) noexcept {
     m_bpsecConfigName = std::move(o.m_bpsecConfigName);
     m_policyRulesVector = std::move(o.m_policyRulesVector);
     m_securityFailureEventSetsSet = std::move(o.m_securityFailureEventSetsSet);
+    m_actionMaskSopMissingAtAcceptor = o.m_actionMaskSopMissingAtAcceptor;
     return *this;
 }
 
 bool BpSecConfig::operator==(const BpSecConfig& o) const {
     return (m_bpsecConfigName == o.m_bpsecConfigName) &&
         (m_policyRulesVector == o.m_policyRulesVector) &&
-        (m_securityFailureEventSetsSet == o.m_securityFailureEventSetsSet);
+        (m_securityFailureEventSetsSet == o.m_securityFailureEventSetsSet) &&
+        (m_actionMaskSopMissingAtAcceptor == o.m_actionMaskSopMissingAtAcceptor);
 }
 
 bool BpSecConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
@@ -718,11 +734,32 @@ bool BpSecConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree& p
     const boost::property_tree::ptree& eventSetsSetPt = pt.get_child("securityFailureEventSets", EMPTY_PTREE); //non-throw version
     m_securityFailureEventSetsSet.clear();
     unsigned int eventSetsVectorIndex = 0;
+    bool foundSopMissingAtAcceptor = false;
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & eventSetsPt, eventSetsSetPt) {
         security_failure_event_sets_t eventSets;
         if (!eventSets.SetValuesFromPropertyTree(eventSetsPt.second)) {
             LOG_ERROR(subprocess) << "error parsing JSON securityFailureEventSets[" << eventSetsVectorIndex << "]";
             return false;
+        }
+        //TODO? search for zero or one eventId=sopMissingAtAcceptor events within securityFailureEventSets
+        const security_operation_event_plus_actions_pair_t* eaMissing =
+            eventSets.m_eventTypeToEventSetPtrLut[
+                (int)BPSEC_SECURITY_FAILURE_EVENT::SECURITY_OPERATION_MISSING_AT_ACCEPTOR];
+        if (eaMissing) {
+            if (foundSopMissingAtAcceptor) {
+                LOG_ERROR(subprocess) << "error parsing JSON securityFailureEventSets[" << eventSetsVectorIndex
+                    << "]: more than 1 sopMissingAtAcceptor event was defined";
+                return false;
+            }
+            foundSopMissingAtAcceptor = true;
+            m_actionMaskSopMissingAtAcceptor = eaMissing->m_actionMasks;
+            if ((m_actionMaskSopMissingAtAcceptor & BPSEC_SECURITY_FAILURE_PROCESSING_ACTION_MASKS::REMOVE_SECURITY_OPERATION) !=
+                BPSEC_SECURITY_FAILURE_PROCESSING_ACTION_MASKS::NO_ACTIONS_SET)
+            {
+                //prohibited action: remove SOp
+                LOG_ERROR(subprocess) << "error parsing JSON securityFailureEventSets[" << eventSetsVectorIndex
+                    << "]: the sopMissingAtAcceptor event defines a prohibited action removeSecurityOperation";
+            }
         }
         std::pair<security_failure_event_sets_set_t::iterator, bool> ret = m_securityFailureEventSetsSet.emplace(std::move(eventSets));
         if (ret.second == false) {

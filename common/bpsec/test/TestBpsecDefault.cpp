@@ -131,14 +131,23 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
         BundleViewV7 bv;
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(toSwapIn, false));
 
-        BOOST_REQUIRE(BpSecBundleProcessor::TryVerifyBundleIntegrity(ctxWrapper,
+        BpSecBundleProcessor::IntegrityReceivedParameters irp;
+        irp.keyEncryptionKey = NULL; //NULL if not present (when no wrapped key is present)
+        irp.keyEncryptionKeyLength = 0;
+        irp.hmacKey = hmacKeyBytes.data(); //NULL if not present (when no wrapped key is present)
+        irp.hmacKeyLength = static_cast<const unsigned int>(hmacKeyBytes.size());
+        irp.expectedVariant = COSE_ALGORITHMS::HMAC_512_512;
+        irp.expectedScopeMask = BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE;
+        irp.expectedTargetBlockTypesMask = (((uint64_t)1) << ((unsigned int)BPV7_BLOCK_TYPE_CODE::PAYLOAD));
+
+        BpSecBundleProcessor::ReturnResult res = BpSecBundleProcessor::TryVerifyBundleIntegrity(ctxWrapper,
             ctxWrapperKeyWrapOps,
             bv,
-            NULL, 0, //NULL if not present (for unwrapping hmac key only)
-            hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
+            irp,
             reusableElementsInternal,
             true,
-            true));
+            true);
+        BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS);
         BinaryConversions::BytesToHexString(bv.m_renderedBundle, nobibSerializedBundleString);
         boost::to_lower(nobibSerializedBundleString);
         BOOST_REQUIRE_NE(bibSerializedBundleString, nobibSerializedBundleString);
@@ -206,14 +215,23 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleMultipleSourcesTestCase)
         BundleViewV7 bv;
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(toSwapIn, false));
 
-        BOOST_REQUIRE(BpSecBundleProcessor::TryVerifyBundleIntegrity(ctxWrapper,
+        BpSecBundleProcessor::IntegrityReceivedParameters irp;
+        irp.keyEncryptionKey = NULL; //NULL if not present (when no wrapped key is present)
+        irp.keyEncryptionKeyLength = 0;
+        irp.hmacKey = hmacKeyBytes.data(); //NULL if not present (when no wrapped key is present)
+        irp.hmacKeyLength = static_cast<const unsigned int>(hmacKeyBytes.size());
+        irp.expectedVariant = COSE_ALGORITHMS::HMAC_256_256;
+        irp.expectedScopeMask = BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE;
+        irp.expectedTargetBlockTypesMask = (((uint64_t)1) << ((unsigned int)BPV7_BLOCK_TYPE_CODE::BUNDLE_AGE)) | 1; //age and primary
+
+        BpSecBundleProcessor::ReturnResult res = BpSecBundleProcessor::TryVerifyBundleIntegrity(ctxWrapper,
             ctxWrapperKeyWrapOps,
             bv,
-            NULL, 0, //NULL if not present (for unwrapping hmac key only)
-            hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
+            irp,
             reusableElementsInternal,
             true,
-            true));
+            true);
+        BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS);
         BinaryConversions::BytesToHexString(bv.m_renderedBundle, nobibSerializedBundleString);
         boost::to_lower(nobibSerializedBundleString);
         BOOST_REQUIRE_NE(bibSerializedBundleString, nobibSerializedBundleString);
@@ -274,20 +292,29 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
 
     std::string nobibSerializedBundleString; //used later when bib is removed
 
+    BpSecBundleProcessor::IntegrityReceivedParameters irp;
+    irp.keyEncryptionKey = NULL; //NULL if not present (when no wrapped key is present)
+    irp.keyEncryptionKeyLength = 0;
+    irp.hmacKey = hmacKeyBytes.data(); //NULL if not present (when no wrapped key is present)
+    irp.hmacKeyLength = static_cast<const unsigned int>(hmacKeyBytes.size());
+    irp.expectedVariant = COSE_ALGORITHMS::HMAC_384_384;
+    irp.expectedScopeMask = BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::ALL_FLAGS_SET;
+    irp.expectedTargetBlockTypesMask = (((uint64_t)1) << ((unsigned int)BPV7_BLOCK_TYPE_CODE::PAYLOAD));
+
     //load bundle to test deserialize
     {
         padded_vector_uint8_t toSwapIn(bibSerializedBundle);
         BundleViewV7 bv;
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(toSwapIn, false));
 
-        BOOST_REQUIRE(BpSecBundleProcessor::TryVerifyBundleIntegrity(ctxWrapper,
+        BpSecBundleProcessor::ReturnResult res = BpSecBundleProcessor::TryVerifyBundleIntegrity(ctxWrapper,
             ctxWrapperKeyWrapOps,
             bv,
-            NULL, 0, //NULL if not present (for unwrapping hmac key only)
-            hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
+            irp,
             reusableElementsInternal,
             true,
-            true));
+            true);
+        BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS);
         BinaryConversions::BytesToHexString(bv.m_renderedBundle, nobibSerializedBundleString);
         boost::to_lower(nobibSerializedBundleString);
         BOOST_REQUIRE_NE(bibSerializedBundleString, nobibSerializedBundleString);
@@ -313,14 +340,14 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
             lastPayloadBlockPtr = bvRecycled.m_listCanonicalBlockView.back().headerPtr.get();
             lastIntegrityBlockPtr = bvRecycled.m_listCanonicalBlockView.front().headerPtr.get();
 
-            BOOST_REQUIRE(BpSecBundleProcessor::TryVerifyBundleIntegrity(ctxWrapper,
+            BpSecBundleProcessor::ReturnResult res = BpSecBundleProcessor::TryVerifyBundleIntegrity(ctxWrapper,
                 ctxWrapperKeyWrapOps,
                 bvRecycled,
-                NULL, 0, //NULL if not present (for unwrapping hmac key only)
-                hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
+                irp,
                 reusableElementsInternal,
                 true,
-                true));
+                true);
+            BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS);
             BinaryConversions::BytesToHexString(bvRecycled.m_renderedBundle, nobibSerializedBundleString);
             boost::to_lower(nobibSerializedBundleString);
             BOOST_REQUIRE_NE(bibSerializedBundleString, nobibSerializedBundleString);
@@ -560,19 +587,30 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleWithKeyWrapTestCase)
 
     BpSecBundleProcessor::EvpCipherCtxWrapper ctxWrapper;
     BpSecBundleProcessor::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
-    BOOST_REQUIRE(BpSecBundleProcessor::TryVerifyDecryptionOfBundle(ctxWrapper,
+
+    BpSecBundleProcessor::ConfidentialityReceivedParameters crp;
+    crp.keyEncryptionKey = keyEncryptionKeyBytes.data();
+    crp.keyEncryptionKeyLength = static_cast<const unsigned int>(keyEncryptionKeyBytes.size());
+    crp.dataEncryptionKey = NULL; //no DEK (using KEK instead)
+    crp.dataEncryptionKeyLength = 0;
+    crp.expectedIvLength = 12;
+    crp.expectedVariant = COSE_ALGORITHMS::A128GCM;
+    crp.expectedAadScopeMask = BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::NO_ADDITIONAL_SCOPE;
+    crp.expectedTargetBlockTypesMask = (((uint64_t)1) << ((unsigned int)BPV7_BLOCK_TYPE_CODE::PAYLOAD));
+
+    BpSecBundleProcessor::ReturnResult res = BpSecBundleProcessor::TryVerifyDecryptionOfBundle(ctxWrapper,
         ctxWrapperKeyWrapOps,
         bv,
-        keyEncryptionKeyBytes.data(), static_cast<const unsigned int>(keyEncryptionKeyBytes.size()),
-        NULL, 0, //no DEK (using KEK instead)
-        reusableElementsInternal));
-    BOOST_REQUIRE(BpSecBundleProcessor::TryDecryptBundle(ctxWrapper,
+        crp,
+        reusableElementsInternal);
+    BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS);
+    res = BpSecBundleProcessor::TryDecryptBundle(ctxWrapper,
         ctxWrapperKeyWrapOps,
         bv,
-        keyEncryptionKeyBytes.data(), static_cast<const unsigned int>(keyEncryptionKeyBytes.size()),
-        NULL, 0, //no DEK (using KEK instead)
+        crp,
         reusableElementsInternal,
-        true));
+        true);
+    BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS);
     padded_vector_uint8_t decryptedBundleCopy(
         (uint8_t*)bv.m_renderedBundle.data(),
         ((uint8_t*)bv.m_renderedBundle.data()) + bv.m_renderedBundle.size()
@@ -663,19 +701,31 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleFullScopeTestCase)
 
     BpSecBundleProcessor::EvpCipherCtxWrapper ctxWrapper;
     BpSecBundleProcessor::EvpCipherCtxWrapper ctxWrapperKeyWrapOps;
-    BOOST_REQUIRE(BpSecBundleProcessor::TryVerifyDecryptionOfBundle(ctxWrapper,
+
+    BpSecBundleProcessor::ConfidentialityReceivedParameters crp;
+    crp.keyEncryptionKey = NULL; //not using KEK
+    crp.keyEncryptionKeyLength = 0;
+    crp.dataEncryptionKey = dataEncryptionKeyBytes.data();
+    crp.dataEncryptionKeyLength = static_cast<const unsigned int>(dataEncryptionKeyBytes.size());
+    crp.expectedIvLength = 12;
+    crp.expectedVariant = COSE_ALGORITHMS::A256GCM;
+    crp.expectedAadScopeMask = BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET;
+    crp.expectedTargetBlockTypesMask = (((uint64_t)1) << ((unsigned int)BPV7_BLOCK_TYPE_CODE::PAYLOAD)) |
+        (((uint64_t)1) << ((unsigned int)BPV7_BLOCK_TYPE_CODE::INTEGRITY));
+
+    BpSecBundleProcessor::ReturnResult res = BpSecBundleProcessor::TryVerifyDecryptionOfBundle(ctxWrapper,
         ctxWrapperKeyWrapOps,
         bv,
-        NULL, 0, //not using KEK
-        dataEncryptionKeyBytes.data(), static_cast<const unsigned int>(dataEncryptionKeyBytes.size()),
-        reusableElementsInternal));
-    BOOST_REQUIRE(BpSecBundleProcessor::TryDecryptBundle(ctxWrapper,
+        crp,
+        reusableElementsInternal);
+    BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS);
+    res = BpSecBundleProcessor::TryDecryptBundle(ctxWrapper,
         ctxWrapperKeyWrapOps,
         bv,
-        NULL, 0, //not using KEK
-        dataEncryptionKeyBytes.data(), static_cast<const unsigned int>(dataEncryptionKeyBytes.size()),
+        crp,
         reusableElementsInternal,
-        true));
+        true);
+    BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS);
 
 
     static const std::string expectedSerializedPayloadBlockString(
