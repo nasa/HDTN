@@ -159,7 +159,7 @@
         var roleField = document.getElementById('roleType');
         var securityService = document.getElementById('securityService');
         var aesVariant = document.getElementById('aesVariant');
-        var shaVariant = document.getElementById('shaVariant');
+        var shaVariant = document.getElementById('sharVariant');
         var ivSize = document.getElementById('ivSize');
         var scopeFlags = document.getElementById('scopeFlags');
         var scopeCRC = document.getElementById('securityBlockCRC');
@@ -175,6 +175,28 @@
 
         }
 
+        function resetFormValues() {
+            if (roleField.value === "source") {
+                if (securityService.value === 'aes') {
+                    aesVariant.value = '256';
+                    ivSize.value = '12';
+                } else {
+                    shaVariant.value = '384';
+                }
+
+                scopeFlags.value = '7';
+                scopeCRC.value = '0';
+            }
+            description.value = '';
+            securityPolicyRuleID.value = '';
+            securitySource.value = '';
+            bundleSource.value = '';
+            bundleDestination.value = '';
+            fileInput.value = '';
+            roleField.value = 'acceptor';
+            securityService.value = 'aes';
+        }
+
         function getSelected(tagName) {
             var options = document.getElementById(tagName).options,
                 result = [];
@@ -186,8 +208,7 @@
                     result.push(opt.value);
                 }
             }
-
-            console.log(result);
+            return result;
         }
 
         function createNewPolicy() {
@@ -199,7 +220,7 @@
             newPolicy.bundleSource = bundleSource.value;
             newPolicy.bundleDestination = bundleDestination.value;
 
-            if (securityService.value === "Confidentiality - AES GCM") {
+            if (securityService.value === "aes") {
                 newPolicy.securityService = 'confidentiality';
                 newPolicy.securityContext = 'aesGcm';
             } else {
@@ -207,12 +228,11 @@
                 newPolicy.securityContext = 'hmacSha';
             }
 
-            console.log(newPolicy);
             var securityContextParams = [];
             if (roleField.value === 'source') {
                 var securityTargets = getSelected("securityTargets");
                 newPolicy.securityTargetBlockTypes = securityTargets;
-                if (securityService.value === "Confidentiality - AES GCM") {
+                if (securityService.value === "aes") {
                     var newParam = {
                         "paramName": "aesVariant",
                         "value": aesVariant.value
@@ -247,12 +267,18 @@
 
             var fileParam = {
                 "paramName": "keyFile",
-                "value": filePath.value
+                "value": fileInput.value
             }
-            securityBlockParam.push(fileParam);
+            securityContextParams.push(fileParam);
 
             newPolicy.securityContextParams = securityContextParams;
             console.log(newPolicy);
+            currentPolicies.policyRules.push(newPolicy);
+            console.log(currentPolicies);
+
+            alert("New Policy Added");
+            resetFormValues();
+            closeForm();
         }
 
         function checkNewPolicy(event) {
