@@ -23,6 +23,7 @@
 #include <memory>
 #include <boost/thread.hpp>
 #include "HdtnConfig.h"
+#include "BpSecConfig.h"
 #include "codec/bpv6.h"
 #include "TelemetryDefinitions.h"
 #include <boost/core/noncopyable.hpp>
@@ -103,7 +104,7 @@ struct ZmqStorageInterface::Impl : private boost::noncopyable {
     Impl();
     ~Impl();
     void Stop();
-    bool Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
+    bool Init(const HdtnConfig& hdtnConfig, const BpSecConfig& bpsecConfig, const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
     std::size_t GetCurrentNumberOfBundlesDeletedFromStorage();
 
 private:
@@ -140,6 +141,7 @@ private:
     std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingTelemToFromBoundStoragePtr;
 
     HdtnConfig m_hdtnConfig;
+    BpSecConfig m_bpsecConfig;
 
     zmq::context_t* m_hdtnOneProcessZmqInprocContextPtr;
     std::unique_ptr<boost::thread> m_threadPtr;
@@ -203,10 +205,10 @@ void ZmqStorageInterface::Impl::Stop() {
     }
 }
 
-bool ZmqStorageInterface::Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr) {
-    return m_pimpl->Init(hdtnConfig, hdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr);
+bool ZmqStorageInterface::Init(const HdtnConfig& hdtnConfig, const BpSecConfig& bpsecConfig, const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr) {
+    return m_pimpl->Init(hdtnConfig, bpsecConfig, hdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr);
 }
-bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
+bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const BpSecConfig& bpsecConfig, const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
 
     if (m_running) {
         LOG_ERROR(subprocess) << "ZmqStorageInterface::Init called while ZmqStorageInterface is already running";
@@ -214,6 +216,7 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDi
     }
 
     m_hdtnConfig = hdtnConfig;
+    m_bpsecConfig = bpsecConfig;
     //according to ION.pdf v4.0.1 on page 100 it says:
     //  Remember that the format for this argument is ipn:element_number.0 and that
     //  the final 0 is required, as custodial/administration service is always service 0.
