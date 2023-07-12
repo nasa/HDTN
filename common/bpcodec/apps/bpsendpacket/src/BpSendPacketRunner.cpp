@@ -33,7 +33,6 @@ bool BpSendPacketRunner::Run(int argc, const char* const argv[], volatile bool &
         bool forceDisableCustody;
         bool useBpVersion7;
         unsigned int bundleSendTimeoutSeconds;
-        unsigned int recurseDirectoriesDepth;
         uint64_t bundleLifetimeMilliseconds;
         uint64_t bundlePriority;
         boost::filesystem::path bpSecConfigFilePath;
