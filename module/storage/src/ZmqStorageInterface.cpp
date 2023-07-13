@@ -404,11 +404,6 @@ bool ZmqStorageInterface::Impl::WriteAcsBundle(const Bpv6CbhePrimaryBlock & prim
     return true;
 }
 
-static void CustomCleanupDepletedStorageReportHdr(void *data, void *hint)
-{
-    delete static_cast<hdtn::DepletedStorageReportHdr*>(hint);
-}
-
 void ZmqStorageInterface::Impl::ReportDepletedStorage(cbhe_eid_t &eid)
 {
     if(!m_hdtnConfig.m_neighborDepletedStorageDelaySeconds) {
@@ -418,13 +413,15 @@ void ZmqStorageInterface::Impl::ReportDepletedStorage(cbhe_eid_t &eid)
 
     LOG_INFO(subprocess) << "Node " << nodeId << " storage is depleted; sending message to router";
 
-    hdtn::DepletedStorageReportHdr * report = new hdtn::DepletedStorageReportHdr();
-    report->base.type = HDTN_MSGTYPE_DEPLETED_STORAGE_REPORT;
-    report->base.flags = 0;
-    report->nodeId = nodeId;
-    zmq::message_t msg(report, sizeof(*report), CustomCleanupDepletedStorageReportHdr, report);
+    hdtn::DepletedStorageReportHdr report;
+    memset(&report, 0, sizeof(report));
+    report.base.type = HDTN_MSGTYPE_DEPLETED_STORAGE_REPORT;
+    report.base.flags = 0;
+    report.nodeId = nodeId;
 
-    if (!m_zmqPushSock_connectingStorageToBoundRouterPtr->send(std::move(msg), zmq::send_flags::dontwait)) {
+    if (!m_zmqPushSock_connectingStorageToBoundRouterPtr->send(
+        zmq::const_buffer(&report, sizeof(report)), zmq::send_flags::dontwait))
+    {
         LOG_ERROR(subprocess) << "Failed to send depleted storage report to router";
     }
 }
