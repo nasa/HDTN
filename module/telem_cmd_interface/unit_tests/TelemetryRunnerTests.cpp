@@ -13,6 +13,7 @@ BOOST_AUTO_TEST_CASE(TelemetryRunnerInitTestCase)
     options.m_hdtnDistributedConfigPtr = std::make_shared<HdtnDistributedConfig>(); //default config, needed since inprocContextPtr is null
     TelemetryRunner runner;
     HdtnConfig hdtnConfig;
-    BOOST_REQUIRE(runner.Init(hdtnConfig, NULL, options));
+    BpSecConfig bpsecConfig;
+    BOOST_REQUIRE(runner.Init(hdtnConfig, bpsecConfig, NULL, options));
     BOOST_REQUIRE_NO_THROW(runner.Stop());
 }
