@@ -337,7 +337,7 @@ caption {
     height: 20px;
 }
 
-.bpSecAddPolicyForm {
+.bpSecAddPolicyForm, .bpsecAddSecurityEventForm {
     position: relative;
     text-align: center;
     width: 100%;

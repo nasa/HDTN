@@ -153,7 +153,7 @@
         </div>
 
         <div class="bpsecAddSecurityEventForm">
-            <div id="eventFormPopup">
+            <div class="eventFormPopup" id="eventFormPopup">
                 <div class="formLayout">
                     <div class="popupTitle">
                         <h2 class="popupTitle">Create New Event</h2>
@@ -161,27 +161,30 @@
                     </div>
                     <div class="input">
                         <label>Name of Event</label>
-                        <input type="text" required>
+                        <input type="text" id="eventName" required>
                     </div>
                     <div class="input">
                         <label>Description</label>
-                        <input type="text" required>
+                        <input type="text" id="eventDescription" required>
                     </div>
-                    <div class="input">
-                        <label>Event ID</label>
-                        <select>
-                            <option>sop Corrupted At Acceptor</option>
-                            <option>sop Corrupted At Verifier</option>
-                            <option>sop Corrupted At Source</option>
-                            <option>sop Missing At Source</option>
-                            <option>sop Missing At Verifier</option>
-                            <option>sop Missing At Acceptor</option>
-                        </select>
+                    <div id="sopEvents">
+                        <div class="input">
+                            <label>Event ID</label>
+                            <select id="eventID" required>
+                                <option>sop Corrupted At Acceptor</option>
+                                <option>sop Corrupted At Verifier</option>
+                                <option>sop Corrupted At Source</option>
+                                <option>sop Missing At Source</option>
+                                <option>sop Missing At Verifier</option>
+                                <option>sop Missing At Acceptor</option>
+                            </select>
+                        </div>
+                        <div class="input">
+                            <label>Action</label>
+                            <input type="text" id="eventAction" required>
+                        </div>
                     </div>
-                    <div class="input">
-                        <label>Action</label>
-                        <input type="text">
-                    </div>
+                    <button>Add another Action</button>
                     <button type="submit" onclick="checkEvent()">Submit</button>
                 </div>
             </div>
@@ -190,6 +193,8 @@
 
     <link type="text/css" rel="stylesheet" href="./css/style.css" />
     <script>
+        let bpsecConfig = null;
+
         var description = document.getElementById("description");
         var securityPolicyRuleID = document.getElementById("securityPolicyRuleID");
         var securitySource = document.getElementById("securitySource");
@@ -204,7 +209,7 @@
         var scopeFlags = document.getElementById('scopeFlags');
         var scopeCRC = document.getElementById('securityBlockCRC');
 
-        var currentPolicies = { "bpsecConfigName": "myBPSecConfig", "policyRules": [] };
+        var currentPolicies = { "bpsecConfigName": "myBPSecConfig", "policyRules": [] , "securityFailureEventSets": []};
 
         function openForm() {
             document.getElementById("popupForm").style.display = "flex";
@@ -222,7 +227,12 @@
             document.getElementById("eventFormPopup").style.display = "none";
         }
 
-        checkEvent(){}
+        function checkEvent() {
+            var newEvent = new Object();
+
+            newEvent.name = eventName.value;
+            newEvent.description = eventDescription.value;
+        }
 
         function resetFormValues() {
             if (roleField.value === "source") {
