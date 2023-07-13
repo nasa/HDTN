@@ -350,7 +350,7 @@ caption {
     text-align: center;
 }
 
-.formPopup {
+.formPopup, .eventFormPopup {
     display: none;
     position: fixed;
     background-color: #7f7f7f;

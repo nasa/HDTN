@@ -24,6 +24,7 @@
         <div class="bpsecTitle">
             <h1 class="bpSecConfigTitle">BPSec Config</h1>
             <button class="bpSecAddPolicy" onclick="openForm()">Add Policy</button>
+            <button class="bpSecAddSecurityEvent" onclick="openEventForm()">Add Security Event</button>
         </div>
         <div class="bpsecPolicies">
             <h2 class="bpSecPoliciesTitle">Current Policies</h2>
@@ -73,6 +74,10 @@
                         <option value="aes">Confidentiality - AES GCM</option>
                         <option value="sha">Integrity - HMAC SHA</option>
                     </select>
+                </div>
+                <div class="input">
+                    <label>Security Event Reference</label>
+                    <input type="text" required>
                 </div>
                 <div class="sourceType" id="sourceType" style="display: none; flex-direction: column;">
                     <div style="display: flex; flex-wrap: wrap;">
@@ -146,6 +151,41 @@
                 <button type="submit" onclick="checkNewPolicy()">Add Policy</button>
             </div>
         </div>
+
+        <div class="bpsecAddSecurityEventForm">
+            <div id="eventFormPopup">
+                <div class="formLayout">
+                    <div class="popupTitle">
+                        <h2 class="popupTitle">Create New Event</h2>
+                        <button class="policyQuitBtn" onclick="closeEventForm()">X</button>
+                    </div>
+                    <div class="input">
+                        <label>Name of Event</label>
+                        <input type="text" required>
+                    </div>
+                    <div class="input">
+                        <label>Description</label>
+                        <input type="text" required>
+                    </div>
+                    <div class="input">
+                        <label>Event ID</label>
+                        <select>
+                            <option>sop Corrupted At Acceptor</option>
+                            <option>sop Corrupted At Verifier</option>
+                            <option>sop Corrupted At Source</option>
+                            <option>sop Missing At Source</option>
+                            <option>sop Missing At Verifier</option>
+                            <option>sop Missing At Acceptor</option>
+                        </select>
+                    </div>
+                    <div class="input">
+                        <label>Action</label>
+                        <input type="text">
+                    </div>
+                    <button type="submit" onclick="checkEvent()">Submit</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <link type="text/css" rel="stylesheet" href="./css/style.css" />
@@ -172,8 +212,17 @@
 
         function closeForm() {
             document.getElementById("popupForm").style.display = "none";
-
         }
+
+        function openEventForm() {
+            document.getElementById("eventFormPopup").style.display = "flex";
+        }
+
+        function closeEventForm() {
+            document.getElementById("eventFormPopup").style.display = "none";
+        }
+
+        checkEvent(){}
 
         function resetFormValues() {
             if (roleField.value === "source") {
