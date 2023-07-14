@@ -62,7 +62,7 @@ static const unsigned int REC_API = 0x08;
 class TelemetryRunner::Impl : private boost::noncopyable {
     public:
         Impl();
-        bool Init(const HdtnConfig& hdtnConfig, const BpSecConfig& bpsecConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions& options);
+        bool Init(const HdtnConfig& hdtnConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions& options);
         void Stop();
 
     private:
@@ -85,11 +85,6 @@ class TelemetryRunner::Impl : private boost::noncopyable {
         HdtnConfig m_hdtnConfig;
         std::shared_ptr<std::string> m_hdtnConfigJsonPtr;
 
-        //variables for bpsec
-        BpSecConfig m_bpsecConfig;
-        std::shared_ptr<std::string> m_bpsecConfigJsonPtr;
-
-
         boost::mutex m_lastSerializedAllOutductCapabilitiesMutex;
         std::shared_ptr<std::string> m_lastJsonSerializedAllOutductCapabilitiesPtr;
 
@@ -111,8 +106,8 @@ TelemetryRunner::TelemetryRunner()
     : m_pimpl(boost::make_unique<TelemetryRunner::Impl>())
 {}
 
-bool TelemetryRunner::Init(const HdtnConfig& hdtnConfig, const BpSecConfig& bpsecConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options) {
-    return m_pimpl->Init(hdtnConfig, bpsecConfig, inprocContextPtr, options);
+bool TelemetryRunner::Init(const HdtnConfig& hdtnConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options) {
+    return m_pimpl->Init(hdtnConfig, inprocContextPtr, options);
 }
 
 void TelemetryRunner::Stop() {
@@ -136,17 +131,14 @@ TelemetryRunner::Impl::Impl() :
     m_apiCmdMap["get_expiring_storage"] = boost::bind(&TelemetryRunner::Impl::HandleGetExpiringStorageCommand, this, boost::placeholders::_1, boost::placeholders::_2);
 }
 
-bool TelemetryRunner::Impl::Init(const HdtnConfig& hdtnConfig, const BpSecConfig& bpsecConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options) {
+bool TelemetryRunner::Impl::Init(const HdtnConfig& hdtnConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options) {
     if ((inprocContextPtr == NULL) && (!options.m_hdtnDistributedConfigPtr)) {
         LOG_ERROR(subprocess) << "Error in TelemetryRunner Init: using distributed mode but Hdtn Distributed Config is invalid";
         return false;
     }
     m_hdtnConfig = hdtnConfig;
-    m_bpsecConfig = bpsecConfig;
     { //add hdtn version to config, and preserialize it to json once for all connecting web GUIs
         boost::property_tree::ptree pt = hdtnConfig.GetNewPropertyTree();
-        boost::property_tree::ptree bppt = bpsecConfig.GetNewPropertyTree();
-
         pt.put("hdtnVersionString", hdtn::Logger::GetHdtnVersionAsString());
         m_hdtnConfigJsonPtr = std::make_shared<std::string>(JsonSerializable::PtToJsonString(pt));
     }
@@ -423,7 +415,6 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
                     m_apiConnection->SendZmqMessage(std::move(msg), false);
                 }
             }
-
             // Ensure only one API message is processed per request loop. This ensures clients
             // will receive the correct response when there are multiple connections.
             if (!ReceivedApi(receiveEventsMask) && poller.HasNewMessage(*m_apiConnection)) {

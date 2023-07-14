@@ -783,7 +783,7 @@ BpSecConfig_ptr BpSecConfig::CreateFromJsonFilePath(const boost::filesystem::pat
         }
     }
     return config;
-} 
+}
 
 BpSecConfig_ptr BpSecConfig::CreateFromPtree(const boost::property_tree::ptree& pt) {
 

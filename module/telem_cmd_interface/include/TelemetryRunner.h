@@ -21,7 +21,6 @@
 
 #include "zmq.hpp"
 #include "HdtnConfig.h"
-#include "BpSecConfig.h"
 #include "telem_lib_export.h"
 #include "TelemetryRunnerProgramOptions.h"
 
@@ -37,7 +36,7 @@ class TelemetryRunner
          * @param inprocContextPtr context to use for the inproc zmq connections
          * @param options program options for the runner
          */
-        TELEM_LIB_EXPORT bool Init(const HdtnConfig& hdtnConfig, const BpSecConfig& bpsecConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions& options);
+        TELEM_LIB_EXPORT bool Init(const HdtnConfig& hdtnConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions& options);
 
         /**
          * Stops the runner
