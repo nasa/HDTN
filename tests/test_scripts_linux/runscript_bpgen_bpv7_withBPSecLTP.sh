@@ -18,7 +18,7 @@ sleep 3
 # HDTN one process
 # use the option --use-unix-timestamp when using a contact plan with unix timestamp
 # use the option --use-mgr to use Multigraph Routing Algorithm (the default routing Algorithm is CGR Dijkstra)
-./build/module/hdtn_one_process/hdtn-one-process --contact-plan-file=contactPlan3.json --hdtn-config-file=$hdtn_config  --bpsec-config-file=$hdtn_bpsec_config &
+./build/module/hdtn_one_process/hdtn-one-process --contact-plan-file=contactPlanCutThroughMode_10Gbps.json --hdtn-config-file=$hdtn_config  --bpsec-config-file=$hdtn_bpsec_config &
 sleep 6
 
 # Bpgen
