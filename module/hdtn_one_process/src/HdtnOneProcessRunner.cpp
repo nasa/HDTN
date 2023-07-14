@@ -71,7 +71,6 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         SignalHandler sigHandler(boost::bind(&HdtnOneProcessRunner::MonitorExitKeypressThreadFunction, this));
 
         HdtnConfig_ptr hdtnConfig;
-        BpSecConfig_ptr bpsecConfig;
         boost::filesystem::path bpSecConfigFilePath;
 
         HdtnDistributedConfig unusedHdtnDistributedConfig;
@@ -89,7 +88,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
             desc.add_options()
                 ("help", "Produce help message.")
                 ("hdtn-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
-                ("bpsec-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("bpsec.json"), "BpSec Configuration File.")
+                ("bpsec-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "BpSec Configuration File.")
                 ("contact-plan-file", boost::program_options::value<boost::filesystem::path>()->default_value(DEFAULT_CONTACT_FILE), "Contact Plan file that router relies on for link availability.")
                 ("use-unix-timestamp", "Use unix timestamp in contact plan.")
                 ("use-mgr", "Use Multigraph Routing Algorithm")
@@ -112,14 +111,12 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
             const boost::filesystem::path configFileName = vm["hdtn-config-file"].as<boost::filesystem::path>();
 
             hdtnConfig = HdtnConfig::CreateFromJsonFilePath(configFileName);
-            
             if (!hdtnConfig) {
                 LOG_ERROR(subprocess) << "error loading config file: " << configFileName;
                 return false;
             }
 
             bpSecConfigFilePath = vm["bpsec-config-file"].as<boost::filesystem::path>();
-            bpsecConfig = BpSecConfig::CreateFromJsonFilePath(bpSecConfigFilePath);
 
             usingUnixTimestamp = (vm.count("use-unix-timestamp") != 0);
 
@@ -184,7 +181,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
 
         LOG_INFO(subprocess) << "starting Storage..";
         std::unique_ptr<ZmqStorageInterface> storagePtr = boost::make_unique<ZmqStorageInterface>();
-        if (!storagePtr->Init(*hdtnConfig, *bpsecConfig, unusedHdtnDistributedConfig,
+        if (!storagePtr->Init(*hdtnConfig, unusedHdtnDistributedConfig,
             hdtnOneProcessZmqInprocContextPtr.get()))
         {
             return false;
@@ -193,7 +190,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
 #ifdef RUN_TELEMETRY
         LOG_INFO(subprocess) << "Starting telemetry runner...";
         std::unique_ptr<TelemetryRunner> telemetryRunnerPtr = boost::make_unique<TelemetryRunner>();
-        if (!telemetryRunnerPtr->Init(*hdtnConfig, *bpsecConfig, hdtnOneProcessZmqInprocContextPtr.get(), telemetryRunnerOptions)) {
+        if (!telemetryRunnerPtr->Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get(), telemetryRunnerOptions)) {
             return false;
         }
 #endif

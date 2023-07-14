@@ -51,14 +51,12 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
 
         HdtnConfig_ptr hdtnConfig;
         HdtnDistributedConfig_ptr hdtnDistributedConfig;
-        BpSecConfig_ptr bpsecConfig;
 
         boost::program_options::options_description desc("Allowed options");
         try {
             desc.add_options()
                 ("help", "Produce help message.")
                 ("hdtn-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
-                ("bpsec-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("bpsec.json"), "BPSec Configuration File.");
                 ("hdtn-distributed-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn_distributed.json"), "HDTN Distributed Mode Configuration File.");
 
             boost::program_options::variables_map vm;
@@ -71,15 +69,9 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
             }
 
             const boost::filesystem::path configFileName = vm["hdtn-config-file"].as<boost::filesystem::path>();
-            const boost::filesystem::path bpsecConfigFileName = vm["bpsec-config-file"].as<boost::filesystem::path>();
             hdtnConfig = HdtnConfig::CreateFromJsonFilePath(configFileName);
-            bpsecConfig = BpSecConfig::CreateFromJsonFilePath(bpsecConfigFileName);
             if (!hdtnConfig) {
                 LOG_ERROR(subprocess) << "error loading config file: " << configFileName;
-                return false;
-            }
-            if (!bpsecConfig) {
-                LOG_ERROR(subprocess) << "error loading config file: " << bpsecConfigFileName;
                 return false;
             }
 
@@ -114,7 +106,7 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         //config.storePath = storePath;
         ZmqStorageInterface storage;
         LOG_INFO(subprocess) << "Initializing storage manager ...";
-        if (!storage.Init(*hdtnConfig, *bpsecConfig, *hdtnDistributedConfig)) {
+        if (!storage.Init(*hdtnConfig, *hdtnDistributedConfig)) {
             return false;
         }
 
