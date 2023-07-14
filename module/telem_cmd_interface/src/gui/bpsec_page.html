@@ -184,7 +184,7 @@
                             <input type="text" id="eventAction" required>
                         </div>
                     </div>
-                    <button>Add another Action</button>
+                    <button onclick="addNewEvent()">Add another Action</button>
                     <button type="submit" onclick="checkEvent()">Submit</button>
                 </div>
             </div>
@@ -209,7 +209,7 @@
         var scopeFlags = document.getElementById('scopeFlags');
         var scopeCRC = document.getElementById('securityBlockCRC');
 
-        var currentPolicies = { "bpsecConfigName": "myBPSecConfig", "policyRules": [] , "securityFailureEventSets": []};
+        var currentPolicies = { "bpsecConfigName": "myBPSecConfig", "policyRules": [], "securityFailureEventSets": [] };
 
         function openForm() {
             document.getElementById("popupForm").style.display = "flex";
@@ -226,6 +226,8 @@
         function closeEventForm() {
             document.getElementById("eventFormPopup").style.display = "none";
         }
+
+        function addNewEvent() { }
 
         function checkEvent() {
             var newEvent = new Object();
@@ -443,6 +445,54 @@
             newTable += "</table>";
             div.innerHTML = newTable;
         }
+
+        var connection = null;
+        window.addEventListener("load", function (event) {
+            console.log("All resources finished loading!");
+            if (!("WebSocket" in window)) {
+                alert("WebSocket is not supported by your Browser!");
+            }
+            else {
+                var wsproto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
+                connection = new WebSocket(wsproto + '//' + window.location.host + '/websocket');
+                connection.binaryType = "arraybuffer";
+
+
+                //This event occurs when socket connection is established.
+                connection.onopen = function () {
+                    console.log("ws opened");
+                }
+
+                //This event occurs when connection is closed.
+                connection.onclose = function () {
+                    console.log("ws closed");
+                }
+
+                //This event occurs when client receives data from server.
+                connection.onmessage = function (e) {
+                    if (e.data instanceof ArrayBuffer) { //this is binary data
+                        console.log("binary data received.. ignoring");
+                    }
+                    else { //this is text data such as json
+                        if (e.data === "Hello websocket") {
+                            console.log(e.data);
+                        }
+                        else { //json data
+                            var obj = JSON.parse(e.data); //this could error based on encodings
+                            console.log(obj);
+                            //UpdateWithData(obj);
+
+                        }
+                    }
+                }
+
+                //This event occurs when there is any error in communication.
+                connection.onerror = function (error) {
+                    connection.close();
+                }
+            } //running http(s)
+
+        });
     </script>
 </body>
 
