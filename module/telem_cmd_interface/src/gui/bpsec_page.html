@@ -245,7 +245,10 @@
         function addNewEvent() { }
 
         function clearEventForm() {
-            
+            eventName.value = '';
+            eventDescription.value = '';
+            eventID.value = '';
+            document.getElementById('eventActions').value = '';
         }
 
         function checkEvent() {
@@ -310,6 +313,7 @@
                 newEvent.securityOperationEvents.push(eventJSON);
                 alert("New Event added to BPSec Config");
                 clearEventForm();
+                closeEventForm();
             }
         }
 
