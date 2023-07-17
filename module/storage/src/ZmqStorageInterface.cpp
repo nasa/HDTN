@@ -197,10 +197,11 @@ private:
     TelemetryServer m_telemServer;
 
     std::size_t lastIndexToUpLinkVectorOutductInfoRoundRobin;
+    std::size_t m_lastIndexToUpLinkVectorOutductInfoRoundRobin;
 
     // stats
-    std::size_t totalEventsNoDataInStorageForAvailableLinks = 0;
-    std::size_t totalEventsDataInStorageForCloggedLinks = 0;
+    std::size_t m_totalEventsNoDataInStorageForAvailableLinks;
+    std::size_t m_totalEventsDataInStorageForCloggedLinks;
 };
 
 ZmqStorageInterface::Impl::Impl() :
@@ -1215,12 +1216,12 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
     
 
     
-    totalEventsNoDataInStorageForAvailableLinks = 0;
-    totalEventsDataInStorageForCloggedLinks = 0;
+    m_totalEventsNoDataInStorageForAvailableLinks = 0;
+    m_totalEventsDataInStorageForCloggedLinks = 0;
     std::size_t numCustodyTransferTimeouts = 0;
     
     
-    lastIndexToUpLinkVectorOutductInfoRoundRobin = 0;
+    m_lastIndexToUpLinkVectorOutductInfoRoundRobin = 0;
 
     
 
@@ -1580,7 +1581,6 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                         storageAckHdr->ingressUniqueId = toStorageHeader.ingressUniqueId;
                         storageAckHdr->outductIndex = toStorageHeader.outductIndex;
 
-                        // DBG HERE IS WHERE BUNDLES ARE STORED OR PUT ON CUT-THROUGH
                         if ((toStorageHeader.dontStoreBundle)
                             && (toStorageHeader.outductIndex < m_vectorOutductInfo.size()) //if outductIndex is UINT64_MAX then bundle needs stored
                             && m_vectorOutductInfo[toStorageHeader.outductIndex]->linkIsUp)
@@ -1698,8 +1698,8 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
     }
     LOG_DEBUG(subprocess) << "Storage bundles sent: FromDisk=" << m_telem.m_totalBundlesSentToEgressFromStorageReadFromDisk
         << "  FromCutThroughForward=" << m_telem.m_totalBundlesSentToEgressFromStorageForwardCutThrough;
-    LOG_DEBUG(subprocess) << "totalEventsNoDataInStorageForAvailableLinks: " << totalEventsNoDataInStorageForAvailableLinks;
-    LOG_DEBUG(subprocess) << "totalEventsDataInStorageForCloggedLinks: " << totalEventsDataInStorageForCloggedLinks;
+    LOG_DEBUG(subprocess) << "totalEventsNoDataInStorageForAvailableLinks: " << m_totalEventsNoDataInStorageForAvailableLinks;
+    LOG_DEBUG(subprocess) << "totalEventsDataInStorageForCloggedLinks: " << m_totalEventsDataInStorageForCloggedLinks;
     LOG_DEBUG(subprocess) << "m_numRfc5050CustodyTransfers: " << m_telem.m_numRfc5050CustodyTransfers;
     LOG_DEBUG(subprocess) << "m_numAcsCustodyTransfers: " << m_telem.m_numAcsCustodyTransfers;
     LOG_DEBUG(subprocess) << "m_numAcsPacketsReceived: " << m_telem.m_numAcsPacketsReceived;
@@ -1710,8 +1710,6 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
 }
 
 void ZmqStorageInterface::Impl::DoSendBundles(long & timeoutPoll) {
-        // DBG THIS IS WHAT WE WANT TO CHANGE
-
         //For each outduct or opportunistic induct, send to Egress the bundles read from disk or the
         //bundles forwarded over the cut-through path from ingress, alternating/multiplexing between the two.
         //Maintain up to that outduct's own sending pipeline limit,
@@ -1727,23 +1725,16 @@ void ZmqStorageInterface::Impl::DoSendBundles(long & timeoutPoll) {
         timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL;
         static constexpr long shortestTimeoutPoll1Ms = 1;
         for (std::size_t count = 0; count < m_vectorUpLinksOutductInfoPtrs.size(); ++count) {
-            ++lastIndexToUpLinkVectorOutductInfoRoundRobin;
-            if (lastIndexToUpLinkVectorOutductInfoRoundRobin >= m_vectorUpLinksOutductInfoPtrs.size()) {
-                lastIndexToUpLinkVectorOutductInfoRoundRobin = 0;
+            ++m_lastIndexToUpLinkVectorOutductInfoRoundRobin;
+            if (m_lastIndexToUpLinkVectorOutductInfoRoundRobin >= m_vectorUpLinksOutductInfoPtrs.size()) {
+                m_lastIndexToUpLinkVectorOutductInfoRoundRobin = 0;
             }
-            // The outduct we're sending on for this iteration
-            OutductInfo_t& info = *(m_vectorUpLinksOutductInfoPtrs[lastIndexToUpLinkVectorOutductInfoRoundRobin]);
-            // How many bundles are in-flight to egress?
+            OutductInfo_t& info = *(m_vectorUpLinksOutductInfoPtrs[m_lastIndexToUpLinkVectorOutductInfoRoundRobin]);
             const std::size_t totalInPipelineStorageToEgressThisLink = info.mapOpenCustodyIdToBundleSizeBytes.size() + info.mapIngressUniqueIdToIngressAckData.size();
 
-            //TODO maybe use full-max
-            // How much space is left in bytes that we can still send to egress
             const uint64_t maxBundleSizeToRead = info.halfOfMaxBundleSizeBytesInPipeline_StorageToEgressPath - info.bytesInPipeline;
 
-            // TODO maybe use full-max
-            // Is there room in the pipeline for more bundles (by number, not by size)?
             if (totalInPipelineStorageToEgressThisLink < info.halfOfMaxBundlesInPipeline_StorageToEgressPath) { //not clogged by bundle count in pipeline
-                // Yes, so we want to try to send bundles
                 if(m_hdtnConfig.m_enforceBundlePriority) {
                     PrioritySend(info, maxBundleSizeToRead, timeoutPoll);
                 }
@@ -1757,11 +1748,11 @@ void ZmqStorageInterface::Impl::DoSendBundles(long & timeoutPoll) {
             else if (timeoutPoll != shortestTimeoutPoll1Ms) { //potentially clogged
                 if (PeekOne(info.eidVec) > 0) { //data available in storage for clogged links
                     timeoutPoll = shortestTimeoutPoll1Ms; //shortest timeout 1ms as we wait for acks
-                    ++totalEventsDataInStorageForCloggedLinks;
+                    ++m_totalEventsDataInStorageForCloggedLinks;
                 }
                 else { //no data in storage for any available links
                     //timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL;
-                    ++totalEventsNoDataInStorageForAvailableLinks;
+                    ++m_totalEventsNoDataInStorageForAvailableLinks;
                 }
             }
         }
@@ -1769,29 +1760,9 @@ void ZmqStorageInterface::Impl::DoSendBundles(long & timeoutPoll) {
 
 
 void ZmqStorageInterface::Impl::PrioritySend(OutductInfo_t &info, uint64_t maxBundleSizeToRead, long &timeoutPoll) {
-    // If nothing at the front of the queue,
-    //      send from storage,
-    //      return
-    // If nothing in storage:
-    //      send from front of queue,
-    //      return
-
-    // (Otherwise, there are bundles at both the front of the queue and front of storage)
-    //
-    //  get storage bundle priority
-    //  get queue bundle priority
-    //
-    //  If queue has highest priority
-    //      send from queue
-    //      return
-    //
-    //  If storage has highest priority
-    //      send from storage
-    //      move queue bundle to storage
-    //      Send ack to ingress for queue bundle now in storage
-    //      return
     int storageBundlePriority = -1;
 
+    // If one is empty we don't need to compare priorities
     if(info.cutThroughQueue.empty()) {
         SendFromStorage(info, maxBundleSizeToRead, timeoutPoll);
         return;
