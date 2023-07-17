@@ -77,7 +77,7 @@
                 </div>
                 <div class="input">
                     <label>Security Event Reference</label>
-                    <input type="text" required>
+                    <input type="text" id="securityEventId" required>
                 </div>
                 <div class="sourceType" id="sourceType" style="display: none; flex-direction: column;">
                     <div style="display: flex; flex-wrap: wrap;">
@@ -206,6 +206,7 @@
     <link type="text/css" rel="stylesheet" href="./css/style.css" />
     <script>
         let bpsecConfig = null;
+        var createNewEvent = 1;
 
         var description = document.getElementById("description");
         var securityPolicyRuleID = document.getElementById("securityPolicyRuleID");
@@ -239,7 +240,11 @@
         }
 
         function closeEventForm() {
-            document.getElementById("eventFormPopup").style.display = "none";
+            if(!createNewEvent){
+                document.getElementById("eventFormPopup").style.display = "none";
+            } else {
+                alert("REQUIRED EVENT");
+            }            
         }
 
         function addNewEvent() { }
@@ -311,6 +316,8 @@
                 eventJSON.actions.push(allActions);
 
                 newEvent.securityOperationEvents.push(eventJSON);
+                currentPolicies.securityFailureEventSets.push(newEvent);
+
                 alert("New Event added to BPSec Config");
                 clearEventForm();
                 closeEventForm();
@@ -425,10 +432,11 @@
 
         function checkNewPolicy(event) {
             var valid = 1;
+            
             console.log("New Policy for a " + roleField.value);
 
             //check the node ids for the policies
-            var ipRegex = /\d{1,2}\.(\d{1,2}[^1])|1\.1|1\.\d{1,2}$/g; //for ips of *.*, 1.*, 1.1
+            var ipRegex = /\d{1,2}\.\d{1,2}[^1]|1\.1|1\.\d{1,2}|\*\.\*|1\.\*/g; //for ips of *.*, 1.*, 1.1
 
             if (!ipRegex.test(securitySource.value)) {
                 alert('Invalid Security Source\nValid Security Source are 1.*, *.*, or 1.1')
@@ -437,7 +445,7 @@
                 valid = 0;
             }
 
-            var ipRegex2 = /\d{1,2}\.(\d{1,2}[^1])|1\.1|1\.\d{1,2}$/g; //for ips of *.*, 1.*, 1.1
+            var ipRegex2 = /\d{1,2}\.\d{1,2}[^1]|1\.1|1\.\d{1,2}|\*\.\*|1\.\*/g; //for ips of *.*, 1.*, 1.1
 
             if (!ipRegex2.test(bundleSource.value)) {
                 alert('Invalid Bundle Source\nValid Bundle Source are 1.*, *.*, or 1.1')
@@ -446,7 +454,7 @@
                 valid = 0;
             }
 
-            var ipRegex3 = /\d{1,2}\.(\d{1,2}[^1])|1\.1|1\.\d{1,2}$/g; //for ips of *.*, 1.*, 1.1
+            var ipRegex3 = /\d{1,2}\.\d{1,2}[^1]|1\.1|1\.\d{1,2}|\*\.\*|1\.\*/g; //for ips of *.*, 1.*, 1.1
 
             if (!ipRegex3.test(bundleDestination.value)) {
                 alert('Invalid Bundle Destination\nValid Bundle Destination are 1.*, *.*, or 1.1')
@@ -463,6 +471,21 @@
                 console.log("Error: Wrong File Type.");
                 fileInput.value = '';
                 valid = 0;
+            }
+
+            securityEventSet = currentPolicies.securityFailureEventSets;
+            var key = document.getElementById('securityEventId');
+
+            for(var el in securityEventSet){
+                if(securityEventSet[el].hasOwnProperty(key)){
+                    createNewEvent = 0;
+                    break;
+                }
+            }
+
+            if(createNewEvent){
+                eventName.setAttribute("readonly", "true");
+                eventName.value = key;
             }
 
             if (valid) {
