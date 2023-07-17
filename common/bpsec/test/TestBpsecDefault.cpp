@@ -140,14 +140,20 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
         irp.expectedScopeMask = BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE;
         irp.expectedTargetBlockTypesMask = (((uint64_t)1) << ((unsigned int)BPV7_BLOCK_TYPE_CODE::PAYLOAD));
 
-        BpSecBundleProcessor::ReturnResult res = BpSecBundleProcessor::TryVerifyBundleIntegrity(ctxWrapper,
+        std::vector<BundleViewV7::Bpv7CanonicalBlockView*> bibBlocks;
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::INTEGRITY, bibBlocks);
+        BOOST_REQUIRE_EQUAL(bibBlocks.size(), 1);
+        BundleViewV7::Bpv7CanonicalBlockView& bibBlockView = *(bibBlocks[0]);
+
+        BpSecBundleProcessor::ReturnResult res = BpSecBundleProcessor::TryVerifyBundleIntegrityByIndividualBib(ctxWrapper,
             ctxWrapperKeyWrapOps,
             bv,
+            bibBlockView,
             irp,
             reusableElementsInternal,
-            true,
-            true);
+            true); //true => markBibForDeletion
         BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS);
+        BOOST_REQUIRE(bv.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE));
         BinaryConversions::BytesToHexString(bv.m_renderedBundle, nobibSerializedBundleString);
         boost::to_lower(nobibSerializedBundleString);
         BOOST_REQUIRE_NE(bibSerializedBundleString, nobibSerializedBundleString);
@@ -224,14 +230,20 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleMultipleSourcesTestCase)
         irp.expectedScopeMask = BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE;
         irp.expectedTargetBlockTypesMask = (((uint64_t)1) << ((unsigned int)BPV7_BLOCK_TYPE_CODE::BUNDLE_AGE)) | 1; //age and primary
 
-        BpSecBundleProcessor::ReturnResult res = BpSecBundleProcessor::TryVerifyBundleIntegrity(ctxWrapper,
+        std::vector<BundleViewV7::Bpv7CanonicalBlockView*> bibBlocks;
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::INTEGRITY, bibBlocks);
+        BOOST_REQUIRE_EQUAL(bibBlocks.size(), 1);
+        BundleViewV7::Bpv7CanonicalBlockView& bibBlockView = *(bibBlocks[0]);
+
+        BpSecBundleProcessor::ReturnResult res = BpSecBundleProcessor::TryVerifyBundleIntegrityByIndividualBib(ctxWrapper,
             ctxWrapperKeyWrapOps,
             bv,
+            bibBlockView,
             irp,
             reusableElementsInternal,
-            true,
-            true);
+            true); //true => markBibForDeletion
         BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS);
+        BOOST_REQUIRE(bv.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE));
         BinaryConversions::BytesToHexString(bv.m_renderedBundle, nobibSerializedBundleString);
         boost::to_lower(nobibSerializedBundleString);
         BOOST_REQUIRE_NE(bibSerializedBundleString, nobibSerializedBundleString);
@@ -307,14 +319,20 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
         BundleViewV7 bv;
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(toSwapIn, false));
 
-        BpSecBundleProcessor::ReturnResult res = BpSecBundleProcessor::TryVerifyBundleIntegrity(ctxWrapper,
+        std::vector<BundleViewV7::Bpv7CanonicalBlockView*> bibBlocks;
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::INTEGRITY, bibBlocks);
+        BOOST_REQUIRE_EQUAL(bibBlocks.size(), 1);
+        BundleViewV7::Bpv7CanonicalBlockView& bibBlockView = *(bibBlocks[0]);
+
+        BpSecBundleProcessor::ReturnResult res = BpSecBundleProcessor::TryVerifyBundleIntegrityByIndividualBib(ctxWrapper,
             ctxWrapperKeyWrapOps,
             bv,
+            bibBlockView,
             irp,
             reusableElementsInternal,
-            true,
-            true);
+            true); //true => markBibForDeletion
         BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS);
+        BOOST_REQUIRE(bv.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE));
         BinaryConversions::BytesToHexString(bv.m_renderedBundle, nobibSerializedBundleString);
         boost::to_lower(nobibSerializedBundleString);
         BOOST_REQUIRE_NE(bibSerializedBundleString, nobibSerializedBundleString);
@@ -340,14 +358,20 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
             lastPayloadBlockPtr = bvRecycled.m_listCanonicalBlockView.back().headerPtr.get();
             lastIntegrityBlockPtr = bvRecycled.m_listCanonicalBlockView.front().headerPtr.get();
 
-            BpSecBundleProcessor::ReturnResult res = BpSecBundleProcessor::TryVerifyBundleIntegrity(ctxWrapper,
+            std::vector<BundleViewV7::Bpv7CanonicalBlockView*> bibBlocks;
+            bvRecycled.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::INTEGRITY, bibBlocks);
+            BOOST_REQUIRE_EQUAL(bibBlocks.size(), 1);
+            BundleViewV7::Bpv7CanonicalBlockView& bibBlockView = *(bibBlocks[0]);
+
+            BpSecBundleProcessor::ReturnResult res = BpSecBundleProcessor::TryVerifyBundleIntegrityByIndividualBib(ctxWrapper,
                 ctxWrapperKeyWrapOps,
                 bvRecycled,
+                bibBlockView,
                 irp,
                 reusableElementsInternal,
-                true,
-                true);
+                true); //true => markBibForDeletion
             BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS);
+            BOOST_REQUIRE(bvRecycled.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE));
             BinaryConversions::BytesToHexString(bvRecycled.m_renderedBundle, nobibSerializedBundleString);
             boost::to_lower(nobibSerializedBundleString);
             BOOST_REQUIRE_NE(bibSerializedBundleString, nobibSerializedBundleString);
@@ -598,19 +622,32 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleWithKeyWrapTestCase)
     crp.expectedAadScopeMask = BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::NO_ADDITIONAL_SCOPE;
     crp.expectedTargetBlockTypesMask = (((uint64_t)1) << ((unsigned int)BPV7_BLOCK_TYPE_CODE::PAYLOAD));
 
-    BpSecBundleProcessor::ReturnResult res = BpSecBundleProcessor::TryVerifyDecryptionOfBundle(ctxWrapper,
+    std::vector<BundleViewV7::Bpv7CanonicalBlockView*> bcbBlocks;
+    bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, bcbBlocks);
+    BOOST_REQUIRE_EQUAL(bcbBlocks.size(), 1);
+    BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView = *(bcbBlocks[0]);
+
+    //verify only test
+    BpSecBundleProcessor::ReturnResult res = BpSecBundleProcessor::TryDecryptBundleByIndividualBcb(ctxWrapper,
         ctxWrapperKeyWrapOps,
         bv,
-        crp,
-        reusableElementsInternal);
-    BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS);
-    res = BpSecBundleProcessor::TryDecryptBundle(ctxWrapper,
-        ctxWrapperKeyWrapOps,
-        bv,
+        bcbBlockView,
         crp,
         reusableElementsInternal,
-        true);
+        true); //true => verify only
     BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS);
+
+    //now actually decrypt
+    res = BpSecBundleProcessor::TryDecryptBundleByIndividualBcb(ctxWrapper,
+        ctxWrapperKeyWrapOps,
+        bv,
+        bcbBlockView,
+        crp,
+        reusableElementsInternal,
+        false); //false => actually decrypt
+    BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS);
+    BOOST_REQUIRE(bv.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE));
+
     padded_vector_uint8_t decryptedBundleCopy(
         (uint8_t*)bv.m_renderedBundle.data(),
         ((uint8_t*)bv.m_renderedBundle.data()) + bv.m_renderedBundle.size()
@@ -713,19 +750,31 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleFullScopeTestCase)
     crp.expectedTargetBlockTypesMask = (((uint64_t)1) << ((unsigned int)BPV7_BLOCK_TYPE_CODE::PAYLOAD)) |
         (((uint64_t)1) << ((unsigned int)BPV7_BLOCK_TYPE_CODE::INTEGRITY));
 
-    BpSecBundleProcessor::ReturnResult res = BpSecBundleProcessor::TryVerifyDecryptionOfBundle(ctxWrapper,
+    std::vector<BundleViewV7::Bpv7CanonicalBlockView*> bcbBlocks;
+    bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, bcbBlocks);
+    BOOST_REQUIRE_EQUAL(bcbBlocks.size(), 1);
+    BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView = *(bcbBlocks[0]);
+
+    //verify only test
+    BpSecBundleProcessor::ReturnResult res = BpSecBundleProcessor::TryDecryptBundleByIndividualBcb(ctxWrapper,
         ctxWrapperKeyWrapOps,
         bv,
-        crp,
-        reusableElementsInternal);
-    BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS);
-    res = BpSecBundleProcessor::TryDecryptBundle(ctxWrapper,
-        ctxWrapperKeyWrapOps,
-        bv,
+        bcbBlockView,
         crp,
         reusableElementsInternal,
-        true);
+        true); //true => verify only
     BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS);
+
+    //now actually decrypt
+    res = BpSecBundleProcessor::TryDecryptBundleByIndividualBcb(ctxWrapper,
+        ctxWrapperKeyWrapOps,
+        bv,
+        bcbBlockView,
+        crp,
+        reusableElementsInternal,
+        false); //false => actually decrypt
+    BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS);
+    BOOST_REQUIRE(bv.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE));
 
 
     static const std::string expectedSerializedPayloadBlockString(

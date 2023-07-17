@@ -70,6 +70,19 @@ public:
         BPSEC_ERROR_CODES errorCode;
         std::unique_ptr<std::string> errorStringPtr;
     };
+    /*    enum class BPSEC_ERROR_CODES : uint8_t {
+        CORRUPTED = 0,
+        MISCONFIGURED,
+        MISSING,
+        FATAL_ERROR
+    };
+    struct BpSecError {
+        BpSecError() = delete;
+        BpSecError(const BPSEC_ERROR_CODES ec, std::unique_ptr<std::string>&& es) : errorCode(ec), errorStringPtr(std::move(es)) {}
+        BPSEC_ERROR_CODES errorCode;
+        std::unique_ptr<std::string> errorStringPtr;
+    };
+    typedef std::forward_list<BpSecError> BpSecErrorFlist;*/
     struct IntegrityReceivedParameters {
         ///The key used for unwrapping any wrapped hmac keys included in the BIB blocks. (set to NULL if not present)
         const uint8_t* keyEncryptionKey;
@@ -140,28 +153,22 @@ public:
 
     
     /**
-    * Verifies any BIB block(s) within the preloaded bundle view.  The bundle must be loaded with padded data.
+    * Verifies the BIB block within the preloaded bundle view.  The bundle must be loaded with padded data.
+    * This function would generally be called within a loop over all BIB blocks within the bundle.
     *
     * @param ctxWrapper The reusable (allocated once) openssl HMAC_CTX context.
     * @param ctxWrapperForKeyUnwrap The reusable (allocated once) openssl EVP_CIPHER_CTX context (for key unwrap operations).
     * @param bv The preloaded bundle view.  The bundle must be loaded with padded data!
+    * @param bibBlockView The BIB of interest to use.
     * @param IntegrityReceivedParameters The values required for verification of the BIB blocks.
     * @param reusableElementsInternal Create this once throughout the program duration.  This parameter is used internally and
     *        resizes constantly.  This parameter is intended to minimize unnecessary allocations/deallocations.
     * @param markBibForDeletion If true, mark BIB block for deletion on successful verification so that it will be removed
     *                           after the next rerender of the bundleview.
-    * @param renderInPlaceWhenFinished Perform a render in place automatically on the bundle view at function completion.
-    *                                  Set to false to render manually (i.e. if there are other operations needing completed prior to render).
+    * @post The bundle view is left unrendered (i.e. if there are other operations needing completed prior to render).
+    *       The bundle must be manually rerendered in-place.
     * @return errorCode will be set to BPSEC_ERROR_CODES::NO_ERRORS if there were no errors, or an error code otherwise
     */
-    BPSEC_EXPORT static ReturnResult TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
-        EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
-        BundleViewV7& bv,
-        const IntegrityReceivedParameters& integrityReceivedParameters,
-        ReusableElementsInternal& reusableElementsInternal,
-        const bool markBibForDeletion,
-        const bool renderInPlaceWhenFinished);
-
     BPSEC_EXPORT static ReturnResult TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrapper& ctxWrapper,
         EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
         BundleViewV7& bv,
@@ -293,32 +300,21 @@ public:
         uint8_t* unwrappedKeyOut, unsigned int& unwrappedKeyOutSize);
 
     /**
-    * Decrypts any BCB target block(s) within the preloaded bundle view in-place.  The bundle must be loaded with padded data.
+    * Decrypts the BCB target block(s) within the preloaded bundle view in-place.  The bundle must be loaded with padded data.
+    * This function would generally be called within a loop over all BCB blocks within the bundle.
     *
     * @param ctxWrapper The reusable (allocated once) openssl EVP_CIPHER_CTX context.
     * @param ctxWrapperForKeyUnwrap The reusable (allocated once) openssl EVP_CIPHER_CTX context (for key unwrap operations).
     * @param bv The preloaded bundle view.  The bundle must be loaded with padded data!
+    * @param bcbBlockView The BCB of interest to use.
     * @param ConfidentialityReceivedParameters The values required for verification of the BCB blocks.
     * @param reusableElementsInternal Create this once throughout the program duration.  This parameter is used internally and
     *        resizes constantly.  This parameter is intended to minimize unnecessary allocations/deallocations.
-    * @param renderInPlaceWhenFinished Perform a render in place automatically on the bundle view at function completion.
+    * @param verifyOnly If true, Decrypt to temporary memory, leaving the bundle unmodified (for verifiers of confidentiality).
     *                                  Set to false to render manually (i.e. if there are other operations needing completed prior to render).
-    * @post The BCB block is marked for deletion on successful in-place decryption, and the bundle view is (optionally) rerendered in-place.
+    * @post The BCB block is marked for deletion on successful in-place decryption.  The bundle view must be manually rerendered in-place.
     * @return true if there were no errors, false otherwise
     */
-    BPSEC_EXPORT static ReturnResult TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
-        EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
-        BundleViewV7& bv,
-        const ConfidentialityReceivedParameters& confidentialityReceivedParameters,
-        ReusableElementsInternal& reusableElementsInternal,
-        const bool renderInPlaceWhenFinished);
-
-    BPSEC_EXPORT static ReturnResult TryVerifyDecryptionOfBundle(EvpCipherCtxWrapper& ctxWrapper,
-        EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
-        BundleViewV7& bv,
-        const ConfidentialityReceivedParameters& confidentialityReceivedParameters,
-        ReusableElementsInternal& reusableElementsInternal);
-
     BPSEC_EXPORT static ReturnResult TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& ctxWrapper,
         EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
         BundleViewV7& bv,

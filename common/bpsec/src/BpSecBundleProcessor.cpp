@@ -582,67 +582,15 @@ bool BpSecBundleProcessor::AesUnwrapKey(EvpCipherCtxWrapper& ctxWrapper,
 }
 
 
-//User of this function provided KEK (key encryption key).
-//Bundle provides AES wrapped key, AES variant, IV, tag, and cipherText.
-//This function must unwrap key with KEK to get the DEK (data encryption key), then decrypt cipherText.
-BpSecBundleProcessor::ReturnResult BpSecBundleProcessor::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
-    EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
-    BundleViewV7& bv,
-    const ConfidentialityReceivedParameters& confidentialityReceivedParameters,
-    ReusableElementsInternal& reusableElementsInternal,
-    const bool renderInPlaceWhenFinished)
-{
-    std::vector<BundleViewV7::Bpv7CanonicalBlockView*>& blocks = reusableElementsInternal.blocks;
-    bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, blocks);
-    for (std::size_t i = 0; i < blocks.size(); ++i) {
-        BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView = *(blocks[i]);
-        ReturnResult res = TryDecryptBundleByIndividualBcb(ctxWrapper,
-            ctxWrapperForKeyUnwrap,
-            bv,
-            bcbBlockView,
-            confidentialityReceivedParameters,
-            reusableElementsInternal,
-            false);
-        if (res.errorCode != BPSEC_ERROR_CODES::NO_ERRORS) {
-            return res; //return the error code
-        }
-    }
-    //at least one bcb was marked for deletion, so rerender
-    if (renderInPlaceWhenFinished) {
-        if (!bv.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE)) {
-            return ReturnResult(BPSEC_ERROR_CODES::FATAL_ERROR, boost::make_unique<std::string>("cannot rerender bundle to delete BCB"));
-        }
-    }
-    return ReturnResult();
-}
-BpSecBundleProcessor::ReturnResult BpSecBundleProcessor::TryVerifyDecryptionOfBundle(EvpCipherCtxWrapper& ctxWrapper,
-    EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
-    BundleViewV7& bv,
-    const ConfidentialityReceivedParameters& confidentialityReceivedParameters,
-    ReusableElementsInternal& reusableElementsInternal)
-{
-    std::vector<BundleViewV7::Bpv7CanonicalBlockView*>& blocks = reusableElementsInternal.blocks;
-    bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, blocks);
-    for (std::size_t i = 0; i < blocks.size(); ++i) {
-        BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView = *(blocks[i]);
-        ReturnResult res = TryDecryptBundleByIndividualBcb(ctxWrapper,
-            ctxWrapperForKeyUnwrap,
-            bv,
-            bcbBlockView,
-            confidentialityReceivedParameters,
-            reusableElementsInternal,
-            true);
-        if (res.errorCode != BPSEC_ERROR_CODES::NO_ERRORS) {
-            return res; //return the error code
-        }
-    }
-    return ReturnResult();
-}
+
 static const char* AesVariantToString(COSE_ALGORITHMS variant) {
     if (variant == COSE_ALGORITHMS::A128GCM) return "A128GCM";
     if (variant == COSE_ALGORITHMS::A256GCM) return "A256GCM";
     return "unknown_variant";
 }
+//User of this function provided KEK (key encryption key).
+//Bundle provides AES wrapped key, AES variant, IV, tag, and cipherText.
+//This function must unwrap key with KEK to get the DEK (data encryption key), then decrypt cipherText.
 BpSecBundleProcessor::ReturnResult BpSecBundleProcessor::TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& ctxWrapper,
     EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
     BundleViewV7& bv,
@@ -1140,48 +1088,15 @@ bool BpSecBundleProcessor::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
     return true;
 }
 
-//User of this function provided KEK (key encryption key).
-//Bundle provides AES wrapped key, AES variant, IV, tag, and cipherText.
-//This function must unwrap key with KEK to get the DEK (data encryption key), then decrypt cipherText.
-BpSecBundleProcessor::ReturnResult BpSecBundleProcessor::TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
-    EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
-    BundleViewV7& bv,
-    const IntegrityReceivedParameters& integrityReceivedParameters,
-    ReusableElementsInternal& reusableElementsInternal,
-    const bool markBibForDeletion,
-    const bool renderInPlaceWhenFinished)
-{
-    std::vector<BundleViewV7::Bpv7CanonicalBlockView*>& blocks = reusableElementsInternal.blocks;
-    
-    bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::INTEGRITY, blocks);
-    for (std::size_t i = 0; i < blocks.size(); ++i) {
-        BundleViewV7::Bpv7CanonicalBlockView& bibBlockView = *(blocks[i]);
-        ReturnResult res = TryVerifyBundleIntegrityByIndividualBib(ctxWrapper,
-            ctxWrapperForKeyUnwrap,
-            bv,
-            bibBlockView,
-            integrityReceivedParameters,
-            reusableElementsInternal,
-            markBibForDeletion);
-        if(res.errorCode != BPSEC_ERROR_CODES::NO_ERRORS) {
-            return res; //return the error code
-        }
-    }
-    if (markBibForDeletion && renderInPlaceWhenFinished) {
-        //at least one bib was marked for deletion, so rerender
-        if (!bv.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE)) {
-            return ReturnResult(BPSEC_ERROR_CODES::FATAL_ERROR, boost::make_unique<std::string>("cannot rerender bundle to delete BIB"));
-        }
-    }
-    return ReturnResult();
-}
-
 static const char* ShaVariantToString(COSE_ALGORITHMS variant) {
     if (variant == COSE_ALGORITHMS::HMAC_512_512) return "HMAC_512_512";
     if (variant == COSE_ALGORITHMS::HMAC_384_384) return "HMAC_384_384";
     if (variant == COSE_ALGORITHMS::HMAC_256_256) return "HMAC_256_256";
     return "unknown_variant";
 }
+//User of this function provided KEK (key encryption key).
+//Bundle provides AES wrapped key, AES variant, IV, tag, and cipherText.
+//This function must unwrap key with KEK to get the DEK (data encryption key), then decrypt cipherText.
 BpSecBundleProcessor::ReturnResult BpSecBundleProcessor::TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrapper& ctxWrapper,
     EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
     BundleViewV7& bv,
