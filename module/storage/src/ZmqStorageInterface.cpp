@@ -41,9 +41,6 @@
 #include <atomic>
 #include "codec/Bpv6Fragment.h"
 
-//DBG
-static const std::string SEND_POLICY = "PRIORITY";
-
 typedef std::pair<cbhe_eid_t, bool> eid_plus_isanyserviceid_pair_t;
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
 
@@ -1747,10 +1744,11 @@ void ZmqStorageInterface::Impl::DoSendBundles(long & timeoutPoll) {
             // Is there room in the pipeline for more bundles (by number, not by size)?
             if (totalInPipelineStorageToEgressThisLink < info.halfOfMaxBundlesInPipeline_StorageToEgressPath) { //not clogged by bundle count in pipeline
                 // Yes, so we want to try to send bundles
-                if(SEND_POLICY == "DEFAULT") {
-                    DefaultSend(info, maxBundleSizeToRead, timeoutPoll);
-                } else if(SEND_POLICY == "PRIORITY") {
+                if(m_hdtnConfig.m_enforceBundlePriority) {
                     PrioritySend(info, maxBundleSizeToRead, timeoutPoll);
+                }
+                else {
+                    DefaultSend(info, maxBundleSizeToRead, timeoutPoll);
                 }
             }
             if (timeoutPoll == 0) {
