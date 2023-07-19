@@ -209,7 +209,11 @@ ZmqStorageInterface::Impl::Impl() :
     m_running(false),
     m_isOutOfStorageSpace(false),
     m_workerThreadStartupInProgress(false),
-    m_deletionPolicy(DeletionPolicy::never) {}
+    m_deletionPolicy(DeletionPolicy::never),
+    m_lastIndexToUpLinkVectorOutductInfoRoundRobin(0),
+    m_totalEventsNoDataInStorageForAvailableLinks(0),
+    m_totalEventsDataInStorageForCloggedLinks(0)
+{}
 
 ZmqStorageInterface::Impl::~Impl() {
     Stop();
