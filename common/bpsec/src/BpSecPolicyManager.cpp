@@ -254,6 +254,56 @@ static bool DoesAsbTargetPayloadBlock(const Bpv7AbstractSecurityBlock* asbPtr) {
     return false;
 }
 
+//keeping errors in a forward list acts as a stack and will result in the target/result index being in greatest to least order
+static bool RemoveSopByGreatestToLeastIndex(BundleViewV7::Bpv7CanonicalBlockView& asbBlockView, Bpv7AbstractSecurityBlock* asbPtr, uint64_t i) {
+    if (i == UINT64_MAX) { //special value denoting every index
+        asbBlockView.markedForDeletion = true;
+        return true;
+    }
+    if (asbPtr->m_securityTargets.size() != asbPtr->m_securityResults.size()) {
+        return false;
+    }
+    if (i >= asbPtr->m_securityTargets.size()) {
+        return false;
+    }
+    asbPtr->m_securityTargets.erase(asbPtr->m_securityTargets.begin() + i);
+    asbPtr->m_securityResults.erase(asbPtr->m_securityResults.begin() + i);
+
+    //5.1.1.  Receiving BCBs
+    //When all security operations for a BCB have been removed from the BCB,
+    //the BCB MUST be removed from the bundle.
+    //5.1.2.  Receiving BIBs
+    //When all security operations for a BIB have been removed from the BIB,
+    //the BIB MUST be removed from the bundle.
+    if (asbPtr->m_securityTargets.empty()) {
+        
+        asbBlockView.markedForDeletion = true;
+    }
+
+    asbBlockView.SetManuallyModified();
+    return true;
+}
+
+
+static void RemoveSopTargetBlock(BundleViewV7& bv, BundleViewV7::Bpv7CanonicalBlockView& asbBlockView,
+    Bpv7AbstractSecurityBlock* asbPtr, uint64_t canonicalIndex)
+{
+    if (canonicalIndex == UINT64_MAX) { //special value denoting every block targeted by ASB
+        for (Bpv7AbstractSecurityBlock::security_targets_t::const_iterator it = asbPtr->m_securityTargets.cbegin();
+            it != asbPtr->m_securityTargets.cend(); ++it)
+        {
+            if (BundleViewV7::Bpv7CanonicalBlockView* view = bv.GetCanonicalBlockByBlockNumber(*it)) {
+                view->markedForDeletion = true;
+            }
+        }
+    }
+    else {
+        if (BundleViewV7::Bpv7CanonicalBlockView* view = bv.GetCanonicalBlockByBlockNumber(canonicalIndex)) {
+            view->markedForDeletion = true;
+        }
+    }
+}
+
 static bool DoFailureEventSopMissingAtAcceptor(BundleViewV7& bv,
     BPSEC_SECURITY_FAILURE_PROCESSING_ACTION_MASKS actionMaskSopMissingAtAcceptor,
     BundleViewV7::Bpv7CanonicalBlockView& asbBlockView, Bpv7AbstractSecurityBlock* asbPtr, const bool isIntegrity)
@@ -270,7 +320,7 @@ static bool DoFailureEventSopMissingAtAcceptor(BundleViewV7& bv,
     if ((!isIntegrity) && asbTargetsPayloadBlock) {
         static thread_local bool printedMsg = false;
         if (!printedMsg) {
-            LOG_WARNING(subprocess) << "first time encrypted payload block cannot be decrypted by acceptor from source node "
+            LOG_WARNING(subprocess) << "first time encrypted payload block cannot be decrypted (SopMissingAtAcceptor) from source node "
                 << bv.m_primaryBlockView.header.m_sourceNodeId
                 << ".. bundle shall be dropped..(This message type will now be suppressed.)";
             printedMsg = true;
@@ -313,13 +363,7 @@ static bool DoFailureEventSopMissingAtAcceptor(BundleViewV7& bv,
                     << ".. REMOVE_SECURITY_OPERATION_TARGET_BLOCK specified ..(This message type will now be suppressed.)";
                 printedMsg = true;
             }
-            for (Bpv7AbstractSecurityBlock::security_targets_t::const_iterator it = asbPtr->m_securityTargets.cbegin();
-                it != asbPtr->m_securityTargets.cend(); ++it)
-            {
-                if (BundleViewV7::Bpv7CanonicalBlockView* view = bv.GetCanonicalBlockByBlockNumber(*it)) {
-                    view->markedForDeletion = true;
-                }
-            }
+            RemoveSopTargetBlock(bv, asbBlockView, asbPtr, UINT64_MAX);
         }
     }
     else {
@@ -329,7 +373,7 @@ static bool DoFailureEventSopMissingAtAcceptor(BundleViewV7& bv,
     return true;
 }
 
-static bool DoFailureEvent(BundleViewV7& bv, const BpSecPolicy* bpSecPolicyPtr, const BpSecBundleProcessor::ReturnResult& res,
+static bool DoFailureEvent(BundleViewV7& bv, const BpSecPolicy* bpSecPolicyPtr, const BpSecBundleProcessor::BpSecErrorFlist& errorList,
     BundleViewV7::Bpv7CanonicalBlockView& asbBlockView, Bpv7AbstractSecurityBlock* asbPtr, const bool isAcceptor, const bool isIntegrity)
 {
     const event_type_to_event_set_ptr_lut_t& evtLut = (isIntegrity) ?
@@ -337,170 +381,193 @@ static bool DoFailureEvent(BundleViewV7& bv, const BpSecPolicy* bpSecPolicyPtr, 
         bpSecPolicyPtr->m_confidentialitySecurityFailureEventSetReferencePtr->m_eventTypeToEventSetPtrLut;
     const char* securityServiceStr = (isIntegrity) ? "integrity" : "confidentiality";
     typedef BPSEC_SECURITY_FAILURE_PROCESSING_ACTION_MASKS action_mask_t;
-    const bool asbTargetsPayloadBlock = DoesAsbTargetPayloadBlock(asbPtr);
 
-    //
-    //
-    if (isAcceptor) { //acceptor
-        //5.1.1.  Receiving BCBs
-        //If an encrypted payload block cannot be decrypted (i.e., the
-        //ciphertext cannot be authenticated), then the bundle MUST be
-        //discarded and processed no further.
-        if ((!isIntegrity) && asbTargetsPayloadBlock) {
-            static thread_local bool printedMsg = false;
-            if (!printedMsg) {
-                LOG_WARNING(subprocess) << "first time encrypted payload block cannot be decrypted by acceptor from source node "
-                    << bv.m_primaryBlockView.header.m_sourceNodeId
-                    << ".. bundle shall be dropped..(This message type will now be suppressed.)";
-                printedMsg = true;
-            }
-            return false; //drop bundle
-        }
-
-        BPSEC_SECURITY_FAILURE_EVENT evt = BPSEC_SECURITY_FAILURE_EVENT::UNDEFINED;
-        const char* evtString = "";
-        if (res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::CORRUPTED) {
-            evt = BPSEC_SECURITY_FAILURE_EVENT::SECURITY_OPERATION_CORRUPTED_AT_ACCEPTOR;
-            evtString = "SECURITY_OPERATION_CORRUPTED_AT_ACCEPTOR";
-        }
-        else if (res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED) {
-            evt = BPSEC_SECURITY_FAILURE_EVENT::SECURITY_OPERATION_MISCONFIGURED_AT_ACCEPTOR;
-            evtString = "SECURITY_OPERATION_MISCONFIGURED_AT_ACCEPTOR";
-        }
-        if(evtLut[static_cast<uint8_t>(evt)]) {
-            //required actions: remove SOp
-            asbBlockView.markedForDeletion = true;
-
-            
-
-            action_mask_t actionMask = evtLut[static_cast<uint8_t>(evt)]->m_actionMasks;
-            if ((actionMask & action_mask_t::FAIL_BUNDLE_FORWARDING) != action_mask_t::NO_ACTIONS_SET) { //optional action
-                static thread_local bool printedMsg = false;
-                if (!printedMsg) {
-                    LOG_WARNING(subprocess) << "first time " << evtString << " from source node "
-                        << bv.m_primaryBlockView.header.m_sourceNodeId
-                        << ".. FAIL_BUNDLE_FORWARDING specified (bundle shall be dropped)..(This message type will now be suppressed.)";
-                    printedMsg = true;
+    for (BpSecBundleProcessor::BpSecErrorFlist::const_iterator itErr = errorList.cbegin();
+        itErr != errorList.cend(); ++itErr)
+    {
+        const BpSecBundleProcessor::BpSecError& thisError = *itErr;
+        const uint64_t canonicalIndex = (thisError.m_securityTargetIndex == UINT64_MAX) ?
+            UINT64_MAX : asbPtr->m_securityTargets[thisError.m_securityTargetIndex];
+        const bool errorTargetsPayloadBlock = (canonicalIndex == 1) || (canonicalIndex == UINT64_MAX);
+        bool removedSop = false;
+        bool removedSopTarget = false;
+        if (isAcceptor) { //acceptor
+            //5.1.1.  Receiving BCBs
+            if (!isIntegrity) { //this is a BCB
+                //If an encrypted payload block cannot be decrypted (i.e., the
+                //ciphertext cannot be authenticated), then the bundle MUST be
+                //discarded and processed no further.
+                if (errorTargetsPayloadBlock) {
+                    static thread_local bool printedMsg = false;
+                        if (!printedMsg) {
+                            LOG_WARNING(subprocess) << "first time encrypted payload block cannot be decrypted by acceptor from source node "
+                                << bv.m_primaryBlockView.header.m_sourceNodeId
+                                << ".. bundle shall be dropped..(This message type will now be suppressed.)";
+                                printedMsg = true;
+                        }
+                    return false; //drop bundle
                 }
-                return false; //drop bundle
+                //If an encrypted security target other than the payload block cannot be decrypted,
+                //then the associated security target and all security blocks associated with that target
+                //MUST be discarded and processed no further.
+                else {
+                    if (!RemoveSopByGreatestToLeastIndex(asbBlockView, asbPtr, thisError.m_securityTargetIndex)) {
+                        LOG_ERROR(subprocess) << "unexpected acceptor error in RemoveSopByGreatestToLeastIndex of securityTargetIndex "
+                            << thisError.m_securityTargetIndex << " ..dropping bundle";
+                        return false; //drop bundle
+                    }
+                    RemoveSopTargetBlock(bv, asbBlockView, asbPtr, canonicalIndex);
+                    removedSop = true;
+                    removedSopTarget = true;
+                    //must continue down to check for FAIL_BUNDLE_FORWARDING
+                }
             }
-            else if ((actionMask & action_mask_t::REMOVE_SECURITY_OPERATION_TARGET_BLOCK) != action_mask_t::NO_ACTIONS_SET) { //optional action
-                if (asbTargetsPayloadBlock) {
+
+            BPSEC_SECURITY_FAILURE_EVENT evt = BPSEC_SECURITY_FAILURE_EVENT::UNDEFINED;
+            const char* evtString = "";
+            if (thisError.m_errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::CORRUPTED) {
+                evt = BPSEC_SECURITY_FAILURE_EVENT::SECURITY_OPERATION_CORRUPTED_AT_ACCEPTOR;
+                evtString = "SECURITY_OPERATION_CORRUPTED_AT_ACCEPTOR";
+            }
+            else if (thisError.m_errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED) {
+                evt = BPSEC_SECURITY_FAILURE_EVENT::SECURITY_OPERATION_MISCONFIGURED_AT_ACCEPTOR;
+                evtString = "SECURITY_OPERATION_MISCONFIGURED_AT_ACCEPTOR";
+            }
+            if (evtLut[static_cast<uint8_t>(evt)]) {
+                //required actions: remove SOp
+                if (!removedSop) {
+                    if (!RemoveSopByGreatestToLeastIndex(asbBlockView, asbPtr, thisError.m_securityTargetIndex)) {
+                        LOG_ERROR(subprocess) << "unexpected acceptor error in RemoveSopByGreatestToLeastIndex of securityTargetIndex "
+                            << thisError.m_securityTargetIndex << " ..dropping bundle";
+                        return false; //drop bundle
+                    }
+                    removedSop = true;
+                }
+
+                action_mask_t actionMask = evtLut[static_cast<uint8_t>(evt)]->m_actionMasks;
+                if ((actionMask & action_mask_t::FAIL_BUNDLE_FORWARDING) != action_mask_t::NO_ACTIONS_SET) { //optional action
                     static thread_local bool printedMsg = false;
                     if (!printedMsg) {
                         LOG_WARNING(subprocess) << "first time " << evtString << " from source node "
                             << bv.m_primaryBlockView.header.m_sourceNodeId
-                            << ".. REMOVE_SECURITY_OPERATION_TARGET_BLOCK specified but target(s) includes payload block, (bundle shall be dropped)..(This message type will now be suppressed.)";
+                            << ".. FAIL_BUNDLE_FORWARDING specified (bundle shall be dropped)..(This message type will now be suppressed.)";
                         printedMsg = true;
                     }
                     return false; //drop bundle
                 }
-                else {
-                    static thread_local bool printedMsg = false;
-                    if (!printedMsg) {
-                        LOG_WARNING(subprocess) << "first time " << evtString << " from source node "
-                            << bv.m_primaryBlockView.header.m_sourceNodeId
-                            << ".. REMOVE_SECURITY_OPERATION_TARGET_BLOCK specified ..(This message type will now be suppressed.)";
-                        printedMsg = true;
+                else if ((actionMask & action_mask_t::REMOVE_SECURITY_OPERATION_TARGET_BLOCK) != action_mask_t::NO_ACTIONS_SET) { //optional action
+                    if (errorTargetsPayloadBlock) {
+                        static thread_local bool printedMsg = false;
+                        if (!printedMsg) {
+                            LOG_WARNING(subprocess) << "first time " << evtString << " from source node "
+                                << bv.m_primaryBlockView.header.m_sourceNodeId
+                                << ".. REMOVE_SECURITY_OPERATION_TARGET_BLOCK specified but target(s) includes payload block, (bundle shall be dropped)..(This message type will now be suppressed.)";
+                            printedMsg = true;
+                        }
+                        return false; //drop bundle
                     }
-                    for (Bpv7AbstractSecurityBlock::security_targets_t::const_iterator it = asbPtr->m_securityTargets.cbegin();
-                        it != asbPtr->m_securityTargets.cend(); ++it)
-                    {
-                        if (BundleViewV7::Bpv7CanonicalBlockView* view = bv.GetCanonicalBlockByBlockNumber(*it)) {
-                            view->markedForDeletion = true;
+                    else {
+                        static thread_local bool printedMsg = false;
+                        if (!printedMsg) {
+                            LOG_WARNING(subprocess) << "first time " << evtString << " from source node "
+                                << bv.m_primaryBlockView.header.m_sourceNodeId
+                                << ".. REMOVE_SECURITY_OPERATION_TARGET_BLOCK specified ..(This message type will now be suppressed.)";
+                            printedMsg = true;
+                        }
+                        if (!removedSopTarget) {
+                            RemoveSopTargetBlock(bv, asbBlockView, asbPtr, canonicalIndex);
+                            removedSopTarget = true;
                         }
                     }
+                }
+                else {
+                    LOG_WARNING(subprocess) << "Process: version 7 bundle received but cannot accept " << securityServiceStr << " (no failure actions taken)";
                 }
             }
             else {
-                LOG_WARNING(subprocess) << "Process: version 7 bundle received but cannot accept " << securityServiceStr << " (no failure actions taken)";
+                LOG_ERROR(subprocess) << "Process: version 7 bundle received but cannot accept " << securityServiceStr << " (no failure events specified)";
+                return false;
             }
         }
-        else {
-            LOG_ERROR(subprocess) << "Process: version 7 bundle received but cannot accept " << securityServiceStr << " (no failure events specified)";
-            return false;
-        }
-    }
-    else { //verifier
-        //SOp corrupted and SOp misconfigured
-        BPSEC_SECURITY_FAILURE_EVENT evt = BPSEC_SECURITY_FAILURE_EVENT::UNDEFINED;
-        const char* evtString = "";
-        if (res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::CORRUPTED) {
-            evt = BPSEC_SECURITY_FAILURE_EVENT::SECURITY_OPERATION_CORRUPTED_AT_VERIFIER;
-            evtString = "SECURITY_OPERATION_CORRUPTED_AT_VERIFIER";
-        }
-        else if (res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED) {
-            evt = BPSEC_SECURITY_FAILURE_EVENT::SECURITY_OPERATION_MISCONFIGURED_AT_VERIFIER;
-            evtString = "SECURITY_OPERATION_MISCONFIGURED_AT_VERIFIER";
-        }
-        if (evtLut[static_cast<uint8_t>(evt)]) {
-        
-            action_mask_t actionMask = evtLut[static_cast<uint8_t>(evt)]->m_actionMasks;
-            bool tookAction = false;
-            if ((actionMask & action_mask_t::REMOVE_SECURITY_OPERATION) != action_mask_t::NO_ACTIONS_SET) { //optional action
-                static thread_local bool printedMsg = false;
-                if (!printedMsg) {
-                    LOG_WARNING(subprocess) << "first time " << evtString << " from source node "
-                        << bv.m_primaryBlockView.header.m_sourceNodeId
-                        << ".. REMOVE_SECURITY_OPERATION specified..(This message type will now be suppressed.)";
-                    printedMsg = true;
-                }
-                asbBlockView.markedForDeletion = true;
-                tookAction = true;
+        else { //verifier
+            //SOp corrupted and SOp misconfigured
+            BPSEC_SECURITY_FAILURE_EVENT evt = BPSEC_SECURITY_FAILURE_EVENT::UNDEFINED;
+            const char* evtString = "";
+            if (thisError.m_errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::CORRUPTED) {
+                evt = BPSEC_SECURITY_FAILURE_EVENT::SECURITY_OPERATION_CORRUPTED_AT_VERIFIER;
+                evtString = "SECURITY_OPERATION_CORRUPTED_AT_VERIFIER";
             }
-            if ((actionMask & action_mask_t::FAIL_BUNDLE_FORWARDING) != action_mask_t::NO_ACTIONS_SET) { //optional action
-                static thread_local bool printedMsg = false;
-                if (!printedMsg) {
-                    LOG_WARNING(subprocess) << "first time " << evtString << " from source node "
-                        << bv.m_primaryBlockView.header.m_sourceNodeId
-                        << ".. FAIL_BUNDLE_FORWARDING specified (bundle shall be dropped)..(This message type will now be suppressed.)";
-                    printedMsg = true;
-                }
-                return false; //drop bundle
+            else if (thisError.m_errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED) {
+                evt = BPSEC_SECURITY_FAILURE_EVENT::SECURITY_OPERATION_MISCONFIGURED_AT_VERIFIER;
+                evtString = "SECURITY_OPERATION_MISCONFIGURED_AT_VERIFIER";
             }
-            else if ((actionMask & action_mask_t::REMOVE_SECURITY_OPERATION_TARGET_BLOCK) != action_mask_t::NO_ACTIONS_SET) { //optional action
-                tookAction = true;
-                if (asbTargetsPayloadBlock) {
+            if (evtLut[static_cast<uint8_t>(evt)]) {
+
+                action_mask_t actionMask = evtLut[static_cast<uint8_t>(evt)]->m_actionMasks;
+                bool tookAction = false;
+                if ((actionMask & action_mask_t::REMOVE_SECURITY_OPERATION) != action_mask_t::NO_ACTIONS_SET) { //optional action
                     static thread_local bool printedMsg = false;
                     if (!printedMsg) {
                         LOG_WARNING(subprocess) << "first time " << evtString << " from source node "
                             << bv.m_primaryBlockView.header.m_sourceNodeId
-                            << ".. REMOVE_SECURITY_OPERATION_TARGET_BLOCK specified but target(s) includes payload block, (bundle shall be dropped)..(This message type will now be suppressed.)";
+                            << ".. REMOVE_SECURITY_OPERATION specified..(This message type will now be suppressed.)";
+                        printedMsg = true;
+                    }
+                    if (!RemoveSopByGreatestToLeastIndex(asbBlockView, asbPtr, thisError.m_securityTargetIndex)) {
+                        LOG_ERROR(subprocess) << "unexpected verifier error in RemoveSopByGreatestToLeastIndex of securityTargetIndex "
+                            << thisError.m_securityTargetIndex << " ..dropping bundle";
+                        return false; //drop bundle
+                    }
+                    tookAction = true;
+                }
+                if ((actionMask & action_mask_t::FAIL_BUNDLE_FORWARDING) != action_mask_t::NO_ACTIONS_SET) { //optional action
+                    static thread_local bool printedMsg = false;
+                    if (!printedMsg) {
+                        LOG_WARNING(subprocess) << "first time " << evtString << " from source node "
+                            << bv.m_primaryBlockView.header.m_sourceNodeId
+                            << ".. FAIL_BUNDLE_FORWARDING specified (bundle shall be dropped)..(This message type will now be suppressed.)";
                         printedMsg = true;
                     }
                     return false; //drop bundle
                 }
-                else {
-                    static thread_local bool printedMsg = false;
-                    if (!printedMsg) {
-                        LOG_WARNING(subprocess) << "first time " << evtString << " from source node "
-                            << bv.m_primaryBlockView.header.m_sourceNodeId
-                            << ".. REMOVE_SECURITY_OPERATION_TARGET_BLOCK specified ..(This message type will now be suppressed.)";
-                        printedMsg = true;
-                    }
-                    for (Bpv7AbstractSecurityBlock::security_targets_t::const_iterator it = asbPtr->m_securityTargets.cbegin();
-                        it != asbPtr->m_securityTargets.cend(); ++it)
-                    {
-                        if (BundleViewV7::Bpv7CanonicalBlockView* view = bv.GetCanonicalBlockByBlockNumber(*it)) {
-                            view->markedForDeletion = true;
+                else if ((actionMask & action_mask_t::REMOVE_SECURITY_OPERATION_TARGET_BLOCK) != action_mask_t::NO_ACTIONS_SET) { //optional action
+                    tookAction = true;
+                    if (errorTargetsPayloadBlock) {
+                        static thread_local bool printedMsg = false;
+                        if (!printedMsg) {
+                            LOG_WARNING(subprocess) << "first time " << evtString << " from source node "
+                                << bv.m_primaryBlockView.header.m_sourceNodeId
+                                << ".. REMOVE_SECURITY_OPERATION_TARGET_BLOCK specified but target(s) includes payload block, (bundle shall be dropped)..(This message type will now be suppressed.)";
+                            printedMsg = true;
                         }
+                        return false; //drop bundle
+                    }
+                    else {
+                        static thread_local bool printedMsg = false;
+                        if (!printedMsg) {
+                            LOG_WARNING(subprocess) << "first time " << evtString << " from source node "
+                                << bv.m_primaryBlockView.header.m_sourceNodeId
+                                << ".. REMOVE_SECURITY_OPERATION_TARGET_BLOCK specified ..(This message type will now be suppressed.)";
+                            printedMsg = true;
+                        }
+                        RemoveSopTargetBlock(bv, asbBlockView, asbPtr, canonicalIndex);
                     }
                 }
+                if (!tookAction) {
+                    LOG_WARNING(subprocess) << "Process: version 7 bundle received but cannot do security operation (no failure actions taken)";
+                }
             }
-            if (!tookAction) {
-                LOG_WARNING(subprocess) << "Process: version 7 bundle received but cannot do security operation (no failure actions taken)";
+            else {
+                LOG_ERROR(subprocess) << "Process: version 7 bundle received but cannot do security operation (no failure events specified)";
+                return false;
             }
-        }
-        else {
-            LOG_ERROR(subprocess) << "Process: version 7 bundle received but cannot do security operation (no failure events specified)";
-            return false;
         }
     }
     return true;
 }
 
 bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx,
-    BpSecBundleProcessor::ReturnResult& res, const uint64_t myNodeId) const
+    BpSecBundleProcessor::BpSecErrorFlist& errorList, const uint64_t myNodeId) const
 {
     bool hadError = false;
     const Bpv7CbhePrimaryBlock& primary = bv.m_primaryBlockView.header;
@@ -524,7 +591,7 @@ bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProc
                 + Uri::GetIpnUriString(bcbPtr->m_securitySource.nodeId, bcbPtr->m_securitySource.serviceId)
                 + ",bundleSource=" + Uri::GetIpnUriString(primary.m_sourceNodeId.nodeId, primary.m_sourceNodeId.serviceId)
                 + ",bundleFinalDest=" + Uri::GetIpnUriString(primary.m_destinationEid.nodeId, primary.m_destinationEid.serviceId);
-            res = BpSecBundleProcessor::ReturnResult(BpSecBundleProcessor::BPSEC_ERROR_CODES::MISSING, boost::make_unique<std::string>(
+            errorList.emplace_front(BpSecBundleProcessor::BPSEC_ERROR_CODES::MISSING, UINT64_MAX, boost::make_unique<std::string>(
                 std::string("Bundle is at final destination but an acceptor policy could not be found for BCB with ")
                 + asbInfoStr)); //null for some reason
 
@@ -570,16 +637,16 @@ bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProc
         }
 
         //does not rerender in place here, there are more ops to complete after decryption and then a manual render-in-place will be called later
-        res = BpSecBundleProcessor::TryDecryptBundleByIndividualBcb(ctx.m_evpCtxWrapper,
+        errorList = BpSecBundleProcessor::TryDecryptBundleByIndividualBcb(ctx.m_evpCtxWrapper,
             ctx.m_ctxWrapperKeyWrapOps,
             bv,
             bcbBlockView,
             crp,
             ctx.m_bpsecReusableElementsInternal,
             verifyOnly);
-        if (res.errorCode != BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS) {
+        if (!errorList.empty()) {
             hadError = true;
-            bool dontDropBundle = DoFailureEvent(bv, bpSecPolicyPtr, res,
+            bool dontDropBundle = DoFailureEvent(bv, bpSecPolicyPtr, errorList,
                 bcbBlockView, bcbPtr, !verifyOnly, false);
 
             static thread_local bool printedMsg = false;
@@ -636,7 +703,7 @@ bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProc
                 + Uri::GetIpnUriString(bibPtr->m_securitySource.nodeId, bibPtr->m_securitySource.serviceId)
                 + ",bundleSource=" + Uri::GetIpnUriString(primary.m_sourceNodeId.nodeId, primary.m_sourceNodeId.serviceId)
                 + ",bundleFinalDest=" + Uri::GetIpnUriString(primary.m_destinationEid.nodeId, primary.m_destinationEid.serviceId);
-            res = BpSecBundleProcessor::ReturnResult(BpSecBundleProcessor::BPSEC_ERROR_CODES::MISSING, boost::make_unique<std::string>(
+            errorList.emplace_front(BpSecBundleProcessor::BPSEC_ERROR_CODES::MISSING, UINT64_MAX, boost::make_unique<std::string>(
                 std::string("Bundle is at final destination but an acceptor policy could not be found for BIB with ")
                 + asbInfoStr)); //null for some reason
             bool dontDropBundle = DoFailureEventSopMissingAtAcceptor(bv, m_actionMaskSopMissingAtAcceptor,
@@ -680,16 +747,16 @@ bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProc
             }
         }
         //does not rerender in place here, there are more ops to complete after decryption and then a manual render-in-place will be called later
-        res = BpSecBundleProcessor::TryVerifyBundleIntegrityByIndividualBib(ctx.m_hmacCtxWrapper,
+        errorList = BpSecBundleProcessor::TryVerifyBundleIntegrityByIndividualBib(ctx.m_hmacCtxWrapper,
             ctx.m_ctxWrapperKeyWrapOps,
             bv,
             bibBlockView,
             irp,
             ctx.m_bpsecReusableElementsInternal,
             markBibForDeletion);
-        if (res.errorCode != BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS) {
+        if (!errorList.empty()) {
             hadError = true;
-            bool dontDropBundle = DoFailureEvent(bv, bpSecPolicyPtr, res, bibBlockView, bibPtr, markBibForDeletion, true);
+            bool dontDropBundle = DoFailureEvent(bv, bpSecPolicyPtr, errorList, bibBlockView, bibPtr, markBibForDeletion, true);
 
             static thread_local bool printedMsg = false;
             if (!printedMsg) {

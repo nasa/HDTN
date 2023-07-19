@@ -152,7 +152,7 @@ public:
         const cbhe_eid_t& bundleSourceEid, const cbhe_eid_t& bundleFinalDestEid, const BPSEC_ROLE role, PolicySearchCache& searchCache) const;
 
     BPSEC_EXPORT bool ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx,
-        BpSecBundleProcessor::ReturnResult& res, const uint64_t myNodeId) const;
+        BpSecBundleProcessor::BpSecErrorFlist& errorList, const uint64_t myNodeId) const;
 
     BPSEC_EXPORT static bool PopulateTargetArraysForSecuritySource(BundleViewV7& bv,
         BpSecPolicyProcessingContext& ctx,
