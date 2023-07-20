@@ -318,14 +318,14 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
 
 #ifdef BPSEC_SUPPORT_ENABLED
         //process acceptor and verifier roles
-        BpSecBundleProcessor::ReturnResult res;
-        const bool dontDropBundle = m_bpsecPimpl->m_bpSecPolicyManager.ProcessReceivedBundle(bv, m_bpsecPimpl->m_policyProcessingCtx, res, m_myEid.nodeId);
-        if (res.errorCode != BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS) {
+        BpSecBundleProcessor::BpSecErrorFlist errorList;
+        const bool dontDropBundle = m_bpsecPimpl->m_bpSecPolicyManager.ProcessReceivedBundle(bv, m_bpsecPimpl->m_policyProcessingCtx, errorList, m_myEid.nodeId);
+        if (!errorList.empty()) {
             static thread_local bool printedMsg = false;
             if (!printedMsg) {
                 LOG_WARNING(subprocess) << "first time this induct thread got bpsec error from source node "
                     << bv.m_primaryBlockView.header.m_sourceNodeId
-                    << ": " << *res.errorStringPtr << ".. (This message type will now be suppressed.)";
+                    << ": " << BpSecBundleProcessor::ErrorListToString(errorList) << ".. (This message type will now be suppressed.)";
                 printedMsg = true;
             }
         }

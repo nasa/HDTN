@@ -362,9 +362,9 @@ R"({
             BOOST_REQUIRE_EQUAL(blocks.size(), 1);
             BOOST_REQUIRE(blocks[0]->isEncrypted); //encrypted
         }
-        BpSecBundleProcessor::ReturnResult res;
-        BOOST_REQUIRE(bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId));
-        BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS);
+        BpSecBundleProcessor::BpSecErrorFlist errorList;
+        BOOST_REQUIRE(bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, errorList, THIS_EID_FINAL_DEST.nodeId));
+        BOOST_REQUIRE(errorList.empty());
         { //get payload decrypted
             std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
             bvRx.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
@@ -392,13 +392,11 @@ R"({
         BOOST_REQUIRE(bpSecPolicyManagerRx.FindPolicy(THIS_EID_SECURITY_SOURCE, cbhe_eid_t(1, 1), THIS_EID_FINAL_DEST, BPSEC_ROLE::ACCEPTOR));
         BundleViewV7 bvRx;
         BOOST_REQUIRE(bvRx.CopyAndLoadBundle(encryptedBundle.data(), encryptedBundle.size()));
-        BpSecBundleProcessor::ReturnResult res;
-        BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId)); //bundle must be dropped (payload cannot be decrypted)
-        BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::CORRUPTED);
-        BOOST_REQUIRE(res.errorStringPtr);
-        if (res.errorStringPtr) {
-            BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "unable to decrypt the target block number 1");
-        }
+        BpSecBundleProcessor::BpSecErrorFlist errorList;
+        BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, errorList, THIS_EID_FINAL_DEST.nodeId)); //bundle must be dropped (payload cannot be decrypted)
+        BOOST_REQUIRE_EQUAL(std::distance(errorList.begin(), errorList.end()), 1);
+        BOOST_REQUIRE(errorList.begin()->m_errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::CORRUPTED);
+        BOOST_REQUIRE_EQUAL(BpSecBundleProcessor::ErrorListToString(errorList), "unable to decrypt the target block number 1");
     }
 
     { //simple confidentiality failure (misconfigured) which has the wrong aes variant
@@ -415,13 +413,12 @@ R"({
         BOOST_REQUIRE(bpSecPolicyManagerRx.FindPolicy(THIS_EID_SECURITY_SOURCE, cbhe_eid_t(1, 1), THIS_EID_FINAL_DEST, BPSEC_ROLE::ACCEPTOR));
         BundleViewV7 bvRx;
         BOOST_REQUIRE(bvRx.CopyAndLoadBundle(encryptedBundle.data(), encryptedBundle.size()));
-        BpSecBundleProcessor::ReturnResult res;
-        BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId)); //bundle must be dropped (payload cannot be decrypted)
-        BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED);
-        BOOST_REQUIRE(res.errorStringPtr);
-        if (res.errorStringPtr) {
-            BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "BCB AES variant received (A256GCM), does not match the expected variant in the policy (A128GCM)");
-        }
+        BpSecBundleProcessor::BpSecErrorFlist errorList;
+        BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, errorList, THIS_EID_FINAL_DEST.nodeId)); //bundle must be dropped (payload cannot be decrypted)
+        BOOST_REQUIRE_EQUAL(std::distance(errorList.begin(), errorList.end()), 1);
+        BOOST_REQUIRE(errorList.begin()->m_errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED);
+        BOOST_REQUIRE_EQUAL(BpSecBundleProcessor::ErrorListToString(errorList),
+            "BCB AES variant received (A256GCM), does not match the expected variant in the policy (A128GCM)");
     }
 
     { //simple confidentiality failure (misconfigured) which has the wrong iv size bytes
@@ -438,13 +435,12 @@ R"({
         BOOST_REQUIRE(bpSecPolicyManagerRx.FindPolicy(THIS_EID_SECURITY_SOURCE, cbhe_eid_t(1, 1), THIS_EID_FINAL_DEST, BPSEC_ROLE::ACCEPTOR));
         BundleViewV7 bvRx;
         BOOST_REQUIRE(bvRx.CopyAndLoadBundle(encryptedBundle.data(), encryptedBundle.size()));
-        BpSecBundleProcessor::ReturnResult res;
-        BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId)); //bundle must be dropped (payload cannot be decrypted)
-        BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED);
-        BOOST_REQUIRE(res.errorStringPtr);
-        if (res.errorStringPtr) {
-            BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "BCB AES IV received length(12), does not match the expected IV length to receive in the policy (16)");
-        }
+        BpSecBundleProcessor::BpSecErrorFlist errorList;
+        BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, errorList, THIS_EID_FINAL_DEST.nodeId)); //bundle must be dropped (payload cannot be decrypted)
+        BOOST_REQUIRE_EQUAL(std::distance(errorList.begin(), errorList.end()), 1);
+        BOOST_REQUIRE(errorList.begin()->m_errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED);
+        BOOST_REQUIRE_EQUAL(BpSecBundleProcessor::ErrorListToString(errorList),
+            "BCB AES IV received length(12), does not match the expected IV length to receive in the policy (16)");
     }
 
     { //simple confidentiality failure (misconfigured) which has the wrong scope flags
@@ -461,13 +457,12 @@ R"({
         BOOST_REQUIRE(bpSecPolicyManagerRx.FindPolicy(THIS_EID_SECURITY_SOURCE, cbhe_eid_t(1, 1), THIS_EID_FINAL_DEST, BPSEC_ROLE::ACCEPTOR));
         BundleViewV7 bvRx;
         BOOST_REQUIRE(bvRx.CopyAndLoadBundle(encryptedBundle.data(), encryptedBundle.size()));
-        BpSecBundleProcessor::ReturnResult res;
-        BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId)); //bundle must be dropped (payload cannot be decrypted)
-        BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED);
-        BOOST_REQUIRE(res.errorStringPtr);
-        if (res.errorStringPtr) {
-            BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "BCB AES aad scope mask received (7), does not match the expected aad scope mask in the policy (0)");
-        }
+        BpSecBundleProcessor::BpSecErrorFlist errorList;
+        BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, errorList, THIS_EID_FINAL_DEST.nodeId)); //bundle must be dropped (payload cannot be decrypted)
+        BOOST_REQUIRE_EQUAL(std::distance(errorList.begin(), errorList.end()), 1);
+        BOOST_REQUIRE(errorList.begin()->m_errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED);
+        BOOST_REQUIRE_EQUAL(BpSecBundleProcessor::ErrorListToString(errorList),
+            "BCB AES aad scope mask received (7), does not match the expected aad scope mask in the policy (0)");
     }
 
     { //simple confidentiality failure (misconfigured) which has a policy that has MORE securityTargetBlockTypes than the block
@@ -484,13 +479,12 @@ R"({
         BOOST_REQUIRE(bpSecPolicyManagerRx.FindPolicy(THIS_EID_SECURITY_SOURCE, cbhe_eid_t(1, 1), THIS_EID_FINAL_DEST, BPSEC_ROLE::ACCEPTOR));
         BundleViewV7 bvRx;
         BOOST_REQUIRE(bvRx.CopyAndLoadBundle(encryptedBundle.data(), encryptedBundle.size()));
-        BpSecBundleProcessor::ReturnResult res;
-        BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId)); //bundle must be dropped (payload cannot be decrypted)
-        BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED);
-        BOOST_REQUIRE(res.errorStringPtr);
-        if (res.errorStringPtr) {
-            BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "the BCB AES failed to target all of the canonical block types within the policy (missing_mask=4d)"); //4=0b100 => block type 2 missing
-        }
+        BpSecBundleProcessor::BpSecErrorFlist errorList;
+        BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, errorList, THIS_EID_FINAL_DEST.nodeId)); //bundle must be dropped (payload cannot be decrypted)
+        BOOST_REQUIRE_EQUAL(std::distance(errorList.begin(), errorList.end()), 1);
+        BOOST_REQUIRE(errorList.begin()->m_errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED);
+        BOOST_REQUIRE_EQUAL(BpSecBundleProcessor::ErrorListToString(errorList),
+            "the BCB AES failed to target all of the canonical block types within the policy (missing_mask=4d)"); //4=0b100 => block type 2 missing
     }
 
     { //simple confidentiality failure (misconfigured) which has a policy that has LESS securityTargetBlockTypes than the block
@@ -507,14 +501,12 @@ R"({
         BOOST_REQUIRE(bpSecPolicyManagerRx.FindPolicy(THIS_EID_SECURITY_SOURCE, cbhe_eid_t(1, 1), THIS_EID_FINAL_DEST, BPSEC_ROLE::ACCEPTOR));
         BundleViewV7 bvRx;
         BOOST_REQUIRE(bvRx.CopyAndLoadBundle(encryptedBundle.data(), encryptedBundle.size()));
-        BpSecBundleProcessor::ReturnResult res;
-        BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId)); //bundle must be dropped (payload cannot be decrypted)
-        BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED);
-        BOOST_REQUIRE(res.errorStringPtr);
-        if (res.errorStringPtr) {
-            BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "BCB AES security target (1) targets a canonical block type code (1) that was unexpected per the policy");
-        }
-        //std::cout << *res.errorStringPtr << "\n";
+        BpSecBundleProcessor::BpSecErrorFlist errorList;
+        BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, errorList, THIS_EID_FINAL_DEST.nodeId)); //bundle must be dropped (payload cannot be decrypted)
+        BOOST_REQUIRE_EQUAL(std::distance(errorList.begin(), errorList.end()), 1);
+        BOOST_REQUIRE(errorList.begin()->m_errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISCONFIGURED);
+        BOOST_REQUIRE_EQUAL(BpSecBundleProcessor::ErrorListToString(errorList),
+            "BCB AES security target (1) targets a canonical block type code (1) that was unexpected per the policy");
     }
 
     { //simple confidentiality failure (missing at acceptor) which has the wrong security source
@@ -533,23 +525,21 @@ R"({
         { //acceptor node id matches bundle final dest
             BundleViewV7 bvRx;
             BOOST_REQUIRE(bvRx.CopyAndLoadBundle(encryptedBundle.data(), encryptedBundle.size()));
-            BpSecBundleProcessor::ReturnResult res;
-            BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId)); //bundle must be dropped (payload cannot be decrypted)
-            BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISSING);
-            BOOST_REQUIRE(res.errorStringPtr);
-            if (res.errorStringPtr) {
-                BOOST_REQUIRE_EQUAL(*res.errorStringPtr,
-                    "Bundle is at final destination but an acceptor policy could not be found for "
-                    "BCB with securitySource=ipn:10.1,bundleSource=ipn:1.1,bundleFinalDest=ipn:2.1"
-                );
-            }
+            BpSecBundleProcessor::BpSecErrorFlist errorList;
+            BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, errorList, THIS_EID_FINAL_DEST.nodeId)); //bundle must be dropped (payload cannot be decrypted)
+            BOOST_REQUIRE_EQUAL(std::distance(errorList.begin(), errorList.end()), 1);
+            BOOST_REQUIRE(errorList.begin()->m_errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISSING);
+            BOOST_REQUIRE_EQUAL(BpSecBundleProcessor::ErrorListToString(errorList),
+                "Bundle is at final destination but an acceptor policy could not be found for "
+                "BCB with securitySource=ipn:10.1,bundleSource=ipn:1.1,bundleFinalDest=ipn:2.1"
+            );
         }
         { //acceptor node id does not match bundle final dest (bundle is simply forwarded as encrypted)
             BundleViewV7 bvRx;
             BOOST_REQUIRE(bvRx.CopyAndLoadBundle(encryptedBundle.data(), encryptedBundle.size()));
-            BpSecBundleProcessor::ReturnResult res;
-            BOOST_REQUIRE(bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId + 5)); //bundle is not dropped
-            BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::NO_ERRORS);
+            BpSecBundleProcessor::BpSecErrorFlist errorList;
+            BOOST_REQUIRE(bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, errorList, THIS_EID_FINAL_DEST.nodeId + 5)); //bundle is not dropped
+            BOOST_REQUIRE(errorList.empty());
         }
     }
 
@@ -577,7 +567,7 @@ R"({
         encryptedBundle.assign((const uint8_t*)bvTx.m_renderedBundle.data(), ((const uint8_t*)bvTx.m_renderedBundle.data()) + bvTx.m_renderedBundle.size());
     }
 
-    { //simple confidentiality failure (corruption) which has a bad key at acceptor, SOp removed per sopCorruptedAtAcceptor policy
+    { //simple confidentiality failure (corruption) which has a bad key at acceptor, SOp removed per RFC9172
         //alter the key file (10.1 changes to 1.1)
         static const boost::regex regexMatch("ipn10.1_confidentiality.key");
         static const boost::regex regexMatch2("        1");
@@ -594,16 +584,15 @@ R"({
         BOOST_REQUIRE(bpSecPolicyManagerRx.FindPolicy(THIS_EID_SECURITY_SOURCE, cbhe_eid_t(1, 1), THIS_EID_FINAL_DEST, BPSEC_ROLE::ACCEPTOR));
         BundleViewV7 bvRx;
         BOOST_REQUIRE(bvRx.CopyAndLoadBundle(encryptedBundle.data(), encryptedBundle.size()));
-        BpSecBundleProcessor::ReturnResult res;
-        BOOST_REQUIRE(bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId)); //bundle need NOT be dropped since it doesnt target payload
-        BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::CORRUPTED);
+        BpSecBundleProcessor::BpSecErrorFlist errorList;
+        BOOST_REQUIRE(bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, errorList, THIS_EID_FINAL_DEST.nodeId)); //bundle need NOT be dropped since it doesnt target payload
+        BOOST_REQUIRE_EQUAL(std::distance(errorList.begin(), errorList.end()), 1);
+        BOOST_REQUIRE(errorList.begin()->m_errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::CORRUPTED);
         BOOST_REQUIRE_EQUAL(bvRx.GetNumCanonicalBlocks(), 3);
         BOOST_REQUIRE(bvRx.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE));
-        BOOST_REQUIRE_EQUAL(bvRx.GetNumCanonicalBlocks(), 2); //SOp removed per sopCorruptedAtAcceptor policy
-        BOOST_REQUIRE(res.errorStringPtr);
-        if (res.errorStringPtr) {
-            BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "unable to decrypt the target block number 2");
-        }
+        BOOST_REQUIRE_EQUAL(bvRx.GetNumCanonicalBlocks(), 1); //SOp removed (now empty => ASB removed) , target removed as well
+        BOOST_REQUIRE_EQUAL(BpSecBundleProcessor::ErrorListToString(errorList),
+            "unable to decrypt the target block number 2");
     }
 
     { //simple confidentiality failure (corruption) which has a bad key at acceptor, SOp + Target removed per sopCorruptedAtAcceptor policy
@@ -625,16 +614,15 @@ R"({
         BOOST_REQUIRE(bpSecPolicyManagerRx.FindPolicy(THIS_EID_SECURITY_SOURCE, cbhe_eid_t(1, 1), THIS_EID_FINAL_DEST, BPSEC_ROLE::ACCEPTOR));
         BundleViewV7 bvRx;
         BOOST_REQUIRE(bvRx.CopyAndLoadBundle(encryptedBundle.data(), encryptedBundle.size()));
-        BpSecBundleProcessor::ReturnResult res;
-        BOOST_REQUIRE(bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId)); //bundle need NOT be dropped since it doesnt target payload
-        BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::CORRUPTED);
+        BpSecBundleProcessor::BpSecErrorFlist errorList;
+        BOOST_REQUIRE(bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, errorList, THIS_EID_FINAL_DEST.nodeId)); //bundle need NOT be dropped since it doesnt target payload
+        BOOST_REQUIRE_EQUAL(std::distance(errorList.begin(), errorList.end()), 1);
+        BOOST_REQUIRE(errorList.begin()->m_errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::CORRUPTED);
         BOOST_REQUIRE_EQUAL(bvRx.GetNumCanonicalBlocks(), 3);
         BOOST_REQUIRE(bvRx.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE));
         BOOST_REQUIRE_EQUAL(bvRx.GetNumCanonicalBlocks(), 1); //SOp + Target removed per sopCorruptedAtAcceptor policy
-        BOOST_REQUIRE(res.errorStringPtr);
-        if (res.errorStringPtr) {
-            BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "unable to decrypt the target block number 2");
-        }
+        BOOST_REQUIRE_EQUAL(BpSecBundleProcessor::ErrorListToString(errorList),
+            "unable to decrypt the target block number 2");
     }
 
     { //simple confidentiality failure (corruption) which has a bad key at acceptor, drop bundle per failBundleForwarding policy
@@ -656,13 +644,12 @@ R"({
         BOOST_REQUIRE(bpSecPolicyManagerRx.FindPolicy(THIS_EID_SECURITY_SOURCE, cbhe_eid_t(1, 1), THIS_EID_FINAL_DEST, BPSEC_ROLE::ACCEPTOR));
         BundleViewV7 bvRx;
         BOOST_REQUIRE(bvRx.CopyAndLoadBundle(encryptedBundle.data(), encryptedBundle.size()));
-        BpSecBundleProcessor::ReturnResult res;
-        BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId)); //drop bundle per failBundleForwarding policy
-        BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::CORRUPTED);
-        BOOST_REQUIRE(res.errorStringPtr);
-        if (res.errorStringPtr) {
-            BOOST_REQUIRE_EQUAL(*res.errorStringPtr, "unable to decrypt the target block number 2");
-        }
+        BpSecBundleProcessor::BpSecErrorFlist errorList;
+        BOOST_REQUIRE(!bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, errorList, THIS_EID_FINAL_DEST.nodeId)); //drop bundle per failBundleForwarding policy
+        BOOST_REQUIRE_EQUAL(std::distance(errorList.begin(), errorList.end()), 1);
+        BOOST_REQUIRE(errorList.begin()->m_errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::CORRUPTED);
+        BOOST_REQUIRE_EQUAL(BpSecBundleProcessor::ErrorListToString(errorList),
+            "unable to decrypt the target block number 2");
     }
 
     { //simple confidentiality failure (missing at acceptor) which has the wrong security source, add an sopMissingAtAcceptor policy
@@ -685,19 +672,92 @@ R"({
         { //acceptor node id matches bundle final dest
             BundleViewV7 bvRx;
             BOOST_REQUIRE(bvRx.CopyAndLoadBundle(encryptedBundle.data(), encryptedBundle.size()));
-            BpSecBundleProcessor::ReturnResult res;
-            BOOST_REQUIRE(bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, res, THIS_EID_FINAL_DEST.nodeId)); //bundle need NOT be dropped
-            BOOST_REQUIRE(res.errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISSING);
-            BOOST_REQUIRE(res.errorStringPtr);
-            if (res.errorStringPtr) {
-                BOOST_REQUIRE_EQUAL(*res.errorStringPtr,
-                    "Bundle is at final destination but an acceptor policy could not be found for "
-                    "BCB with securitySource=ipn:10.1,bundleSource=ipn:1.1,bundleFinalDest=ipn:2.1"
-                );
-            }
+            BpSecBundleProcessor::BpSecErrorFlist errorList;
+            BOOST_REQUIRE(bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, errorList, THIS_EID_FINAL_DEST.nodeId)); //bundle need NOT be dropped
+            BOOST_REQUIRE_EQUAL(std::distance(errorList.begin(), errorList.end()), 1);
+            BOOST_REQUIRE(errorList.begin()->m_errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::MISSING);
+            BOOST_REQUIRE_EQUAL(BpSecBundleProcessor::ErrorListToString(errorList),
+                "Bundle is at final destination but an acceptor policy could not be found for "
+                "BCB with securitySource=ipn:10.1,bundleSource=ipn:1.1,bundleFinalDest=ipn:2.1"
+            );
             BOOST_REQUIRE_EQUAL(bvRx.GetNumCanonicalBlocks(), 3);
             BOOST_REQUIRE(bvRx.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE));
             BOOST_REQUIRE_EQUAL(bvRx.GetNumCanonicalBlocks(), 2); //SOp removed per sopMissingAtAcceptor policy
+        }
+    }
+
+
+    ///////////////////////////////////////////////////////////////////
+    //encrypt payload (type=1) and custom extension block (type=4)
+    ///////////////////////////////////////////////////////////////////
+    {
+        static const boost::regex regexMatch("        1");
+        const std::string securitySourcePolicy4Json = boost::regex_replace(securitySourcePolicyJson, regexMatch, "        1, 4");
+
+        //security source read config and encrypt bundle
+        BpSecConfig_ptr bpSecConfigPtrTx = BpSecConfig::CreateFromJson(securitySourcePolicy4Json);
+        BOOST_REQUIRE(bpSecConfigPtrTx);
+        BpSecPolicyManager bpSecPolicyManagerTx;
+        BpSecPolicyProcessingContext policyProcessingCtxTx;
+        BOOST_REQUIRE(bpSecPolicyManagerTx.LoadFromConfig(*bpSecConfigPtrTx));
+        BOOST_REQUIRE(bpSecPolicyManagerTx.FindPolicy(THIS_EID_SECURITY_SOURCE, cbhe_eid_t(1, 1), THIS_EID_FINAL_DEST, BPSEC_ROLE::SOURCE));
+        BundleViewV7 bvTx;
+        BOOST_REQUIRE(bvTx.CopyAndLoadBundle(bundleSerializedOriginal.data(), bundleSerializedOriginal.size()));
+        BOOST_REQUIRE_EQUAL(bvTx.GetNumCanonicalBlocks(), 2);
+        BOOST_REQUIRE(bpSecPolicyManagerTx.FindPolicyAndProcessOutgoingBundle(bvTx, policyProcessingCtxTx, THIS_EID_SECURITY_SOURCE));
+        BOOST_REQUIRE(bvTx.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE));
+        BOOST_REQUIRE_EQUAL(bvTx.GetNumCanonicalBlocks(), 3);
+        BOOST_REQUIRE_GT(bvTx.m_renderedBundle.size(), bundleSerializedOriginal.size()); //bundle gets bigger with added security
+        encryptedBundle.assign((const uint8_t*)bvTx.m_renderedBundle.data(), ((const uint8_t*)bvTx.m_renderedBundle.data()) + bvTx.m_renderedBundle.size());
+    }
+
+    //RFC9172 takes precidence over policy
+    //If an encrypted security target other than the payload block cannot be decrypted,
+    //then the associated security target and all security blocks associated with that target
+    //MUST be discarded and processed no further.
+    { //simple confidentiality failure (corruption) which has block 4 bad, ASB modified, block 4 removed
+        static const boost::regex regexMatch("        1");
+        std::string securityAcceptorPolicyBadJson = boost::regex_replace(securityAcceptorPolicyJson, regexMatch, "        1, 4");
+        //std::cout << securityAcceptorPolicyBadJson << "\n";
+
+        //security acceptor read config and decrypt bundle
+        BpSecConfig_ptr bpSecConfigPtrRx = BpSecConfig::CreateFromJson(securityAcceptorPolicyBadJson);
+        BOOST_REQUIRE(bpSecConfigPtrRx);
+        BpSecPolicyManager bpSecPolicyManagerRx;
+        BpSecPolicyProcessingContext policyProcessingCtxRx;
+        BOOST_REQUIRE(bpSecPolicyManagerRx.LoadFromConfig(*bpSecConfigPtrRx));
+        BOOST_REQUIRE(bpSecPolicyManagerRx.FindPolicy(THIS_EID_SECURITY_SOURCE, cbhe_eid_t(1, 1), THIS_EID_FINAL_DEST, BPSEC_ROLE::ACCEPTOR));
+        BundleViewV7 bvRx;
+        BOOST_REQUIRE(bvRx.CopyAndLoadBundle(encryptedBundle.data(), encryptedBundle.size()));
+
+        { //corrupt block 4
+            std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+            bvRx.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::UNUSED_4, blocks);
+            BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+            BOOST_REQUIRE(blocks[0]->isEncrypted); //encrypted
+            memset((void*)blocks[0]->actualSerializedBlockPtr.data(), 0, blocks[0]->actualSerializedBlockPtr.size());
+        }
+
+        BpSecBundleProcessor::BpSecErrorFlist errorList;
+        BOOST_REQUIRE(bpSecPolicyManagerRx.ProcessReceivedBundle(bvRx, policyProcessingCtxRx, errorList, THIS_EID_FINAL_DEST.nodeId)); //bundle need NOT be dropped since it doesnt target payload
+        BOOST_REQUIRE_EQUAL(std::distance(errorList.begin(), errorList.end()), 1);
+        BOOST_REQUIRE(errorList.begin()->m_errorCode == BpSecBundleProcessor::BPSEC_ERROR_CODES::CORRUPTED);
+        BOOST_REQUIRE_EQUAL(bvRx.GetNumCanonicalBlocks(), 3);
+        BOOST_REQUIRE(bvRx.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE));
+        BOOST_REQUIRE_EQUAL(bvRx.GetNumCanonicalBlocks(), 2); //ASB modified (still targets payload), target 4 removed per RFC
+        BOOST_REQUIRE_EQUAL(BpSecBundleProcessor::ErrorListToString(errorList),
+            "unable to decrypt the target block number 2");
+        { //check bcb
+            std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+            bvRx.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, blocks);
+            BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+            Bpv7BlockConfidentialityBlock* bcbPtr = dynamic_cast<Bpv7BlockConfidentialityBlock*>(blocks[0]->headerPtr.get());
+            BOOST_REQUIRE(bcbPtr);
+            if (bcbPtr) {
+                BOOST_REQUIRE_EQUAL(bcbPtr->m_securityTargets.size(), 1);
+                BOOST_REQUIRE_EQUAL(bcbPtr->m_securityResults.size(), 1);
+                BOOST_REQUIRE_EQUAL(bcbPtr->m_securityTargets[0], 1); //index of payload
+            }
         }
     }
 }
