@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Added "bp_over_encap_local_stream" and "ltp_over_encap_local_stream" convergence layers, allowing HDTN to generate CCSDS encap packets over a cross-platform local stream.  On Windows, this is acomplished using a full-duplex named pipe.  On Linux/POSIX, this is accomplished using a local `AF_UNIX` duplex socket.
 * Added EncapRepeater.cpp demo application to serve as an example for writing code to intercept/extract CCSDS Encap packets from HDTN.
++ Add `enforceBundlePriority` config option; setting this enforces strict priority ordering
+  of forwarded bundles. When true, HDTN will foward bundles by priority. This will have 
+  a performance inpact, as it requires passing all bundles through storage.
 
 ### Changed
 
