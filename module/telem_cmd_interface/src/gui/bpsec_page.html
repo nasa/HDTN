@@ -29,7 +29,6 @@
         <div class="bpsecPolicies">
             <h2 class="bpSecPoliciesTitle">Current Policies</h2>
             <div class="bpSecList" id="listBPSecJSON" onload="showJSON()"></div>
-            <button class="bpSecEditPolicies" style="width: 40px; display: flex; justify-content: right;">Edit</button>
         </div>
     </div>
 
@@ -248,6 +247,19 @@
             }
         }
 
+        function editTable() {}
+
+        function removeTable() {}
+
+        function loadNewBPSecJSON() {
+            return function () {
+                let apiObj = {
+                    "apiCall": "bpSec",
+                };
+                WebSocketSend(JSON.stringify(apiObj));
+            };
+        }
+
         function showJSON() {
             console.log(currentPolicies);
             var div = document.getElementById("listBPSecJSON");
@@ -268,6 +280,8 @@
                             }
                         }
                         newSubTable += "</table>";
+                        newSubTable += "<button class=\"bpSecEditPolicies\" style=\"width: 40px; display: flex; justify-content: right;\" onclick=\"editTable()\">Edit</button>";
+                        newSubTable += "<button class=\"bpSecEditPolicies\" style=\"width: 40px; display: flex; justify-content: right;\" onclick=\"removeTable()\">Remove</button>";
                         newTable += newSubTable;
                     }
                 }
@@ -359,6 +373,7 @@
                 currentPolicies.securityFailureEventSets.push(newEvent);
 
                 alert("New Event added to BPSec Config");
+                eventName.removeAttribute("readonly");
                 clearEventForm();
                 createNewEvent = 0;
                 closeEventForm();
@@ -410,6 +425,7 @@
             newPolicy.securitySource = securitySource.value;
             newPolicy.bundleSource = bundleSource.value;
             newPolicy.bundleDestination = bundleDestination.value;
+            console.log(key);
             newPolicy.securityFailureEventSetReference = key.value;
 
             if (securityService.value === "aes") {
@@ -456,7 +472,6 @@
                 }
                 securityContextParams.push(securityBlockParam);
             }
-
 
             var fileParam = {
                 "paramName": "keyFile",
@@ -517,8 +532,7 @@
             }
 
             securityEventSet = currentPolicies.securityFailureEventSets;
-            
-
+            console.log(key);
 
             if (securityEventSet.length === 0) {
                 createNewEvent = 1;
@@ -534,8 +548,8 @@
             }
 
             if (createNewEvent) {
-                eventName.setAttribute("readonly", "true");
                 eventName.value = key;
+                eventName.setAttribute("readonly", "true");
             }
 
             if (valid) {
@@ -565,68 +579,6 @@
                 document.getElementById('aesVariantDiv').style.display = 'none';
             }
         });
-
-        function UpdateWithData(objJson) {
-            if ("bpsecConfigName" in objJson) {
-                HandleReceivedNewBpsecConfig(objJson);
-            }
-            else if (bpsecConfig == null) {
-                //console.log("error, out of order command, bpsecConfig must be received first");
-            }
-            else {
-            }
-        }
-
-        var connection = null;
-        window.addEventListener("load", function (event) {
-            console.log("All resources finished loading!");
-            if (!("WebSocket" in window)) {
-                alert("WebSocket is not supported by your Browser!");
-            }
-            else {
-                var wsproto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
-                connection = new WebSocket(wsproto + '//' + window.location.host + '/websocket');
-                connection.binaryType = "arraybuffer";
-
-
-                //This event occurs when socket connection is established.
-                connection.onopen = function () {
-                    console.log("ws opened");
-                }
-
-                //This event occurs when connection is closed.
-                connection.onclose = function () {
-                    console.log("ws closed");
-                }
-
-                //This event occurs when client receives data from server.
-                connection.onmessage = function (e) {
-                    if (e.data instanceof ArrayBuffer) { //this is binary data
-                        console.log("binary data received.. ignoring");
-                    }
-                    else { //this is text data such as json
-                        if (e.data === "Hello websocket") {
-                            console.log(e.data);
-                        }
-                        else { //json data
-                            var obj = JSON.parse(e.data); //this could error based on encodings
-                            UpdateWithData(obj);
-
-                        }
-                    }
-                }
-
-                //This event occurs when there is any error in communication.
-                connection.onerror = function (error) {
-                    connection.close();
-                }
-            } //running http(s)
-
-        });
-
-        function WebSocketSend(str) {
-            connection.send(str);
-        }
     </script>
 </body>
 
