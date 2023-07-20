@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Added `--cla-rate` command-line argument to bpgen. This argument, defaulting to zero
   for unlimited, can be used to set the rate for LTP and UDP connections.
+* Added config option `neighborDepletedStorageDelaySeconds` allowing for optional rerouting
+  around neighboring nodes with depleted storage. Zero disables; otherwise, the value is
+  interpreted as the amount of time to wait before forwarding to the neighbor after a depleted
+  storage message is received. Requires that custody be enabled.
 
 ### Changed
 
