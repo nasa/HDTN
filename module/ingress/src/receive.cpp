@@ -902,6 +902,8 @@ void Ingress::Impl::ZmqTelemThreadFunc() {
                                     continue;
                                 }
                                 SendPing(pingCmd.m_nodeId, pingCmd.m_pingServiceNumber, pingCmd.m_bpVersion);
+                            } else if (apiCall == "bpSec"){
+                                LOG_INFO(subprocess) << "entered the api section for bpsec\n";
                             }
                         } while (apiMsg.more());
                     }

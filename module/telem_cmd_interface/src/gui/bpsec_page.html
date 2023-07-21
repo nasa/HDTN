@@ -1,5 +1,19 @@
 <!DOCTYPE html>
 <html>
+<!--
+ * @file index.html
+ * @author  Thais Campanac <thais.c.campanac-climent@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+-->
 
 <head>
     <meta http-equiv="Content-Type" content="charset=UTF-8, width=device-width, initial-scale=1">
@@ -25,6 +39,7 @@
             <h1 class="bpSecConfigTitle">BPSec Config</h1>
             <button class="bpSecAddPolicy" onclick="openForm()">Add Policy</button>
             <button class="bpSecAddSecurityEvent" onclick="openEventForm()">Add Security Event</button>
+            <button onclick="loadNewBPSecJSON()">Load BPSec</button>
         </div>
         <div class="bpsecPolicies">
             <h2 class="bpSecPoliciesTitle">Current Policies</h2>
@@ -247,18 +262,9 @@
             }
         }
 
-        function editTable() {}
+        function editTable() { }
 
-        function removeTable() {}
-
-        function loadNewBPSecJSON() {
-            return function () {
-                let apiObj = {
-                    "apiCall": "bpSec",
-                };
-                WebSocketSend(JSON.stringify(apiObj));
-            };
-        }
+        function removeTable() { }
 
         function showJSON() {
             console.log(currentPolicies);
@@ -266,16 +272,16 @@
             div.innerHTML = '';
             newTable = "<table class=\"styled-table\" style=\"width:100%\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>"
             for (var key in currentPolicies) {
-                if(Array.isArray(currentPolicies[key])){ 
+                if (Array.isArray(currentPolicies[key])) {
                     //create table
-                    for(var i = 0; i < currentPolicies[key].length; ++i){
+                    for (var i = 0; i < currentPolicies[key].length; ++i) {
                         var newSubTable = "<table class=\"styled-table\" style=\"margin:15px 0px\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>";
-                        for (var subKey in currentPolicies[key][i]){
+                        for (var subKey in currentPolicies[key][i]) {
                             newSubTable += "<tr>" + "<td>" + subKey + "</td>";
-                            if(isNaN(currentPolicies[key][i][subKey])){
+                            if (isNaN(currentPolicies[key][i][subKey])) {
                                 newSubTable += "<td>" + currentPolicies[key][i][subKey] + "</td>" + "</tr>";
                             }
-                            else{
+                            else {
                                 newSubTable += "<td>" + (currentPolicies[key][i][subKey]).toLocaleString('en') + "</td>" + "</tr>";
                             }
                         }
@@ -285,13 +291,13 @@
                         newTable += newSubTable;
                     }
                 }
-                else{
+                else {
                     if (isNaN(currentPolicies[key])) {
-                        var newRow ="<tr>" + "<td>" + key + "</td>" + "<td>" + currentPolicies[key] + "</td>" + "</tr>";
+                        var newRow = "<tr>" + "<td>" + key + "</td>" + "<td>" + currentPolicies[key] + "</td>" + "</tr>";
                     }
-                    else { 
+                    else {
                         //if data is a number, adds commas
-                        var newRow ="<tr>" + "<td>" + key + "</td>" + "<td>" + (currentPolicies[key]).toLocaleString('en') + "</td>" + "</tr>";
+                        var newRow = "<tr>" + "<td>" + key + "</td>" + "<td>" + (currentPolicies[key]).toLocaleString('en') + "</td>" + "</tr>";
                     }
                     newTable += newRow;
                 }
@@ -360,7 +366,7 @@
             if (validEvent) {
                 var newEvent = new Object();
                 var securityOperationEvents = [];
-                
+
                 newEvent.name = eventName.value;
                 newEvent.description = eventDescription.value;
 
@@ -579,6 +585,63 @@
                 document.getElementById('aesVariantDiv').style.display = 'none';
             }
         });
+
+        function loadNewBPSecJSON() {
+            let apiObj = {
+                "apiCall": "bpSec",
+            };
+            WebSocketSend(JSON.stringify(apiObj));
+        }
+
+        var connection = null;
+        window.addEventListener("load", function (event) {
+            console.log("All resources finished loading!");
+            if (!("WebSocket" in window)) {
+                alert("WebSocket is not supported by your Browser!");
+            }
+            else {
+                var wsproto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
+                connection = new WebSocket(wsproto + '//' + window.location.host + '/websocket');
+                connection.binaryType = "arraybuffer";
+
+
+                //This event occurs when socket connection is established.
+                connection.onopen = function () {
+                    console.log("ws opened");
+                    loadNewBPSecJSON();
+                }
+
+                //This event occurs when connection is closed.
+                connection.onclose = function () {
+                    console.log("ws closed");
+                }
+
+                //This event occurs when client receives data from server.
+                connection.onmessage = function (e) {
+                    if (e.data instanceof ArrayBuffer) { //this is binary data
+                        console.log("binary data received.. ignoring");
+                    }
+                    else { //this is text data such as json
+                        if (e.data === "Hello websocket") {
+                            console.log(e.data);
+                        }
+                        else { //json data
+
+                        }
+                    }
+                }
+
+                //This event occurs when there is any error in communication.
+                connection.onerror = function (error) {
+                    connection.close();
+                }
+            } //running http(s)
+
+        });
+
+        function WebSocketSend(str) {
+            connection.send(str);
+        }
     </script>
 </body>
 

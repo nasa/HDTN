@@ -72,6 +72,7 @@ class TelemetryRunner::Impl : private boost::noncopyable {
         bool OnNewWebsocketDataReceivedCallback(WebsocketSessionPublicBase& conn, std::string& receivedString);
         bool OnApiRequest(std::string&& msgJson, ApiSource_t src);
         bool HandlePingCommand(std::string& movablePayload, ApiSource_t src);
+        bool HandleBPSecCommand(std::string& movablePayload, ApiSource_t src);
         bool HandleUploadContactPlanCommand(std::string& movablePayload, ApiSource_t src);
         bool HandleGetExpiringStorageCommand(std::string& movablePayload, ApiSource_t src);
 
@@ -127,6 +128,7 @@ TelemetryRunner::Impl::Impl() :
     m_deadlineTimer(THREAD_POLL_INTERVAL_MS)
 {
     m_apiCmdMap["ping"] = boost::bind(&TelemetryRunner::Impl::HandlePingCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap["bpSec"] = boost::bind(&TelemetryRunner::Impl::HandleBPSecCommand, this, boost::placeholders::_1, boost::placeholders::_2);
     m_apiCmdMap["upload_contact_plan"] = boost::bind(&TelemetryRunner::Impl::HandleUploadContactPlanCommand, this, boost::placeholders::_1, boost::placeholders::_2);
     m_apiCmdMap["get_expiring_storage"] = boost::bind(&TelemetryRunner::Impl::HandleGetExpiringStorageCommand, this, boost::placeholders::_1, boost::placeholders::_2);
 }
@@ -209,6 +211,10 @@ bool TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback(WebsocketSessionP
 }
 
 bool TelemetryRunner::Impl::HandlePingCommand(std::string& movablePayload, ApiSource_t src) {
+    return m_ingressConnection->EnqueueApiPayload(std::move(movablePayload), src);
+}
+
+bool TelemetryRunner::Impl::HandleBPSecCommand(std::string& movablePayload, ApiSource_t src) {
     return m_ingressConnection->EnqueueApiPayload(std::move(movablePayload), src);
 }
 
