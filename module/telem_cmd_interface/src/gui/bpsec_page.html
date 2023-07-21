@@ -181,7 +181,7 @@
                         <label>Description</label>
                         <input type="text" id="eventDescription" required>
                     </div>
-                    <div id="sopEvents">
+                    <div id="sopEventsRequired">
                         <div class="input">
                             <label>Event ID</label>
                             <select id="eventID" required>
@@ -210,9 +210,42 @@
                             </select>
                         </div>
                     </div>
+                    <span id="writeroot"></span>
                     <button onclick="addNewEvent()">Add another Event</button>
                     <button type="submit" onclick="checkEvent()">Submit</button>
                 </div>
+            </div>
+        </div>
+        <div id="sopEvents" style="display: none">
+            <input type="button" value="Remove review"
+                onclick="this.parentNode.parentNode.removeChild(this.parentNode);" /><br /><br />
+
+            <div class="input">
+                <label>Event ID</label>
+                <select id="eventID" required>
+                    <option>sop Corrupted At Acceptor</option>
+                    <option>sop Corrupted At Verifier</option>
+                    <option>sop Missing At Verifier</option>
+                    <option>sop Missing At Acceptor</option>
+                    <option>sop Misconfigured At Acceptor</option>
+                    <option>sop Misconfigured At Verifier</option>
+                    <option>sop Misconfigured At Source</option>
+                    <option>sop Added At Source</option>
+                </select>
+            </div>
+            <div class="input">
+                <label>Action</label>
+                <select id="eventActions" multiple required>
+                    <option>Retain Security Operations BPCFs</option>
+                    <option>Remove Security Operations</option>
+                    <option>Remove Security Operations Target Block</option>
+                    <option>Remove All Security Target Operations</option>
+                    <option>Fail Bundle Forwarding</option>
+                    <option>Request Bundle Storage</option>
+                    <option>Report Reason Code</option>
+                    <option>Override Security Target Block BPCFs</option>
+                    <option>Override Security Block's BPCFs</option>
+                </select>
             </div>
         </div>
     </div>
@@ -306,7 +339,22 @@
             div.innerHTML = newTable;
         }
 
-        function addNewEvent() { }
+        var numberOfEvents = 1;
+        function addNewEvent() {
+            numberOfEvents++;
+            var newFields = document.getElementById('sopEvents').cloneNode(true);
+
+            newFields.id = '';
+            newFields.style.display = 'block';
+            var newField = newFields.childNodes;
+            for (var i = 0; i < newField.length; i++) {
+                var theName = newField[i].name
+                if (theName)
+                    newField[i].name = theName + counter;
+            }
+            var insertHere = document.getElementById('writeroot');
+            insertHere.parentNode.insertBefore(newFields, insertHere);
+        }
 
         function clearEventForm() {
             eventName.value = '';
@@ -498,6 +546,7 @@
             var valid = 1;
 
             console.log("New Policy for a " + roleField.value);
+            console.log(document.getElementById('securityEventId').value);
 
             //check the node ids for the policies
             var ipRegex = /\d{1,2}\.\d{1,2}[^1]|1\.1|1\.\d{1,2}|\*\.\*|1\.\*/g; //for ips of *.*, 1.*, 1.1
@@ -538,14 +587,13 @@
             }
 
             securityEventSet = currentPolicies.securityFailureEventSets;
-            console.log(key);
 
             if (securityEventSet.length === 0) {
                 createNewEvent = 1;
             } else {
                 for (var el in securityEventSet) {
                     console.log(el);
-                    if (securityEventSet[el].name === key) {
+                    if (securityEventSet[el].name === document.getElementById('securityEventId').value) {
                         createNewEvent = 0;
                         break;
                     }
@@ -554,7 +602,7 @@
             }
 
             if (createNewEvent) {
-                eventName.value = key;
+                eventName.value = document.getElementById('securityEventId').value;
                 eventName.setAttribute("readonly", "true");
             }
 
