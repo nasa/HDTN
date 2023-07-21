@@ -14,7 +14,6 @@
  * See LICENSE.md in the source root directory for more information.
  *
 -->
-
 <head>
     <meta http-equiv="Content-Type" content="charset=UTF-8, width=device-width, initial-scale=1">
     <title>HDTN BPSEC CONFIG</title>
@@ -181,7 +180,7 @@
                         <label>Description</label>
                         <input type="text" id="eventDescription" required>
                     </div>
-                    <div id="sopEventsRequired">
+                    <div id="sopEvents">
                         <div class="input">
                             <label>Event ID</label>
                             <select id="eventID" required>
@@ -210,6 +209,7 @@
                             </select>
                         </div>
                     </div>
+                    <br />
                     <span id="writeroot"></span>
                     <button onclick="addNewEvent()">Add another Event</button>
                     <button type="submit" onclick="checkEvent()">Submit</button>
@@ -217,9 +217,6 @@
             </div>
         </div>
         <div id="sopEvents" style="display: none">
-            <input type="button" value="Remove review"
-                onclick="this.parentNode.parentNode.removeChild(this.parentNode);" /><br /><br />
-
             <div class="input">
                 <label>Event ID</label>
                 <select id="eventID" required>
@@ -247,6 +244,9 @@
                     <option>Override Security Block's BPCFs</option>
                 </select>
             </div>
+            <br />
+            <input type="button" value="Remove review"
+            onclick="this.parentNode.parentNode.removeChild(this.parentNode);" /><br /><br />
         </div>
     </div>
 
@@ -344,7 +344,7 @@
             numberOfEvents++;
             var newFields = document.getElementById('sopEvents').cloneNode(true);
 
-            newFields.id = '';
+            newFields.id = 'sopEvents';
             newFields.style.display = 'block';
             var newField = newFields.childNodes;
             for (var i = 0; i < newField.length; i++) {
@@ -366,6 +366,20 @@
         function checkEvent() {
             var allActions = getSelected('eventActions');
             var validEvent = true;
+
+            //check that the information was filled out
+            if (eventName.value === "") {
+                alert("REQUIRED: Name");
+                validEvent = false;
+            } 
+            if (eventDescription.value === "") {
+                alert("REQUIRED: Description");
+                validEvent = false;
+            }
+            if(allActions.length === 0){
+                alert("REQUIRED: Actions");
+                validEvent = false;
+            }
 
             //check that the actions selected corresponds to the options within the Table for Security Events
             if (eventID.value === "sop Corrupted At Acceptor") {
@@ -479,8 +493,7 @@
             newPolicy.securitySource = securitySource.value;
             newPolicy.bundleSource = bundleSource.value;
             newPolicy.bundleDestination = bundleDestination.value;
-            console.log(key);
-            newPolicy.securityFailureEventSetReference = key.value;
+            newPolicy.securityFailureEventSetReference = document.getElementById('securityEventId').value;
 
             if (securityService.value === "aes") {
                 newPolicy.securityService = 'confidentiality';
