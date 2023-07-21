@@ -50,7 +50,6 @@ bool BundleViewV6::Bpv6CanonicalBlockView::HasBlockProcessingControlFlagSet(cons
 }
 
 BundleViewV6::BundleViewV6() {}
-BundleViewV6::~BundleViewV6() {}
 
 bool BundleViewV6::Load(const bool loadPrimaryBlockOnly) {
     const uint8_t * const serializationBase = (uint8_t*)m_renderedBundle.data();

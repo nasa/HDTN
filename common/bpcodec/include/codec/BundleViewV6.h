@@ -96,7 +96,6 @@ public:
     //typedef std::pair<canonical_block_view_iterator_t, canonical_block_view_iterator_t> canonical_block_view_range_t;
 
     BPCODEC_EXPORT BundleViewV6();
-    BPCODEC_EXPORT ~BundleViewV6();
 
     BPCODEC_EXPORT void AppendMoveCanonicalBlock(std::unique_ptr<Bpv6CanonicalBlock>&& headerPtr);
     BPCODEC_EXPORT void PrependMoveCanonicalBlock(std::unique_ptr<Bpv6CanonicalBlock>&& headerPtr);
@@ -130,9 +129,5 @@ public:
     padded_vector_uint8_t m_frontBuffer;
     padded_vector_uint8_t m_backBuffer;
 };
-
-/** Fragments bundle into fragments a, b, with a having size sz */
-bool fragment(BundleViewV6& orig, size_t sz, BundleViewV6& a, BundleViewV6& b);
-
 #endif // BUNDLE_VIEW_V6_H
 
