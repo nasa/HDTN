@@ -296,9 +296,9 @@
             }
         }
 
-        function editTable() { }
+        function editTable(id) { }
 
-        function removeTable() { }
+        function removeTable(id) { }
 
         function showJSON() {
             console.log(currentPolicies);
@@ -404,35 +404,43 @@
             }
             if (eventID.value === "sop Corrupted At Verifier") {
                 if (allActions.includes("Retain Security Operations BPCFs")) {
-                    alert("Invalid Action for Acceptor!");
+                    alert("Invalid Action for Verifier!");
                     validEvent = false;
                     document.getElementById("eventActions").value = "";
                 }
             }
             if (eventID.value === "sop Added At Source") {
                 if (!allActions.includes("Override Security Block's BPCFs") && (allActions.length > 0)) {
-                    alert("Invalid Action for Acceptor!");
+                    alert("Invalid Action for Source!");
                     validEvent = false;
                     document.getElementById("eventActions").value = "";
                 }
             }
             if ((eventID.value === "sop Missing At Verifier") || (eventID.value === "sop Missing At Acceptor")) {
                 if (allActions.includes("Retain Security Operations BPCFs") || allActions.includes("Remove Security Operations") || allActions.includes("Remove All Security Target Operations") || allActions.includes("Override Security Block's BPCFs")) {
-                    alert("Invalid Action for Acceptor!");
+                    if (eventID.value === "sop Misconfigured At Acceptor") {
+                        alert("Invalid Action for Acceptor!");
+                    } else {
+                        alert("Invalud Action for Verifer!");
+                    }
                     validEvent = false;
                     document.getElementById("eventActions").value = "";
                 }
             }
             if ((eventID.value === "sop Misconfigured At Acceptor") || (eventID.value === "sop Misconfigured At Verifier")) {
                 if (allActions.includes("Retain Security Operations BPCFs") || allActions.includes("Remove All Security Target Operations")) {
-                    alert("Invalid Action for Acceptor!");
+                    if (eventID.value === "sop Misconfigured At Acceptor") {
+                        alert("Invalid Action for Acceptor!");
+                    } else {
+                        alert("Invalud Action for Verifer!");
+                    }
                     validEvent = false;
                     document.getElementById("eventActions").value = "";
                 }
             }
             if (eventID.value === "sop Misconfigured At Source") {
                 if (allActions.includes("Retain Security Operations BPCFs") || allActions.includes("Override Security Target Block BPCFs") || allActions.includes("Override Security Block's BPCFs")) {
-                    alert("Invalid Action for Acceptor!");
+                    alert("Invalid Action for Source!");
                     validEvent = false;
                     document.getElementById("eventActions").value = "";
                 }
