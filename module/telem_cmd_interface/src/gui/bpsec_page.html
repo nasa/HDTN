@@ -14,6 +14,7 @@
  * See LICENSE.md in the source root directory for more information.
  *
 -->
+
 <head>
     <meta http-equiv="Content-Type" content="charset=UTF-8, width=device-width, initial-scale=1">
     <title>HDTN BPSEC CONFIG</title>
@@ -216,7 +217,7 @@
                 </div>
             </div>
         </div>
-        <div id="sopEvents" style="display: none">
+        <div id="sopEventsAdd" style="display: none">
             <div class="input">
                 <label>Event ID</label>
                 <select id="eventID" required>
@@ -246,7 +247,7 @@
             </div>
             <br />
             <input type="button" value="Remove review"
-            onclick="this.parentNode.parentNode.removeChild(this.parentNode);" /><br /><br />
+                onclick="this.parentNode.parentNode.removeChild(this.parentNode);" /><br /><br />
         </div>
     </div>
 
@@ -306,15 +307,27 @@
             newTable = "<table class=\"styled-table\" style=\"width:100%\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>"
             for (var key in currentPolicies) {
                 if (Array.isArray(currentPolicies[key])) {
+                    //newTable += "<caption style=\"text-align:left;padding-left:20px;text-transform:uppercase;margin-top:5px;font-size=20px;\">" + key + "</caption>";
                     //create table
                     for (var i = 0; i < currentPolicies[key].length; ++i) {
                         var newSubTable = "<table class=\"styled-table\" style=\"margin:15px 0px\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>";
                         for (var subKey in currentPolicies[key][i]) {
                             newSubTable += "<tr>" + "<td>" + subKey + "</td>";
                             if (isNaN(currentPolicies[key][i][subKey])) {
-                                newSubTable += "<td>" + currentPolicies[key][i][subKey] + "</td>" + "</tr>";
-                            }
-                            else {
+                                if ((typeof currentPolicies[key][i][subKey]) === 'object') {
+                                    for (var j = 0; j < currentPolicies[key][i][subKey].length; ++j) {
+                                        newSubTable += "<td>";
+                                        for (arraySubkey in currentPolicies[key][i][subKey][j]) {
+                                            console.log(arraySubkey);
+                                            newSubTable += arraySubkey + " : ";
+                                            newSubTable += currentPolicies[key][i][subKey][j][arraySubkey] + '<br \\ >';
+                                        }
+                                    }
+                                    console.log("test for object")
+                                } else {
+                                    newSubTable += "<td>" + currentPolicies[key][i][subKey] + "</td>" + "</tr>";
+                                }
+                            } else {
                                 newSubTable += "<td>" + (currentPolicies[key][i][subKey]).toLocaleString('en') + "</td>" + "</tr>";
                             }
                         }
@@ -342,9 +355,9 @@
         var numberOfEvents = 1;
         function addNewEvent() {
             numberOfEvents++;
-            var newFields = document.getElementById('sopEvents').cloneNode(true);
+            var newFields = document.getElementById('sopEventsAdd').cloneNode(true);
 
-            newFields.id = 'sopEvents';
+            newFields.id = 'sopEventsAdd' + numberOfEvents;
             newFields.style.display = 'block';
             var newField = newFields.childNodes;
             for (var i = 0; i < newField.length; i++) {
@@ -371,12 +384,12 @@
             if (eventName.value === "") {
                 alert("REQUIRED: Name");
                 validEvent = false;
-            } 
+            }
             if (eventDescription.value === "") {
                 alert("REQUIRED: Description");
                 validEvent = false;
             }
-            if(allActions.length === 0){
+            if (allActions.length === 0) {
                 alert("REQUIRED: Actions");
                 validEvent = false;
             }
