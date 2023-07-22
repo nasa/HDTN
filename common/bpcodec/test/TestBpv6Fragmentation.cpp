@@ -13,6 +13,8 @@
  */
 
 #include <boost/test/unit_test.hpp>
+#include <boost/test/data/test_case.hpp>
+#include <boost/test/data/monomorphic.hpp>
 #include <boost/thread.hpp>
 #include "codec/BundleViewV6.h"
 #include <iostream>
@@ -49,16 +51,20 @@ static void buildPrimaryBlock(Bpv6CbhePrimaryBlock & primary) {
     primary.m_creationTimestamp.sequenceNumber = PRIMARY_SEQ;
 }
 
+static std::unique_ptr<Bpv6CanonicalBlock> buildCanonicalBlock(std::string & blockBody, BPV6_BLOCK_TYPE_CODE type, BPV6_BLOCKFLAG flags) {
+    std::unique_ptr<Bpv6CanonicalBlock> p = boost::make_unique<Bpv6CanonicalBlock>();
+    Bpv6CanonicalBlock & block = *p;
+
+    block.m_blockTypeCode = type;
+    block.m_blockProcessingControlFlags = flags;
+    block.m_blockTypeSpecificDataLength = blockBody.length();
+    block.m_blockTypeSpecificDataPtr = (uint8_t*)blockBody.data(); //blockBody must remain in scope until after render
+
+    return p;
+}
+
 static std::unique_ptr<Bpv6CanonicalBlock> buildPrimaryBlock(std::string & blockBody) {
-        std::unique_ptr<Bpv6CanonicalBlock> p = boost::make_unique<Bpv6CanonicalBlock>();
-        Bpv6CanonicalBlock & block = *p;
-
-        block.m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::PAYLOAD,
-        block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET; //something for checking against
-        block.m_blockTypeSpecificDataLength = blockBody.length();
-        block.m_blockTypeSpecificDataPtr = (uint8_t*)blockBody.data(); //blockBody must remain in scope until after render
-
-        return p;
+        return buildCanonicalBlock(blockBody, BPV6_BLOCK_TYPE_CODE::PAYLOAD, BPV6_BLOCKFLAG::NO_FLAGS_SET);
 }
 
 BOOST_AUTO_TEST_CASE(FragmentZero)
@@ -120,7 +126,48 @@ BOOST_AUTO_TEST_CASE(FragmentFlagNoFrag)
     BOOST_REQUIRE(ret == false);
 }
 
-BOOST_AUTO_TEST_CASE(FragmentPayload)
+static void CheckPrimaryBlock(Bpv6CbhePrimaryBlock &p, uint64_t offset, uint64_t aduLen) {
+
+    BOOST_REQUIRE(p.m_bundleProcessingControlFlags == (BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::PRIORITY_NORMAL | BPV6_BUNDLEFLAG::ISFRAGMENT));
+    BOOST_REQUIRE(p.m_destinationEid == cbhe_eid_t(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC));
+    BOOST_REQUIRE(p.m_sourceNodeId == cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
+    BOOST_REQUIRE(p.m_reportToEid == cbhe_eid_t(0, 0));
+    BOOST_REQUIRE(p.m_custodianEid == cbhe_eid_t(0, 0));
+    BOOST_REQUIRE(p.m_creationTimestamp == TimestampUtil::bpv6_creation_timestamp_t(PRIMARY_TIME, PRIMARY_SEQ));
+    BOOST_REQUIRE(p.m_lifetimeSeconds == PRIMARY_LIFETIME);
+    BOOST_REQUIRE(p.m_fragmentOffset == offset);
+    BOOST_REQUIRE(p.m_totalApplicationDataUnitLength == aduLen);
+ 
+}
+
+static void CheckCanonicalBlock(BundleViewV6::Bpv6CanonicalBlockView &block, size_t expectedLen, const void * expectedData, BPV6_BLOCK_TYPE_CODE type, BPV6_BLOCKFLAG flags) {
+    BOOST_REQUIRE(block.headerPtr->m_blockTypeSpecificDataLength == expectedLen);
+    BOOST_REQUIRE(memcmp(block.headerPtr->m_blockTypeSpecificDataPtr, expectedData, expectedLen) == 0);
+    BOOST_REQUIRE(block.headerPtr->m_blockTypeCode == type);
+    BOOST_REQUIRE(block.headerPtr->m_blockProcessingControlFlags == flags);
+}
+
+static void CheckPayload(BundleViewV6 & bv, size_t expectedLen, const void * expectedData) {
+    std::vector<BundleViewV6::Bpv6CanonicalBlockView *> blocks;
+    bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+    BOOST_REQUIRE(blocks.size() == 1);
+    BundleViewV6::Bpv6CanonicalBlockView &payload = *blocks[0];
+
+    BPV6_BLOCKFLAG flags = BPV6_BLOCKFLAG::NO_FLAGS_SET;
+    if(bv.m_listCanonicalBlockView.back().headerPtr->m_blockTypeCode == BPV6_BLOCK_TYPE_CODE::PAYLOAD) {
+        flags = BPV6_BLOCKFLAG::IS_LAST_BLOCK;
+    }
+    CheckCanonicalBlock(payload, expectedLen, expectedData, BPV6_BLOCK_TYPE_CODE::PAYLOAD, flags);
+}
+
+const char *FragmentPayloadData[] = {"helloworld", "helloworld", "helloworld", "longerhelloworld"};
+const uint64_t FragmentPayloadSizes[] = {5, 6, 2, 4};
+
+BOOST_DATA_TEST_CASE(
+        FragmentPayload,
+        boost::unit_test::data::make(FragmentPayloadData) ^ FragmentPayloadSizes,
+        payload,
+        fragmentSize)
 {
     BundleViewV6 bv;
 
@@ -129,75 +176,39 @@ BOOST_AUTO_TEST_CASE(FragmentPayload)
     primary.m_bundleProcessingControlFlags |= BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::PRIORITY_NORMAL;
     bv.m_primaryBlockView.SetManuallyModified();
 
-    std::string body = "helloworld";
+    std::string body(payload);
     bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
 
     BOOST_REQUIRE(bv.Render(5000));
-    size_t sz = 5;
-    BOOST_REQUIRE_GT(sz, 0);
 
     std::list<BundleViewV6> fragments;
-    bool ret = fragment(bv, sz, fragments);
+    bool ret = fragment(bv, fragmentSize, fragments);
     BOOST_REQUIRE(ret == true);
 
-    if(fragments.size() != 2) {
-        BOOST_REQUIRE(fragments.size() == 2);
+    uint64_t expectedAduLen = body.size();
+    uint64_t expectedNumFragments = (expectedAduLen + (fragmentSize - 1)) / fragmentSize;
+    uint64_t expectedLastFragmentSize = expectedAduLen % fragmentSize == 0 ? fragmentSize : expectedAduLen % fragmentSize;
+
+    BOOST_TEST_MESSAGE("fragmenting " << payload << " into " 
+            << expectedNumFragments << " fragments of size " << fragmentSize
+            << " (last fragment size: " << expectedLastFragmentSize << ")");
+
+    BOOST_REQUIRE(fragments.size() == expectedNumFragments);
+
+    std::list<BundleViewV6>::iterator it = fragments.begin();
+    for(uint64_t i = 0, numFragments = fragments.size(); i < numFragments; i++, it++) {
+        BundleViewV6 & b = *it;
+
+        uint64_t expectedOffset = i * fragmentSize;
+
+        CheckPrimaryBlock(b.m_primaryBlockView.header, expectedOffset, expectedAduLen);
+        BOOST_REQUIRE(b.m_listCanonicalBlockView.size() == 1);
+
+        uint64_t expectedFragmentSize = (i < (numFragments - 1)) ? fragmentSize : expectedLastFragmentSize;
+        const void * expectedData = body.data() + (i * fragmentSize);
+        CheckPayload(b, expectedFragmentSize, expectedData);
+
     }
-
-    BundleViewV6 & a = fragments.front();
-    BundleViewV6 & b = fragments.back();
-
-    // Check a Header
-    Bpv6CbhePrimaryBlock & ap = a.m_primaryBlockView.header;
-    BOOST_REQUIRE(ap.m_bundleProcessingControlFlags == (BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::PRIORITY_NORMAL | BPV6_BUNDLEFLAG::ISFRAGMENT));
-    BOOST_REQUIRE(ap.m_destinationEid == cbhe_eid_t(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC));
-    BOOST_REQUIRE(ap.m_sourceNodeId == cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
-    BOOST_REQUIRE(ap.m_reportToEid == cbhe_eid_t(0, 0));
-    BOOST_REQUIRE(ap.m_custodianEid == cbhe_eid_t(0, 0));
-    BOOST_REQUIRE(ap.m_creationTimestamp == TimestampUtil::bpv6_creation_timestamp_t(PRIMARY_TIME, PRIMARY_SEQ));
-    BOOST_REQUIRE(ap.m_lifetimeSeconds == PRIMARY_LIFETIME);
-    BOOST_REQUIRE(ap.m_fragmentOffset == 0);
-    BOOST_REQUIRE(ap.m_totalApplicationDataUnitLength == 10);
- 
-    // Check b Header
-    Bpv6CbhePrimaryBlock & bp = b.m_primaryBlockView.header;
-    BOOST_REQUIRE(bp.m_bundleProcessingControlFlags == (BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::PRIORITY_NORMAL | BPV6_BUNDLEFLAG::ISFRAGMENT));
-    BOOST_REQUIRE(bp.m_destinationEid == cbhe_eid_t(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC));
-    BOOST_REQUIRE(bp.m_sourceNodeId == cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
-    BOOST_REQUIRE(bp.m_reportToEid == cbhe_eid_t(0, 0));
-    BOOST_REQUIRE(bp.m_custodianEid == cbhe_eid_t(0, 0));
-    BOOST_REQUIRE(bp.m_creationTimestamp == TimestampUtil::bpv6_creation_timestamp_t(PRIMARY_TIME, PRIMARY_SEQ));
-    BOOST_REQUIRE(bp.m_lifetimeSeconds == PRIMARY_LIFETIME);
-    std::cout << "Fragment offset: " <<bp.m_fragmentOffset << std::endl;
-    BOOST_REQUIRE(bp.m_fragmentOffset == 5);
-    BOOST_REQUIRE(bp.m_totalApplicationDataUnitLength == 10);
-
-    // Check a num blocks
-    BOOST_REQUIRE(a.m_listCanonicalBlockView.size() == 1);
-    // Check b num blocks
-    BOOST_REQUIRE(b.m_listCanonicalBlockView.size() == 1);
-
-    // Check a payload
-    std::vector<BundleViewV6::Bpv6CanonicalBlockView *> aBlocks;
-    a.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, aBlocks);
-    BOOST_REQUIRE(aBlocks.size() == 1);
-
-    BundleViewV6::Bpv6CanonicalBlockView &aPayload = *aBlocks[0];
-    const uint8_t* aPayloadBuf = aPayload.headerPtr->m_blockTypeSpecificDataPtr;
-    const uint64_t  aPayloadLen = aPayload.headerPtr->m_blockTypeSpecificDataLength;
-    BOOST_REQUIRE(aPayloadLen == 5);
-    BOOST_REQUIRE(memcmp(aPayloadBuf, "hello", 5) == 0);
-
-    // Check b payload
-    std::vector<BundleViewV6::Bpv6CanonicalBlockView *> bBlocks;
-    b.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, bBlocks);
-    BOOST_REQUIRE(bBlocks.size() == 1);
-
-    BundleViewV6::Bpv6CanonicalBlockView &bPayload = *bBlocks[0];
-    const uint8_t* bPayloadBuf = bPayload.headerPtr->m_blockTypeSpecificDataPtr;
-    const uint64_t  bPayloadLen = bPayload.headerPtr->m_blockTypeSpecificDataLength;
-    BOOST_REQUIRE(bPayloadLen == 5);
-    BOOST_REQUIRE(memcmp(bPayloadBuf, "world", 5) == 0);
 }
 
 BOOST_AUTO_TEST_CASE(FragmentPayloadMultiple)
@@ -220,90 +231,114 @@ BOOST_AUTO_TEST_CASE(FragmentPayloadMultiple)
     bool ret = fragment(bv, sz, fragments);
     BOOST_REQUIRE(ret == true);
 
-    if(fragments.size() != 3) {
-        BOOST_REQUIRE(fragments.size() == 3);
-    }
+    BOOST_REQUIRE(fragments.size() == 3);
 
     std::list<BundleViewV6>::iterator it = fragments.begin();
     BundleViewV6 & a = *(it++);
     BundleViewV6 & b = *(it++);
     BundleViewV6 & c = *(it++);
 
-    // Check a Header
-    Bpv6CbhePrimaryBlock & ap = a.m_primaryBlockView.header;
-    BOOST_REQUIRE(ap.m_bundleProcessingControlFlags == (BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::PRIORITY_NORMAL | BPV6_BUNDLEFLAG::ISFRAGMENT));
-    BOOST_REQUIRE(ap.m_destinationEid == cbhe_eid_t(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC));
-    BOOST_REQUIRE(ap.m_sourceNodeId == cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
-    BOOST_REQUIRE(ap.m_reportToEid == cbhe_eid_t(0, 0));
-    BOOST_REQUIRE(ap.m_custodianEid == cbhe_eid_t(0, 0));
-    BOOST_REQUIRE(ap.m_creationTimestamp == TimestampUtil::bpv6_creation_timestamp_t(PRIMARY_TIME, PRIMARY_SEQ));
-    BOOST_REQUIRE(ap.m_lifetimeSeconds == PRIMARY_LIFETIME);
-    BOOST_REQUIRE(ap.m_fragmentOffset == 0);
-    BOOST_REQUIRE(ap.m_totalApplicationDataUnitLength == 14);
- 
-    // Check b Header
-    Bpv6CbhePrimaryBlock & bp = b.m_primaryBlockView.header;
-    BOOST_REQUIRE(bp.m_bundleProcessingControlFlags == (BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::PRIORITY_NORMAL | BPV6_BUNDLEFLAG::ISFRAGMENT));
-    BOOST_REQUIRE(bp.m_destinationEid == cbhe_eid_t(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC));
-    BOOST_REQUIRE(bp.m_sourceNodeId == cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
-    BOOST_REQUIRE(bp.m_reportToEid == cbhe_eid_t(0, 0));
-    BOOST_REQUIRE(bp.m_custodianEid == cbhe_eid_t(0, 0));
-    BOOST_REQUIRE(bp.m_creationTimestamp == TimestampUtil::bpv6_creation_timestamp_t(PRIMARY_TIME, PRIMARY_SEQ));
-    BOOST_REQUIRE(bp.m_lifetimeSeconds == PRIMARY_LIFETIME);
-    BOOST_REQUIRE(bp.m_fragmentOffset == 6);
-    BOOST_REQUIRE(bp.m_totalApplicationDataUnitLength == 14);
+    CheckPrimaryBlock(a.m_primaryBlockView.header, 0, 14);
+    CheckPrimaryBlock(b.m_primaryBlockView.header, 6, 14);
+    CheckPrimaryBlock(c.m_primaryBlockView.header, 12, 14);
 
-    // Check c Header
-    Bpv6CbhePrimaryBlock & cp = c.m_primaryBlockView.header;
-    BOOST_REQUIRE(cp.m_bundleProcessingControlFlags == (BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::PRIORITY_NORMAL | BPV6_BUNDLEFLAG::ISFRAGMENT));
-    BOOST_REQUIRE(cp.m_destinationEid == cbhe_eid_t(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC));
-    BOOST_REQUIRE(cp.m_sourceNodeId == cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
-    BOOST_REQUIRE(cp.m_reportToEid == cbhe_eid_t(0, 0));
-    BOOST_REQUIRE(cp.m_custodianEid == cbhe_eid_t(0, 0));
-    BOOST_REQUIRE(cp.m_creationTimestamp == TimestampUtil::bpv6_creation_timestamp_t(PRIMARY_TIME, PRIMARY_SEQ));
-    BOOST_REQUIRE(cp.m_lifetimeSeconds == PRIMARY_LIFETIME);
-    BOOST_REQUIRE(cp.m_fragmentOffset == 12);
-    BOOST_REQUIRE(cp.m_totalApplicationDataUnitLength == 14);
-
-    // Check a num blocks
     BOOST_REQUIRE(a.m_listCanonicalBlockView.size() == 1);
-    // Check b num blocks
     BOOST_REQUIRE(b.m_listCanonicalBlockView.size() == 1);
-    // Check c num blocks
     BOOST_REQUIRE(c.m_listCanonicalBlockView.size() == 1);
 
-    // Check a payload
-    std::vector<BundleViewV6::Bpv6CanonicalBlockView *> aBlocks;
-    a.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, aBlocks);
-    BOOST_REQUIRE(aBlocks.size() == 1);
+    CheckPayload(a, 6, "helloB");
+    CheckPayload(b, 6, "igworl");
+    CheckPayload(c, 2, "d!");
+}
 
-    BundleViewV6::Bpv6CanonicalBlockView &aPayload = *aBlocks[0];
-    const uint8_t* aPayloadBuf = aPayload.headerPtr->m_blockTypeSpecificDataPtr;
-    const uint64_t  aPayloadLen = aPayload.headerPtr->m_blockTypeSpecificDataLength;
-    BOOST_REQUIRE(aPayloadLen == 6);
-    BOOST_REQUIRE(memcmp(aPayloadBuf, "helloB", 6) == 0);
+struct BlockTestInfo {
+    std::string body;
+    BPV6_BLOCK_TYPE_CODE type;
+    BPV6_BLOCKFLAG flags;
+};
 
-    // Check b payload
-    std::vector<BundleViewV6::Bpv6CanonicalBlockView *> bBlocks;
-    b.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, bBlocks);
-    BOOST_REQUIRE(bBlocks.size() == 1);
+struct MultiBlockTestInfo {
+    std::vector<BlockTestInfo> beforeBlocks;
+    std::vector<BlockTestInfo> afterBlocks;
+};
 
-    BundleViewV6::Bpv6CanonicalBlockView &bPayload = *bBlocks[0];
-    const uint8_t* bPayloadBuf = bPayload.headerPtr->m_blockTypeSpecificDataPtr;
-    const uint64_t  bPayloadLen = bPayload.headerPtr->m_blockTypeSpecificDataLength;
-    BOOST_REQUIRE(bPayloadLen == 6);
-    BOOST_REQUIRE(memcmp(bPayloadBuf, "igworl", 6) == 0);
+MultiBlockTestInfo MultiBlockTestInfos[] = {
+    { // MultiBlockTestInfo
+        { // beforeBlocks
+            BlockTestInfo{"before", BPV6_BLOCK_TYPE_CODE::UNUSED_11, BPV6_BLOCKFLAG::NO_FLAGS_SET},
+        },
+        { // afterBlocks
+        },
+    },
+    { // MultiBlockTestInfo
+        { // beforeBlocks
+        },
+        { // afterBlocks
+            BlockTestInfo{"after", BPV6_BLOCK_TYPE_CODE::UNUSED_11, BPV6_BLOCKFLAG::NO_FLAGS_SET},
+        },
+    },
+    { // MultiBlockTestInfo
+        { // beforeBlocks
+            BlockTestInfo{"before", BPV6_BLOCK_TYPE_CODE::UNUSED_11, BPV6_BLOCKFLAG::NO_FLAGS_SET},
+        },
+        { // afterBlocks
+            BlockTestInfo{"after", BPV6_BLOCK_TYPE_CODE::UNUSED_11, BPV6_BLOCKFLAG::NO_FLAGS_SET},
+        },
+    },
+};
 
-    // Check c payload
-    std::vector<BundleViewV6::Bpv6CanonicalBlockView *> cBlocks;
-    c.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, cBlocks);
-    BOOST_REQUIRE(cBlocks.size() == 1);
+BOOST_AUTO_TEST_CASE(FragmentBlockBefore)
+{
+    BundleViewV6 bv;
 
-    BundleViewV6::Bpv6CanonicalBlockView &cPayload = *cBlocks[0];
-    const uint8_t* cPayloadBuf = cPayload.headerPtr->m_blockTypeSpecificDataPtr;
-    const uint64_t  cPayloadLen = cPayload.headerPtr->m_blockTypeSpecificDataLength;
-    BOOST_REQUIRE(cPayloadLen == 2);
-    BOOST_REQUIRE(memcmp(cPayloadBuf, "d!", 2) == 0);
+    Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+    buildPrimaryBlock(primary);
+    primary.m_bundleProcessingControlFlags |= BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::PRIORITY_NORMAL;
+    bv.m_primaryBlockView.SetManuallyModified();
+
+    std::string beforeBlockBody = "before block";
+    bv.AppendMoveCanonicalBlock(
+            std::move(
+                buildCanonicalBlock(
+                    beforeBlockBody,
+                    BPV6_BLOCK_TYPE_CODE::UNUSED_11,
+                    BPV6_BLOCKFLAG::STATUS_REPORT_REQUESTED_IF_BLOCK_CANT_BE_PROCESSED)));
+
+    std::string body = "helloBigworld!";
+    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+
+    BOOST_REQUIRE(bv.Render(5000));
+    size_t sz = 6;
+    BOOST_REQUIRE_GT(sz, 0);
+
+    std::list<BundleViewV6> fragments;
+    bool ret = fragment(bv, sz, fragments);
+    BOOST_REQUIRE(ret == true);
+
+    BOOST_REQUIRE(fragments.size() == 3);
+
+    std::list<BundleViewV6>::iterator it = fragments.begin();
+    BundleViewV6 & a = *(it++);
+    BundleViewV6 & b = *(it++);
+    BundleViewV6 & c = *(it++);
+
+    CheckPrimaryBlock(a.m_primaryBlockView.header, 0, 14);
+    CheckPrimaryBlock(b.m_primaryBlockView.header, 6, 14);
+    CheckPrimaryBlock(c.m_primaryBlockView.header, 12, 14);
+
+    BOOST_REQUIRE(a.m_listCanonicalBlockView.size() == 2);
+    BOOST_REQUIRE(b.m_listCanonicalBlockView.size() == 1);
+    BOOST_REQUIRE(c.m_listCanonicalBlockView.size() == 1);
+
+    CheckCanonicalBlock(a.m_listCanonicalBlockView.front(),
+            beforeBlockBody.size(),
+            beforeBlockBody.data(),
+            BPV6_BLOCK_TYPE_CODE::UNUSED_11,
+            BPV6_BLOCKFLAG::STATUS_REPORT_REQUESTED_IF_BLOCK_CANT_BE_PROCESSED);
+
+    CheckPayload(a, 6, "helloB");
+    CheckPayload(b, 6, "igworl");
+    CheckPayload(c, 2, "d!");
 }
 
 // TODO add test cases for:

@@ -48,6 +48,7 @@ set(MY_PUBLIC_HEADERS
 	include/codec/CustodyIdAllocator.h
 	include/codec/CustodyTransferManager.h
 	include/codec/PrimaryBlock.h
+    include/codec/Bpv6Fragment.h
 	${CMAKE_CURRENT_BINARY_DIR}/bpcodec_export.h
 )
 set_target_properties(bpcodec PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
