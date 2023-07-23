@@ -63,10 +63,12 @@ bool BundleViewV6::Load(const bool loadPrimaryBlockOnly) {
     serialization += decodedBlockSize;
     bufferSize -= decodedBlockSize;
 
+    /* TODO Remove the following
     const bool isFragment = ((m_primaryBlockView.header.m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::ISFRAGMENT) != BPV6_BUNDLEFLAG::NO_FLAGS_SET);
     if (isFragment) { //not currently supported
         return false;
     }
+    */
     m_primaryBlockView.actualSerializedPrimaryBlockPtr = boost::asio::buffer(m_renderedBundle.data(), decodedBlockSize);
     m_primaryBlockView.dirty = false;
     m_applicationDataUnitStartPtr = (static_cast<const uint8_t*>(m_renderedBundle.data())) + decodedBlockSize;
@@ -138,10 +140,12 @@ bool BundleViewV6::Render(uint8_t * serialization, uint64_t & sizeSerialized) {
         serialization += size;
     }
     const bool isAdminRecord = ((m_primaryBlockView.header.m_bundleProcessingControlFlags & (BPV6_BUNDLEFLAG::ADMINRECORD)) != BPV6_BUNDLEFLAG::NO_FLAGS_SET);
+    /* TODO remove the following
     const bool isFragment = ((m_primaryBlockView.header.m_bundleProcessingControlFlags & (BPV6_BUNDLEFLAG::ISFRAGMENT)) != BPV6_BUNDLEFLAG::NO_FLAGS_SET);
     if (isFragment) {
         return false;
     }
+    */
     
     m_listCanonicalBlockView.remove_if([&](Bpv6CanonicalBlockView & v) {
         if (v.markedForDeletion && v.headerPtr) {
