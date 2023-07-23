@@ -116,6 +116,11 @@ static void appendBlock(BundleViewV6::Bpv6CanonicalBlockView & block, BundleView
     copy.SetManuallyModified(); // TODO needed?
 }
 
+static bool MustReplicateInAll(BPV6_BLOCKFLAG flags) {
+    BPV6_BLOCKFLAG rep = BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT;
+    return (flags & rep) == rep;
+}
+
 bool fragment(BundleViewV6& orig, uint64_t sz, std::list<BundleViewV6> & fragments) {
 
     fragments.clear();
@@ -173,7 +178,7 @@ bool fragment(BundleViewV6& orig, uint64_t sz, std::list<BundleViewV6> & fragmen
                 return false;
             }
             bool isPayload = block.headerPtr->m_blockTypeCode == BPV6_BLOCK_TYPE_CODE::PAYLOAD;
-            bool replicateInAll = block.headerPtr->m_blockProcessingControlFlags == BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT;
+            bool replicateInAll = MustReplicateInAll(block.headerPtr->m_blockProcessingControlFlags);
             if(isPayload) {
                 appendFragmentPayloadBlock(block, bv, relativeStartOffset, relativeEndOffset);
                 beforePayload = false;
@@ -184,9 +189,7 @@ bool fragment(BundleViewV6& orig, uint64_t sz, std::list<BundleViewV6> & fragmen
             } else if(isLast && !beforePayload) {
                 appendBlock(block, bv);
             } else {
-                //SANITY CHECK - cannot logically get here
-                LOG_ERROR(subprocess) << "Logic error while fragmenting";
-                return false;
+                // Processing a "middle fragment"; not the payload and not replicating in all
             }
         }
 
@@ -225,7 +228,7 @@ static bool AssemblePayload(std::list<BundleViewV6>& fragments, std::vector<uint
         uint64_t o = fragment.m_primaryBlockView.header.m_fragmentOffset;
         uint64_t s = payload.headerPtr->m_blockTypeSpecificDataLength;
         const uint8_t *p = payload.headerPtr->m_blockTypeSpecificDataPtr;
-        if(o + s >= size) {
+        if(o + s > size) {
             LOG_ERROR(subprocess) << "bundle offset and size exceeds total adu size";
             return false;
         }
