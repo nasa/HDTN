@@ -189,10 +189,6 @@ BOOST_DATA_TEST_CASE(
     uint64_t expectedNumFragments = (expectedAduLen + (fragmentSize - 1)) / fragmentSize;
     uint64_t expectedLastFragmentSize = expectedAduLen % fragmentSize == 0 ? fragmentSize : expectedAduLen % fragmentSize;
 
-    BOOST_TEST_MESSAGE("fragmenting " << payload << " into " 
-            << expectedNumFragments << " fragments of size " << fragmentSize
-            << " (last fragment size: " << expectedLastFragmentSize << ")");
-
     BOOST_REQUIRE(fragments.size() == expectedNumFragments);
 
     std::list<BundleViewV6>::iterator it = fragments.begin();
@@ -250,42 +246,6 @@ BOOST_AUTO_TEST_CASE(FragmentPayloadMultiple)
     CheckPayload(b, 6, "igworl");
     CheckPayload(c, 2, "d!");
 }
-
-struct BlockTestInfo {
-    std::string body;
-    BPV6_BLOCK_TYPE_CODE type;
-    BPV6_BLOCKFLAG flags;
-};
-
-struct MultiBlockTestInfo {
-    std::vector<BlockTestInfo> beforeBlocks;
-    std::vector<BlockTestInfo> afterBlocks;
-};
-
-MultiBlockTestInfo MultiBlockTestInfos[] = {
-    { // MultiBlockTestInfo
-        { // beforeBlocks
-            BlockTestInfo{"before", BPV6_BLOCK_TYPE_CODE::UNUSED_11, BPV6_BLOCKFLAG::NO_FLAGS_SET},
-        },
-        { // afterBlocks
-        },
-    },
-    { // MultiBlockTestInfo
-        { // beforeBlocks
-        },
-        { // afterBlocks
-            BlockTestInfo{"after", BPV6_BLOCK_TYPE_CODE::UNUSED_11, BPV6_BLOCKFLAG::NO_FLAGS_SET},
-        },
-    },
-    { // MultiBlockTestInfo
-        { // beforeBlocks
-            BlockTestInfo{"before", BPV6_BLOCK_TYPE_CODE::UNUSED_11, BPV6_BLOCKFLAG::NO_FLAGS_SET},
-        },
-        { // afterBlocks
-            BlockTestInfo{"after", BPV6_BLOCK_TYPE_CODE::UNUSED_11, BPV6_BLOCKFLAG::NO_FLAGS_SET},
-        },
-    },
-};
 
 BOOST_AUTO_TEST_CASE(FragmentBlockBefore)
 {
@@ -346,5 +306,266 @@ BOOST_AUTO_TEST_CASE(FragmentBlockBefore)
 // + blocks after payload
 // + repeat-in-all blocks
 
+struct BlockTestInfo {
+    std::string body;
+    BPV6_BLOCK_TYPE_CODE type;
+    BPV6_BLOCKFLAG flags;
+};
+
+struct MultiBlockTestInfo {
+    std::vector<BlockTestInfo> beforeBlocks;
+    std::vector<BlockTestInfo> afterBlocks;
+
+    BPV6_BLOCKFLAG rep = BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT;
+
+    std::vector<BlockTestInfo> GetReplicatedBefore() {
+        std::vector<BlockTestInfo> ret;
+        for(auto &bi : beforeBlocks) {
+            if((bi.flags & rep) == rep) {
+                ret.push_back(bi);
+            }
+        }
+        return ret;
+    }
+    std::vector<BlockTestInfo> GetReplicatedAfter() {
+        std::vector<BlockTestInfo> ret;
+        for(auto &bi : afterBlocks) {
+            if((bi.flags & rep) == rep) {
+                ret.push_back(bi);
+            }
+        }
+        return ret;
+    }
+    uint64_t numReplicatedBefore() {
+        return GetReplicatedBefore().size();
+    }
+
+    uint64_t numReplicatedAfter() {
+        return GetReplicatedAfter().size();
+    }
+
+    uint64_t numReplicated() {
+        return numReplicatedBefore() + numReplicatedAfter();
+    }
+
+};
+
+MultiBlockTestInfo MultiBlockTestInfos[] = {
+    { // Only payload
+        { // beforeBlocks
+        },
+        { // afterBlocks
+        },
+    },
+    { // Single before block
+        { // beforeBlocks
+            BlockTestInfo{"before1", BPV6_BLOCK_TYPE_CODE::UNUSED_11, BPV6_BLOCKFLAG::NO_FLAGS_SET},
+        },
+        { // afterBlocks
+        },
+    },
+    { // Single after block
+        { // beforeBlocks
+        },
+        { // afterBlocks
+            BlockTestInfo{"after1", BPV6_BLOCK_TYPE_CODE::UNUSED_11, BPV6_BLOCKFLAG::NO_FLAGS_SET},
+        },
+    },
+    { // One before and one after
+        { // beforeBlocks
+            BlockTestInfo{"before1", BPV6_BLOCK_TYPE_CODE::UNUSED_11, BPV6_BLOCKFLAG::NO_FLAGS_SET},
+        },
+        { // afterBlocks
+            BlockTestInfo{"after1", BPV6_BLOCK_TYPE_CODE::UNUSED_11, BPV6_BLOCKFLAG::NO_FLAGS_SET},
+        },
+    },
+    { // Single before block REPLICATED IN ALL
+        { // beforeBlocks
+            BlockTestInfo{"before1", BPV6_BLOCK_TYPE_CODE::UNUSED_11, BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT},
+        },
+        { // afterBlocks
+        },
+    },
+    { // Single after block REPLICATED IN ALL
+        { // beforeBlocks
+        },
+        { // afterBlocks
+            BlockTestInfo{"after1", BPV6_BLOCK_TYPE_CODE::UNUSED_11, BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT},
+        },
+    },
+    { // One before and one after REPLICATED IN ALL
+        { // beforeBlocks
+            BlockTestInfo{"before1", BPV6_BLOCK_TYPE_CODE::UNUSED_11, BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT},
+        },
+        { // afterBlocks
+            BlockTestInfo{"after1", BPV6_BLOCK_TYPE_CODE::UNUSED_11, BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT},
+        },
+    },
+    { // Big mix
+        { // beforeBlocks
+            BlockTestInfo{"before1", BPV6_BLOCK_TYPE_CODE::UNUSED_11, BPV6_BLOCKFLAG::STATUS_REPORT_REQUESTED_IF_BLOCK_CANT_BE_PROCESSED},
+            BlockTestInfo{"before2", BPV6_BLOCK_TYPE_CODE::UNUSED_11, BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT},
+            BlockTestInfo{"before3", BPV6_BLOCK_TYPE_CODE::UNUSED_6, BPV6_BLOCKFLAG::NO_FLAGS_SET},
+            BlockTestInfo{"before4", BPV6_BLOCK_TYPE_CODE::UNUSED_11, BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT | BPV6_BLOCKFLAG::STATUS_REPORT_REQUESTED_IF_BLOCK_CANT_BE_PROCESSED},
+            BlockTestInfo{"before5", BPV6_BLOCK_TYPE_CODE::UNUSED_7, BPV6_BLOCKFLAG::NO_FLAGS_SET},
+            BlockTestInfo{"before6", BPV6_BLOCK_TYPE_CODE::UNUSED_7, BPV6_BLOCKFLAG::NO_FLAGS_SET},
+            BlockTestInfo{"before7", BPV6_BLOCK_TYPE_CODE::UNUSED_12, BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT},
+            BlockTestInfo{"before8", BPV6_BLOCK_TYPE_CODE::UNUSED_6, BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT | BPV6_BLOCKFLAG::STATUS_REPORT_REQUESTED_IF_BLOCK_CANT_BE_PROCESSED},
+            BlockTestInfo{"before9", BPV6_BLOCK_TYPE_CODE::UNUSED_12, BPV6_BLOCKFLAG::STATUS_REPORT_REQUESTED_IF_BLOCK_CANT_BE_PROCESSED},
+        },
+        { // afterBlocks
+            BlockTestInfo{"after1", BPV6_BLOCK_TYPE_CODE::UNUSED_6, BPV6_BLOCKFLAG::NO_FLAGS_SET},
+            BlockTestInfo{"after2", BPV6_BLOCK_TYPE_CODE::UNUSED_7, BPV6_BLOCKFLAG::NO_FLAGS_SET},
+            BlockTestInfo{"after3", BPV6_BLOCK_TYPE_CODE::UNUSED_11, BPV6_BLOCKFLAG::STATUS_REPORT_REQUESTED_IF_BLOCK_CANT_BE_PROCESSED},
+            BlockTestInfo{"after4", BPV6_BLOCK_TYPE_CODE::UNUSED_12, BPV6_BLOCKFLAG::STATUS_REPORT_REQUESTED_IF_BLOCK_CANT_BE_PROCESSED},
+            BlockTestInfo{"after5", BPV6_BLOCK_TYPE_CODE::UNUSED_11, BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT},
+            BlockTestInfo{"after6", BPV6_BLOCK_TYPE_CODE::UNUSED_6, BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT | BPV6_BLOCKFLAG::STATUS_REPORT_REQUESTED_IF_BLOCK_CANT_BE_PROCESSED},
+            BlockTestInfo{"after7", BPV6_BLOCK_TYPE_CODE::UNUSED_7, BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT},
+            BlockTestInfo{"after8", BPV6_BLOCK_TYPE_CODE::UNUSED_6, BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT | BPV6_BLOCKFLAG::STATUS_REPORT_REQUESTED_IF_BLOCK_CANT_BE_PROCESSED},
+        },
+    },
+};
+
+static void CheckBlocks(BundleViewV6 &bv, const std::vector<BlockTestInfo> &beforeBlocks, const std::vector<BlockTestInfo> &afterBlocks) {
+        BundleViewV6::canonical_block_view_list_t::iterator blockIt = bv.m_listCanonicalBlockView.begin();
+        for(const auto & bi : beforeBlocks) {
+            if(blockIt == bv.m_listCanonicalBlockView.end()) {
+                BOOST_FAIL("Reached end of blocks while testing before payload blocks");
+            }
+            CheckCanonicalBlock(*blockIt,
+                    bi.body.size(),
+                    bi.body.data(),
+                    bi.type,
+                    bi.flags);
+            blockIt++;
+        }
+        if(blockIt == bv.m_listCanonicalBlockView.end()) {
+            BOOST_FAIL("Reached end of blocks while looking for payload");
+        }
+        BOOST_REQUIRE(blockIt->headerPtr->m_blockTypeCode == BPV6_BLOCK_TYPE_CODE::PAYLOAD);
+        blockIt++; // Skip  payload
+        for(const auto & bi : afterBlocks) {
+            if(blockIt == bv.m_listCanonicalBlockView.end()) {
+                BOOST_FAIL("Reached end of blocks while testing after payload blocks");
+            }
+            BPV6_BLOCKFLAG flags = bi.flags;
+            if(&bi == &afterBlocks.back()) {
+                flags |= BPV6_BLOCKFLAG::IS_LAST_BLOCK;
+            }
+            CheckCanonicalBlock(*blockIt,
+                    bi.body.size(),
+                    bi.body.data(),
+                    bi.type,
+                    flags);
+            blockIt++;
+        }
+        BOOST_REQUIRE(blockIt == bv.m_listCanonicalBlockView.end());
+}
+
+BOOST_DATA_TEST_CASE(
+        FragmentExtraBlocks,
+        boost::unit_test::data::xrange(sizeof(MultiBlockTestInfos)/sizeof(*MultiBlockTestInfos)),
+        testIndex)
+{
+
+    MultiBlockTestInfo & info = MultiBlockTestInfos[testIndex];
+
+    BundleViewV6 bv;
+
+    Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+    buildPrimaryBlock(primary);
+    primary.m_bundleProcessingControlFlags |= BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::PRIORITY_NORMAL;
+    bv.m_primaryBlockView.SetManuallyModified();
+
+    for(auto & bi : info.beforeBlocks) {
+        bv.AppendMoveCanonicalBlock(std::move(buildCanonicalBlock(bi.body, bi.type, bi.flags)));
+    }
+
+    std::string body = "helloBigworld!";
+    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+
+    for(auto & bi : info.afterBlocks) {
+        bv.AppendMoveCanonicalBlock(std::move(buildCanonicalBlock(bi.body, bi.type, bi.flags)));
+    }
+
+    BOOST_REQUIRE(bv.Render(5000));
+    size_t sz = 6;
+    BOOST_REQUIRE_GT(sz, 0);
+
+    std::list<BundleViewV6> fragments;
+    bool ret = fragment(bv, sz, fragments);
+    BOOST_REQUIRE(ret == true);
+
+    BOOST_REQUIRE(fragments.size() == 3);
+
+    std::list<BundleViewV6>::iterator it = fragments.begin();
+    BundleViewV6 & first = *(it++);
+    BundleViewV6 & middle = *(it++);
+    BundleViewV6 & last = *(it++);
+
+    CheckPrimaryBlock(first.m_primaryBlockView.header, 0, 14);
+    CheckPrimaryBlock(middle.m_primaryBlockView.header, 6, 14);
+    CheckPrimaryBlock(last.m_primaryBlockView.header, 12, 14);
+
+    CheckPayload(first, 6, "helloB");
+    CheckPayload(middle, 6, "igworl");
+    CheckPayload(last, 2, "d!");
+
+    BOOST_REQUIRE(first.m_listCanonicalBlockView.size() == 1 + info.beforeBlocks.size() + info.numReplicatedAfter());
+    BOOST_REQUIRE(middle.m_listCanonicalBlockView.size() == 1 + info.numReplicated());
+    BOOST_REQUIRE(last.m_listCanonicalBlockView.size() == 1 + info.afterBlocks.size() + info.numReplicatedBefore());
+
+    CheckBlocks(first, info.beforeBlocks, info.GetReplicatedAfter());
+    CheckBlocks(middle, info.GetReplicatedBefore(), info.GetReplicatedAfter());
+    CheckBlocks(last, info.GetReplicatedBefore(), info.afterBlocks);
+
+}
+BOOST_DATA_TEST_CASE(
+        DefragMulti,
+        boost::unit_test::data::xrange(sizeof(MultiBlockTestInfos)/sizeof(*MultiBlockTestInfos)),
+        testIndex)
+{
+
+    MultiBlockTestInfo & info = MultiBlockTestInfos[testIndex];
+
+    BundleViewV6 bv;
+
+    Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+    buildPrimaryBlock(primary);
+    primary.m_bundleProcessingControlFlags |= BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::PRIORITY_NORMAL;
+    bv.m_primaryBlockView.SetManuallyModified();
+
+    for(auto & bi : info.beforeBlocks) {
+        bv.AppendMoveCanonicalBlock(std::move(buildCanonicalBlock(bi.body, bi.type, bi.flags)));
+    }
+
+    std::string body = "helloBigworld!";
+    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+
+    for(auto & bi : info.afterBlocks) {
+        bv.AppendMoveCanonicalBlock(std::move(buildCanonicalBlock(bi.body, bi.type, bi.flags)));
+    }
+
+    BOOST_REQUIRE(bv.Render(5000));
+    size_t sz = 6;
+    BOOST_REQUIRE_GT(sz, 0);
+
+    std::list<BundleViewV6> fragments;
+    BOOST_REQUIRE(fragment(bv, sz, fragments));
+
+    BundleViewV6 av;
+
+    BOOST_REQUIRE(AssembleFragments(fragments, av));
+    BOOST_REQUIRE(av.Render(5000));
+
+    BOOST_REQUIRE(bv.m_renderedBundle.size() == av.m_renderedBundle.size());
+
+    size_t bundleLen = bv.m_renderedBundle.size();
+    BOOST_TEST_MESSAGE("bundle rendered length: " << bundleLen);
+
+    int cmp = memcmp(bv.m_renderedBundle.data(), av.m_renderedBundle.data(), bundleLen); 
+
+    BOOST_REQUIRE(cmp == 0);
+}
 BOOST_AUTO_TEST_SUITE_END()
 
