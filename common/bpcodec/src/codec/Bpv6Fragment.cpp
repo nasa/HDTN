@@ -201,11 +201,12 @@ bool fragment(BundleViewV6& orig, uint64_t sz, std::list<BundleViewV6> & fragmen
 }
 
 static bool AssemblePayload(std::list<BundleViewV6>& fragments, std::vector<uint8_t>& adu) {
-    // Check full coverage using a fragment set
     if(fragments.size() == 0) {
         LOG_ERROR(subprocess) << "Cannot create payload; fragment vector empty";
         return false;
     }
+
+    FragmentSet::data_fragment_set_t fragmentSet;
 
     uint64_t size = fragments.front().m_primaryBlockView.header.m_totalApplicationDataUnitLength;
     adu.resize(size);
@@ -227,12 +228,21 @@ static bool AssemblePayload(std::list<BundleViewV6>& fragments, std::vector<uint
 
         uint64_t o = fragment.m_primaryBlockView.header.m_fragmentOffset;
         uint64_t s = payload.headerPtr->m_blockTypeSpecificDataLength;
+
+        FragmentSet::InsertFragment(fragmentSet, FragmentSet::data_fragment_t(o, o + s));
+
         const uint8_t *p = payload.headerPtr->m_blockTypeSpecificDataPtr;
         if(o + s > size) {
             LOG_ERROR(subprocess) << "bundle offset and size exceeds total adu size";
             return false;
         }
         memcpy(adu.data() + o, p, s);
+    }
+
+    FragmentSet::data_fragment_t expectedDataFragment(0, size);
+    if((fragmentSet.size() != 1) || (fragmentSet.count(expectedDataFragment) != 1)) {
+        LOG_ERROR(subprocess) << "Fragments do not make up a whole bundle";
+        return false;
     }
 
     return true;
