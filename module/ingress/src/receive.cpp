@@ -1087,6 +1087,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
 #ifdef MASKING_ENABLED
     cbhe_eid_t queryResult;
 #endif
+    uint64_t payloadSize = 0;
     bool requestsCustody = false;
     bool isAdminRecordForHdtnStorage = false;
     bool isBundleForHdtnRouter = false;
@@ -1104,6 +1105,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
 #endif
         Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
         finalDestEid = primary.m_destinationEid;
+        bv.GetPayloadSize(bv, payloadSize);
         if (needsProcessing) {
             static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
             requestsCustody = ((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody);
@@ -1398,8 +1400,19 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
     const bool isOpportunisticLinkUp = (tcpclInductIterator != m_availableDestOpportunisticNodeIdToTcpclInductMap.end());
     m_availableDestOpportunisticNodeIdToTcpclInductMapMutex.unlock();
     const bool bundleCameFromStorageModule = (!needsProcessing);
+    bool needsFragmenting = (m_hdtnConfig.m_fragmentBundlesLargerThanBytes && (payloadSize >  m_hdtnConfig.m_fragmentBundlesLargerThanBytes));
+    bool b1 = (m_hdtnConfig.m_fragmentBundlesLargerThanBytes);
+    bool b2 = (payloadSize >  m_hdtnConfig.m_fragmentBundlesLargerThanBytes);
+    if(needsFragmenting) {
+        LOG_INFO(subprocess) << "DBG: ingress: sending to store, payload " << payloadSize<< " > " << m_hdtnConfig.m_fragmentBundlesLargerThanBytes  << " threshold";
+    } else {
+        LOG_INFO(subprocess) << "DBG: ingress: NOT sending to store, payload " << payloadSize<< " <= " << m_hdtnConfig.m_fragmentBundlesLargerThanBytes  << " threshold";
+        LOG_INFO(subprocess) << "DBG: ingress: b1: " << b1 << " b2: " << b2;
+    }
     bool sentDataOnOpportunisticLink = false;
-    if (isOpportunisticLinkUp && (bundleCameFromStorageModule || !(requestsCustody || isAdminRecordForHdtnStorage))) {
+    const bool trySendOpportunistic = isOpportunisticLinkUp && (bundleCameFromStorageModule || !(requestsCustody || isAdminRecordForHdtnStorage || needsFragmenting));
+    LOG_INFO(subprocess) << "DBG: ingress: try send opportunistic: " << trySendOpportunistic;
+    if (trySendOpportunistic) {
         if (tcpclInductIterator->second->ForwardOnOpportunisticLink(finalDestEid.nodeId, *zmqMessageToSendUniquePtr, 3)) { //thread safe forward with 3 second timeout
             sentDataOnOpportunisticLink = true;
         }
@@ -1462,8 +1475,10 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             if (outductIndex != UINT64_MAX) {
                 BundlePipelineAckingSet& bundleCutThroughPipelineAckingSetObj = *(m_vectorBundlePipelineAckingSet[outductIndex]);
 
-                const bool shouldTryToUseCustThrough = ((bundleCutThroughPipelineAckingSetObj.m_linkIsUp && (!requestsCustody) && (!isAdminRecordForHdtnStorage)));
+                const bool shouldTryToUseCustThrough =
+                    ((bundleCutThroughPipelineAckingSetObj.m_linkIsUp && (!requestsCustody) && (!isAdminRecordForHdtnStorage) && (!needsFragmenting)));
                 useStorage = !shouldTryToUseCustThrough;
+                LOG_INFO(subprocess) << "DBG: ingress: shouldCutThru: " << shouldTryToUseCustThrough << " useStorage: " << useStorage;
 
                 if (shouldTryToUseCustThrough) { //type egress cut through ("while loop" instead of "if statement" to support breaking to storage)
                     bool reservedEgressPipelineAvailability;
@@ -1550,7 +1565,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                     toStorageHdr->ingressUniqueId = fromIngressUniqueId;
                     toStorageHdr->outductIndex = outductIndex;
                     toStorageHdr->dontStoreBundle = reservedStorageCutThroughPipelineAvailability;
-                    toStorageHdr->isCustodyOrAdminRecord = (requestsCustody || isAdminRecordForHdtnStorage);
+                    toStorageHdr->isCustodyOrAdminRecord = (requestsCustody || isAdminRecordForHdtnStorage || needsFragmenting);
                     toStorageHdr->finalDestEid = finalDestEid;
 
                     //zmq threads not thread safe but protected by mutex below

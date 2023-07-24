@@ -559,8 +559,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(double bundleRate, const boost::
 
                 primary.m_bundleProcessingControlFlags = 
                     (BPV6_BUNDLEFLAG(m_bundlePriority << 7) & BPV6_BUNDLEFLAG::PRIORITY_BIT_MASK) |
-                    BPV6_BUNDLEFLAG::SINGLETON |
-                    BPV6_BUNDLEFLAG::NOFRAGMENT;
+                    BPV6_BUNDLEFLAG::SINGLETON;
 
                 if (m_useCustodyTransfer) {
                     primary.m_bundleProcessingControlFlags |= BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;

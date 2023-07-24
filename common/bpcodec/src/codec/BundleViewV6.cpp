@@ -295,6 +295,22 @@ bool BundleViewV6::IsValid() const {
     return true;
 }
 
+bool BundleViewV6::GetPayloadSize(BundleViewV6& bv, uint64_t& sz) {
+    std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+    bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+    if(blocks.size() != 1 || !blocks[0]) {
+        return false;
+    }
+    BundleViewV6::Bpv6CanonicalBlockView & payload = *blocks[0];
+    // TODO do we need to check if dirty or marked for deletion?
+    if(!payload.headerPtr) {
+        return false;
+    }
+
+    sz = payload.headerPtr->m_blockTypeSpecificDataLength;
+    return true;
+}
+
 
 void BundleViewV6::Reset() {
     m_primaryBlockView.header.SetZero();
