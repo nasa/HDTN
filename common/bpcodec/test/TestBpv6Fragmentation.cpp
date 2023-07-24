@@ -41,7 +41,7 @@ static const uint64_t PRIMARY_SEQ = 5;
 static void buildPrimaryBlock(Bpv6CbhePrimaryBlock & primary) {
     primary.SetZero();
 
-    primary.m_bundleProcessingControlFlags = BPV6_BUNDLEFLAG::SINGLETON;
+    primary.m_bundleProcessingControlFlags = BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::PRIORITY_NORMAL;
     primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
     primary.m_destinationEid.Set(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC);
     primary.m_custodianEid.SetZero();
@@ -173,7 +173,6 @@ BOOST_DATA_TEST_CASE(
 
     Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
     buildPrimaryBlock(primary);
-    primary.m_bundleProcessingControlFlags |= BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::PRIORITY_NORMAL;
     bv.m_primaryBlockView.SetManuallyModified();
 
     std::string body(payload);
@@ -213,7 +212,6 @@ BOOST_AUTO_TEST_CASE(FragmentPayloadMultiple)
 
     Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
     buildPrimaryBlock(primary);
-    primary.m_bundleProcessingControlFlags |= BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::PRIORITY_NORMAL;
     bv.m_primaryBlockView.SetManuallyModified();
 
     std::string body = "helloBigworld!";
@@ -253,7 +251,6 @@ BOOST_AUTO_TEST_CASE(FragmentBlockBefore)
 
     Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
     buildPrimaryBlock(primary);
-    primary.m_bundleProcessingControlFlags |= BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::PRIORITY_NORMAL;
     bv.m_primaryBlockView.SetManuallyModified();
 
     std::string beforeBlockBody = "before block";
@@ -474,7 +471,6 @@ BOOST_DATA_TEST_CASE(
 
     Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
     buildPrimaryBlock(primary);
-    primary.m_bundleProcessingControlFlags |= BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::PRIORITY_NORMAL;
     bv.m_primaryBlockView.SetManuallyModified();
 
     for(auto & bi : info.beforeBlocks) {
@@ -532,7 +528,6 @@ BOOST_DATA_TEST_CASE(
 
     Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
     buildPrimaryBlock(primary);
-    primary.m_bundleProcessingControlFlags |= BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::PRIORITY_NORMAL;
     bv.m_primaryBlockView.SetManuallyModified();
 
     for(auto & bi : info.beforeBlocks) {
@@ -566,6 +561,118 @@ BOOST_DATA_TEST_CASE(
     int cmp = memcmp(bv.m_renderedBundle.data(), av.m_renderedBundle.data(), bundleLen); 
 
     BOOST_REQUIRE(cmp == 0);
+}
+
+BOOST_AUTO_TEST_CASE(AssembleMissing)
+{
+
+    BundleViewV6 bv;
+
+    Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+    buildPrimaryBlock(primary);
+    bv.m_primaryBlockView.SetManuallyModified();
+
+    std::string body = "hello world!";
+    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+
+    BOOST_REQUIRE(bv.Render(5000));
+    size_t sz = 5;
+
+    std::list<BundleViewV6> fragments;
+    BOOST_REQUIRE(fragment(bv, sz, fragments));
+
+    // Remove middle fragment
+    std::list<BundleViewV6>::iterator it = fragments.begin();
+    it++;
+    fragments.erase(it);
+
+    BundleViewV6 av;
+
+    BOOST_REQUIRE(!AssembleFragments(fragments, av));
+}
+
+BOOST_AUTO_TEST_CASE(AssembleDifferent)
+{
+
+    BundleViewV6 a, b;
+    std::string body = "hello world!";
+
+    { // Build a
+        Bpv6CbhePrimaryBlock & primary = a.m_primaryBlockView.header;
+        buildPrimaryBlock(primary);
+        a.m_primaryBlockView.SetManuallyModified();
+
+        a.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+
+        BOOST_REQUIRE(a.Render(5000));
+    }
+    { // Build b, different timestamp
+        Bpv6CbhePrimaryBlock & primary = b.m_primaryBlockView.header;
+        buildPrimaryBlock(primary);
+        primary.m_creationTimestamp.sequenceNumber++;
+        b.m_primaryBlockView.SetManuallyModified();
+
+        b.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+
+        BOOST_REQUIRE(b.Render(5000));
+    }
+    size_t sz = 5;
+
+
+    std::list<BundleViewV6> fragmentsA, fragmentsB;
+    BOOST_REQUIRE(fragment(a, sz, fragmentsA));
+    BOOST_TEST_MESSAGE("Done fragmenting A");
+    BOOST_REQUIRE(fragment(b, sz, fragmentsB));
+    BOOST_TEST_MESSAGE("Done fragmenting B");
+
+    BOOST_REQUIRE(fragmentsA.size() == 3);
+    BOOST_REQUIRE(fragmentsB.size() == 3);
+
+    // Remove middle fragment of A, replace with middle of B
+    std::list<BundleViewV6>::iterator itBackA, itA = fragmentsA.begin();
+    itA++;
+    itBackA = fragmentsA.erase(itA);
+
+    std::list<BundleViewV6>::iterator itB = fragmentsB.begin();
+    itB++;
+    fragmentsA.splice(itBackA, fragmentsB, itB);
+
+    BundleViewV6 av;
+
+    BOOST_REQUIRE(!AssembleFragments(fragmentsA, av));
+}
+
+BOOST_AUTO_TEST_CASE(AssembleNotAFragment)
+{
+
+    std::list<BundleViewV6> notFragments;
+    notFragments.emplace_back();
+    BundleViewV6 & bv = notFragments.front();
+
+    Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+    buildPrimaryBlock(primary);
+    bv.m_primaryBlockView.SetManuallyModified();
+
+    std::string body = "hello world!";
+    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+
+    BOOST_REQUIRE(bv.Render(5000));
+    size_t sz = 5;
+
+    BOOST_REQUIRE(notFragments.size() == 1);
+
+    BundleViewV6 av;
+
+    BOOST_REQUIRE(!AssembleFragments(notFragments, av));
+}
+
+BOOST_AUTO_TEST_CASE(AssembleEmpty)
+{
+
+    std::list<BundleViewV6> emptyFragments;
+
+    BundleViewV6 av;
+    BOOST_REQUIRE(!AssembleFragments(emptyFragments, av));
 }
 BOOST_AUTO_TEST_SUITE_END()
 
