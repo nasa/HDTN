@@ -36,13 +36,13 @@
     </div>
     <div class="bpsecBody">
         <div class="bpsecTitle">
+            <div class="bpsecButtons">
+                <button class="bpSecAddPolicy" onclick="openForm()">Add Policy</button>
+                <button class="bpSecAddSecurityEvent" onclick="openEventForm()">Add Event</button>
+            </div>
             <h1 class="bpSecConfigTitle">BPSec Config</h1>
-            <button class="bpSecAddPolicy" onclick="openForm()">Add Policy</button>
-            <button class="bpSecAddSecurityEvent" onclick="openEventForm()">Add Security Event</button>
-            <button onclick="loadNewBPSecJSON()">Load BPSec</button>
         </div>
         <div class="bpsecPolicies">
-            <h2 class="bpSecPoliciesTitle">Current Policies</h2>
             <div class="bpSecList" id="listBPSecJSON" onload="showJSON()"></div>
         </div>
     </div>
@@ -51,118 +51,120 @@
         <div class="formPopup" id="popupForm">
             <div class="formLayout">
                 <div class="popupTitle">
-                    <h2 class="popupTitle">Create New Policy</h2>
                     <button class="policyQuitBtn" onclick="closeForm()">X</button>
+                    <h2 class="popupTitle">Create New Policy</h2>
                 </div>
-                <div class="input">
-                    <label>Description</label>
-                    <input type="text" id="description">
-                </div>
-                <div class="input">
-                    <label>Security Policy ID</label>
-                    <input type="number" id="securityPolicyRuleID">
-                </div>
-                <div class="input">
-                    <label>Security Role</label>
-                    <select id="roleType" required>
-                        <option value="acceptor">acceptor</option>
-                        <option value="verifier">verifier</option>
-                        <option value="source">source</option>
-                    </select>
-                </div>
-                <div class="input">
-                    <label>Security Source</label>
-                    <input type="text" id="securitySource" step=".01" required>
-                </div>
-                <div class="input">
-                    <label>Bundle Source</label>
-                    <input type="text" id="bundleSource" step=".01" required>
-                </div>
-                <div class="input">
-                    <label>Bundle Final Destination</label>
-                    <input type="text" id="bundleDestination" step=".01" required>
-                </div>
-                <div class="input">
-                    <label>Security Service</label>
-                    <select id="securityService" required>
-                        <option value="aes">Confidentiality - AES GCM</option>
-                        <option value="sha">Integrity - HMAC SHA</option>
-                    </select>
-                </div>
-                <div class="input">
-                    <label>Security Event Reference</label>
-                    <input type="text" id="securityEventId" required>
-                </div>
-                <div class="sourceType" id="sourceType" style="display: none; flex-direction: column;">
-                    <div style="display: flex; flex-wrap: wrap;">
-                        <label>Security Target Block Type</label>
-                        <select id="securityTargets" multiple>
-                            <option>0</option>
-                            <option>1</option>
-                            <option>2</option>
-                            <option>3</option>
-                            <option>4</option>
-                            <option>5</option>
-                            <option>6</option>
-                            <option>7</option>
-                            <option>8</option>
-                            <option>9</option>
-                            <option>10</option>
-                            <option>11</option>
-                            <option>12</option>
-                            <option>13</option>
+                <div class="bpSecPolicyElements">
+                    <div class="input">
+                        <label>Description</label>
+                        <input type="text" id="description">
+                    </div>
+                    <div class="input">
+                        <label>Security Policy ID</label>
+                        <input type="number" id="securityPolicyRuleID">
+                    </div>
+                    <div class="input">
+                        <label>Security Role</label>
+                        <select id="roleType" required>
+                            <option value="acceptor">acceptor</option>
+                            <option value="verifier">verifier</option>
+                            <option value="source">source</option>
                         </select>
                     </div>
-                    <h3>Security Parameters for Source</h3>
-                    <div class="aesVariant" id="aesVariantDiv"
-                        style="display: flex; flex-direction: row; justify-content: space-between;">
-                        <label>AES Variant</label>
-                        <select id="aesVariant">
-                            <option>128</option>
-                            <option selected>256</option>
+                    <div class="input">
+                        <label>Security Source</label>
+                        <input type="text" id="securitySource" step=".01" required>
+                    </div>
+                    <div class="input">
+                        <label>Bundle Source</label>
+                        <input type="text" id="bundleSource" step=".01" required>
+                    </div>
+                    <div class="input">
+                        <label>Bundle Final Destination</label>
+                        <input type="text" id="bundleDestination" step=".01" required>
+                    </div>
+                    <div class="input">
+                        <label>Security Service</label>
+                        <select id="securityService" required>
+                            <option value="aes">Confidentiality - AES GCM</option>
+                            <option value="sha">Integrity - HMAC SHA</option>
                         </select>
+                    </div>
+                    <div class="input">
+                        <label>Security Event Reference</label>
+                        <input type="text" id="securityEventId" required>
+                    </div>
+                    <div class="sourceType" id="sourceType" style="display: none; flex-direction: column;">
+                        <div style="display: flex; flex-wrap: wrap;">
+                            <label>Security Target Block Type</label>
+                            <select id="securityTargets" multiple>
+                                <option>0</option>
+                                <option>1</option>
+                                <option>2</option>
+                                <option>3</option>
+                                <option>4</option>
+                                <option>5</option>
+                                <option>6</option>
+                                <option>7</option>
+                                <option>8</option>
+                                <option>9</option>
+                                <option>10</option>
+                                <option>11</option>
+                                <option>12</option>
+                                <option>13</option>
+                            </select>
+                        </div>
+                        <h3>Security Parameters for Source</h3>
+                        <div class="aesVariant" id="aesVariantDiv"
+                            style="display: flex; flex-direction: row; justify-content: space-between;">
+                            <label>AES Variant</label>
+                            <select id="aesVariant">
+                                <option>128</option>
+                                <option selected>256</option>
+                            </select>
+                            <div class="input">
+                                <label>IV Size(Bytes)</label>
+                                <select id="ivSize">
+                                    <option selected>12</option>
+                                    <option>16</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="shaVariant" id="shaVariantDiv"
+                            style="display: none; flex-direction: row; justify-content: space-between;">
+                            <label>SHA Variant</label>
+                            <select id="shaVariant">
+                                <option>256</option>
+                                <option selected>384</option>
+                                <option>512</option>
+                            </select>
+                        </div>
                         <div class="input">
-                            <label>IV Size(Bytes)</label>
-                            <select id="ivSize">
-                                <option selected>12</option>
+                            <label>Scope Flags</label>
+                            <select id="scopeFlags">
+                                <option>0</option>
+                                <option>1</option>
+                                <option>2</option>
+                                <option>3</option>
+                                <option>4</option>
+                                <option>5</option>
+                                <option>6</option>
+                                <option selected>7</option>
+                            </select>
+                        </div>
+                        <div class="input">
+                            <label>Security Block CRC</label>
+                            <select id="securityBlockCRC">
+                                <option selected>0</option>
                                 <option>16</option>
+                                <option>32</option>
                             </select>
                         </div>
                     </div>
-                    <div class="shaVariant" id="shaVariantDiv"
-                        style="display: none; flex-direction: row; justify-content: space-between;">
-                        <label>SHA Variant</label>
-                        <select id="shaVariant">
-                            <option>256</option>
-                            <option selected>384</option>
-                            <option>512</option>
-                        </select>
-                    </div>
-                    <div class="input">
-                        <label>Scope Flags</label>
-                        <select id="scopeFlags">
-                            <option>0</option>
-                            <option>1</option>
-                            <option>2</option>
-                            <option>3</option>
-                            <option>4</option>
-                            <option>5</option>
-                            <option>6</option>
-                            <option selected>7</option>
-                        </select>
-                    </div>
-                    <div class="input">
-                        <label>Security Block CRC</label>
-                        <select id="securityBlockCRC">
-                            <option selected>0</option>
-                            <option>16</option>
-                            <option>32</option>
-                        </select>
-                    </div>
+                    <label>Key File</label>
+                    <input type="file" id="keyFile" required>
+                    <button type="submit" onclick="checkNewPolicy()">Add Policy</button>
                 </div>
-                <label>Key File</label>
-                <input type="file" id="keyFile" required>
-                <button type="submit" onclick="checkNewPolicy()">Add Policy</button>
             </div>
         </div>
 
@@ -170,8 +172,8 @@
             <div class="eventFormPopup" id="eventFormPopup">
                 <div class="formLayout">
                     <div class="popupTitle">
-                        <h2 class="popupTitle">Create New Event</h2>
                         <button class="policyQuitBtn" onclick="closeEventForm()">X</button>
+                        <h2 class="popupTitle">Create New Event</h2>
                     </div>
                     <div class="input">
                         <label>Name of Event</label>
@@ -296,9 +298,27 @@
             }
         }
 
-        function editTable(id) { }
+        function editTable() {
+            //get id
+            console.log(arguments[0]);
+            //find the json
+            //fill in the edit
+            //remove previous to replace with the new values
+        }
 
-        function removeTable(id) { }
+        function removeTable(id) {
+            console.log(id);
+            //id is the key for the array index to delete
+            for (var parts in currentPolicies){
+                for (var i = 0; i < currentPolicies[parts].length; i++){
+                    for(keyCheck in currentPolicies[parts][i]){
+                        if(keyCheck === 'name'){
+                            
+                        }
+                    }
+                }
+            }
+        }
 
         function showJSON() {
             console.log(currentPolicies);
@@ -306,46 +326,53 @@
             div.innerHTML = '';
             newTable = "<table class=\"styled-table\" style=\"width:100%\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>"
             for (var key in currentPolicies) {
-                if (Array.isArray(currentPolicies[key])) {
-                    //newTable += "<caption style=\"text-align:left;padding-left:20px;text-transform:uppercase;margin-top:5px;font-size=20px;\">" + key + "</caption>";
-                    //create table
-                    for (var i = 0; i < currentPolicies[key].length; ++i) {
-                        var newSubTable = "<table class=\"styled-table\" style=\"margin:15px 0px\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>";
-                        for (var subKey in currentPolicies[key][i]) {
-                            newSubTable += "<tr>" + "<td>" + subKey + "</td>";
-                            if (isNaN(currentPolicies[key][i][subKey])) {
-                                if ((typeof currentPolicies[key][i][subKey]) === 'object') {
-                                    for (var j = 0; j < currentPolicies[key][i][subKey].length; ++j) {
-                                        newSubTable += "<td>";
-                                        for (arraySubkey in currentPolicies[key][i][subKey][j]) {
-                                            console.log(arraySubkey);
-                                            newSubTable += arraySubkey + " : ";
-                                            newSubTable += currentPolicies[key][i][subKey][j][arraySubkey] + '<br \\ >';
-                                        }
-                                    }
-                                    console.log("test for object")
-                                } else {
-                                    newSubTable += "<td>" + currentPolicies[key][i][subKey] + "</td>" + "</tr>";
-                                }
-                            } else {
-                                newSubTable += "<td>" + (currentPolicies[key][i][subKey]).toLocaleString('en') + "</td>" + "</tr>";
+                if (key !== "bpsecConfigName") {
+                    if (Array.isArray(currentPolicies[key])) {
+                        //create table
+                        for (var i = 0; i < currentPolicies[key].length; ++i) {
+                            var newSubTable = "<table class=\"styled-table\" style=\"margin:15px 0px\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>";
+                            if(key === "policyRules"){
+                                newTable += "<caption style=\"text-align:left;padding-left:20px;text-transform:uppercase;margin-top:5px;font-size=20px;\">Policy Rules</caption>";
                             }
+                            else if(key === "securityFailureEventSets"){
+                                newTable += "<caption style=\"text-align:left;padding-left:20px;text-transform:uppercase;margin-top:5px;font-size=20px;\">Security Failure Events</caption>";
+                            }
+                            var idValue = null;
+                            for (var subKey in currentPolicies[key][i]) {
+                                newSubTable += "<tr>" + "<td>" + subKey + "</td>";
+                                if (isNaN(currentPolicies[key][i][subKey])) {
+                                    if ((typeof currentPolicies[key][i][subKey]) === 'object') {
+                                        for (var j = 0; j < currentPolicies[key][i][subKey].length; ++j) {
+                                            newSubTable += "<td>";
+                                            for (arraySubkey in currentPolicies[key][i][subKey][j]) {
+                                                newSubTable += arraySubkey + " : ";
+                                                newSubTable += currentPolicies[key][i][subKey][j][arraySubkey] + '<br \\ >';
+                                            }
+                                        }
+                                    } else {
+                                        idValue = currentPolicies[key][i][subKey];
+                                        newSubTable += "<td>" + currentPolicies[key][i][subKey] + "</td>" + "</tr>";
+                                    }
+                                } else {
+                                    newSubTable += "<td>" + (currentPolicies[key][i][subKey]).toLocaleString('en') + "</td>" + "</tr>";
+                                }
+                            }
+                            newSubTable += "</table>";
+                            newSubTable += "<button class=\"bpSecEditPolicies\" class=\"bpsecPolicyEventRemoveEdit\" onclick=\"editTable(this);\">Edit</button>";
+                            newSubTable += "<button class=\"bpSecEditPolicies\" class=\"bpsecPolicyEventRemoveEdit\" id=\""+idValue+"\" onclick=\"removeTable(this.id);\">Remove</button>";
+                            newTable += newSubTable;
                         }
-                        newSubTable += "</table>";
-                        newSubTable += "<button class=\"bpSecEditPolicies\" style=\"width: 40px; display: flex; justify-content: right;\" onclick=\"editTable()\">Edit</button>";
-                        newSubTable += "<button class=\"bpSecEditPolicies\" style=\"width: 40px; display: flex; justify-content: right;\" onclick=\"removeTable()\">Remove</button>";
-                        newTable += newSubTable;
-                    }
-                }
-                else {
-                    if (isNaN(currentPolicies[key])) {
-                        var newRow = "<tr>" + "<td>" + key + "</td>" + "<td>" + currentPolicies[key] + "</td>" + "</tr>";
                     }
                     else {
-                        //if data is a number, adds commas
-                        var newRow = "<tr>" + "<td>" + key + "</td>" + "<td>" + (currentPolicies[key]).toLocaleString('en') + "</td>" + "</tr>";
+                        if (isNaN(currentPolicies[key])) {
+                            var newRow = "<tr>" + "<td>" + key + "</td>" + "<td>" + currentPolicies[key] + "</td>" + "</tr>";
+                        }
+                        else {
+                            //if data is a number, adds commas
+                            var newRow = "<tr>" + "<td>" + key + "</td>" + "<td>" + (currentPolicies[key]).toLocaleString('en') + "</td>" + "</tr>";
+                        }
+                        newTable += newRow;
                     }
-                    newTable += newRow;
                 }
             }
             newTable += "</table>";

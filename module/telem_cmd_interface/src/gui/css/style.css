@@ -327,21 +327,48 @@ caption {
 
 .bpsecTitle{
     display: flex;
-    flex-direction: row;
-    justify-content: space-around;
+    flex-direction: column;
     align-items: center;
+    margin-top: 15px;
 }
 
-.bpSecAddPolicy{
+.bpSecConfigTitle{
+    padding: 20px;
+}
+
+.bpsecButtons{
+    display: block;
+    margin-left: auto;
+    margin-right: 10px;
+    transition-duration: .4s;
+}
+
+.bpSecAddPolicy, .bpSecAddSecurityEvent{
     width: 100px;
-    height: 20px;
+    height: 50px;
+    background-color: #c2c2c2;
+    color: black;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 15px;
+}
+
+.bpSecAddPolicy:hover, .bpSecAddSecurityEvent:hover {
+    cursor: pointer;
+    background-color: #7f7f7f;
+}
+
+.bpSecPoliciesTitle{
+    display: block;
+    margin-left: 10px;
+    margin-right: auto;
 }
 
 .bpSecAddPolicyForm, .bpsecAddSecurityEventForm {
     position: relative;
     text-align: center;
     width: 100%;
-
 }
 
 .bpsecPolicies{
@@ -352,6 +379,7 @@ caption {
 
 .formPopup, .eventFormPopup {
     display: none;
+    height: auto;
     position: fixed;
     background-color: #7f7f7f;
     color: white;
@@ -371,16 +399,39 @@ caption {
 
 .popupTitle{
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     justify-content: space-around;
     align-items: center;
+    margin: 0;
+    margin-bottom: 5px;
 }
 
 .policyQuitBtn{
     width: 20px;
     height: 20px;
-    margin: 10px;
-    color: red;
+    color: black;
+    display: block;
+    margin-top: 15px;
+    margin-left: auto;
+    margin-right: 5px;
+    border: none;
+    font-size: 16px;
+    font-weight: bold;
+    text-decoration: none;
+    background-color: transparent;
+    transition: .4s;
+}
+
+.policyQuitBtn:hover{
+    cursor: pointer;
+    font-size: 20px;
+    font-weight: bolder;
+}
+
+.bpSecPolicyElements{
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }
 
 .input{
@@ -388,4 +439,27 @@ caption {
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
+    padding: 2px;
 }
+
+.bpSecList{
+    width: 60%;
+}
+
+.bpSecEditPolicies{
+    width: auto;
+    height: auto;
+    color: black;
+    display: block;
+    border: none;
+    font-size: 13px;
+    font-weight: bold;
+    text-decoration: none;
+    transition: .4s;   
+    margin: 10px 15px 10px auto;
+}
+
+.bpSecEditPolicies:hover{
+    cursor: pointer;
+}
+
