@@ -271,6 +271,11 @@ static bool validate(std::list<BundleViewV6> &fragments) {
             LOG_ERROR(subprocess) << "while reassembling; creation timestamp does not match";
             return false;
         }
+        const BPV6_BUNDLEFLAG fragFlag = BPV6_BUNDLEFLAG::ISFRAGMENT;
+        if((fragment.m_primaryBlockView.header.m_bundleProcessingControlFlags & fragFlag) != fragFlag) {
+            LOG_ERROR(subprocess) << "while reassembling; fragment flag not set on bundle";
+            return false;
+        }
     }
 
     return true;
