@@ -147,7 +147,7 @@ bool fragment(BundleViewV6& orig, uint64_t sz, std::list<BundleViewV6> & fragmen
     // TODO need original to be  freshly rendered
 
     const bool origIsFragment = ((flags & BPV6_BUNDLEFLAG::ISFRAGMENT) == BPV6_BUNDLEFLAG::ISFRAGMENT);
-    const uint64_t baseAbsoluteOffset = origIsFragment ? orig.m_primaryBlockView.header.m_totalApplicationDataUnitLength : 0;
+    const uint64_t baseAbsoluteOffset = origIsFragment ? orig.m_primaryBlockView.header.m_fragmentOffset : 0;
     const uint64_t totalApplicationDataUnitLength = origIsFragment ? orig.m_primaryBlockView.header.m_totalApplicationDataUnitLength : origPayloadSize;
 
     const int numFragments = (origPayloadSize + (sz - 1)) / sz;

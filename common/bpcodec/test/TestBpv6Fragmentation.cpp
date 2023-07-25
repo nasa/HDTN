@@ -27,6 +27,7 @@
 #include "BinaryConversions.h"
 #include "codec/bpv6.h"
 #include "codec/Bpv6Fragment.h"
+#include "codec/Bpv6FragmentManager.h"
 
 BOOST_AUTO_TEST_SUITE(TestBpv6Fragmentation)
 
@@ -243,6 +244,50 @@ BOOST_AUTO_TEST_CASE(FragmentPayloadMultiple)
     CheckPayload(a, 6, "helloB");
     CheckPayload(b, 6, "igworl");
     CheckPayload(c, 2, "d!");
+}
+
+BOOST_AUTO_TEST_CASE(FragmentFragment)
+{
+    BundleViewV6 bv;
+
+    Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+    buildPrimaryBlock(primary);
+    bv.m_primaryBlockView.SetManuallyModified();
+
+    std::string body = "helloBigworld!";
+    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+
+    BOOST_REQUIRE(bv.Render(5000));
+    size_t sz = 6;
+    BOOST_REQUIRE_GT(sz, 0);
+
+    std::list<BundleViewV6> fragments;
+    bool ret = fragment(bv, sz, fragments);
+    BOOST_REQUIRE(ret == true);
+
+    BOOST_REQUIRE(fragments.size() == 3);
+
+    std::list<BundleViewV6>::iterator it = fragments.begin();
+    it++;
+    BundleViewV6 & b = *it;
+
+    std::list<BundleViewV6> bFrags;
+
+    ret = fragment(b, 3, bFrags);
+    BOOST_REQUIRE(ret == true);
+
+    BOOST_REQUIRE(bFrags.size() == 2);
+
+    BundleViewV6 & front = bFrags.front(), & back = bFrags.back();
+
+    CheckPrimaryBlock(front.m_primaryBlockView.header, 6, 14);
+    CheckPrimaryBlock(back.m_primaryBlockView.header, 9, 14);
+
+    BOOST_REQUIRE(front.m_listCanonicalBlockView.size() == 1);
+    BOOST_REQUIRE(back.m_listCanonicalBlockView.size() == 1);
+
+    CheckPayload(front, 3, "igw");
+    CheckPayload(back, 3, "orl");
 }
 
 BOOST_AUTO_TEST_CASE(FragmentBlockBefore)
@@ -673,6 +718,151 @@ BOOST_AUTO_TEST_CASE(AssembleEmpty)
 
     BundleViewV6 av;
     BOOST_REQUIRE(!AssembleFragments(emptyFragments, av));
+}
+
+BOOST_AUTO_TEST_CASE(FragmentManagerNullData)
+{
+    Bpv6FragmentManager mgr;
+    BundleViewV6 bv;
+    bool isComplete = false;
+
+    BOOST_REQUIRE(mgr.AddFragmentAndGetComplete(NULL, 0, isComplete, bv) == false);
+}
+
+BOOST_AUTO_TEST_CASE(FragmentManagerNotABundle)
+{
+    Bpv6FragmentManager mgr;
+    BundleViewV6 bv;
+    bool isComplete = false;
+    std::vector<uint8_t> data(5, 0);
+
+    BOOST_REQUIRE(mgr.AddFragmentAndGetComplete(data.data(), data.size(), isComplete, bv) == false);
+}
+
+BOOST_AUTO_TEST_CASE(FragmentManagerNotAFragment)
+{
+    BundleViewV6 bv;
+
+    Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+    buildPrimaryBlock(primary);
+    bv.m_primaryBlockView.SetManuallyModified();
+
+    std::string body = "Bundle contents";
+    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+
+    BOOST_REQUIRE(bv.Render(5000));
+
+    Bpv6FragmentManager mgr;
+    BundleViewV6 av;
+    bool isComplete = false;
+
+    BOOST_REQUIRE(mgr.AddFragmentAndGetComplete(bv.m_frontBuffer.data(), bv.m_frontBuffer.size(), isComplete, av) == false);
+}
+
+BOOST_AUTO_TEST_CASE(FragmentManager)
+{
+    BundleViewV6 bv;
+
+    Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+    buildPrimaryBlock(primary);
+    bv.m_primaryBlockView.SetManuallyModified();
+
+    std::string body = "Hello World!";
+    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+
+    BOOST_REQUIRE(bv.Render(5000));
+
+    std::list<BundleViewV6> fragments;
+    bool ret = fragment(bv, 4, fragments);
+    BOOST_REQUIRE(ret == true);
+    BOOST_REQUIRE(fragments.size() == 3);
+
+    Bpv6FragmentManager mgr;
+    BundleViewV6 av;
+    bool isComplete = true;
+
+    std::list<BundleViewV6>::iterator it = fragments.begin();
+
+    BOOST_REQUIRE(mgr.AddFragmentAndGetComplete(it->m_frontBuffer.data(), it->m_frontBuffer.size(), isComplete, av) == true);
+    BOOST_REQUIRE(isComplete == false);
+    it++;
+    BOOST_REQUIRE(mgr.AddFragmentAndGetComplete(it->m_frontBuffer.data(), it->m_frontBuffer.size(), isComplete, av) == true);
+    BOOST_REQUIRE(isComplete == false);
+    it++;
+    BOOST_REQUIRE(mgr.AddFragmentAndGetComplete(it->m_frontBuffer.data(), it->m_frontBuffer.size(), isComplete, av) == true);
+    BOOST_REQUIRE(isComplete == true);
+
+    BOOST_REQUIRE(av.m_renderedBundle.size() == bv.m_renderedBundle.size());
+    BOOST_REQUIRE(memcmp(av.m_renderedBundle.data(), bv.m_renderedBundle.data(), av.m_renderedBundle.size()) == 0);
+
+}
+
+BOOST_AUTO_TEST_CASE(FragmentManagerMulti)
+{
+    BundleViewV6 bv, cv;
+    std::list<BundleViewV6> bFragments, cFragments;
+
+    {
+        Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+        buildPrimaryBlock(primary);
+        bv.m_primaryBlockView.SetManuallyModified();
+
+        std::string body = "HelloWorld";
+        bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+
+        BOOST_REQUIRE(bv.Render(5000));
+
+        bool ret = fragment(bv, 5, bFragments);
+        BOOST_REQUIRE(ret == true);
+        BOOST_REQUIRE(bFragments.size() == 2);
+    }
+
+    {
+        Bpv6CbhePrimaryBlock & primary = cv.m_primaryBlockView.header;
+        buildPrimaryBlock(primary);
+        cv.m_primaryBlockView.header.m_sourceNodeId.serviceId++;
+        cv.m_primaryBlockView.SetManuallyModified();
+
+        std::string body = "foobar";
+        cv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+
+        BOOST_REQUIRE(cv.Render(5000));
+
+        bool ret = fragment(cv, 3, cFragments);
+        BOOST_REQUIRE(ret == true);
+        BOOST_REQUIRE(cFragments.size() == 2);
+    }
+
+    Bpv6FragmentManager mgr;
+    BundleViewV6 bav, cav;
+    bool isComplete = true;
+
+    // First B fragment
+    BOOST_REQUIRE(mgr.AddFragmentAndGetComplete(bFragments.front().m_frontBuffer.data(), bFragments.front().m_frontBuffer.size(), isComplete, bav) == true);
+    BOOST_REQUIRE(isComplete == false);
+    // First C fragment
+    BOOST_REQUIRE(mgr.AddFragmentAndGetComplete(cFragments.front().m_frontBuffer.data(), cFragments.front().m_frontBuffer.size(), isComplete, cav) == true);
+    BOOST_REQUIRE(isComplete == false);
+    // Second B fragment
+    BOOST_REQUIRE(mgr.AddFragmentAndGetComplete(bFragments.back().m_frontBuffer.data(), bFragments.back().m_frontBuffer.size(), isComplete, bav) == true);
+    BOOST_REQUIRE(isComplete == true);
+    BOOST_REQUIRE(bav.m_renderedBundle.size() == bv.m_renderedBundle.size());
+    BOOST_REQUIRE(memcmp(bav.m_renderedBundle.data(), bv.m_renderedBundle.data(), bav.m_renderedBundle.size()) == 0);
+    // Second C fragment
+    BOOST_REQUIRE(mgr.AddFragmentAndGetComplete(cFragments.back().m_frontBuffer.data(), cFragments.back().m_frontBuffer.size(), isComplete, cav) == true);
+    BOOST_REQUIRE(isComplete == true);
+    BOOST_REQUIRE(cav.m_renderedBundle.size() == cv.m_renderedBundle.size());
+    BOOST_REQUIRE(memcmp(cav.m_renderedBundle.data(), cv.m_renderedBundle.data(), cav.m_renderedBundle.size()) == 0);
+
+    BundleViewV6 bDontCare, cDontCare;
+
+    // Check B removed
+    BOOST_REQUIRE(mgr.AddFragmentAndGetComplete(bFragments.front().m_frontBuffer.data(), bFragments.front().m_frontBuffer.size(), isComplete, bDontCare) == true);
+    BOOST_REQUIRE(isComplete == false);
+    // Check C removed
+    BOOST_REQUIRE(mgr.AddFragmentAndGetComplete(cFragments.front().m_frontBuffer.data(), cFragments.front().m_frontBuffer.size(), isComplete, cDontCare) == true);
+    BOOST_REQUIRE(isComplete == false);
+
 }
 BOOST_AUTO_TEST_SUITE_END()
 
