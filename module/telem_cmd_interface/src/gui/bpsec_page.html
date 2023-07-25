@@ -309,22 +309,38 @@
         function removeTable(id) {
             //have to make sure that the event is not deleted before the policy
             var validDeletion = 1;
+            var removalType = id.slice(-1);
+            var idKey = id.substring(0, id.length - 1);
             //id is the key for the array index to delete
             for (var parts in currentPolicies) {
                 for (var i = 0; i < currentPolicies[parts].length; i++) {
-                    if (currentPolicies[parts][i].securityFailureEventSetReference === id) {
-                        validDeletion = 0;
-                        alert("INVALID DELETION\nCannot delete an event before the policy.")
-                        break;
-                    } else if (currentPolicies[parts][i].name === id && validDeletion) {
-                        if(currentPolicies[parts].length === 1){
-                            currentPolicies[parts] = [];
-                        } else{
-                            delete currentPolicies[parts][i];
+                    if (removalType === 'p') {
+                        if (currentPolicies[parts][i].description === idKey && validDeletion) {
+                            if (currentPolicies[parts].length === 1) {
+                                currentPolicies[parts] = [];
+                            } else {
+                                currentPolicies[parts].splice(i, 1);
+                            }
+                            showJSON();
+                            alert("Deleted " + idKey + " from configurations.");
+                            break;
                         }
-                        showJSON();
-                        alert("Deleted " + id + " from configurations.");
-                        break;
+                    } else {
+                        console.log(currentPolicies[parts][i].securityFailureEventSetReference);
+                        if (currentPolicies[parts][i].securityFailureEventSetReference === idKey) {
+                            validDeletion = 0;
+                            alert("INVALID DELETION\nCannot delete an event before the policy.")
+                            break;
+                        } else if (currentPolicies[parts][i].name === idKey && validDeletion) {
+                            if (currentPolicies[parts].length === 1) {
+                                currentPolicies[parts] = [];
+                            } else {
+                                currentPolicies[parts].splice(i, 1);
+                            }
+                            showJSON();
+                            alert("Deleted " + idKey + " from configurations.");
+                            break;
+                        }
                     }
                 }
             }
@@ -349,7 +365,6 @@
                             }
                             var idValue = null;
                             for (var subKey in currentPolicies[key][i]) {
-
                                 newSubTable += "<tr>" + "<td>" + subKey + "</td>";
                                 if (isNaN(currentPolicies[key][i][subKey])) {
                                     if ((typeof currentPolicies[key][i][subKey]) === 'object') {
@@ -361,7 +376,12 @@
                                             }
                                         }
                                     } else {
-                                        idValue = currentPolicies[key][i][subKey];
+                                        if (key === "policyRules") {
+                                            idValue = currentPolicies[key][i].description + 'p';
+                                        } else {
+                                            idValue = currentPolicies[key][i].name + 'e';
+                                        }
+
                                         newSubTable += "<td>" + currentPolicies[key][i][subKey] + "</td>" + "</tr>";
                                     }
                                 } else {
