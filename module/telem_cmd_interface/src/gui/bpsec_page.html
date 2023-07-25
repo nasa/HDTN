@@ -298,7 +298,7 @@
             }
         }
 
-        function editTable() {
+        function editTable(id) {
             //get id
             console.log(arguments[0]);
             //find the json
@@ -307,14 +307,24 @@
         }
 
         function removeTable(id) {
-            console.log(id);
+            //have to make sure that the event is not deleted before the policy
+            var validDeletion = 1;
             //id is the key for the array index to delete
-            for (var parts in currentPolicies){
-                for (var i = 0; i < currentPolicies[parts].length; i++){
-                    for(keyCheck in currentPolicies[parts][i]){
-                        if(keyCheck === 'name'){
-                            
+            for (var parts in currentPolicies) {
+                for (var i = 0; i < currentPolicies[parts].length; i++) {
+                    if (currentPolicies[parts][i].securityFailureEventSetReference === id) {
+                        validDeletion = 0;
+                        alert("INVALID DELETION\nCannot delete an event before the policy.")
+                        break;
+                    } else if (currentPolicies[parts][i].name === id && validDeletion) {
+                        if(currentPolicies[parts].length === 1){
+                            currentPolicies[parts] = [];
+                        } else{
+                            delete currentPolicies[parts][i];
                         }
+                        showJSON();
+                        alert("Deleted " + id + " from configurations.");
+                        break;
                     }
                 }
             }
@@ -324,21 +334,22 @@
             console.log(currentPolicies);
             var div = document.getElementById("listBPSecJSON");
             div.innerHTML = '';
-            newTable = "<table class=\"styled-table\" style=\"width:100%\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>"
+            newTable = "<div><table class=\"styled-table\" style=\"width:100%\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>"
             for (var key in currentPolicies) {
                 if (key !== "bpsecConfigName") {
                     if (Array.isArray(currentPolicies[key])) {
                         //create table
                         for (var i = 0; i < currentPolicies[key].length; ++i) {
                             var newSubTable = "<table class=\"styled-table\" style=\"margin:15px 0px\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>";
-                            if(key === "policyRules"){
+                            if (key === "policyRules") {
                                 newTable += "<caption style=\"text-align:left;padding-left:20px;text-transform:uppercase;margin-top:5px;font-size=20px;\">Policy Rules</caption>";
                             }
-                            else if(key === "securityFailureEventSets"){
+                            else if (key === "securityFailureEventSets") {
                                 newTable += "<caption style=\"text-align:left;padding-left:20px;text-transform:uppercase;margin-top:5px;font-size=20px;\">Security Failure Events</caption>";
                             }
                             var idValue = null;
                             for (var subKey in currentPolicies[key][i]) {
+
                                 newSubTable += "<tr>" + "<td>" + subKey + "</td>";
                                 if (isNaN(currentPolicies[key][i][subKey])) {
                                     if ((typeof currentPolicies[key][i][subKey]) === 'object') {
@@ -358,8 +369,10 @@
                                 }
                             }
                             newSubTable += "</table>";
-                            newSubTable += "<button class=\"bpSecEditPolicies\" class=\"bpsecPolicyEventRemoveEdit\" onclick=\"editTable(this);\">Edit</button>";
-                            newSubTable += "<button class=\"bpSecEditPolicies\" class=\"bpsecPolicyEventRemoveEdit\" id=\""+idValue+"\" onclick=\"removeTable(this.id);\">Remove</button>";
+                            if (idValue !== null) {
+                                newSubTable += "<button class=\"bpSecEditPolicies\" class=\"bpsecPolicyEventRemoveEdit\" id=\"" + idValue + "\" onclick=\"editTable(this);\">Edit</button>";
+                                newSubTable += "<button class=\"bpSecEditPolicies\" class=\"bpsecPolicyEventRemoveEdit\" id=\"" + idValue + "\" onclick=\"removeTable(this.id);\">Remove</button>";
+                            }
                             newTable += newSubTable;
                         }
                     }
@@ -375,7 +388,7 @@
                     }
                 }
             }
-            newTable += "</table>";
+            newTable += "</table></div>";
             div.innerHTML = newTable;
         }
 
