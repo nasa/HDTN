@@ -51,7 +51,7 @@
         <div class="formPopup" id="popupForm">
             <div class="formLayout">
                 <div class="popupTitle">
-                    <button class="policyQuitBtn" onclick="closeForm()">X</button>
+                    <button class="policyQuitBtn" id="policyQuitBtnp" onclick="closeForm()">X</button>
                     <h2 class="popupTitle">Create New Policy</h2>
                 </div>
                 <div class="bpSecPolicyElements">
@@ -163,7 +163,9 @@
                     </div>
                     <label>Key File</label>
                     <input type="file" id="keyFile" required>
-                    <button type="submit" onclick="checkNewPolicy()">Add Policy</button>
+                    <button id="submitPolicy" type="submit" onclick="checkNewPolicy()">Add Policy</button>
+                    <button id="savePolicy" style="display: none;" onclick="editPolicy()">Save Changes</button>
+                    <button id="cancelButtonp" style="display: none;" onclick="cancelChanges(this.id)">Cancel</button>
                 </div>
             </div>
         </div>
@@ -172,7 +174,7 @@
             <div class="eventFormPopup" id="eventFormPopup">
                 <div class="formLayout">
                     <div class="popupTitle">
-                        <button class="policyQuitBtn" onclick="closeEventForm()">X</button>
+                        <button class="policyQuitBtn" id="policyQuitBtne" onclick="closeEventForm()">X</button>
                         <h2 class="popupTitle">Create New Event</h2>
                     </div>
                     <div class="input">
@@ -215,7 +217,9 @@
                     <br />
                     <span id="writeroot"></span>
                     <button onclick="addNewEvent()">Add another Event</button>
-                    <button type="submit" onclick="checkEvent()">Submit</button>
+                    <button id="submitEvent" type="submit" onclick="checkEvent()">Submit</button>
+                    <button id="saveEvent" style="display: none;" onclick="editEvent()">Save Changes</button>
+                    <button id="cancelButtone" style="display: none;" onclick="cancelChanges(this.id)">Cancel</button>
                 </div>
             </div>
         </div>
@@ -267,7 +271,7 @@
         var roleField = document.getElementById('roleType');
         var securityService = document.getElementById('securityService');
         var aesVariant = document.getElementById('aesVariant');
-        var shaVariant = document.getElementById('sharVariant');
+        var shaVariant = document.getElementById('shaVariant');
         var ivSize = document.getElementById('ivSize');
         var scopeFlags = document.getElementById('scopeFlags');
         var scopeCRC = document.getElementById('securityBlockCRC');
@@ -298,12 +302,159 @@
             }
         }
 
+        function cancelChanges(id) {
+            var removalType = id.slice(-1);
+            //reset forms
+            if (removalType === 'p') {
+                closeForm();
+                //change the form
+                var addButton = document.getElementById("submitPolicy");
+                addButton.style.display = "block";
+                var exitButton = document.getElementById("policyQuitBtnp");
+                exitButton.style.display = "block";
+
+                var changeButton = document.getElementById("savePolicy");
+                changeButton.style.display = "none";
+                var cancelButton = document.getElementById("cancelButtonp");
+                cancelButton.style.display = "none";
+
+                resetFormValues();
+            }
+            else {
+                closeEventForm();
+                //make previous form different
+                var addButton = document.getElementById("submitEvent");
+                addButton.style.display = "block";
+                var exitButton = document.getElementById("policyQuitBtne");
+                exitButton.style.display = "block";
+
+                var changeButton = document.getElementById("saveEvent");
+                changeButton.style.display = "none";
+                var cancelButton = document.getElementById("cancelButtone");
+                cancelButton.style.display = "none";
+
+                clearEventForm();
+            }
+        }
+
+        function editPolicy() {
+            //check that the user gave good new info
+            //if so add that to the json and remove the previous
+            //change the form to what it was before
+        }
+        function editEvent() {
+            //check that the user gave good new info
+            //if so add that to the json and remove the previous
+            //change the form to what it was before
+        }
+
+        function setSelectedValue(selectObj, valueToSet) {
+            for (var i = 0; i < selectObj.options.length; i++) {
+                if (selectObj.options[i].text == valueToSet) {
+                    selectObj.options[i].selected = true;
+                    return;
+                }
+            }
+        }
+
         function editTable(id) {
-            //get id
-            console.log(arguments[0]);
             //find the json
-            //fill in the edit
-            //remove previous to replace with the new values
+            var removalType = id.slice(-1);
+            var idKey = id.substring(0, id.length - 1);
+
+            for (var parts in currentPolicies) {
+                for (var i = 0; i < currentPolicies[parts].length; i++) {
+                    if (removalType === 'p') {
+                        if (currentPolicies[parts][i].description === idKey) {
+                            //add the json to the edit popup
+                            openForm();
+                            //change the form
+                            var addButton = document.getElementById("submitPolicy");
+                            addButton.style.display = "none";
+                            var exitButton = document.getElementById("policyQuitBtnp");
+                            exitButton.style.display = "none";
+
+                            var changeButton = document.getElementById("savePolicy");
+                            changeButton.style.display = "block";
+                            var cancelButton = document.getElementById("cancelButtonp");
+                            cancelButton.style.display = "block";
+
+                            //add the current information to the form
+                            if (currentPolicies[parts][i].securityRole === "source") {
+                                for(params in currentPolicies[parts][i]) {
+                                    if(params === "securityContextParams"){
+                                        sourceExtraFields.style.display = 'flex';
+                                        for(var j = 0; j < currentPolicies[parts][i][params][j]; j++){
+                                            if(currentPolicies[parts][i][params][j].paramName === "aesVariant"){
+                                                aesVariant.value = currentPolicies[parts][i][params][j].value;
+                                            }
+                                            if(currentPolicies[parts][i][params][j].paramName === "shaVariant"){
+                                                shaVariant.value = currentPolicies[parts][i][params][j].value;
+                                            }
+                                            if(currentPolicies[parts][i][params][j].paramName === "ivSizeBytes"){
+                                                ivSize.value = currentPolicies[parts][i][params][j].value;
+                                            }
+                                            if(currentPolicies[parts][i][params][j].paramName === "scopeFlags"){
+                                                scopeFlags.value = currentPolicies[parts][i][params][j].value;
+                                            }
+                                            if(currentPolicies[parts][i][params][j].paramName === "securityBlockCrc"){
+                                                scopeCRC.value = currentPolicies[parts][i][params][j].value;
+                                            }
+                                            if(currentPolicies[parts][i][params][j].paramName === "keyFile"){
+                                                console.log(currentPolicies[parts][i][params][j].value);
+                                                fileInput.value = currentPolicies[parts][i][params][j].value;
+                                            }
+                                        }
+                                    }
+                                }
+                            }else {
+                                console.log(currentPolicies[parts][i].securityContextParams[0].value);
+                                //fileInput.files = currentPolicies[parts][i].securityContextParams[0].value;
+                            }
+                            description.value = currentPolicies[parts][i].description;
+                            securityPolicyRuleID.value = currentPolicies[parts][i].securityPolicyRuleId;
+                            securitySource.value = currentPolicies[parts][i].securitySource;
+                            bundleSource.value = currentPolicies[parts][i].bundleSource;
+                            bundleDestination.value = currentPolicies[parts][i].bundleDestination;
+                            roleField.value = currentPolicies[parts][i].securityRole;
+                            if(currentPolicies[parts][i].securityService === "confidentiality"){
+                                securityService.value = 'aes';
+                            } else {
+                                securityService.value = 'sha'
+                            }
+
+                            document.getElementById('securityEventId').value = currentPolicies[parts][i].securityFailureEventSetReference;
+                            break;
+                        }
+                    }
+                    else {
+                        if (currentPolicies[parts][i].name === idKey) {
+                            //add the json to the edit popup
+                            openEventForm();
+
+                            //make previous form different
+                            var addButton = document.getElementById("submitEvent");
+                            addButton.style.display = "none";
+                            var exitButton = document.getElementById("policyQuitBtne");
+                            exitButton.style.display = "none";
+
+                            var changeButton = document.getElementById("saveEvent");
+                            changeButton.style.display = "block";
+                            var cancelButton = document.getElementById("cancelButtone");
+                            cancelButton.style.display = "block";
+
+                            //add the current information to the form
+                            eventName.value = currentPolicies[parts][i].name;
+                            eventDescription.value = currentPolicies[parts][i].description;
+                            console.log(currentPolicies[parts][i].securityOperationEvents[0]);
+                            eventID.value = currentPolicies[parts][i].securityOperationEvents[0].eventId;
+                            setSelectedValue(eventID, currentPolicies[parts][i].eventId);
+                            document.getElementById('eventActions').value = currentPolicies[parts][i].securityOperationEvents[0].actions;
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
         function removeTable(id) {
@@ -326,7 +477,6 @@
                             break;
                         }
                     } else {
-                        console.log(currentPolicies[parts][i].securityFailureEventSetReference);
                         if (currentPolicies[parts][i].securityFailureEventSetReference === idKey) {
                             validDeletion = 0;
                             alert("INVALID DELETION\nCannot delete an event before the policy.")
@@ -390,7 +540,7 @@
                             }
                             newSubTable += "</table>";
                             if (idValue !== null) {
-                                newSubTable += "<button class=\"bpSecEditPolicies\" class=\"bpsecPolicyEventRemoveEdit\" id=\"" + idValue + "\" onclick=\"editTable(this);\">Edit</button>";
+                                newSubTable += "<button class=\"bpSecEditPolicies\" class=\"bpsecPolicyEventRemoveEdit\" id=\"" + idValue + "\" onclick=\"editTable(this.id);\">Edit</button>";
                                 newSubTable += "<button class=\"bpSecEditPolicies\" class=\"bpsecPolicyEventRemoveEdit\" id=\"" + idValue + "\" onclick=\"removeTable(this.id);\">Remove</button>";
                             }
                             newTable += newSubTable;
@@ -432,7 +582,7 @@
         function clearEventForm() {
             eventName.value = '';
             eventDescription.value = '';
-            eventID.value = '';
+            eventID.value = 'sop Corrupted At Acceptor';
             document.getElementById('eventActions').value = '';
         }
 
@@ -481,7 +631,7 @@
                     if (eventID.value === "sop Misconfigured At Acceptor") {
                         alert("Invalid Action for Acceptor!");
                     } else {
-                        alert("Invalud Action for Verifer!");
+                        alert("Invalid Action for Verifer!");
                     }
                     validEvent = false;
                     document.getElementById("eventActions").value = "";
@@ -492,7 +642,7 @@
                     if (eventID.value === "sop Misconfigured At Acceptor") {
                         alert("Invalid Action for Acceptor!");
                     } else {
-                        alert("Invalud Action for Verifer!");
+                        alert("Invalid Action for Verifer!");
                     }
                     validEvent = false;
                     document.getElementById("eventActions").value = "";
@@ -549,7 +699,9 @@
             bundleDestination.value = '';
             fileInput.value = '';
             roleField.value = 'acceptor';
+            sourceExtraFields.style.display = 'none';
             securityService.value = 'aes';
+            document.getElementById('securityEventId').value = '';
         }
 
         function getSelected(tagName) {
@@ -639,9 +791,6 @@
         function checkNewPolicy(event) {
             var valid = 1;
 
-            console.log("New Policy for a " + roleField.value);
-            console.log(document.getElementById('securityEventId').value);
-
             //check the node ids for the policies
             var ipRegex = /\d{1,2}\.\d{1,2}[^1]|1\.1|1\.\d{1,2}|\*\.\*|1\.\*/g; //for ips of *.*, 1.*, 1.1
 
@@ -686,7 +835,6 @@
                 createNewEvent = 1;
             } else {
                 for (var el in securityEventSet) {
-                    console.log(el);
                     if (securityEventSet[el].name === document.getElementById('securityEventId').value) {
                         createNewEvent = 0;
                         break;
