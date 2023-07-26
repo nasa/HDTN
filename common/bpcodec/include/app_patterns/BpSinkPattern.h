@@ -39,6 +39,7 @@
 #include "OutductManager.h"
 #include "codec/bpv6.h"
 #include "codec/CustodyTransferManager.h"
+#include "codec/Bpv6FragmentManager.h"
 #include <boost/asio.hpp>
 #include "TcpclInduct.h"
 #include <queue>
@@ -122,6 +123,8 @@ private:
 
     struct BpSecImpl;
     std::unique_ptr<BpSecImpl> m_bpsecPimpl; // Pointer to the internal implementation
+
+    Bpv6FragmentManager m_fragmentManager;
 };
 
 

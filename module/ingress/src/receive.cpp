@@ -1131,6 +1131,10 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                 bundleCurrentSize = zmqMessageToSendUniquePtr->size();
             }
             else if (finalDestEid == M_HDTN_EID_PING) {
+                if(primary.HasFragmentationFlagSet()) {
+                    LOG_ERROR(subprocess) << "Received a ping response bundle that was fragmented";
+                    return true;
+                }
                 std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
                 bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
                 if (blocks.size() != 1) {

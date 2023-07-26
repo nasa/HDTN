@@ -292,6 +292,7 @@ static bool validate(std::list<BundleViewV6> &fragments) {
 }
 
 bool AssembleFragments(std::list<BundleViewV6>& fragments, BundleViewV6& bundle) {
+    bundle.Reset();
     if(!validate(fragments)) {
         LOG_ERROR(subprocess) << "Fragments do not have matching IDs";
         return false;

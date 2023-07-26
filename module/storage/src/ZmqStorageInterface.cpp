@@ -730,6 +730,10 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
             }
 
             if (IsAdminForThisNode(primary, M_HDTN_EID_CUSTODY)) {
+                if(primary.HasFragmentationFlagSet()) {
+                    LOG_ERROR(subprocess) << "Fragmented administrative records not supported";
+                    return false;
+                }
                 return ProcessAdminRecord(bv);
             }
 

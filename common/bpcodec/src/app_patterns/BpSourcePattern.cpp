@@ -859,6 +859,10 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
             LOG_ERROR(subprocess) << "malformed Bpv6 BpSourcePattern received";
             return;
         }
+        if(bv.m_primaryBlockView.header.HasFragmentationFlagSet()) {
+            LOG_ERROR(subprocess) << "BpSourcePattern cannot receive fragmented bundles";
+            return;
+        }
         //check primary
         const Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
         const cbhe_eid_t & receivedFinalDestinationEid = primary.m_destinationEid;
