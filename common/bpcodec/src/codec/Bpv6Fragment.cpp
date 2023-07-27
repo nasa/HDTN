@@ -25,22 +25,7 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-static bool getPayloadSize(BundleViewV6& bv, uint64_t& sz) {
-    std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
-    bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
-    if(blocks.size() != 1 || !blocks[0]) {
-        return false;
-    }
-    BundleViewV6::Bpv6CanonicalBlockView & payload = *blocks[0];
-    // TODO do we need to check if dirty or marked for deletion?
-    if(!payload.headerPtr) {
-        return false;
-    }
-
-    sz = payload.headerPtr->m_blockTypeSpecificDataLength;
-    return true;
-}
-
+// Create fragmented copy of original primary block with fragment flag set and added offset, adu length
 static void copyPrimaryFragment(const BundleViewV6& orig, BundleViewV6& copy, uint64_t offset, uint64_t aduLength) {
     const Bpv6CbhePrimaryBlock & origHdr = orig.m_primaryBlockView.header;
     Bpv6CbhePrimaryBlock & copyHdr = copy.m_primaryBlockView.header;
@@ -49,12 +34,13 @@ static void copyPrimaryFragment(const BundleViewV6& orig, BundleViewV6& copy, ui
 
     copyHdr.m_bundleProcessingControlFlags |= BPV6_BUNDLEFLAG::ISFRAGMENT;
     copyHdr.m_fragmentOffset = offset;
-    LOG_INFO(subprocess) << "Set fragment offset to " << copyHdr.m_fragmentOffset;
     copyHdr.m_totalApplicationDataUnitLength = aduLength;
 
     copy.m_primaryBlockView.SetManuallyModified(); // TODO needed?
 }
 
+// Create unfragmented copy of fragmented primary block
+// (removes fragment flag and defaults the offset and adu length to zero)
 static void copyPrimaryNoFragment(const BundleViewV6& orig, BundleViewV6& copy) {
     const Bpv6CbhePrimaryBlock & origHdr = orig.m_primaryBlockView.header;
     Bpv6CbhePrimaryBlock & copyHdr = copy.m_primaryBlockView.header;
@@ -69,6 +55,8 @@ static void copyPrimaryNoFragment(const BundleViewV6& orig, BundleViewV6& copy) 
 }
 
 
+// Creates fragmented payload block from original payload block "block"
+// and adds it to bv. The start/end offsets specify fragment extent.
 // start inclusive, end exclusive (e.g. startOffset=0, endOffset=2 consists of offsets 0 and 1)
 static void appendFragmentPayloadBlock(BundleViewV6::Bpv6CanonicalBlockView & block, BundleViewV6& bv, uint64_t startOffset, uint64_t endOffset) {
     bv.m_listCanonicalBlockView.emplace_back();
@@ -87,6 +75,8 @@ static void appendFragmentPayloadBlock(BundleViewV6::Bpv6CanonicalBlockView & bl
     copyBlockView.SetManuallyModified(); // TODO needed?
 }
 
+// Creates a payload block with same type code and processing control flags as "block",
+// appends the new block to bv. Contents of payload provided via adu
 static void createPayloadBlock(BundleViewV6::Bpv6CanonicalBlockView & block, BundleViewV6& bv, std::vector<uint8_t>& adu) {
     bv.m_listCanonicalBlockView.emplace_back();
     BundleViewV6::Bpv6CanonicalBlockView & copyBlockView = bv.m_listCanonicalBlockView.back();
@@ -104,6 +94,7 @@ static void createPayloadBlock(BundleViewV6::Bpv6CanonicalBlockView & block, Bun
     copyBlockView.SetManuallyModified(); // TODO needed?
 }
 
+// Appends copy of block to bv
 static void appendBlock(BundleViewV6::Bpv6CanonicalBlockView & block, BundleViewV6& bv) {
     bv.m_listCanonicalBlockView.emplace_back();
     BundleViewV6::Bpv6CanonicalBlockView & copy = bv.m_listCanonicalBlockView.back();
@@ -116,12 +107,13 @@ static void appendBlock(BundleViewV6::Bpv6CanonicalBlockView & block, BundleView
     copy.SetManuallyModified(); // TODO needed?
 }
 
+// Do block flags indicate that it must be replicated in all fragments?
 static bool MustReplicateInAll(BPV6_BLOCKFLAG flags) {
     BPV6_BLOCKFLAG rep = BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT;
     return (flags & rep) == rep;
 }
 
-bool fragment(BundleViewV6& orig, uint64_t sz, std::list<BundleViewV6> & fragments) {
+bool Bpv6Fragmenter::Fragment(BundleViewV6& orig, uint64_t sz, std::list<BundleViewV6> & fragments) {
 
     fragments.clear();
 
@@ -135,8 +127,7 @@ bool fragment(BundleViewV6& orig, uint64_t sz, std::list<BundleViewV6> & fragmen
         return false;
     }
     uint64_t origPayloadSize;
-    bool success = getPayloadSize(orig, origPayloadSize);
-    if(!success) {
+    if(!orig.GetPayloadSize(origPayloadSize)) {
         LOG_ERROR(subprocess) << "Cannot fragment: cannot determine payload size";
         return false;
     }
@@ -144,7 +135,7 @@ bool fragment(BundleViewV6& orig, uint64_t sz, std::list<BundleViewV6> & fragmen
         LOG_ERROR(subprocess) << "Cannot fragment: fragment size " << sz << " exceeds payload size " << origPayloadSize;
         return false;
     }
-    // TODO need original to be  freshly rendered
+    // TODO need original to be  freshly rendered, can we check that it's not dirty?
 
     const bool origIsFragment = ((flags & BPV6_BUNDLEFLAG::ISFRAGMENT) == BPV6_BUNDLEFLAG::ISFRAGMENT);
     const uint64_t baseAbsoluteOffset = origIsFragment ? orig.m_primaryBlockView.header.m_fragmentOffset : 0;
@@ -200,6 +191,7 @@ bool fragment(BundleViewV6& orig, uint64_t sz, std::list<BundleViewV6> & fragmen
     return true;
 }
 
+// Assemble payloads from fragments into completed payload (returned via adu)
 static bool AssemblePayload(std::list<BundleViewV6>& fragments, std::vector<uint8_t>& adu) {
     if(fragments.size() == 0) {
         LOG_ERROR(subprocess) << "Cannot create payload; fragment vector empty";
@@ -211,7 +203,8 @@ static bool AssemblePayload(std::list<BundleViewV6>& fragments, std::vector<uint
     uint64_t size = fragments.front().m_primaryBlockView.header.m_totalApplicationDataUnitLength;
     adu.resize(size);
 
-    for(auto &fragment: fragments) {
+    for(std::list<BundleViewV6>::iterator it = fragments.begin(); it != fragments.end(); it++) {
+        BundleViewV6 &fragment = *it;
         std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
         fragment.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
         if(blocks.size() != 1 || !blocks[0]) {
@@ -248,10 +241,12 @@ static bool AssemblePayload(std::list<BundleViewV6>& fragments, std::vector<uint
     return true;
 }
 
-bool CompareOffsets(const BundleViewV6 &a, const BundleViewV6 &b) {
+// Returns true if a's fragment offset is less than b's fragment offset
+static bool CompareOffsets(const BundleViewV6 &a, const BundleViewV6 &b) {
     return a.m_primaryBlockView.header.m_fragmentOffset < b.m_primaryBlockView.header.m_fragmentOffset;
 }
 
+// Get beginning and end fragments (determined from fragment offset)
 static bool GetEndFragments(std::list<BundleViewV6> &fragments, BundleViewV6 **first, BundleViewV6 **last) {
     std::pair<std::list<BundleViewV6>::iterator, std::list<BundleViewV6>::iterator> p =
         std::minmax_element(fragments.begin(), fragments.end(), CompareOffsets);
@@ -263,6 +258,7 @@ static bool GetEndFragments(std::list<BundleViewV6> &fragments, BundleViewV6 **f
     return true;
 }
 
+// Sanity checks that we can assemble these fragments
 static bool validate(std::list<BundleViewV6> &fragments) {
     if (fragments.size() == 0) {
         LOG_ERROR(subprocess) << "cannot reassemble; fragment vector empty";
@@ -272,7 +268,8 @@ static bool validate(std::list<BundleViewV6> &fragments) {
     cbhe_eid_t eid = fragments.front().m_primaryBlockView.header.m_sourceNodeId;
     TimestampUtil::bpv6_creation_timestamp_t ts = fragments.front().m_primaryBlockView.header.m_creationTimestamp;
 
-    for(auto & fragment: fragments) {
+    for(std::list<BundleViewV6>::iterator it = fragments.begin(); it != fragments.end(); it++) {
+        BundleViewV6 &fragment = *it;
         if(fragment.m_primaryBlockView.header.m_sourceNodeId != eid) {
             LOG_ERROR(subprocess) << "while reassembling; source eid does not match";
             return false;
@@ -291,7 +288,7 @@ static bool validate(std::list<BundleViewV6> &fragments) {
     return true;
 }
 
-bool AssembleFragments(std::list<BundleViewV6>& fragments, BundleViewV6& bundle) {
+bool Bpv6Fragmenter::Assemble(std::list<BundleViewV6>& fragments, BundleViewV6& bundle) {
     bundle.Reset();
     if(!validate(fragments)) {
         LOG_ERROR(subprocess) << "Fragments do not have matching IDs";

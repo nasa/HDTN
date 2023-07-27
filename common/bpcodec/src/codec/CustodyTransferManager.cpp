@@ -45,7 +45,7 @@ void CustodyTransferManager::SetCreationAndSequence(uint64_t & creation, uint64_
     sequence = m_sequence++;
 }
 
-bool CustodyTransferManager::GenerateCustodySignalBundle(BundleViewV6 & newRenderedBundleView, const Bpv6CbhePrimaryBlock & primaryFromSender, uint64_t payloadLen, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) {
+bool CustodyTransferManager::GenerateCustodySignalBundle(BundleViewV6 & newRenderedBundleView, const Bpv6CbhePrimaryBlock & primaryFromSender, uint64_t payloadSizeBytes, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) {
     Bpv6CbhePrimaryBlock & newPrimary = newRenderedBundleView.m_primaryBlockView.header;
     newPrimary.SetZero();
     
@@ -81,7 +81,7 @@ bool CustodyTransferManager::GenerateCustodySignalBundle(BundleViewV6 & newRende
 
         if(primaryFromSender.HasFragmentationFlagSet()) {
             sig.m_fragmentOffsetIfPresent = primaryFromSender.m_fragmentOffset;
-            sig.m_fragmentLengthIfPresent = payloadLen;
+            sig.m_fragmentLengthIfPresent = payloadSizeBytes;
         }
 
         newRenderedBundleView.AppendMoveCanonicalBlock(std::move(blockPtr));
@@ -220,7 +220,7 @@ bool CustodyTransferManager::GetCustodyInfo(BundleViewV6 & bv, struct CustodyTra
     const cbhe_eid_t custodianEidFromPrimary(primary.m_custodianEid);
 
     prevCustodyInfo.primary = primary;
-    if(!bv.GetPayloadSize(prevCustodyInfo.payloadLen)) {
+    if(!bv.GetPayloadSize(prevCustodyInfo.payloadSizeBytes)) {
         return false;
     }
 
@@ -266,7 +266,7 @@ bool CustodyTransferManager::UpdateBundleCustodyFields(BundleViewV6 & bv, bool a
         std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
         Bpv6CustodyTransferEnhancementBlock* ctebBlockPtr;
         bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT, blocks);
-        if (blocks.size() > 1) { //D3.3.3 There shall be only one CTEB per bundle. 
+        if (blocks.size() > 1) { //D3.3.3 There shall be only one CTEB per bundle.
             return false; //treat as malformed
         }
         else if (blocks.size() == 1) { //cteb present
@@ -274,7 +274,7 @@ bool CustodyTransferManager::UpdateBundleCustodyFields(BundleViewV6 & bv, bool a
             if (ctebBlockPtr == NULL) {
                 return false;
             }
-            
+
             uint64_t ctebNodeNumber;
             uint64_t ctebServiceNumber;
             if (!Uri::ParseIpnUriString(ctebBlockPtr->m_ctebCreatorCustodianEidString, ctebNodeNumber, ctebServiceNumber)) {
@@ -375,7 +375,7 @@ bool CustodyTransferManager::GenerateCustodySignal(CustodyTransferContext &info,
             else { //invalid cteb
                 //acs capable ba, ba accepts custody, invalid cteb => generate succeeded and follow 5.10
                 //invalid cteb was deleted above
-                if (!GenerateCustodySignalBundle(custodySignalRfc5050RenderedBundleView, info.primary, info.payloadLen, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION)) {
+                if (!GenerateCustodySignalBundle(custodySignalRfc5050RenderedBundleView, info.primary, info.payloadSizeBytes, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION)) {
                     return false;
                 }
             }
@@ -409,7 +409,7 @@ bool CustodyTransferManager::GenerateCustodySignal(CustodyTransferContext &info,
 
                 //a) for bundles without a valid CTEB block as identified in RFC 5050 section 5.10, the
                 //  bundle protocol agent shall generate a Failed status;
-                if (!GenerateCustodySignalBundle(custodySignalRfc5050RenderedBundleView, info.primary, info.payloadLen, statusReasonIndex)) {
+                if (!GenerateCustodySignalBundle(custodySignalRfc5050RenderedBundleView, info.primary, info.payloadSizeBytes, statusReasonIndex)) {
                     return false;
                 }
             }
@@ -427,7 +427,7 @@ bool CustodyTransferManager::GenerateCustodySignal(CustodyTransferContext &info,
 
             //acs unsupported ba, ba accepts custody => update pbb with custodian and generate succeeded and follow 5.10
                 //invalid cteb was deleted above
-            if (!GenerateCustodySignalBundle(custodySignalRfc5050RenderedBundleView, info.primary, info.payloadLen, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION)) {
+            if (!GenerateCustodySignalBundle(custodySignalRfc5050RenderedBundleView, info.primary, info.payloadSizeBytes, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION)) {
                 return false;
             }
         }
@@ -438,7 +438,7 @@ bool CustodyTransferManager::GenerateCustodySignal(CustodyTransferContext &info,
 
             //acs unsupported ba, ba refuses custody => generate failed and follow 5.10
 
-            if (!GenerateCustodySignalBundle(custodySignalRfc5050RenderedBundleView, info.primary, info.payloadLen, statusReasonIndex)) {
+            if (!GenerateCustodySignalBundle(custodySignalRfc5050RenderedBundleView, info.primary, info.payloadSizeBytes, statusReasonIndex)) {
                 return false;
             }
         }
@@ -450,7 +450,7 @@ const Bpv6AdministrativeRecordContentAggregateCustodySignal & CustodyTransferMan
     return m_mapCustodianToAcsArray[custodianEid][static_cast<uint8_t>(statusReasonIndex)];
 }
 
-bool CustodyTransferManager::GenerateBundleDeletionStatusReport(const Bpv6CbhePrimaryBlock & primaryOfDeleted, uint64_t payloadLen, BundleViewV6 & bv) {
+bool CustodyTransferManager::GenerateBundleDeletionStatusReport(const Bpv6CbhePrimaryBlock & primaryOfDeleted, uint64_t payloadSizeBytes, BundleViewV6 & bv) {
 
     // Get values needed for report from orginal bundle primary block
 
@@ -461,7 +461,7 @@ bool CustodyTransferManager::GenerateBundleDeletionStatusReport(const Bpv6CbhePr
     uint64_t fragmentOffset = 0, fragmentLength = 0;
     if(isFragment) {
         fragmentOffset = primaryOfDeleted.m_fragmentOffset;
-        fragmentLength = payloadLen;
+        fragmentLength = payloadSizeBytes;
     }
     TimestampUtil::bpv6_creation_timestamp_t copyOfCreationTime = primaryOfDeleted.m_creationTimestamp;
 

@@ -1,3 +1,16 @@
+/**
+ * @file Bpv6FragmentManager.cpp
+ * @author  Evan Danish <evan.j.danish@nasa.gov>
+ *
+ * @copyright Copyright © 2023 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ */
 #include "codec/Bpv6FragmentManager.h"
 #include "Logger.h"
 #include "codec/Bpv6Fragment.h"
@@ -6,13 +19,13 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-static bool AddBundle(BundleViewV6 & bv, uint8_t *data, size_t len, uint64_t &payloadLen) {
+static bool AddBundle(BundleViewV6 & bv, uint8_t *data, size_t len, uint64_t &payloadSizeBytes) {
     if(!bv.LoadBundle(data, len)) {
         LOG_ERROR(subprocess) << "Failed to load full bundle";
         return false;
     }
 
-    if(!bv.GetPayloadSize(payloadLen)) {
+    if(!bv.GetPayloadSize(payloadSizeBytes)) {
         LOG_ERROR(subprocess) << "Failed to get payload length";
         return false;
     }
@@ -44,9 +57,9 @@ bool Bpv6FragmentManager::AddFragmentAndGetComplete(uint8_t *data, size_t len, b
     FragmentInfo & info = m_idToFrags[id];
 
     BundleViewV6 & bv = info.bundles.emplace_back();
-    uint64_t payloadLen = 0;
+    uint64_t payloadSizeBytes = 0;
 
-    if(!AddBundle(bv, data, len, payloadLen)) {
+    if(!AddBundle(bv, data, len, payloadSizeBytes)) {
         LOG_ERROR(subprocess) << "Failed to add bundle to fragment manager";
         info.bundles.pop_back();
         return false;
@@ -54,7 +67,7 @@ bool Bpv6FragmentManager::AddFragmentAndGetComplete(uint8_t *data, size_t len, b
 
     FragmentSet::data_fragment_t rng(
             primary.m_fragmentOffset, 
-            primary.m_fragmentOffset + payloadLen);
+            primary.m_fragmentOffset + payloadSizeBytes);
 
     FragmentSet::data_fragment_t full(
             0, 
@@ -67,7 +80,7 @@ bool Bpv6FragmentManager::AddFragmentAndGetComplete(uint8_t *data, size_t len, b
         return true;
     }
 
-    bool success = AssembleFragments(info.bundles, assembledBv);
+    bool success = Bpv6Fragmenter::Assemble(info.bundles, assembledBv);
 
     m_idToFrags.erase(id);
     isComplete = success;

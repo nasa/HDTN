@@ -1,8 +1,8 @@
 /**
- * @file TestBundleViewV6.cpp
- * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ * @file TestBpv6Fragmentation.cpp
+ * @author  Evan Danish <evan.j.danish@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright © 2023 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -82,7 +82,7 @@ BOOST_AUTO_TEST_CASE(FragmentZero)
     BOOST_REQUIRE(bv.Render(5000));
 
     std::list<BundleViewV6> fragments;
-    bool ret = fragment(bv, 0, fragments);
+    bool ret = Bpv6Fragmenter::Fragment(bv, 0, fragments);
     BOOST_REQUIRE(ret == false);
 }
 
@@ -102,7 +102,7 @@ BOOST_AUTO_TEST_CASE(FragmentBundleLength)
     BOOST_REQUIRE_GT(sz, 0);
 
     std::list<BundleViewV6> fragments;
-    bool ret = fragment(bv, sz, fragments);
+    bool ret = Bpv6Fragmenter::Fragment(bv, sz, fragments);
     BOOST_REQUIRE(ret == false);
 }
 
@@ -123,7 +123,7 @@ BOOST_AUTO_TEST_CASE(FragmentFlagNoFrag)
     BOOST_REQUIRE_GT(sz, 0);
 
     std::list<BundleViewV6> fragments;
-    bool ret = fragment(bv, sz, fragments);
+    bool ret = Bpv6Fragmenter::Fragment(bv, sz, fragments);
     BOOST_REQUIRE(ret == false);
 }
 
@@ -182,7 +182,7 @@ BOOST_DATA_TEST_CASE(
     BOOST_REQUIRE(bv.Render(5000));
 
     std::list<BundleViewV6> fragments;
-    bool ret = fragment(bv, fragmentSize, fragments);
+    bool ret = Bpv6Fragmenter::Fragment(bv, fragmentSize, fragments);
     BOOST_REQUIRE(ret == true);
 
     uint64_t expectedAduLen = body.size();
@@ -223,7 +223,7 @@ BOOST_AUTO_TEST_CASE(FragmentPayloadMultiple)
     BOOST_REQUIRE_GT(sz, 0);
 
     std::list<BundleViewV6> fragments;
-    bool ret = fragment(bv, sz, fragments);
+    bool ret = Bpv6Fragmenter::Fragment(bv, sz, fragments);
     BOOST_REQUIRE(ret == true);
 
     BOOST_REQUIRE(fragments.size() == 3);
@@ -262,7 +262,7 @@ BOOST_AUTO_TEST_CASE(FragmentFragment)
     BOOST_REQUIRE_GT(sz, 0);
 
     std::list<BundleViewV6> fragments;
-    bool ret = fragment(bv, sz, fragments);
+    bool ret = Bpv6Fragmenter::Fragment(bv, sz, fragments);
     BOOST_REQUIRE(ret == true);
 
     BOOST_REQUIRE(fragments.size() == 3);
@@ -273,7 +273,7 @@ BOOST_AUTO_TEST_CASE(FragmentFragment)
 
     std::list<BundleViewV6> bFrags;
 
-    ret = fragment(b, 3, bFrags);
+    ret = Bpv6Fragmenter::Fragment(b, 3, bFrags);
     BOOST_REQUIRE(ret == true);
 
     BOOST_REQUIRE(bFrags.size() == 2);
@@ -314,7 +314,7 @@ BOOST_AUTO_TEST_CASE(FragmentBlockBefore)
     BOOST_REQUIRE_GT(sz, 0);
 
     std::list<BundleViewV6> fragments;
-    bool ret = fragment(bv, sz, fragments);
+    bool ret = Bpv6Fragmenter::Fragment(bv, sz, fragments);
     BOOST_REQUIRE(ret == true);
 
     BOOST_REQUIRE(fragments.size() == 3);
@@ -362,7 +362,8 @@ struct MultiBlockTestInfo {
 
     std::vector<BlockTestInfo> GetReplicatedBefore() {
         std::vector<BlockTestInfo> ret;
-        for(auto &bi : beforeBlocks) {
+        for(std::vector<BlockTestInfo>::iterator it = beforeBlocks.begin(); it != beforeBlocks.end(); it++) {
+            BlockTestInfo &bi = *it;
             if((bi.flags & rep) == rep) {
                 ret.push_back(bi);
             }
@@ -371,7 +372,8 @@ struct MultiBlockTestInfo {
     }
     std::vector<BlockTestInfo> GetReplicatedAfter() {
         std::vector<BlockTestInfo> ret;
-        for(auto &bi : afterBlocks) {
+        for(std::vector<BlockTestInfo>::iterator it = afterBlocks.begin(); it != afterBlocks.end(); it++) {
+            BlockTestInfo &bi = *it;
             if((bi.flags & rep) == rep) {
                 ret.push_back(bi);
             }
@@ -470,7 +472,8 @@ MultiBlockTestInfo MultiBlockTestInfos[] = {
 
 static void CheckBlocks(BundleViewV6 &bv, const std::vector<BlockTestInfo> &beforeBlocks, const std::vector<BlockTestInfo> &afterBlocks) {
         BundleViewV6::canonical_block_view_list_t::iterator blockIt = bv.m_listCanonicalBlockView.begin();
-        for(const auto & bi : beforeBlocks) {
+        for(std::vector<BlockTestInfo>::const_iterator it = beforeBlocks.cbegin(); it != beforeBlocks.cend(); it++) {
+            const BlockTestInfo &bi = *it;
             if(blockIt == bv.m_listCanonicalBlockView.end()) {
                 BOOST_FAIL("Reached end of blocks while testing before payload blocks");
             }
@@ -486,7 +489,8 @@ static void CheckBlocks(BundleViewV6 &bv, const std::vector<BlockTestInfo> &befo
         }
         BOOST_REQUIRE(blockIt->headerPtr->m_blockTypeCode == BPV6_BLOCK_TYPE_CODE::PAYLOAD);
         blockIt++; // Skip  payload
-        for(const auto & bi : afterBlocks) {
+        for(std::vector<BlockTestInfo>::const_iterator it = afterBlocks.cbegin(); it != afterBlocks.cend(); it++) {
+            const BlockTestInfo &bi = *it;
             if(blockIt == bv.m_listCanonicalBlockView.end()) {
                 BOOST_FAIL("Reached end of blocks while testing after payload blocks");
             }
@@ -518,14 +522,16 @@ BOOST_DATA_TEST_CASE(
     buildPrimaryBlock(primary);
     bv.m_primaryBlockView.SetManuallyModified();
 
-    for(auto & bi : info.beforeBlocks) {
+    for(std::vector<BlockTestInfo>::iterator it = info.beforeBlocks.begin(); it != info.beforeBlocks.end(); it++) {
+        BlockTestInfo &bi = *it;
         bv.AppendMoveCanonicalBlock(std::move(buildCanonicalBlock(bi.body, bi.type, bi.flags)));
     }
 
     std::string body = "helloBigworld!";
     bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
 
-    for(auto & bi : info.afterBlocks) {
+    for(std::vector<BlockTestInfo>::iterator it = info.afterBlocks.begin(); it != info.afterBlocks.end(); it++) {
+        BlockTestInfo &bi = *it;
         bv.AppendMoveCanonicalBlock(std::move(buildCanonicalBlock(bi.body, bi.type, bi.flags)));
     }
 
@@ -534,7 +540,7 @@ BOOST_DATA_TEST_CASE(
     BOOST_REQUIRE_GT(sz, 0);
 
     std::list<BundleViewV6> fragments;
-    bool ret = fragment(bv, sz, fragments);
+    bool ret = Bpv6Fragmenter::Fragment(bv, sz, fragments);
     BOOST_REQUIRE(ret == true);
 
     BOOST_REQUIRE(fragments.size() == 3);
@@ -575,14 +581,16 @@ BOOST_DATA_TEST_CASE(
     buildPrimaryBlock(primary);
     bv.m_primaryBlockView.SetManuallyModified();
 
-    for(auto & bi : info.beforeBlocks) {
+    for(std::vector<BlockTestInfo>::iterator it = info.beforeBlocks.begin(); it != info.beforeBlocks.end(); it++) {
+        BlockTestInfo &bi = *it;
         bv.AppendMoveCanonicalBlock(std::move(buildCanonicalBlock(bi.body, bi.type, bi.flags)));
     }
 
     std::string body = "helloBigworld!";
     bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
 
-    for(auto & bi : info.afterBlocks) {
+    for(std::vector<BlockTestInfo>::iterator it = info.afterBlocks.begin(); it != info.afterBlocks.end(); it++) {
+        BlockTestInfo &bi = *it;
         bv.AppendMoveCanonicalBlock(std::move(buildCanonicalBlock(bi.body, bi.type, bi.flags)));
     }
 
@@ -591,11 +599,11 @@ BOOST_DATA_TEST_CASE(
     BOOST_REQUIRE_GT(sz, 0);
 
     std::list<BundleViewV6> fragments;
-    BOOST_REQUIRE(fragment(bv, sz, fragments));
+    BOOST_REQUIRE(Bpv6Fragmenter::Fragment(bv, sz, fragments));
 
     BundleViewV6 av;
 
-    BOOST_REQUIRE(AssembleFragments(fragments, av));
+    BOOST_REQUIRE(Bpv6Fragmenter::Assemble(fragments, av));
     BOOST_REQUIRE(av.Render(5000));
 
     BOOST_REQUIRE(bv.m_renderedBundle.size() == av.m_renderedBundle.size());
@@ -624,7 +632,7 @@ BOOST_AUTO_TEST_CASE(AssembleMissing)
     size_t sz = 5;
 
     std::list<BundleViewV6> fragments;
-    BOOST_REQUIRE(fragment(bv, sz, fragments));
+    BOOST_REQUIRE(Bpv6Fragmenter::Fragment(bv, sz, fragments));
 
     // Remove middle fragment
     std::list<BundleViewV6>::iterator it = fragments.begin();
@@ -633,7 +641,7 @@ BOOST_AUTO_TEST_CASE(AssembleMissing)
 
     BundleViewV6 av;
 
-    BOOST_REQUIRE(!AssembleFragments(fragments, av));
+    BOOST_REQUIRE(!Bpv6Fragmenter::Assemble(fragments, av));
 }
 
 BOOST_AUTO_TEST_CASE(AssembleDifferent)
@@ -665,9 +673,9 @@ BOOST_AUTO_TEST_CASE(AssembleDifferent)
 
 
     std::list<BundleViewV6> fragmentsA, fragmentsB;
-    BOOST_REQUIRE(fragment(a, sz, fragmentsA));
+    BOOST_REQUIRE(Bpv6Fragmenter::Fragment(a, sz, fragmentsA));
     BOOST_TEST_MESSAGE("Done fragmenting A");
-    BOOST_REQUIRE(fragment(b, sz, fragmentsB));
+    BOOST_REQUIRE(Bpv6Fragmenter::Fragment(b, sz, fragmentsB));
     BOOST_TEST_MESSAGE("Done fragmenting B");
 
     BOOST_REQUIRE(fragmentsA.size() == 3);
@@ -684,7 +692,7 @@ BOOST_AUTO_TEST_CASE(AssembleDifferent)
 
     BundleViewV6 av;
 
-    BOOST_REQUIRE(!AssembleFragments(fragmentsA, av));
+    BOOST_REQUIRE(!Bpv6Fragmenter::Assemble(fragmentsA, av));
 }
 
 BOOST_AUTO_TEST_CASE(AssembleNotAFragment)
@@ -708,7 +716,7 @@ BOOST_AUTO_TEST_CASE(AssembleNotAFragment)
 
     BundleViewV6 av;
 
-    BOOST_REQUIRE(!AssembleFragments(notFragments, av));
+    BOOST_REQUIRE(!Bpv6Fragmenter::Assemble(notFragments, av));
 }
 
 BOOST_AUTO_TEST_CASE(AssembleEmpty)
@@ -717,7 +725,7 @@ BOOST_AUTO_TEST_CASE(AssembleEmpty)
     std::list<BundleViewV6> emptyFragments;
 
     BundleViewV6 av;
-    BOOST_REQUIRE(!AssembleFragments(emptyFragments, av));
+    BOOST_REQUIRE(!Bpv6Fragmenter::Assemble(emptyFragments, av));
 }
 
 BOOST_AUTO_TEST_CASE(FragmentManagerNullData)
@@ -773,7 +781,7 @@ BOOST_AUTO_TEST_CASE(FragmentManager)
     BOOST_REQUIRE(bv.Render(5000));
 
     std::list<BundleViewV6> fragments;
-    bool ret = fragment(bv, 4, fragments);
+    bool ret = Bpv6Fragmenter::Fragment(bv, 4, fragments);
     BOOST_REQUIRE(ret == true);
     BOOST_REQUIRE(fragments.size() == 3);
 
@@ -812,7 +820,7 @@ BOOST_AUTO_TEST_CASE(FragmentManagerMulti)
 
         BOOST_REQUIRE(bv.Render(5000));
 
-        bool ret = fragment(bv, 5, bFragments);
+        bool ret = Bpv6Fragmenter::Fragment(bv, 5, bFragments);
         BOOST_REQUIRE(ret == true);
         BOOST_REQUIRE(bFragments.size() == 2);
     }
@@ -828,7 +836,7 @@ BOOST_AUTO_TEST_CASE(FragmentManagerMulti)
 
         BOOST_REQUIRE(cv.Render(5000));
 
-        bool ret = fragment(cv, 3, cFragments);
+        bool ret = Bpv6Fragmenter::Fragment(cv, 3, cFragments);
         BOOST_REQUIRE(ret == true);
         BOOST_REQUIRE(cFragments.size() == 2);
     }

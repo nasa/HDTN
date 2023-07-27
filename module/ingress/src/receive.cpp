@@ -1405,17 +1405,8 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
     m_availableDestOpportunisticNodeIdToTcpclInductMapMutex.unlock();
     const bool bundleCameFromStorageModule = (!needsProcessing);
     bool needsFragmenting = (m_hdtnConfig.m_fragmentBundlesLargerThanBytes && (payloadSize >  m_hdtnConfig.m_fragmentBundlesLargerThanBytes));
-    bool b1 = (m_hdtnConfig.m_fragmentBundlesLargerThanBytes);
-    bool b2 = (payloadSize >  m_hdtnConfig.m_fragmentBundlesLargerThanBytes);
-    if(needsFragmenting) {
-        LOG_INFO(subprocess) << "DBG: ingress: sending to store, payload " << payloadSize<< " > " << m_hdtnConfig.m_fragmentBundlesLargerThanBytes  << " threshold";
-    } else {
-        LOG_INFO(subprocess) << "DBG: ingress: NOT sending to store, payload " << payloadSize<< " <= " << m_hdtnConfig.m_fragmentBundlesLargerThanBytes  << " threshold";
-        LOG_INFO(subprocess) << "DBG: ingress: b1: " << b1 << " b2: " << b2;
-    }
     bool sentDataOnOpportunisticLink = false;
     const bool trySendOpportunistic = isOpportunisticLinkUp && (bundleCameFromStorageModule || !(requestsCustody || isAdminRecordForHdtnStorage || needsFragmenting));
-    LOG_INFO(subprocess) << "DBG: ingress: try send opportunistic: " << trySendOpportunistic;
     if (trySendOpportunistic) {
         if (tcpclInductIterator->second->ForwardOnOpportunisticLink(finalDestEid.nodeId, *zmqMessageToSendUniquePtr, 3)) { //thread safe forward with 3 second timeout
             sentDataOnOpportunisticLink = true;
@@ -1482,7 +1473,6 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                 const bool shouldTryToUseCustThrough =
                     ((bundleCutThroughPipelineAckingSetObj.m_linkIsUp && (!requestsCustody) && (!isAdminRecordForHdtnStorage) && (!needsFragmenting)));
                 useStorage = !shouldTryToUseCustThrough;
-                LOG_INFO(subprocess) << "DBG: ingress: shouldCutThru: " << shouldTryToUseCustThrough << " useStorage: " << useStorage;
 
                 if (shouldTryToUseCustThrough) { //type egress cut through ("while loop" instead of "if statement" to support breaking to storage)
                     bool reservedEgressPipelineAvailability;

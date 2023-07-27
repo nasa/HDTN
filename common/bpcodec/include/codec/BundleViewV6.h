@@ -96,6 +96,7 @@ public:
     //typedef std::pair<canonical_block_view_iterator_t, canonical_block_view_iterator_t> canonical_block_view_range_t;
 
     BPCODEC_EXPORT BundleViewV6();
+    BPCODEC_EXPORT ~BundleViewV6();
 
     BPCODEC_EXPORT void AppendMoveCanonicalBlock(std::unique_ptr<Bpv6CanonicalBlock>&& headerPtr);
     BPCODEC_EXPORT void PrependMoveCanonicalBlock(std::unique_ptr<Bpv6CanonicalBlock>&& headerPtr);

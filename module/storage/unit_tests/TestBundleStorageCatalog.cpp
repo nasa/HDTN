@@ -175,7 +175,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogTestCase)
 BOOST_AUTO_TEST_CASE(BundleStorageCatalogExpiredCase)
 {
     const uint64_t bundleSize = 1000;
-    const uint64_t payloadSize = 1000;
+    const uint64_t payloadSize = 800;
     const uint64_t bundleRequiredSegments = 1;
     const uint64_t startCustodyId = 1;
     const uint64_t creation = 0;

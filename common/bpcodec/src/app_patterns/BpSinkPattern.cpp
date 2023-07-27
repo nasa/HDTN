@@ -224,7 +224,6 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
     const uint8_t firstByte = rxBuf[0];
     const bool isBpVersion6 = (firstByte == 6);
     const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
-
     if (isBpVersion6) {
         static thread_local BundleViewV6 bv, av;
         if (!bv.LoadBundle(rxBuf.data(), rxBuf.size())) { //invalid bundle
@@ -288,9 +287,9 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
             }
         }
 
-        uint64_t payloadLen;
-        if(bv.GetPayloadSize(payloadLen)) {
-            m_totalPayloadBytesRx += payloadLen;
+        uint64_t payloadSizeBytes;
+        if(bv.GetPayloadSize(payloadSizeBytes)) {
+            m_totalPayloadBytesRx += payloadSizeBytes;
         }
         m_totalBundleBytesRx += messageSize;
         ++m_totalBundlesVersion6Rx;
@@ -314,7 +313,6 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
                 return true;
             }
         }
-        // Get the payload block, error if there isn't one!
         std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
         curBvPtr->GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
         if (blocks.size() != 1) {

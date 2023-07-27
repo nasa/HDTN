@@ -629,34 +629,33 @@ bool ZmqStorageInterface::Impl::ProcessBundleCustody(BundleViewV6 &bv, size_t si
     // We're either writing the original bundle (but modified) or fragments
     // Select which here (Use pointers because BundleViews cannot be moved (or copied))
     std::vector<BundleViewV6*> bundles;
-    uint64_t payloadLen = 0;
-    bv.GetPayloadSize(payloadLen); // okay if this fails
+    uint64_t payloadSizeBytes = 0;
+    bv.GetPayloadSize(payloadSizeBytes); // okay if this fails
     std::list<BundleViewV6> fragments;
-    if(m_hdtnConfig.m_fragmentBundlesLargerThanBytes && (payloadLen > m_hdtnConfig.m_fragmentBundlesLargerThanBytes)) {
-        LOG_INFO(subprocess) << "DBG: storage: Fragmenting, payload " << payloadLen << " > " << m_hdtnConfig.m_fragmentBundlesLargerThanBytes  << " threshold";
-        if(!fragment(bv, m_hdtnConfig.m_fragmentBundlesLargerThanBytes, fragments)) {
+    if(m_hdtnConfig.m_fragmentBundlesLargerThanBytes && (payloadSizeBytes > m_hdtnConfig.m_fragmentBundlesLargerThanBytes)) {
+        if(!Bpv6Fragmenter::Fragment(bv, m_hdtnConfig.m_fragmentBundlesLargerThanBytes, fragments)) {
             LOG_ERROR(subprocess) << "Failed to fragment bundle with custody";
             acceptedCustody = false;
             reason = BPV6_ACS_STATUS_REASON_INDICES::FAIL__BLOCK_UNINTELLIGIBLE;
         } else {
-            for(auto &b : fragments) {
+            for(std::list<BundleViewV6>::iterator it = fragments.begin(); it != fragments.end(); it++) {
+                BundleViewV6 &b = *it;
                 bundles.push_back(&b);
             }
         }
     } else {
-        LOG_INFO(subprocess) << "DBG: storage: NOT Fragmenting, payload " << payloadLen << " <= " << m_hdtnConfig.m_fragmentBundlesLargerThanBytes  << " threshold";
         bundles.push_back(&bv);
     }
 
     std::vector<uint64_t> writtenBundles;
     // Write either the whole bundle or fragments
-    for(auto bundlePtr : bundles) {
+    for(std::vector<BundleViewV6*>::iterator it = bundles.begin(); it != bundles.end(); it++) {
         if(!acceptedCustody) { // Exit early if we errored
             break;
         }
 
-        BundleViewV6 & b = *bundlePtr;
-        auto &primary = b.m_primaryBlockView.header;
+        BundleViewV6 & b = *(*it);
+        Bpv6CbhePrimaryBlock &primary = b.m_primaryBlockView.header;
         const uint64_t newCustodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
 
         if (!b.Render(size + 200)) { //hdtn modifies bundle for next hop
@@ -719,10 +718,8 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
     bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord, cbhe_eid_t *bundleEidMaskPtr)
 {
     BpVersion version = GetBpVersion((const uint8_t*)message->data());
-    LOG_INFO(subprocess) << "DBG: storage: write got bundle to write";
     
     if (version == BpVersion::BPV6) {
-        LOG_INFO(subprocess) << "DBG: storage: write got bundle to write, is bpv6";
         BundleViewV6 bv;
         const bool loadPrimaryBlockOnly = isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord;
         if (!bv.LoadBundle((uint8_t *)message->data(), message->size(), loadPrimaryBlockOnly)) { //invalid bundle
@@ -755,18 +752,18 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
         }
 
         //write bundle to disk, possibly fragmenting if too big
-        uint64_t payloadLen = 0;
-        bv.GetPayloadSize(payloadLen);
-        if(m_hdtnConfig.m_fragmentBundlesLargerThanBytes && payloadLen > m_hdtnConfig.m_fragmentBundlesLargerThanBytes) {
-            LOG_INFO(subprocess) << "DBG: storage: Fragmenting, payload " << payloadLen << " > " << m_hdtnConfig.m_fragmentBundlesLargerThanBytes  << " threshold";
+        uint64_t payloadSizeBytes = 0;
+        bv.GetPayloadSize(payloadSizeBytes);
+        if(m_hdtnConfig.m_fragmentBundlesLargerThanBytes && payloadSizeBytes > m_hdtnConfig.m_fragmentBundlesLargerThanBytes) {
             std::list<BundleViewV6> fragments;
-            if(!fragment(bv, m_hdtnConfig.m_fragmentBundlesLargerThanBytes, fragments)) {
+            if(!Bpv6Fragmenter::Fragment(bv, m_hdtnConfig.m_fragmentBundlesLargerThanBytes, fragments)) {
                 LOG_ERROR(subprocess) << "Failed to fragment bundle";
                 return false;
             }
             const uint64_t newCustodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
             bool ret = true;
-            for(auto &b : fragments) {
+            for(std::list<BundleViewV6>::iterator it = fragments.begin(); it != fragments.end(); it++) {
+                BundleViewV6 &b = *it;
                 const Bpv6CbhePrimaryBlock & p = b.m_primaryBlockView.header;
                 const uint64_t id = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(p.m_sourceNodeId);
                 ret &= WriteBundle(b, id);
@@ -774,7 +771,6 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
             return ret;
 
         } else {
-            LOG_INFO(subprocess) << "DBG: storage: NOT Fragmenting, payload " << payloadLen << " <= " << m_hdtnConfig.m_fragmentBundlesLargerThanBytes  << " threshold";
             const uint64_t newCustodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
             return WriteBundle(bv, newCustodyId, bundleEidMaskPtr);
         }
@@ -1523,7 +1519,6 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     //storageStats.inBytes += sizeof(hdtn::ToStorageHdr);
                     //++storageStats.inMsg;
 
-                    LOG_INFO(subprocess) << "DBG: storage: got a bundle to store";
                     zmq::message_t zmqBundleDataReceived;
                     if (!m_zmqPullSock_boundIngressToConnectingStoragePtr->recv(zmqBundleDataReceived, zmq::recv_flags::none)) {
                         LOG_ERROR(subprocess) << "hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message not received";
@@ -1545,14 +1540,12 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                             && (toStorageHeader.outductIndex < m_vectorOutductInfo.size()) //if outductIndex is UINT64_MAX then bundle needs stored
                             && m_vectorOutductInfo[toStorageHeader.outductIndex]->linkIsUp)
                         {
-                            LOG_INFO(subprocess) << "DBG: storage: got a bundle to store -> cutthrough";
                             OutductInfo_t& info = *(m_vectorOutductInfo[toStorageHeader.outductIndex]);
                             info.cutThroughQueue.emplace(std::move(zmqBundleDataReceived),
                                 std::move(zmqMessageStorageAckHdrWithDataStolen), toStorageHeader.finalDestEid, toStorageHeader.ingressUniqueId);
                         }
                         else {
                             //storageStats.inBytes += zmqBundleDataReceived.size();
-                            LOG_INFO(subprocess) << "DBG: storage: got a bundle to store -> writing";
 
                             cbhe_eid_t finalDestEidReturnedFromWrite;
                             const bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord = (toStorageHeader.isCustodyOrAdminRecord == 0);

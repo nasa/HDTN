@@ -16,7 +16,7 @@ add_library(bpcodec
 		src/codec/BundleViewV7.cpp
 		src/codec/Bpv7Crc.cpp
 		src/codec/Bpv6Fragment.cpp
-        src/codec/Bpv6FragmentManager.cpp
+		src/codec/Bpv6FragmentManager.cpp
 )
 target_compile_options(bpcodec PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 GENERATE_EXPORT_HEADER(bpcodec)
@@ -50,7 +50,7 @@ set(MY_PUBLIC_HEADERS
 	include/codec/CustodyTransferManager.h
 	include/codec/PrimaryBlock.h
 	include/codec/Bpv6Fragment.h
-    include/codec/Bpv6FragmentManager.h
+	include/codec/Bpv6FragmentManager.h
 	${CMAKE_CURRENT_BINARY_DIR}/bpcodec_export.h
 )
 set_target_properties(bpcodec PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
