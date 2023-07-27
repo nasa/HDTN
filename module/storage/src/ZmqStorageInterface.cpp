@@ -111,15 +111,17 @@ struct ZmqStorageInterface::Impl : private boost::noncopyable {
     std::size_t GetCurrentNumberOfBundlesDeletedFromStorage();
 
 private:
-    bool WriteAcsBundle(const Bpv6CbhePrimaryBlock& primary, const padded_vector_uint8_t& acsBundleSerialized);
+    bool WriteAcsBundle(BundleViewV6 &bv);
     bool Write(zmq::message_t* message,
         cbhe_eid_t& finalDestEidReturned, bool dontWriteIfCustodyFlagSet,
         bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord, cbhe_eid_t *bundleEidMaskPtr = NULL);
     bool ProcessBundleCustody(BundleViewV6 &bv, size_t size, cbhe_eid_t *bundleEidMaskPtr);
     void ReportDepletedStorage(cbhe_eid_t &eid);
     bool ProcessAdminRecord(BundleViewV6 &bv);
+    bool WriteBundle(BundleViewV6 &bv, const uint64_t newCustodyId, cbhe_eid_t *bundleEidMaskPtr = NULL);
+    bool WriteBundle(BundleViewV7 &bv, const uint64_t newCustodyId, cbhe_eid_t *bundleEidMaskPtr = NULL);
     bool WriteBundle(const PrimaryBlock& bundlePrimaryBlock,
-        const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize, cbhe_eid_t *bundleEidMaskPtr = NULL);
+        const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize, uint64_t payloadSizeBytes, cbhe_eid_t *bundleEidMaskPtr = NULL);
     uint64_t PeekOne(const std::vector<eid_plus_isanyserviceid_pair_t>& availableDestLinks);
     bool ReleaseOne_NoBlock(const OutductInfo_t& info, const uint64_t maxBundleSizeToRead, uint64_t& returnedBundleSize);
     void RepopulateUpLinksVec();
@@ -397,22 +399,32 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDi
     return true;
 }
 
-bool ZmqStorageInterface::Impl::WriteAcsBundle(const Bpv6CbhePrimaryBlock & primary, const padded_vector_uint8_t& acsBundleSerialized)
+bool ZmqStorageInterface::Impl::WriteAcsBundle(BundleViewV6 &bv)
 {
+    Bpv6CbhePrimaryBlock &primary = bv.m_primaryBlockView.header;
     const cbhe_eid_t & hdtnSrcEid = primary.m_sourceNodeId;
     const uint64_t newCustodyIdForAcsCustodySignal = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(hdtnSrcEid);
 
+    uint64_t payloadSizeBytes = 0;
+    if(!bv.GetPayloadSize(payloadSizeBytes)) {
+        LOG_ERROR(subprocess) << "Could not get payload size";
+        return false;
+    }
+
+    uint8_t *data = bv.m_frontBuffer.data();
+    uint64_t size = bv.m_frontBuffer.size();
+
     //write custody signal to disk
     BundleStorageManagerSession_WriteToDisk sessionWrite;
-    const uint64_t totalSegmentsRequired = m_bsmPtr->Push(sessionWrite, primary, acsBundleSerialized.size());
+    const uint64_t totalSegmentsRequired = m_bsmPtr->Push(sessionWrite, primary, size, payloadSizeBytes);
     if (totalSegmentsRequired == 0) {
         LOG_ERROR(subprocess) << "out of space for acs custody signal";
         return false;
     }
 
     const uint64_t totalBytesPushed = m_bsmPtr->PushAllSegments(sessionWrite, primary,
-        newCustodyIdForAcsCustodySignal, acsBundleSerialized.data(), acsBundleSerialized.size());
-    if (totalBytesPushed != acsBundleSerialized.size()) {
+        newCustodyIdForAcsCustodySignal, data, size);
+    if (totalBytesPushed != size) {
         LOG_ERROR(subprocess) << "totalBytesPushed != acsBundleSerialized.size";
         return false;
     }
@@ -618,7 +630,7 @@ bool ZmqStorageInterface::Impl::ProcessBundleCustody(BundleViewV6 &bv, size_t si
     // Select which here (Use pointers because BundleViews cannot be moved (or copied))
     std::vector<BundleViewV6*> bundles;
     uint64_t payloadLen = 0;
-    bv.GetPayloadSize(bv, payloadLen);
+    bv.GetPayloadSize(payloadLen); // okay if this fails
     std::list<BundleViewV6> fragments;
     if(m_hdtnConfig.m_fragmentBundlesLargerThanBytes && (payloadLen > m_hdtnConfig.m_fragmentBundlesLargerThanBytes)) {
         LOG_INFO(subprocess) << "DBG: storage: Fragmenting, payload " << payloadLen << " > " << m_hdtnConfig.m_fragmentBundlesLargerThanBytes  << " threshold";
@@ -654,7 +666,7 @@ bool ZmqStorageInterface::Impl::ProcessBundleCustody(BundleViewV6 &bv, size_t si
             break;
         }
 
-        bool wroteBundle = WriteBundle(primary, newCustodyId, (const uint8_t*)b.m_renderedBundle.data(), b.m_renderedBundle.size(), bundleEidMaskPtr);
+        bool wroteBundle = WriteBundle(b, newCustodyId, bundleEidMaskPtr);
         if(!wroteBundle) {
             LOG_ERROR(subprocess) << "Failed to write bundle with custody to disk";
             acceptedCustody = false;
@@ -676,10 +688,8 @@ bool ZmqStorageInterface::Impl::ProcessBundleCustody(BundleViewV6 &bv, size_t si
         const uint64_t newCustodyIdFor5050CustodySignal = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(hdtnSrcEid);
 
         bool wroteCustody = WriteBundle(
-                m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header,
-                newCustodyIdFor5050CustodySignal,
-                (const uint8_t*)m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.data(),
-                m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size());
+                m_custodySignalRfc5050RenderedBundleView,
+                newCustodyIdFor5050CustodySignal);
 
         if(!wroteCustody) {
             LOG_ERROR(subprocess) << "Failed to write custody signal to disk; deleting bundle(s)";
@@ -746,7 +756,7 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
 
         //write bundle to disk, possibly fragmenting if too big
         uint64_t payloadLen = 0;
-        bv.GetPayloadSize(bv, payloadLen);
+        bv.GetPayloadSize(payloadLen);
         if(m_hdtnConfig.m_fragmentBundlesLargerThanBytes && payloadLen > m_hdtnConfig.m_fragmentBundlesLargerThanBytes) {
             LOG_INFO(subprocess) << "DBG: storage: Fragmenting, payload " << payloadLen << " > " << m_hdtnConfig.m_fragmentBundlesLargerThanBytes  << " threshold";
             std::list<BundleViewV6> fragments;
@@ -759,14 +769,14 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
             for(auto &b : fragments) {
                 const Bpv6CbhePrimaryBlock & p = b.m_primaryBlockView.header;
                 const uint64_t id = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(p.m_sourceNodeId);
-                ret &= WriteBundle(p, id, (const uint8_t*)b.m_renderedBundle.data(), b.m_renderedBundle.size());
+                ret &= WriteBundle(b, id);
             }
             return ret;
 
         } else {
             LOG_INFO(subprocess) << "DBG: storage: NOT Fragmenting, payload " << payloadLen << " <= " << m_hdtnConfig.m_fragmentBundlesLargerThanBytes  << " threshold";
             const uint64_t newCustodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
-            return WriteBundle(primary, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size(), bundleEidMaskPtr);
+            return WriteBundle(bv, newCustodyId, bundleEidMaskPtr);
         }
     }
     else if (version == BpVersion::BPV7) {
@@ -781,7 +791,7 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
         const uint64_t newCustodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
 
         //write bundle
-        return WriteBundle(primary, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size(), bundleEidMaskPtr);
+        return WriteBundle(bv, newCustodyId, bundleEidMaskPtr);
     }
     else {
         LOG_ERROR(subprocess) << "error in ZmqStorageInterface Write: unsupported bundle version detected";
@@ -790,12 +800,32 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
     
 }
 
+bool ZmqStorageInterface::Impl::WriteBundle(BundleViewV6 &bv, const uint64_t newCustodyId, cbhe_eid_t *bundleEidMaskPtr)
+{
+    uint64_t payloadSize = 0;
+    if(!bv.GetPayloadSize(payloadSize)) {
+        LOG_ERROR(subprocess) << "unable to get payload size";
+        return false;
+    }
+    return WriteBundle(bv.m_primaryBlockView.header, newCustodyId, static_cast<const uint8_t*>(bv.m_renderedBundle.data()), bv.m_renderedBundle.size(), payloadSize, bundleEidMaskPtr);
+}
+
+bool ZmqStorageInterface::Impl::WriteBundle(BundleViewV7 &bv, const uint64_t newCustodyId, cbhe_eid_t *bundleEidMaskPtr)
+{
+    uint64_t payloadSize = 0;
+    if(!bv.GetPayloadSize(payloadSize)) {
+        LOG_ERROR(subprocess) << "unable to get payload size";
+        return false;
+    }
+    return WriteBundle(bv.m_primaryBlockView.header, newCustodyId, static_cast<const uint8_t*>(bv.m_renderedBundle.data()), bv.m_renderedBundle.size(), payloadSize, bundleEidMaskPtr);
+}
+
 bool ZmqStorageInterface::Impl::WriteBundle(const PrimaryBlock& bundlePrimaryBlock,
-    const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize, cbhe_eid_t *bundleEidMaskPtr)
+    const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize, uint64_t payloadSizeBytes, cbhe_eid_t *bundleEidMaskPtr)
 {
     //write bundle
     BundleStorageManagerSession_WriteToDisk sessionWrite;
-    uint64_t totalSegmentsRequired = m_bsmPtr->Push(sessionWrite, bundlePrimaryBlock, allDataSize, bundleEidMaskPtr);
+    uint64_t totalSegmentsRequired = m_bsmPtr->Push(sessionWrite, bundlePrimaryBlock, allDataSize, payloadSizeBytes, bundleEidMaskPtr);
     if (totalSegmentsRequired == 0) {
         if (!m_isOutOfStorageSpace) {
             LOG_ERROR(subprocess) << "out of storage space";
@@ -1000,7 +1030,7 @@ bool ZmqStorageInterface::Impl::SendDeletionStatusReport(catalog_entry_t * entry
     Bpv6CbhePrimaryBlock & origPrimary = bundleToDelete.m_primaryBlockView.header;
 
     // Create report
-    bool success = m_ctmPtr->GenerateBundleDeletionStatusReport(origPrimary, m_bundleDeletionStatusReport);
+    bool success = m_ctmPtr->GenerateBundleDeletionStatusReport(origPrimary, entry->payloadSizeBytes, m_bundleDeletionStatusReport);
     if(!success) {
         LOG_ERROR(subprocess) << "Failed to generate bundle deletion status report";
         return false;
@@ -1010,11 +1040,18 @@ bool ZmqStorageInterface::Impl::SendDeletionStatusReport(catalog_entry_t * entry
     const cbhe_eid_t& src = m_bundleDeletionStatusReport.m_primaryBlockView.header.m_sourceNodeId;
     const uint64_t custodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(src);
 
+    uint64_t payloadSize;
+    if(!m_bundleDeletionStatusReport.GetPayloadSize(payloadSize)) {
+        LOG_ERROR(subprocess) << "Failed to get size of payload of bundle deletion status report";
+        return false;
+    }
+
     BundleStorageManagerSession_WriteToDisk session;
     const uint64_t numSegments = m_bsmPtr->Push(
         session,
         m_bundleDeletionStatusReport.m_primaryBlockView.header,
-        m_bundleDeletionStatusReport.m_renderedBundle.size());
+        m_bundleDeletionStatusReport.m_renderedBundle.size(),
+        payloadSize);
     if(numSegments == 0) {
         LOG_ERROR(subprocess) << "Failed to allocate space for bundle deletion status report";
         return false;
@@ -1595,7 +1632,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
             std::list<BundleViewV6> newAcsRenderedBundleViewList;
             if (m_ctmPtr->GenerateAllAcsBundlesAndClear(newAcsRenderedBundleViewList)) {
                 for(std::list<BundleViewV6>::iterator it = newAcsRenderedBundleViewList.begin(); it != newAcsRenderedBundleViewList.end(); ++it) {
-                    WriteAcsBundle(it->m_primaryBlockView.header, it->m_frontBuffer);
+                    WriteAcsBundle(*it);
                 }
             }
             acsSendNowExpiry = nowPtime + ACS_SEND_PERIOD;

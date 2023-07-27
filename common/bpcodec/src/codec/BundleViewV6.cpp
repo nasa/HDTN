@@ -295,9 +295,9 @@ bool BundleViewV6::IsValid() const {
     return true;
 }
 
-bool BundleViewV6::GetPayloadSize(BundleViewV6& bv, uint64_t& sz) {
+bool BundleViewV6::GetPayloadSize(uint64_t& sz) {
     std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
-    bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+    GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
     if(blocks.size() != 1 || !blocks[0]) {
         return false;
     }

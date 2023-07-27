@@ -28,7 +28,7 @@
 struct PrimaryBlock {
     virtual bool HasCustodyFlagSet() const = 0;
     virtual bool HasFragmentationFlagSet() const = 0;
-    virtual cbhe_bundle_uuid_t GetCbheBundleUuidFromPrimary() const = 0;
+    virtual cbhe_bundle_uuid_t GetCbheBundleUuidFromPrimary(uint64_t payloadLen) const = 0;
     virtual cbhe_bundle_uuid_nofragment_t GetCbheBundleUuidNoFragmentFromPrimary() const = 0;
     virtual cbhe_eid_t GetFinalDestinationEid() const = 0;
     virtual cbhe_eid_t GetSourceEid() const = 0;

@@ -118,6 +118,7 @@ public:
     BPCODEC_EXPORT bool SwapInAndLoadBundle(padded_vector_uint8_t& bundleData, const bool skipCrcVerifyInCanonicalBlocks = false, const bool loadPrimaryBlockOnly = false);
     BPCODEC_EXPORT bool CopyAndLoadBundle(const uint8_t * bundleData, const std::size_t size, const bool skipCrcVerifyInCanonicalBlocks = false, const bool loadPrimaryBlockOnly = false);
     BPCODEC_EXPORT bool IsValid() const;
+    BPCODEC_EXPORT bool GetPayloadSize(uint64_t &payloadSizeBytes);
     BPCODEC_EXPORT bool Render(const std::size_t maxBundleSizeBytes);
     BPCODEC_EXPORT bool RenderInPlace(const std::size_t paddingLeft);
     BPCODEC_EXPORT void Reset(); //should be private

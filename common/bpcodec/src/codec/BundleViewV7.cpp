@@ -506,6 +506,19 @@ bool BundleViewV7::IsValid() const {
     return true;
 }
 
+bool BundleViewV7::GetPayloadSize(uint64_t &payloadSizeBytes) {
+    std::vector<Bpv7CanonicalBlockView *> blocks;
+    GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+    if(blocks.size() != 1 || !blocks[0]) {
+        return false;
+    }
+    BundleViewV7::Bpv7CanonicalBlockView & payload = *blocks[0];
+    if(!payload.headerPtr) {
+        return false;
+    }
+    payloadSizeBytes = payload.headerPtr->m_dataLength;
+    return true;
+}
 
 void BundleViewV7::Reset() {
     m_primaryBlockView.header.SetZero();

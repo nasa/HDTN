@@ -289,7 +289,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
         }
 
         uint64_t payloadLen;
-        if(bv.GetPayloadSize(bv, payloadLen)) {
+        if(bv.GetPayloadSize(payloadLen)) {
             m_totalPayloadBytesRx += payloadLen;
         }
         m_totalBundleBytesRx += messageSize;

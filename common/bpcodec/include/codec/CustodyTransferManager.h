@@ -52,6 +52,7 @@ public:
         Bpv6CbhePrimaryBlock primary;
         bool validCtebPresent;
         uint64_t receivedCtebCustodyId;
+        uint64_t payloadLen;
     };
 
     
@@ -65,13 +66,13 @@ public:
     BPCODEC_EXPORT bool GenerateCustodySignal(CustodyTransferContext &info, bool acceptCustody,
         const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex, BundleViewV6 & custodySignalRfc5050RenderedBundleView);
     BPCODEC_EXPORT void SetCreationAndSequence(uint64_t & creation, uint64_t & sequence);
-    BPCODEC_EXPORT bool GenerateCustodySignalBundle(BundleViewV6 & newRenderedBundleView, const Bpv6CbhePrimaryBlock & primaryFromSender, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
+    BPCODEC_EXPORT bool GenerateCustodySignalBundle(BundleViewV6 & newRenderedBundleView, const Bpv6CbhePrimaryBlock & primaryFromSender, uint64_t payloadLen, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
     BPCODEC_EXPORT bool GenerateAllAcsBundlesAndClear(std::list<BundleViewV6> & newAcsRenderedBundleViewList);
     BPCODEC_EXPORT bool GenerateAcsBundle(BundleViewV6 & newAcsRenderedBundleView, const cbhe_eid_t & custodianEid, Bpv6AdministrativeRecordContentAggregateCustodySignal & acsToMove, const bool copyAcsOnly = false);
     BPCODEC_EXPORT bool GenerateAcsBundle(BundleViewV6 & newAcsRenderedBundleView, const cbhe_eid_t & custodianEid, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex, const bool copyAcsOnly = false);
     BPCODEC_EXPORT const Bpv6AdministrativeRecordContentAggregateCustodySignal & GetAcsConstRef(const cbhe_eid_t & custodianEid, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
     BPCODEC_EXPORT uint64_t GetLargestNumberOfFills() const;
-    BPCODEC_EXPORT bool GenerateBundleDeletionStatusReport(const Bpv6CbhePrimaryBlock & primaryOfDeleted, BundleViewV6 & statusReport);
+    BPCODEC_EXPORT bool GenerateBundleDeletionStatusReport(const Bpv6CbhePrimaryBlock & primaryOfDeleted, uint64_t payloadLen, BundleViewV6 & statusReport);
 private:
     const bool m_isAcsAware;
     const uint64_t m_myCustodianNodeId;

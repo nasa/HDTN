@@ -12,7 +12,7 @@ static bool AddBundle(BundleViewV6 & bv, uint8_t *data, size_t len, uint64_t &pa
         return false;
     }
 
-    if(!bv.GetPayloadSize(bv, payloadLen)) {
+    if(!bv.GetPayloadSize(payloadLen)) {
         LOG_ERROR(subprocess) << "Failed to get payload length";
         return false;
     }

@@ -158,7 +158,7 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
                 primary.m_lifetimeSeconds = absExpiration;
                 primary.m_creationTimestamp.sequenceNumber = PRIMARY_SEQ;
 
-                boost::uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, primary, size);
+                boost::uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, primary, size, 0);
                 if (totalSegmentsRequired == 0) break;
                 totalSegmentsStoredOnDisk += totalSegmentsRequired;
                 totalBytesWrittenThisTest += size;

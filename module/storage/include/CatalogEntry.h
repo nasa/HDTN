@@ -27,6 +27,7 @@
 
 struct catalog_entry_t {
     uint64_t bundleSizeBytes;
+    uint64_t payloadSizeBytes;
     segment_id_chain_vec_t segmentIdChainVec;
     cbhe_eid_t destEid;
     uint64_t encodedAbsExpirationAndCustodyAndPriority;
@@ -48,7 +49,7 @@ struct catalog_entry_t {
     STORAGE_LIB_EXPORT bool HasCustodyAndFragmentation() const;
     STORAGE_LIB_EXPORT bool HasCustodyAndNonFragmentation() const;
     STORAGE_LIB_EXPORT bool HasCustody() const;
-    STORAGE_LIB_EXPORT void Init(const PrimaryBlock & primary, const uint64_t paramBundleSizeBytes, const uint64_t paramNumSegmentsRequired, void * paramPtrUuidKeyInMap, cbhe_eid_t *bundleEidMaskPtr = NULL);
+    STORAGE_LIB_EXPORT void Init(const PrimaryBlock & primary, const uint64_t paramBundleSizeBytes, const uint64_t paramPayloadSizeBytes, const uint64_t paramNumSegmentsRequired, void * paramPtrUuidKeyInMap, cbhe_eid_t *bundleEidMaskPtr = NULL);
 };
 
 #endif //_CATALOG_ENTRY_H

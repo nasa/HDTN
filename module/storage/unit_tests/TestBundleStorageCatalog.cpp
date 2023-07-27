@@ -83,7 +83,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogTestCase)
                 primaries.push_back(&primariesV7[i]);
             }
             catalog_entry_t catalogEntryToTake;
-            catalogEntryToTake.Init(*primaries[i], 1000 + i, 1, NULL);
+            catalogEntryToTake.Init(*primaries[i], 1000 + i, 800 + i, 1, NULL);
             sumBundleBytes += 1000 + i;
             catalogEntryToTake.segmentIdChainVec = { static_cast<segment_id_t>(i) };
             catalogEntryCopiesForVerification.push_back(catalogEntryToTake); //make a copy for verification
@@ -135,7 +135,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogTestCase)
                 BOOST_REQUIRE(cidFromUuidPtr != NULL);
                 BOOST_REQUIRE_EQUAL(*cidFromUuidPtr, expectedCustodyId);
                 //make sure the fragmented uuid version above doesn't exist
-                BOOST_REQUIRE(bsc.GetCustodyIdFromUuid(primaries[i]->GetCbheBundleUuidFromPrimary()) == NULL);
+                BOOST_REQUIRE(bsc.GetCustodyIdFromUuid(primaries[i]->GetCbheBundleUuidFromPrimary(800 + i)) == NULL);
             
                 //since request custody was set in the bundle, the catalog entry shall be retrievable by CTEB/ACS custody Id
                 catalog_entry_t * entryFromCustodyIdPtr = bsc.GetEntryFromCustodyId(expectedCustodyId);
@@ -175,6 +175,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogTestCase)
 BOOST_AUTO_TEST_CASE(BundleStorageCatalogExpiredCase)
 {
     const uint64_t bundleSize = 1000;
+    const uint64_t payloadSize = 1000;
     const uint64_t bundleRequiredSegments = 1;
     const uint64_t startCustodyId = 1;
     const uint64_t creation = 0;
@@ -195,7 +196,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogExpiredCase)
             }
 
             catalog_entry_t catalogEntryToTake;
-            catalogEntryToTake.Init(*primary, bundleSize, bundleRequiredSegments, NULL);
+            catalogEntryToTake.Init(*primary, bundleSize, payloadSize, bundleRequiredSegments, NULL);
             catalogEntryToTake.segmentIdChainVec = { static_cast<segment_id_t>(i) };
 
             bool ret = bsc.CatalogIncomingBundleForStore(
@@ -220,6 +221,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogNoExpiredTestCase)
 {
 
     const uint64_t bundleSize = 1000;
+    const uint64_t payloadSize = 800;
     const uint64_t bundleRequiredSegments = 1;
     const uint64_t custodyId = 1;
     const uint64_t creation = 0;
@@ -240,7 +242,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogNoExpiredTestCase)
 
 
         catalog_entry_t catalogEntryToTake;
-        catalogEntryToTake.Init(*primary, bundleSize, bundleRequiredSegments, NULL);
+        catalogEntryToTake.Init(*primary, bundleSize, payloadSize, bundleRequiredSegments, NULL);
         catalogEntryToTake.segmentIdChainVec = { static_cast<segment_id_t>(0) };
 
         bool ret = bsc.CatalogIncomingBundleForStore(
@@ -262,6 +264,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogNoExpiredTestCase)
 BOOST_AUTO_TEST_CASE(BundleStorageCatalogMaxExpiredCase)
 {
     const uint64_t bundleSize = 1000;
+    const uint64_t payloadSize = 800;
     const uint64_t bundleRequiredSegments = 1;
     const uint64_t startCustodyId = 1;
     const uint64_t creation = 0;
@@ -282,7 +285,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogMaxExpiredCase)
             }
 
             catalog_entry_t catalogEntryToTake;
-            catalogEntryToTake.Init(*primary, bundleSize, bundleRequiredSegments, NULL);
+            catalogEntryToTake.Init(*primary, bundleSize, payloadSize, bundleRequiredSegments, NULL);
             catalogEntryToTake.segmentIdChainVec = { static_cast<segment_id_t>(i) };
 
             bool ret = bsc.CatalogIncomingBundleForStore(
