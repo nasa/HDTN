@@ -164,7 +164,7 @@
                     <label>Key File</label>
                     <input type="file" id="keyFile" required>
                     <button id="submitPolicy" type="submit" onclick="checkNewPolicy()">Add Policy</button>
-                    <button id="savePolicy" style="display: none;" onclick="editPolicy()">Save Changes</button>
+                    <button id="savePolicy" style="display: none;" onclick="editPolicy(this.id)">Save Changes</button>
                     <button id="cancelButtonp" style="display: none;" onclick="cancelChanges(this.id)">Cancel</button>
                 </div>
             </div>
@@ -218,7 +218,7 @@
                     <span id="writeroot"></span>
                     <button onclick="addNewEvent()">Add another Event</button>
                     <button id="submitEvent" type="submit" onclick="checkEvent()">Submit</button>
-                    <button id="saveEvent" style="display: none;" onclick="editEvent()">Save Changes</button>
+                    <button id="saveEvent" style="display: none;" onclick="editEvent(this.id)">Save Changes</button>
                     <button id="cancelButtone" style="display: none;" onclick="cancelChanges(this.id)">Cancel</button>
                 </div>
             </div>
@@ -279,6 +279,8 @@
         var eventDescription = document.getElementById('eventDescription');
         var eventID = document.getElementById("eventID");
         var key = document.getElementById('securityEventId').value;
+        var valid = 1;
+        var validEvent = true;
 
         var currentPolicies = { "bpsecConfigName": "myBPSecConfig", "policyRules": [], "securityFailureEventSets": [] };
 
@@ -304,17 +306,31 @@
 
         function cancelChanges(id) {
             var removalType = id.slice(-1);
+            var newId = id.substring(0, id.length - 1);
+            if (removalType === "c") {
+                var removalType = newId.slice(-1);
+                if (removalType === 'p') {
+                    var changeButton = document.getElementById(id);
+                    changeButton.id = "savePolicy";
+                } else {
+                    var changeButton = document.getElementById(id);
+                    changeButton.id = "saveEvent";
+                }
+            }
             //reset forms
             if (removalType === 'p') {
                 closeForm();
+
                 //change the form
                 var addButton = document.getElementById("submitPolicy");
                 addButton.style.display = "block";
                 var exitButton = document.getElementById("policyQuitBtnp");
                 exitButton.style.display = "block";
 
+                //make it a general button 
                 var changeButton = document.getElementById("savePolicy");
                 changeButton.style.display = "none";
+
                 var cancelButton = document.getElementById("cancelButtonp");
                 cancelButton.style.display = "none";
 
@@ -328,8 +344,10 @@
                 var exitButton = document.getElementById("policyQuitBtne");
                 exitButton.style.display = "block";
 
+                //make it a general button 
                 var changeButton = document.getElementById("saveEvent");
                 changeButton.style.display = "none";
+
                 var cancelButton = document.getElementById("cancelButtone");
                 cancelButton.style.display = "none";
 
@@ -337,15 +355,30 @@
             }
         }
 
-        function editPolicy() {
+        function editPolicy(id) {
+            console.log(id)
+            var newId = id.substring(0, id.length - 1);
             //check that the user gave good new info
-            //if so add that to the json and remove the previous
-            //change the form to what it was before
+            checkNewPolicy();
+            if (valid) {
+                //if so add that to the json and remove the previous
+                removeTable(id);
+                //change the form to what it was before
+                cancelChanges(id);
+            }
         }
-        function editEvent() {
+
+        function editEvent(id) {
+            console.log(id);
+            var newId = id.substring(0, id.length - 1);
             //check that the user gave good new info
-            //if so add that to the json and remove the previous
-            //change the form to what it was before
+            checkEvent();
+            if (validEvent) {
+                //if so add that to the json and remove the previous
+                removeTable(id);
+                //change the form to what it was before
+                cancelChanges(id);
+            }
         }
 
         function setSelectedValue(selectObj, valueToSet) {
@@ -379,35 +412,39 @@
                             var cancelButton = document.getElementById("cancelButtonp");
                             cancelButton.style.display = "block";
 
+                            //make id the id to remove and change the previous 
+                            var editPolicyButton = document.getElementById("savePolicy");
+                            editPolicyButton.id = id + "c";
+
                             //add the current information to the form
                             if (currentPolicies[parts][i].securityRole === "source") {
-                                for(params in currentPolicies[parts][i]) {
-                                    if(params === "securityContextParams"){
+                                for (params in currentPolicies[parts][i]) {
+                                    if (params === "securityContextParams") {
                                         sourceExtraFields.style.display = 'flex';
-                                        for(var j = 0; j < currentPolicies[parts][i][params][j]; j++){
-                                            if(currentPolicies[parts][i][params][j].paramName === "aesVariant"){
+                                        for (var j = 0; j < currentPolicies[parts][i][params][j]; j++) {
+                                            if (currentPolicies[parts][i][params][j].paramName === "aesVariant") {
                                                 aesVariant.value = currentPolicies[parts][i][params][j].value;
                                             }
-                                            if(currentPolicies[parts][i][params][j].paramName === "shaVariant"){
+                                            if (currentPolicies[parts][i][params][j].paramName === "shaVariant") {
                                                 shaVariant.value = currentPolicies[parts][i][params][j].value;
                                             }
-                                            if(currentPolicies[parts][i][params][j].paramName === "ivSizeBytes"){
+                                            if (currentPolicies[parts][i][params][j].paramName === "ivSizeBytes") {
                                                 ivSize.value = currentPolicies[parts][i][params][j].value;
                                             }
-                                            if(currentPolicies[parts][i][params][j].paramName === "scopeFlags"){
+                                            if (currentPolicies[parts][i][params][j].paramName === "scopeFlags") {
                                                 scopeFlags.value = currentPolicies[parts][i][params][j].value;
                                             }
-                                            if(currentPolicies[parts][i][params][j].paramName === "securityBlockCrc"){
+                                            if (currentPolicies[parts][i][params][j].paramName === "securityBlockCrc") {
                                                 scopeCRC.value = currentPolicies[parts][i][params][j].value;
                                             }
-                                            if(currentPolicies[parts][i][params][j].paramName === "keyFile"){
+                                            if (currentPolicies[parts][i][params][j].paramName === "keyFile") {
                                                 console.log(currentPolicies[parts][i][params][j].value);
                                                 fileInput.value = currentPolicies[parts][i][params][j].value;
                                             }
                                         }
                                     }
                                 }
-                            }else {
+                            } else {
                                 console.log(currentPolicies[parts][i].securityContextParams[0].value);
                                 //fileInput.files = currentPolicies[parts][i].securityContextParams[0].value;
                             }
@@ -417,7 +454,7 @@
                             bundleSource.value = currentPolicies[parts][i].bundleSource;
                             bundleDestination.value = currentPolicies[parts][i].bundleDestination;
                             roleField.value = currentPolicies[parts][i].securityRole;
-                            if(currentPolicies[parts][i].securityService === "confidentiality"){
+                            if (currentPolicies[parts][i].securityService === "confidentiality") {
                                 securityService.value = 'aes';
                             } else {
                                 securityService.value = 'sha'
@@ -443,6 +480,10 @@
                             var cancelButton = document.getElementById("cancelButtone");
                             cancelButton.style.display = "block";
 
+                            //make id the id to remove and change the previous 
+                            var editEventButton = document.getElementById("saveEvent");
+                            editEventButton.id = id + "c";
+
                             //add the current information to the form
                             eventName.value = currentPolicies[parts][i].name;
                             eventDescription.value = currentPolicies[parts][i].description;
@@ -460,8 +501,15 @@
         function removeTable(id) {
             //have to make sure that the event is not deleted before the policy
             var validDeletion = 1;
+            var deletedNode = 0;
+            var noChangeDeletion = 1;
             var removalType = id.slice(-1);
             var idKey = id.substring(0, id.length - 1);
+            if (removalType === "c") {
+                removalType = idKey.slice(-1);
+                idKey = idKey.substring(0, idKey.length - 1);
+                noChangeDeletion = 0;
+            }
             //id is the key for the array index to delete
             for (var parts in currentPolicies) {
                 for (var i = 0; i < currentPolicies[parts].length; i++) {
@@ -469,29 +517,40 @@
                         if (currentPolicies[parts][i].description === idKey && validDeletion) {
                             if (currentPolicies[parts].length === 1) {
                                 currentPolicies[parts] = [];
+                                deletedNode = 1;
                             } else {
                                 currentPolicies[parts].splice(i, 1);
+                                deletedNode = 1;
                             }
                             showJSON();
-                            alert("Deleted " + idKey + " from configurations.");
+                            if (noChangeDeletion) {
+                                alert("Deleted " + idKey + " from configurations.");
+                            }
                             break;
                         }
                     } else {
-                        if (currentPolicies[parts][i].securityFailureEventSetReference === idKey) {
+                        if (currentPolicies[parts][i].securityFailureEventSetReference === idKey && noChangeDeletion) {
                             validDeletion = 0;
                             alert("INVALID DELETION\nCannot delete an event before the policy.")
                             break;
-                        } else if (currentPolicies[parts][i].name === idKey && validDeletion) {
+                        } else if (currentPolicies[parts][i].name === idKey && validDeletion && !noChangeDeletion) {
                             if (currentPolicies[parts].length === 1) {
                                 currentPolicies[parts] = [];
+                                deletedNode = 1;
                             } else {
                                 currentPolicies[parts].splice(i, 1);
+                                deletedNode = 1;
                             }
                             showJSON();
-                            alert("Deleted " + idKey + " from configurations.");
+                            if (noChangeDeletion) {
+                                alert("Deleted " + idKey + " from configurations.");
+                            }
                             break;
                         }
                     }
+                }
+                if (deletedNode) {
+                    break;
                 }
             }
         }
@@ -588,7 +647,6 @@
 
         function checkEvent() {
             var allActions = getSelected('eventActions');
-            var validEvent = true;
 
             //check that the information was filled out
             if (eventName.value === "") {
@@ -789,8 +847,6 @@
         }
 
         function checkNewPolicy(event) {
-            var valid = 1;
-
             //check the node ids for the policies
             var ipRegex = /\d{1,2}\.\d{1,2}[^1]|1\.1|1\.\d{1,2}|\*\.\*|1\.\*/g; //for ips of *.*, 1.*, 1.1
 
