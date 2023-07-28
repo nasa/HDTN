@@ -1,0 +1,12 @@
+{
+    "inductConfigName": "myconfig",
+    "inductVector": [
+        {
+            "name": "stcp_bpsink",
+            "convergenceLayer": "stcp",
+            "boundPort": 5000,
+            "numRxCircularBufferElements": 10000,
+            "keepAliveIntervalSeconds": 15
+        }
+    ]
+}

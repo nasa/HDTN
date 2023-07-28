@@ -1,0 +1,16 @@
+{
+    "outductConfigName": "bpsend stream point to point (bprecv stream)",
+    "outductVector": [
+        {
+            "name": "to bprecv stream groundstation",
+            "convergenceLayer": "udp",
+            "nextHopNodeId": 2,
+            "remoteHostname": "10.1.1.200",
+            "remotePort": 60000,
+            "maxNumberOfBundlesInPipeline": 10000,
+            "maxSumOfBundleBytesInPipeline": 50000000,
+            "finalDestinationEidUris":["ipn:2.1"],
+            "udpRateBps": 650000000
+        }
+    ]
+}

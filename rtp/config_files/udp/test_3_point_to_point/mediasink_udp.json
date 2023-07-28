@@ -1,0 +1,12 @@
+{
+    "inductConfigName": "bprecv stream from bp send stream",
+    "inductVector": [
+        {
+            "name": "induct from jetson",
+            "convergenceLayer": "udp",
+            "boundPort": 5000,
+            "numRxCircularBufferElements": 10000,
+            "numRxCircularBufferBytesPerElement": 20000
+        }
+    ]
+}

@@ -1,0 +1,16 @@
+{
+    "outductConfigName": "bpsendstream through 2 hop network",
+    "outductVector": [
+        {
+            "name": "to localhost hdtn one process",
+            "convergenceLayer": "udp",
+            "nextHopNodeId": 1,
+            "remoteHostname": "localhost",
+            "remotePort": 5000,
+            "maxNumberOfBundlesInPipeline": 10000,
+            "maxSumOfBundleBytesInPipeline": 50000000,
+            "finalDestinationEidUris":["ipn:1.1"],
+            "udpRateBps": 5000000
+        }
+    ]
+}
