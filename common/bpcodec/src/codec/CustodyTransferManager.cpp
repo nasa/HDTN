@@ -78,6 +78,8 @@ bool CustodyTransferManager::GenerateCustodySignalBundle(BundleViewV6 & newRende
         sig.SetTimeOfSignalGeneration(TimestampUtil::GenerateDtnTimeNow());//add custody
         const uint8_t sri = static_cast<uint8_t>(statusReasonIndex);
         sig.SetCustodyTransferStatusAndReason(INDEX_TO_IS_SUCCESS[sri], INDEX_TO_REASON_CODE[sri]);
+        // Note: need to set this on both the custody signal and the block
+        sig.m_isFragment = primaryFromSender.HasFragmentationFlagSet();
 
         if(primaryFromSender.HasFragmentationFlagSet()) {
             sig.m_fragmentOffsetIfPresent = primaryFromSender.m_fragmentOffset;

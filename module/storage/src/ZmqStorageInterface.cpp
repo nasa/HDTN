@@ -658,6 +658,13 @@ bool ZmqStorageInterface::Impl::ProcessBundleCustody(BundleViewV6 &bv, size_t si
         Bpv6CbhePrimaryBlock &primary = b.m_primaryBlockView.header;
         const uint64_t newCustodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
 
+        if (!m_ctmPtr->UpdateBundleCustodyFields(b, acceptedCustody, newCustodyId)) { //hdtn modifies bundle for next hop
+            LOG_ERROR(subprocess) << "Failed to update bundle custody fields";
+            acceptedCustody = false;
+            reason = BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE; // TODO not best code?
+            break;
+        }
+
         if (!b.Render(size + 200)) { //hdtn modifies bundle for next hop
             LOG_ERROR(subprocess) << "error unable to render new bundle";
             acceptedCustody = false;

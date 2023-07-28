@@ -95,14 +95,30 @@ static void createPayloadBlock(BundleViewV6::Bpv6CanonicalBlockView & block, Bun
 }
 
 // Appends copy of block to bv
-static void appendBlock(BundleViewV6::Bpv6CanonicalBlockView & block, BundleViewV6& bv) {
+static bool appendBlock(BundleViewV6::Bpv6CanonicalBlockView & block, BundleViewV6& bv) {
     bv.m_listCanonicalBlockView.emplace_back();
     BundleViewV6::Bpv6CanonicalBlockView & copy = bv.m_listCanonicalBlockView.back();
+    copy.markedForDeletion = false;
 
+    const uint8_t *data = static_cast<const uint8_t*>(block.actualSerializedBlockPtr.data());
+    uint64_t size = block.actualSerializedBlockPtr.size();
     uint64_t decodeSize = 0;
     bool isAdminRecord = /*TODO*/ false;
-    Bpv6CanonicalBlock::DeserializeBpv6(copy.headerPtr, static_cast<const uint8_t*>(block.actualSerializedBlockPtr.data()), decodeSize,
-            block.actualSerializedBlockPtr.size(), false, bv.m_blockNumberToRecycledCanonicalBlockArray);
+    if(!Bpv6CanonicalBlock::DeserializeBpv6(copy.headerPtr, data, decodeSize,
+            block.actualSerializedBlockPtr.size(), isAdminRecord, bv.m_blockNumberToRecycledCanonicalBlockArray)) {
+        LOG_ERROR(subprocess) << "Failed to deserialize canonical block";
+        return false;
+    }
+    if(size != decodeSize) {
+        LOG_ERROR(subprocess) << "Bytes consumed while deserializing canonical block do not match orignal length";
+        return false;
+    }
+
+    copy.actualSerializedBlockPtr = boost::asio::const_buffer(data, size);
+    if(!copy.headerPtr ||  !copy.headerPtr->Virtual_DeserializeExtensionBlockDataBpv6()) {
+        LOG_ERROR(subprocess) << "Failed to deserialize canonical block contents";
+        return false;
+    }
 
     copy.SetManuallyModified(); // TODO needed?
 }
@@ -143,7 +159,7 @@ bool Bpv6Fragmenter::Fragment(BundleViewV6& orig, uint64_t sz, std::list<BundleV
 
     const int numFragments = (origPayloadSize + (sz - 1)) / sz;
     LOG_INFO(subprocess) << "Making " << numFragments << " fragments with base offset " << baseAbsoluteOffset << " and adu len " << totalApplicationDataUnitLength;
- 
+
     for(int i = 0; i < numFragments; i++) {
         const bool isFirst = (i == 0);
         const bool isLast = (i == (numFragments - 1));
@@ -173,12 +189,11 @@ bool Bpv6Fragmenter::Fragment(BundleViewV6& orig, uint64_t sz, std::list<BundleV
             if(isPayload) {
                 appendFragmentPayloadBlock(block, bv, relativeStartOffset, relativeEndOffset);
                 beforePayload = false;
-            } else if(replicateInAll) {
-                appendBlock(block, bv);
-            } else if(isFirst && beforePayload) {
-                appendBlock(block, bv);
-            } else if(isLast && !beforePayload) {
-                appendBlock(block, bv);
+            } else if(replicateInAll || (isFirst && beforePayload) || (isLast && !beforePayload)) {
+                if(!appendBlock(block, bv)) {
+                    LOG_ERROR(subprocess) << "Failed to append block";
+                    return false;
+                }
             } else {
                 // Processing a "middle fragment"; not the payload and not replicating in all
             }
