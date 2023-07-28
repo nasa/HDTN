@@ -1,0 +1,29 @@
+{
+    "inductConfigName": "myconfig",
+    "inductVector": [
+        {
+            "name": "ltp induct from rover",
+            "convergenceLayer": "ltp_over_udp",
+            "boundPort": 5001,
+            "numRxCircularBufferElements": 10000,
+            "thisLtpEngineId": 3000,
+            "remoteLtpEngineId": 1000,
+            "ltpReportSegmentMtu": 1360,
+            "oneWayLightTimeMs": 1000,
+            "oneWayMarginTimeMs": 200,
+            "clientServiceId": 1,
+            "preallocatedRedDataBytes": 200000,
+            "ltpMaxRetriesPerSerialNumber": 5,
+            "ltpRandomNumberSizeBits": 64,
+            "ltpRemoteUdpHostname": "jetson.local",
+            "ltpRemoteUdpPort": 40000,
+            "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
+            "ltpMaxExpectedSimultaneousSessions": 500,
+            "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+            "delaySendingOfReportSegmentsTimeMsOrZeroToDisable": 0,
+            "keepActiveSessionDataOnDisk": false,
+            "activeSessionDataOnDiskNewFileDurationMs": 2000,
+            "activeSessionDataOnDiskDirectory": ".\/"
+        }
+    ]
+}
