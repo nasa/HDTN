@@ -1783,6 +1783,10 @@ void ZmqStorageInterface::Impl::PrioritySend(OutductInfo_t &info, uint64_t maxBu
     // We have both storage and queue bundles
 
     int queuePriority = GetQueueBundlePriority(info.cutThroughQueue.front());
+    if(queuePriority == -1) {
+        LOG_ERROR(subprocess) << "Failed to get the priority of the bundle in the cut-through queue";
+    }
+
     int storagePriority = storageBundlePriority;
 
     bool sendFromQueue = false;
