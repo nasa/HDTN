@@ -121,6 +121,7 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
             outductSharedPtr->SetOnOutductLinkStatusChangedCallback(onOutductLinkStatusChangedCallback);
             outductSharedPtr->SetUserAssignedUuid(uuidIndex);
 
+            m_outductsVec.push_back(std::move(outductSharedPtr)); //uuid will be the array index
             //for any connection-oriented convergence layer, initially send link down event,
             // and when connection completes, the convergence layer will send a link up event
             if ((thisOutductConfig.convergenceLayer == "tcpcl_v3") || (thisOutductConfig.convergenceLayer == "tcpcl_v4") || (thisOutductConfig.convergenceLayer == "stcp")) {
@@ -128,7 +129,7 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
                     LOG_DEBUG(subprocess) << "Outduct index(" << uuidIndex
                         << ") with connection-oriented convergence layer " << thisOutductConfig.convergenceLayer
                         << " setting link down before calling Connect()";
-                    onOutductLinkStatusChangedCallback(true, uuidIndex);
+                    onOutductLinkStatusChangedCallback(true, uuidIndex); //egress needs outduct added to m_outductsVec prior to this call
                 }
             }
             /* the following has issues with bpgen
@@ -141,8 +142,8 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
             }
             */
 
-            outductSharedPtr->Connect();
-            m_outductsVec.push_back(std::move(outductSharedPtr)); //uuid will be the array index
+            m_outductsVec.back()->Connect();
+            
         }
         else {
             LOG_ERROR(subprocess) << "OutductManager::LoadOutductsFromConfig: convergence layer " << thisOutductConfig.convergenceLayer << " is invalid.";
