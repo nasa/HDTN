@@ -1792,8 +1792,15 @@ void ZmqStorageInterface::Impl::PrioritySend(OutductInfo_t &info, uint64_t maxBu
     bool sendFromQueue = false;
 
     if(queuePriority == storagePriority) {
-        sendFromQueue = info.stateTryCutThrough;
-        info.stateTryCutThrough = !info.stateTryCutThrough; //alternate/multiplex between disk reads and cut-through forwards to prevent one from getting "starved"
+        // If priorities are equal, then okay to send from
+        // either store or queue. But, only try the queue
+        // if we know that the bundle in the queue is actually
+        // small enough to be sent. Otherwise give store
+        // a shot. (Still multiplex to not starve store).
+        if(queueBundleSmallEnough) {
+            sendFromQueue = info.stateTryCutThrough;
+            info.stateTryCutThrough = !info.stateTryCutThrough; //alternate/multiplex between disk reads and cut-through forwards to prevent one from getting "starved"
+        }
     }
     else {
         sendFromQueue = (queuePriority > storagePriority);
