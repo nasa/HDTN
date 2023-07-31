@@ -56,7 +56,8 @@ bool Bpv6FragmentManager::AddFragmentAndGetComplete(uint8_t *data, size_t len, b
 
     FragmentInfo & info = m_idToFrags[id];
 
-    BundleViewV6 & bv = info.bundles.emplace_back();
+    info.bundles.emplace_back();
+    BundleViewV6 & bv = info.bundles.back();
     uint64_t payloadSizeBytes = 0;
 
     if(!AddBundle(bv, data, len, payloadSizeBytes)) {

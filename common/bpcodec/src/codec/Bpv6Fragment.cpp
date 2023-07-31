@@ -121,6 +121,7 @@ static bool appendBlock(BundleViewV6::Bpv6CanonicalBlockView & block, BundleView
     }
 
     copy.SetManuallyModified(); // TODO needed?
+    return true;
 }
 
 // Do block flags indicate that it must be replicated in all fragments?
@@ -174,7 +175,8 @@ bool Bpv6Fragmenter::Fragment(BundleViewV6& orig, uint64_t sz, std::list<BundleV
             << " relative: " << relativeStartOffset << "-" << relativeEndOffset
             << " absolute: " << absoluteStartOffset;
 
-        BundleViewV6 &bv = fragments.emplace_back();
+        fragments.emplace_back();
+        BundleViewV6 &bv = fragments.back();
 
         copyPrimaryFragment(orig, bv, absoluteStartOffset, totalApplicationDataUnitLength);
 
