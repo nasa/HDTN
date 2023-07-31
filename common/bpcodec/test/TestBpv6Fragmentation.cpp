@@ -477,6 +477,7 @@ static void CheckBlocks(BundleViewV6 &bv, const std::vector<BlockTestInfo> &befo
             const BlockTestInfo &bi = *it;
             if(blockIt == bv.m_listCanonicalBlockView.end()) {
                 BOOST_FAIL("Reached end of blocks while testing before payload blocks");
+                return; // needed for static analysis
             }
             CheckCanonicalBlock(*blockIt,
                     bi.body.size(),
@@ -487,6 +488,7 @@ static void CheckBlocks(BundleViewV6 &bv, const std::vector<BlockTestInfo> &befo
         }
         if(blockIt == bv.m_listCanonicalBlockView.end()) {
             BOOST_FAIL("Reached end of blocks while looking for payload");
+            return; // needed for static analysis
         }
         BOOST_REQUIRE(blockIt->headerPtr->m_blockTypeCode == BPV6_BLOCK_TYPE_CODE::PAYLOAD);
         blockIt++; // Skip  payload
@@ -494,6 +496,7 @@ static void CheckBlocks(BundleViewV6 &bv, const std::vector<BlockTestInfo> &befo
             const BlockTestInfo &bi = *it;
             if(blockIt == bv.m_listCanonicalBlockView.end()) {
                 BOOST_FAIL("Reached end of blocks while testing after payload blocks");
+                return; // needed for static analysis
             }
             BPV6_BLOCKFLAG flags = bi.flags;
             if(&bi == &afterBlocks.back()) {
