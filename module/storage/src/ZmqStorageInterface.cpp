@@ -111,6 +111,9 @@ private:
     bool Write(zmq::message_t* message,
         cbhe_eid_t& finalDestEidReturned, bool dontWriteIfCustodyFlagSet,
         bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord);
+    bool ProcessBundleCustody(BundleViewV6 &bv, uint64_t newCustodyId, size_t size);
+    void ReportDepletedStorage(cbhe_eid_t &eid);
+    bool ProcessAdminRecord(BundleViewV6 &bv);
     bool WriteBundle(const PrimaryBlock& bundlePrimaryBlock,
         const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize);
     uint64_t PeekOne(const std::vector<eid_plus_isanyserviceid_pair_t>& availableDestLinks);
@@ -137,6 +140,7 @@ private:
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundEgressToConnectingStoragePtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingStorageToBoundIngressPtr;
 
+    std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingStorageToBoundRouterPtr;
     std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingTelemToFromBoundStoragePtr;
 
     HdtnConfig m_hdtnConfig;
@@ -241,12 +245,14 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDi
         m_zmqPullSock_boundEgressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         m_zmqPushSock_connectingStorageToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         m_zmqPullSock_boundIngressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+        m_zmqPushSock_connectingStorageToBoundRouterPtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         m_zmqRepSock_connectingTelemToFromBoundStoragePtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         try {
             m_zmqPushSock_connectingStorageToBoundEgressPtr->connect(std::string("inproc://connecting_storage_to_bound_egress")); // egress should bind
             m_zmqPullSock_boundEgressToConnectingStoragePtr->connect(std::string("inproc://bound_egress_to_connecting_storage")); // egress should bind
             m_zmqPushSock_connectingStorageToBoundIngressPtr->connect(std::string("inproc://connecting_storage_to_bound_ingress"));
             m_zmqPullSock_boundIngressToConnectingStoragePtr->connect(std::string("inproc://bound_ingress_to_connecting_storage"));
+            m_zmqPushSock_connectingStorageToBoundRouterPtr->connect(std::string("inproc://connecting_storage_to_bound_router"));
             m_zmqRepSock_connectingTelemToFromBoundStoragePtr->bind(std::string("inproc://connecting_telem_to_from_bound_storage"));
         }
         catch (const zmq::error_t & ex) {
@@ -283,6 +289,12 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDi
             std::string(":") +
             boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqBoundIngressToConnectingStoragePortPath));
 
+        m_zmqPushSock_connectingStorageToBoundRouterPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::push);
+        const std::string connect_connectingStorageToBoundRouterPath(
+                std::string("tcp://") +
+                hdtnDistributedConfig.m_zmqRouterAddress +
+                std::string(":") +
+                boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingStorageToBoundRouterPortPath));
         //from telemetry socket
         m_zmqRepSock_connectingTelemToFromBoundStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::rep);
         const std::string bind_connectingTelemToFromBoundStoragePath(
@@ -293,6 +305,7 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDi
             m_zmqPullSock_boundEgressToConnectingStoragePtr->connect(connect_boundEgressToConnectingStoragePath); // egress should bind
             m_zmqPushSock_connectingStorageToBoundIngressPtr->connect(connect_connectingStorageToBoundIngressPath);
             m_zmqPullSock_boundIngressToConnectingStoragePtr->connect(connect_boundIngressToConnectingStoragePath);
+            m_zmqPushSock_connectingStorageToBoundRouterPtr->connect(connect_connectingStorageToBoundRouterPath);
             m_zmqRepSock_connectingTelemToFromBoundStoragePtr->bind(bind_connectingTelemToFromBoundStoragePath);
         }
         catch (const zmq::error_t & ex) {
@@ -391,16 +404,250 @@ bool ZmqStorageInterface::Impl::WriteAcsBundle(const Bpv6CbhePrimaryBlock & prim
     return true;
 }
 
+void ZmqStorageInterface::Impl::ReportDepletedStorage(cbhe_eid_t &eid)
+{
+    if(!m_hdtnConfig.m_neighborDepletedStorageDelaySeconds) {
+        return;
+    }
+    uint64_t nodeId = eid.nodeId;
+
+    LOG_INFO(subprocess) << "Node " << nodeId << " storage is depleted; sending message to router";
+
+    hdtn::DepletedStorageReportHdr report;
+    memset(&report, 0, sizeof(report));
+    report.base.type = HDTN_MSGTYPE_DEPLETED_STORAGE_REPORT;
+    report.base.flags = 0;
+    report.nodeId = nodeId;
+
+    if (!m_zmqPushSock_connectingStorageToBoundRouterPtr->send(
+        zmq::const_buffer(&report, sizeof(report)), zmq::send_flags::dontwait))
+    {
+        LOG_ERROR(subprocess) << "Failed to send depleted storage report to router";
+    }
+}
+
+bool ZmqStorageInterface::Impl::ProcessAdminRecord(BundleViewV6 &bv)
+{
+
+    std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+    bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+    if (blocks.size() != 1) {
+        LOG_ERROR(subprocess) << "error admin record has " << blocks.size() << " payload block(s), but expected 1";
+        return false;
+    }
+    Bpv6AdministrativeRecord* adminRecordBlockPtr = dynamic_cast<Bpv6AdministrativeRecord*>(blocks[0]->headerPtr.get());
+    if (adminRecordBlockPtr == NULL) {
+        LOG_ERROR(subprocess) << "error null Bpv6AdministrativeRecord";
+        return false;
+    }
+    const BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE adminRecordType = adminRecordBlockPtr->m_adminRecordTypeCode;
+
+    if (adminRecordType == BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::AGGREGATE_CUSTODY_SIGNAL) {
+        ++m_telem.m_numAcsPacketsReceived;
+        //check acs
+        Bpv6AdministrativeRecordContentAggregateCustodySignal* acsPtr = dynamic_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
+        if (acsPtr == NULL) {
+            LOG_ERROR(subprocess) << "error null AggregateCustodySignal";
+            return false;
+        }
+        Bpv6AdministrativeRecordContentAggregateCustodySignal& acs = *(reinterpret_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(acsPtr));
+        if (!acs.DidCustodyTransferSucceed()) {
+            if (acs.GetReasonCode() == BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::DEPLETED_STORAGE) {
+                ReportDepletedStorage(bv.m_primaryBlockView.header.m_sourceNodeId);
+            }
+            //a failure with a reason code of redundant reception means that
+            // the receiver already has that bundle in custody so it can be
+            // released even though it is a "failure".
+            if (acs.GetReasonCode() != BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::REDUNDANT_RECEPTION) {
+                LOG_ERROR(subprocess) << "acs custody transfer failed with reason code " << acs.GetReasonCode();
+                return false;
+            }
+        }
+
+        //todo figure out what to do with failed custody from next hop
+        for (FragmentSet::data_fragment_set_t::const_iterator it = acs.m_custodyIdFills.cbegin(); it != acs.m_custodyIdFills.cend(); ++it) {
+            m_telem.m_numAcsCustodyTransfers += (it->endIndex + 1) - it->beginIndex;
+            m_custodyIdAllocatorPtr->FreeCustodyIdRange(it->beginIndex, it->endIndex);
+            for (uint64_t currentCustodyId = it->beginIndex; currentCustodyId <= it->endIndex; ++currentCustodyId) {
+                catalog_entry_t* catalogEntryPtr = m_bsmPtr->GetCatalogEntryPtrFromCustodyId(currentCustodyId);
+                if (catalogEntryPtr == NULL) {
+                    LOG_ERROR(subprocess) << "error finding catalog entry for bundle identified by acs custody signal";
+                    continue;
+                }
+                if (!m_custodyTimersPtr->CancelCustodyTransferTimer(catalogEntryPtr->destEid, currentCustodyId)) {
+                    LOG_WARNING(subprocess) << "can't find custody timer associated with bundle identified by acs custody signal";
+                }
+                if (!m_bsmPtr->RemoveReadBundleFromDisk(catalogEntryPtr, currentCustodyId)) {
+                    LOG_ERROR(subprocess) << "error freeing bundle identified by acs custody signal from disk";
+                    continue;
+                }
+                ++m_telem.m_totalBundlesErasedFromStorageWithCustodyTransfer;
+            }
+        }
+    }
+    else if (adminRecordType == BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::CUSTODY_SIGNAL) { //rfc5050 style custody transfer
+        //check acs
+        Bpv6AdministrativeRecordContentCustodySignal* csPtr = dynamic_cast<Bpv6AdministrativeRecordContentCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
+        if (csPtr == NULL) {
+            LOG_ERROR(subprocess) << "error null CustodySignal";
+            return false;
+        }
+        Bpv6AdministrativeRecordContentCustodySignal& cs = *(reinterpret_cast<Bpv6AdministrativeRecordContentCustodySignal*>(csPtr));
+        if (!cs.DidCustodyTransferSucceed()) {
+            if (cs.GetReasonCode() == BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::DEPLETED_STORAGE) {
+                ReportDepletedStorage(bv.m_primaryBlockView.header.m_sourceNodeId);
+            }
+            //a failure with a reason code of redundant reception means that
+            // the receiver already has that bundle in custody so it can be
+            // released even though it is a "failure".
+            if (cs.GetReasonCode() != BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::REDUNDANT_RECEPTION) {
+                LOG_ERROR(subprocess) << "custody transfer failed with reason code " << cs.GetReasonCode();
+                return false;
+            }
+        }
+        uint64_t* custodyIdPtr;
+        if (cs.m_isFragment) {
+            cbhe_bundle_uuid_t uuid;
+            if (!Uri::ParseIpnUriString(cs.m_bundleSourceEid, uuid.srcEid.nodeId, uuid.srcEid.serviceId)) {
+                LOG_ERROR(subprocess) << "error custody signal with bad ipn string";
+                return false;
+            }
+            uuid.creationSeconds = cs.m_copyOfBundleCreationTimestamp.secondsSinceStartOfYear2000;
+            uuid.sequence = cs.m_copyOfBundleCreationTimestamp.sequenceNumber;
+            uuid.fragmentOffset = cs.m_fragmentOffsetIfPresent;
+            uuid.dataLength = cs.m_fragmentLengthIfPresent;
+            custodyIdPtr = m_bsmPtr->GetCustodyIdFromUuid(uuid);
+        }
+        else {
+            cbhe_bundle_uuid_nofragment_t uuid;
+            if (!Uri::ParseIpnUriString(cs.m_bundleSourceEid, uuid.srcEid.nodeId, uuid.srcEid.serviceId)) {
+                LOG_ERROR(subprocess) << "error custody signal with bad ipn string";
+                return false;
+            }
+            uuid.creationSeconds = cs.m_copyOfBundleCreationTimestamp.secondsSinceStartOfYear2000;
+            uuid.sequence = cs.m_copyOfBundleCreationTimestamp.sequenceNumber;
+            custodyIdPtr = m_bsmPtr->GetCustodyIdFromUuid(uuid);
+        }
+        if (custodyIdPtr == NULL) {
+            LOG_ERROR(subprocess) << "error custody signal does not match a bundle in the storage database";
+            return false;
+        }
+        const uint64_t custodyIdFromRfc5050 = *custodyIdPtr;
+        m_custodyIdAllocatorPtr->FreeCustodyId(custodyIdFromRfc5050);
+        catalog_entry_t* catalogEntryPtr = m_bsmPtr->GetCatalogEntryPtrFromCustodyId(custodyIdFromRfc5050);
+        if (catalogEntryPtr == NULL) {
+            LOG_ERROR(subprocess) << "error finding catalog entry for bundle identified by rfc5050 custody signal";
+            return false;
+        }
+        if (!m_custodyTimersPtr->CancelCustodyTransferTimer(catalogEntryPtr->destEid, custodyIdFromRfc5050)) {
+            LOG_WARNING(subprocess) << "notice: can't find custody timer associated with bundle identified by rfc5050 custody signal";
+        }
+        if (!m_bsmPtr->RemoveReadBundleFromDisk(catalogEntryPtr, custodyIdFromRfc5050)) {
+            LOG_ERROR(subprocess) << "error freeing bundle identified by rfc5050 custody signal from disk";
+            return false;
+        }
+        ++m_telem.m_totalBundlesErasedFromStorageWithCustodyTransfer;
+        ++m_telem.m_numRfc5050CustodyTransfers;
+    }
+    else {
+        LOG_ERROR(subprocess) << "error unknown admin record type";
+        return false;
+    }
+    return true; //do not proceed past this point so that the signal is not written to disk
+}
+
+enum class BpVersion {
+    BPV6,
+    BPV7,
+    UNKNOWN
+};
+
+static BpVersion GetBpVersion(const uint8_t *bundle)
+{
+    const uint8_t firstByte = bundle[0];
+    if(firstByte == 6) {
+        return BpVersion::BPV6;
+    }
+    //CBOR major type 4, additional information 31 (Indefinite-Length Array)
+    if((firstByte == ((4U << 5) | 31U))) {
+        return BpVersion::BPV7;
+    }
+    return BpVersion::UNKNOWN;
+}
+
+bool ZmqStorageInterface::Impl::ProcessBundleCustody(BundleViewV6 &bv, uint64_t newCustodyId, size_t size)
+{
+    // Update bundle -> Try to write to disk
+    // If either fails, send a failed custody signal; otherwise, send success custody signal
+
+    CustodyTransferManager::CustodyTransferContext prev;
+
+    BPV6_ACS_STATUS_REASON_INDICES reason = BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION;
+    bool acceptedCustody = true;
+
+    if(!m_ctmPtr->UpdateBundleCustodyFields(bv, true, newCustodyId, prev)) {
+        LOG_ERROR(subprocess) << "Unable to update bundle custody fields";
+        acceptedCustody = false;
+        reason = BPV6_ACS_STATUS_REASON_INDICES::FAIL__BLOCK_UNINTELLIGIBLE;
+    }
+
+    if (acceptedCustody && !bv.Render(size + 200)) { //hdtn modifies bundle for next hop
+        LOG_ERROR(subprocess) << "error unable to render new bundle";
+        acceptedCustody = false;
+        reason = BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE; // TODO not best code?
+    }
+
+    if(acceptedCustody) {
+        bool wroteBundle = WriteBundle(bv.m_primaryBlockView.header, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size());
+        if(!wroteBundle) {
+            LOG_ERROR(subprocess) << "Failed to write bundle with custody to disk";
+            acceptedCustody = false;
+            reason = BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE;
+        }
+    }
+
+    if (!m_ctmPtr->GenerateCustodySignal(prev, acceptedCustody, newCustodyId, reason,
+        m_custodySignalRfc5050RenderedBundleView)) {
+        LOG_ERROR(subprocess) << "error unable to generate custody signal";
+        return false;
+    }
+
+    // This will only be non-zero if NOT usign ACS
+    if(m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()) {
+        const cbhe_eid_t& hdtnSrcEid = m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header.m_sourceNodeId;
+        const uint64_t newCustodyIdFor5050CustodySignal = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(hdtnSrcEid);
+
+        bool wroteCustody = WriteBundle(
+                m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header,
+                newCustodyIdFor5050CustodySignal,
+                (const uint8_t*)m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.data(),
+                m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size());
+
+        if(!wroteCustody) {
+            LOG_ERROR(subprocess) << "Failed to write custody signal to disk; deleting bundle";
+            DeleteBundleById(newCustodyId);
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool IsAdminForThisNode(const Bpv6CbhePrimaryBlock &primary, cbhe_eid_t thisEid)
+{
+    static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForAdminRecord =
+        BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::ADMINRECORD;
+    return ((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForAdminRecord) ==
+            requiredPrimaryFlagsForAdminRecord) &&
+           (primary.m_destinationEid == thisEid);
+}
+
 bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
     cbhe_eid_t & finalDestEidReturned, bool dontWriteIfCustodyFlagSet,
     bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord)
 {
+    BpVersion version = GetBpVersion((const uint8_t*)message->data());
     
-    
-    const uint8_t firstByte = ((const uint8_t*)message->data())[0];
-    const bool isBpVersion6 = (firstByte == 6);
-    const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
-    if (isBpVersion6) {
+    if (version == BpVersion::BPV6) {
         BundleViewV6 bv;
         const bool loadPrimaryBlockOnly = isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord;
         if (!bv.LoadBundle((uint8_t *)message->data(), message->size(), loadPrimaryBlockOnly)) { //invalid bundle
@@ -419,170 +666,21 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
                 return true;
             }
 
-            //admin records pertaining to this hdtn node do not get written to disk.. they signal a deletion from disk
-            static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::ADMINRECORD;
-            if (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEidReturned == M_HDTN_EID_CUSTODY)) {
-                std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
-                bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
-                if (blocks.size() != 1) {
-                    LOG_ERROR(subprocess) << "error admin record does not have a payload block";
-                    return false;
-                }
-                Bpv6AdministrativeRecord* adminRecordBlockPtr = dynamic_cast<Bpv6AdministrativeRecord*>(blocks[0]->headerPtr.get());
-                if (adminRecordBlockPtr == NULL) {
-                    LOG_ERROR(subprocess) << "error null Bpv6AdministrativeRecord";
-                    return false;
-                }
-                const BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE adminRecordType = adminRecordBlockPtr->m_adminRecordTypeCode;
-
-                if (adminRecordType == BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::AGGREGATE_CUSTODY_SIGNAL) {
-                    ++m_telem.m_numAcsPacketsReceived;
-                    //check acs
-                    Bpv6AdministrativeRecordContentAggregateCustodySignal* acsPtr = dynamic_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
-                    if (acsPtr == NULL) {
-                        LOG_ERROR(subprocess) << "error null AggregateCustodySignal";
-                        return false;
-                    }
-                    Bpv6AdministrativeRecordContentAggregateCustodySignal& acs = *(reinterpret_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(acsPtr));
-                    if (!acs.DidCustodyTransferSucceed()) {
-                        //a failure with a reason code of redundant reception means that
-                        // the receiver already has that bundle in custody so it can be
-                        // released even though it is a "failure".
-                        if (acs.GetReasonCode() != BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::REDUNDANT_RECEPTION) {
-                            LOG_ERROR(subprocess) << "acs custody transfer failed with reason code " << acs.GetReasonCode();
-                            return false;
-                        }
-                    }
-
-                    //todo figure out what to do with failed custody from next hop
-                    for (FragmentSet::data_fragment_set_t::const_iterator it = acs.m_custodyIdFills.cbegin(); it != acs.m_custodyIdFills.cend(); ++it) {
-                        m_telem.m_numAcsCustodyTransfers += (it->endIndex + 1) - it->beginIndex;
-                        m_custodyIdAllocatorPtr->FreeCustodyIdRange(it->beginIndex, it->endIndex);
-                        for (uint64_t currentCustodyId = it->beginIndex; currentCustodyId <= it->endIndex; ++currentCustodyId) {
-                            catalog_entry_t* catalogEntryPtr = m_bsmPtr->GetCatalogEntryPtrFromCustodyId(currentCustodyId);
-                            if (catalogEntryPtr == NULL) {
-                                LOG_ERROR(subprocess) << "error finding catalog entry for bundle identified by acs custody signal";
-                                continue;
-                            }
-                            if (!m_custodyTimersPtr->CancelCustodyTransferTimer(catalogEntryPtr->destEid, currentCustodyId)) {
-                                LOG_WARNING(subprocess) << "can't find custody timer associated with bundle identified by acs custody signal";
-                            }
-                            if (!m_bsmPtr->RemoveReadBundleFromDisk(catalogEntryPtr, currentCustodyId)) {
-                                LOG_ERROR(subprocess) << "error freeing bundle identified by acs custody signal from disk";
-                                continue;
-                            }
-                            ++m_telem.m_totalBundlesErasedFromStorageWithCustodyTransfer;
-                        }
-                    }
-                }
-                else if (adminRecordType == BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::CUSTODY_SIGNAL) { //rfc5050 style custody transfer
-                    //check acs
-                    Bpv6AdministrativeRecordContentCustodySignal* csPtr = dynamic_cast<Bpv6AdministrativeRecordContentCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
-                    if (csPtr == NULL) {
-                        LOG_ERROR(subprocess) << "error null CustodySignal";
-                        return false;
-                    }
-                    Bpv6AdministrativeRecordContentCustodySignal& cs = *(reinterpret_cast<Bpv6AdministrativeRecordContentCustodySignal*>(csPtr));
-                    if (!cs.DidCustodyTransferSucceed()) {
-                        //a failure with a reason code of redundant reception means that
-                        // the receiver already has that bundle in custody so it can be
-                        // released even though it is a "failure".
-                        if (cs.GetReasonCode() != BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::REDUNDANT_RECEPTION) {
-                            LOG_ERROR(subprocess) << "custody transfer failed with reason code " << cs.GetReasonCode();
-                            return false;
-                        }
-                    }
-                    uint64_t* custodyIdPtr;
-                    if (cs.m_isFragment) {
-                        cbhe_bundle_uuid_t uuid;
-                        if (!Uri::ParseIpnUriString(cs.m_bundleSourceEid, uuid.srcEid.nodeId, uuid.srcEid.serviceId)) {
-                            LOG_ERROR(subprocess) << "error custody signal with bad ipn string";
-                            return false;
-                        }
-                        uuid.creationSeconds = cs.m_copyOfBundleCreationTimestamp.secondsSinceStartOfYear2000;
-                        uuid.sequence = cs.m_copyOfBundleCreationTimestamp.sequenceNumber;
-                        uuid.fragmentOffset = cs.m_fragmentOffsetIfPresent;
-                        uuid.dataLength = cs.m_fragmentLengthIfPresent;
-                        custodyIdPtr = m_bsmPtr->GetCustodyIdFromUuid(uuid);
-                    }
-                    else {
-                        cbhe_bundle_uuid_nofragment_t uuid;
-                        if (!Uri::ParseIpnUriString(cs.m_bundleSourceEid, uuid.srcEid.nodeId, uuid.srcEid.serviceId)) {
-                            LOG_ERROR(subprocess) << "error custody signal with bad ipn string";
-                            return false;
-                        }
-                        uuid.creationSeconds = cs.m_copyOfBundleCreationTimestamp.secondsSinceStartOfYear2000;
-                        uuid.sequence = cs.m_copyOfBundleCreationTimestamp.sequenceNumber;
-                        custodyIdPtr = m_bsmPtr->GetCustodyIdFromUuid(uuid);
-                    }
-                    if (custodyIdPtr == NULL) {
-                        LOG_ERROR(subprocess) << "error custody signal does not match a bundle in the storage database";
-                        return false;
-                    }
-                    const uint64_t custodyIdFromRfc5050 = *custodyIdPtr;
-                    m_custodyIdAllocatorPtr->FreeCustodyId(custodyIdFromRfc5050);
-                    catalog_entry_t* catalogEntryPtr = m_bsmPtr->GetCatalogEntryPtrFromCustodyId(custodyIdFromRfc5050);
-                    if (catalogEntryPtr == NULL) {
-                        LOG_ERROR(subprocess) << "error finding catalog entry for bundle identified by rfc5050 custody signal";
-                        return false;
-                    }
-                    if (!m_custodyTimersPtr->CancelCustodyTransferTimer(catalogEntryPtr->destEid, custodyIdFromRfc5050)) {
-                        LOG_WARNING(subprocess) << "notice: can't find custody timer associated with bundle identified by rfc5050 custody signal";
-                    }
-                    if (!m_bsmPtr->RemoveReadBundleFromDisk(catalogEntryPtr, custodyIdFromRfc5050)) {
-                        LOG_ERROR(subprocess) << "error freeing bundle identified by rfc5050 custody signal from disk";
-                        return false;
-                    }
-                    ++m_telem.m_totalBundlesErasedFromStorageWithCustodyTransfer;
-                    ++m_telem.m_numRfc5050CustodyTransfers;
-                }
-                else {
-                    LOG_ERROR(subprocess) << "error unknown admin record type";
-                    return false;
-                }
-                return true; //do not proceed past this point so that the signal is not written to disk
+            if (IsAdminForThisNode(primary, M_HDTN_EID_CUSTODY)) {
+                return ProcessAdminRecord(bv);
             }
 
             //write non admin records to disk (unless newly generated below)
             if (bpv6CustodyIsRequested) {
-                if (!m_ctmPtr->ProcessCustodyOfBundle(bv, true, newCustodyId, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION,
-                    m_custodySignalRfc5050RenderedBundleView)) {
-                    LOG_ERROR(subprocess) << "error unable to process custody";
-                }
-                else if (!bv.Render(message->size() + 200)) { //hdtn modifies bundle for next hop
-                    LOG_ERROR(subprocess) << "error unable to render new bundle";
-                }
-                else {
-                    if (m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()) {
-                        const cbhe_eid_t& hdtnSrcEid = m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header.m_sourceNodeId;
-                        const uint64_t newCustodyIdFor5050CustodySignal = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(hdtnSrcEid);
-
-                        //write custody signal to disk
-                        BundleStorageManagerSession_WriteToDisk sessionWrite;
-                        const uint64_t totalSegmentsRequired = m_bsmPtr->Push(sessionWrite,
-                            m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header,
-                            m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size());
-                        if (totalSegmentsRequired == 0) {
-                            LOG_ERROR(subprocess) << "out of space for custody signal";
-                            return false;
-                        }
-
-                        const uint64_t totalBytesPushed = m_bsmPtr->PushAllSegments(sessionWrite, m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header,
-                            newCustodyIdFor5050CustodySignal, (const uint8_t*)m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.data(),
-                            m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size());
-                        if (totalBytesPushed != m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()) {
-                            LOG_ERROR(subprocess) << "totalBytesPushed != custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()";
-                            return false;
-                        }
-                    }
-                }
+                // return here because this writes bundle to disk
+                return ProcessBundleCustody(bv, newCustodyId, message->size());
             }
         }
 
         //write bundle (modified by hdtn if custody requested) to disk
         return WriteBundle(primary, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size());
     }
-    else if (isBpVersion7) {
+    else if (version == BpVersion::BPV7) {
         BundleViewV7 bv;
         if (!bv.LoadBundle((uint8_t *)message->data(), message->size(), true, true)) { //invalid bundle
             LOG_ERROR(subprocess) << "malformed bundle";

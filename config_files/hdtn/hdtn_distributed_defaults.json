@@ -10,6 +10,7 @@
     "zmqBoundIngressToConnectingStoragePortPath": 10110,
     "zmqConnectingStorageToBoundIngressPortPath": 10150,
     "zmqConnectingStorageToBoundEgressPortPath": 10120,
+    "zmqConnectingStorageToBoundRouterPortPath": 10121,
     "zmqBoundEgressToConnectingStoragePortPath": 10130,
     "zmqConnectingRouterToBoundEgressPortPath": 10210,
     "zmqConnectingTelemToFromBoundIngressPortPath": 10301,

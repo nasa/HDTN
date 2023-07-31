@@ -47,11 +47,21 @@ class CustodyTransferManager {
 private:
     CustodyTransferManager();
 public:
+
+    struct CustodyTransferContext {
+        Bpv6CbhePrimaryBlock primary;
+        bool validCtebPresent;
+        uint64_t receivedCtebCustodyId;
+    };
+
     
     BPCODEC_EXPORT CustodyTransferManager(const bool isAcsAware, const uint64_t myCustodianNodeId, const uint64_t myCustodianServiceId);
     BPCODEC_EXPORT ~CustodyTransferManager();
 
     BPCODEC_EXPORT bool ProcessCustodyOfBundle(BundleViewV6 & bv, bool acceptCustody, const uint64_t custodyId,
+        const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex, BundleViewV6 & custodySignalRfc5050RenderedBundleView);
+    BPCODEC_EXPORT bool UpdateBundleCustodyFields(BundleViewV6 & bv, bool acceptCustody, const uint64_t custodyId, struct CustodyTransferContext &prevCustodyInfo);
+    BPCODEC_EXPORT bool GenerateCustodySignal(CustodyTransferContext &info, bool acceptCustody, const uint64_t custodyId,
         const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex, BundleViewV6 & custodySignalRfc5050RenderedBundleView);
     BPCODEC_EXPORT void SetCreationAndSequence(uint64_t & creation, uint64_t & sequence);
     BPCODEC_EXPORT bool GenerateCustodySignalBundle(BundleViewV6 & newRenderedBundleView, const Bpv6CbhePrimaryBlock & primaryFromSender, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
