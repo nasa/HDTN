@@ -358,9 +358,9 @@ struct MultiBlockTestInfo {
     std::vector<BlockTestInfo> beforeBlocks;
     std::vector<BlockTestInfo> afterBlocks;
 
-    BPV6_BLOCKFLAG rep = BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT;
 
     std::vector<BlockTestInfo> GetReplicatedBefore() {
+        BPV6_BLOCKFLAG rep = BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT;
         std::vector<BlockTestInfo> ret;
         for(std::vector<BlockTestInfo>::iterator it = beforeBlocks.begin(); it != beforeBlocks.end(); it++) {
             BlockTestInfo &bi = *it;
@@ -371,6 +371,7 @@ struct MultiBlockTestInfo {
         return ret;
     }
     std::vector<BlockTestInfo> GetReplicatedAfter() {
+        BPV6_BLOCKFLAG rep = BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT;
         std::vector<BlockTestInfo> ret;
         for(std::vector<BlockTestInfo>::iterator it = afterBlocks.begin(); it != afterBlocks.end(); it++) {
             BlockTestInfo &bi = *it;
