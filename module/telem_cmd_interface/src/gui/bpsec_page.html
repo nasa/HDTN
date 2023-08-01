@@ -56,14 +56,10 @@
                 </div>
                 <div class="bpSecPolicyElements">
                     <div class="input">
-                        <label>Description</label>
-                        <input type="text" id="description">
+                        <input type="text" id="description" placeholder="Description" style="margin-right: 1px;">
+                        <input type="number" id="securityPolicyRuleID" placeholder="Security Policy ID" style="margin-left: 1px;">
                     </div>
-                    <div class="input">
-                        <label>Security Policy ID</label>
-                        <input type="number" id="securityPolicyRuleID">
-                    </div>
-                    <div class="input">
+                    <div class="input" style="flex-direction: column;">
                         <label>Security Role</label>
                         <select id="roleType" required>
                             <option value="acceptor">acceptor</option>
@@ -71,17 +67,10 @@
                             <option value="source">source</option>
                         </select>
                     </div>
-                    <div class="input">
-                        <label>Security Source</label>
-                        <input type="text" id="securitySource" step=".01" required>
-                    </div>
-                    <div class="input">
-                        <label>Bundle Source</label>
-                        <input type="text" id="bundleSource" step=".01" required>
-                    </div>
-                    <div class="input">
-                        <label>Bundle Final Destination</label>
-                        <input type="text" id="bundleDestination" step=".01" required>
+                    <div class="input" style="flex-direction: column;">
+                        <input type="text" id="securitySource" step=".01" placeholder="Security Source" style="margin-right: 1px;" required>
+                        <input type="text" id="bundleSource" step=".01" placeholder="Bundle Source" style="margin-left: 1px;" required>
+                        <input type="text" id="bundleDestination" step=".01" placeholder="Bundle Final Destination" required>
                     </div>
                     <div class="input">
                         <label>Security Service</label>
@@ -91,13 +80,12 @@
                         </select>
                     </div>
                     <div class="input">
-                        <label>Security Event Reference</label>
-                        <input type="text" id="securityEventId" required>
+                        <input type="text" id="securityEventId" placeholder="Security Event Reference" required>
                     </div>
                     <div class="sourceType" id="sourceType" style="display: none; flex-direction: column;">
-                        <div style="display: flex; flex-wrap: wrap;">
+                        <div style="display: flex; flex-wrap: wrap; flex-direction: column; align-items: center;">
                             <label>Security Target Block Type</label>
-                            <select id="securityTargets" multiple>
+                            <select id="securityTargets" style="text-align: center; width: 75px;" multiple>
                                 <option>0</option>
                                 <option>1</option>
                                 <option>2</option>
@@ -114,7 +102,7 @@
                                 <option>13</option>
                             </select>
                         </div>
-                        <h3>Security Parameters for Source</h3>
+                        <h3 style="margin-top: 2px; margin-bottom: 2px;">Security Parameters for Source</h3>
                         <div class="aesVariant" id="aesVariantDiv"
                             style="display: flex; flex-direction: row; justify-content: space-between;">
                             <label>AES Variant</label>
@@ -176,17 +164,16 @@
                     <div class="popupTitle">
                         <button class="policyQuitBtn" id="policyQuitBtne" onclick="closeEventForm()">X</button>
                         <h2 class="popupTitle">Create New Event</h2>
+                        <p style="margin: 1px;">SOP means Security Operation</p>
                     </div>
                     <div class="input">
-                        <label>Name of Event</label>
-                        <input type="text" id="eventName" required>
+                        <input type="text" id="eventName" placeholder="Name of Event" required>
                     </div>
                     <div class="input">
-                        <label>Description</label>
-                        <input type="text" id="eventDescription" required>
+                        <input type="text" id="eventDescription" placeholder="Description" required>
                     </div>
                     <div id="sopEvents">
-                        <div class="input">
+                        <div class="input" style="flex-direction: column;">
                             <label>Event ID</label>
                             <select id="eventID" required>
                                 <option>sop Corrupted At Acceptor</option>
@@ -199,7 +186,7 @@
                                 <option>sop Added At Source</option>
                             </select>
                         </div>
-                        <div class="input">
+                        <div class="input" style="flex-direction: column;">
                             <label>Action</label>
                             <select id="eventActions" multiple required>
                                 <option>Retain Security Operations BPCFs</option>
