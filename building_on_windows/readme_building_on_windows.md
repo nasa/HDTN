@@ -66,7 +66,7 @@ It's now time to set up additional environmental variables in order to be able t
 * Add the following new variable: `HDTN_BUILD_ROOT`.  The variable value will look something like `C:\Users\username\CMakeBuilds\17e7ec0d-5e2f-4956-8a91-1b32467252b0\build\x64-Release`
 * Click `OK`
 * Click `New`
-* Add the following new variable: `HDTN_INSTALL_ROOT`.  The variable value will look similar to `HDTN_BUILD_ROOT` except change "build" to "install".. something like `C:\Users\username\CMakeBuilds\17e7ec0d-5e2f-4956-8a91-1b32467252b0\install\x64-Release` (note: this will not exist until after the next step once HDTN is installed)
+* Add the following new variable: `HDTN_INSTALL_ROOT`.  The variable value will look similar to `HDTN_BUILD_ROOT` except change "build" to "install".. something like `C:\Users\username\CMakeBuilds\17e7ec0d-5e2f-4956-8a91-1b32467252b0\install\x64-Release` (note: this path will not exist until HDTN is installed in a later step)
 * Click `OK`
 * double click `Path` variable, add the `HDTN_INSTALL_ROOT\lib` folder to your `Path`.. something like `C:\Users\username\CMakeBuilds\17e7ec0d-5e2f-4956-8a91-1b32467252b0\install\x64-Release\lib`.  This step is needed because HDTN is built as a shared library with multiple .dll files, so this step allows Windows to find those .dll files when running any HDTN binaries.
 
