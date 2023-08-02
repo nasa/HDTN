@@ -876,5 +876,30 @@ BOOST_AUTO_TEST_CASE(FragmentManagerMulti)
     BOOST_REQUIRE(isComplete == false);
 
 }
+
+struct CalcNumFragsTestData {
+    uint64_t payloadSize;
+    uint64_t fragmentSize;
+    uint64_t expected;
+};
+
+std::vector<CalcNumFragsTestData> CalcNumFragsTestVec = {
+    { 2, 1, 2},
+    { 30, 10, 3},
+    { 30, 15, 2},
+    { 30, 29, 2},
+    { 30, 14, 3},
+    { 30, 9, 4},
+};
+
+BOOST_DATA_TEST_CASE(
+        TestCalcNumFragments,
+        boost::unit_test::data::xrange(CalcNumFragsTestVec.size()),
+        testIndex)
+{
+    CalcNumFragsTestData &test = CalcNumFragsTestVec[testIndex];
+    uint64_t numFragments = Bpv6Fragmenter::CalcNumFragments(test.payloadSize, test.fragmentSize);
+    BOOST_REQUIRE(numFragments == test.expected);
+}
 BOOST_AUTO_TEST_SUITE_END()
 

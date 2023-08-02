@@ -62,6 +62,18 @@ class Bpv6Fragmenter {
      */
     static bool Assemble(std::list<BundleViewV6>& fragments, BundleViewV6& bundle);
 
+    /** Calculate number of fragments that would be created by fragmenting at fragmentSize
+     *
+     * @param payloadSize       Size of the payload
+     * @param fragmentSize      Desired size of payload in each fragment
+     *
+     * @returns number of fragments that would be created if fragmenting at fragmentSize
+     *
+     * Example: CalcNumFragments(80, 40) -> 2
+     *
+     */
+    static uint64_t CalcNumFragments(uint64_t payloadSize, uint64_t fragmentSize);
+
 };
 
 #endif

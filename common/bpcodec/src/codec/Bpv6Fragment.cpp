@@ -130,6 +130,10 @@ static bool MustReplicateInAll(BPV6_BLOCKFLAG flags) {
     return (flags & rep) == rep;
 }
 
+uint64_t Bpv6Fragmenter::CalcNumFragments(uint64_t payloadSize, uint64_t fragmentSize) {
+    return (payloadSize + (fragmentSize - 1)) / fragmentSize;
+}
+
 bool Bpv6Fragmenter::Fragment(BundleViewV6& orig, uint64_t sz, std::list<BundleViewV6> & fragments) {
 
     fragments.clear();
@@ -158,7 +162,7 @@ bool Bpv6Fragmenter::Fragment(BundleViewV6& orig, uint64_t sz, std::list<BundleV
     const uint64_t baseAbsoluteOffset = origIsFragment ? orig.m_primaryBlockView.header.m_fragmentOffset : 0;
     const uint64_t totalApplicationDataUnitLength = origIsFragment ? orig.m_primaryBlockView.header.m_totalApplicationDataUnitLength : origPayloadSize;
 
-    const int numFragments = (origPayloadSize + (sz - 1)) / sz;
+    const int numFragments = CalcNumFragments(origPayloadSize, sz);
     LOG_INFO(subprocess) << "Making " << numFragments << " fragments with base offset " << baseAbsoluteOffset << " and adu len " << totalApplicationDataUnitLength;
 
     for(int i = 0; i < numFragments; i++) {
