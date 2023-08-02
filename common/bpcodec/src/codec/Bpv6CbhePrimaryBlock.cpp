@@ -346,3 +346,7 @@ uint64_t Bpv6CbhePrimaryBlock::GetSecondsSinceCreate() const {
     return TimestampUtil::GetSecondsSinceEpochRfc5050() - 
         m_creationTimestamp.secondsSinceStartOfYear2000;
 }
+
+bool Bpv6CbhePrimaryBlock::HasFlagSet(BPV6_BUNDLEFLAG flag) const {
+    return ((m_bundleProcessingControlFlags & flag) == flag);
+}

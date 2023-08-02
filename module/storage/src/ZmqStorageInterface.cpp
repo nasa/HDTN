@@ -632,7 +632,10 @@ bool ZmqStorageInterface::Impl::ProcessBundleCustody(BundleViewV6 &bv, size_t si
     uint64_t payloadSizeBytes = 0;
     bv.GetPayloadSize(payloadSizeBytes); // okay if this fails
     std::list<BundleViewV6> fragments;
-    if(m_hdtnConfig.m_fragmentBundlesLargerThanBytes && (payloadSizeBytes > m_hdtnConfig.m_fragmentBundlesLargerThanBytes)) {
+    bool needsFragmenting = (m_hdtnConfig.m_fragmentBundlesLargerThanBytes &&
+            (!bv.m_primaryBlockView.header.HasFlagSet(BPV6_BUNDLEFLAG::NOFRAGMENT)) &&
+            (payloadSizeBytes > m_hdtnConfig.m_fragmentBundlesLargerThanBytes));
+    if(needsFragmenting) {
         if(!Bpv6Fragmenter::Fragment(bv, m_hdtnConfig.m_fragmentBundlesLargerThanBytes, fragments)) {
             LOG_ERROR(subprocess) << "Failed to fragment bundle with custody";
             acceptedCustody = false;
@@ -761,7 +764,10 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
         //write bundle to disk, possibly fragmenting if too big
         uint64_t payloadSizeBytes = 0;
         bv.GetPayloadSize(payloadSizeBytes);
-        if(m_hdtnConfig.m_fragmentBundlesLargerThanBytes && payloadSizeBytes > m_hdtnConfig.m_fragmentBundlesLargerThanBytes) {
+        bool needsFragmenting = (m_hdtnConfig.m_fragmentBundlesLargerThanBytes &&
+                (!bv.m_primaryBlockView.header.HasFlagSet(BPV6_BUNDLEFLAG::NOFRAGMENT)) &&
+                (payloadSizeBytes > m_hdtnConfig.m_fragmentBundlesLargerThanBytes));
+        if(needsFragmenting) {
             std::list<BundleViewV6> fragments;
             if(!Bpv6Fragmenter::Fragment(bv, m_hdtnConfig.m_fragmentBundlesLargerThanBytes, fragments)) {
                 LOG_ERROR(subprocess) << "Failed to fragment bundle";

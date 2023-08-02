@@ -142,8 +142,7 @@ bool Bpv6Fragmenter::Fragment(BundleViewV6& orig, uint64_t sz, std::list<BundleV
         LOG_ERROR(subprocess) << "Cannot fragment: fragment size must be greater than zero";
         return false;
     }
-    BPV6_BUNDLEFLAG flags = orig.m_primaryBlockView.header.m_bundleProcessingControlFlags;
-    if((flags & BPV6_BUNDLEFLAG::NOFRAGMENT) == BPV6_BUNDLEFLAG::NOFRAGMENT) {
+    if(orig.m_primaryBlockView.header.HasFlagSet(BPV6_BUNDLEFLAG::NOFRAGMENT)) {
         LOG_ERROR(subprocess) << "Cannot fragment: bundle has NOFRAGMENT flag set";
         return false;
     }
@@ -158,7 +157,7 @@ bool Bpv6Fragmenter::Fragment(BundleViewV6& orig, uint64_t sz, std::list<BundleV
     }
     // TODO need original to be  freshly rendered, can we check that it's not dirty?
 
-    const bool origIsFragment = ((flags & BPV6_BUNDLEFLAG::ISFRAGMENT) == BPV6_BUNDLEFLAG::ISFRAGMENT);
+    const bool origIsFragment = orig.m_primaryBlockView.header.HasFragmentationFlagSet();
     const uint64_t baseAbsoluteOffset = origIsFragment ? orig.m_primaryBlockView.header.m_fragmentOffset : 0;
     const uint64_t totalApplicationDataUnitLength = origIsFragment ? orig.m_primaryBlockView.header.m_totalApplicationDataUnitLength : origPayloadSize;
 
@@ -299,8 +298,7 @@ static bool Validate(std::list<BundleViewV6> &fragments) {
             LOG_ERROR(subprocess) << "while reassembling; creation timestamp does not match";
             return false;
         }
-        const BPV6_BUNDLEFLAG fragFlag = BPV6_BUNDLEFLAG::ISFRAGMENT;
-        if((fragment.m_primaryBlockView.header.m_bundleProcessingControlFlags & fragFlag) != fragFlag) {
+        if(!fragment.m_primaryBlockView.header.HasFlagSet(BPV6_BUNDLEFLAG::ISFRAGMENT)) {
             LOG_ERROR(subprocess) << "while reassembling; fragment flag not set on bundle";
             return false;
         }
