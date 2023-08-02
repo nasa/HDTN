@@ -216,7 +216,7 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
 
 }
 
-bool CustodyTransferManager::GetCustodyInfo(BundleViewV6 & bv, struct CustodyTransferContext &prevCustodyInfo)
+bool CustodyTransferManager::GetCustodyInfo(BundleViewV6 & bv, CustodyTransferContext &prevCustodyInfo)
 {
     Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
     const cbhe_eid_t custodianEidFromPrimary(primary.m_custodianEid);

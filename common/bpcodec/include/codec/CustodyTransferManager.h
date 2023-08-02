@@ -61,7 +61,7 @@ public:
 
     BPCODEC_EXPORT bool ProcessCustodyOfBundle(BundleViewV6 & bv, bool acceptCustody, const uint64_t custodyId,
         const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex, BundleViewV6 & custodySignalRfc5050RenderedBundleView);
-    BPCODEC_EXPORT bool GetCustodyInfo(BundleViewV6 & bv, struct CustodyTransferContext &prevCustodyInfo);
+    BPCODEC_EXPORT bool GetCustodyInfo(BundleViewV6 & bv, CustodyTransferContext &prevCustodyInfo);
     BPCODEC_EXPORT bool UpdateBundleCustodyFields(BundleViewV6 & bv, bool acceptCustody, const uint64_t custodyId);
     BPCODEC_EXPORT bool GenerateCustodySignal(CustodyTransferContext &info, bool acceptCustody,
         const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex, BundleViewV6 & custodySignalRfc5050RenderedBundleView);
