@@ -1091,6 +1091,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
     bool requestsCustody = false;
     bool isAdminRecordForHdtnStorage = false;
     bool isBundleForHdtnRouter = false;
+    bool canBeFragmented = false;
     const uint8_t firstByte = bundleDataBegin[0];
     const bool isBpVersion6 = (firstByte == 6);
     const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
@@ -1113,6 +1114,8 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::ADMINRECORD;
             isAdminRecordForHdtnStorage = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == M_HDTN_EID_CUSTODY));
             isBundleForHdtnRouter = (finalDestEid == M_HDTN_EID_TO_ROUTER_BUNDLES);
+            static const BPV6_BUNDLEFLAG nofrag = BPV6_BUNDLEFLAG::NOFRAGMENT;
+            canBeFragmented = ((primary.m_bundleProcessingControlFlags & nofrag) == nofrag);
             static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForEcho = BPV6_BUNDLEFLAG::NO_FLAGS_SET;
             //BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::NOFRAGMENT;
             const bool isEcho = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO));
@@ -1404,7 +1407,9 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
     const bool isOpportunisticLinkUp = (tcpclInductIterator != m_availableDestOpportunisticNodeIdToTcpclInductMap.end());
     m_availableDestOpportunisticNodeIdToTcpclInductMapMutex.unlock();
     const bool bundleCameFromStorageModule = (!needsProcessing);
-    bool needsFragmenting = (m_hdtnConfig.m_fragmentBundlesLargerThanBytes && (payloadSize >  m_hdtnConfig.m_fragmentBundlesLargerThanBytes));
+    bool needsFragmenting = (m_hdtnConfig.m_fragmentBundlesLargerThanBytes &&
+            isBpVersion6 && canBeFragmented &&
+            (payloadSize >  m_hdtnConfig.m_fragmentBundlesLargerThanBytes));
     bool sentDataOnOpportunisticLink = false;
     const bool trySendOpportunistic = isOpportunisticLinkUp && (bundleCameFromStorageModule || !(requestsCustody || isAdminRecordForHdtnStorage || needsFragmenting));
     if (trySendOpportunistic) {
