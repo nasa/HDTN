@@ -26,7 +26,7 @@
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 // Create fragmented copy of original primary block with fragment flag set and added offset, adu length
-static void copyPrimaryFragment(const BundleViewV6& orig, BundleViewV6& copy, uint64_t offset, uint64_t aduLength) {
+static void CopyPrimaryFragment(const BundleViewV6& orig, BundleViewV6& copy, uint64_t offset, uint64_t aduLength) {
     const Bpv6CbhePrimaryBlock & origHdr = orig.m_primaryBlockView.header;
     Bpv6CbhePrimaryBlock & copyHdr = copy.m_primaryBlockView.header;
 
@@ -41,7 +41,7 @@ static void copyPrimaryFragment(const BundleViewV6& orig, BundleViewV6& copy, ui
 
 // Create unfragmented copy of fragmented primary block
 // (removes fragment flag and defaults the offset and adu length to zero)
-static void copyPrimaryNoFragment(const BundleViewV6& orig, BundleViewV6& copy) {
+static void CopyPrimaryNoFragment(const BundleViewV6& orig, BundleViewV6& copy) {
     const Bpv6CbhePrimaryBlock & origHdr = orig.m_primaryBlockView.header;
     Bpv6CbhePrimaryBlock & copyHdr = copy.m_primaryBlockView.header;
 
@@ -58,7 +58,7 @@ static void copyPrimaryNoFragment(const BundleViewV6& orig, BundleViewV6& copy) 
 // Creates fragmented payload block from original payload block "block"
 // and adds it to bv. The start/end offsets specify fragment extent.
 // start inclusive, end exclusive (e.g. startOffset=0, endOffset=2 consists of offsets 0 and 1)
-static void appendFragmentPayloadBlock(BundleViewV6::Bpv6CanonicalBlockView & block, BundleViewV6& bv, uint64_t startOffset, uint64_t endOffset) {
+static void AppendFragmentPayloadBlock(BundleViewV6::Bpv6CanonicalBlockView & block, BundleViewV6& bv, uint64_t startOffset, uint64_t endOffset) {
     bv.m_listCanonicalBlockView.emplace_back();
     BundleViewV6::Bpv6CanonicalBlockView & copyBlockView = bv.m_listCanonicalBlockView.back();
 
@@ -77,7 +77,7 @@ static void appendFragmentPayloadBlock(BundleViewV6::Bpv6CanonicalBlockView & bl
 
 // Creates a payload block with same type code and processing control flags as "block",
 // appends the new block to bv. Contents of payload provided via adu
-static void createPayloadBlock(BundleViewV6::Bpv6CanonicalBlockView & block, BundleViewV6& bv, std::vector<uint8_t>& adu) {
+static void CreatePayloadBlock(BundleViewV6::Bpv6CanonicalBlockView & block, BundleViewV6& bv, std::vector<uint8_t>& adu) {
     bv.m_listCanonicalBlockView.emplace_back();
     BundleViewV6::Bpv6CanonicalBlockView & copyBlockView = bv.m_listCanonicalBlockView.back();
 
@@ -95,7 +95,7 @@ static void createPayloadBlock(BundleViewV6::Bpv6CanonicalBlockView & block, Bun
 }
 
 // Appends copy of block to bv
-static bool appendBlock(BundleViewV6::Bpv6CanonicalBlockView & block, BundleViewV6& bv) {
+static bool AppendBlock(BundleViewV6::Bpv6CanonicalBlockView & block, BundleViewV6& bv) {
     bv.m_listCanonicalBlockView.emplace_back();
     BundleViewV6::Bpv6CanonicalBlockView & copy = bv.m_listCanonicalBlockView.back();
     copy.markedForDeletion = false;
@@ -178,7 +178,7 @@ bool Bpv6Fragmenter::Fragment(BundleViewV6& orig, uint64_t sz, std::list<BundleV
         fragments.emplace_back();
         BundleViewV6 &bv = fragments.back();
 
-        copyPrimaryFragment(orig, bv, absoluteStartOffset, totalApplicationDataUnitLength);
+        CopyPrimaryFragment(orig, bv, absoluteStartOffset, totalApplicationDataUnitLength);
 
         bool beforePayload = true;
         for(BundleViewV6::Bpv6CanonicalBlockView & block : orig.m_listCanonicalBlockView) {
@@ -189,10 +189,10 @@ bool Bpv6Fragmenter::Fragment(BundleViewV6& orig, uint64_t sz, std::list<BundleV
             bool isPayload = block.headerPtr->m_blockTypeCode == BPV6_BLOCK_TYPE_CODE::PAYLOAD;
             bool replicateInAll = MustReplicateInAll(block.headerPtr->m_blockProcessingControlFlags);
             if(isPayload) {
-                appendFragmentPayloadBlock(block, bv, relativeStartOffset, relativeEndOffset);
+                AppendFragmentPayloadBlock(block, bv, relativeStartOffset, relativeEndOffset);
                 beforePayload = false;
             } else if(replicateInAll || (isFirst && beforePayload) || (isLast && !beforePayload)) {
-                if(!appendBlock(block, bv)) {
+                if(!AppendBlock(block, bv)) {
                     LOG_ERROR(subprocess) << "Failed to append block";
                     return false;
                 }
@@ -276,7 +276,7 @@ static bool GetEndFragments(std::list<BundleViewV6> &fragments, BundleViewV6 **f
 }
 
 // Sanity checks that we can assemble these fragments
-static bool validate(std::list<BundleViewV6> &fragments) {
+static bool Validate(std::list<BundleViewV6> &fragments) {
     if (fragments.size() == 0) {
         LOG_ERROR(subprocess) << "cannot reassemble; fragment vector empty";
         return false;
@@ -307,7 +307,7 @@ static bool validate(std::list<BundleViewV6> &fragments) {
 
 bool Bpv6Fragmenter::Assemble(std::list<BundleViewV6>& fragments, BundleViewV6& bundle) {
     bundle.Reset();
-    if(!validate(fragments)) {
+    if(!Validate(fragments)) {
         LOG_ERROR(subprocess) << "Fragments do not have matching IDs";
         return false;
     }
@@ -324,7 +324,7 @@ bool Bpv6Fragmenter::Assemble(std::list<BundleViewV6>& fragments, BundleViewV6& 
         LOG_ERROR(subprocess) << "Failed to find first and last fragments";
     }
 
-    copyPrimaryNoFragment(*first, bundle);
+    CopyPrimaryNoFragment(*first, bundle);
 
     // Start blocks + payload
     for(BundleViewV6::Bpv6CanonicalBlockView & block : first->m_listCanonicalBlockView) {
@@ -336,10 +336,10 @@ bool Bpv6Fragmenter::Assemble(std::list<BundleViewV6>& fragments, BundleViewV6& 
         if(isPayload) {
             // Can use any of the bundle payload blocks to create the payload block
             // Since we already have a reference, do it here
-            createPayloadBlock(block, bundle, adu);
+            CreatePayloadBlock(block, bundle, adu);
             break;
         }
-        appendBlock(block, bundle);
+        AppendBlock(block, bundle);
     }
 
     // End blocks
@@ -353,7 +353,7 @@ bool Bpv6Fragmenter::Assemble(std::list<BundleViewV6>& fragments, BundleViewV6& 
             sawPayload = block.headerPtr->m_blockTypeCode == BPV6_BLOCK_TYPE_CODE::PAYLOAD;
             continue;
         }
-        appendBlock(block, bundle);
+        AppendBlock(block, bundle);
     }
     bundle.Render(adu.size() + 1024); // TODO how to find render size?
     return true;
