@@ -161,48 +161,62 @@ static void CheckPayload(BundleViewV6 & bv, size_t expectedLen, const void * exp
     CheckCanonicalBlock(payload, expectedLen, expectedData, BPV6_BLOCK_TYPE_CODE::PAYLOAD, flags);
 }
 
-const char *FragmentPayloadData[] = {"helloworld", "helloworld", "helloworld", "longerhelloworld"};
-const uint64_t FragmentPayloadSizes[] = {5, 6, 2, 4};
+struct FragmentPayloadTestData {
+    // Inputs
+    std::string payloadData;
+    uint64_t fragmentPayloadSize;
+
+    // expected
+    struct DataAndOffset {
+        std::string data;
+        uint64_t offset;
+    };
+    std::vector<DataAndOffset> expectedFragments;
+};
+
+std::vector<FragmentPayloadTestData> FragmentPayloadTestVec = {
+    {"abcdefghij", 5, {{"abcde", 0}, {"fghij", 5}}},
+    {"klmnopqrst", 6, {{"klmnop", 0}, {"qrst", 6}}},
+    {"uvwxyz0123", 2, {{"uv", 0}, {"wx", 2}, {"yz", 4}, {"01", 6}, {"23", 8}}},
+    {"ABCDEFGHIJKLMNOP", 6, {{"ABCDEF", 0}, {"GHIJKL", 6}, {"MNOP", 12}}},
+};
 
 BOOST_DATA_TEST_CASE(
         FragmentPayload,
-        boost::unit_test::data::make(FragmentPayloadData) ^ FragmentPayloadSizes,
-        payload,
-        fragmentSize)
+        boost::unit_test::data::xrange(FragmentPayloadTestVec.size()),
+        testIndex)
 {
+    FragmentPayloadTestData test = FragmentPayloadTestVec[testIndex];
     BundleViewV6 bv;
 
     Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
     buildPrimaryBlock(primary);
     bv.m_primaryBlockView.SetManuallyModified();
 
-    std::string body(payload);
-    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(test.payloadData)));
 
     BOOST_REQUIRE(bv.Render(5000));
 
     std::list<BundleViewV6> fragments;
-    bool ret = Bpv6Fragmenter::Fragment(bv, fragmentSize, fragments);
+    bool ret = Bpv6Fragmenter::Fragment(bv, test.fragmentPayloadSize, fragments);
     BOOST_REQUIRE(ret == true);
 
-    uint64_t expectedAduLen = body.size();
-    uint64_t expectedNumFragments = (expectedAduLen + (fragmentSize - 1)) / fragmentSize;
-    uint64_t expectedLastFragmentSize = expectedAduLen % fragmentSize == 0 ? fragmentSize : expectedAduLen % fragmentSize;
+    uint64_t expectedAduLen = test.payloadData.size();
 
-    BOOST_REQUIRE(fragments.size() == expectedNumFragments);
+    BOOST_REQUIRE(fragments.size() == test.expectedFragments.size());
 
     std::list<BundleViewV6>::iterator it = fragments.begin();
     for(uint64_t i = 0, numFragments = fragments.size(); i < numFragments; i++, it++) {
         BundleViewV6 & b = *it;
 
-        uint64_t expectedOffset = i * fragmentSize;
+        uint64_t expectedOffset = test.expectedFragments[i].offset;
+        std::string &expectedData = test.expectedFragments[i].data;
 
         CheckPrimaryBlock(b.m_primaryBlockView.header, expectedOffset, expectedAduLen);
         BOOST_REQUIRE(b.m_listCanonicalBlockView.size() == 1);
 
-        uint64_t expectedFragmentSize = (i < (numFragments - 1)) ? fragmentSize : expectedLastFragmentSize;
-        const void * expectedData = body.data() + (i * fragmentSize);
-        CheckPayload(b, expectedFragmentSize, expectedData);
+        uint64_t expectedFragmentSize = expectedData.size();
+        CheckPayload(b, expectedFragmentSize, expectedData.data());
 
     }
 }
