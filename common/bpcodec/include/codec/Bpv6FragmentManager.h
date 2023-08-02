@@ -43,10 +43,10 @@ public:
      * @returns true on successfully adding the fragment, false on error
      */
 
-    bool AddFragmentAndGetComplete(uint8_t *data, size_t len, bool & isComplete, BundleViewV6 & assembledBv);
+    BPCODEC_EXPORT bool AddFragmentAndGetComplete(uint8_t *data, size_t len, bool & isComplete, BundleViewV6 & assembledBv);
 
     /** Thread safe version of AddFragmentAndGetComplete. Protected by mutex */
-    bool AddFragmentAndGetComplete_ThreadSafe(uint8_t *data, size_t len, bool & isComplete, BundleViewV6 & assembledBv);
+    BPCODEC_EXPORT bool AddFragmentAndGetComplete_ThreadSafe(uint8_t *data, size_t len, bool & isComplete, BundleViewV6 & assembledBv);
 
 private:
     struct Bpv6Id {

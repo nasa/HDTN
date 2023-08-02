@@ -44,7 +44,7 @@ class Bpv6Fragmenter {
      *
      * The original bundle must not be dirty.
      */
-    static BPCODEC_EXPORT bool Fragment(BundleViewV6& orig, uint64_t sz, std::list<BundleViewV6> & fragments);
+    BPCODEC_EXPORT static bool Fragment(BundleViewV6& orig, uint64_t sz, std::list<BundleViewV6> & fragments);
 
     /** Assemble multiple fragments into a non-fragmented bundle
      *
@@ -60,7 +60,7 @@ class Bpv6Fragmenter {
      * bundle (allowing for multiple fragmenting sessions).
      *
      */
-    static bool Assemble(std::list<BundleViewV6>& fragments, BundleViewV6& bundle);
+    BPCODEC_EXPORT static bool Assemble(std::list<BundleViewV6>& fragments, BundleViewV6& bundle);
 
     /** Calculate number of fragments that would be created by fragmenting at fragmentSize
      *
@@ -72,7 +72,7 @@ class Bpv6Fragmenter {
      * Example: CalcNumFragments(80, 40) -> 2
      *
      */
-    static uint64_t CalcNumFragments(uint64_t payloadSize, uint64_t fragmentSize);
+    BPCODEC_EXPORT static uint64_t CalcNumFragments(uint64_t payloadSize, uint64_t fragmentSize);
 
 };
 
