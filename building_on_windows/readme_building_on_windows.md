@@ -49,10 +49,10 @@ Add these lines (change `_vs2022` directory suffix if different):
 * `BOOST_INCLUDEDIR:PATH=C:\hdtn_build_x64_release_vs2022\boost_1_78_0_install`
 * `BOOST_LIBRARYDIR:PATH=C:\hdtn_build_x64_release_vs2022\boost_1_78_0_install\lib64`
 * `BOOST_ROOT:PATH=C:\hdtn_build_x64_release_vs2022\boost_1_78_0_install`
-* `OPENSSL_INCLUDE_DIR:PATH=C:\hdtn_build_x64_release_vs2022\openssl-1.1.1s_install\include`
-* `OPENSSL_ROOT_DIR:PATH=C:\hdtn_build_x64_release_vs2022\openssl-1.1.1s_install`
+* `OPENSSL_INCLUDE_DIR:PATH=C:\hdtn_build_x64_release_vs2022\openssl-1.1.1s_install\include` # (note: check the version and path)
+* `OPENSSL_ROOT_DIR:PATH=C:\hdtn_build_x64_release_vs2022\openssl-1.1.1s_install` # (note: check the version and path)
 * `libzmq_INCLUDE:PATH=C:\hdtn_build_x64_release_vs2022\libzmq_v4.3.4_install\include`
-* `libzmq_LIB:FILEPATH=C:\hdtn_build_x64_release_vs2022\libzmq_v4.3.4_install\lib\libzmq-v143-mt-4_3_4.lib` (note: may be v141 or v142)
+* `libzmq_LIB:FILEPATH=C:\hdtn_build_x64_release_vs2022\libzmq_v4.3.4_install\lib\libzmq-v143-mt-4_3_4.lib` # (note: may be v141 or v142)
 * `BUILD_SHARED_LIBS:BOOL=ON`
 * `USE_WEB_INTERFACE:BOOL=ON`
 
@@ -66,7 +66,7 @@ It's now time to set up additional environmental variables in order to be able t
 * Add the following new variable: `HDTN_BUILD_ROOT`.  The variable value will look something like `C:\Users\username\CMakeBuilds\17e7ec0d-5e2f-4956-8a91-1b32467252b0\build\x64-Release`
 * Click `OK`
 * Click `New`
-* Add the following new variable: `HDTN_INSTALL_ROOT`.  The variable value will look similar to `HDTN_BUILD_ROOT` except change "build" to "install".. something like `C:\Users\username\CMakeBuilds\17e7ec0d-5e2f-4956-8a91-1b32467252b0\install\x64-Release`
+* Add the following new variable: `HDTN_INSTALL_ROOT`.  The variable value will look similar to `HDTN_BUILD_ROOT` except change "build" to "install".. something like `C:\Users\username\CMakeBuilds\17e7ec0d-5e2f-4956-8a91-1b32467252b0\install\x64-Release` (note: this path will not exist until HDTN is installed in a later step)
 * Click `OK`
 * double click `Path` variable, add the `HDTN_INSTALL_ROOT\lib` folder to your `Path`.. something like `C:\Users\username\CMakeBuilds\17e7ec0d-5e2f-4956-8a91-1b32467252b0\install\x64-Release\lib`.  This step is needed because HDTN is built as a shared library with multiple .dll files, so this step allows Windows to find those .dll files when running any HDTN binaries.
 
