@@ -375,6 +375,7 @@ caption {
     display: flex;
     flex-direction: column;
     text-align: center;
+    margin-left: 25px;
 }
 
 .formPopup, .eventFormPopup {

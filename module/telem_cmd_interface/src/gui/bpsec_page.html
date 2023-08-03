@@ -57,7 +57,8 @@
                 <div class="bpSecPolicyElements">
                     <div class="input">
                         <input type="text" id="description" placeholder="Description" style="margin-right: 1px;">
-                        <input type="number" id="securityPolicyRuleID" placeholder="Security Policy ID" style="margin-left: 1px;">
+                        <input type="number" id="securityPolicyRuleID" placeholder="Security Policy ID"
+                            style="margin-left: 1px;">
                     </div>
                     <div class="input" style="flex-direction: column;">
                         <label>Security Role</label>
@@ -68,9 +69,12 @@
                         </select>
                     </div>
                     <div class="input" style="flex-direction: column;">
-                        <input type="text" id="securitySource" step=".01" placeholder="Security Source" style="margin-right: 1px;" required>
-                        <input type="text" id="bundleSource" step=".01" placeholder="Bundle Source" style="margin-left: 1px;" required>
-                        <input type="text" id="bundleDestination" step=".01" placeholder="Bundle Final Destination" required>
+                        <input type="text" id="securitySource" step=".01" placeholder="Security Source"
+                            style="margin-right: 1px;" required>
+                        <input type="text" id="bundleSource" step=".01" placeholder="Bundle Source"
+                            style="margin-left: 1px;" required>
+                        <input type="text" id="bundleDestination" step=".01" placeholder="Bundle Final Destination"
+                            required>
                     </div>
                     <div class="input">
                         <label>Security Service</label>
@@ -551,14 +555,15 @@
                 if (key !== "bpsecConfigName") {
                     if (Array.isArray(currentPolicies[key])) {
                         //create table
+                        if (key === "policyRules") {
+                            newTable += "<caption style=\"text-align:left;padding-left:20px;text-transform:uppercase;margin-top:5px;font-size=20px;\">Policy Rules</caption>";
+                        }
+                        else if (key === "securityFailureEventSets") {
+                            newTable += "<caption style=\"text-align:left;padding-left:20px;text-transform:uppercase;margin-top:5px;font-size=20px;\">Security Failure Events</caption>";
+                        }
                         for (var i = 0; i < currentPolicies[key].length; ++i) {
                             var newSubTable = "<table class=\"styled-table\" style=\"margin:15px 0px\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>";
-                            if (key === "policyRules") {
-                                newTable += "<caption style=\"text-align:left;padding-left:20px;text-transform:uppercase;margin-top:5px;font-size=20px;\">Policy Rules</caption>";
-                            }
-                            else if (key === "securityFailureEventSets") {
-                                newTable += "<caption style=\"text-align:left;padding-left:20px;text-transform:uppercase;margin-top:5px;font-size=20px;\">Security Failure Events</caption>";
-                            }
+
                             var idValue = null;
                             for (var subKey in currentPolicies[key][i]) {
                                 newSubTable += "<tr>" + "<td>" + subKey + "</td>";
@@ -919,6 +924,18 @@
             }
         });
 
+        function HandleNewBPSecJson(objectJSON) {
+            console.log("FOUND YOU");
+            currentPolicies = objectJSON;
+            showJSON();
+        }
+
+        function UpdatePageWithObj(objectJSON) {
+            if ("bpsecConfigName" in objectJSON) {
+                HandleNewBPSecJson(objectJSON);
+            }
+        }
+
         function loadNewBPSecJSON() {
             let apiObj = {
                 "apiCall": "bpSec",
@@ -959,7 +976,9 @@
                             console.log(e.data);
                         }
                         else { //json data
-
+                            var objectJSON = JSON.parse(e.data); //can error depending on the encoding
+                            UpdatePageWithObj(objectJSON);
+                            //console.log(e.data);
                         }
                     }
                 }
