@@ -2,9 +2,9 @@
 
 # path variables
 config_files=$HDTN_SOURCE_ROOT/config_files
-hdtn_config=$config_files/hdtn/hdtn_ingress1stcp_port4556_egress1stcp_port4558flowid2.json
-sink_config=$config_files/inducts/bpsink_one_stcp_port4558.json
-gen_config=$config_files/outducts/bpgen_one_stcp_port4556.json
+hdtn_config=$config_files/hdtn/hdtn_ingress1tcpcl_port4556_egress1tcpcl_port4558flowid2.json
+sink_config=$config_files/inducts/bpsink_one_tcpcl_port4558.json
+gen_config=$config_files/outducts/bpgen_one_tcpcl_port4556.json
 bpsink_bpsec_config=$config_files/bpsec/ipn2.1_con_plus_int.json
 bpgen_bpsec_config=$config_files/bpsec/ipn1.1_con_plus_int.json
 hdtn_bpsec_config=$config_files/bpsec/ipn10.1_con_plus_int.json
