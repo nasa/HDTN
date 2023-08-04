@@ -496,54 +496,52 @@
             var noChangeDeletion = 1;
             var removalType = id.slice(-1);
             var idKey = id.substring(0, id.length - 1);
-            if (confirm("Are you sure you want to remove " + idKey + "?") == true) {
-                if (removalType === "c") {
-                    removalType = idKey.slice(-1);
-                    idKey = idKey.substring(0, idKey.length - 1);
-                    noChangeDeletion = 0;
-                }
-                //id is the key for the array index to delete
-                for (var parts in currentPolicies) {
-                    for (var i = 0; i < currentPolicies[parts].length; i++) {
-                        if (removalType === 'p') {
-                            if (currentPolicies[parts][i].description === idKey && validDeletion) {
-                                if (currentPolicies[parts].length === 1) {
-                                    currentPolicies[parts] = [];
-                                    deletedNode = 1;
-                                } else {
-                                    currentPolicies[parts].splice(i, 1);
-                                    deletedNode = 1;
-                                }
-                                showJSON();
-                                if (noChangeDeletion) {
-                                    alert("Deleted " + idKey + " from configurations.");
-                                }
-                                break;
+            if (removalType === "c") {
+                removalType = idKey.slice(-1);
+                idKey = idKey.substring(0, idKey.length - 1);
+                noChangeDeletion = 0;
+            }
+            //id is the key for the array index to delete
+            for (var parts in currentPolicies) {
+                for (var i = 0; i < currentPolicies[parts].length; i++) {
+                    if (removalType === 'p') {
+                        if (currentPolicies[parts][i].description === idKey && validDeletion) {
+                            if (currentPolicies[parts].length === 1) {
+                                currentPolicies[parts] = [];
+                                deletedNode = 1;
+                            } else {
+                                currentPolicies[parts].splice(i, 1);
+                                deletedNode = 1;
                             }
-                        } else {
-                            if (currentPolicies[parts][i].securityFailureEventSetReference === idKey && noChangeDeletion) {
-                                validDeletion = 0;
-                                alert("INVALID DELETION\nCannot delete an event before the policy.")
-                                break;
-                            } else if (currentPolicies[parts][i].name === idKey && validDeletion && !noChangeDeletion) {
-                                if (currentPolicies[parts].length === 1) {
-                                    currentPolicies[parts] = [];
-                                    deletedNode = 1;
-                                } else {
-                                    currentPolicies[parts].splice(i, 1);
-                                    deletedNode = 1;
-                                }
-                                showJSON();
-                                if (noChangeDeletion) {
-                                    alert("Deleted " + idKey + " from configurations.");
-                                }
-                                break;
+                            showJSON();
+                            if (noChangeDeletion) {
+                                alert("Deleted " + idKey + " from configurations.");
                             }
+                            break;
+                        }
+                    } else {
+                        if (currentPolicies[parts][i].securityFailureEventSetReference === idKey && noChangeDeletion) {
+                            validDeletion = 0;
+                            alert("INVALID DELETION\nCannot delete an event before the policy.")
+                            break;
+                        } else if (currentPolicies[parts][i].name === idKey && validDeletion && !noChangeDeletion) {
+                            if (currentPolicies[parts].length === 1) {
+                                currentPolicies[parts] = [];
+                                deletedNode = 1;
+                            } else {
+                                currentPolicies[parts].splice(i, 1);
+                                deletedNode = 1;
+                            }
+                            showJSON();
+                            if (noChangeDeletion) {
+                                alert("Deleted " + idKey + " from configurations.");
+                            }
+                            break;
                         }
                     }
-                    if (deletedNode) {
-                        break;
-                    }
+                }
+                if (deletedNode) {
+                    break;
                 }
             }
         }
@@ -730,6 +728,9 @@
                 closeEventForm();
                 showJSON();
             }
+            else {
+                validEvent = 1;
+            }
         }
 
         function resetFormValues() {
@@ -903,6 +904,8 @@
                     openEventForm();
                 }
                 createNewPolicy();
+            }else{
+                valid = 1;
             }
         }
 
