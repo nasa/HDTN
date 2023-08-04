@@ -52,7 +52,7 @@ private:
 
     STCP_LIB_NO_EXPORT void TryStartTcpReceive();
     STCP_LIB_NO_EXPORT void HandleTcpReceiveIncomingBundleSize(const boost::system::error_code & error, std::size_t bytesTransferred, const unsigned int writeIndex);
-    STCP_LIB_NO_EXPORT void HandleTcpReceiveBundleData(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
+    STCP_LIB_NO_EXPORT void HandleTcpReceiveBundleData(const boost::system::error_code & error, std::size_t bytesTransferred);
     STCP_LIB_NO_EXPORT void PopCbThreadFunc();
     STCP_LIB_NO_EXPORT void DoStcpShutdown();
     STCP_LIB_NO_EXPORT void HandleSocketShutdown();
@@ -71,7 +71,6 @@ private:
     const uint64_t M_MAX_BUNDLE_SIZE_BYTES;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_circularIndexBuffer;
     std::vector<padded_vector_uint8_t > m_tcpReceiveBuffersCbVec;
-    std::vector<std::size_t> m_tcpReceiveBytesTransferredCbVec;
     boost::condition_variable m_conditionVariableCb;
     boost::mutex m_mutexCb;
     std::unique_ptr<boost::thread> m_threadCbReaderPtr;

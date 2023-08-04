@@ -37,7 +37,6 @@ StcpBundleSink::StcpBundleSink(std::shared_ptr<boost::asio::ip::tcp::socket> tcp
     M_MAX_BUNDLE_SIZE_BYTES(maxBundleSizeBytes),
     m_circularIndexBuffer(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_tcpReceiveBuffersCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
-    m_tcpReceiveBytesTransferredCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_stateTcpReadActive(false),
     m_printedCbTooSmallNotice(false),
     m_running(false),
@@ -128,7 +127,9 @@ void StcpBundleSink::HandleTcpReceiveIncomingBundleSize(const boost::system::err
             boost::endian::big_to_native_inplace(m_incomingBundleSize);
             //continue operation StartTcpReceiveBundleData only if there was no error
             if (m_incomingBundleSize > M_MAX_BUNDLE_SIZE_BYTES) { //SAFETY CHECKS ON SIZE BEFORE ALLOCATE
-                LOG_FATAL(subprocess) << "StcpBundleSink::HandleTcpReceiveIncomingBundleSize(): size " << m_incomingBundleSize << " exceeds 100MB.. TCP receiving on StcpBundleSink will now stop!";
+                LOG_FATAL(subprocess) << "StcpBundleSink::HandleTcpReceiveIncomingBundleSize(): size "
+                    << m_incomingBundleSize << " exceeds " << M_MAX_BUNDLE_SIZE_BYTES
+                    << " bytes.. TCP receiving on StcpBundleSink will now stop!";
                 DoStcpShutdown(); //leave in m_stateTcpReadActive = true
             }
             else {
@@ -137,8 +138,7 @@ void StcpBundleSink::HandleTcpReceiveIncomingBundleSize(const boost::system::err
                     boost::asio::buffer(m_tcpReceiveBuffersCbVec[writeIndex]),
                     boost::bind(&StcpBundleSink::HandleTcpReceiveBundleData, this,
                         boost::asio::placeholders::error,
-                        boost::asio::placeholders::bytes_transferred,
-                        writeIndex));
+                        boost::asio::placeholders::bytes_transferred));
             }
         }
     }
@@ -151,10 +151,9 @@ void StcpBundleSink::HandleTcpReceiveIncomingBundleSize(const boost::system::err
     }
 }
 
-void StcpBundleSink::HandleTcpReceiveBundleData(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex) {
+void StcpBundleSink::HandleTcpReceiveBundleData(const boost::system::error_code & error, std::size_t bytesTransferred) {
     if (!error) {
         if (bytesTransferred == m_incomingBundleSize) {
-            m_tcpReceiveBytesTransferredCbVec[writeIndex] = bytesTransferred;
             m_mutexCb.lock();
             m_circularIndexBuffer.CommitWrite(); //write complete at this point
             m_mutexCb.unlock();

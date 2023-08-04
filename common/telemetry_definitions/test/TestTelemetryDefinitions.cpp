@@ -274,6 +274,34 @@ BOOST_AUTO_TEST_CASE(AllInductTelemetryTestCase)
     {
         ait.m_listAllInducts.emplace_back();
         InductTelemetry_t& inductTelem = ait.m_listAllInducts.back();
+        inductTelem.m_convergenceLayer = "slip_over_uart";
+        for (std::size_t j = 0; j < 2; ++j) {
+            std::unique_ptr<SlipOverUartInductConnectionTelemetry_t> ptr = boost::make_unique<SlipOverUartInductConnectionTelemetry_t>();
+            SlipOverUartInductConnectionTelemetry_t& conn = *ptr;
+            conn.m_connectionName = inductTelem.m_convergenceLayer + boost::lexical_cast<std::string>(j);
+            conn.m_inputName = conn.m_connectionName + "_input";
+            conn.m_totalBundleBytesReceived = conn.m_connectionName.size() + j + 100;
+            conn.m_totalBundlesReceived = conn.m_connectionName.size() + j;
+
+            conn.m_totalSlipBytesSent = 1000 + j * 1000;
+            conn.m_totalSlipBytesReceived = 1001 + j * 1000;
+            conn.m_totalReceivedChunks = 1002 + j * 1000;
+            conn.m_largestReceivedBytesPerChunk = 1003 + j * 1000;
+            conn.m_averageReceivedBytesPerChunk = 1004 + j * 1000;
+            //bidirectionality (identical to OutductTelemetry_t)
+            conn.m_totalBundlesSentAndAcked = 1005 + j * 1000;
+            conn.m_totalBundleBytesSentAndAcked = 1006 + j * 1000;
+            conn.m_totalBundlesSent = 1007 + j * 1000;
+            conn.m_totalBundleBytesSent = 1008 + j * 1000;
+            conn.m_totalBundlesFailedToSend = 1009 + j * 1000;
+
+            inductTelem.m_listInductConnections.emplace_back(std::move(ptr));
+        }
+    }
+
+    {
+        ait.m_listAllInducts.emplace_back();
+        InductTelemetry_t& inductTelem = ait.m_listAllInducts.back();
         inductTelem.m_convergenceLayer = "stcp";
         for (std::size_t j = 0; j < 2; ++j) {
             std::unique_ptr<StcpInductConnectionTelemetry_t> ptr = boost::make_unique<StcpInductConnectionTelemetry_t>();
@@ -378,6 +406,17 @@ BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
         ptr->m_totalPacketsDequeuedForSend = 52;
         ptr->m_totalPacketBytesDequeuedForSend = 53;
         ptr->m_totalPacketsLimitedByRate = 54;
+        aot.m_listAllOutducts.emplace_back(std::move(ptr));
+    }
+    {
+        std::unique_ptr<SlipOverUartOutductTelemetry_t> ptr = boost::make_unique<SlipOverUartOutductTelemetry_t>();
+        ptr->m_totalSlipBytesSent = 60;
+        ptr->m_totalSlipBytesReceived = 61;
+        ptr->m_totalReceivedChunks = 62;
+        ptr->m_largestReceivedBytesPerChunk = 63;
+        ptr->m_averageReceivedBytesPerChunk = 64;
+        ptr->m_totalBundlesReceived = 65;
+        ptr->m_totalBundleBytesReceived = 66;
         aot.m_listAllOutducts.emplace_back(std::move(ptr));
     }
     for (std::list<std::unique_ptr<OutductTelemetry_t> >::iterator it = aot.m_listAllOutducts.begin(); it != aot.m_listAllOutducts.end(); ++it) {
