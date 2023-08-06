@@ -996,8 +996,6 @@ namespace hdtn
                                 }
                                 else if (apiCall == "bpSec")
                                 {
-                                    LOG_INFO(subprocess) << "entered the api section for bpsec\n";
-
                                     // redoing what storage has done for BPsec
                                     std::string *bpSecConfigJson = new std::string(m_bpSecConfigPtr->ToJson());
                                     std::string& strRefBPSec = *bpSecConfigJson;
@@ -1008,6 +1006,10 @@ namespace hdtn
                                     {
                                         LOG_ERROR(subprocess) << "can't send json telemetry to telem";
                                     }
+                                }
+                                else if (apiCall == "bpSecUpdate")
+                                {
+                                    LOG_INFO(subprocess) << "Updating bpsec";
                                 }
                             } while (apiMsg.more());
                         }

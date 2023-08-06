@@ -132,6 +132,7 @@ TelemetryRunner::Impl::Impl() : m_running(false),
 {
     m_apiCmdMap["ping"] = boost::bind(&TelemetryRunner::Impl::HandlePingCommand, this, boost::placeholders::_1, boost::placeholders::_2);
     m_apiCmdMap["bpSec"] = boost::bind(&TelemetryRunner::Impl::HandleBPSecCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap["bpSecUpdate"] = boost::bind(&TelemetryRunner::Impl::HandleBPSecCommand, this, boost::placeholders::_1, boost::placeholders::_2);
     m_apiCmdMap["upload_contact_plan"] = boost::bind(&TelemetryRunner::Impl::HandleUploadContactPlanCommand, this, boost::placeholders::_1, boost::placeholders::_2);
     m_apiCmdMap["get_expiring_storage"] = boost::bind(&TelemetryRunner::Impl::HandleGetExpiringStorageCommand, this, boost::placeholders::_1, boost::placeholders::_2);
 }

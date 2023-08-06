@@ -514,6 +514,7 @@
                                 deletedNode = 1;
                             }
                             showJSON();
+                            sendNewBPSecJSON();
                             if (noChangeDeletion) {
                                 alert("Deleted " + idKey + " from configurations.");
                             }
@@ -533,6 +534,7 @@
                                 deletedNode = 1;
                             }
                             showJSON();
+                            sendNewBPSecJSON();
                             if (noChangeDeletion) {
                                 alert("Deleted " + idKey + " from configurations.");
                             }
@@ -727,6 +729,7 @@
                 createNewEvent = 0;
                 closeEventForm();
                 showJSON();
+                sendNewBPSecJSON();
             }
             else {
                 validEvent = 1;
@@ -838,6 +841,7 @@
             alert("New Policy Added");
             resetFormValues();
             showJSON();
+            sendNewBPSecJSON();
             closeForm();
         }
 
@@ -904,7 +908,7 @@
                     openEventForm();
                 }
                 createNewPolicy();
-            }else{
+            } else {
                 valid = 1;
             }
         }
@@ -930,7 +934,6 @@
         });
 
         function HandleNewBPSecJson(objectJSON) {
-            console.log("FOUND YOU");
             currentPolicies = objectJSON;
             showJSON();
         }
@@ -945,6 +948,15 @@
             let apiObj = {
                 "apiCall": "bpSec",
             };
+            WebSocketSend(JSON.stringify(apiObj));
+        }
+
+        function sendNewBPSecJSON() {
+            let apiObj = {
+                "apiCall": "bpSecUpdate",
+            };
+
+            apiObj.newBPSec = currentPolicies;
             WebSocketSend(JSON.stringify(apiObj));
         }
 
