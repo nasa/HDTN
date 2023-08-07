@@ -7,6 +7,7 @@ add_library(induct_manager_lib
 	src/LtpInduct.cpp
 	src/LtpOverIpcInduct.cpp
 	src/LtpOverUdpInduct.cpp
+	src/SlipOverUartInduct.cpp
 	src/InductManager.cpp
 )
 GENERATE_EXPORT_HEADER(induct_manager_lib)
@@ -21,6 +22,7 @@ set(MY_PUBLIC_HEADERS
 	include/LtpInduct.h
 	include/LtpOverIpcInduct.h
 	include/LtpOverUdpInduct.h
+	include/SlipOverUartInduct.h
 	include/StcpInduct.h
 	include/TcpclInduct.h
 	include/TcpclV4Induct.h
@@ -35,6 +37,7 @@ target_link_libraries(induct_manager_lib
 		tcpcl_lib 
 		stcp_lib 
 		udp_lib 
+		slip_over_uart_lib
 		ltp_lib
 		log_lib
 )

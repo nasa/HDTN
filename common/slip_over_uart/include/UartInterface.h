@@ -31,6 +31,7 @@
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "TelemetryDefinitions.h"
 #include "BundleCallbackFunctionDefines.h"
+#include <atomic>
 #include "slip_over_uart_lib_export.h"
 
 struct SerialSendElement {
@@ -48,11 +49,11 @@ public:
         const unsigned int numRxCircularBufferVectors,
         const std::size_t maxRxBundleSizeBytes,
         const unsigned int maxTxBundlesInFlight,
-        boost::asio::io_service & ioService,
-        const WholeBundleReadyCallback_t& wholeBundleReadyCallback,
-        bool useComPort);
+        const WholeBundleReadyCallback_t& wholeBundleReadyCallback);
     SLIP_OVER_UART_LIB_EXPORT ~UartInterface();
+    SLIP_OVER_UART_LIB_EXPORT void Stop();
     SLIP_OVER_UART_LIB_EXPORT bool IsRunningNormally();
+    SLIP_OVER_UART_LIB_EXPORT boost::asio::io_service& GetIoServiceRef();
     
     SLIP_OVER_UART_LIB_EXPORT bool Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData);
     SLIP_OVER_UART_LIB_EXPORT bool Forward(zmq::message_t& dataZmq, std::vector<uint8_t>&& userData);
@@ -88,6 +89,7 @@ protected:
     
     
 private:
+    volatile bool m_useLocalConditionVariableAckReceived;
     volatile bool m_running;
     bool m_runningNormally;
     bool m_rxBundleOverran;
@@ -98,7 +100,7 @@ private:
     const unsigned int M_NUM_RX_CIRCULAR_BUFFER_VECTORS;
     const std::string m_comPortName;
     const std::size_t m_maxRxBundleSizeBytes;
-    boost::asio::io_service& m_serialPortIoServiceRef;
+    boost::asio::io_service m_ioService;
     boost::asio::serial_port m_serialPort; // the serial port this instance is connected to 
     std::vector<uint8_t> m_readSomeBuffer;
     padded_vector_uint8_t* m_currentRxBundlePtr;
@@ -107,6 +109,8 @@ private:
     boost::condition_variable m_conditionVariableCb;
     boost::mutex m_mutexCb;
     std::unique_ptr<boost::thread> m_threadCbReaderPtr;
+    std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
+    boost::condition_variable m_localConditionVariableAckReceived;
 
     const unsigned int MAX_TX_BUNDLES_IN_FLIGHT;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_txBundlesCb;
@@ -120,9 +124,19 @@ private:
     OnOutductLinkStatusChangedCallback_t m_onOutductLinkStatusChangedCallback;
     uint64_t m_userAssignedUuid;
     
+    //translate to telem
+    std::atomic<uint64_t> m_totalBundlesSent;
+    std::atomic<uint64_t> m_totalBundleBytesSent;
+    std::atomic<uint64_t> m_totalBundlesAcked;
+    std::atomic<uint64_t> m_totalBundleBytesAcked;
+    std::atomic<uint64_t> m_totalBundlesFailedToSend;
+    std::atomic<uint64_t> m_totalSlipBytesSent;
+    std::atomic<uint64_t> m_totalSlipBytesReceived;
+    std::atomic<uint64_t> m_totalReceivedChunks;
+    std::atomic<uint64_t> m_largestReceivedBytesPerChunk;
 public:
     SlipOverUartInductConnectionTelemetry_t m_inductTelemetry;
-    volatile SlipOverUartOutductTelemetry_t m_outductTelemetry; //volatile => used by 2 threads
+    SlipOverUartOutductTelemetry_t m_outductTelemetry; //volatile => used by 2 threads
 };
 
 

@@ -32,9 +32,8 @@ UartInterface::UartInterface(const std::string& comPortName, const unsigned int 
     const unsigned int numRxCircularBufferVectors,
     const std::size_t maxRxBundleSizeBytes,
     const unsigned int maxTxBundlesInFlight,
-    boost::asio::io_service& ioService,
-    const WholeBundleReadyCallback_t& wholeBundleReadyCallback,
-    bool useComPort) :
+    const WholeBundleReadyCallback_t& wholeBundleReadyCallback) :
+    m_useLocalConditionVariableAckReceived(false), //for destructor only
     m_running(false),
     m_runningNormally(true),
     m_rxBundleOverran(false),
@@ -44,8 +43,7 @@ UartInterface::UartInterface(const std::string& comPortName, const unsigned int 
     M_NUM_RX_CIRCULAR_BUFFER_VECTORS(numRxCircularBufferVectors),
     m_comPortName(comPortName),
     m_maxRxBundleSizeBytes(maxRxBundleSizeBytes),
-    m_serialPortIoServiceRef(ioService),
-    m_serialPort(ioService),
+    m_serialPort(m_ioService),
     m_currentRxBundlePtr(NULL),
     m_circularIndexBuffer(M_NUM_RX_CIRCULAR_BUFFER_VECTORS),
     m_bundleRxBuffersCbVec(M_NUM_RX_CIRCULAR_BUFFER_VECTORS),
@@ -53,7 +51,17 @@ UartInterface::UartInterface(const std::string& comPortName, const unsigned int 
     m_txBundlesCb(MAX_TX_BUNDLES_IN_FLIGHT + 1), //+1 ensures the CommitRead() can happen after the Notify to sender
     m_txBundlesCbVec(MAX_TX_BUNDLES_IN_FLIGHT + 1),
     m_wholeBundleReadyCallback(wholeBundleReadyCallback),
-    m_userAssignedUuid(0)
+    m_userAssignedUuid(0),
+    //telem
+    m_totalBundlesSent(0),
+    m_totalBundleBytesSent(0),
+    m_totalBundlesAcked(0),
+    m_totalBundleBytesAcked(0),
+    m_totalBundlesFailedToSend(0),
+    m_totalSlipBytesSent(0),
+    m_totalSlipBytesReceived(0),
+    m_totalReceivedChunks(0),
+    m_largestReceivedBytesPerChunk(0)
 {
     m_readSomeBuffer.resize(1000);
 
@@ -69,63 +77,117 @@ UartInterface::UartInterface(const std::string& comPortName, const unsigned int 
     //Reset all rx states
     ResetRxStates();
 
-    if(useComPort) {
-        try {
-            std::cout << "Opening com port on " << m_comPortName << "\n";
-            m_serialPort.open(m_comPortName);
-            std::cout << "Successfully opened serial port on " << m_comPortName << "\n";
-        }
-        catch (boost::system::system_error & ex) {
-            std::cout << "Error opening serial port " << m_comPortName << ": Error=" << ex.what() << "\n";
-            m_runningNormally = false;
-            return;
-        }
 
-        if (!m_serialPort.is_open()) {
-            std::cout << "Failed to open serial port " << m_comPortName << "\n";
-            m_runningNormally = false;
-            return;
-        }
+    try {
+        std::cout << "Opening com port on " << m_comPortName << "\n";
+        m_serialPort.open(m_comPortName);
+        std::cout << "Successfully opened serial port on " << m_comPortName << "\n";
+    }
+    catch (boost::system::system_error & ex) {
+        std::cout << "Error opening serial port " << m_comPortName << ": Error=" << ex.what() << "\n";
+        m_runningNormally = false;
+        return;
+    }
 
-        try {
-            m_serialPort.set_option(
-                boost::asio::serial_port_base::baud_rate(baudRate)); // set the baud rate after the port has been opened 
-            std::cout << "Successfully set baud rate to " << baudRate << "\n";
+    if (!m_serialPort.is_open()) {
+        std::cout << "Failed to open serial port " << m_comPortName << "\n";
+        m_runningNormally = false;
+        return;
+    }
 
-            m_serialPort.set_option(
-                boost::asio::serial_port_base::character_size(8U));
-            std::cout << "Successfully set character size to " << 8U << "\n";
+    try {
+        m_serialPort.set_option(
+            boost::asio::serial_port_base::baud_rate(baudRate)); // set the baud rate after the port has been opened 
+        std::cout << "Successfully set baud rate to " << baudRate << "\n";
 
-            m_serialPort.set_option(
-                boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
-            std::cout << "Successfully set flow control to " << "none" << "\n";
+        m_serialPort.set_option(
+            boost::asio::serial_port_base::character_size(8U));
+        std::cout << "Successfully set character size to " << 8U << "\n";
 
-            m_serialPort.set_option(
-                boost::asio::serial_port_base::parity(boost::asio::serial_port_base::parity::none));
-            std::cout << "Successfully set parity to " << "none" << "\n";
+        m_serialPort.set_option(
+            boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
+        std::cout << "Successfully set flow control to " << "none" << "\n";
 
-            m_serialPort.set_option(
-                boost::asio::serial_port_base::stop_bits(boost::asio::serial_port_base::stop_bits::one));
-            std::cout << "Successfully set stop bits to " << "one" << "\n";
-        }
-        catch (boost::system::system_error & ex) {
-            std::cout << "Error configuring serial port: Error=" << ex.what() << "  code=" << ex.code() << "\n";
-            m_runningNormally = false;
-            return;
-        }
-        TryStartSerialReceive();
+        m_serialPort.set_option(
+            boost::asio::serial_port_base::parity(boost::asio::serial_port_base::parity::none));
+        std::cout << "Successfully set parity to " << "none" << "\n";
 
-        m_inductTelemetry.m_connectionName = boost::lexical_cast<std::string>(baudRate) + " baud";
-        m_inductTelemetry.m_inputName = comPortName;
-        LOG_INFO(subprocess) << "UART RX using CB size: " << M_NUM_RX_CIRCULAR_BUFFER_VECTORS;
-        m_running = true;
-        m_threadCbReaderPtr = boost::make_unique<boost::thread>(
-            boost::bind(&UartInterface::PopCbThreadFunc, this)); //create and start the worker thread
-    }    
+        m_serialPort.set_option(
+            boost::asio::serial_port_base::stop_bits(boost::asio::serial_port_base::stop_bits::one));
+        std::cout << "Successfully set stop bits to " << "one" << "\n";
+    }
+    catch (boost::system::system_error & ex) {
+        std::cout << "Error configuring serial port: Error=" << ex.what() << "  code=" << ex.code() << "\n";
+        m_runningNormally = false;
+        return;
+    }
+    TryStartSerialReceive();
+
+    m_inductTelemetry.m_connectionName = boost::lexical_cast<std::string>(baudRate) + " baud";
+    m_inductTelemetry.m_inputName = comPortName;
+    LOG_INFO(subprocess) << "UART RX using CB size: " << M_NUM_RX_CIRCULAR_BUFFER_VECTORS;
+    m_running = true;
+    m_threadCbReaderPtr = boost::make_unique<boost::thread>(
+        boost::bind(&UartInterface::PopCbThreadFunc, this)); //create and start the worker thread  
+
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    ThreadNamer::SetIoServiceThreadName(m_ioService, "ioService" + m_comPortName);
 }
 
 UartInterface::~UartInterface() {
+    Stop();
+}
+void UartInterface::Stop() {
+    //prevent UartInterface from exiting before all bundles sent and acked
+    try {
+        { //scope for destruction of lock within try block
+            boost::mutex localMutex;
+            boost::mutex::scoped_lock lock(localMutex);
+            m_useLocalConditionVariableAckReceived = true;
+            std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
+            for (unsigned int attempt = 0; attempt < 20; ++attempt) {
+                const std::size_t numUnacked = GetTotalDataSegmentsUnacked();
+                if (numUnacked) {
+                    LOG_INFO(subprocess) << "UartInterface destructor waiting on " << numUnacked << " unacked bundles";
 
+
+                    if (previousUnacked > numUnacked) {
+                        previousUnacked = numUnacked;
+                        attempt = 0;
+                    }
+                    m_localConditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(500)); // call lock.unlock() and blocks the current thread
+                    continue;
+                }
+                break;
+            }
+        }
+    }
+    catch (const boost::condition_error& e) {
+        LOG_ERROR(subprocess) << "condition_error in UartInterface::Stop: " << e.what();
+    }
+    catch (const boost::thread_resource_error& e) {
+        LOG_ERROR(subprocess) << "thread_resource_error in UartInterface::Stop: " << e.what();
+    }
+    catch (const boost::thread_interrupted&) {
+        LOG_ERROR(subprocess) << "thread_interrupted in UartInterface::Stop";
+    }
+    catch (const boost::lock_error& e) {
+        LOG_ERROR(subprocess) << "lock_error in UartInterface::Stop: " << e.what();
+    }
+
+    m_ioService.stop(); //ioservice requires stopping before join because of the m_work object
+
+    if (m_ioServiceThreadPtr) {
+        try {
+            m_ioServiceThreadPtr->join();
+            m_ioServiceThreadPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping StcpBundleSource io_service";
+        }
+    }
+
+    
     m_mutexCb.lock();
     m_running = false; //thread stopping criteria
     m_mutexCb.unlock();
@@ -140,6 +202,18 @@ UartInterface::~UartInterface() {
             LOG_ERROR(subprocess) << "error stopping UartInterface threadCbReader";
         }
     }
+
+    //print stats
+    LOG_INFO(subprocess) << "UART " << m_comPortName << " totalBundlesSent " << m_totalBundlesSent;
+    LOG_INFO(subprocess) << "UART " << m_comPortName << " totalBundlesAcked " << m_totalBundlesAcked;
+    LOG_INFO(subprocess) << "UART " << m_comPortName << " totalBundleBytesSent " << m_totalBundleBytesSent;
+    LOG_INFO(subprocess) << "UART " << m_comPortName << " totalBundleBytesAcked " << m_totalBundleBytesAcked;
+    LOG_INFO(subprocess) << "UART " << m_comPortName << " m_totalBundlesFailedToSend " << m_totalBundlesFailedToSend;
+    LOG_INFO(subprocess) << "UART " << m_comPortName << " averageReceivedBytesPerChunk " << m_totalSlipBytesReceived / m_totalReceivedChunks;
+    LOG_INFO(subprocess) << "UART " << m_comPortName << " m_totalSlipBytesSent " << m_totalSlipBytesSent;
+    LOG_INFO(subprocess) << "UART " << m_comPortName << " m_totalSlipBytesReceived " << m_totalSlipBytesReceived;
+    LOG_INFO(subprocess) << "UART " << m_comPortName << " m_totalReceivedChunks " << m_totalReceivedChunks;
+    LOG_INFO(subprocess) << "UART " << m_comPortName << " m_largestReceivedBytesPerChunk " << m_largestReceivedBytesPerChunk;
 }
 
 
@@ -176,10 +250,10 @@ void UartInterface::ResetRxStates() {
 void UartInterface::SerialReceiveSomeHandler(const boost::system::error_code & error, std::size_t bytesTransferred) {
     if (!error) {
         uint8_t *readSomePtr = m_readSomeBuffer.data();
-        m_outductTelemetry.m_totalSlipBytesReceived += bytesTransferred;
-        ++m_outductTelemetry.m_totalReceivedChunks;
-        if (m_outductTelemetry.m_largestReceivedBytesPerChunk < bytesTransferred) {
-            m_outductTelemetry.m_largestReceivedBytesPerChunk = bytesTransferred;
+        m_totalSlipBytesReceived += bytesTransferred;
+        ++m_totalReceivedChunks;
+        if (m_largestReceivedBytesPerChunk < bytesTransferred) {
+            m_largestReceivedBytesPerChunk = bytesTransferred;
         }
         while (bytesTransferred) {
             --bytesTransferred;
@@ -239,7 +313,7 @@ void UartInterface::PopCbThreadFunc() {
 
     while (true) { //keep thread alive if running or cb not empty, i.e. "while (m_running || (m_circularIndexBuffer.GetIndexForRead() != CIRCULAR_INDEX_BUFFER_EMPTY))"
         unsigned int consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
-        boost::asio::post(m_serialPortIoServiceRef, boost::bind(&UartInterface::TryStartSerialReceive, this)); //keep this a thread safe operation by letting ioService thread run it
+        boost::asio::post(m_ioService, boost::bind(&UartInterface::TryStartSerialReceive, this)); //keep this a thread safe operation by letting ioService thread run it
         if (consumeIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //if empty
             //try again, but with the mutex
             boost::mutex::scoped_lock lock(m_mutexCb);
@@ -289,7 +363,7 @@ void UartInterface::TrySendBundleIfAvailable_NotThreadSafe() {
 }
 
 void UartInterface::TrySendBundleIfAvailable_ThreadSafe() {
-    boost::asio::post(m_serialPortIoServiceRef, boost::bind(&UartInterface::TrySendBundleIfAvailable_NotThreadSafe, this));
+    boost::asio::post(m_ioService, boost::bind(&UartInterface::TrySendBundleIfAvailable_NotThreadSafe, this));
 }
 
 void UartInterface::HandleSerialSend(const boost::system::error_code& error, std::size_t bytes_transferred, const unsigned int consumeIndex) {
@@ -302,13 +376,16 @@ void UartInterface::HandleSerialSend(const boost::system::error_code& error, std
         EmptySendQueueOnFailure();
     }
     else {
-        ++m_outductTelemetry.m_totalBundlesAcked;
-        m_outductTelemetry.m_totalBundleBytesAcked += el.m_underlyingDataVecBundle.size();
-        m_outductTelemetry.m_totalBundleBytesAcked += el.m_underlyingDataZmqBundle.size();
+        ++m_totalBundlesAcked;
+        m_totalBundleBytesAcked += el.m_underlyingDataVecBundle.size();
+        m_totalBundleBytesAcked += el.m_underlyingDataZmqBundle.size();
         if (m_onSuccessfulBundleSendCallback) { //notify first
             m_onSuccessfulBundleSendCallback(el.m_userData, m_userAssignedUuid);
         }
         m_txBundlesCb.CommitRead(); //cb is sized 1 larger in case a Forward() is called between notify and CommitRead
+        if (m_useLocalConditionVariableAckReceived) { //for destructor
+            m_localConditionVariableAckReceived.notify_one();
+        }
         TrySendBundleIfAvailable_NotThreadSafe();
     }
 }
@@ -341,13 +418,13 @@ bool UartInterface::Forward(zmq::message_t& dataZmq, std::vector<uint8_t>&& user
     
 
 
-    ++m_outductTelemetry.m_totalBundlesSent;
-    m_outductTelemetry.m_totalBundleBytesSent += dataZmq.size();
+    ++m_totalBundlesSent;
+    m_totalBundleBytesSent += dataZmq.size();
 
     SerialSendElement& el = m_txBundlesCbVec[writeIndex];
     el.m_slipEncodedBundle.resize((dataZmq.size() * 2) + 4);
     const unsigned int slipEncodedSize = SlipEncode((const uint8_t*)dataZmq.data(), el.m_slipEncodedBundle.data(), (unsigned int)dataZmq.size());
-    m_outductTelemetry.m_totalSlipBytesSent += slipEncodedSize;
+    m_totalSlipBytesSent += slipEncodedSize;
     el.m_userData = std::move(userData);
     el.m_underlyingDataZmqBundle = std::move(dataZmq);
     el.m_underlyingDataVecBundle.resize(0);
@@ -373,13 +450,13 @@ bool UartInterface::Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_t>
 
 
 
-    ++m_outductTelemetry.m_totalBundlesSent;
-    m_outductTelemetry.m_totalBundleBytesSent += dataVec.size();
+    ++m_totalBundlesSent;
+    m_totalBundleBytesSent += dataVec.size();
 
     SerialSendElement& el = m_txBundlesCbVec[writeIndex];
     el.m_slipEncodedBundle.resize((dataVec.size() * 2) + 4);
     const unsigned int slipEncodedSize = SlipEncode((const uint8_t*)dataVec.data(), el.m_slipEncodedBundle.data(), (unsigned int)dataVec.size());
-    m_outductTelemetry.m_totalSlipBytesSent += slipEncodedSize;
+    m_totalSlipBytesSent += slipEncodedSize;
     el.m_userData = std::move(userData);
     if (el.m_underlyingDataZmqBundle.size()) {
         el.m_underlyingDataZmqBundle.rebuild(0);
@@ -422,7 +499,7 @@ void UartInterface::SetUserAssignedUuid(uint64_t userAssignedUuid) {
 }
 
 void UartInterface::DoFailedBundleCallback(SerialSendElement& el) {
-    ++m_outductTelemetry.m_totalBundlesFailedToSend;
+    ++m_totalBundlesFailedToSend;
     if ((el.m_underlyingDataVecBundle.size()) && (m_onFailedBundleVecSendCallback)) {
         m_onFailedBundleVecSendCallback(el.m_underlyingDataVecBundle, el.m_userData, m_userAssignedUuid, false);
     }
@@ -432,42 +509,61 @@ void UartInterface::DoFailedBundleCallback(SerialSendElement& el) {
 }
 
 void UartInterface::SyncTelemetry() {
-    m_outductTelemetry.m_averageReceivedBytesPerChunk = m_outductTelemetry.m_totalSlipBytesReceived / m_outductTelemetry.m_totalReceivedChunks;
-    m_inductTelemetry.m_averageReceivedBytesPerChunk = m_outductTelemetry.m_averageReceivedBytesPerChunk;
-    
+    m_outductTelemetry.m_totalBundlesSent = m_totalBundlesSent;
     m_inductTelemetry.m_totalBundlesSent = m_outductTelemetry.m_totalBundlesSent;
+
+    m_outductTelemetry.m_totalBundleBytesSent = m_totalBundleBytesSent;
     m_inductTelemetry.m_totalBundleBytesSent = m_outductTelemetry.m_totalBundleBytesSent;
+
+    m_outductTelemetry.m_totalBundlesAcked = m_totalBundlesAcked;
     m_inductTelemetry.m_totalBundlesSentAndAcked = m_outductTelemetry.m_totalBundlesAcked;
+
+    m_outductTelemetry.m_totalBundleBytesAcked = m_totalBundleBytesAcked;
     m_inductTelemetry.m_totalBundleBytesSentAndAcked = m_outductTelemetry.m_totalBundleBytesAcked;
+
+    m_outductTelemetry.m_totalBundlesFailedToSend = m_totalBundlesFailedToSend;
     m_inductTelemetry.m_totalBundlesFailedToSend = m_outductTelemetry.m_totalBundlesFailedToSend;
+
+    m_outductTelemetry.m_totalSlipBytesSent = m_totalSlipBytesSent;
     m_inductTelemetry.m_totalSlipBytesSent = m_outductTelemetry.m_totalSlipBytesSent;
 
+    m_outductTelemetry.m_totalSlipBytesReceived = m_totalSlipBytesReceived;
     m_inductTelemetry.m_totalSlipBytesReceived = m_outductTelemetry.m_totalSlipBytesReceived;
+
+    m_outductTelemetry.m_totalReceivedChunks = m_totalReceivedChunks;
     m_inductTelemetry.m_totalReceivedChunks = m_outductTelemetry.m_totalReceivedChunks;
+
+    m_outductTelemetry.m_largestReceivedBytesPerChunk = m_largestReceivedBytesPerChunk;
     m_inductTelemetry.m_largestReceivedBytesPerChunk = m_outductTelemetry.m_largestReceivedBytesPerChunk;
-    
+
+    m_outductTelemetry.m_averageReceivedBytesPerChunk = m_outductTelemetry.m_totalSlipBytesReceived / m_outductTelemetry.m_totalReceivedChunks;
+    m_inductTelemetry.m_averageReceivedBytesPerChunk = m_outductTelemetry.m_averageReceivedBytesPerChunk;
 }
 
 std::size_t UartInterface::GetTotalDataSegmentsAcked() {
-    return m_outductTelemetry.m_totalBundlesAcked;
+    return m_totalBundlesAcked;
 }
 
 std::size_t UartInterface::GetTotalDataSegmentsSent() {
-    return m_outductTelemetry.m_totalBundlesSent;
+    return m_totalBundlesSent;
 }
 
 std::size_t UartInterface::GetTotalDataSegmentsUnacked() {
-    return m_outductTelemetry.m_totalBundlesSent - m_outductTelemetry.m_totalBundlesAcked;//GetTotalBundlesQueued();
+    return m_totalBundlesSent - m_totalBundlesAcked;//GetTotalBundlesQueued();
 }
 
 std::size_t UartInterface::GetTotalBundleBytesAcked() {
-    return m_outductTelemetry.m_totalBundleBytesAcked;
+    return m_totalBundleBytesAcked;
 }
 
 std::size_t UartInterface::GetTotalBundleBytesSent() {
-    return m_outductTelemetry.m_totalBundleBytesSent;
+    return m_totalBundleBytesSent;
 }
 
 std::size_t UartInterface::GetTotalBundleBytesUnacked() {
-    return m_outductTelemetry.m_totalBundleBytesSent - m_outductTelemetry.m_totalBundleBytesAcked;//GetTotalBundleBytesQueued();
+    return m_totalBundleBytesSent - m_totalBundleBytesAcked;//GetTotalBundleBytesQueued();
+}
+
+boost::asio::io_service& UartInterface::GetIoServiceRef() {
+    return m_ioService;
 }

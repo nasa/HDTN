@@ -27,17 +27,7 @@
 #    define CLASS_VISIBILITY_TCPCL_LIB TCPCL_LIB_EXPORT
 #  endif
 #endif
-#include <string>
-#include <boost/thread.hpp>
-#include <boost/asio.hpp>
-#include <map>
-#include <vector>
-#include "Tcpcl.h"
-#include "TcpAsyncSender.h"
-#include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
-#include "PaddedVectorUint8.h"
-
-typedef boost::function<void(padded_vector_uint8_t & movableBundle)> OutductOpportunisticProcessReceivedBundleCallback_t;
+#include <cstdint>
 
 class BidirectionalLink {
 public:
