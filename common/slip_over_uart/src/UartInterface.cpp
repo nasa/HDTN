@@ -243,7 +243,8 @@ void UartInterface::ResetRxStates() {
         }
     }
     else {
-        m_currentRxBundlePtr = &m_bundleRxBuffersCbVec[writeIndex]; //already resized to 0 and reserved to max bundle size
+        m_currentRxBundlePtr = &m_bundleRxBuffersCbVec[writeIndex]; //already resized to 0 and reserved to max bundle size at constructor
+        m_currentRxBundlePtr->resize(0);
     }
 }
 
@@ -424,6 +425,7 @@ bool UartInterface::Forward(zmq::message_t& dataZmq, std::vector<uint8_t>&& user
     SerialSendElement& el = m_txBundlesCbVec[writeIndex];
     el.m_slipEncodedBundle.resize((dataZmq.size() * 2) + 4);
     const unsigned int slipEncodedSize = SlipEncode((const uint8_t*)dataZmq.data(), el.m_slipEncodedBundle.data(), (unsigned int)dataZmq.size());
+    el.m_slipEncodedBundle.resize(slipEncodedSize);
     m_totalSlipBytesSent += slipEncodedSize;
     el.m_userData = std::move(userData);
     el.m_underlyingDataZmqBundle = std::move(dataZmq);
@@ -456,6 +458,7 @@ bool UartInterface::Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_t>
     SerialSendElement& el = m_txBundlesCbVec[writeIndex];
     el.m_slipEncodedBundle.resize((dataVec.size() * 2) + 4);
     const unsigned int slipEncodedSize = SlipEncode((const uint8_t*)dataVec.data(), el.m_slipEncodedBundle.data(), (unsigned int)dataVec.size());
+    el.m_slipEncodedBundle.resize(slipEncodedSize);
     m_totalSlipBytesSent += slipEncodedSize;
     el.m_userData = std::move(userData);
     if (el.m_underlyingDataZmqBundle.size()) {
@@ -536,7 +539,8 @@ void UartInterface::SyncTelemetry() {
     m_outductTelemetry.m_largestReceivedBytesPerChunk = m_largestReceivedBytesPerChunk;
     m_inductTelemetry.m_largestReceivedBytesPerChunk = m_outductTelemetry.m_largestReceivedBytesPerChunk;
 
-    m_outductTelemetry.m_averageReceivedBytesPerChunk = m_outductTelemetry.m_totalSlipBytesReceived / m_outductTelemetry.m_totalReceivedChunks;
+    m_outductTelemetry.m_averageReceivedBytesPerChunk = (m_outductTelemetry.m_totalReceivedChunks) ?
+        (m_outductTelemetry.m_totalSlipBytesReceived / m_outductTelemetry.m_totalReceivedChunks) : 0;
     m_inductTelemetry.m_averageReceivedBytesPerChunk = m_outductTelemetry.m_averageReceivedBytesPerChunk;
 }
 

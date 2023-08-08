@@ -23,7 +23,9 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_over_udp", "ltp_over_ipc", "udp", "stcp", "tcpcl_v3", "tcpcl_v4" };
+static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = {
+    "ltp_over_udp", "ltp_over_ipc", "udp", "stcp", "tcpcl_v3", "tcpcl_v4", "slip_over_uart"
+};
 
 induct_element_config_t::induct_element_config_t() :
     name(""),
@@ -49,6 +51,10 @@ induct_element_config_t::induct_element_config_t() :
     keepActiveSessionDataOnDisk(false),
     activeSessionDataOnDiskNewFileDurationMs(2000),
     activeSessionDataOnDiskDirectory("./"),
+
+    comPort(""),
+    baudRate(115200),
+    uartRemoteNodeId(0),
 
     keepAliveIntervalSeconds(0),
 
@@ -89,6 +95,10 @@ induct_element_config_t::induct_element_config_t(const induct_element_config_t& 
     activeSessionDataOnDiskNewFileDurationMs(o.activeSessionDataOnDiskNewFileDurationMs),
     activeSessionDataOnDiskDirectory(o.activeSessionDataOnDiskDirectory),
 
+    comPort(o.comPort),
+    baudRate(o.baudRate),
+    uartRemoteNodeId(o.uartRemoteNodeId),
+
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
 
     tcpclV3MyMaxTxSegmentSizeBytes(o.tcpclV3MyMaxTxSegmentSizeBytes),
@@ -125,6 +135,10 @@ induct_element_config_t::induct_element_config_t(induct_element_config_t&& o) no
     activeSessionDataOnDiskNewFileDurationMs(o.activeSessionDataOnDiskNewFileDurationMs),
     activeSessionDataOnDiskDirectory(std::move(o.activeSessionDataOnDiskDirectory)),
 
+    comPort(std::move(o.comPort)),
+    baudRate(o.baudRate),
+    uartRemoteNodeId(o.uartRemoteNodeId),
+
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
 
     tcpclV3MyMaxTxSegmentSizeBytes(o.tcpclV3MyMaxTxSegmentSizeBytes),
@@ -160,6 +174,10 @@ induct_element_config_t& induct_element_config_t::operator=(const induct_element
     keepActiveSessionDataOnDisk = o.keepActiveSessionDataOnDisk;
     activeSessionDataOnDiskNewFileDurationMs = o.activeSessionDataOnDiskNewFileDurationMs;
     activeSessionDataOnDiskDirectory = o.activeSessionDataOnDiskDirectory;
+
+    comPort = o.comPort;
+    baudRate = o.baudRate;
+    uartRemoteNodeId = o.uartRemoteNodeId;
 
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
 
@@ -199,6 +217,10 @@ induct_element_config_t& induct_element_config_t::operator=(induct_element_confi
     activeSessionDataOnDiskNewFileDurationMs = o.activeSessionDataOnDiskNewFileDurationMs;
     activeSessionDataOnDiskDirectory = std::move(o.activeSessionDataOnDiskDirectory);
 
+    comPort = std::move(o.comPort);
+    baudRate = o.baudRate;
+    uartRemoteNodeId = o.uartRemoteNodeId;
+
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
 
     tcpclV3MyMaxTxSegmentSizeBytes = o.tcpclV3MyMaxTxSegmentSizeBytes;
@@ -235,6 +257,10 @@ bool induct_element_config_t::operator==(const induct_element_config_t & o) cons
         (keepActiveSessionDataOnDisk == o.keepActiveSessionDataOnDisk) &&
         (activeSessionDataOnDiskNewFileDurationMs == o.activeSessionDataOnDiskNewFileDurationMs) &&
         (activeSessionDataOnDiskDirectory == o.activeSessionDataOnDiskDirectory) &&
+
+        (comPort == o.comPort) &&
+        (baudRate == o.baudRate) &&
+        (uartRemoteNodeId == o.uartRemoteNodeId) &&
 
         (keepAliveIntervalSeconds == o.keepAliveIntervalSeconds) &&
         
@@ -310,10 +336,12 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                     return false;
                 }
             }
-            inductElementConfig.boundPort = inductElementConfigPt.second.get<uint16_t>("boundPort");
-            if (inductElementConfig.boundPort == 0) {
-                LOG_ERROR(subprocess) << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: boundPort must be non-zero";
-                return false;
+            if (inductElementConfig.convergenceLayer != "slip_over_uart") { //uses com port only
+                inductElementConfig.boundPort = inductElementConfigPt.second.get<uint16_t>("boundPort");
+                if (inductElementConfig.boundPort == 0) {
+                    LOG_ERROR(subprocess) << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: boundPort must be non-zero";
+                    return false;
+                }
             }
             inductElementConfig.numRxCircularBufferElements = inductElementConfigPt.second.get<uint32_t>("numRxCircularBufferElements");
             if ((inductElementConfig.convergenceLayer == "udp") || (inductElementConfig.convergenceLayer == "tcpcl_v3") || (inductElementConfig.convergenceLayer == "tcpcl_v4")) {
@@ -372,6 +400,26 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                     if (inductElementConfigPt.second.count(LTP_ONLY_VALUES[i]) != 0) {
                         LOG_ERROR(subprocess) << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: induct convergence layer  " << inductElementConfig.convergenceLayer
                             << " has an ltp induct only configuration parameter of \"" << LTP_ONLY_VALUES[i] << "\".. please remove";
+                        return false;
+                    }
+                }
+            }
+
+            if (inductElementConfig.convergenceLayer == "slip_over_uart") {
+                inductElementConfig.comPort = inductElementConfigPt.second.get<std::string>("comPort");
+                inductElementConfig.baudRate = inductElementConfigPt.second.get<uint32_t>("baudRate");
+                inductElementConfig.uartRemoteNodeId = inductElementConfigPt.second.get<uint64_t>("uartRemoteNodeId");
+            }
+            else {
+                static const std::vector<std::string> UART_ONLY_VALUES = {
+                    "comPort" , "baudRate", "uartRemoteNodeId"
+                };
+                for (std::size_t i = 0; i < UART_ONLY_VALUES.size(); ++i) {
+                    if (inductElementConfigPt.second.count(UART_ONLY_VALUES[i]) != 0) {
+                        LOG_ERROR(subprocess) << "error parsing JSON inductVector[" << (vectorIndex - 1)
+                            << "]: induct convergence layer  " << inductElementConfig.convergenceLayer
+                            << " has a slip_over_uart induct only configuration parameter of \""
+                            << UART_ONLY_VALUES[i] << "\".. please remove";
                         return false;
                     }
                 }
@@ -492,7 +540,9 @@ boost::property_tree::ptree InductsConfig::GetNewPropertyTree() const {
         boost::property_tree::ptree & inductElementConfigPt = (inductElementConfigVectorPt.push_back(std::make_pair("", boost::property_tree::ptree())))->second; //using "" as key creates json array
         inductElementConfigPt.put("name", inductElementConfig.name);
         inductElementConfigPt.put("convergenceLayer", inductElementConfig.convergenceLayer);
-        inductElementConfigPt.put("boundPort", inductElementConfig.boundPort);
+        if (inductElementConfig.convergenceLayer != "slip_over_uart") {
+            inductElementConfigPt.put("boundPort", inductElementConfig.boundPort);
+        }
         inductElementConfigPt.put("numRxCircularBufferElements", inductElementConfig.numRxCircularBufferElements);
         if ((inductElementConfig.convergenceLayer == "udp") || (inductElementConfig.convergenceLayer == "tcpcl_v3") || (inductElementConfig.convergenceLayer == "tcpcl_v4")) {
             inductElementConfigPt.put("numRxCircularBufferBytesPerElement", inductElementConfig.numRxCircularBufferBytesPerElement);
@@ -516,6 +566,11 @@ boost::property_tree::ptree InductsConfig::GetNewPropertyTree() const {
             inductElementConfigPt.put("keepActiveSessionDataOnDisk", inductElementConfig.keepActiveSessionDataOnDisk);
             inductElementConfigPt.put("activeSessionDataOnDiskNewFileDurationMs", inductElementConfig.activeSessionDataOnDiskNewFileDurationMs);
             inductElementConfigPt.put("activeSessionDataOnDiskDirectory", inductElementConfig.activeSessionDataOnDiskDirectory.string()); //.string() prevents nested quotes in json file
+        }
+        if (inductElementConfig.convergenceLayer == "slip_over_uart") {
+            inductElementConfigPt.put("comPort", inductElementConfig.comPort);
+            inductElementConfigPt.put("baudRate", inductElementConfig.baudRate);
+            inductElementConfigPt.put("uartRemoteNodeId", inductElementConfig.uartRemoteNodeId);
         }
         if ((inductElementConfig.convergenceLayer == "stcp") || (inductElementConfig.convergenceLayer == "tcpcl_v3") || (inductElementConfig.convergenceLayer == "tcpcl_v4")) {
             inductElementConfigPt.put("keepAliveIntervalSeconds", inductElementConfig.keepAliveIntervalSeconds);

@@ -22,6 +22,7 @@
 #include "UdpOutduct.h"
 #include "LtpOverUdpOutduct.h"
 #include "LtpOverIpcOutduct.h"
+#include "SlipOverUartOutduct.h"
 #include "Uri.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
@@ -89,6 +90,9 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
             else {
                 outductSharedPtr = std::make_shared<TcpclV4Outduct>(thisOutductConfig, myNodeId, uuidIndex, maxOpportunisticRxBundleSizeBytes);
             }
+        }
+        else if (thisOutductConfig.convergenceLayer == "slip_over_uart") {
+            outductSharedPtr = std::make_shared<SlipOverUartOutduct>(thisOutductConfig, uuidIndex, outductOpportunisticProcessReceivedBundleCallback);
         }
         else if (thisOutductConfig.convergenceLayer == "stcp") {
             outductSharedPtr = std::make_shared<StcpOutduct>(thisOutductConfig, uuidIndex);

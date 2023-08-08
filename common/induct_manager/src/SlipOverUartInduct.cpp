@@ -16,6 +16,7 @@
 #include "Logger.h"
 #include <boost/make_unique.hpp>
 #include <boost/lexical_cast.hpp>
+#include "Uri.h"
 #include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
@@ -25,23 +26,38 @@ SlipOverUartInduct::SlipOverUartInduct(const InductProcessBundleCallback_t& indu
     const uint64_t maxBundleSizeBytes, const OnNewOpportunisticLinkCallback_t& onNewOpportunisticLinkCallback,
     const OnDeletedOpportunisticLinkCallback_t& onDeletedOpportunisticLinkCallback) :
     Induct(inductProcessBundleCallback, inductConfig),
-    m_uartInterface("COM1", //inductConfig..remoteHostname, //used as com port name
-        115200,//baud
+    m_uartInterface(inductConfig.comPort,
+        inductConfig.baudRate,//baud
         inductConfig.numRxCircularBufferElements, //numRxCircularBufferVectors
         maxBundleSizeBytes, //maxRxBundleSizeBytes
         maxTxBundlesInFlight, //maxTxBundlesInFlight
         inductProcessBundleCallback)
 {
-    //m_onNewOpportunisticLinkCallback = onNewOpportunisticLinkCallback;
-    //m_onDeletedOpportunisticLinkCallback = onDeletedOpportunisticLinkCallback;
+    m_uartInterface.m_inductTelemetry.m_connectionName = 
+        Uri::GetIpnUriStringAnyServiceNumber(inductConfig.uartRemoteNodeId)
+            + " " + m_uartInterface.m_inductTelemetry.m_connectionName;
+    m_onNewOpportunisticLinkCallback = onNewOpportunisticLinkCallback;
+    m_onDeletedOpportunisticLinkCallback = onDeletedOpportunisticLinkCallback;
+    if (m_onNewOpportunisticLinkCallback) {
+        m_onNewOpportunisticLinkCallback(inductConfig.uartRemoteNodeId, this, NULL);
+    }
 }
-SlipOverUartInduct::~SlipOverUartInduct() {}
+SlipOverUartInduct::~SlipOverUartInduct() {
+    if (m_onDeletedOpportunisticLinkCallback) {
+        m_onDeletedOpportunisticLinkCallback(m_inductConfig.uartRemoteNodeId, this, NULL);
+    }
+}
 
 
 
 void SlipOverUartInduct::NotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId) {
     if (!m_uartInterface.ReadyToForward()) {
         LOG_ERROR(subprocess) << "opportunistic link unavailable";
+        return;
+    }
+    if (m_inductConfig.uartRemoteNodeId != remoteNodeId) {
+        LOG_ERROR(subprocess) << "SlipOverUartInduct remote node mismatch: expected "
+            << m_inductConfig.uartRemoteNodeId << " but got " << remoteNodeId;
         return;
     }
     std::pair<std::unique_ptr<zmq::message_t>, padded_vector_uint8_t> bundleDataPair;

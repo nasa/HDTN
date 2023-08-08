@@ -22,8 +22,8 @@
 SlipOverUartOutduct::SlipOverUartOutduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid,
     const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback) :
     Outduct(outductConfig, outductUuid),
-    m_uartInterface(outductConfig.remoteHostname, //used as com port name
-        115200,//baud
+    m_uartInterface(outductConfig.comPort, //used as com port name
+        outductConfig.baudRate,//baud
         5, //numRxCircularBufferVectors
         1000000, //maxRxBundleSizeBytes
         outductConfig.maxNumberOfBundlesInPipeline, //maxTxBundlesInFlight

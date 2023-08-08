@@ -37,6 +37,7 @@
 #include "TcpclInduct.h"
 #include "TcpclV4Induct.h"
 #include "StcpInduct.h"
+#include "SlipOverUartInduct.h"
 #include "FreeListAllocator.h"
 #include "TelemetryDefinitions.h"
 #include "ThreadNamer.h"
@@ -1259,7 +1260,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
         }
     }
     else {
-        LOG_ERROR(subprocess) << "Process: unsupported bundle version received";
+        LOG_ERROR(subprocess) << "Process: unsupported bundle version received (size=" << bundleCurrentSize << ")";
         return false;
     }
 
@@ -1593,6 +1594,12 @@ void Ingress::Impl::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, 
     else if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
 
     }
+    else if (SlipOverUartInduct* slipOverUartInductPtr = dynamic_cast<SlipOverUartInduct*>(thisInductPtr)) {
+        LOG_INFO(subprocess) << "New opportunistic link detected on SlipOverUart induct for ipn:" << remoteNodeId << ".*";
+        SendOpportunisticLinkMessages(remoteNodeId, true);
+        boost::mutex::scoped_lock lock(m_availableDestOpportunisticNodeIdToTcpclInductMapMutex);
+        m_availableDestOpportunisticNodeIdToTcpclInductMap[remoteNodeId] = tcpclInductPtr;
+    }
     else {
         LOG_ERROR(subprocess) << "OnNewOpportunisticLinkCallback: Induct ptr cannot cast to TcpclInduct or TcpclV4Induct";
     }
@@ -1602,7 +1609,9 @@ void Ingress::Impl::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNode
 
     }
     else {
-        LOG_INFO(subprocess) << "Deleted opportunistic link on Tcpcl induct for ipn:" << remoteNodeId << ".*";
+        LOG_INFO(subprocess) << "Deleted opportunistic link on "
+            << ((sinkPtrAboutToBeDeleted) ? "Tcpcl" : "SlipOverUart")
+            << "induct for ipn : " << remoteNodeId << ".*";
         SendOpportunisticLinkMessages(remoteNodeId, false);
         boost::mutex::scoped_lock lock(m_availableDestOpportunisticNodeIdToTcpclInductMapMutex);
         m_availableDestOpportunisticNodeIdToTcpclInductMap.erase(remoteNodeId);

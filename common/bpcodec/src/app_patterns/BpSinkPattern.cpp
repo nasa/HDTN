@@ -22,6 +22,7 @@
 #include "TcpclInduct.h"
 #include "TcpclV4Induct.h"
 #include "StcpInduct.h"
+#include "SlipOverUartInduct.h"
 #include "codec/BundleViewV7.h"
 #include "Logger.h"
 #include "StatsLogger.h"
@@ -603,6 +604,10 @@ void BpSinkPattern::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, 
     else if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
 
     }
+    else if (m_tcpclInductPtr = dynamic_cast<SlipOverUartInduct*>(thisInductPtr)) {
+        LOG_INFO(subprocess) << "New opportunistic link detected on SlipOverUart induct for ipn:" << remoteNodeId << ".*";
+        m_tcpclOpportunisticRemoteNodeId = remoteNodeId;
+    }
     else {
         LOG_ERROR(subprocess) << "Induct ptr cannot cast to TcpclInduct or TcpclV4Induct";
     }
@@ -613,7 +618,9 @@ void BpSinkPattern::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNode
     }
     else {
         m_tcpclOpportunisticRemoteNodeId = 0;
-        LOG_INFO(subprocess) << "Deleted opportunistic link on Tcpcl induct for ipn:" << remoteNodeId << ".*";
+        LOG_INFO(subprocess) << "Deleted opportunistic link on "
+            << ((sinkPtrAboutToBeDeleted) ? "Tcpcl" : "SlipOverUart")
+            << "induct for ipn : " << remoteNodeId << ".*";
     }
 }
 

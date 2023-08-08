@@ -62,6 +62,10 @@ struct outduct_element_config_t {
     uint64_t activeSessionDataOnDiskNewFileDurationMs;
     boost::filesystem::path activeSessionDataOnDiskDirectory;
 
+    //specific to slip over uart
+    std::string comPort;
+    uint32_t baudRate;
+
     //specific to stcp and tcpcl
     uint32_t keepAliveIntervalSeconds;
 
