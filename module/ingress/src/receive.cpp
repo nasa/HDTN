@@ -1585,11 +1585,11 @@ void Ingress::Impl::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, 
         boost::mutex::scoped_lock lock(m_availableDestOpportunisticNodeIdToTcpclInductMapMutex);
         m_availableDestOpportunisticNodeIdToTcpclInductMap[remoteNodeId] = tcpclInductPtr;
     }
-    else if (TcpclV4Induct * tcpclInductPtr = dynamic_cast<TcpclV4Induct*>(thisInductPtr)) {
+    else if (TcpclV4Induct * tcpclV4InductPtr = dynamic_cast<TcpclV4Induct*>(thisInductPtr)) {
         LOG_INFO(subprocess) << "New opportunistic link detected on TcpclV4 induct for ipn:" << remoteNodeId << ".*";
         SendOpportunisticLinkMessages(remoteNodeId, true);
         boost::mutex::scoped_lock lock(m_availableDestOpportunisticNodeIdToTcpclInductMapMutex);
-        m_availableDestOpportunisticNodeIdToTcpclInductMap[remoteNodeId] = tcpclInductPtr;
+        m_availableDestOpportunisticNodeIdToTcpclInductMap[remoteNodeId] = tcpclV4InductPtr;
     }
     else if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
 
@@ -1598,7 +1598,7 @@ void Ingress::Impl::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, 
         LOG_INFO(subprocess) << "New opportunistic link detected on SlipOverUart induct for ipn:" << remoteNodeId << ".*";
         SendOpportunisticLinkMessages(remoteNodeId, true);
         boost::mutex::scoped_lock lock(m_availableDestOpportunisticNodeIdToTcpclInductMapMutex);
-        m_availableDestOpportunisticNodeIdToTcpclInductMap[remoteNodeId] = tcpclInductPtr;
+        m_availableDestOpportunisticNodeIdToTcpclInductMap[remoteNodeId] = slipOverUartInductPtr;
     }
     else {
         LOG_ERROR(subprocess) << "OnNewOpportunisticLinkCallback: Induct ptr cannot cast to TcpclInduct or TcpclV4Induct";

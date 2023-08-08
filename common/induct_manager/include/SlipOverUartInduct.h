@@ -47,7 +47,7 @@ private:
     INDUCT_MANAGER_LIB_NO_EXPORT void OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData, uint64_t outductUuid);
 
     UartInterface m_uartInterface;
-    OpportunisticBundleQueue m_opportunisticBundleQueue;
+    OpportunisticBundleQueue* m_opportunisticBundleQueuePtr;
 };
 
 

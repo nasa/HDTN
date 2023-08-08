@@ -125,6 +125,8 @@ private:
     uint64_t m_userAssignedUuid;
     
     //translate to telem
+    std::atomic<uint64_t> m_totalBundlesReceived;
+    std::atomic<uint64_t> m_totalBundleBytesReceived;
     std::atomic<uint64_t> m_totalBundlesSent;
     std::atomic<uint64_t> m_totalBundleBytesSent;
     std::atomic<uint64_t> m_totalBundlesAcked;

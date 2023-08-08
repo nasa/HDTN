@@ -155,6 +155,16 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
         outductOpportunisticProcessReceivedBundleCallback = boost::bind(&BpSourcePattern::WholeRxBundleReadyCallback, this, boost::placeholders::_1);
         LOG_INFO(subprocess) << "this bpsource pattern detected tcpcl convergence layer which is bidirectional.. supporting custody transfer";
     }
+    else if ((outductsConfigPtr)
+        && (outductsConfigPtr->m_outductElementConfigVector[0].convergenceLayer == "slip_over_uart")
+        && (!forceDisableCustody))
+    {
+        m_useCustodyTransfer = true;
+        outductOpportunisticProcessReceivedBundleCallback = boost::bind(&BpSourcePattern::WholeRxBundleReadyCallback, this, boost::placeholders::_1);
+        LOG_INFO(subprocess) << 
+            "this bpsource pattern detected SlipOverUart convergence layer which is bidirectional.."
+            " supporting custody transfer since force-disable-custody was not specified";
+    }
     else {
         m_useCustodyTransfer = false;
     }

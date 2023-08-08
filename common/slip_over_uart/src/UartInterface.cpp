@@ -53,6 +53,8 @@ UartInterface::UartInterface(const std::string& comPortName, const unsigned int 
     m_wholeBundleReadyCallback(wholeBundleReadyCallback),
     m_userAssignedUuid(0),
     //telem
+    m_totalBundlesReceived(0),
+    m_totalBundleBytesReceived(0),
     m_totalBundlesSent(0),
     m_totalBundleBytesSent(0),
     m_totalBundlesAcked(0),
@@ -204,6 +206,8 @@ void UartInterface::Stop() {
     }
 
     //print stats
+    LOG_INFO(subprocess) << "UART " << m_comPortName << " totalBundlesReceived " << m_totalBundlesReceived;
+    LOG_INFO(subprocess) << "UART " << m_comPortName << " totalBundleBytesReceived " << m_totalBundleBytesReceived;
     LOG_INFO(subprocess) << "UART " << m_comPortName << " totalBundlesSent " << m_totalBundlesSent;
     LOG_INFO(subprocess) << "UART " << m_comPortName << " totalBundlesAcked " << m_totalBundlesAcked;
     LOG_INFO(subprocess) << "UART " << m_comPortName << " totalBundleBytesSent " << m_totalBundleBytesSent;
@@ -329,6 +333,8 @@ void UartInterface::PopCbThreadFunc() {
             }
         }
         padded_vector_uint8_t& rxBundle = m_bundleRxBuffersCbVec[consumeIndex];
+        ++m_totalBundlesReceived;
+        m_totalBundleBytesReceived += rxBundle.size();
         m_wholeBundleReadyCallback(rxBundle);
         rxBundle.resize(0);
         rxBundle.reserve(m_maxRxBundleSizeBytes);
@@ -512,6 +518,12 @@ void UartInterface::DoFailedBundleCallback(SerialSendElement& el) {
 }
 
 void UartInterface::SyncTelemetry() {
+    m_outductTelemetry.m_totalBundlesReceived = m_totalBundlesReceived;
+    m_inductTelemetry.m_totalBundlesReceived = m_outductTelemetry.m_totalBundlesReceived;
+
+    m_outductTelemetry.m_totalBundleBytesReceived = m_totalBundleBytesReceived;
+    m_inductTelemetry.m_totalBundleBytesReceived = m_outductTelemetry.m_totalBundleBytesReceived;
+
     m_outductTelemetry.m_totalBundlesSent = m_totalBundlesSent;
     m_inductTelemetry.m_totalBundlesSent = m_outductTelemetry.m_totalBundlesSent;
 

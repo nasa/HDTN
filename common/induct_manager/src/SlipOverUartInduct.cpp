@@ -38,6 +38,15 @@ SlipOverUartInduct::SlipOverUartInduct(const InductProcessBundleCallback_t& indu
             + " " + m_uartInterface.m_inductTelemetry.m_connectionName;
     m_onNewOpportunisticLinkCallback = onNewOpportunisticLinkCallback;
     m_onDeletedOpportunisticLinkCallback = onDeletedOpportunisticLinkCallback;
+
+    m_mapNodeIdToOpportunisticBundleQueueMutex.lock();
+    m_mapNodeIdToOpportunisticBundleQueue.erase(inductConfig.uartRemoteNodeId);
+    OpportunisticBundleQueue& opportunisticBundleQueue = m_mapNodeIdToOpportunisticBundleQueue[inductConfig.uartRemoteNodeId];
+    opportunisticBundleQueue.m_maxTxBundlesInPipeline = maxTxBundlesInFlight;
+    opportunisticBundleQueue.m_remoteNodeId = inductConfig.uartRemoteNodeId;
+    m_opportunisticBundleQueuePtr = &opportunisticBundleQueue;
+    m_mapNodeIdToOpportunisticBundleQueueMutex.unlock();
+
     if (m_onNewOpportunisticLinkCallback) {
         m_onNewOpportunisticLinkCallback(inductConfig.uartRemoteNodeId, this, NULL);
     }
@@ -62,7 +71,7 @@ void SlipOverUartInduct::NotifyBundleReadyToSend_FromIoServiceThread(const uint6
     }
     std::pair<std::unique_ptr<zmq::message_t>, padded_vector_uint8_t> bundleDataPair;
     const std::size_t totalBundlesUnacked = m_uartInterface.GetTotalDataSegmentsUnacked();
-    if ((totalBundlesUnacked < maxTxBundlesInFlight) && BundleSinkTryGetData_FromIoServiceThread(m_opportunisticBundleQueue, bundleDataPair)) {
+    if ((totalBundlesUnacked < maxTxBundlesInFlight) && BundleSinkTryGetData_FromIoServiceThread(*m_opportunisticBundleQueuePtr, bundleDataPair)) {
         if (bundleDataPair.first) {
             m_uartInterface.Forward(*bundleDataPair.first, std::vector<uint8_t>());
         }
@@ -82,15 +91,15 @@ void SlipOverUartInduct::Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread
 void SlipOverUartInduct::OnFailedBundleVecSendCallback(padded_vector_uint8_t& movableBundle,
     std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled)
 {
-    BundleSinkNotifyOpportunisticDataAcked_FromIoServiceThread(m_opportunisticBundleQueue);
+    BundleSinkNotifyOpportunisticDataAcked_FromIoServiceThread(*m_opportunisticBundleQueuePtr);
 }
 void SlipOverUartInduct::OnFailedBundleZmqSendCallback(zmq::message_t& movableBundle,
     std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled)
 {
-    BundleSinkNotifyOpportunisticDataAcked_FromIoServiceThread(m_opportunisticBundleQueue);
+    BundleSinkNotifyOpportunisticDataAcked_FromIoServiceThread(*m_opportunisticBundleQueuePtr);
 }
 void SlipOverUartInduct::OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData, uint64_t outductUuid) {
-    BundleSinkNotifyOpportunisticDataAcked_FromIoServiceThread(m_opportunisticBundleQueue);
+    BundleSinkNotifyOpportunisticDataAcked_FromIoServiceThread(*m_opportunisticBundleQueuePtr);
 }
 
 void SlipOverUartInduct::PopulateInductTelemetry(InductTelemetry_t& inductTelem) {
