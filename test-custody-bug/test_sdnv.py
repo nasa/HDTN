@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from sdnv import BitString, encode
+from sdnv import BitString, encode, decode
 
 class TestSdnv(unittest.TestCase):
     def test_decode(self):
@@ -43,7 +43,21 @@ class TestSdnv(unittest.TestCase):
                 n = b.to_int()
                 self.assertEqual(n, expected_int)
 
-    pass
+    def test_encode(self):
+        cases = [
+                ['1010 1011 1100', '10010101 00111100'],
+                ['0001 0010 0011 0100', '10100100 00110100'],
+                ['0100 0010 0011 0100', '10000001 10000100 00110100'],
+                ['0111 1111', '01111111']
+                    ]
+        for expected_decoded, encoded in cases:
+            with self.subTest(encoded):
+                b = BitString(encoded)
+                expected = BitString(expected_decoded)
+                dec = decode(b)
+                self.assertEqual(dec, expected)
+
+
 
 if __name__ == "__main__":
     unittest.main()

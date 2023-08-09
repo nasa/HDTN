@@ -9,9 +9,9 @@ class BitString:
         '''Return n bits from MSB side'''
         raise NotImplementedError("TODO")
 
-    def pop_lsb(self, n):
+    def pop_lsb(self, n, missing_ok=False):
         '''Return n bits from lsb side'''
-        if not self.bits:
+        if not self.bits and not missing_ok:
             raise Exception("No bits left")
         b = self.bits[-n:]
         self.bits = self.bits[:-n]
@@ -71,7 +71,7 @@ def decode(bs):
     parts = []
     while len(bs):
         parts.append(bs.pop_lsb(7))
-        bs.pop_lsb(1) # Skip leading bit
+        bs.pop_lsb(1, missing_ok=True) # Skip leading bit
     return BitString(''.join(parts[::-1]))
 
 
