@@ -9,29 +9,59 @@ import socket
 import scapy.contrib.bp as bp
 from backgroundprocess import BackgroundProcess
 from scapy.contrib.bp import BP
-from adminrecord import AdminRecord, CustodySignal
+from adminrecord import AdminRecord, CustodySignal, BpBlock
+from scapy.compat import raw
 
-def build_bundle(): 
+
+def build_bundle():
     bundle = bp.BP(
-            version=6,              # Version
-            ProcFlags=1<<4|1<<3,    # Bundle processing control flags
-            DSO=2,                  # Destination scheme offset
-            DSSO=3,                 # Destination SSP offset 
-            SSO=1,                  # Source scheme offset
-            SSSO=4,                 # Source SSP offset
-            CT=5,                   # Creation time timestamp
-            CTSN=6,                 # Creation timestamp sequence number
-            CSO=1,
-            CSSO=4,
-            LT=1000,                # Life time
-            DL=0                    # Dictionary length
-        )
+        version=6,  # Version
+        ProcFlags=1 << 4 | 1 << 3,  # Bundle processing control flags
+        DSO=2,  # Destination scheme offset
+        DSSO=3,  # Destination SSP offset
+        SSO=1,  # Source scheme offset
+        SSSO=4,  # Source SSP offset
+        CT=5,  # Creation time timestamp
+        CTSN=6,  # Creation timestamp sequence number
+        CSO=1,
+        CSSO=4,
+        LT=1000,  # Life time
+        DL=0,  # Dictionary length
+    )
 
-    payload = bp.BPBLOCK(
-            Type=1,
-            ProcFlags=(1 << 3),
-            load='hello world')
+    payload = bp.BPBLOCK(Type=1, ProcFlags=(1 << 3), load="hello world")
     return bundle / payload
+
+
+def build_custody_signal(custody_bundle):
+    bp = custody_bundle["BP"]
+    sig = (
+        BP(
+            version=6,
+            ProcFlags=1 << 4 | 1 << 1,
+            DSO=bp.CSO,
+            DSSO=bp.CSSO,
+            SSO=2,
+            SSSO=3,
+            CT=12,
+            CTSN=13,
+            LT=1000,
+            DL=0,
+        )
+        / BpBlock(Type=1, flags=(1 << 3))
+        / AdminRecord(Type=2, flags=0)
+        / CustodySignal(
+            succeeded=1,
+            reason=0,
+            sig_time_sec=0xCAFE,
+            sig_time_nano=0xBEEF,
+            creat_time=bp.CT,
+            creat_seq=bp.CTSN,
+            src_eid=f"ipn:{bp.SSO}.{bp.SSSO}",
+        )
+    )
+    return sig
+
 
 class TestPriority(unittest.TestCase):
     """Test case for priority enforcement"""
@@ -67,7 +97,6 @@ class TestPriority(unittest.TestCase):
         for s in self.sockets:
             s.close()
 
-
     def process(self, *args, **kwargs):
         """Start background process (with jobtracking for teardown)"""
         proc = BackgroundProcess(*args, **kwargs)
@@ -85,12 +114,11 @@ class TestPriority(unittest.TestCase):
 
         # Bind to recv addr
         recv_sock = self.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        recv_sock.bind(('127.0.0.1', 4002))
+        recv_sock.bind(("127.0.0.1", 4002))
 
         # For getting custody signal
         recv_sig_sock = self.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        recv_sig_sock.bind(('127.0.0.1', 4001))
-
+        recv_sig_sock.bind(("127.0.0.1", 4001))
 
         # Start HDTN
         print("Starting HDTN")
@@ -100,35 +128,44 @@ class TestPriority(unittest.TestCase):
             f'--hdtn-config-file={self.configs / "hdtn.json"}',
         )
         hdtn = self.process(cmd, "hdtn")
-        hdtn.wait_for_output('UdpBundleSink bound successfully on UDP port', 5)
+        hdtn.wait_for_output("UdpBundleSink bound successfully on UDP port", 5)
 
         # Send a packet
         print("Sending")
         s = self.socket(socket.AF_INET, socket.SOCK_DGRAM)
         bundle = build_bundle()
-        packet = bytes(bundle)
+        packet = raw(bundle)
         s.sendto(packet, ("127.0.0.1", 4010))
         print(f"Sent bundle of length {len(packet)}")
 
         # Wait for response
+        custody_bundle = None
         for _ in range(2):
             print("Waiting for response")
             has_data = select.select([recv_sock, recv_sig_sock], [], [], 10)
             self.assertGreater(len(has_data[0]), 0)
             rcv = has_data[0][0]
-
             recv_bundle, recv_addr = rcv.recvfrom(1024)
-            print(recv_bundle.hex())
-            print(f"got a response of {len(recv_bundle)} bytes from {recv_addr}")
-            print(BP(recv_bundle))
+            b = BP(recv_bundle)
+            if rcv == recv_sock:
+                custody_bundle = b
+                print(f"Got the next bundle: {b}")
+            elif rcv == recv_sig_sock:
+                print(f"got custody signal: \n  {b}")
 
         # Send a custody signal
+        self.assertIsNotNone(custody_bundle)
+        custody_signal = build_custody_signal(custody_bundle)
+        print("Sending custody bundle")
+        s.sendto(raw(custody_signal), ("127.0.0.1", 4010))
         # TODO we need to make scapy protocols for Admin Records + Custody signals
+
+        print("Waiting for HDTN to crash")
+        hdtn.proc.wait(timeout=10)
 
         # Stop processes
         print("Cleanup and tests")
         hdtn.nice_kill()
-
 
 
 if __name__ == "__main__":
