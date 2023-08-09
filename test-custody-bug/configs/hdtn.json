@@ -24,7 +24,7 @@
             {
                 "name": "udp induct",
                 "convergenceLayer": "udp",
-                "boundPort": 4000,
+                "boundPort": 4010,
                 "numRxCircularBufferElements": 1000,
                 "numRxCircularBufferBytesPerElement": 65535
             }
@@ -34,11 +34,20 @@
         "outductConfigName": "myconfig",
         "outductVector": [
             {
-                "name": "udp outduct",
+                "name": "udp outduct to 1",
+                "convergenceLayer": "udp",
+                "nextHopNodeId": 1,
+                "remoteHostname": "localhost",
+                "remotePort": 4001,
+                "maxSumOfBundleBytesInPipeline":1500000,
+                "maxNumberOfBundlesInPipeline": 167
+            },
+            {
+                "name": "udp outduct to 2",
                 "convergenceLayer": "udp",
                 "nextHopNodeId": 2,
                 "remoteHostname": "localhost",
-                "remotePort": 4001,
+                "remotePort": 4002,
                 "maxSumOfBundleBytesInPipeline":1500000,
                 "maxNumberOfBundlesInPipeline": 167
             }
