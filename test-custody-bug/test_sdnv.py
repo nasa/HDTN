@@ -3,7 +3,7 @@ import unittest
 from sdnv import BitString, encode, decode
 
 class TestSdnv(unittest.TestCase):
-    def test_decode(self):
+    def test_encode(self):
         cases = [
                 ['1010 1011 1100', '10010101 00111100'],
                 ['0001 0010 0011 0100', '10100100 00110100'],
@@ -43,7 +43,7 @@ class TestSdnv(unittest.TestCase):
                 n = b.to_int()
                 self.assertEqual(n, expected_int)
 
-    def test_encode(self):
+    def test_decode(self):
         cases = [
                 ['1010 1011 1100', '10010101 00111100'],
                 ['0001 0010 0011 0100', '10100100 00110100'],
