@@ -1,3 +1,4 @@
+"""Helper for running processes in background"""
 from pathlib import Path
 from subprocess import Popen, TimeoutExpired, PIPE
 from threading import Thread
@@ -5,7 +6,7 @@ from queue import Queue, Empty
 import signal
 import time
 import re
-
+import resource
 
 class TimeoutException(Exception):
     """Timeout while waiting for something to happen"""
@@ -15,6 +16,13 @@ class BackgroundProcess:
     """Run process in background, capturing stdout and stderr"""
 
     output_dir: Path
+
+    @staticmethod
+    def enable_core_dumps():
+        """Enable core dumps for processes"""
+        resource.setrlimit(
+            resource.RLIMIT_CORE, (resource.RLIM_INFINITY, resource.RLIM_INFINITY)
+        )
 
     def __init__(self, cmd, name=None):
         """Create BackgroundProcess
@@ -41,7 +49,7 @@ class BackgroundProcess:
     def _enqueue_stdout(self):
         # From https://stackoverflow.com/a/4896288
         logfile = BackgroundProcess.output_dir / f"{self.name}.stdout"
-        with open(logfile, "w", buffering=1) as output:
+        with open(logfile, "w", buffering=1, encoding='utf-8') as output:
             if self.proc.stdout is None:
                 return
             while True:
@@ -56,7 +64,7 @@ class BackgroundProcess:
     def _enqueue_stderr(self):
         # From https://stackoverflow.com/a/4896288
         logfile = BackgroundProcess.output_dir / f"{self.name}.stderr"
-        with open(logfile, "w", buffering=1) as output:
+        with open(logfile, "w", buffering=1, encoding='utf-8') as output:
             if self.proc.stderr is None:
                 return
             while True:

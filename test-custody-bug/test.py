@@ -1,28 +1,23 @@
 #!/usr/bin/env python3
 """Test custody bug"""
-import unittest
+from contextlib import contextmanager
+import json
 import os
 from pathlib import Path
-import shutil
 import select
+import shutil
 import socket
-from backgroundprocess import BackgroundProcess
-from scapy.contrib.bp import BP, BPBLOCK
-from adminrecord import AdminRecord, CustodySignal, BpBlock
-from scapy.all import raw
-import zmq
-import json
 import time
-import resource
-from contextlib import contextmanager
-
-resource.setrlimit(
-    resource.RLIMIT_CORE, (resource.RLIM_INFINITY, resource.RLIM_INFINITY)
-)
-
+import unittest
+import zmq
+from adminrecord import AdminRecord, CustodySignal, BpBlock
+from backgroundprocess import BackgroundProcess
+from scapy.all import raw, Raw
+from scapy.contrib.bp import BP
 
 @contextmanager
 def l(*args, end=" "):
+    """Print before/after doing something like 'start ... done'"""
     print(*args, "...", end=end, flush=True)
     try:
         yield
@@ -76,7 +71,7 @@ def build_bundle():
         DL=0,  # Dictionary length
     )
 
-    payload = BPBLOCK(Type=1, ProcFlags=(1 << 3), load="hello world")
+    payload = BpBlock(Type=1, flags=(1 << 3)) / Raw(b"hello world")
     return bundle / payload
 
 
@@ -136,6 +131,7 @@ class TestCustodyBug(unittest.TestCase):
         self.sockets = []
 
         BackgroundProcess.output_dir = self.tmpdir
+        BackgroundProcess.enable_core_dumps()
 
     def tearDown(self):
         for job in self.jobs:

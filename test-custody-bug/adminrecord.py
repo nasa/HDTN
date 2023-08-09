@@ -1,3 +1,5 @@
+"""Custom scapy Packet types for custody signals"""
+import struct
 from scapy.packet import Packet, bind_layers, split_layers
 from scapy.fields import (
     BitEnumField,
@@ -9,7 +11,6 @@ from scapy.fields import (
 from scapy.contrib.sdnv import SDNV2, SDNV2FieldLenField, SDNVUtil
 from scapy.contrib.bp import BPBLOCK, BP
 from scapy.compat import raw
-import struct
 
 
 class BpBlock(Packet):
@@ -29,14 +30,14 @@ class BpBlock(Packet):
         SDNV2("block_len", default=0),
     ]
 
-    def post_build(self, p, pay):
+    def post_build(self, pkt, pay):
         if self.block_len == 0 and pay:
-            p = (
+            pkt = (
                 struct.pack("B", self.Type)
                 + raw(SDNVUtil.encode(self.flags))
                 + raw(SDNVUtil.encode(len(pay)))
             )
-        return p + pay
+        return pkt + pay
 
     def mysummary(self):
         return self.sprintf("BpBlock t:%Type% f:%flags% l:%block_len%")
@@ -106,7 +107,10 @@ class CustodySignal(Packet):
 
     def mysummary(self):
         return self.sprintf(
-            "CS ok:%succeeded%:<%reason%> st:%sig_time_sec%.%sig_time_nano% ct:%creat_time%-%creat_seq% sl: %src_eid_len% s:%src_eid%"
+            "CS ok:%succeeded%:<%reason%> "
+            "st:%sig_time_sec%.%sig_time_nano% "
+            "ct:%creat_time%-%creat_seq% "
+            "sl: %src_eid_len% s:%src_eid%"
         )
 
 
