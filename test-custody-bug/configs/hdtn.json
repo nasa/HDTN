@@ -10,7 +10,7 @@
     "isAcsAware": false,
     "acsMaxFillsPerAcsPacket": 100,
     "acsSendPeriodMilliseconds": 1000,
-    "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
+    "retransmitBundleAfterNoCustodySignalMilliseconds": 2000,
     "maxBundleSizeBytes": 10000,
     "maxIngressBundleWaitOnEgressMilliseconds": 2000,
     "bufferRxToStorageOnLinkUpSaturation": true,
