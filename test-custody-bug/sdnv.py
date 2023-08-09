@@ -3,7 +3,6 @@
 class BitString:
     def __init__(self, bits):
         self.bits = bits.replace(' ', '').lstrip('0')
-        print(f"BITS: {self.bits}")
 
     def pop_msb(self, n):
         '''Return n bits from MSB side'''
@@ -47,47 +46,65 @@ class BitString:
         return hex(self.to_int())
 
 def encode(bs):
-    msb_index = bs.msb_index()
-    print("msb index", msb_index)
-    if msb_index < 7:
-        print("msb index les than 7, no-op encoding")
-        return BitString(bs.bits)
-    else:
-        print("msb index > 7, applying sdnv encoding")
-        parts = []
-        s = bs.pop_lsb(7)
-        enc = '0' + s
-        parts.append(enc)
-        print(f"Popped {s}, encoded as {enc}, length left: {len(bs)}")
-        while len(bs):
-            s = bs.pop_lsb(7)
-            enc = '1' + s
-            parts.append(enc)
-            print(f"Popped {s}, encoded as {enc}, length left: {len(bs)}")
-        print(parts)
-    return BitString(''.join(parts[::-1]))
+    octets = []
+    octets.insert(0, '0' + bs.pop_lsb(7))
+    while len(bs):
+        octets.insert(0, '1' + bs.pop_lsb(7))
+    return BitString(''.join(octets))
 
 def decode(bs):
-    parts = []
+    octets = []
+    octets.insert(0, bs.pop_lsb(7))
+    bs.pop_lsb(1, missing_ok=True) # Skip leading bit
     while len(bs):
-        parts.append(bs.pop_lsb(7))
-        bs.pop_lsb(1, missing_ok=True) # Skip leading bit
-    return BitString(''.join(parts[::-1]))
+        octets.insert(0, bs.pop_lsb(7))
+        leading_bit = bs.pop_lsb(1) # Skip leading bit
+        if leading_bit != '1':
+            raise Exception(f"Malformed SDNV near {len(bs)} in bitstream")
+    return BitString(''.join(octets))
 
+def main_get_bits(args):
+    data = args.data.replace(' ', '')
+    if args.input_type == "binary":
+        bits = data
+    elif args.input_type == "hex":
+        as_int = int(data, base=16)
+        bits = f'{as_int:b}'
+    elif args.input_type == "int":
+        as_int = int(data, base=10)
+        bits = f'{as_int:b}'
+    else:
+        raise Exception(f"Bad input type: {args.input_type}")
+    return BitString(bits)
 
+def main_encode(args):
+    bits = main_get_bits(args)
+    enc = encode(bits)
+    print(f"bin: {enc}")
+    print(f"hex: {enc.to_hex()}")
+    print(f"int: {enc.to_int()}")
+
+def main_decode(args):
+    bits = main_get_bits(args)
+    dec = decode(bits)
+    print(f"bin: {dec}")
+    print(f"hex: {dec.to_hex()}")
+    print(f"int: {dec.to_int()}")
 def main():
-    s = '1110'
-    bs = BitString('1110')
-    print(bs)
-    print(f'{bs.pop_lsb(1)} : {bs}')
-    print(f'{bs.pop_lsb(1)} : {bs}')
-    print(f'{bs.pop_lsb(1)} : {bs}')
-    print(f'{bs.pop_lsb(1)} : {bs}')
+    import argparse
+    parser = argparse.ArgumentParser(description='Encode/decode SDNV values')
+    parser.add_argument("mode", choices=('encode', 'decode'))
+    parser.add_argument("data")
+    parser.add_argument('-t', '--input-type', choices=('binary', 'hex', 'int'), default='hex')
 
-    s = BitString('1110')
-    print(f'encoding {s}: {encode(s)}')
-    s = BitString('101010111100')
-    print(f'encoding {s}: {encode(s)}')
+    args = parser.parse_args()
+    if args.mode == "encode":
+        return main_encode(args)
+    elif args.mode == "decode":
+        return main_decode(args)
+    else:
+        print("Uknown mode")
+        return 1 
 
 if __name__ == "__main__":
     main()
