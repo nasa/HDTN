@@ -6,8 +6,10 @@ import signal
 import time
 import re
 
+
 class TimeoutException(Exception):
     """Timeout while waiting for something to happen"""
+
 
 class BackgroundProcess:
     """Run process in background, capturing stdout and stderr"""
@@ -92,8 +94,6 @@ class BackgroundProcess:
             else:
                 match = re.search(output, line)
                 if match:
-                    #elapsed = time.time() - start_time
-                    #print(f"{self.name}: {elapsed}s : found {output}")
+                    # elapsed = time.time() - start_time
+                    # print(f"{self.name}: {elapsed}s : found {output}")
                     return
-
-
