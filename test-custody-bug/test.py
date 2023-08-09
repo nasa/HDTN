@@ -3,125 +3,35 @@
 import unittest
 import os
 from pathlib import Path
-from subprocess import Popen, TimeoutExpired, PIPE
-from threading import Thread
-from queue import Queue, Empty
-import signal
-import random
-import hashlib
 import shutil
-import time
-import re
 import select
 import socket
 import scapy.contrib.bp as bp
+from backgroundprocess import BackgroundProcess
+from scapy.contrib.bp import BP
+from adminrecord import AdminRecord, CustodySignal
 
-
-class TimeoutException(Exception):
-    """Timeout while waiting for something to happen"""
-
-class BackgroundProcess:
-    """Run process in background, capturing stdout and stderr"""
-
-    output_dir: Path
-
-    def __init__(self, cmd, name=None):
-        """Create BackgroundProcess
-
-        cmd is a tuple with the command, ex ('ls', '-l')
-        name is an optional nice-name for log files"""
-        self.proc = Popen(
-            cmd, stdout=PIPE, stderr=PIPE, cwd=BackgroundProcess.output_dir
+def build_bundle(): 
+    bundle = bp.BP(
+            version=6,              # Version
+            ProcFlags=1<<4|1<<3,    # Bundle processing control flags
+            DSO=2,                  # Destination scheme offset
+            DSSO=3,                 # Destination SSP offset 
+            SSO=1,                  # Source scheme offset
+            SSSO=4,                 # Source SSP offset
+            CT=5,                   # Creation time timestamp
+            CTSN=6,                 # Creation timestamp sequence number
+            CSO=1,
+            CSSO=4,
+            LT=1000,                # Life time
+            DL=0                    # Dictionary length
         )
 
-        if name:
-            self.name = name
-        else:
-            self.name = str(self.proc.pid)
-
-        self.stdout_queue = Queue()
-        self.stdout_thread = Thread(target=self._enqueue_stdout)
-        self.stdout_thread.start()
-
-        self.stderr_queue = Queue()
-        self.stderr_thread = Thread(target=self._enqueue_stderr)
-        self.stderr_thread.start()
-
-    def _enqueue_stdout(self):
-        # From https://stackoverflow.com/a/4896288
-        logfile = BackgroundProcess.output_dir / f"{self.name}.stdout"
-        with open(logfile, "w", buffering=1) as output:
-            if self.proc.stdout is None:
-                return
-            while True:
-                line = self.proc.stdout.readline().decode("ascii", errors="ignore")
-                if line is None or line == "":
-                    break
-                self.stdout_queue.put(line)
-                output.write(line)
-                # print(line.decode('ascii', errors='ignore').strip('\n'))
-            self.proc.stdout.close()
-
-    def _enqueue_stderr(self):
-        # From https://stackoverflow.com/a/4896288
-        logfile = BackgroundProcess.output_dir / f"{self.name}.stderr"
-        with open(logfile, "w", buffering=1) as output:
-            if self.proc.stderr is None:
-                return
-            while True:
-                line = self.proc.stderr.readline().decode("ascii", errors="ignore")
-                if line is None or line == "":
-                    break
-                self.stderr_queue.put(line)
-                output.write(line)
-                # print(line.decode('ascii', errors='ignore').strip('\n'))
-            self.proc.stderr.close()
-
-    def nice_kill(self, timeout: int = 2):
-        """Try to interrupt process, then kill if timeout reached"""
-        self.proc.send_signal(signal.SIGINT)
-        try:
-            self.proc.wait(timeout)
-        except TimeoutExpired:
-            pass
-        self.proc.kill()
-
-    def terminate(self):
-        """Terminate process"""
-        return self.proc.terminate()
-
-    def wait_for_output(self, output, timeout=0):
-        """Wait for output to appear in stdout"""
-        start_time = time.time()
-        while True:
-            if timeout != 0 and time.time() - start_time > timeout:
-                raise TimeoutException("Timeout reached")
-            try:
-                line = self.stdout_queue.get(timeout=0.2)
-            except Empty:
-                continue
-            else:
-                match = re.search(output, line)
-                if match:
-                    elapsed = time.time() - start_time
-                    print(f"{self.name}: {elapsed}s : found {output}")
-                    return
-
-
-def write_random_data(path, size):
-    """Writes a file with random data, returns hash"""
-    data = random.randbytes(size)
-    data_hash = hashlib.md5(data).hexdigest()
-    with open(path, "wb") as f:
-        f.write(data)
-    return data_hash
-
-
-def get_file_hash(path):
-    """Get hash of file"""
-    with open(path, "rb") as f:
-        return hashlib.md5(f.read()).hexdigest()
-
+    payload = bp.BPBLOCK(
+            Type=1,
+            ProcFlags=(1 << 3),
+            load='hello world')
+    return bundle / payload
 
 class TestPriority(unittest.TestCase):
     """Test case for priority enforcement"""
@@ -175,7 +85,12 @@ class TestPriority(unittest.TestCase):
 
         # Bind to recv addr
         recv_sock = self.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        recv_sock.bind(('127.0.0.1', 4001))
+        recv_sock.bind(('127.0.0.1', 4002))
+
+        # For getting custody signal
+        recv_sig_sock = self.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        recv_sig_sock.bind(('127.0.0.1', 4001))
+
 
         # Start HDTN
         print("Starting HDTN")
@@ -190,37 +105,22 @@ class TestPriority(unittest.TestCase):
         # Send a packet
         print("Sending")
         s = self.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        bundle = bp.BP(
-                version=6,              # Version
-                ProcFlags=1<<4|1<<3,    # Bundle processing control flags
-                DSO=2,                  # Destination scheme offset
-                DSSO=3,                 # Destination SSP offset 
-                SSO=1,                  # Source scheme offset
-                SSSO=4,                 # Source SSP offset
-                CT=5,                   # Creation time timestamp
-                CTSN=6,                 # Creation timestamp sequence number
-                CSO=1,
-                CSSO=4,
-                LT=1000,                # Life time
-                DL=0                    # Dictionary length
-            ) / bp.BPBLOCK(
-                    Type=1,
-                    ProcFlags=(1 << 3),
-                    load='hello world')
-        print(bundle)
-                    
+        bundle = build_bundle()
         packet = bytes(bundle)
-        s.sendto(packet, ("127.0.0.1", 4000))
+        s.sendto(packet, ("127.0.0.1", 4010))
         print(f"Sent bundle of length {len(packet)}")
 
         # Wait for response
-        print("Waiting for response")
-        has_data = select.select([recv_sock], [], [], 10)
-        self.assertGreater(len(has_data[0]), 0)
+        for _ in range(2):
+            print("Waiting for response")
+            has_data = select.select([recv_sock, recv_sig_sock], [], [], 10)
+            self.assertGreater(len(has_data[0]), 0)
+            rcv = has_data[0][0]
 
-        recv_bundle, recv_addr = recv_sock.recvfrom(1024)
-        print(recv_bundle.hex())
-        print(f"got a response of {len(recv_bundle)} bytes from {recv_addr}")
+            recv_bundle, recv_addr = rcv.recvfrom(1024)
+            print(recv_bundle.hex())
+            print(f"got a response of {len(recv_bundle)} bytes from {recv_addr}")
+            print(BP(recv_bundle))
 
         # Send a custody signal
         # TODO we need to make scapy protocols for Admin Records + Custody signals
