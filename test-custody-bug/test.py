@@ -15,6 +15,7 @@ from backgroundprocess import BackgroundProcess
 from scapy.all import raw, Raw
 from scapy.contrib.bp import BP
 
+
 @contextmanager
 def l(*args, end=" "):
     """Print before/after doing something like 'start ... done'"""
@@ -188,17 +189,20 @@ class TestCustodyBug(unittest.TestCase):
                 b = BP(recv_bundle)
                 if rcv == node_two_sock:
                     custody_bundle = b
-                    print(f"  Node two got bundle from {recv_addr}:\n    {b}")
+                    payload = raw(b["Raw"]).decode("ascii", errors="backslashreplace")
+                    print(
+                        f"  Node two got bundle from {recv_addr}:\n    {b} : {payload}"
+                    )
                 elif rcv == node_one_sock:
                     print(f"  Node one got custody signal from {recv_addr}:\n    {b}")
+
+        self.assertIsNotNone(custody_bundle)
 
         with l("Clearing contacts"):
             clear_contacts()
 
         with l("Waiting for custody transfer timer to expire"):
             time.sleep(5)  # In config, set this to 2 seconds
-
-        self.assertIsNotNone(custody_bundle)
 
         with l("Sending custody bundle"):
             custody_signal = build_custody_signal(custody_bundle)

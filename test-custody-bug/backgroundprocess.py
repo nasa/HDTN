@@ -8,6 +8,7 @@ import time
 import re
 import resource
 
+
 class TimeoutException(Exception):
     """Timeout while waiting for something to happen"""
 
@@ -49,7 +50,7 @@ class BackgroundProcess:
     def _enqueue_stdout(self):
         # From https://stackoverflow.com/a/4896288
         logfile = BackgroundProcess.output_dir / f"{self.name}.stdout"
-        with open(logfile, "w", buffering=1, encoding='utf-8') as output:
+        with open(logfile, "w", buffering=1, encoding="utf-8") as output:
             if self.proc.stdout is None:
                 return
             while True:
@@ -64,7 +65,7 @@ class BackgroundProcess:
     def _enqueue_stderr(self):
         # From https://stackoverflow.com/a/4896288
         logfile = BackgroundProcess.output_dir / f"{self.name}.stderr"
-        with open(logfile, "w", buffering=1, encoding='utf-8') as output:
+        with open(logfile, "w", buffering=1, encoding="utf-8") as output:
             if self.proc.stderr is None:
                 return
             while True:
