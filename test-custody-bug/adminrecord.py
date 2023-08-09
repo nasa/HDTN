@@ -6,6 +6,7 @@ from scapy.compat import raw
 import struct
 
 class BpBlock(Packet):
+    """Bpv6 Canonical Block"""
     def guess_payload_class(self, payload):
         ul = self.underlayer
         if isinstance(ul, BP):
@@ -22,18 +23,16 @@ class BpBlock(Packet):
 
     def post_build(self, p, pay):
         if self.block_len == 0 and pay:
-            # Need to update
             p = (struct.pack('B', self.Type)
             + raw(SDNVUtil.encode(self.flags))
             + raw(SDNVUtil.encode(len(pay))))
         return p + pay
 
-
-
     def mysummary(self):
         return self.sprintf("BpBlock t:%Type% f:%flags% l:%block_len%")
 
 class AdminRecord(Packet):
+    """Bpv6 Admin Record"""
     fields_desc = [
         BitEnumField(
             name="Type",
@@ -51,11 +50,15 @@ class AdminRecord(Packet):
 
 
 def _is_for_fragment(pkt):
+    """Is a packet for a fragment?
+
+    Needed for optional custody signal fields"""
     if not pkt.underlayer or not 'AdminRecord' in pkt.underlayer:
         return False
     return (pkt.underlayer.flags & 0b0001) == 0b0001
 
 class CustodySignal(Packet):
+    """Bpv6 Custody Signal"""
     fields_desc = [
         BitField(name="succeeded", default=0, size=1),
         BitEnumField(

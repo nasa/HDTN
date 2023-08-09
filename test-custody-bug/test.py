@@ -192,9 +192,9 @@ class TestCustodyBug(unittest.TestCase):
                 b = BP(recv_bundle)
                 if rcv == node_two_sock:
                     custody_bundle = b
-                    print(f"  Node two got bundle:\n    {b}")
+                    print(f"  Node two got bundle from {recv_addr}:\n    {b}")
                 elif rcv == node_one_sock:
-                    print(f"  Node one got custody signal:\n    {b}")
+                    print(f"  Node one got custody signal from {recv_addr}:\n    {b}")
 
         with l("Clearing contacts"):
             clear_contacts()
