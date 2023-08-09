@@ -6,15 +6,62 @@ from pathlib import Path
 import shutil
 import select
 import socket
-import scapy.contrib.bp as bp
 from backgroundprocess import BackgroundProcess
-from scapy.contrib.bp import BP
+from scapy.contrib.bp import BP, BPBLOCK
 from adminrecord import AdminRecord, CustodySignal, BpBlock
-from scapy.compat import raw
+from scapy.all import raw
+import zmq
+import json
+import time
+import resource
+from contextlib import contextmanager
+
+resource.setrlimit(
+    resource.RLIMIT_CORE, (resource.RLIM_INFINITY, resource.RLIM_INFINITY)
+)
+
+
+@contextmanager
+def l(*args, end=" "):
+    print(*args, "...", end=end, flush=True)
+    try:
+        yield
+        print("done")
+    finally:
+        pass
+
+
+def do_api_command(cmd):
+    """Send HDTN an API Command"""
+    with zmq.Context() as c:
+        with c.socket(zmq.REQ) as s:
+            s.connect("tcp://127.0.0.1:10305")
+            s.send_json(cmd)
+            if s.poll(2000, zmq.POLLIN):
+                s.recv()
+            s.close()
+
+
+def clear_contacts():
+    """Send HDTN an empty contact plan"""
+    p = {"contacts": []}
+    cmd = {"apiCall": "upload_contact_plan", "contactPlanJson": json.dumps(p)}
+    do_api_command(cmd)
+
+
+def get_expiring():
+    """Get expiring bundles of priority zero"""
+    cmd = {
+        "apiCall": "get_expiring_storage",
+        "priority": 0,
+        "thresholdSecondsFromNow": 10000000,
+    }
+    do_api_command(cmd)
 
 
 def build_bundle():
-    bundle = bp.BP(
+    """Create bundle to send to HDTN"""
+    bundle = BP(
         version=6,  # Version
         ProcFlags=1 << 4 | 1 << 3,  # Bundle processing control flags
         DSO=2,  # Destination scheme offset
@@ -29,11 +76,12 @@ def build_bundle():
         DL=0,  # Dictionary length
     )
 
-    payload = bp.BPBLOCK(Type=1, ProcFlags=(1 << 3), load="hello world")
+    payload = BPBLOCK(Type=1, ProcFlags=(1 << 3), load="hello world")
     return bundle / payload
 
 
 def build_custody_signal(custody_bundle):
+    """Build custody signal to send to HDTN"""
     bp = custody_bundle["BP"]
     sig = (
         BP(
@@ -91,9 +139,8 @@ class TestPriority(unittest.TestCase):
 
     def tearDown(self):
         for job in self.jobs:
-            print(f"Killing {job.name}...")
-            job.terminate()
-            print(f"Killed {job.name}")
+            with l(f"Killing {job.name}"):
+                job.terminate()
         for s in self.sockets:
             s.close()
 
@@ -112,60 +159,60 @@ class TestPriority(unittest.TestCase):
     def test_expedited_in_store(self):
         """Test storage full of expedited, receiving normal"""
 
-        # Bind to recv addr
-        recv_sock = self.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        recv_sock.bind(("127.0.0.1", 4002))
+        # Final destination for bundle
+        node_two_sock = self.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        node_two_sock.bind(("127.0.0.1", 4002))
 
-        # For getting custody signal
-        recv_sig_sock = self.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        recv_sig_sock.bind(("127.0.0.1", 4001))
+        # For receiving custody signal from HDTN
+        node_one_sock = self.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        node_one_sock.bind(("127.0.0.1", 4001))
 
-        # Start HDTN
-        print("Starting HDTN")
-        cmd = (
-            self.hdtn_exec,
-            f'--contact-plan-file={self.configs / "contact_plan.json"}',
-            f'--hdtn-config-file={self.configs / "hdtn.json"}',
-        )
-        hdtn = self.process(cmd, "hdtn")
-        hdtn.wait_for_output("UdpBundleSink bound successfully on UDP port", 5)
+        with l("Starting HDTN"):
+            cmd = (
+                self.hdtn_exec,
+                f'--contact-plan-file={self.configs / "contact_plan.json"}',
+                f'--hdtn-config-file={self.configs / "hdtn.json"}',
+            )
+            hdtn = self.process(cmd, "hdtn")
+            hdtn.wait_for_output("UdpBundleSink bound successfully on UDP port", 5)
 
-        # Send a packet
-        print("Sending")
-        s = self.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        bundle = build_bundle()
-        packet = raw(bundle)
-        s.sendto(packet, ("127.0.0.1", 4010))
-        print(f"Sent bundle of length {len(packet)}")
+        with l("Sending bundle to HDTN"):
+            s = self.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            bundle = build_bundle()
+            packet = raw(bundle)
+            s.sendto(packet, ("127.0.0.1", 4010))
 
-        # Wait for response
         custody_bundle = None
-        for _ in range(2):
-            print("Waiting for response")
-            has_data = select.select([recv_sock, recv_sig_sock], [], [], 10)
-            self.assertGreater(len(has_data[0]), 0)
-            rcv = has_data[0][0]
-            recv_bundle, recv_addr = rcv.recvfrom(1024)
-            b = BP(recv_bundle)
-            if rcv == recv_sock:
-                custody_bundle = b
-                print(f"Got the next bundle: {b}")
-            elif rcv == recv_sig_sock:
-                print(f"got custody signal: \n  {b}")
+        with l("Waiting for bundles from HDTN...", end="\n"):
+            for _ in range(2):
+                has_data = select.select([node_one_sock, node_two_sock], [], [], 10)
+                self.assertGreater(len(has_data[0]), 0)
+                rcv = has_data[0][0]
+                recv_bundle, recv_addr = rcv.recvfrom(1024)
+                b = BP(recv_bundle)
+                if rcv == node_two_sock:
+                    custody_bundle = b
+                    print(f"  Node two got bundle:\n    {b}")
+                elif rcv == node_one_sock:
+                    print(f"  Node one got custody signal:\n    {b}")
 
-        # Send a custody signal
+        with l("Clearing contacts"):
+            clear_contacts()
+
+        with l("Waiting for custody transfer timer to expire"):
+            time.sleep(5)  # In config, set this to 2 seconds
+
         self.assertIsNotNone(custody_bundle)
-        custody_signal = build_custody_signal(custody_bundle)
-        print("Sending custody bundle")
-        s.sendto(raw(custody_signal), ("127.0.0.1", 4010))
-        # TODO we need to make scapy protocols for Admin Records + Custody signals
 
-        print("Waiting for HDTN to crash")
-        hdtn.proc.wait(timeout=10)
+        with l("Sending custody bundle"):
+            custody_signal = build_custody_signal(custody_bundle)
+            s.sendto(raw(custody_signal), ("127.0.0.1", 4010))
 
-        # Stop processes
-        print("Cleanup and tests")
-        hdtn.nice_kill()
+        with l("Call get_expiring_storage API to cause crash"):
+            get_expiring()
+
+        with l("Waiting for HDTN to crash"):
+            hdtn.proc.wait(timeout=10)
 
 
 if __name__ == "__main__":
