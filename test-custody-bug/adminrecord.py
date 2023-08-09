@@ -1,11 +1,9 @@
 from scapy.packet import Packet, bind_layers, split_layers
 from scapy.fields import BitEnumField, BitField, ConditionalField, StrLenField, ByteEnumField
-from scapy.contrib.sdnv import SDNV2, SDNV2FieldLenField, SDNV2LenField, SDNVUtil
+from scapy.contrib.sdnv import SDNV2, SDNV2FieldLenField, SDNVUtil
 from scapy.contrib.bp import BPBLOCK, BP
 from scapy.compat import raw
 import struct
-
-print("EXECUTING ADMINRECORD SCRIPT")
 
 class BpBlock(Packet):
     def guess_payload_class(self, payload):
@@ -14,10 +12,6 @@ class BpBlock(Packet):
             bundle = ul
             if (bundle.ProcFlags & 2) == 2:
                 return AdminRecord
-            else:
-                print(f"DBG: flags {bundle.ProcFlags} don't have 1 set")
-        else:
-            print(f"DBG: underlayer {ul} not BP ({type(ul)})")
         return Packet.guess_payload_class(self, payload)
 
     fields_desc = [
@@ -32,7 +26,6 @@ class BpBlock(Packet):
             p = (struct.pack('B', self.Type)
             + raw(SDNVUtil.encode(self.flags))
             + raw(SDNVUtil.encode(len(pay))))
-        print(p.hex())
         return p + pay
 
 

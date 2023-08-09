@@ -92,8 +92,8 @@ class BackgroundProcess:
             else:
                 match = re.search(output, line)
                 if match:
-                    elapsed = time.time() - start_time
-                    print(f"{self.name}: {elapsed}s : found {output}")
+                    #elapsed = time.time() - start_time
+                    #print(f"{self.name}: {elapsed}s : found {output}")
                     return
 
 
