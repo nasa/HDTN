@@ -211,8 +211,10 @@ class TestCustodyBug(unittest.TestCase):
         with l("Call get_expiring_storage API to cause crash"):
             get_expiring()
 
-        with l("Waiting for HDTN to crash"):
-            hdtn.proc.wait(timeout=10)
+        with l("Testing that HDTN has not crashed"):
+            time.sleep(1)  # This sleep probably not needed
+            # poll returns None if the process is still running
+            self.assertIsNone(hdtn.proc.poll())
 
 
 if __name__ == "__main__":
