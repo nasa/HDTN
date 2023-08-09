@@ -8,6 +8,15 @@
             "endTime": 6000000,
             "rateBitsPerSec": 559240,
             "owlt": 1
+        },
+        {
+            "contact" : 0,
+            "source": 10,
+            "dest": 1,
+            "startTime": 0,
+            "endTime": 6000000,
+            "rateBitsPerSec": 559240,
+            "owlt": 1
         }
     ]
 }
