@@ -138,6 +138,7 @@ protected:
     boost::mutex m_mutexMainThread;
     boost::condition_variable m_conditionVariableMainThread;
     std::vector<boost::filesystem::path> m_filePathsVec;
+    std::vector<unsigned int> m_tmpInitializerOfCircularIndexBuffersVec;
     std::vector<CircularIndexBufferSingleProducerSingleConsumerConfigurable> m_circularIndexBuffersVec;
 
     uint8_t * m_circularBufferBlockDataPtr;

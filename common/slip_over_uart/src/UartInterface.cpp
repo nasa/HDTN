@@ -324,7 +324,7 @@ void UartInterface::PopCbThreadFunc() {
             boost::mutex::scoped_lock lock(m_mutexCb);
             consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
             if (consumeIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //if empty again (lock mutex (above) before checking condition)
-                if (!m_running) { //m_running is mutex protected, if it stopped running, exit the thread (lock mutex (above) before checking condition)
+                if (!m_running.load(std::memory_order_acquire)) { //m_running is mutex protected, if it stopped running, exit the thread (lock mutex (above) before checking condition)
                     break; //thread stopping criteria (empty and not running)
                 }
                 m_conditionVariableCb.wait(lock); // call lock.unlock() and blocks the current thread
@@ -390,7 +390,7 @@ void UartInterface::HandleSerialSend(const boost::system::error_code& error, std
             m_onSuccessfulBundleSendCallback(el.m_userData, m_userAssignedUuid);
         }
         m_txBundlesCb.CommitRead(); //cb is sized 1 larger in case a Forward() is called between notify and CommitRead
-        if (m_useLocalConditionVariableAckReceived) { //for destructor
+        if (m_useLocalConditionVariableAckReceived.load(std::memory_order_acquire)) { //for destructor
             m_localConditionVariableAckReceived.notify_one();
         }
         TrySendBundleIfAvailable_NotThreadSafe();

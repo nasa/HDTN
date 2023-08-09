@@ -89,8 +89,8 @@ protected:
     
     
 private:
-    volatile bool m_useLocalConditionVariableAckReceived;
-    volatile bool m_running;
+    std::atomic<bool> m_useLocalConditionVariableAckReceived;
+    std::atomic<bool> m_running;
     bool m_runningNormally;
     bool m_rxBundleOverran;
     bool m_stateSerialReadActive;

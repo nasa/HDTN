@@ -72,7 +72,11 @@ BundleStorageManagerBase::BundleStorageManagerBase(const StorageConfig_ptr & sto
     M_MAX_SEGMENTS(M_TOTAL_STORAGE_CAPACITY_BYTES / SEGMENT_SIZE),
     m_memoryManager(M_MAX_SEGMENTS),
     m_filePathsVec(M_NUM_STORAGE_DISKS),
-    m_circularIndexBuffersVec(M_NUM_STORAGE_DISKS, CircularIndexBufferSingleProducerSingleConsumerConfigurable(CIRCULAR_INDEX_BUFFER_SIZE)),
+
+    //https://stackoverflow.com/a/46686862
+    m_tmpInitializerOfCircularIndexBuffersVec(M_NUM_STORAGE_DISKS, CIRCULAR_INDEX_BUFFER_SIZE), //count, value
+    m_circularIndexBuffersVec(m_tmpInitializerOfCircularIndexBuffersVec.begin(), m_tmpInitializerOfCircularIndexBuffersVec.end()),
+
     m_circularBufferBlockDataPtr(NULL),
     m_circularBufferSegmentIdsPtr(NULL),
     m_circularBufferIsReadCompletedPointers(), //zero initialize
@@ -83,6 +87,9 @@ BundleStorageManagerBase::BundleStorageManagerBase(const StorageConfig_ptr & sto
     m_totalBytesRestored(0),
     m_totalSegmentsRestored(0)
 {
+    m_tmpInitializerOfCircularIndexBuffersVec.resize(0);
+    m_tmpInitializerOfCircularIndexBuffersVec.shrink_to_fit();
+
     if (!m_storageConfigPtr) {
         return;
     }
