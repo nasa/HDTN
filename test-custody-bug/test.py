@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test priority enforcement"""
+"""Test custody bug"""
 import unittest
 import os
 from pathlib import Path
@@ -111,8 +111,8 @@ def build_custody_signal(custody_bundle):
     return sig
 
 
-class TestPriority(unittest.TestCase):
-    """Test case for priority enforcement"""
+class TestCustodyBug(unittest.TestCase):
+    """Regression test for custody transfer bug"""
 
     def setUp(self):
         root = os.getenv("HDTN_SOURCE_ROOT")
