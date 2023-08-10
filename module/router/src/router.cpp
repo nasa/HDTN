@@ -39,6 +39,7 @@
 #include "libcgr.h"
 #include <unordered_map>
 #include <unordered_set>
+#include <atomic>
 
 /* Messages overview:
  *      + Sockets:
@@ -262,7 +263,7 @@ private:
     typedef std::pair<boost::posix_time::ptime, uint64_t> ptime_index_pair_t; //used in case of identical ptimes for starting events
     typedef boost::bimap<ptime_index_pair_t, contactPlan_t> ptime_to_contactplan_bimap_t;
 
-    volatile bool m_running;
+    std::atomic<bool> m_running;
     HdtnConfig m_hdtnConfig;
     std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
 
@@ -299,7 +300,7 @@ private:
     bool m_receivedInitialOutductTelem;
 
     //for blocking until worker-thread startup
-    volatile bool m_workerThreadStartupInProgress;
+    std::atomic<bool> m_workerThreadStartupInProgress;
     boost::mutex m_workerThreadStartupMutex;
     boost::condition_variable m_workerThreadStartupConditionVariable;
 
@@ -428,7 +429,7 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
     bool useMgr,
     zmq::context_t* hdtnOneProcessZmqInprocContextPtr)
 {
-    if (m_running) {
+    if (m_running.load(std::memory_order_acquire)) {
         LOG_ERROR(subprocess) << "Router::Impl::Init called while Router is already running";
         return false;
     }
@@ -1058,7 +1059,7 @@ void Router::Impl::ReadZmqAcksThreadFunc() {
     m_workerThreadStartupMutex.unlock();
     m_workerThreadStartupConditionVariable.notify_one();
 
-    while (m_running) { //keep thread alive if running
+    while (m_running.load(std::memory_order_acquire)) { //keep thread alive if running
         int rc = 0;
         try {
             rc = zmq::poll(items, NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL);
@@ -1483,7 +1484,7 @@ void Router::Impl::SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNod
     routingMsg.nextHopNodeId = nextHopNodeId;
     routingMsg.finalDestNodeId = finalDestNodeId;
 
-    while (m_running && !m_zmqPushSock_connectingRouterToBoundEgressPtr->send(
+    while (m_running.load(std::memory_order_acquire) && !m_zmqPushSock_connectingRouterToBoundEgressPtr->send(
         zmq::const_buffer(&routingMsg, sizeof(hdtn::RouteUpdateHdr)),
         zmq::send_flags::dontwait))
     {

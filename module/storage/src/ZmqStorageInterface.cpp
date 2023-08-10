@@ -36,6 +36,7 @@
 #include "CustodyTimers.h"
 #include "codec/BundleViewV7.h"
 #include "ThreadNamer.h"
+#include <atomic>
 
 typedef std::pair<cbhe_eid_t, bool> eid_plus_isanyserviceid_pair_t;
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
@@ -147,7 +148,7 @@ private:
 
     zmq::context_t* m_hdtnOneProcessZmqInprocContextPtr;
     std::unique_ptr<boost::thread> m_threadPtr;
-    volatile bool m_running;
+    std::atomic<bool> m_running;
 
     //variables initialized and used only by ThreadFunc()
     std::unique_ptr<BundleStorageManagerBase> m_bsmPtr;
@@ -161,7 +162,7 @@ private:
     std::vector<OutductInfo_t*> m_vectorUpLinksOutductInfoPtrs; //outductIndex to info
 
     //for blocking until worker-thread startup
-    volatile bool m_workerThreadStartupInProgress;
+    std::atomic<bool> m_workerThreadStartupInProgress;
     boost::mutex m_workerThreadStartupMutex;
     boost::condition_variable m_workerThreadStartupConditionVariable;
 
@@ -1078,7 +1079,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
     m_workerThreadStartupMutex.unlock();
     m_workerThreadStartupConditionVariable.notify_one();
 
-    while (m_running) {
+    while (m_running.load(std::memory_order_acquire)) {
         int rc = 0;
         try {
             rc = zmq::poll(pollItems, 4, timeoutPoll);

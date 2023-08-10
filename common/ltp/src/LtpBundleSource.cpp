@@ -216,7 +216,7 @@ void LtpBundleSource::TransmissionSessionCompletedCallback(const Ltp::session_id
     }
     else if (m_activeSessionNumbersSet.erase(sessionId.sessionNumber)) { //found and erased
         ++m_ltpOutductTelemetry.m_totalBundlesAcked;
-        if (m_useLocalConditionVariableAckReceived) {
+        if (m_useLocalConditionVariableAckReceived.load(std::memory_order_acquire)) {
             m_localConditionVariableAckReceived.notify_one();
         }
     }
@@ -234,7 +234,7 @@ void LtpBundleSource::TransmissionSessionCancelledCallback(const Ltp::session_id
     }
     else if (m_activeSessionNumbersSet.erase(sessionId.sessionNumber)) { //found and erased
         ++m_ltpOutductTelemetry.m_totalBundlesFailedToSend;
-        if (m_useLocalConditionVariableAckReceived) {
+        if (m_useLocalConditionVariableAckReceived.load(std::memory_order_acquire)) {
             m_localConditionVariableAckReceived.notify_one();
         }
     }

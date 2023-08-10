@@ -132,7 +132,7 @@ void UdpBundleSource::UpdateRate(uint64_t rateBitsPerSec) {
 
 bool UdpBundleSource::Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_t>&& userData) {
 
-    if(!m_readyToForward) {
+    if(!ReadyToForward()) {
         LOG_ERROR(subprocess) << "link not ready to forward yet";
         return false;
     }
@@ -159,7 +159,7 @@ bool UdpBundleSource::Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_
 
 bool UdpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData) {
 
-    if (!m_readyToForward) {
+    if (!ReadyToForward()) {
         LOG_ERROR(subprocess) << "link not ready to forward yet";
         return false;
     }
@@ -238,7 +238,7 @@ void UdpBundleSource::OnResolve(const boost::system::error_code & ec, boost::asi
             LOG_INFO(subprocess) << "UDP Bound on ephemeral port " << m_udpSocket.local_endpoint().port();
             LOG_INFO(subprocess) << "UDP READY";
             m_udpOutductTelemetry.m_linkIsUpPhysically = true;
-            m_readyToForward = true;
+            m_readyToForward.store(true, std::memory_order_release);
 
         }
         catch (const boost::system::system_error & e) {
@@ -323,7 +323,7 @@ bool UdpBundleSource::ProcessPacketSent(std::size_t bytes_transferred) {
         if (m_onSuccessfulBundleSendCallback) {
             m_onSuccessfulBundleSendCallback(userData, m_userAssignedUuid);
         }
-        if (m_useLocalConditionVariableAckReceived) {
+        if (m_useLocalConditionVariableAckReceived.load(std::memory_order_acquire)) {
             m_localConditionVariableAckReceived.notify_one();
         }
         return true;
@@ -342,7 +342,7 @@ void UdpBundleSource::DoUdpShutdown() {
 void UdpBundleSource::DoHandleSocketShutdown() {
     //final code to shut down tcp sockets
     m_udpOutductTelemetry.m_linkIsUpPhysically = false;
-    m_readyToForward = false;
+    m_readyToForward.store(false, std::memory_order_release);
     if (m_udpSocket.is_open()) {
         try {
             LOG_INFO(subprocess) << "shutting down UdpBundleSource UDP socket..";
@@ -362,7 +362,7 @@ void UdpBundleSource::DoHandleSocketShutdown() {
 }
 
 bool UdpBundleSource::ReadyToForward() const {
-    return m_readyToForward;
+    return m_readyToForward.load(std::memory_order_acquire);
 }
 
 

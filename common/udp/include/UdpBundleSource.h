@@ -99,8 +99,8 @@ private:
     std::vector<std::size_t> m_bytesToAckBySentCallbackCbVec;
     std::vector<std::vector<uint8_t> > m_userDataCbVec;
 
-    volatile bool m_readyToForward;
-    volatile bool m_useLocalConditionVariableAckReceived;
+    std::atomic<bool> m_readyToForward;
+    std::atomic<bool> m_useLocalConditionVariableAckReceived;
     bool m_tokenRefreshTimerIsRunning;
 
     OnFailedBundleVecSendCallback_t m_onFailedBundleVecSendCallback;

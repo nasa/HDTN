@@ -23,6 +23,7 @@
 
 #include "BeastWebsocketServer.h"
 #include "Logger.h"
+#include <atomic>
 
 static const hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::gui;
 
@@ -413,7 +414,7 @@ public:
             }
         }
         else if (m_queueDataToSend.empty()) {
-            m_writeInProgress = false;
+            m_writeInProgress.store(false, std::memory_order_release);
         }
         else {
             DoSendQueuedElement();
@@ -421,10 +422,9 @@ public:
     }
 
     void QueueAndSendTextData_NotThreadSafe(std::shared_ptr<std::string>& stringPtr) {
-        if (!m_sendErrorOccurred) {
+        if (!m_sendErrorOccurred.load(std::memory_order_acquire)) {
             m_queueDataToSend.push(std::move(stringPtr));
-            if (!m_writeInProgress) {
-                m_writeInProgress = true;
+            if (!m_writeInProgress.exchange(true)) {
                 DoSendQueuedElement();
             }
         }
@@ -457,8 +457,8 @@ protected:
     ServerState_ptr m_serverStatePtr;
     std::queue<std::shared_ptr<std::string> > m_queueDataToSend;
     std::unique_ptr<shared_lock_t> m_isOpenSharedLockPtr;
-    volatile bool m_writeInProgress;
-    volatile bool m_sendErrorOccurred;
+    std::atomic<bool> m_writeInProgress;
+    std::atomic<bool> m_sendErrorOccurred;
 };
 
 // Echoes back all received WebSocket messages.

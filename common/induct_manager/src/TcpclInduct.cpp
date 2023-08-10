@@ -110,7 +110,7 @@ void TcpclInduct::RemoveInactiveTcpConnections() {
     const OnDeletedOpportunisticLinkCallback_t & callbackRef = m_onDeletedOpportunisticLinkCallback;
     //std::map<uint64_t, OpportunisticBundleQueue> & mapNodeIdToOpportunisticBundleQueueRef = m_mapNodeIdToOpportunisticBundleQueue;
     //boost::mutex & mapNodeIdToOpportunisticBundleQueueMutexRef = m_mapNodeIdToOpportunisticBundleQueueMutex;
-    if (m_allowRemoveInactiveTcpConnections) {
+    if (m_allowRemoveInactiveTcpConnections.load(std::memory_order_acquire)) {
         boost::mutex::scoped_lock lock(m_listTcpclBundleSinksMutex);
         m_listTcpclBundleSinks.remove_if([&callbackRef, this/*, &mapNodeIdToOpportunisticBundleQueueMutexRef, &mapNodeIdToOpportunisticBundleQueueRef*/](TcpclBundleSink & sink) {
             if (sink.ReadyToBeDeleted()) {

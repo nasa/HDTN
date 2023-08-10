@@ -35,6 +35,7 @@
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "BidirectionalLink.h"
 #include "BundleCallbackFunctionDefines.h"
+#include <atomic>
 
 class CLASS_VISIBILITY_TCPCL_LIB TcpclV3BidirectionalLink : public BidirectionalLink {
 public:
@@ -91,12 +92,12 @@ protected:
     boost::asio::deadline_timer m_base_needToSendKeepAliveMessageTimer;
     boost::asio::deadline_timer m_base_sendShutdownMessageTimeoutTimer;
     bool m_base_shutdownCalled;
-    volatile bool m_base_readyToForward; //bundleSource
-    volatile bool m_base_sinkIsSafeToDelete; //bundleSink
-    volatile bool m_base_tcpclShutdownComplete; //bundleSource
-    volatile bool m_base_useLocalConditionVariableAckReceived; //bundleSource
-    volatile bool m_base_dataReceivedServedAsKeepaliveReceived;
-    volatile bool m_base_dataSentServedAsKeepaliveSent;
+    std::atomic<bool> m_base_readyToForward; //bundleSource
+    std::atomic<bool> m_base_sinkIsSafeToDelete; //bundleSink
+    std::atomic<bool> m_base_tcpclShutdownComplete; //bundleSource
+    std::atomic<bool> m_base_useLocalConditionVariableAckReceived; //bundleSource
+    std::atomic<bool> m_base_dataReceivedServedAsKeepaliveReceived;
+    std::atomic<bool> m_base_dataSentServedAsKeepaliveSent;
     boost::condition_variable m_base_localConditionVariableAckReceived;
     uint64_t m_base_reconnectionDelaySecondsIfNotZero;
 

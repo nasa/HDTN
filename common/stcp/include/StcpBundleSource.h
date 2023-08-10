@@ -29,6 +29,7 @@
 #include <map>
 #include <queue>
 #include <memory>
+#include <atomic>
 #include "TcpAsyncSender.h"
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "TelemetryDefinitions.h"
@@ -96,10 +97,10 @@ private:
     const unsigned int MAX_UNACKED;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_bytesToAckByTcpSendCallbackCb;
     std::vector<uint32_t> m_bytesToAckByTcpSendCallbackCbVec;
-    volatile bool m_readyToForward;
-    volatile bool m_stcpShutdownComplete;
-    volatile bool m_dataServedAsKeepAlive;
-    volatile bool m_useLocalConditionVariableAckReceived;
+    std::atomic<bool> m_readyToForward;
+    std::atomic<bool> m_stcpShutdownComplete;
+    std::atomic<bool> m_dataServedAsKeepAlive;
+    std::atomic<bool> m_useLocalConditionVariableAckReceived;
 
     uint8_t m_tcpReadSomeBuffer[10];
 

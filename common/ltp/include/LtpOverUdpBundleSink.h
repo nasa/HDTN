@@ -24,6 +24,7 @@
 
 #include "LtpBundleSink.h"
 #include "LtpUdpEngineManager.h"
+#include <atomic>
 
 class LtpOverUdpBundleSink : public LtpBundleSink {
 private:
@@ -45,7 +46,7 @@ private:
 
     boost::mutex m_removeEngineMutex;
     boost::condition_variable m_removeEngineCv;
-    volatile bool m_removeEngineInProgress;
+    std::atomic<bool> m_removeEngineInProgress;
 };
 
 

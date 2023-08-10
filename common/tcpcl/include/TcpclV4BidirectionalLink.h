@@ -36,6 +36,7 @@
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "BidirectionalLink.h"
 #include "BundleCallbackFunctionDefines.h"
+#include <atomic>
 #ifdef OPENSSL_SUPPORT_ENABLED
 #include <boost/asio/ssl.hpp>
 
@@ -169,12 +170,12 @@ protected:
     boost::asio::deadline_timer m_base_waitForSessionTerminationAckTimeoutTimer;
     boost::asio::deadline_timer m_base_remainInEndingStateTimer;
     bool m_base_shutdownCalled;
-    volatile bool m_base_readyToForward; //bundleSource
-    volatile bool m_base_sinkIsSafeToDelete; //bundleSink
-    volatile bool m_base_tcpclShutdownComplete; //bundleSource
-    volatile bool m_base_useLocalConditionVariableAckReceived; //bundleSource
-    volatile bool m_base_dataReceivedServedAsKeepaliveReceived;
-    volatile bool m_base_dataSentServedAsKeepaliveSent;
+    std::atomic<bool> m_base_readyToForward; //bundleSource
+    std::atomic<bool> m_base_sinkIsSafeToDelete; //bundleSink
+    std::atomic<bool> m_base_tcpclShutdownComplete; //bundleSource
+    std::atomic<bool> m_base_useLocalConditionVariableAckReceived; //bundleSource
+    std::atomic<bool> m_base_dataReceivedServedAsKeepaliveReceived;
+    std::atomic<bool> m_base_dataSentServedAsKeepaliveSent;
     bool m_base_doUpgradeSocketToSsl;
     bool m_base_didSuccessfulSslHandshake;
     boost::condition_variable m_base_localConditionVariableAckReceived;

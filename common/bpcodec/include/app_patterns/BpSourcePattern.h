@@ -47,6 +47,7 @@
 #include <queue>
 #include <unordered_set>
 #include "PaddedVectorUint8.h"
+#include <atomic>
 
 class CLASS_VISIBILITY_BP_APP_PATTERNS_LIB BpSourcePattern {
 public:
@@ -93,7 +94,7 @@ private:
     OutductManager m_outductManager;
     InductManager m_inductManager;
     std::unique_ptr<boost::thread> m_bpSourcePatternThreadPtr;
-    volatile bool m_running;
+    std::atomic<bool> m_running;
     bool m_useCustodyTransfer;
     bool m_custodyTransferUseAcs;
     bool m_useInductForSendingBundles;
@@ -114,8 +115,8 @@ private:
     std::set<cbhe_bundle_uuid_nofragment_t> m_cbheBundleUuidSet;
     bool m_detectedNextCustodianSupportsCteb;
     bool m_requireRxBundleBeforeNextTx;
-    volatile bool m_isWaitingForRxBundleBeforeNextTx;
-    volatile bool m_linkIsDown;
+    std::atomic<bool> m_isWaitingForRxBundleBeforeNextTx;
+    std::atomic<bool> m_linkIsDown;
     boost::mutex m_mutexQueueBundlesThatFailedToSend;
     typedef std::pair<uint64_t, uint64_t> bundleid_payloadsize_pair_t;
     typedef std::pair<padded_vector_uint8_t, bundleid_payloadsize_pair_t> bundle_userdata_pair_t;
@@ -132,7 +133,7 @@ private:
     cbhe_eid_t m_lastPreviousNode;
     std::vector<uint64_t> m_hopCounts;
 public:
-    volatile bool m_allOutductsReady;
+    std::atomic<bool> m_allOutductsReady;
 };
 
 

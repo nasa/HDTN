@@ -234,7 +234,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(double bundleRate, const boost::
         return;
     }
 #endif
-    while (m_running) {
+    while (m_running.load(std::memory_order_acquire)) {
         if (m_useInductForSendingBundles) {
             LOG_INFO(subprocess) << "Waiting for Tcpcl opportunistic link on the induct to become available for forwarding bundles...";
             boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
@@ -252,7 +252,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(double bundleRate, const boost::
             }
         }
     }
-    if (!m_running) {
+    if (!m_running.load(std::memory_order_acquire)) {
         LOG_INFO(subprocess) << "Terminated before a connection could be made";
         return;
     }
@@ -351,7 +351,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(double bundleRate, const boost::
     zmq::message_t zmqMessageToSendWrapper;
     BundleViewV7 bv7;
     BundleViewV6 bv6;
-    while (m_running) { //keep thread alive if running
+    while (m_running.load(std::memory_order_acquire)) { //keep thread alive if running
                 
         if(bundleRate) {
             boost::system::error_code ec;
@@ -676,7 +676,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(double bundleRate, const boost::
         }
         else { //bundles are still being sent
             boost::mutex::scoped_lock waitingForBundlePipelineFreeLock(m_mutexCurrentlySendingBundleIdSet);
-            if (m_running && m_currentlySendingBundleIdSet.size()) { //lock mutex (above) before checking condition
+            if (m_running.load(std::memory_order_acquire) && m_currentlySendingBundleIdSet.size()) { //lock mutex (above) before checking condition
                 m_cvCurrentlySendingBundleIdSet.wait(waitingForBundlePipelineFreeLock);
             }
             continue;
@@ -689,7 +689,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(double bundleRate, const boost::
         
         //send message
         do { //try to send at least once before terminating
-            if (m_linkIsDown) {
+            if (m_linkIsDown.load(std::memory_order_acquire)) {
                 //note BpSource has no routing capability so it must send to the only connection available to it
                 LOG_ERROR(subprocess) << "Waiting for linkup event.. retrying in 1 second";
                 boost::this_thread::sleep(boost::posix_time::seconds(1));
@@ -771,14 +771,14 @@ void BpSourcePattern::BpSourcePatternThreadFunc(double bundleRate, const boost::
                     raw_data += bundleLength; // bundle overhead + payload data
                     {
                         boost::mutex::scoped_lock waitingForRxBundleBeforeNextTxLock(m_waitingForRxBundleBeforeNextTxMutex);
-                        while (m_requireRxBundleBeforeNextTx && m_running && m_isWaitingForRxBundleBeforeNextTx) { //lock mutex (above) before checking flag m_running and m_isWaitingForRxBundleBeforeNextTx
+                        while (m_requireRxBundleBeforeNextTx && m_running.load(std::memory_order_acquire) && m_isWaitingForRxBundleBeforeNextTx.load(std::memory_order_acquire)) { //lock mutex (above) before checking flag m_running and m_isWaitingForRxBundleBeforeNextTx
                             m_waitingForRxBundleBeforeNextTxConditionVariable.wait(waitingForRxBundleBeforeNextTxLock);
                         }
                     }
                     break;
                 }
             } //end if link is not down
-        } while (m_running);
+        } while (m_running.load(std::memory_order_acquire));
     }
     //todo m_outductManager.StopAllOutducts(); //wait for all pipelined bundles to complete before getting a finishedTime
     boost::posix_time::ptime finishedTime = boost::posix_time::microsec_clock::universal_time();
@@ -1127,9 +1127,9 @@ void BpSourcePattern::OnFailedBundleVecSendCallback(padded_vector_uint8_t& movab
             LOG_ERROR(subprocess) << "BpSourcePattern::OnFailedBundleVecSendCallback: cannot find bundleId " << bundleId;
         }
 
-        if (!m_linkIsDown) {
+        if (!m_linkIsDown.load(std::memory_order_acquire)) {
             LOG_INFO(subprocess) << "Setting link status to DOWN";
-            m_linkIsDown = true;
+            m_linkIsDown.store(true, std::memory_order_release);
         }
         m_cvCurrentlySendingBundleIdSet.notify_one();
     }
@@ -1145,22 +1145,21 @@ void BpSourcePattern::OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userD
         LOG_ERROR(subprocess) << "OnSuccessfulBundleSendCallback: cannot find bundleId " << bundleId;
     }
 
-    if (m_linkIsDown) {
+    if (m_linkIsDown.load(std::memory_order_acquire)) {
         LOG_INFO(subprocess) << "Setting link status to UP";
-        m_linkIsDown = false;
+        m_linkIsDown.store(false, std::memory_order_release);
     }
     m_cvCurrentlySendingBundleIdSet.notify_one();
 }
 void BpSourcePattern::OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid) {
     LOG_INFO(subprocess) << "OnOutductLinkStatusChangedCallback isLinkDownEvent:" << isLinkDownEvent << " outductUuid " << outductUuid;
-    const bool linkIsAlreadyDown = m_linkIsDown;
+    const bool linkIsAlreadyDown = m_linkIsDown.exchange(isLinkDownEvent);
     if (isLinkDownEvent && (!linkIsAlreadyDown)) {
         LOG_INFO(subprocess) << "Setting link status to DOWN";
     }
     else if ((!isLinkDownEvent) && linkIsAlreadyDown) {
         LOG_INFO(subprocess) << "Setting link status to UP";
     }
-    m_linkIsDown = isLinkDownEvent;
     m_cvCurrentlySendingBundleIdSet.notify_one();
 }
 

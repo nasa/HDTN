@@ -95,7 +95,7 @@ void StcpBundleSource::Stop() {
     }
 
     DoStcpShutdown(0);
-    while (!m_stcpShutdownComplete) {
+    while (!m_stcpShutdownComplete.load(std::memory_order_acquire)) {
         try {
             boost::this_thread::sleep(boost::posix_time::milliseconds(250));
         }
@@ -159,7 +159,7 @@ void StcpBundleSource::GenerateDataUnitHeaderOnly(std::vector<uint8_t> & dataUni
 
 
 bool StcpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData) {
-    if (!m_readyToForward) {
+    if (!ReadyToForward()) {
         LOG_ERROR(subprocess) << "link not ready to forward yet";
         return false;
     }
@@ -182,7 +182,7 @@ bool StcpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& 
     m_bytesToAckByTcpSendCallbackCbVec[writeIndexTcpSendCallback] = dataUnitSize;
     m_bytesToAckByTcpSendCallbackCb.CommitWrite(); //pushed
 
-    m_dataServedAsKeepAlive = true;
+    m_dataServedAsKeepAlive.store(true, std::memory_order_release);
 
 
     TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
@@ -200,7 +200,7 @@ bool StcpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& 
 }
 
 bool StcpBundleSource::Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_t>&& userData) {
-    if (!m_readyToForward) {
+    if (!ReadyToForward()) {
         LOG_ERROR(subprocess) << "link not ready to forward yet";
         return false;
     }
@@ -223,7 +223,7 @@ bool StcpBundleSource::Forward(padded_vector_uint8_t& dataVec, std::vector<uint8
     m_bytesToAckByTcpSendCallbackCb.CommitWrite(); //pushed
 
 
-    m_dataServedAsKeepAlive = true;
+    m_dataServedAsKeepAlive.store(true, std::memory_order_release);
 
     TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
     el->m_userData = std::move(userData);
@@ -312,8 +312,8 @@ void StcpBundleSource::OnConnect(const boost::system::error_code & ec) {
     }
 
     LOG_INFO(subprocess) << "Stcp connection complete";
-    m_stcpShutdownComplete = false;
-    m_readyToForward = true;
+    m_stcpShutdownComplete.store(false, std::memory_order_release);
+    m_readyToForward.store(true, std::memory_order_release);
 
 
     m_needToSendKeepAliveMessageTimer.expires_from_now(boost::posix_time::seconds(M_KEEP_ALIVE_INTERVAL_SECONDS));
@@ -369,7 +369,7 @@ void StcpBundleSource::HandleTcpSend(const boost::system::error_code& error, std
             if (m_onSuccessfulBundleSendCallback) {
                 m_onSuccessfulBundleSendCallback(elPtr->m_userData, m_userAssignedUuid);
             }
-            if (m_useLocalConditionVariableAckReceived) {
+            if (m_useLocalConditionVariableAckReceived.load(std::memory_order_acquire)) {
                 m_localConditionVariableAckReceived.notify_one();
             }
             
@@ -423,7 +423,11 @@ void StcpBundleSource::OnNeedToSendKeepAliveMessage_TimerExpired(const boost::sy
             m_needToSendKeepAliveMessageTimer.expires_from_now(boost::posix_time::seconds(M_KEEP_ALIVE_INTERVAL_SECONDS));
             m_needToSendKeepAliveMessageTimer.async_wait(boost::bind(&StcpBundleSource::OnNeedToSendKeepAliveMessage_TimerExpired, this, boost::asio::placeholders::error));
             //SEND KEEPALIVE PACKET
-            if (!m_dataServedAsKeepAlive) {
+            if (m_dataServedAsKeepAlive.load(std::memory_order_acquire)) {
+                LOG_INFO(subprocess) << "stcp keepalive packet not needed";
+                m_dataServedAsKeepAlive.store(false, std::memory_order_relaxed); //relaxed because only this thread reads it
+            }
+            else {
                 static const uint32_t keepAliveData = 0; //0 is the keep alive signal 
 
                 TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
@@ -431,14 +435,10 @@ void StcpBundleSource::OnNeedToSendKeepAliveMessage_TimerExpired(const boost::sy
                 el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendKeepAliveCallback;
                 m_tcpAsyncSenderPtr->AsyncSend_NotThreadSafe(el); //timer runs in same thread as socket so special thread safety not needed
             }
-            else {
-                LOG_INFO(subprocess) << "stcp keepalive packet not needed";
-            }
         }
-        m_dataServedAsKeepAlive = false;
     }
     else {
-        m_stcpShutdownComplete = true; //last step in sequence
+        m_stcpShutdownComplete.store(true, std::memory_order_release); //last step in sequence
     }
 }
 
@@ -448,7 +448,7 @@ void StcpBundleSource::DoStcpShutdown(unsigned int reconnectionDelaySecondsIfNot
 
 void StcpBundleSource::DoHandleSocketShutdown(unsigned int reconnectionDelaySecondsIfNotZero) {
     //final code to shut down tcp sockets
-    m_readyToForward = false;
+    m_readyToForward.store(false, std::memory_order_release);
     m_stcpOutductTelemetry.m_linkIsUpPhysically = false;
     if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
         m_onOutductLinkStatusChangedCallback(true, m_userAssignedUuid);
@@ -499,7 +499,7 @@ void StcpBundleSource::OnNeedToReconnectAfterShutdown_TimerExpired(const boost::
 }
 
 bool StcpBundleSource::ReadyToForward() {
-    return m_readyToForward;
+    return m_readyToForward.load(std::memory_order_acquire);
 }
 
 void StcpBundleSource::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {

@@ -29,6 +29,7 @@
 #include <boost/thread.hpp>
 #include <boost/date_time.hpp>
 #include <list>
+#include <atomic>
 #include "udp_delay_sim_lib_export.h"
 
 
@@ -242,7 +243,7 @@ private:
     /// Whether currently simulating LOS
     bool m_isStateLossOfSignal;
     /// Packet drop simulation state update flag, whether a state update operation is currently active
-    volatile bool m_setUdpDropSimulatorFunctionInProgress;
+    std::atomic<bool> m_setUdpDropSimulatorFunctionInProgress;
     /// Start of LOS
     const uint64_t m_lossOfSignalStartMs;
     /// Duration of LOS

@@ -32,6 +32,7 @@
 #include "PaddedVectorUint8.h"
 #include "TelemetryDefinitions.h"
 #include "udp_lib_export.h"
+#include <atomic>
 
 class UdpBundleSink {
 private:
@@ -79,8 +80,8 @@ private:
     boost::condition_variable m_conditionVariableCb;
     boost::mutex m_mutexCb;
     std::unique_ptr<boost::thread> m_threadCbReaderPtr;
-    volatile bool m_running;
-    volatile bool m_safeToDelete;
+    std::atomic<bool> m_running;
+    std::atomic<bool> m_safeToDelete;
     uint32_t m_incomingBundleSize;
     bool m_printedCbTooSmallNotice;
 };

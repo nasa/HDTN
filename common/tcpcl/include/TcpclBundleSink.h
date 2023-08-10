@@ -23,6 +23,7 @@
 #define _TCPCL_BUNDLE_SINK_H 1
 
 #include "TcpclV3BidirectionalLink.h"
+#include <atomic>
 
 class CLASS_VISIBILITY_TCPCL_LIB TcpclBundleSink : public TcpclV3BidirectionalLink {
 private:
@@ -88,7 +89,7 @@ private:
     std::unique_ptr<boost::thread> m_threadCbReaderPtr;
     bool m_stateTcpReadActive;
     bool m_printedCbTooSmallNotice;
-    volatile bool m_running;
+    std::atomic<bool> m_running;
     
 
     

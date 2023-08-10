@@ -36,6 +36,7 @@
 #include <string>
 #include <cstdio>
 #include <memory>
+#include <atomic>
 #include <boost/thread.hpp>
 #include <boost/bimap.hpp>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
@@ -64,8 +65,9 @@ struct BundleStorageManagerSession_ReadFromDisk {
     uint32_t cacheReadIndex;
     uint32_t cacheWriteIndex;
 
-    std::unique_ptr<volatile uint8_t[]> readCache;// [READ_CACHE_NUM_SEGMENTS_PER_SESSION * SEGMENT_SIZE]; //may overflow stack, create on heap
-    volatile bool readCacheIsSegmentReady[READ_CACHE_NUM_SEGMENTS_PER_SESSION];
+    //std::unique_ptr<volatile uint8_t[]> readCache;
+    std::unique_ptr<uint8_t[]> readCache;// [READ_CACHE_NUM_SEGMENTS_PER_SESSION * SEGMENT_SIZE]; //may overflow stack, create on heap
+    std::atomic<bool> readCacheIsSegmentReady[READ_CACHE_NUM_SEGMENTS_PER_SESSION];
 
     STORAGE_LIB_EXPORT BundleStorageManagerSession_ReadFromDisk();
     STORAGE_LIB_EXPORT ~BundleStorageManagerSession_ReadFromDisk();
@@ -144,10 +146,10 @@ protected:
     uint8_t * m_circularBufferBlockDataPtr;
     segment_id_t * m_circularBufferSegmentIdsPtr;
     //volatile bool * volatile m_circularBufferIsReadCompletedPointers[CIRCULAR_INDEX_BUFFER_SIZE * NUM_STORAGE_THREADS];
-    //volatile boost::uint8_t * volatile m_circularBufferReadFromStoragePointers[CIRCULAR_INDEX_BUFFER_SIZE * NUM_STORAGE_THREADS];
-    volatile bool * volatile m_circularBufferIsReadCompletedPointers[CIRCULAR_INDEX_BUFFER_SIZE * MAX_NUM_STORAGE_THREADS];
-    volatile uint8_t * volatile m_circularBufferReadFromStoragePointers[CIRCULAR_INDEX_BUFFER_SIZE * MAX_NUM_STORAGE_THREADS];
-    volatile bool m_autoDeleteFilesOnExit;
+    //volatile uint8_t * volatile m_circularBufferReadFromStoragePointers[CIRCULAR_INDEX_BUFFER_SIZE * NUM_STORAGE_THREADS];
+    std::atomic<std::atomic<bool>* > m_circularBufferIsReadCompletedPointers[CIRCULAR_INDEX_BUFFER_SIZE * MAX_NUM_STORAGE_THREADS];
+    std::atomic<uint8_t*> m_circularBufferReadFromStoragePointers[CIRCULAR_INDEX_BUFFER_SIZE * MAX_NUM_STORAGE_THREADS];
+    std::atomic<bool> m_autoDeleteFilesOnExit;
     
 public:
     bool m_successfullyRestoredFromDisk;

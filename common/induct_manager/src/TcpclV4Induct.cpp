@@ -164,7 +164,7 @@ void TcpclV4Induct::HandleTcpAccept(std::shared_ptr<boost::asio::ip::tcp::socket
 
 void TcpclV4Induct::RemoveInactiveTcpConnections() {
     const OnDeletedOpportunisticLinkCallback_t & callbackRef = m_onDeletedOpportunisticLinkCallback;
-    if (m_allowRemoveInactiveTcpConnections) {
+    if (m_allowRemoveInactiveTcpConnections.load(std::memory_order_acquire)) {
         boost::mutex::scoped_lock lock(m_listTcpclV4BundleSinksMutex);
         m_listTcpclV4BundleSinks.remove_if([&callbackRef, this](TcpclV4BundleSink & sink) {
             if (sink.ReadyToBeDeleted()) {

@@ -23,6 +23,7 @@
 #define _TCPCLV4_BUNDLE_SINK_H 1
 
 #include "TcpclV4BidirectionalLink.h"
+#include <atomic>
 
 class CLASS_VISIBILITY_TCPCL_LIB TcpclV4BundleSink : public TcpclV4BidirectionalLink {
 private:
@@ -102,7 +103,7 @@ private:
     std::unique_ptr<boost::thread> m_threadCbReaderPtr;
     bool m_stateTcpReadActive;
     bool m_printedCbTooSmallNotice;
-    volatile bool m_running;
+    std::atomic<bool> m_running;
     
 
     

@@ -60,13 +60,13 @@
 
 // Prototypes
 static void GetSha1(const uint8_t * data, const std::size_t size, std::string & sha1Str);
-int RunBpgenAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount, OutductFinalStats * ptrFinalStats);
-int RunBpsinkAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount, FinalStatsBpSink * ptrFinalStatsBpSink);
-int RunBpSendFile(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
-int RunBpReceiveFile(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
-int RunHdtnOneProcess(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCountStorage,
+static int RunBpgenAsync(const char * argv[], int argc, std::atomic<bool>& running, uint64_t* ptrBundleCount, OutductFinalStats * ptrFinalStats);
+static int RunBpsinkAsync(const char * argv[], int argc, std::atomic<bool>& running, uint64_t* ptrBundleCount, FinalStatsBpSink * ptrFinalStatsBpSink);
+static int RunBpSendFile(const char * argv[], int argc, std::atomic<bool>& running, uint64_t* ptrBundleCount);
+static int RunBpReceiveFile(const char * argv[], int argc, std::atomic<bool>& running, uint64_t* ptrBundleCount);
+static int RunHdtnOneProcess(const char * argv[], int argc, std::atomic<bool>& running, uint64_t* ptrBundleCountStorage,
                       uint64_t* ptrBundleCountEgress, uint64_t* ptrBundleCountIngress);
-void Delay(uint64_t seconds);
+static void Delay(uint64_t seconds);
 
 // Global Test Fixture.  Used to setup Python Registration server.
 class BoostIntegratedTestsFixture {
@@ -89,7 +89,7 @@ void BoostIntegratedTestsFixture::MonitorExitKeypressThreadFunction() {
     std::cout << "Keyboard Interrupt.. exiting " << std::endl << std::flush;
 }
 
-void Delay(uint64_t seconds) {
+static void Delay(uint64_t seconds) {
     boost::this_thread::sleep(boost::posix_time::seconds(seconds));
 }
 
@@ -110,7 +110,7 @@ static void GetSha1(const uint8_t * data, const std::size_t size, std::string & 
 }
 
 
-int RunBpgenAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount,
+static int RunBpgenAsync(const char * argv[], int argc, std::atomic<bool>& running, uint64_t* ptrBundleCount,
     OutductFinalStats * ptrFinalStats) {
     {
         BpGenAsyncRunner runner;
@@ -121,7 +121,7 @@ int RunBpgenAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBu
     return 0;
 }
 
-int RunBpsinkAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount, 
+static int RunBpsinkAsync(const char * argv[], int argc, std::atomic<bool>& running, uint64_t* ptrBundleCount,
 		FinalStatsBpSink * ptrFinalStatsBpSink) {
     {
         BpSinkAsyncRunner runner;
@@ -132,7 +132,7 @@ int RunBpsinkAsync(const char * argv[], int argc, bool & running, uint64_t* ptrB
     return 0;
 }
 
-int RunBpSendFile(const char * argv[], int argc, bool & running,  uint64_t* ptrBundleCount) {
+static int RunBpSendFile(const char * argv[], int argc, std::atomic<bool>& running,  uint64_t* ptrBundleCount) {
     {
         BpSendFileRunner runner;
         runner.Run(argc, argv, running, false);
@@ -141,7 +141,7 @@ int RunBpSendFile(const char * argv[], int argc, bool & running,  uint64_t* ptrB
     return 0;
 }
 
-int RunBpReceiveFile(const char * argv[], int argc, bool & running,  uint64_t* ptrBundleCount) {
+static int RunBpReceiveFile(const char * argv[], int argc, std::atomic<bool>& running,  uint64_t* ptrBundleCount) {
     {
         BpReceiveFileRunner runner;
         runner.Run(argc, argv, running, false);
@@ -151,7 +151,7 @@ int RunBpReceiveFile(const char * argv[], int argc, bool & running,  uint64_t* p
 }
 
 
-int RunHdtnOneProcess(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCountStorage, 
+static int RunHdtnOneProcess(const char * argv[], int argc, std::atomic<bool>& running, uint64_t* ptrBundleCountStorage,
 		      uint64_t* ptrBundleCountEgress, uint64_t* ptrBundleCountIngress) {
     {
         HdtnOneProcessRunner runner;
@@ -169,9 +169,9 @@ bool TestHDTNCutThroughModeLTP() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpgen = true;
-    bool runningBpsink = true;
-    bool runningHdtnOneProcess = true; 
+    std::atomic<bool> runningBpgen = true;
+    std::atomic<bool> runningBpsink = true;
+    std::atomic<bool> runningHdtnOneProcess = true;
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
@@ -265,9 +265,9 @@ bool TestHDTNCutThroughModeLTPv7() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpgen = true;
-    bool runningBpsink = true;
-    bool runningHdtnOneProcess = true; 
+    std::atomic<bool> runningBpgen = true;
+    std::atomic<bool> runningBpsink = true;
+    std::atomic<bool> runningHdtnOneProcess = true;
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
@@ -361,9 +361,9 @@ bool TestHDTNStorageModeLTP() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpgen = true;
-    bool runningBpsink = true;
-    bool runningHdtnOneProcess = true;
+    std::atomic<bool> runningBpgen = true;
+    std::atomic<bool> runningBpsink = true;
+    std::atomic<bool> runningHdtnOneProcess = true;
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
@@ -459,9 +459,9 @@ bool TestHDTNStorageModeLTPv7() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpgen = true;
-    bool runningBpsink = true;
-    bool runningHdtnOneProcess = true;
+    std::atomic<bool> runningBpgen = true;
+    std::atomic<bool> runningBpsink = true;
+    std::atomic<bool> runningHdtnOneProcess = true;
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
@@ -557,9 +557,9 @@ bool TestHDTNFileTransferLTP() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpsend = true;
-    bool runningBpreceive = true;
-    bool runningHdtnOneProcess = true; 
+    std::atomic<bool> runningBpsend = true;
+    std::atomic<bool> runningBpreceive = true;
+    std::atomic<bool> runningHdtnOneProcess = true;
 
     uint64_t bundlesSentBpsend[1] = {0};
     //OutductFinalStats finalStats[1];
@@ -689,9 +689,9 @@ bool TestHDTNFileTransferLTPv7() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpsend = true;
-    bool runningBpreceive = true;
-    bool runningHdtnOneProcess = true; 
+    std::atomic<bool> runningBpsend = true;
+    std::atomic<bool> runningBpreceive = true;
+    std::atomic<bool> runningHdtnOneProcess = true;
 
     uint64_t bundlesSentBpsend[1] = {0};
     uint64_t bundlesReceivedBpreceive[1]= {0};
@@ -819,9 +819,9 @@ bool TestHDTNFileTransferTCPCL() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpsend = true;
-    bool runningBpreceive = true;
-    bool runningHdtnOneProcess = true; 
+    std::atomic<bool> runningBpsend = true;
+    std::atomic<bool> runningBpreceive = true;
+    std::atomic<bool> runningHdtnOneProcess = true;
 
     uint64_t bundlesSentBpsend[1] = {0};
     uint64_t bundlesReceivedBpreceive[1]= {0};
@@ -950,9 +950,9 @@ bool TestHDTNCutThroughModeTCPCL() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpgen = true;
-    bool runningBpsink = true;
-    bool runningHdtnOneProcess = true; 
+    std::atomic<bool> runningBpgen = true;
+    std::atomic<bool> runningBpsink = true;
+    std::atomic<bool> runningHdtnOneProcess = true;
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
@@ -1045,9 +1045,9 @@ bool TestHDTNCutThroughModeUDP() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpgen = true;
-    bool runningBpsink = true;
-    bool runningHdtnOneProcess = true;
+    std::atomic<bool> runningBpgen = true;
+    std::atomic<bool> runningBpsink = true;
+    std::atomic<bool> runningHdtnOneProcess = true;
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
@@ -1146,9 +1146,9 @@ bool TestHDTNStorageModeUDP() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpgen = true;
-    bool runningBpsink = true;
-    bool runningHdtnOneProcess = true;
+    std::atomic<bool> runningBpgen = true;
+    std::atomic<bool> runningBpsink = true;
+    std::atomic<bool> runningHdtnOneProcess = true;
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
@@ -1247,9 +1247,9 @@ bool TestHDTNFileTransferUDP() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpsend = true;
-    bool runningBpreceive = true;
-    bool runningHdtnOneProcess = true; 
+    std::atomic<bool> runningBpsend = true;
+    std::atomic<bool> runningBpreceive = true;
+    std::atomic<bool> runningHdtnOneProcess = true;
 
     uint64_t bundlesSentBpsend[1] = {0};
     //OutductFinalStats finalStats[1];
@@ -1379,9 +1379,9 @@ bool TestHDTNStorageModeTCPCL() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpgen = true;
-    bool runningBpsink = true;
-    bool runningHdtnOneProcess = true;
+    std::atomic<bool> runningBpgen = true;
+    std::atomic<bool> runningBpsink = true;
+    std::atomic<bool> runningHdtnOneProcess = true;
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];

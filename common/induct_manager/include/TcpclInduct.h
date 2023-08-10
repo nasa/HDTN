@@ -26,6 +26,7 @@
 #include <list>
 #include <boost/make_unique.hpp>
 #include <memory>
+#include <atomic>
 
 class CLASS_VISIBILITY_INDUCT_MANAGER_LIB TcpclInduct : public Induct {
 public:
@@ -54,7 +55,7 @@ private:
     std::list<TcpclBundleSink> m_listTcpclBundleSinks;
     boost::mutex m_listTcpclBundleSinksMutex;
     const uint64_t M_MY_NODE_ID;
-    volatile bool m_allowRemoveInactiveTcpConnections;
+    std::atomic<bool> m_allowRemoveInactiveTcpConnections;
     const uint64_t M_MAX_BUNDLE_SIZE_BYTES;
 
     

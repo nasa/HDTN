@@ -23,6 +23,7 @@
 #include <boost/log/utility/manipulators/add_value.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/phoenix/function.hpp>
+#include <atomic>
 #include "stats_lib_export.h"
 
 namespace hdtn{
@@ -123,7 +124,7 @@ private:
      */
     static std::unique_ptr<StatsLogger> StatsLogger_; //singleton instance
     static boost::mutex mutexSingletonInstance_;
-    static volatile bool StatsLoggerSingletonFullyInitialized_;
+    static std::atomic<bool> StatsLoggerSingletonFullyInitialized_;
     static std::map<std::string, boost::shared_ptr<StatsLogger::sink_t>> m_initializedFiles;
 
     /**

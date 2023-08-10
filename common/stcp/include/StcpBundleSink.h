@@ -32,6 +32,7 @@
 #include "PaddedVectorUint8.h"
 #include "TelemetryDefinitions.h"
 #include "stcp_lib_export.h"
+#include <atomic>
 
 class StcpBundleSink {
 private:
@@ -76,8 +77,8 @@ private:
     std::unique_ptr<boost::thread> m_threadCbReaderPtr;
     bool m_stateTcpReadActive;
     bool m_printedCbTooSmallNotice;
-    volatile bool m_running;
-    volatile bool m_safeToDelete;
+    std::atomic<bool> m_running;
+    std::atomic<bool> m_safeToDelete;
     uint32_t m_incomingBundleSize;
 };
 

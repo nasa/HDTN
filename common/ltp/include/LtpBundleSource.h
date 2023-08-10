@@ -77,7 +77,7 @@ private:
     LTP_LIB_NO_EXPORT void InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId);
     LTP_LIB_NO_EXPORT void TransmissionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode);
 
-    volatile bool m_useLocalConditionVariableAckReceived;
+    std::atomic<bool> m_useLocalConditionVariableAckReceived;
     boost::condition_variable m_localConditionVariableAckReceived;
 
     //ltp vars

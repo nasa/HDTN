@@ -42,6 +42,7 @@
 #include "TelemetryDefinitions.h"
 #include "ThreadNamer.h"
 #include <unordered_map>
+#include <atomic>
 #if (__cplusplus >= 201703L)
 #include <shared_mutex>
 #endif
@@ -174,29 +175,28 @@ private:
     std::size_t m_eventsTooManyInStorageCutThroughQueue;
     std::size_t m_eventsTooManyInEgressCutThroughQueue;
     std::size_t m_eventsTooManyInAllCutThroughQueues;
-    volatile bool m_running;
-    volatile bool m_egressFullyInitialized;
-    boost::atomic_uint64_t m_nextBundleUniqueIdAtomic;
+    std::atomic<bool> m_running;
+    std::atomic_uint64_t m_nextBundleUniqueIdAtomic;
 
     std::map<uint64_t, Induct*> m_availableDestOpportunisticNodeIdToTcpclInductMap;
     boost::mutex m_availableDestOpportunisticNodeIdToTcpclInductMapMutex;
 
     //prevent thread starving when obtaining exclusive lock
     //of m_sharedMutexFinalDestsToOutductArrayIndexMaps
-    volatile bool m_aoctNeedsProcessing;
+    std::atomic<bool> m_aoctNeedsProcessing;
 
     //for blocking until worker-thread startup
-    volatile bool m_workerThreadStartupInProgress;
+    std::atomic<bool> m_workerThreadStartupInProgress;
     boost::mutex m_workerThreadStartupMutex;
     boost::condition_variable m_workerThreadStartupConditionVariable;
 
     //for blocking until telem-thread startup
-    volatile bool m_telemThreadStartupInProgress;
+    std::atomic<bool> m_telemThreadStartupInProgress;
     boost::mutex m_telemThreadStartupMutex;
     boost::condition_variable m_telemThreadStartupConditionVariable;
 
     //for preventing telem-thread from accessing inducts until intialized
-    volatile bool m_inductsFullyLoaded;
+    std::atomic<bool> m_inductsFullyLoaded;
     boost::mutex m_inductsFullyLoadedMutex;
     boost::condition_variable m_inductsFullyLoadedConditionVariable;
 
@@ -315,7 +315,6 @@ Ingress::Impl::Impl() :
     m_eventsTooManyInEgressCutThroughQueue(0),
     m_eventsTooManyInAllCutThroughQueues(0),
     m_running(false),
-    m_egressFullyInitialized(false),
     m_nextBundleUniqueIdAtomic(0),
     m_aoctNeedsProcessing(false),
     m_workerThreadStartupInProgress(false),
@@ -636,12 +635,13 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
     //outduct capabilities updates
     AllOutductCapabilitiesTelemetry_t aoct;
     m_aoctNeedsProcessing = false;
+    bool egressFullyInitialized = false;
 
-    while (m_running) { //keep thread alive if running
-
-        if (m_aoctNeedsProcessing && m_sharedMutexFinalDestsToOutductArrayIndexMaps.try_lock()) { //try to gain exclusive access
+    while (m_running.load(std::memory_order_acquire)) { //keep thread alive if running
+        //relaxed read ok.. this thread is only one that writes to m_aoctNeedsProcessing
+        if (m_aoctNeedsProcessing.load(std::memory_order_relaxed) && m_sharedMutexFinalDestsToOutductArrayIndexMaps.try_lock()) { //try to gain exclusive access
             ingress_exclusive_lock_t lockExclusive(m_sharedMutexFinalDestsToOutductArrayIndexMaps, ingress_adopt_lock);
-            m_aoctNeedsProcessing = false;
+            m_aoctNeedsProcessing.store(false, std::memory_order_release); //release => inform other thread of the change
             const bool isInitial = m_vectorBundlePipelineAckingSet.empty();
             if (isInitial) {
                 LOG_INFO(subprocess) << "Ingress received initial " << aoct.outductCapabilityTelemetryList.size() << " outduct telemetries from egress";
@@ -690,7 +690,7 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                     }
                 }
 
-                if ((!foundError) && (!m_egressFullyInitialized)) { //first time this outduct capabilities telemetry received, start remaining ingress threads
+                if ((!foundError) && (!egressFullyInitialized)) { //first time this outduct capabilities telemetry received, start remaining ingress threads
                     m_singleStorageBundlePipelineAckingSet.Update(STORAGE_MAX_BUNDLES_IN_PIPELINE * 2, //*2 because egress map ignored and the acking set divides by 2
                         m_hdtnConfig.m_maxBundleSizeBytes * 2, UINT64_MAX, false);
 
@@ -702,7 +702,7 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                         boost::bind(&Ingress::Impl::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
                         boost::bind(&Ingress::Impl::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
 
-                    m_egressFullyInitialized = true;
+                    egressFullyInitialized = true;
                     m_inductsFullyLoadedMutex.lock();
                     m_inductsFullyLoaded = true;
                     m_inductsFullyLoadedMutex.unlock();
@@ -715,7 +715,8 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
 
         int rc = 0;
         try {
-            rc = zmq::poll(&items[0], NUM_SOCKETS, m_aoctNeedsProcessing ? 1L : DEFAULT_BIG_TIMEOUT_POLL);
+            //relaxed read ok.. this thread is only one that writes to m_aoctNeedsProcessing
+            rc = zmq::poll(&items[0], NUM_SOCKETS, m_aoctNeedsProcessing.load(std::memory_order_relaxed) ? 1L : DEFAULT_BIG_TIMEOUT_POLL);
         }
         catch (zmq::error_t & e) {
             LOG_ERROR(subprocess) << "caught zmq::error_t in Ingress::ReadZmqAcksThreadFunc: " << e.what();
@@ -770,7 +771,7 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                             LOG_ERROR(subprocess) << "received outductCapabilityTelemetryList is empty!";
                         }
                         else {
-                            m_aoctNeedsProcessing = true;
+                            m_aoctNeedsProcessing.store(true, std::memory_order_release); //release => inform other thread of the change
                         }
                     }
                 }
@@ -866,7 +867,7 @@ void Ingress::Impl::ZmqTelemThreadFunc() {
         }
     }
 
-    while (m_running) { //keep thread alive if running
+    while (m_running.load(std::memory_order_acquire)) { //keep thread alive if running
         int rc = 0;
         try {
             rc = zmq::poll(&items[0], NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL);
@@ -943,7 +944,7 @@ void Ingress::Impl::ReadTcpclOpportunisticBundlesFromEgressThreadFunc() {
     const zmq::mutable_buffer messageFlagsBuffer(&messageFlags, sizeof(messageFlags));
     std::size_t totalOpportunisticBundlesFromEgress = 0;
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
-    while (m_running) { //keep thread alive if running
+    while (m_running.load(std::memory_order_acquire)) { //keep thread alive if running
         int rc = 0;
         try {
             rc = zmq::poll(&items[0], NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL);
@@ -1382,7 +1383,11 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
         //Note that inducts won't be initialized (won't be at this code location) until egress is fully up and running
         //and the first initial outduct capabilities telemetry is sent to ingress.
         bool useStorage = true; //will be set false if cut-through succeeds below
-        const uint64_t fromIngressUniqueId = m_nextBundleUniqueIdAtomic.fetch_add(1, boost::memory_order_relaxed);
+
+        //C++ Concurrency in Action SE, section 8.2.2 read-modify-write operation..
+        // relaxed ok because the compiler doesn't have to synchronize any other data
+        const uint64_t fromIngressUniqueId = m_nextBundleUniqueIdAtomic.fetch_add(1, std::memory_order_relaxed);
+
         { //begin scope for cut-through shared mutex lock
             uint64_t outductIndex = UINT64_MAX;
 
@@ -1392,7 +1397,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             // trying to obtain an exclusive lock, so make sure these induct threads don't try to obtain a shared lock and starve
             // the ReadZmqAcksThread.
             if (isSafeToYieldThisThread) { //prevent thread yielding when ProcessPaddedData is called by the ReadZmqAcksThreadFunc itself
-                for (unsigned int yieldAttempt = 0; m_aoctNeedsProcessing; ++yieldAttempt) {
+                for (unsigned int yieldAttempt = 0; m_aoctNeedsProcessing.load(std::memory_order_acquire); ++yieldAttempt) {
                     LOG_DEBUG(subprocess) << "rx bundle thread yield for AOCT processing\n";
                     if (yieldAttempt >= 400) {
                         LOG_ERROR(subprocess) << "dropping bundle because AOCT not processed within 4 seconds of being received";

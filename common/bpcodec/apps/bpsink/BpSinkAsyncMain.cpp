@@ -23,7 +23,7 @@ int main(int argc, const char* argv[]) {
     hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::bpsink);
     ThreadNamer::SetThisThreadName("BpSinkMain");
     BpSinkAsyncRunner runner;
-    volatile bool running;
+    std::atomic<bool> running;
     runner.Run(argc, argv, running, true);
     LOG_INFO(hdtn::Logger::SubProcess::none) << "Rx Count, Duplicate Count, Total Count, Total bytes Rx";
     LOG_INFO(hdtn::Logger::SubProcess::none) << runner.m_receivedCount 

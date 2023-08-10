@@ -25,6 +25,7 @@
 #include "StcpBundleSink.h"
 #include <list>
 #include <memory>
+#include <atomic>
 
 class CLASS_VISIBILITY_INDUCT_MANAGER_LIB StcpInduct : public Induct {
 public:
@@ -49,7 +50,7 @@ private:
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     std::list<StcpBundleSink> m_listStcpBundleSinks;
     boost::mutex m_listStcpBundleSinksMutex;
-    volatile bool m_allowRemoveInactiveTcpConnections;
+    std::atomic<bool> m_allowRemoveInactiveTcpConnections;
     const uint64_t M_MAX_BUNDLE_SIZE_BYTES;
 };
 

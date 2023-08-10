@@ -26,20 +26,20 @@
 
 #include <stdint.h>
 #include "BpReceivePacket.h"
-
+#include <atomic>
 
 class BpReceivePacketRunner {
 public:
     BpReceivePacketRunner();
     ~BpReceivePacketRunner();
     bool Run(int argc, const char* const argv[],
-             volatile bool & running, bool useSignalHandler);
+        std::atomic<bool>& running, bool useSignalHandler);
     uint64_t m_totalBytesRx;
 
 private:
     void MonitorExitKeypressThreadFunction();
 
-    volatile bool m_runningFromSigHandler;
+    std::atomic<bool> m_runningFromSigHandler;
 };
 
 #endif //_BP_RECEIVE_PACKET_RUNNER_H
