@@ -117,7 +117,7 @@ Logger::~Logger(){}
 
 std::unique_ptr<Logger> Logger::logger_; //initialized to "null"
 boost::mutex Logger::mutexSingletonInstance_;
-std::atomic<bool> Logger::loggerSingletonFullyInitialized_ = false;
+std::atomic<bool> Logger::loggerSingletonFullyInitialized_(false);
 Logger::process_attr_t Logger::process_attr(Logger::Process::none);
 Logger::severity_channel_logger_t Logger::m_severityChannelLogger;
 

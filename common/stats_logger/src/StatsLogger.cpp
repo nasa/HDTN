@@ -12,7 +12,7 @@ namespace hdtn{
 
 std::unique_ptr<StatsLogger> StatsLogger::StatsLogger_; //initialized to "null"
 boost::mutex StatsLogger::mutexSingletonInstance_;
-std::atomic<bool> StatsLogger::StatsLoggerSingletonFullyInitialized_ = false;
+std::atomic<bool> StatsLogger::StatsLoggerSingletonFullyInitialized_(false);
 StatsLogger::file_name_attr_t StatsLogger::file_name_attr("");
 boost::log::sources::logger_mt StatsLogger::m_logger;
 std::map<std::string, boost::shared_ptr<StatsLogger::sink_t>> StatsLogger::m_initializedFiles;
