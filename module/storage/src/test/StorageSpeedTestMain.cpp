@@ -32,7 +32,7 @@ static const uint64_t PRIMARY_SRC_SVC = 1;
 static const uint64_t PRIMARY_SEQ = 1;
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
 
-static std::atomic<bool> g_running = true;
+static std::atomic<bool> g_running(true);
 
 static void MonitorExitKeypressThreadFunction() {
     LOG_INFO(subprocess) << "Keyboard Interrupt.. exiting";
