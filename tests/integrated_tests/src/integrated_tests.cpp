@@ -169,9 +169,9 @@ bool TestHDTNCutThroughModeLTP() {
 
     Delay(DELAY_TEST);
 
-    std::atomic<bool> runningBpgen = true;
-    std::atomic<bool> runningBpsink = true;
-    std::atomic<bool> runningHdtnOneProcess = true;
+    std::atomic<bool> runningBpgen(true);
+    std::atomic<bool> runningBpsink(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
@@ -265,9 +265,9 @@ bool TestHDTNCutThroughModeLTPv7() {
 
     Delay(DELAY_TEST);
 
-    std::atomic<bool> runningBpgen = true;
-    std::atomic<bool> runningBpsink = true;
-    std::atomic<bool> runningHdtnOneProcess = true;
+    std::atomic<bool> runningBpgen(true);
+    std::atomic<bool> runningBpsink(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
@@ -361,9 +361,9 @@ bool TestHDTNStorageModeLTP() {
 
     Delay(DELAY_TEST);
 
-    std::atomic<bool> runningBpgen = true;
-    std::atomic<bool> runningBpsink = true;
-    std::atomic<bool> runningHdtnOneProcess = true;
+    std::atomic<bool> runningBpgen(true);
+    std::atomic<bool> runningBpsink(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
@@ -459,9 +459,9 @@ bool TestHDTNStorageModeLTPv7() {
 
     Delay(DELAY_TEST);
 
-    std::atomic<bool> runningBpgen = true;
-    std::atomic<bool> runningBpsink = true;
-    std::atomic<bool> runningHdtnOneProcess = true;
+    std::atomic<bool> runningBpgen(true);
+    std::atomic<bool> runningBpsink(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
@@ -557,9 +557,9 @@ bool TestHDTNFileTransferLTP() {
 
     Delay(DELAY_TEST);
 
-    std::atomic<bool> runningBpsend = true;
-    std::atomic<bool> runningBpreceive = true;
-    std::atomic<bool> runningHdtnOneProcess = true;
+    std::atomic<bool> runningBpsend(true);
+    std::atomic<bool> runningBpreceive(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpsend[1] = {0};
     //OutductFinalStats finalStats[1];
@@ -689,9 +689,9 @@ bool TestHDTNFileTransferLTPv7() {
 
     Delay(DELAY_TEST);
 
-    std::atomic<bool> runningBpsend = true;
-    std::atomic<bool> runningBpreceive = true;
-    std::atomic<bool> runningHdtnOneProcess = true;
+    std::atomic<bool> runningBpsend(true);
+    std::atomic<bool> runningBpreceive(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpsend[1] = {0};
     uint64_t bundlesReceivedBpreceive[1]= {0};
@@ -819,9 +819,9 @@ bool TestHDTNFileTransferTCPCL() {
 
     Delay(DELAY_TEST);
 
-    std::atomic<bool> runningBpsend = true;
-    std::atomic<bool> runningBpreceive = true;
-    std::atomic<bool> runningHdtnOneProcess = true;
+    std::atomic<bool> runningBpsend(true);
+    std::atomic<bool> runningBpreceive(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpsend[1] = {0};
     uint64_t bundlesReceivedBpreceive[1]= {0};
@@ -950,9 +950,9 @@ bool TestHDTNCutThroughModeTCPCL() {
 
     Delay(DELAY_TEST);
 
-    std::atomic<bool> runningBpgen = true;
-    std::atomic<bool> runningBpsink = true;
-    std::atomic<bool> runningHdtnOneProcess = true;
+    std::atomic<bool> runningBpgen(true);
+    std::atomic<bool> runningBpsink(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
@@ -1045,9 +1045,9 @@ bool TestHDTNCutThroughModeUDP() {
 
     Delay(DELAY_TEST);
 
-    std::atomic<bool> runningBpgen = true;
-    std::atomic<bool> runningBpsink = true;
-    std::atomic<bool> runningHdtnOneProcess = true;
+    std::atomic<bool> runningBpgen(true);
+    std::atomic<bool> runningBpsink(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
@@ -1146,9 +1146,9 @@ bool TestHDTNStorageModeUDP() {
 
     Delay(DELAY_TEST);
 
-    std::atomic<bool> runningBpgen = true;
-    std::atomic<bool> runningBpsink = true;
-    std::atomic<bool> runningHdtnOneProcess = true;
+    std::atomic<bool> runningBpgen(true);
+    std::atomic<bool> runningBpsink(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
@@ -1247,9 +1247,9 @@ bool TestHDTNFileTransferUDP() {
 
     Delay(DELAY_TEST);
 
-    std::atomic<bool> runningBpsend = true;
-    std::atomic<bool> runningBpreceive = true;
-    std::atomic<bool> runningHdtnOneProcess = true;
+    std::atomic<bool> runningBpsend(true);
+    std::atomic<bool> runningBpreceive(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpsend[1] = {0};
     //OutductFinalStats finalStats[1];
@@ -1379,9 +1379,9 @@ bool TestHDTNStorageModeTCPCL() {
 
     Delay(DELAY_TEST);
 
-    std::atomic<bool> runningBpgen = true;
-    std::atomic<bool> runningBpsink = true;
-    std::atomic<bool> runningHdtnOneProcess = true;
+    std::atomic<bool> runningBpgen(true);
+    std::atomic<bool> runningBpsink(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
