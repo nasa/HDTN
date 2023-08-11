@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html>
 <!--
- * @file index.html
- * @author  Thais Campanac <thais.c.campanac-climent@nasa.gov>
- *
+ * @file bpsec_page.html
+ * @author  Thais Campanac <Carnegie Mellon University>
+ *          Nadia Kortas <nadia.kortas@nasa.gov>
  * @copyright Copyright © 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
@@ -441,9 +441,9 @@
                             }
                             description.value = currentPolicies[parts][i].description;
                             securityPolicyRuleID.value = currentPolicies[parts][i].securityPolicyRuleId;
-                            securitySource.value = currentPolicies[parts][i].securitySource;
-                            bundleSource.value = currentPolicies[parts][i].bundleSource;
-                            bundleDestination.value = currentPolicies[parts][i].bundleDestination;
+                            securitySource.value = /*"ipn:" +*/ currentPolicies[parts][i].securitySource;
+                            bundleSource.value = /*"ipn:" +*/ currentPolicies[parts][i].bundleSource;
+                            bundleDestination.value = /*"ipn:" +*/ currentPolicies[parts][i].bundleDestination;
                             roleField.value = currentPolicies[parts][i].securityRole;
                             if (currentPolicies[parts][i].securityService === "confidentiality") {
                                 securityService.value = 'aes';
