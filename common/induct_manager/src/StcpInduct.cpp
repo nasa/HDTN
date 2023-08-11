@@ -133,7 +133,9 @@ void StcpInduct::PopulateInductTelemetry(InductTelemetry_t& inductTelem) {
     {
         boost::mutex::scoped_lock lock(m_listStcpBundleSinksMutex);
         for (std::list<StcpBundleSink>::const_iterator it = m_listStcpBundleSinks.cbegin(); it != m_listStcpBundleSinks.cend(); ++it) {
-            inductTelem.m_listInductConnections.emplace_back(boost::make_unique<StcpInductConnectionTelemetry_t>(it->m_telemetry));
+            std::unique_ptr<StcpInductConnectionTelemetry_t> t = boost::make_unique<StcpInductConnectionTelemetry_t>();
+            it->GetTelemetry(*t);
+            inductTelem.m_listInductConnections.emplace_back(std::move(t));
         }
     }
     if (inductTelem.m_listInductConnections.empty()) {

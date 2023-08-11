@@ -49,6 +49,7 @@ public:
         const NotifyReadyToDeleteCallback_t & notifyReadyToDeleteCallback = NotifyReadyToDeleteCallback_t());
     STCP_LIB_EXPORT ~StcpBundleSink();
     STCP_LIB_EXPORT bool ReadyToBeDeleted();
+    STCP_LIB_EXPORT void GetTelemetry(StcpInductConnectionTelemetry_t& telem) const;
 private:
 
     STCP_LIB_NO_EXPORT void TryStartTcpReceive();
@@ -58,8 +59,7 @@ private:
     STCP_LIB_NO_EXPORT void DoStcpShutdown();
     STCP_LIB_NO_EXPORT void HandleSocketShutdown();
 
-public:
-    StcpInductConnectionTelemetry_t m_telemetry;
+
 private:
     
     const WholeBundleReadyCallback_t m_wholeBundleReadyCallback;
@@ -80,6 +80,13 @@ private:
     std::atomic<bool> m_running;
     std::atomic<bool> m_safeToDelete;
     uint32_t m_incomingBundleSize;
+
+    //telemetry
+    const std::string M_CONNECTION_NAME;
+    const std::string M_INPUT_NAME;
+    std::atomic<uint64_t> m_totalStcpBytesReceived;
+    std::atomic<uint64_t> m_totalBundleBytesReceived;
+    std::atomic<uint64_t> m_totalBundlesReceived;
 };
 
 

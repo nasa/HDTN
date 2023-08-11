@@ -60,6 +60,7 @@ public:
     STCP_LIB_EXPORT void SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback);
     STCP_LIB_EXPORT void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     STCP_LIB_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
+    STCP_LIB_EXPORT void GetTelemetry(StcpOutductTelemetry_t& telem) const;
 private:
     STCP_LIB_NO_EXPORT static void GenerateDataUnit(std::vector<uint8_t> & dataUnit, const uint8_t * contents, uint32_t sizeContents);
     STCP_LIB_NO_EXPORT static void GenerateDataUnitHeaderOnly(std::vector<uint8_t> & dataUnit, uint32_t sizeContents);
@@ -110,9 +111,14 @@ private:
     OnOutductLinkStatusChangedCallback_t m_onOutductLinkStatusChangedCallback;
     uint64_t m_userAssignedUuid;
 
-public:
     //stcp stats
-    StcpOutductTelemetry_t m_stcpOutductTelemetry;
+    std::atomic<uint64_t> m_totalBundlesSent;
+    std::atomic<uint64_t> m_totalBundlesAcked;
+    std::atomic<uint64_t> m_totalBundleBytesSent;
+    std::atomic<uint64_t> m_totalStcpBytesSent;
+    std::atomic<uint64_t> m_totalBundleBytesAcked;
+    std::atomic<uint64_t> m_numTcpReconnectAttempts;
+    std::atomic<bool> m_linkIsUpPhysically;
 };
 
 

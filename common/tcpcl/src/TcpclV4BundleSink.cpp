@@ -76,9 +76,9 @@ TcpclV4BundleSink::TcpclV4BundleSink(
 {
 #ifdef OPENSSL_SUPPORT_ENABLED
     m_base_sslStreamSharedPtr = sslStreamSharedPtr;
-    m_base_inductConnectionTelemetry.m_connectionName = sslStreamSharedPtr->next_layer().remote_endpoint().address().to_string()
+    m_base_inductConnectionName = sslStreamSharedPtr->next_layer().remote_endpoint().address().to_string()
         + ":" + boost::lexical_cast<std::string>(sslStreamSharedPtr->next_layer().remote_endpoint().port());
-    m_base_inductConnectionTelemetry.m_inputName = std::string("*:") + boost::lexical_cast<std::string>(m_base_sslStreamSharedPtr->next_layer().local_endpoint().port());
+    m_base_inductInputName = std::string("*:") + boost::lexical_cast<std::string>(m_base_sslStreamSharedPtr->next_layer().local_endpoint().port());
     m_base_tcpAsyncSenderSslPtr = boost::make_unique<TcpAsyncSenderSsl>(m_base_sslStreamSharedPtr, m_base_ioServiceRef);
     m_base_tcpAsyncSenderSslPtr->SetOnFailedBundleVecSendCallback(m_base_onFailedBundleVecSendCallback);
     m_base_tcpAsyncSenderSslPtr->SetOnFailedBundleZmqSendCallback(m_base_onFailedBundleZmqSendCallback);
@@ -136,6 +136,17 @@ TcpclV4BundleSink::~TcpclV4BundleSink() {
         catch (const boost::thread_resource_error&) {
             LOG_ERROR(subprocess) << "error stopping TcpclV4BundleSink threadCbReader";
         }
+        //print stats once
+        LOG_INFO(subprocess) << "TcpclV4 Induct / Bundle Sink:"
+            << "\n totalBundlesSent " << m_base_telem.totalBundlesSent
+            << "\n totalBundlesSentAndAcked " << m_base_telem.totalBundlesSentAndAcked
+            << "\n totalBundleBytesSent " << m_base_telem.totalBundleBytesSent
+            << "\n totalBundleBytesSentAndAcked " << m_base_telem.totalBundleBytesSentAndAcked
+            << "\n totalFragmentsSent " << m_base_telem.totalFragmentsSent
+            << "\n totalFragmentsSentAndAcked " << m_base_telem.totalFragmentsSentAndAcked
+            << "\n totalBundlesReceived " << m_base_telem.totalBundlesReceived
+            << "\n totalBundleBytesReceived " << m_base_telem.totalBundleBytesReceived
+            << "\n totalFragmentsReceived " << m_base_telem.totalFragmentsReceived;
     }
 #ifdef OPENSSL_SUPPORT_ENABLED
     m_base_tcpAsyncSenderSslPtr.reset();
@@ -341,7 +352,7 @@ void TcpclV4BundleSink::TrySendOpportunisticBundleIfAvailable_FromIoServiceThrea
         return;
     }
     std::pair<std::unique_ptr<zmq::message_t>, padded_vector_uint8_t> bundleDataPair;
-    const std::size_t totalBundlesUnacked = m_base_outductTelemetry.m_totalBundlesSent - m_base_outductTelemetry.m_totalBundlesAcked; //same as Virtual_GetTotalBundlesUnacked
+    const std::size_t totalBundlesUnacked = BaseClass_GetTotalBundlesUnacked();
     if ((totalBundlesUnacked < M_BASE_MY_MAX_TX_UNACKED_BUNDLES) && m_tryGetOpportunisticDataFunction && m_tryGetOpportunisticDataFunction(bundleDataPair)) {
         BaseClass_Forward(bundleDataPair.first, bundleDataPair.second, static_cast<bool>(bundleDataPair.first), std::vector<uint8_t>());
     }

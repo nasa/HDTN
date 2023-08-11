@@ -221,7 +221,9 @@ void TcpclV4Induct::PopulateInductTelemetry(InductTelemetry_t& inductTelem) {
     {
         boost::mutex::scoped_lock lock(m_listTcpclV4BundleSinksMutex);
         for (std::list<TcpclV4BundleSink>::const_iterator it = m_listTcpclV4BundleSinks.cbegin(); it != m_listTcpclV4BundleSinks.cend(); ++it) {
-            inductTelem.m_listInductConnections.emplace_back(boost::make_unique<TcpclV4InductConnectionTelemetry_t>(it->m_base_inductConnectionTelemetry));
+            std::unique_ptr<TcpclV4InductConnectionTelemetry_t> t = boost::make_unique<TcpclV4InductConnectionTelemetry_t>();
+            it->BaseClass_GetTelemetry(*t);
+            inductTelem.m_listInductConnections.emplace_back(std::move(t));
         }
     }
     if (inductTelem.m_listInductConnections.empty()) {

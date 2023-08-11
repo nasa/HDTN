@@ -93,13 +93,6 @@ public:
     TCPCL_LIB_EXPORT bool BaseClass_Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData);
     TCPCL_LIB_EXPORT bool BaseClass_Forward(std::unique_ptr<zmq::message_t> & zmqMessageUniquePtr, padded_vector_uint8_t& vecMessage, const bool usingZmqData, std::vector<uint8_t>&& userData);
 
-    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundlesAcked() override;
-    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundlesSent() override;
-    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundlesUnacked() override;
-    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundleBytesAcked() override;
-    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundleBytesSent() override;
-    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundleBytesUnacked() override;
-
     TCPCL_LIB_EXPORT virtual unsigned int Virtual_GetMaxTxBundlesInPipeline() override;
 
     TCPCL_LIB_EXPORT void BaseClass_SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
@@ -107,6 +100,8 @@ public:
     TCPCL_LIB_EXPORT void BaseClass_SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback);
     TCPCL_LIB_EXPORT void BaseClass_SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     TCPCL_LIB_EXPORT void BaseClass_SetUserAssignedUuid(uint64_t userAssignedUuid);
+    TCPCL_LIB_EXPORT void BaseClass_GetTelemetry(TcpclV4InductConnectionTelemetry_t& telem) const;
+    TCPCL_LIB_EXPORT void BaseClass_GetTelemetry(TcpclV4OutductTelemetry_t& telem) const;
 
 protected:
     TCPCL_LIB_EXPORT void BaseClass_SendContactHeader();
@@ -147,9 +142,6 @@ private:
     
     TCPCL_LIB_NO_EXPORT void BaseClass_CloseAndDeleteSockets();
 
-public:
-    TcpclV4InductConnectionTelemetry_t m_base_inductConnectionTelemetry;
-    TcpclV4OutductTelemetry_t m_base_outductTelemetry;
 protected:
     const std::string M_BASE_IMPLEMENTATION_STRING_FOR_COUT;
     const uint64_t M_BASE_SHUTDOWN_MESSAGE_RECONNECTION_DELAY_SECONDS_TO_SEND;
@@ -214,6 +206,9 @@ protected:
     OnSuccessfulBundleSendCallback_t m_base_onSuccessfulBundleSendCallback;
     OnOutductLinkStatusChangedCallback_t m_base_onOutductLinkStatusChangedCallback;
     uint64_t m_base_userAssignedUuid;
+
+    std::string m_base_inductConnectionName;
+    std::string m_base_inductInputName;
 };
 
 

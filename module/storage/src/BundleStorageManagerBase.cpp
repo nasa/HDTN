@@ -315,10 +315,10 @@ std::size_t BundleStorageManagerBase::TopSegment(BundleStorageManagerSession_Rea
             }
         }
 
-        session.readCacheIsSegmentReady[session.cacheWriteIndex].store(false, std::memory_order_relaxed);
+        session.readCacheIsSegmentReady[session.cacheWriteIndex].store(false, std::memory_order_release);
         const unsigned int cbPtrIndex = diskIndex * CIRCULAR_INDEX_BUFFER_SIZE + produceIndex;
         m_circularBufferIsReadCompletedPointers[cbPtrIndex].store(
-            &session.readCacheIsSegmentReady[session.cacheWriteIndex], std::memory_order_relaxed);
+            &session.readCacheIsSegmentReady[session.cacheWriteIndex], std::memory_order_release);
         m_circularBufferSegmentIdsPtr[cbPtrIndex] = segmentId;
         m_circularBufferReadFromStoragePointers[cbPtrIndex].store(
             &session.readCache[session.cacheWriteIndex * SEGMENT_SIZE], std::memory_order_release);
