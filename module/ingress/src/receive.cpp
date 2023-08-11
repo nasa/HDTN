@@ -31,6 +31,7 @@
 #include <boost/bind/bind.hpp>
 #include <boost/make_unique.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/property_tree/json_parser.hpp>
 #include <boost/format.hpp>
 #include "Uri.h"
 #include "codec/BundleViewV6.h"
@@ -994,12 +995,13 @@ namespace hdtn
                                     }
                                     SendPing(pingCmd.m_nodeId, pingCmd.m_pingServiceNumber, pingCmd.m_bpVersion);
                                 }
+#ifdef BPSEC_SUPPORT_ENABLED
                                 else if (apiCall == "bpSec")
                                 {
                                     // redoing what storage has done for BPsec
                                     std::string *bpSecConfigJson = new std::string(m_bpSecConfigPtr->ToJson());
-                                    std::string& strRefBPSec = *bpSecConfigJson;
-                                    
+                                    std::string &strRefBPSec = *bpSecConfigJson;
+
                                     zmq::message_t bpSecMessage = zmq::message_t(&strRefBPSec[0], bpSecConfigJson->size(), CustomCleanupStdString, bpSecConfigJson);
 
                                     if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(bpSecMessage), zmq::send_flags::dontwait | zmq::send_flags::sndmore))
@@ -1010,7 +1012,24 @@ namespace hdtn
                                 else if (apiCall == "bpSecUpdate")
                                 {
                                     LOG_INFO(subprocess) << "Updating bpsec";
+
+                                    // create the function
+                                    boost::property_tree::ptree pt;
+                                    read_json(apiMsg.to_string(), pt);
+                                    std::string bpsecString = pt.get<std::string>("newBPSec");
+
+                                    LOG_INFO(subprocess) << bpsecString;
+                                    m_bpSecConfigPtr = BpSecConfig::CreateFromJson(bpsecString, 0);
+                                    if (!m_bpSecConfigPtr)
+                                    {
+                                        LOG_FATAL(subprocess) << "Error loading BpSec config file: User Change";
+                                    }
+                                    if (!m_bpSecPolicyManager.LoadFromConfig(*m_bpSecConfigPtr))
+                                    {
+                                        LOG_FATAL(subprocess) << "Could not load config from for policy manager";
+                                    }
                                 }
+#endif
                             } while (apiMsg.more());
                         }
                         AllInductTelemetry_t allInductTelem;
