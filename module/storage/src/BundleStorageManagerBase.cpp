@@ -398,6 +398,14 @@ bool BundleStorageManagerBase::RemoveBundleFromDisk(const catalog_entry_t *catal
     bool err = m_bundleStorageCatalog.RemoveEntryFromAwaitingSend(*catalogEntryPtr, custodyId);
     return RemoveReadBundleFromDisk(catalogEntryPtr, custodyId);
 }
+bool BundleStorageManagerBase::RemoveBundleFromDisk(const uint64_t custodyId) {
+    const catalog_entry_t * catalogEntryPtr = m_bundleStorageCatalog.GetEntryFromCustodyId(custodyId);
+    if (catalogEntryPtr == NULL) {
+        return false;
+    }
+    // NOT RemoveReadBundleFromDisk
+    return RemoveBundleFromDisk(catalogEntryPtr, custodyId);
+}
 bool BundleStorageManagerBase::RemoveReadBundleFromDisk(const uint64_t custodyId) {
     const catalog_entry_t * catalogEntryPtr = m_bundleStorageCatalog.GetEntryFromCustodyId(custodyId);
     if (catalogEntryPtr == NULL) {

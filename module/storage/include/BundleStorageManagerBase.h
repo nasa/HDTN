@@ -102,6 +102,7 @@ public:
     STORAGE_LIB_EXPORT bool ReadFirstSegment(BundleStorageManagerSession_ReadFromDisk & session, catalog_entry_t * enty, std::vector<uint8_t> & buf);
     STORAGE_LIB_EXPORT bool ReadAllSegments(BundleStorageManagerSession_ReadFromDisk & session, padded_vector_uint8_t& buf);
     STORAGE_LIB_EXPORT bool RemoveBundleFromDisk(const catalog_entry_t * catalogEntryPtr,const uint64_t custodyId);
+    STORAGE_LIB_EXPORT bool RemoveBundleFromDisk(const uint64_t custodyId);
     STORAGE_LIB_EXPORT bool RemoveReadBundleFromDisk(const uint64_t custodyId);
     STORAGE_LIB_EXPORT bool RemoveReadBundleFromDisk(BundleStorageManagerSession_ReadFromDisk & sessionRead);
     STORAGE_LIB_EXPORT bool RemoveReadBundleFromDisk(const catalog_entry_t * catalogEntryPtr, const uint64_t custodyId);

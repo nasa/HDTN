@@ -477,7 +477,7 @@ bool ZmqStorageInterface::Impl::ProcessAdminRecord(BundleViewV6 &bv)
                 if (!m_custodyTimersPtr->CancelCustodyTransferTimer(catalogEntryPtr->destEid, currentCustodyId)) {
                     LOG_WARNING(subprocess) << "can't find custody timer associated with bundle identified by acs custody signal";
                 }
-                if (!m_bsmPtr->RemoveReadBundleFromDisk(catalogEntryPtr, currentCustodyId)) {
+                if (!m_bsmPtr->RemoveBundleFromDisk(catalogEntryPtr, currentCustodyId)) {
                     LOG_ERROR(subprocess) << "error freeing bundle identified by acs custody signal from disk";
                     continue;
                 }
@@ -542,7 +542,7 @@ bool ZmqStorageInterface::Impl::ProcessAdminRecord(BundleViewV6 &bv)
         if (!m_custodyTimersPtr->CancelCustodyTransferTimer(catalogEntryPtr->destEid, custodyIdFromRfc5050)) {
             LOG_WARNING(subprocess) << "notice: can't find custody timer associated with bundle identified by rfc5050 custody signal";
         }
-        if (!m_bsmPtr->RemoveReadBundleFromDisk(catalogEntryPtr, custodyIdFromRfc5050)) {
+        if (!m_bsmPtr->RemoveBundleFromDisk(catalogEntryPtr, custodyIdFromRfc5050)) {
             LOG_ERROR(subprocess) << "error freeing bundle identified by rfc5050 custody signal from disk";
             return false;
         }
@@ -625,7 +625,10 @@ bool ZmqStorageInterface::Impl::ProcessBundleCustody(BundleViewV6 &bv, uint64_t 
 
         if(!wroteCustody) {
             LOG_ERROR(subprocess) << "Failed to write custody signal to disk; deleting bundle";
-            DeleteBundleById(newCustodyId);
+            m_custodyIdAllocatorPtr->FreeCustodyId(newCustodyId);
+            if(!m_bsmPtr->RemoveBundleFromDisk(newCustodyId)) {
+                LOG_ERROR(subprocess) << "Failed to remove bundle from disk " << newCustodyId << " after failed custody signal write";
+            }
             return false;
         }
     }
@@ -799,16 +802,7 @@ bool ZmqStorageInterface::Impl::ReleaseOne_NoBlock(const OutductInfo_t& info, co
         m_bsmPtr->ReturnTop(m_sessionRead);
         return false;
     }
-    /*
-    //if you're happy with the bundle data you read back, then officially remove it from the disk
-    if (deleteFromDiskNow) {
-        bool successRemoveBundle = bsm.RemoveReadBundleFromDisk(sessionRead);
-        if (!successRemoveBundle) {
-            return false;
-        }
-    }
-        */
-        
+
     returnedBundleSize = bytesToReadFromDisk;
     return true;
 
