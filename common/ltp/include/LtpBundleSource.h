@@ -54,20 +54,20 @@ public:
     LTP_LIB_EXPORT std::size_t GetTotalDataSegmentsUnacked();
     LTP_LIB_EXPORT std::size_t GetTotalBundleBytesAcked();
     LTP_LIB_EXPORT std::size_t GetTotalBundleBytesSent();
-    //std::size_t GetTotalBundleBytesUnacked();
+    LTP_LIB_EXPORT std::size_t GetTotalBundleBytesUnacked();
     LTP_LIB_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
     LTP_LIB_EXPORT void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
     LTP_LIB_EXPORT void SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback);
     LTP_LIB_EXPORT void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     LTP_LIB_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
     LTP_LIB_EXPORT void SetRate(uint64_t maxSendRateBitsPerSecOrZeroToDisable);
-    LTP_LIB_EXPORT void SyncTelemetry();
+    LTP_LIB_EXPORT void GetTelemetry(LtpOutductTelemetry_t& telem) const;
     LTP_LIB_EXPORT uint64_t GetOutductMaxNumberOfBundlesInPipeline() const;
     
 protected:
     LTP_LIB_EXPORT virtual bool ReadyToForward() = 0;
     LTP_LIB_EXPORT virtual bool SetLtpEnginePtr() = 0;
-    LTP_LIB_EXPORT virtual void SyncTransportLayerSpecificTelem() = 0;
+    LTP_LIB_EXPORT virtual void GetTransportLayerSpecificTelem(LtpOutductTelemetry_t& telem) const = 0;
 private:
     
 
@@ -96,10 +96,11 @@ private:
     active_session_number_set_t m_activeSessionNumbersSet;
     std::atomic<unsigned int> m_startingCount;
 
-    
-public:
-    //ltp stats
-    LtpOutductTelemetry_t m_ltpOutductTelemetry;
+    //telemetry
+    std::atomic<uint64_t> m_totalBundlesSent;
+    std::atomic<uint64_t> m_totalBundlesAcked;
+    std::atomic<uint64_t> m_totalBundlesFailedToSend;
+    std::atomic<uint64_t> m_totalBundleBytesSent;
 };
 
 

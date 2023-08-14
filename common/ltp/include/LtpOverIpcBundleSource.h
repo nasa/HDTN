@@ -34,7 +34,7 @@ public:
 protected:
     LTP_LIB_EXPORT virtual bool ReadyToForward() override;
     LTP_LIB_EXPORT virtual bool SetLtpEnginePtr() override;
-    LTP_LIB_EXPORT virtual void SyncTransportLayerSpecificTelem() override;
+    LTP_LIB_EXPORT virtual void GetTransportLayerSpecificTelem(LtpOutductTelemetry_t& telem) const override;
 
 private:
     //ltp vars

@@ -468,6 +468,9 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         if(ind.convergenceLayer === "ltp_over_udp") {
             cvName = "LTP";
         }
+        else if(ind.convergenceLayer === "ltp_over_ipc") {
+            cvName = "LTPIPC";
+        }
         else if(ind.convergenceLayer === "udp") {
             cvName = "UDP";
         }
@@ -643,6 +646,9 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         var cvName = "??";
         if(outduct.convergenceLayer === "ltp_over_udp") {
             cvName = "LTP";
+        }
+        else if(outduct.convergenceLayer === "ltp_over_ipc") {
+            cvName = "LTPIPC";
         }
         else if(outduct.convergenceLayer === "udp") {
             cvName = "UDP";

@@ -113,8 +113,9 @@ void LtpOutduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
     finalStats.m_totalDataSegmentsOrPacketsSent = m_ltpBundleSourcePtr->GetTotalDataSegmentsSent();
 }
 void LtpOutduct::PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& outductTelem) {
-    m_ltpBundleSourcePtr->SyncTelemetry();
-    outductTelem = boost::make_unique<LtpOutductTelemetry_t>(m_ltpBundleSourcePtr->m_ltpOutductTelemetry);
+    std::unique_ptr<LtpOutductTelemetry_t> t = boost::make_unique<LtpOutductTelemetry_t>();
+    m_ltpBundleSourcePtr->GetTelemetry(*t);
+    outductTelem = std::move(t);
     outductTelem->m_linkIsUpPerTimeSchedule = m_linkIsUpPerTimeSchedule;
     outductTelem->m_linkIsUpPhysically = m_linkIsUpPhysically;
 }
