@@ -625,7 +625,10 @@ bool ZmqStorageInterface::Impl::ProcessBundleCustody(BundleViewV6 &bv, uint64_t 
 
         if(!wroteCustody) {
             LOG_ERROR(subprocess) << "Failed to write custody signal to disk; deleting bundle";
-            DeleteBundleById(newCustodyId);
+            m_custodyIdAllocatorPtr->FreeCustodyId(newCustodyId);
+            if(!m_bsmPtr->RemoveBundleFromDisk(newCustodyId)) {
+                LOG_ERROR(subprocess) << "Failed to remove bundle from disk " << newCustodyId << " after failed custody signal write";
+            }
             return false;
         }
     }
