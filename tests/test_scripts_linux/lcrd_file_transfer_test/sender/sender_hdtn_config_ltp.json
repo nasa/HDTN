@@ -15,6 +15,7 @@
     "maxIngressBundleWaitOnEgressMilliseconds": 2000,
     "bufferRxToStorageOnLinkUpSaturation": false,
     "maxLtpReceiveUdpPacketSizeBytes": 65536,
+    "neighborDepletedStorageDelaySeconds": 0,
     "zmqBoundRouterPubSubPortPath": 10200,
     "zmqBoundTelemApiPortPath": 10305,
     "inductsConfig": {
@@ -36,15 +37,10 @@
                 "name": "to receiver",
                 "convergenceLayer": "ltp_over_udp",
                 "nextHopNodeId": 20,
-                "remoteHostname": "hdtn_receiver",
+                "remoteHostname": "localhost",
                 "remotePort": 1113,
                 "maxNumberOfBundlesInPipeline": 50,
                 "maxSumOfBundleBytesInPipeline": 50000000,
-                "finalDestinationEidUris": [
-                    "ipn:1.*",
-                    "ipn:2.*",
-                    "ipn:3.*"
-                ],
                 "thisLtpEngineId": 10,
                 "remoteLtpEngineId": 20,
                 "ltpDataSegmentMtu": 1360,
@@ -56,7 +52,6 @@
                 "ltpCheckpointEveryNthDataSegment": 0,
                 "ltpRandomNumberSizeBits": 32,
                 "ltpSenderBoundPort": 1113,
-                "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0,
                 "ltpMaxUdpPacketsToSendPerSystemCall": 1,
                 "ltpSenderPingSecondsOrZeroToDisable": 15,
                 "delaySendingOfDataSegmentsTimeMsOrZeroToDisable": 20,
