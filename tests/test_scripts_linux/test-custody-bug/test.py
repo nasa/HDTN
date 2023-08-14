@@ -204,7 +204,7 @@ class TestCustodyBug(unittest.TestCase):
         with l("Waiting for custody transfer timer to expire"):
             time.sleep(5)  # In config, set this to 2 seconds
 
-        with l("Sending custody bundle"):
+        with l("Sending custody signal"):
             custody_signal = build_custody_signal(custody_bundle)
             s.sendto(raw(custody_signal), ("127.0.0.1", 4010))
 
