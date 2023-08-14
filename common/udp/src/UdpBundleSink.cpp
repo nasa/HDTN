@@ -41,10 +41,15 @@ UdpBundleSink::UdpBundleSink(boost::asio::io_service & ioService,
     m_udpReceiveBytesTransferredCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_running(false),
     m_safeToDelete(false),
-    m_printedCbTooSmallNotice(false)
+    m_printedCbTooSmallNotice(false),
+    //telemetry
+    m_connectionName(),
+    m_connectionNamePtr("null"),
+    M_INPUT_NAME(std::string("*:") + boost::lexical_cast<std::string>(udpPort)),
+    m_countCircularBufferOverruns(0),
+    m_totalBundleBytesReceived(0),
+    m_totalBundlesReceived(0)
 {
-    m_telemetry.m_connectionName = "null";
-    m_telemetry.m_inputName = std::string("*:") + boost::lexical_cast<std::string>(udpPort);
     for (unsigned int i = 0; i < M_NUM_CIRCULAR_BUFFER_VECTORS; ++i) {
         m_udpReceiveBuffersCbVec[i].resize(M_MAX_UDP_PACKET_SIZE_BYTES);
     }
@@ -102,8 +107,14 @@ UdpBundleSink::~UdpBundleSink() {
         catch (const boost::thread_resource_error&) {
             LOG_ERROR(subprocess) << "error stopping UdpBundleSink threadCbReader";
         }
+        //print stats once
+        LOG_INFO(subprocess) << "UDP Bundle Sink / Induct Connection:"
+            << "\n connectionName " << m_connectionNamePtr.load(std::memory_order_acquire)
+            << "\n inputName " << M_INPUT_NAME
+            << "\n totalStcpBytesReceived " << m_countCircularBufferOverruns
+            << "\n totalBundleBytesReceived " << m_totalBundleBytesReceived
+            << "\n totalBundlesReceived " << m_totalBundlesReceived;
     }
-    LOG_INFO(subprocess) << "UdpBundleSink m_countCircularBufferOverruns: " << m_telemetry.m_countCircularBufferOverruns;
 }
 
 void UdpBundleSink::StartUdpReceive() {
@@ -119,7 +130,7 @@ void UdpBundleSink::HandleUdpReceive(const boost::system::error_code & error, st
     if (!error) {
         const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
         if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) {
-            ++m_telemetry.m_countCircularBufferOverruns;
+            m_countCircularBufferOverruns.fetch_add(1, std::memory_order_relaxed);
             if (!m_printedCbTooSmallNotice) {
                 m_printedCbTooSmallNotice = true;
                 LOG_INFO(subprocess) << "LtpUdpEngine::StartUdpReceive(): buffers full.. you might want to increase the circular buffer size! This UDP packet will be dropped!";
@@ -128,12 +139,13 @@ void UdpBundleSink::HandleUdpReceive(const boost::system::error_code & error, st
         else {
             if (m_lastRemoteEndpoint != m_remoteEndpoint) {
                 m_lastRemoteEndpoint = m_remoteEndpoint;
-                if (m_telemetry.m_connectionName == "null") {
-                    m_telemetry.m_connectionName = m_remoteEndpoint.address().to_string()
+                if (m_connectionName.empty()) {
+                    m_connectionName = m_remoteEndpoint.address().to_string()
                         + ":" + boost::lexical_cast<std::string>(m_remoteEndpoint.port());
+                    m_connectionNamePtr.store(m_connectionName.c_str(), std::memory_order_release);
                 }
                 else {
-                    m_telemetry.m_connectionName = "multi-src detected";
+                    m_connectionNamePtr.store("multi-src detected", std::memory_order_release);
                 }
             }
 
@@ -175,8 +187,8 @@ void UdpBundleSink::PopCbThreadFunc() {
             }
         }
         const std::size_t bytesTransferred = m_udpReceiveBytesTransferredCbVec[consumeIndex];
-        m_telemetry.m_totalBundleBytesReceived += bytesTransferred;
-        ++(m_telemetry.m_totalBundlesReceived);
+        m_totalBundleBytesReceived.fetch_add(bytesTransferred, std::memory_order_relaxed);
+        m_totalBundlesReceived.fetch_add(1, std::memory_order_relaxed);
         //m_wholeBundleReadyCallback(m_udpReceiveBuffersCbVec[consumeIndex], m_udpReceiveBytesTransferredCbVec[consumeIndex]);
         m_udpReceiveBuffersCbVec[consumeIndex].resize(bytesTransferred);
         m_wholeBundleReadyCallback(m_udpReceiveBuffersCbVec[consumeIndex]);
@@ -214,4 +226,12 @@ void UdpBundleSink::HandleSocketShutdown() {
 
 bool UdpBundleSink::ReadyToBeDeleted() {
     return m_safeToDelete.load(std::memory_order_acquire);
+}
+
+void UdpBundleSink::GetTelemetry(UdpInductConnectionTelemetry_t& telem) const {
+    telem.m_connectionName = m_connectionNamePtr.load(std::memory_order_acquire); //always points to valid constant string
+    telem.m_inputName = M_INPUT_NAME;
+    telem.m_countCircularBufferOverruns = m_countCircularBufferOverruns.load(std::memory_order_acquire);
+    telem.m_totalBundleBytesReceived = m_totalBundleBytesReceived.load(std::memory_order_acquire);
+    telem.m_totalBundlesReceived = m_totalBundlesReceived.load(std::memory_order_acquire);
 }

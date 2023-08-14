@@ -49,6 +49,7 @@ public:
         const NotifyReadyToDeleteCallback_t & notifyReadyToDeleteCallback = NotifyReadyToDeleteCallback_t());
     UDP_LIB_EXPORT ~UdpBundleSink();
     UDP_LIB_EXPORT bool ReadyToBeDeleted();
+    UDP_LIB_EXPORT void GetTelemetry(UdpInductConnectionTelemetry_t& telem) const;
 private:
 
     UDP_LIB_NO_EXPORT void StartUdpReceive();
@@ -57,8 +58,6 @@ private:
     UDP_LIB_NO_EXPORT void DoUdpShutdown();
     UDP_LIB_NO_EXPORT void HandleSocketShutdown();
 
-public:
-    UdpInductConnectionTelemetry_t m_telemetry;
 private:
     //std::vector<uint8_t> m_fragmentedBundleRxConcat;
 
@@ -84,6 +83,14 @@ private:
     std::atomic<bool> m_safeToDelete;
     uint32_t m_incomingBundleSize;
     bool m_printedCbTooSmallNotice;
+
+    //telemetry
+    std::string m_connectionName;
+    std::atomic<const char*> m_connectionNamePtr;
+    const std::string M_INPUT_NAME;
+    std::atomic<uint64_t> m_countCircularBufferOverruns;
+    std::atomic<uint64_t> m_totalBundleBytesReceived;
+    std::atomic<uint64_t> m_totalBundlesReceived;
 };
 
 

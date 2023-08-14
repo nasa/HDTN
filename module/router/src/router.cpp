@@ -506,25 +506,24 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
         }
 
         m_zmqRepSock_connectingTelemToFromBoundRouterPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::rep);
-        const std::string connect_connectingTelemToFromBoundRouterPath(
+        const std::string bind_connectingTelemToFromBoundRouterPath(
             std::string("tcp://*:") +
             boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingTelemToFromBoundRouterPortPath));
         try {
-            m_zmqRepSock_connectingTelemToFromBoundRouterPtr->bind(connect_connectingTelemToFromBoundRouterPath);
-            LOG_INFO(subprocess) << "Router connected and listening to events from Telem " << connect_connectingTelemToFromBoundRouterPath;
+            m_zmqRepSock_connectingTelemToFromBoundRouterPtr->bind(bind_connectingTelemToFromBoundRouterPath);
+            LOG_INFO(subprocess) << "Router bound and listening to events from Telem " << bind_connectingTelemToFromBoundRouterPath;
         }
         catch (const zmq::error_t& ex) {
-            LOG_ERROR(subprocess) << "error: router cannot connect to telem socket: " << ex.what();
+            LOG_ERROR(subprocess) << "error: router cannot bind to telem socket: " << ex.what();
             return false;
         }
         m_zmqPullSock_connectingStorageToBoundRouterPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
-        const std::string connect_connectingStorageFromBoundRouterPath(
-                std::string("tcp://*") +
-                hdtnDistributedConfig.m_zmqRouterAddress +
-                std::string(":") +
+        const std::string bind_connectingStorageFromBoundRouterPath(
+                std::string("tcp://*:") +
                 boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingStorageToBoundRouterPortPath));
         try {
-            m_zmqPullSock_connectingStorageToBoundRouterPtr->bind(connect_connectingStorageFromBoundRouterPath);
+            m_zmqPullSock_connectingStorageToBoundRouterPtr->bind(bind_connectingStorageFromBoundRouterPath);
+            LOG_INFO(subprocess) << "Router bound and listening to events from Storage " << bind_connectingStorageFromBoundRouterPath;
         }
         catch (const zmq::error_t& ex) {
             LOG_ERROR(subprocess) << "error: router cannot bind to storage socket : " << ex.what();
