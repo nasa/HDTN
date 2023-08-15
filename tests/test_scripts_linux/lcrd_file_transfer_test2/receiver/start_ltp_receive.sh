@@ -44,11 +44,11 @@ mkdir checksums
 if (( CUSTODY == 0 )); then
         CL="LTP_NO_CUSTODY"
 
-        ./run_hdtn_oneprocess_ltp_custody &
+        ./run_hdtn_oneprocess_ltp &
 	sleep 6
 
 	echo "Receive"
-	./rcv_files_custody  &
+	./rcv_files  &
 
 	./wait.sh
 	echo "Done"
