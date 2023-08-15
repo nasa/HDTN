@@ -81,18 +81,18 @@ UartInterface::UartInterface(const std::string& comPortName, const unsigned int 
 
 
     try {
-        std::cout << "Opening com port on " << m_comPortName << "\n";
+        LOG_INFO(subprocess) << "Opening com port on " << m_comPortName;
         m_serialPort.open(m_comPortName);
-        std::cout << "Successfully opened serial port on " << m_comPortName << "\n";
+        LOG_INFO(subprocess) << "Successfully opened serial port on " << m_comPortName;
     }
     catch (boost::system::system_error & ex) {
-        std::cout << "Error opening serial port " << m_comPortName << ": Error=" << ex.what() << "\n";
+        LOG_FATAL(subprocess) << "Error opening serial port " << m_comPortName << ": Error=" << ex.what();
         m_runningNormally = false;
         return;
     }
 
     if (!m_serialPort.is_open()) {
-        std::cout << "Failed to open serial port " << m_comPortName << "\n";
+        LOG_FATAL(subprocess) << "Failed to open serial port " << m_comPortName;
         m_runningNormally = false;
         return;
     }
@@ -100,32 +100,36 @@ UartInterface::UartInterface(const std::string& comPortName, const unsigned int 
     try {
         m_serialPort.set_option(
             boost::asio::serial_port_base::baud_rate(baudRate)); // set the baud rate after the port has been opened 
-        std::cout << "Successfully set baud rate to " << baudRate << "\n";
+        LOG_INFO(subprocess) << "Successfully set baud rate to " << baudRate;
 
         m_serialPort.set_option(
             boost::asio::serial_port_base::character_size(8U));
-        std::cout << "Successfully set character size to " << 8U << "\n";
+        LOG_INFO(subprocess) << "Successfully set character size to " << 8U;
 
         m_serialPort.set_option(
             boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
-        std::cout << "Successfully set flow control to " << "none" << "\n";
+        LOG_INFO(subprocess) << "Successfully set flow control to " << "none";
 
         m_serialPort.set_option(
             boost::asio::serial_port_base::parity(boost::asio::serial_port_base::parity::none));
-        std::cout << "Successfully set parity to " << "none" << "\n";
+        LOG_INFO(subprocess) << "Successfully set parity to " << "none";
 
         m_serialPort.set_option(
             boost::asio::serial_port_base::stop_bits(boost::asio::serial_port_base::stop_bits::one));
-        std::cout << "Successfully set stop bits to " << "one" << "\n";
+        LOG_INFO(subprocess) << "Successfully set stop bits to " << "one";
     }
     catch (boost::system::system_error & ex) {
-        std::cout << "Error configuring serial port: Error=" << ex.what() << "  code=" << ex.code() << "\n";
+        LOG_FATAL(subprocess) << "Error configuring serial port: Error=" << ex.what() << "  code=" << ex.code();
         m_runningNormally = false;
         return;
     }
     TryStartSerialReceive();
-
-    m_inductTelemetry.m_connectionName = boost::lexical_cast<std::string>(baudRate) + " baud";
+    try {
+        m_inductTelemetry.m_connectionName = boost::lexical_cast<std::string>(baudRate) + " baud";
+    }
+    catch (const boost::bad_lexical_cast&) {
+        m_inductTelemetry.m_connectionName = "?? baud";
+    }
     m_inductTelemetry.m_inputName = comPortName;
     LOG_INFO(subprocess) << "UART RX using CB size: " << M_NUM_RX_CIRCULAR_BUFFER_VECTORS;
     m_running = true;
@@ -203,21 +207,22 @@ void UartInterface::Stop() {
         catch (const boost::thread_resource_error&) {
             LOG_ERROR(subprocess) << "error stopping UartInterface threadCbReader";
         }
+        //print stats once
+        LOG_INFO(subprocess) << "UART " << m_comPortName << " Bidirectional Interface:"
+            << "\n totalBundlesReceived " << m_totalBundlesReceived
+            << "\n totalBundleBytesReceived " << m_totalBundleBytesReceived
+            << "\n totalBundlesSent " << m_totalBundlesSent
+            << "\n totalBundlesAcked " << m_totalBundlesAcked
+            << "\n totalBundleBytesSent " << m_totalBundleBytesSent
+            << "\n totalBundleBytesAcked " << m_totalBundleBytesAcked
+            << "\n m_totalBundlesFailedToSend " << m_totalBundlesFailedToSend
+            << "\n averageReceivedBytesPerChunk " << ((m_outductTelemetry.m_totalReceivedChunks) ?
+                (m_outductTelemetry.m_totalSlipBytesReceived / m_outductTelemetry.m_totalReceivedChunks) : 0)
+            << "\n m_totalSlipBytesSent " << m_totalSlipBytesSent
+            << "\n m_totalSlipBytesReceived " << m_totalSlipBytesReceived
+            << "\n m_totalReceivedChunks " << m_totalReceivedChunks
+            << "\n m_largestReceivedBytesPerChunk " << m_largestReceivedBytesPerChunk;
     }
-
-    //print stats
-    LOG_INFO(subprocess) << "UART " << m_comPortName << " totalBundlesReceived " << m_totalBundlesReceived;
-    LOG_INFO(subprocess) << "UART " << m_comPortName << " totalBundleBytesReceived " << m_totalBundleBytesReceived;
-    LOG_INFO(subprocess) << "UART " << m_comPortName << " totalBundlesSent " << m_totalBundlesSent;
-    LOG_INFO(subprocess) << "UART " << m_comPortName << " totalBundlesAcked " << m_totalBundlesAcked;
-    LOG_INFO(subprocess) << "UART " << m_comPortName << " totalBundleBytesSent " << m_totalBundleBytesSent;
-    LOG_INFO(subprocess) << "UART " << m_comPortName << " totalBundleBytesAcked " << m_totalBundleBytesAcked;
-    LOG_INFO(subprocess) << "UART " << m_comPortName << " m_totalBundlesFailedToSend " << m_totalBundlesFailedToSend;
-    LOG_INFO(subprocess) << "UART " << m_comPortName << " averageReceivedBytesPerChunk " << m_totalSlipBytesReceived / m_totalReceivedChunks;
-    LOG_INFO(subprocess) << "UART " << m_comPortName << " m_totalSlipBytesSent " << m_totalSlipBytesSent;
-    LOG_INFO(subprocess) << "UART " << m_comPortName << " m_totalSlipBytesReceived " << m_totalSlipBytesReceived;
-    LOG_INFO(subprocess) << "UART " << m_comPortName << " m_totalReceivedChunks " << m_totalReceivedChunks;
-    LOG_INFO(subprocess) << "UART " << m_comPortName << " m_largestReceivedBytesPerChunk " << m_largestReceivedBytesPerChunk;
 }
 
 

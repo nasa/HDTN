@@ -251,6 +251,7 @@ void TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8
         Virtual_WholeBundleReady(dataSegmentDataVec);
     }
     else {
+        m_base_telem.totalFragmentsReceived.fetch_add(1, std::memory_order_relaxed);
         if (isStartFlag) {
             m_base_fragmentedBundleRxConcat.resize(0);
             //(!isEndFlag) is assumed from if else
@@ -703,8 +704,8 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
     unpredictable Transfer IDs within a session.*/
     const uint64_t transferId = m_base_myNextTransferId++;
 
-
-    if (m_base_remoteMaxRxSegmentSizeBytes && (dataSize > m_base_remoteMaxRxSegmentSizeBytes)) {
+    const bool doFragment = (m_base_remoteMaxRxSegmentSizeBytes && (dataSize > m_base_remoteMaxRxSegmentSizeBytes));
+    if (doFragment) {
         //fragmenting a bundle into multiple tcpcl segments
         elements.reserve((dataSize / m_base_remoteMaxRxSegmentSizeBytes) + 2);
         uint64_t dataIndex = 0;
@@ -769,7 +770,7 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
     m_base_dataSentServedAsKeepaliveSent.store(true, std::memory_order_release);
         
 
-    if (elements.size()) { //is fragmented
+    if (doFragment) { //is fragmented //elements.size() will be at least 1
         m_base_telem.totalFragmentsSent.fetch_add(elements.size(), std::memory_order_relaxed);
         for (std::size_t i = 0; i < elements.size(); ++i) {
 #ifdef OPENSSL_SUPPORT_ENABLED

@@ -493,7 +493,8 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
     m_base_fragmentVectorIndexCbVec[writeIndex] = 0; //used by the ack callback
     std::vector<TcpAsyncSenderElement*> elements;
 
-    if (M_BASE_MAX_FRAGMENT_SIZE && (dataSize > M_BASE_MAX_FRAGMENT_SIZE)) {
+    const bool doFragment = (M_BASE_MAX_FRAGMENT_SIZE && (dataSize > M_BASE_MAX_FRAGMENT_SIZE));
+    if (doFragment) {
         const uint64_t reservedSize = (dataSize / M_BASE_MAX_FRAGMENT_SIZE) + 2;
         elements.reserve(reservedSize);
         currentFragmentBytesVec.reserve(reservedSize);
@@ -557,7 +558,7 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
         m_base_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
     }
 
-    if (elements.size()) { //is fragmented
+    if (doFragment) { //is fragmented //elements.size() will be at least 1
         m_base_telem.totalFragmentsSent.fetch_add(elements.size(), std::memory_order_relaxed);
         for (std::size_t i = 0; i < elements.size(); ++i) {
             m_base_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(elements[i]);

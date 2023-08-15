@@ -134,22 +134,29 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
 
         const boost::uint64_t offsetBytes = static_cast<boost::uint64_t>(segmentId / M_NUM_STORAGE_DISKS) * SEGMENT_SIZE;
 #ifdef _MSC_VER 
-        _fseeki64_nolock(fileHandle, offsetBytes, SEEK_SET);
+        //If successful, returns 0. Otherwise, it returns a nonzero value.
+        const bool seekSuccess = _fseeki64_nolock(fileHandle, offsetBytes, SEEK_SET) == 0;
 #elif defined __APPLE__ 
-        fseeko(fileHandle, offsetBytes, SEEK_SET);
+        const bool seekSuccess = fseeko(fileHandle, offsetBytes, SEEK_SET) == 0;
 #else
-        fseeko64(fileHandle, offsetBytes, SEEK_SET);
+        //Upon successful completion, the fseek, fseeko and fseeko64 subroutine return a value of 0. Otherwise, it returns a value of -1
+        const bool seekSuccess = fseeko64(fileHandle, offsetBytes, SEEK_SET) == 0;
 #endif
-
-        if (isWriteToDisk) {
-            if (fwrite(data, 1, SEGMENT_SIZE, fileHandle) != SEGMENT_SIZE) {
-                LOG_ERROR(subprocess) << "error writing";
+        
+        if (seekSuccess) {
+            if (isWriteToDisk) {
+                if (fwrite(data, 1, SEGMENT_SIZE, fileHandle) != SEGMENT_SIZE) {
+                    LOG_ERROR(subprocess) << "BundleStorageManagerMT: error writing";
+                }
+            }
+            else { //read from disk
+                if (fread((void*)readFromStorageDestPointer, 1, SEGMENT_SIZE, fileHandle) != SEGMENT_SIZE) {
+                    LOG_ERROR(subprocess) << "BundleStorageManagerMT: error reading";
+                }
             }
         }
-        else { //read from disk
-            if (fread((void*)readFromStorageDestPointer, 1, SEGMENT_SIZE, fileHandle) != SEGMENT_SIZE) {
-                LOG_ERROR(subprocess) << "error reading";
-            }
+        else {
+            LOG_ERROR(subprocess) << "BundleStorageManagerMT: error seeking";
         }
 
         m_mutexMainThread.lock();

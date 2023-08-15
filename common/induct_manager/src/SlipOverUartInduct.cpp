@@ -53,7 +53,12 @@ SlipOverUartInduct::SlipOverUartInduct(const InductProcessBundleCallback_t& indu
 }
 SlipOverUartInduct::~SlipOverUartInduct() {
     if (m_onDeletedOpportunisticLinkCallback) {
-        m_onDeletedOpportunisticLinkCallback(m_inductConfig.uartRemoteNodeId, this, NULL);
+        try {
+            m_onDeletedOpportunisticLinkCallback(m_inductConfig.uartRemoteNodeId, this, NULL);
+        }
+        catch (const boost::bad_function_call&) {
+            LOG_ERROR(subprocess) << "~SlipOverUartInduct cannot call m_onDeletedOpportunisticLinkCallback";
+        }
     }
 }
 
