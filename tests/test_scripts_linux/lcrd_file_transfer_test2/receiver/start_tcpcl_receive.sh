@@ -60,23 +60,9 @@ if (( CUSTODY == 0 )); then
 	echo "Test done"
 
 else
-	CL="LTP_CUSTODY"
+	CL="TCPCL_CUSTODY"
 
-    ./run_hdtn_oneprocess_ltp_custody  &
-	sleep 6
-
-	echo "Receive"
-	./rcv_files_custody
-	
-	./wait.sh
-	echo "Done"
-	echo "Starting checksums"
-	
-	./sha.sh ./received/
-
-	rm -rf ./received/*
-
-	echo "Test done"
-
+	echo "Exiting, cannot do a tcpcl custody transfer yet"
+        exit
 fi
 
