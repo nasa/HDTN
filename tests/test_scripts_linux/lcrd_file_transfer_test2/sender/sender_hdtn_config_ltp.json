@@ -1,0 +1,81 @@
+{
+    "hdtnConfigName": "my hdtn config",
+    "userInterfaceOn": true,
+    "mySchemeName": "unused_scheme_name",
+    "myNodeId": 10,
+    "myBpEchoServiceId": 2047,
+    "myCustodialSsp": "unused_custodial_ssp",
+    "myCustodialServiceId": 0,
+    "myRouterServiceId": 100,
+    "isAcsAware": true,
+    "acsMaxFillsPerAcsPacket": 100,
+    "acsSendPeriodMilliseconds": 1000,
+    "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
+    "maxBundleSizeBytes": 10000000,
+    "maxIngressBundleWaitOnEgressMilliseconds": 2000,
+    "bufferRxToStorageOnLinkUpSaturation": false,
+    "maxLtpReceiveUdpPacketSizeBytes": 65536,
+    "neighborDepletedStorageDelaySeconds": 0,
+    "zmqBoundRouterPubSubPortPath": 10200,
+    "zmqBoundTelemApiPortPath": 10305,
+    "inductsConfig": {
+        "inductConfigName": "myconfig",
+        "inductVector": [
+            {
+                "name": "from bpsendfile",
+                "convergenceLayer": "stcp",
+                "boundPort": 4556,
+                "numRxCircularBufferElements": 200,
+                "keepAliveIntervalSeconds": 15
+            }
+        ]
+    },
+    "outductsConfig": {
+        "outductConfigName": "myconfig",
+        "outductVector": [
+            {
+                "name": "to receiver",
+                "convergenceLayer": "ltp_over_udp",
+                "nextHopNodeId": 20,
+                "remoteHostname": "hdtn_receiver",
+                "remotePort": 1113,
+                "maxNumberOfBundlesInPipeline": 11000,
+                "maxSumOfBundleBytesInPipeline": 715000000,
+                "thisLtpEngineId": 10,
+                "remoteLtpEngineId": 20,
+                "ltpDataSegmentMtu": 1360,
+                "oneWayLightTimeMs": 300,
+                "oneWayMarginTimeMs": 1000,
+                "clientServiceId": 1,
+                "numRxCircularBufferElements": 1000,
+                "ltpMaxRetriesPerSerialNumber": 7,
+                "ltpCheckpointEveryNthDataSegment": 0,
+                "ltpRandomNumberSizeBits": 64,
+                "ltpSenderBoundPort": 1113,
+                "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+                "ltpSenderPingSecondsOrZeroToDisable": 1,
+                "delaySendingOfDataSegmentsTimeMsOrZeroToDisable": 20,
+                "keepActiveSessionDataOnDisk": false,
+                "activeSessionDataOnDiskNewFileDurationMs": 2000,
+                "activeSessionDataOnDiskDirectory": ".\/"
+            }
+        ]
+    },
+    "storageConfig": {
+        "storageImplementation": "asio_single_threaded",
+        "tryToRestoreFromDisk": false,
+        "autoDeleteFilesOnExit": true,
+        "totalStorageCapacityBytes": 81920000000,
+        "storageDeletionPolicy" : "never",
+        "storageDiskConfigVector": [
+            {
+                "name": "d1",
+                "storeFilePath": ".\/store1.bin"
+            },
+            {
+                "name": "d2",
+                "storeFilePath": ".\/store2.bin"
+            }
+        ]
+    }
+}
