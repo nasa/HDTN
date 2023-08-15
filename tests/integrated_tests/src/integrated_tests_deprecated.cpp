@@ -212,7 +212,7 @@ bool TestCutThroughTcpcl() {
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
     for(int i=0; i<1; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
+        bundlesAckedBpgen[i] = finalStats[i].m_totalBundlesAcked;
     }
     uint64_t bundlesAckedBpsink[1] = {0};
     for(int i=0; i<1; i++) {
@@ -306,7 +306,7 @@ bool TestTcpclFastCutThrough() {
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
     for(int i=0; i<1; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
+        bundlesAckedBpgen[i] = finalStats[i].m_totalBundlesAcked;
     }
     uint64_t bundlesAckedBpsink[1] = {0};
     for(int i=0; i<1; i++) {
@@ -413,7 +413,7 @@ bool TestTcpclMultiFastCutThrough() {
     // Get stats
     uint64_t bundlesAckedBpgen[2] = {0,0};
     for(int i=0; i<2; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
+        bundlesAckedBpgen[i] = finalStats[i].m_totalBundlesAcked;
     }
     uint64_t bundlesAckedBpsink[2] = {0,0};
     for(int i=0; i<2; i++) {
@@ -514,7 +514,7 @@ bool TestUdp() {
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
     for(int i=0; i<1; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
+        bundlesAckedBpgen[i] = finalStats[i].m_totalBundlesAcked;
     }
     uint64_t bundlesAckedBpsink[1] = {0};
     for(int i=0; i<1; i++) {
@@ -612,7 +612,7 @@ bool TestUdpFastCutthrough() {
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
     for(int i=0; i<1; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
+        bundlesAckedBpgen[i] = finalStats[i].m_totalBundlesAcked;
     }
     uint64_t bundlesAckedBpsink[1] = {0};
     for(int i=0; i<1; i++) {
@@ -724,7 +724,7 @@ bool TestUdpMultiFastCutthrough() {
     // Get stats
     uint64_t bundlesAckedBpgen[2] = {0,0};
     for(int i=0; i<2; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
+        bundlesAckedBpgen[i] = finalStats[i].m_totalBundlesAcked;
     }
     uint64_t bundlesAckedBpsink[2] = {0,0};
     for(int i=0; i<2; i++) {
@@ -823,7 +823,7 @@ bool TestStcp() {
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
     for(int i=0; i<1; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
+        bundlesAckedBpgen[i] = finalStats[i].m_totalBundlesAcked;
     }
     uint64_t bundlesAckedBpsink[1] = {0};
     for(int i=0; i<1; i++) {
@@ -920,7 +920,7 @@ bool TestStcpFastCutthrough() {
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
     for(int i=0; i<1; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
+        bundlesAckedBpgen[i] = finalStats[i].m_totalBundlesAcked;
     }
     uint64_t bundlesAckedBpsink[1] = {0};
     for(int i=0; i<1; i++) {
@@ -1030,7 +1030,7 @@ bool TestStcpMultiFastCutthrough() {
     // Get stats
     uint64_t bundlesAckedBpgen[2] = {0,0};
     for(int i=0; i<2; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
+        bundlesAckedBpgen[i] = finalStats[i].m_totalBundlesAcked;
     }
     uint64_t bundlesAckedBpsink[2] = {0,0};
     for(int i=0; i<2; i++) {
@@ -1174,7 +1174,7 @@ bool TestStorage() {
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
     for(int i=0; i<1; i++) {
-      bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
+      bundlesAckedBpgen[i] = finalStats[i].m_totalBundlesAcked;
     }
     uint64_t bundlesAckedBpsink[1] = {0};
     for(int i=0; i<1; i++) {
@@ -1316,7 +1316,7 @@ bool TestStorageSlowBpSink() {
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
     for(int i=0; i<1; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
+        bundlesAckedBpgen[i] = finalStats[i].m_totalBundlesAcked;
     }
     uint64_t bundlesAckedBpsink[1] = {0};
     for(int i=0; i<1; i++) {
@@ -1485,7 +1485,7 @@ bool TestStorageMulti() {
     // Get stats
     uint64_t bundlesAckedBpgen[2] = {0,0};
     for(int i=0; i<2; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
+        bundlesAckedBpgen[i] = finalStats[i].m_totalBundlesAcked;
     }
     uint64_t bundlesAckedBpsink[2] = {0,0};
     for(int i=0; i<2; i++) {

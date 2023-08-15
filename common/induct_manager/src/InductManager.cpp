@@ -22,6 +22,7 @@
 #include "UdpInduct.h"
 #include "LtpOverUdpInduct.h"
 #include "LtpOverIpcInduct.h"
+#include "SlipOverUartInduct.h"
 #include "TimestampUtil.h"
 
 InductManager::InductManager() {}
@@ -50,6 +51,10 @@ void InductManager::LoadInductsFromConfig(const InductProcessBundleCallback_t & 
 #endif
             m_inductsList.emplace_back(boost::make_unique<TcpclV4Induct>(inductProcessBundleCallback, thisInductConfig,
                 myNodeId, maxBundleSizeBytes, onNewOpportunisticLinkCallback, onDeletedOpportunisticLinkCallback));
+        }
+        else if (thisInductConfig.convergenceLayer == "slip_over_uart") {
+            m_inductsList.emplace_back(boost::make_unique<SlipOverUartInduct>(inductProcessBundleCallback, thisInductConfig,
+                maxBundleSizeBytes, onNewOpportunisticLinkCallback, onDeletedOpportunisticLinkCallback));
         }
         else if (thisInductConfig.convergenceLayer == "stcp") {
             m_inductsList.emplace_back(boost::make_unique<StcpInduct>(inductProcessBundleCallback, thisInductConfig,

@@ -27,7 +27,7 @@ int main(int argc, const char* argv[]) {
     hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::bpgen);
     ThreadNamer::SetThisThreadName("BpGenMain");
     BpGenAsyncRunner runner;
-    volatile bool running;
+    std::atomic<bool> running;
     runner.Run(argc, argv, running, true);
     LOG_INFO(hdtn::Logger::SubProcess::none) << "bundle count main: " << runner.m_bundleCount;
     return 0;

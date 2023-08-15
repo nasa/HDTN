@@ -67,9 +67,9 @@ TcpclBundleSink::TcpclBundleSink(
     m_running(false)
 {
     m_base_tcpSocketPtr = tcpSocketPtr;
-    m_base_inductConnectionTelemetry.m_connectionName = tcpSocketPtr->remote_endpoint().address().to_string()
+    m_base_inductConnectionName = tcpSocketPtr->remote_endpoint().address().to_string()
         + ":" + boost::lexical_cast<std::string>(tcpSocketPtr->remote_endpoint().port());
-    m_base_inductConnectionTelemetry.m_inputName = std::string("*:") + boost::lexical_cast<std::string>(tcpSocketPtr->local_endpoint().port());
+    m_base_inductInputName = std::string("*:") + boost::lexical_cast<std::string>(tcpSocketPtr->local_endpoint().port());
 
     for (unsigned int i = 0; i < M_NUM_CIRCULAR_BUFFER_VECTORS; ++i) {
         m_tcpReceiveBuffersCbVec[i].resize(M_CIRCULAR_BUFFER_BYTES_PER_VECTOR);
@@ -117,16 +117,19 @@ TcpclBundleSink::~TcpclBundleSink() {
         catch (const boost::thread_resource_error&) {
             LOG_ERROR(subprocess) << "error stopping TcpclBundleSink threadCbReader";
         }
+        //print stats once
+        LOG_INFO(subprocess) << "TcpclV3 Induct / Bundle Sink:"
+            << "\n totalBundlesSent " << m_base_telem.totalBundlesSent
+            << "\n totalBundlesSentAndAcked " << m_base_telem.totalBundlesSentAndAcked
+            << "\n totalBundleBytesSent " << m_base_telem.totalBundleBytesSent
+            << "\n totalBundleBytesSentAndAcked " << m_base_telem.totalBundleBytesSentAndAcked
+            << "\n totalFragmentsSent " << m_base_telem.totalFragmentsSent
+            << "\n totalFragmentsSentAndAcked " << m_base_telem.totalFragmentsSentAndAcked
+            << "\n totalBundlesReceived " << m_base_telem.totalBundlesReceived
+            << "\n totalBundleBytesReceived " << m_base_telem.totalBundleBytesReceived
+            << "\n totalFragmentsReceived " << m_base_telem.totalFragmentsReceived;
     }
     m_base_tcpAsyncSenderPtr.reset();
-
-    //print stats
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBundlesAcked " << m_base_outductTelemetry.m_totalBundlesAcked;
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBundleBytesAcked " << m_base_outductTelemetry.m_totalBundleBytesAcked;
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBundlesSent " << m_base_outductTelemetry.m_totalBundlesSent;
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalFragmentsAcked " << m_base_outductTelemetry.m_totalFragmentsAcked;
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalFragmentsSent " << m_base_outductTelemetry.m_totalFragmentsSent;
-    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBundleBytesSent " << m_base_outductTelemetry.m_totalBundleBytesSent;
 }
 
 
@@ -181,7 +184,7 @@ void TcpclBundleSink::PopCbThreadFunc() {
             boost::mutex::scoped_lock lock(m_mutexCb);
             consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
             if (consumeIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //if empty again (lock mutex (above) before checking condition)
-                if (!m_running) { //m_running is mutex protected, if it stopped running, exit the thread (lock mutex (above) before checking condition)
+                if (!m_running.load(std::memory_order_acquire)) { //m_running is mutex protected, if it stopped running, exit the thread (lock mutex (above) before checking condition)
                     break; //thread stopping criteria (empty and not running)
                 }
                 m_conditionVariableCb.wait(lock); // call lock.unlock() and blocks the current thread
@@ -242,7 +245,7 @@ void TcpclBundleSink::TrySendOpportunisticBundleIfAvailable_FromIoServiceThread(
         return;
     }
     std::pair<std::unique_ptr<zmq::message_t>, padded_vector_uint8_t> bundleDataPair;
-    const std::size_t totalBundlesUnacked = m_base_outductTelemetry.m_totalBundlesSent - m_base_outductTelemetry.m_totalBundlesAcked; //same as Virtual_GetTotalBundlesUnacked
+    const std::size_t totalBundlesUnacked = BaseClass_GetTotalBundlesUnacked();
     if ((totalBundlesUnacked < M_BASE_MAX_UNACKED_BUNDLES_IN_PIPELINE) && m_tryGetOpportunisticDataFunction && m_tryGetOpportunisticDataFunction(bundleDataPair)) {
         BaseClass_Forward(bundleDataPair.first, bundleDataPair.second, static_cast<bool>(bundleDataPair.first), std::vector<uint8_t>());
     }

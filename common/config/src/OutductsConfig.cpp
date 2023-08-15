@@ -24,7 +24,9 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_over_udp", "ltp_over_ipc", "udp", "stcp", "tcpcl_v3", "tcpcl_v4" };
+static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = {
+    "ltp_over_udp", "ltp_over_ipc", "udp", "stcp", "tcpcl_v3", "tcpcl_v4", "slip_over_uart"
+};
 
 outduct_element_config_t::outduct_element_config_t() :
     name(""),
@@ -52,6 +54,9 @@ outduct_element_config_t::outduct_element_config_t() :
     keepActiveSessionDataOnDisk(false),
     activeSessionDataOnDiskNewFileDurationMs(2000),
     activeSessionDataOnDiskDirectory("./"),
+
+    comPort(""),
+    baudRate(115200),
 
     keepAliveIntervalSeconds(0),
     tcpclV3MyMaxTxSegmentSizeBytes(0),
@@ -96,6 +101,9 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     activeSessionDataOnDiskNewFileDurationMs(o.activeSessionDataOnDiskNewFileDurationMs),
     activeSessionDataOnDiskDirectory(o.activeSessionDataOnDiskDirectory),
 
+    comPort(o.comPort),
+    baudRate(o.baudRate),
+
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
     tcpclV3MyMaxTxSegmentSizeBytes(o.tcpclV3MyMaxTxSegmentSizeBytes),
     tcpclAllowOpportunisticReceiveBundles(o.tcpclAllowOpportunisticReceiveBundles),
@@ -136,6 +144,9 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     activeSessionDataOnDiskNewFileDurationMs(o.activeSessionDataOnDiskNewFileDurationMs),
     activeSessionDataOnDiskDirectory(std::move(o.activeSessionDataOnDiskDirectory)),
 
+    comPort(std::move(o.comPort)),
+    baudRate(o.baudRate),
+
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
     tcpclV3MyMaxTxSegmentSizeBytes(o.tcpclV3MyMaxTxSegmentSizeBytes),
     tcpclAllowOpportunisticReceiveBundles(o.tcpclAllowOpportunisticReceiveBundles),
@@ -175,6 +186,9 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
     keepActiveSessionDataOnDisk = o.keepActiveSessionDataOnDisk;
     activeSessionDataOnDiskNewFileDurationMs = o.activeSessionDataOnDiskNewFileDurationMs;
     activeSessionDataOnDiskDirectory = o.activeSessionDataOnDiskDirectory;
+
+    comPort = o.comPort;
+    baudRate = o.baudRate;
 
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
 
@@ -219,6 +233,9 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
     activeSessionDataOnDiskNewFileDurationMs = o.activeSessionDataOnDiskNewFileDurationMs;
     activeSessionDataOnDiskDirectory = std::move(o.activeSessionDataOnDiskDirectory);
 
+    comPort = std::move(o.comPort);
+    baudRate = o.baudRate;
+
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
 
     tcpclV3MyMaxTxSegmentSizeBytes = o.tcpclV3MyMaxTxSegmentSizeBytes;
@@ -260,6 +277,9 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
         (keepActiveSessionDataOnDisk == o.keepActiveSessionDataOnDisk) &&
         (activeSessionDataOnDiskNewFileDurationMs == o.activeSessionDataOnDiskNewFileDurationMs) &&
         (activeSessionDataOnDiskDirectory == o.activeSessionDataOnDiskDirectory) &&
+
+        (comPort == o.comPort) &&
+        (baudRate == o.baudRate) &&
 
         (keepAliveIntervalSeconds == o.keepAliveIntervalSeconds) &&
         
@@ -339,15 +359,17 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                     return false;
                 }
             }
-            outductElementConfig.remoteHostname = outductElementConfigPt.second.get<std::string>("remoteHostname");
-            if (outductElementConfig.remoteHostname == "") {
-                LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid outduct remoteHostname, must not be empty";
-                return false;
-            }
-            outductElementConfig.remotePort = outductElementConfigPt.second.get<uint16_t>("remotePort");
-            if (outductElementConfig.remotePort == 0) {
-                LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid remotePort, must be non-zero";
-                return false;
+            if (outductElementConfig.convergenceLayer != "slip_over_uart") { //uses com port only
+                outductElementConfig.remoteHostname = outductElementConfigPt.second.get<std::string>("remoteHostname");
+                if (outductElementConfig.remoteHostname == "") {
+                    LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid outduct remoteHostname, must not be empty";
+                    return false;
+                }
+                outductElementConfig.remotePort = outductElementConfigPt.second.get<uint16_t>("remotePort");
+                if (outductElementConfig.remotePort == 0) {
+                    LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid remotePort, must be non-zero";
+                    return false;
+                }
             }
             outductElementConfig.maxNumberOfBundlesInPipeline = outductElementConfigPt.second.get<uint32_t>("maxNumberOfBundlesInPipeline");
             outductElementConfig.maxSumOfBundleBytesInPipeline = outductElementConfigPt.second.get<uint64_t>("maxSumOfBundleBytesInPipeline");
@@ -400,6 +422,21 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                         return false;
                     }
                 }
+            }
+
+            if (outductElementConfig.convergenceLayer == "slip_over_uart") {
+                outductElementConfig.comPort = outductElementConfigPt.second.get<std::string>("comPort");
+                outductElementConfig.baudRate = outductElementConfigPt.second.get<uint32_t>("baudRate");
+            }
+            else if (outductElementConfigPt.second.count("comPort") != 0) {
+                LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
+                    << " has a slip_over_uart outduct only configuration parameter of \"comPort\".. please remove";
+                return false;
+            }
+            else if (outductElementConfigPt.second.count("baudRate") != 0) {
+                LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
+                    << " has a slip_over_uart outduct only configuration parameter of \"baudRate\".. please remove";
+                return false;
             }
 
             if ((outductElementConfig.convergenceLayer == "stcp") || (outductElementConfig.convergenceLayer == "tcpcl_v3") || (outductElementConfig.convergenceLayer == "tcpcl_v4")) {
@@ -519,8 +556,10 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
         outductElementConfigPt.put("name", outductElementConfig.name);
         outductElementConfigPt.put("convergenceLayer", outductElementConfig.convergenceLayer);
         outductElementConfigPt.put("nextHopNodeId", outductElementConfig.nextHopNodeId);
-        outductElementConfigPt.put("remoteHostname", outductElementConfig.remoteHostname);
-        outductElementConfigPt.put("remotePort", outductElementConfig.remotePort);
+        if (outductElementConfig.convergenceLayer != "slip_over_uart") { //uses com port only
+            outductElementConfigPt.put("remoteHostname", outductElementConfig.remoteHostname);
+            outductElementConfigPt.put("remotePort", outductElementConfig.remotePort);
+        }
         outductElementConfigPt.put("maxNumberOfBundlesInPipeline", outductElementConfig.maxNumberOfBundlesInPipeline);
         outductElementConfigPt.put("maxSumOfBundleBytesInPipeline", outductElementConfig.maxSumOfBundleBytesInPipeline);
         
@@ -542,6 +581,10 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
             outductElementConfigPt.put("keepActiveSessionDataOnDisk", outductElementConfig.keepActiveSessionDataOnDisk);
             outductElementConfigPt.put("activeSessionDataOnDiskNewFileDurationMs", outductElementConfig.activeSessionDataOnDiskNewFileDurationMs);
             outductElementConfigPt.put("activeSessionDataOnDiskDirectory", outductElementConfig.activeSessionDataOnDiskDirectory.string()); //.string() prevents nested quotes in json file
+        }
+        if (outductElementConfig.convergenceLayer == "slip_over_uart") {
+            outductElementConfigPt.put("comPort", outductElementConfig.comPort);
+            outductElementConfigPt.put("baudRate", outductElementConfig.baudRate);
         }
         if ((outductElementConfig.convergenceLayer == "stcp") || (outductElementConfig.convergenceLayer == "tcpcl_v3") || (outductElementConfig.convergenceLayer == "tcpcl_v4")) {
             outductElementConfigPt.put("keepAliveIntervalSeconds", outductElementConfig.keepAliveIntervalSeconds);

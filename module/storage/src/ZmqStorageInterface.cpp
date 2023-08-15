@@ -36,6 +36,7 @@
 #include "CustodyTimers.h"
 #include "codec/BundleViewV7.h"
 #include "ThreadNamer.h"
+#include <atomic>
 
 typedef std::pair<cbhe_eid_t, bool> eid_plus_isanyserviceid_pair_t;
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
@@ -147,7 +148,8 @@ private:
 
     zmq::context_t* m_hdtnOneProcessZmqInprocContextPtr;
     std::unique_ptr<boost::thread> m_threadPtr;
-    volatile bool m_running;
+    std::atomic<bool> m_running;
+    bool m_isOutOfStorageSpace;
 
     //variables initialized and used only by ThreadFunc()
     std::unique_ptr<BundleStorageManagerBase> m_bsmPtr;
@@ -161,7 +163,7 @@ private:
     std::vector<OutductInfo_t*> m_vectorUpLinksOutductInfoPtrs; //outductIndex to info
 
     //for blocking until worker-thread startup
-    volatile bool m_workerThreadStartupInProgress;
+    std::atomic<bool> m_workerThreadStartupInProgress;
     boost::mutex m_workerThreadStartupMutex;
     boost::condition_variable m_workerThreadStartupConditionVariable;
 
@@ -174,6 +176,7 @@ private:
 
 ZmqStorageInterface::Impl::Impl() :
     m_running(false),
+    m_isOutOfStorageSpace(false),
     m_workerThreadStartupInProgress(false),
     m_hdtnOneProcessZmqInprocContextPtr(nullptr),
     m_deletionPolicy(DeletionPolicy::never) {}
@@ -711,9 +714,17 @@ bool ZmqStorageInterface::Impl::WriteBundle(const PrimaryBlock& bundlePrimaryBlo
     BundleStorageManagerSession_WriteToDisk sessionWrite;
     uint64_t totalSegmentsRequired = m_bsmPtr->Push(sessionWrite, bundlePrimaryBlock, allDataSize);
     if (totalSegmentsRequired == 0) {
-        LOG_ERROR(subprocess) << "out of space";
+        if (!m_isOutOfStorageSpace) {
+            LOG_ERROR(subprocess) << "out of storage space";
+            m_isOutOfStorageSpace = true;
+        }
         return false;
     }
+    else if (m_isOutOfStorageSpace) {
+        LOG_INFO(subprocess) << "no longer out of storage space";
+        m_isOutOfStorageSpace = false;
+    }
+    
     //totalSegmentsStoredOnDisk += totalSegmentsRequired;
     //totalBytesWrittenThisTest += size;
     const uint64_t totalBytesPushed = m_bsmPtr->PushAllSegments(sessionWrite, bundlePrimaryBlock, newCustodyId, allData, allDataSize);
@@ -1072,7 +1083,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
     m_workerThreadStartupMutex.unlock();
     m_workerThreadStartupConditionVariable.notify_one();
 
-    while (m_running) {
+    while (m_running.load(std::memory_order_acquire)) {
         int rc = 0;
         try {
             rc = zmq::poll(pollItems, 4, timeoutPoll);

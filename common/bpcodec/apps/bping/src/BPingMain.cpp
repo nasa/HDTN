@@ -22,7 +22,7 @@ int main(int argc, const char* argv[]) {
     hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::bping);
     ThreadNamer::SetThisThreadName("BPingMain");
     BPingRunner runner;
-    volatile bool running;
+    std::atomic<bool> running;
     runner.Run(argc, argv, running, true);
     return 0;
 

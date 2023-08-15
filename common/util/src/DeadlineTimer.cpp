@@ -14,7 +14,7 @@ DeadlineTimer::DeadlineTimer(unsigned int intervalMs)
 }
 
 bool DeadlineTimer::SleepUntilNextInterval() {
-    if (!m_enabled) {
+    if (!m_enabled.load(std::memory_order_acquire)) {
         return false;
     }
     boost::system::error_code ec;

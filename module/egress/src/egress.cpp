@@ -27,7 +27,7 @@ int main(int argc, const char* argv[]) {
     hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::egress);
     ThreadNamer::SetThisThreadName("EgressMain");
     EgressAsyncRunner runner;
-    volatile bool running;
+    std::atomic<bool> running;
     runner.Run(argc, argv, running, true);
     LOG_DEBUG(hdtn::Logger::SubProcess::egress) << "Bundle Count, Bundle data bytes";
     LOG_DEBUG(hdtn::Logger::SubProcess::egress) << runner.m_totalBundlesGivenToOutducts << "," << runner.m_totalBundleBytesGivenToOutducts;

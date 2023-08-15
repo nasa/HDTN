@@ -29,6 +29,7 @@
 #include <map>
 #include <queue>
 #include <memory>
+#include <atomic>
 #include "TcpAsyncSender.h"
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "TelemetryDefinitions.h"
@@ -46,12 +47,12 @@ public:
     STCP_LIB_EXPORT bool Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData);
     STCP_LIB_EXPORT bool Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData);
     STCP_LIB_EXPORT bool Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_t>&& userData);
-    STCP_LIB_EXPORT std::size_t GetTotalDataSegmentsAcked();
-    STCP_LIB_EXPORT std::size_t GetTotalDataSegmentsSent();
-    STCP_LIB_EXPORT std::size_t GetTotalDataSegmentsUnacked();
-    STCP_LIB_EXPORT std::size_t GetTotalBundleBytesAcked();
-    STCP_LIB_EXPORT std::size_t GetTotalBundleBytesSent();
-    STCP_LIB_EXPORT std::size_t GetTotalBundleBytesUnacked();
+    STCP_LIB_EXPORT std::size_t GetTotalBundlesAcked() const noexcept;
+    STCP_LIB_EXPORT std::size_t GetTotalBundlesSent() const noexcept;
+    STCP_LIB_EXPORT std::size_t GetTotalBundlesUnacked() const noexcept;
+    STCP_LIB_EXPORT std::size_t GetTotalBundleBytesAcked() const noexcept;
+    STCP_LIB_EXPORT std::size_t GetTotalBundleBytesSent() const noexcept;
+    STCP_LIB_EXPORT std::size_t GetTotalBundleBytesUnacked() const noexcept;
     STCP_LIB_EXPORT void Connect(const std::string & hostname, const std::string & port);
     STCP_LIB_EXPORT bool ReadyToForward();
     STCP_LIB_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
@@ -59,6 +60,7 @@ public:
     STCP_LIB_EXPORT void SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback);
     STCP_LIB_EXPORT void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     STCP_LIB_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
+    STCP_LIB_EXPORT void GetTelemetry(StcpOutductTelemetry_t& telem) const;
 private:
     STCP_LIB_NO_EXPORT static void GenerateDataUnit(std::vector<uint8_t> & dataUnit, const uint8_t * contents, uint32_t sizeContents);
     STCP_LIB_NO_EXPORT static void GenerateDataUnitHeaderOnly(std::vector<uint8_t> & dataUnit, uint32_t sizeContents);
@@ -96,10 +98,10 @@ private:
     const unsigned int MAX_UNACKED;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_bytesToAckByTcpSendCallbackCb;
     std::vector<uint32_t> m_bytesToAckByTcpSendCallbackCbVec;
-    volatile bool m_readyToForward;
-    volatile bool m_stcpShutdownComplete;
-    volatile bool m_dataServedAsKeepAlive;
-    volatile bool m_useLocalConditionVariableAckReceived;
+    std::atomic<bool> m_readyToForward;
+    std::atomic<bool> m_stcpShutdownComplete;
+    std::atomic<bool> m_dataServedAsKeepAlive;
+    std::atomic<bool> m_useLocalConditionVariableAckReceived;
 
     uint8_t m_tcpReadSomeBuffer[10];
 
@@ -109,9 +111,14 @@ private:
     OnOutductLinkStatusChangedCallback_t m_onOutductLinkStatusChangedCallback;
     uint64_t m_userAssignedUuid;
 
-public:
     //stcp stats
-    StcpOutductTelemetry_t m_stcpOutductTelemetry;
+    std::atomic<uint64_t> m_totalBundlesSent;
+    std::atomic<uint64_t> m_totalBundlesAcked;
+    std::atomic<uint64_t> m_totalBundleBytesSent;
+    std::atomic<uint64_t> m_totalStcpBytesSent;
+    std::atomic<uint64_t> m_totalBundleBytesAcked;
+    std::atomic<uint64_t> m_numTcpReconnectAttempts;
+    std::atomic<bool> m_linkIsUpPhysically;
 };
 
 

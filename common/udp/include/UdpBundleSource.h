@@ -47,12 +47,12 @@ public:
     UDP_LIB_EXPORT bool Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData);
     UDP_LIB_EXPORT bool Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData);
     UDP_LIB_EXPORT bool Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_t>&& userData);
-    UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsAcked();
-    UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsSent();
-    UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsUnacked();
-    UDP_LIB_EXPORT std::size_t GetTotalBundleBytesAcked();
-    UDP_LIB_EXPORT std::size_t GetTotalBundleBytesSent();
-    UDP_LIB_EXPORT std::size_t GetTotalBundleBytesUnacked();
+    UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsAcked() const noexcept;
+    UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsSent() const noexcept;
+    UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsUnacked() const noexcept;
+    UDP_LIB_EXPORT std::size_t GetTotalBundleBytesAcked() const noexcept;
+    UDP_LIB_EXPORT std::size_t GetTotalBundleBytesSent() const noexcept;
+    UDP_LIB_EXPORT std::size_t GetTotalBundleBytesUnacked() const noexcept;
     UDP_LIB_EXPORT void UpdateRate(uint64_t rateBitsPerSec);
     UDP_LIB_EXPORT void Connect(const std::string & hostname, const std::string & port);
     UDP_LIB_EXPORT bool ReadyToForward() const;
@@ -62,6 +62,7 @@ public:
     UDP_LIB_EXPORT void SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback);
     UDP_LIB_EXPORT void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     UDP_LIB_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
+    UDP_LIB_EXPORT void GetTelemetry(UdpOutductTelemetry_t& telem) const;
 private:
     UDP_LIB_NO_EXPORT void OnResolve(const boost::system::error_code & ec, boost::asio::ip::udp::resolver::results_type results);
     UDP_LIB_NO_EXPORT void OnConnect(const boost::system::error_code & ec);
@@ -99,8 +100,8 @@ private:
     std::vector<std::size_t> m_bytesToAckBySentCallbackCbVec;
     std::vector<std::vector<uint8_t> > m_userDataCbVec;
 
-    volatile bool m_readyToForward;
-    volatile bool m_useLocalConditionVariableAckReceived;
+    std::atomic<bool> m_readyToForward;
+    std::atomic<bool> m_useLocalConditionVariableAckReceived;
     bool m_tokenRefreshTimerIsRunning;
 
     OnFailedBundleVecSendCallback_t m_onFailedBundleVecSendCallback;
@@ -110,8 +111,14 @@ private:
     uint64_t m_userAssignedUuid;
 
     uint64_t m_rateBpsOrZeroToDisable;
-public:
-    UdpOutductTelemetry_t m_udpOutductTelemetry;
+
+    //udp stats
+    std::atomic<uint64_t> m_totalPacketsSent;
+    std::atomic<uint64_t> m_totalPacketBytesSent;
+    std::atomic<uint64_t> m_totalPacketsDequeuedForSend;
+    std::atomic<uint64_t> m_totalPacketBytesDequeuedForSend;
+    std::atomic<uint64_t> m_totalPacketsLimitedByRate;
+    std::atomic<bool> m_linkIsUpPhysically;
 };
 
 

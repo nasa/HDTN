@@ -28,12 +28,13 @@
 #include <stdint.h>
 #include "ZmqStorageInterface.h"
 #include "Logger.h"
+#include <atomic>
 
 class StorageRunner {
 public:
     STORAGE_LIB_EXPORT StorageRunner();
     STORAGE_LIB_EXPORT ~StorageRunner();
-    STORAGE_LIB_EXPORT bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
+    STORAGE_LIB_EXPORT bool Run(int argc, const char* const argv[], std::atomic<bool>& running, bool useSignalHandler);
     std::size_t m_totalBundlesErasedFromStorage;
     std::size_t m_totalBundlesSentToEgressFromStorage;
 
@@ -41,7 +42,7 @@ public:
 
 private:
     void MonitorExitKeypressThreadFunction();
-    volatile bool m_runningFromSigHandler;
+    std::atomic<bool> m_runningFromSigHandler;
 };
 
 

@@ -27,7 +27,7 @@ int main(int argc, char* argv[]) {
     hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::router);
     ThreadNamer::SetThisThreadName("RouterMain");
     RouterRunner runner;
-    volatile bool running;
+    std::atomic<bool> running;
     runner.Run(argc, argv, running, true);
     return 0;
 }

@@ -32,7 +32,7 @@ int main(int argc, const char* argv[]) {
     hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::ingress);
     ThreadNamer::SetThisThreadName("IngressMain");
     IngressAsyncRunner runner;
-    volatile bool running;
+    std::atomic<bool> running;
     runner.Run(argc, argv, running, true);
     LOG_DEBUG(subprocess) << "m_bundleCountStorage: " << runner.m_bundleCountStorage;
     LOG_DEBUG(subprocess) << "m_bundleCountEgress: " << runner.m_bundleCountEgress;

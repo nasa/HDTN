@@ -38,6 +38,7 @@
 #include "PaddedVectorUint8.h"
 #include <queue>
 #include <memory>
+#include <atomic>
 #include <boost/function.hpp>
 #include <zmq.hpp>
 #include "BundleCallbackFunctionDefines.h"
@@ -87,8 +88,8 @@ private:
     std::queue<std::unique_ptr<TcpAsyncSenderElement> > m_queueTcpAsyncSenderElements;
 
     
-    volatile bool m_writeInProgress;
-    volatile bool m_sendErrorOccurred;
+    std::atomic<bool> m_writeInProgress;
+    std::atomic<bool> m_sendErrorOccurred;
 
     OnFailedBundleVecSendCallback_t m_onFailedBundleVecSendCallback;
     OnFailedBundleZmqSendCallback_t m_onFailedBundleZmqSendCallback;
@@ -127,8 +128,8 @@ private:
     std::queue<std::unique_ptr<TcpAsyncSenderElement> > m_queueTcpAsyncSenderElements;
 
 
-    volatile bool m_writeInProgress;
-    volatile bool m_sendErrorOccurred;
+    std::atomic<bool> m_writeInProgress;
+    std::atomic<bool> m_sendErrorOccurred;
 
     OnFailedBundleVecSendCallback_t m_onFailedBundleVecSendCallback;
     OnFailedBundleZmqSendCallback_t m_onFailedBundleZmqSendCallback;

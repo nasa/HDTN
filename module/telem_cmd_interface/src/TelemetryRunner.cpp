@@ -34,6 +34,7 @@
 #include "DeadlineTimer.h"
 #include "ThreadNamer.h"
 #include <queue>
+#include <atomic>
 #ifdef USE_WEB_INTERFACE
 #include "BeastWebsocketServer.h"
 #endif
@@ -75,7 +76,7 @@ class TelemetryRunner::Impl : private boost::noncopyable {
         bool HandleUploadContactPlanCommand(std::string& movablePayload, ApiSource_t src);
         bool HandleGetExpiringStorageCommand(std::string& movablePayload, ApiSource_t src);
 
-        volatile bool m_running;
+        std::atomic<bool> m_running;
         std::unique_ptr<boost::thread> m_threadPtr;
 #ifdef USE_WEB_INTERFACE
         std::unique_ptr<BeastWebsocketServer> m_websocketServerPtr;
@@ -320,7 +321,7 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDist
 
     // Start loop to begin polling
     
-    while (m_running) {
+    while (m_running.load(std::memory_order_acquire)) {
         if (!m_deadlineTimer.SleepUntilNextInterval()) {
             break;
         }

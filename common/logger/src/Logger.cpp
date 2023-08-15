@@ -117,7 +117,7 @@ Logger::~Logger(){}
 
 std::unique_ptr<Logger> Logger::logger_; //initialized to "null"
 boost::mutex Logger::mutexSingletonInstance_;
-volatile bool Logger::loggerSingletonFullyInitialized_ = false;
+std::atomic<bool> Logger::loggerSingletonFullyInitialized_(false);
 Logger::process_attr_t Logger::process_attr(Logger::Process::none);
 Logger::severity_channel_logger_t Logger::m_severityChannelLogger;
 
@@ -133,7 +133,7 @@ void Logger::initializeWithProcess(Logger::Process process) {
 }
 
 void Logger::ensureInitialized() noexcept {
-    while (!loggerSingletonFullyInitialized_) { //fast way to bypass a mutex lock all the time
+    while (!loggerSingletonFullyInitialized_.load(std::memory_order_acquire)) { //fast way to bypass a mutex lock all the time
         try {
             //first thread that uses the logger gets to create the logger
             boost::mutex::scoped_lock theLock(mutexSingletonInstance_);

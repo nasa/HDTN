@@ -31,6 +31,7 @@
 #include "LtpUdpEngine.h"
 #include "LtpEngineConfig.h"
 #include <boost/core/noncopyable.hpp>
+#include <atomic>
 
 //Every "link" should have a unique engine ID, managed by using the remote eid that the link will be connecting to as the engine id for LTP
 //We track a link as a paired induct/outduct and for each link there is one engine id
@@ -226,7 +227,7 @@ private:
     unsigned int m_nextEngineIndex;
 
     /// Whether the engine manager should currently be considered operational
-    volatile bool m_readyToForward;
+    std::atomic<bool> m_readyToForward;
 public:
 };
 

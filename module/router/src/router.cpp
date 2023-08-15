@@ -39,6 +39,7 @@
 #include "libcgr.h"
 #include <unordered_map>
 #include <unordered_set>
+#include <atomic>
 
 /* Messages overview:
  *      + Sockets:
@@ -262,7 +263,7 @@ private:
     typedef std::pair<boost::posix_time::ptime, uint64_t> ptime_index_pair_t; //used in case of identical ptimes for starting events
     typedef boost::bimap<ptime_index_pair_t, contactPlan_t> ptime_to_contactplan_bimap_t;
 
-    volatile bool m_running;
+    std::atomic<bool> m_running;
     HdtnConfig m_hdtnConfig;
     std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
 
@@ -299,7 +300,7 @@ private:
     bool m_receivedInitialOutductTelem;
 
     //for blocking until worker-thread startup
-    volatile bool m_workerThreadStartupInProgress;
+    std::atomic<bool> m_workerThreadStartupInProgress;
     boost::mutex m_workerThreadStartupMutex;
     boost::condition_variable m_workerThreadStartupConditionVariable;
 
@@ -428,7 +429,7 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
     bool useMgr,
     zmq::context_t* hdtnOneProcessZmqInprocContextPtr)
 {
-    if (m_running) {
+    if (m_running.load(std::memory_order_acquire)) {
         LOG_ERROR(subprocess) << "Router::Impl::Init called while Router is already running";
         return false;
     }
@@ -505,25 +506,24 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
         }
 
         m_zmqRepSock_connectingTelemToFromBoundRouterPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::rep);
-        const std::string connect_connectingTelemToFromBoundRouterPath(
+        const std::string bind_connectingTelemToFromBoundRouterPath(
             std::string("tcp://*:") +
             boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingTelemToFromBoundRouterPortPath));
         try {
-            m_zmqRepSock_connectingTelemToFromBoundRouterPtr->bind(connect_connectingTelemToFromBoundRouterPath);
-            LOG_INFO(subprocess) << "Router connected and listening to events from Telem " << connect_connectingTelemToFromBoundRouterPath;
+            m_zmqRepSock_connectingTelemToFromBoundRouterPtr->bind(bind_connectingTelemToFromBoundRouterPath);
+            LOG_INFO(subprocess) << "Router bound and listening to events from Telem " << bind_connectingTelemToFromBoundRouterPath;
         }
         catch (const zmq::error_t& ex) {
-            LOG_ERROR(subprocess) << "error: router cannot connect to telem socket: " << ex.what();
+            LOG_ERROR(subprocess) << "error: router cannot bind to telem socket: " << ex.what();
             return false;
         }
         m_zmqPullSock_connectingStorageToBoundRouterPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
-        const std::string connect_connectingStorageFromBoundRouterPath(
-                std::string("tcp://*") +
-                hdtnDistributedConfig.m_zmqRouterAddress +
-                std::string(":") +
+        const std::string bind_connectingStorageFromBoundRouterPath(
+                std::string("tcp://*:") +
                 boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingStorageToBoundRouterPortPath));
         try {
-            m_zmqPullSock_connectingStorageToBoundRouterPtr->bind(connect_connectingStorageFromBoundRouterPath);
+            m_zmqPullSock_connectingStorageToBoundRouterPtr->bind(bind_connectingStorageFromBoundRouterPath);
+            LOG_INFO(subprocess) << "Router bound and listening to events from Storage " << bind_connectingStorageFromBoundRouterPath;
         }
         catch (const zmq::error_t& ex) {
             LOG_ERROR(subprocess) << "error: router cannot bind to storage socket : " << ex.what();
@@ -1058,7 +1058,7 @@ void Router::Impl::ReadZmqAcksThreadFunc() {
     m_workerThreadStartupMutex.unlock();
     m_workerThreadStartupConditionVariable.notify_one();
 
-    while (m_running) { //keep thread alive if running
+    while (m_running.load(std::memory_order_acquire)) { //keep thread alive if running
         int rc = 0;
         try {
             rc = zmq::poll(items, NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL);
@@ -1483,7 +1483,7 @@ void Router::Impl::SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNod
     routingMsg.nextHopNodeId = nextHopNodeId;
     routingMsg.finalDestNodeId = finalDestNodeId;
 
-    while (m_running && !m_zmqPushSock_connectingRouterToBoundEgressPtr->send(
+    while (m_running.load(std::memory_order_acquire) && !m_zmqPushSock_connectingRouterToBoundEgressPtr->send(
         zmq::const_buffer(&routingMsg, sizeof(hdtn::RouteUpdateHdr)),
         zmq::send_flags::dontwait))
     {

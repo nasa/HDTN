@@ -24,6 +24,7 @@
 
 #include "LtpBundleSink.h"
 #include "LtpUdpEngineManager.h"
+#include <atomic>
 
 class LtpOverUdpBundleSink : public LtpBundleSink {
 private:
@@ -34,7 +35,7 @@ public:
     LTP_LIB_EXPORT virtual ~LtpOverUdpBundleSink() override;
     LTP_LIB_EXPORT virtual bool ReadyToBeDeleted() override;
 protected:
-    LTP_LIB_EXPORT virtual void SyncTransportLayerSpecificTelem() override;
+    LTP_LIB_EXPORT virtual void GetTransportLayerSpecificTelem(LtpInductConnectionTelemetry_t& telem) const override;
     LTP_LIB_EXPORT virtual bool SetLtpEnginePtr() override;
 private:
     LTP_LIB_NO_EXPORT void RemoveCallback();
@@ -45,7 +46,7 @@ private:
 
     boost::mutex m_removeEngineMutex;
     boost::condition_variable m_removeEngineCv;
-    volatile bool m_removeEngineInProgress;
+    std::atomic<bool> m_removeEngineInProgress;
 };
 
 

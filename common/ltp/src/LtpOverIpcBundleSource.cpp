@@ -63,9 +63,10 @@ bool LtpOverIpcBundleSource::ReadyToForward() {
     return m_ltpIpcEnginePtr->ReadyToSend(); //in case the IPC reader thread is stopped
 }
 
-void LtpOverIpcBundleSource::SyncTransportLayerSpecificTelem() {
+void LtpOverIpcBundleSource::GetTransportLayerSpecificTelem(LtpOutductTelemetry_t& telem) const {
     if (m_ltpIpcEnginePtr) {
-        m_ltpOutductTelemetry.m_countUdpPacketsSent = m_ltpIpcEnginePtr->m_countAsyncSendCallbackCalls + m_ltpIpcEnginePtr->m_countBatchUdpPacketsSent;
-        m_ltpOutductTelemetry.m_countRxUdpCircularBufferOverruns = m_ltpIpcEnginePtr->m_countCircularBufferOverruns;
+        telem.m_countUdpPacketsSent = m_ltpIpcEnginePtr->m_countAsyncSendCallbackCalls.load(std::memory_order_acquire)
+            + m_ltpIpcEnginePtr->m_countBatchUdpPacketsSent.load(std::memory_order_acquire);
+        telem.m_countRxUdpCircularBufferOverruns = m_ltpIpcEnginePtr->m_countCircularBufferOverruns.load(std::memory_order_acquire);
     }
 }

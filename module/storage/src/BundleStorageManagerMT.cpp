@@ -102,14 +102,14 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
     boost::uint8_t * const circularBufferBlockDataPtr = &m_circularBufferBlockDataPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE * SEGMENT_SIZE];
     segment_id_t * const circularBufferSegmentIdsPtr = &m_circularBufferSegmentIdsPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE];
 
-    while (m_noFatalErrorsOccurred) { //keep thread alive if running or cb not empty, i.e. "while (m_running || (m_circularIndexBuffer.GetIndexForRead() != CIRCULAR_INDEX_BUFFER_EMPTY))"
+    while (m_noFatalErrorsOccurred.load(std::memory_order_acquire)) { //keep thread alive if running or cb not empty, i.e. "while (m_running || (m_circularIndexBuffer.GetIndexForRead() != CIRCULAR_INDEX_BUFFER_EMPTY))"
         unsigned int consumeIndex = cb.GetIndexForRead(); //store the volatile
         if (consumeIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //if empty
             //try again, but with the mutex
             boost::mutex::scoped_lock lock(localMutex);
             consumeIndex = cb.GetIndexForRead(); //store the volatile
             if (consumeIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //if empty again (lock mutex (above) before checking condition)
-                if (!m_running) { //m_running is mutex protected, if it stopped running, exit the thread (lock mutex (above) before checking condition)
+                if (!m_running.load(std::memory_order_acquire)) { //m_running is mutex protected, if it stopped running, exit the thread (lock mutex (above) before checking condition)
                     break; //thread stopping criteria (empty and not running)
                 }
                 cv.wait(lock); // call lock.unlock() and blocks the current thread
@@ -120,11 +120,11 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
 
         boost::uint8_t * const data = &circularBufferBlockDataPtr[consumeIndex * SEGMENT_SIZE]; //expected data for testing when reading
         const segment_id_t segmentId = circularBufferSegmentIdsPtr[consumeIndex];
-        volatile boost::uint8_t * const readFromStorageDestPointer = m_circularBufferReadFromStoragePointers[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex];
+        uint8_t * const readFromStorageDestPointer = m_circularBufferReadFromStoragePointers[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex].load(std::memory_order_acquire);
         const bool isWriteToDisk = (readFromStorageDestPointer == NULL);
-        volatile bool junk;
-        volatile bool * const isReadCompletedPointer = (isWriteToDisk) ?
-            &junk : m_circularBufferIsReadCompletedPointers[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex];
+        std::atomic<bool> junk;
+        std::atomic<bool>& isReadCompletedRef = (isWriteToDisk) ?
+            junk : *m_circularBufferIsReadCompletedPointers[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex].load(std::memory_order_acquire);
         if (segmentId == SEGMENT_ID_LAST) {
             LOG_ERROR(subprocess) << "error segmentId is last";
             m_noFatalErrorsOccurred = false; //a fatal error occurred
@@ -134,26 +134,33 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
 
         const boost::uint64_t offsetBytes = static_cast<boost::uint64_t>(segmentId / M_NUM_STORAGE_DISKS) * SEGMENT_SIZE;
 #ifdef _MSC_VER 
-        _fseeki64_nolock(fileHandle, offsetBytes, SEEK_SET);
+        //If successful, returns 0. Otherwise, it returns a nonzero value.
+        const bool seekSuccess = _fseeki64_nolock(fileHandle, offsetBytes, SEEK_SET) == 0;
 #elif defined __APPLE__ 
-        fseeko(fileHandle, offsetBytes, SEEK_SET);
+        const bool seekSuccess = fseeko(fileHandle, offsetBytes, SEEK_SET) == 0;
 #else
-        fseeko64(fileHandle, offsetBytes, SEEK_SET);
+        //Upon successful completion, the fseek, fseeko and fseeko64 subroutine return a value of 0. Otherwise, it returns a value of -1
+        const bool seekSuccess = fseeko64(fileHandle, offsetBytes, SEEK_SET) == 0;
 #endif
-
-        if (isWriteToDisk) {
-            if (fwrite(data, 1, SEGMENT_SIZE, fileHandle) != SEGMENT_SIZE) {
-                LOG_ERROR(subprocess) << "error writing";
+        
+        if (seekSuccess) {
+            if (isWriteToDisk) {
+                if (fwrite(data, 1, SEGMENT_SIZE, fileHandle) != SEGMENT_SIZE) {
+                    LOG_ERROR(subprocess) << "BundleStorageManagerMT: error writing";
+                }
+            }
+            else { //read from disk
+                if (fread((void*)readFromStorageDestPointer, 1, SEGMENT_SIZE, fileHandle) != SEGMENT_SIZE) {
+                    LOG_ERROR(subprocess) << "BundleStorageManagerMT: error reading";
+                }
             }
         }
-        else { //read from disk
-            if (fread((void*)readFromStorageDestPointer, 1, SEGMENT_SIZE, fileHandle) != SEGMENT_SIZE) {
-                LOG_ERROR(subprocess) << "error reading";
-            }
+        else {
+            LOG_ERROR(subprocess) << "BundleStorageManagerMT: error seeking";
         }
 
         m_mutexMainThread.lock();
-        *isReadCompletedPointer = true;
+        isReadCompletedRef.store(true, std::memory_order_release);
         cb.CommitRead();
         m_mutexMainThread.unlock();
         m_conditionVariableMainThread.notify_one();

@@ -28,17 +28,18 @@
 #include <stdint.h>
 #include "Logger.h"
 #include "router_lib_export.h"
+#include <atomic>
 
 class RouterRunner {
 public:
     ROUTER_LIB_EXPORT RouterRunner();
     ROUTER_LIB_EXPORT ~RouterRunner();
-    ROUTER_LIB_EXPORT bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
+    ROUTER_LIB_EXPORT bool Run(int argc, const char* const argv[], std::atomic<bool>& running, bool useSignalHandler);
 
 private:
     ROUTER_LIB_NO_EXPORT void MonitorExitKeypressThreadFunction();
 
-    volatile bool m_runningFromSigHandler;
+    std::atomic<bool> m_runningFromSigHandler;
 };
 
 

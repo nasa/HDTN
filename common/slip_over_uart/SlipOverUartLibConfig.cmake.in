@@ -1,0 +1,11 @@
+get_filename_component(SLIPOVERUARTLIB_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+include(CMakeFindDependencyMacro)
+
+find_dependency(HDTNUtil REQUIRED)
+find_dependency(LoggerLib REQUIRED)
+
+if(NOT TARGET HDTN::SlipOverUartLib)
+    include("${SLIPOVERUARTLIB_CMAKE_DIR}/SlipOverUartLibTargets.cmake")
+endif()
+
+set(SLIPOVERUARTLIB_LIBRARIES HDTN::SlipOverUartLib)

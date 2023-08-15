@@ -18,6 +18,7 @@
 #include "UdpDelaySim.h"
 #include <boost/lexical_cast.hpp>
 #include "Logger.h"
+#include <atomic>
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::unittest;
 
@@ -66,7 +67,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         uint64_t numOnFailedBundleVecSendCallbacks;
         uint64_t numOnSuccessfulBundleSendCallbacks;
 
-        volatile bool removeCallbackCalled;
+        std::atomic<bool> removeCallbackCalled;
 
         CANCEL_SEGMENT_REASON_CODES lastReasonCode_receptionSessionCancelledCallback;
         CANCEL_SEGMENT_REASON_CODES lastReasonCode_transmissionSessionCancelledCallback;

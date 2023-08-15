@@ -25,18 +25,18 @@
 
 #include <stdint.h>
 #include "BPing.h"
-
+#include <atomic>
 
 class BPingRunner {
 public:
     BPingRunner();
     ~BPingRunner();
-    bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
+    bool Run(int argc, const char* const argv[], std::atomic<bool>& running, bool useSignalHandler);
 
 private:
     void MonitorExitKeypressThreadFunction();
 
-    volatile bool m_runningFromSigHandler;
+    std::atomic<bool> m_runningFromSigHandler;
 };
 
 

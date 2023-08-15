@@ -28,12 +28,13 @@
 
 #include <stdint.h>
 #include "hdtn_one_process_lib_export.h"
+#include <atomic>
 
 class HdtnOneProcessRunner {
 public:
     HDTN_ONE_PROCESS_LIB_EXPORT HdtnOneProcessRunner();
     HDTN_ONE_PROCESS_LIB_EXPORT ~HdtnOneProcessRunner();
-    HDTN_ONE_PROCESS_LIB_EXPORT bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
+    HDTN_ONE_PROCESS_LIB_EXPORT bool Run(int argc, const char* const argv[], std::atomic<bool>& running, bool useSignalHandler);
 
     //ingress
     uint64_t m_ingressBundleCountStorage;
@@ -54,7 +55,7 @@ private:
 
     void MonitorExitKeypressThreadFunction();
 
-    volatile bool m_runningFromSigHandler;
+    std::atomic<bool> m_runningFromSigHandler;
 };
 
 

@@ -1,0 +1,68 @@
+{
+    "hdtnConfigName": "my hdtn config",
+    "userInterfaceOn": true,
+    "mySchemeName": "unused_scheme_name",
+    "myNodeId": 10,
+    "myBpEchoServiceId": 2047,
+    "myCustodialSsp": "unused_custodial_ssp",
+    "myCustodialServiceId": 0,
+    "myRouterServiceId": 100,
+    "isAcsAware": true,
+    "acsMaxFillsPerAcsPacket": 100,
+    "acsSendPeriodMilliseconds": 1000,
+    "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
+    "maxBundleSizeBytes": 10000000,
+    "maxIngressBundleWaitOnEgressMilliseconds": 2000,
+    "bufferRxToStorageOnLinkUpSaturation": false,
+    "maxLtpReceiveUdpPacketSizeBytes": 65536,
+    "neighborDepletedStorageDelaySeconds": 0,
+    "zmqBoundRouterPubSubPortPath": 10200,
+    "zmqBoundTelemApiPortPath": 10305,
+    "inductsConfig": {
+        "inductConfigName": "myconfig",
+        "inductVector": [
+            {
+                "name": "i1",
+                "convergenceLayer": "slip_over_uart",
+                "numRxCircularBufferElements": 5,
+                "comPort": "COM6",
+                "baudRate": 115200,
+                "uartRemoteNodeId": 1
+            }
+        ]
+    },
+    "outductsConfig": {
+        "outductConfigName": "myconfig",
+        "outductVector": [
+            {
+                "name": "tcpcl_egress",
+                "convergenceLayer": "tcpcl_v3",
+                "nextHopNodeId": 2,
+                "remoteHostname": "localhost",
+                "remotePort": 4558,
+                "maxNumberOfBundlesInPipeline": 50,
+                "maxSumOfBundleBytesInPipeline": 50000000,
+                "keepAliveIntervalSeconds": 17,
+                "tcpclV3MyMaxTxSegmentSizeBytes": 200000,
+                "tcpclAllowOpportunisticReceiveBundles": true
+            }
+        ]
+    },
+    "storageConfig": {
+        "storageImplementation": "asio_single_threaded",
+        "tryToRestoreFromDisk": false,
+        "autoDeleteFilesOnExit": true,
+        "totalStorageCapacityBytes": 8192000000,
+        "storageDeletionPolicy" : "never",
+        "storageDiskConfigVector": [
+            {
+                "name": "d1",
+                "storeFilePath": ".\/store1.bin"
+            },
+            {
+                "name": "d2",
+                "storeFilePath": ".\/store2.bin"
+            }
+        ]
+    }
+}

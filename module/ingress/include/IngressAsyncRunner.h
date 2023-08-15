@@ -27,12 +27,13 @@
 
 #include <stdint.h>
 #include "ingress_async_lib_export.h"
+#include <atomic>
 
 class IngressAsyncRunner {
 public:
     INGRESS_ASYNC_LIB_EXPORT IngressAsyncRunner();
     INGRESS_ASYNC_LIB_EXPORT ~IngressAsyncRunner();
-    INGRESS_ASYNC_LIB_EXPORT bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
+    INGRESS_ASYNC_LIB_EXPORT bool Run(int argc, const char* const argv[], std::atomic<bool>& running, bool useSignalHandler);
     uint64_t m_bundleCountStorage;
     uint64_t m_bundleCountEgress;
     uint64_t m_bundleCount;
@@ -41,7 +42,7 @@ public:
 private:
     INGRESS_ASYNC_LIB_NO_EXPORT void MonitorExitKeypressThreadFunction();
 
-    volatile bool m_runningFromSigHandler;
+    std::atomic<bool> m_runningFromSigHandler;
 };
 
 

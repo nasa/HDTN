@@ -94,10 +94,14 @@ void LtpUdpEngine::Reset() {
 
 
 void LtpUdpEngine::PostPacketFromManager_ThreadSafe(std::vector<uint8_t> & packetIn_thenSwappedForAnotherSameSizeVector, std::size_t size) {
-    ++m_countUdpPacketsReceived;
+    //per: https://en.cppreference.com/w/cpp/atomic/memory_order
+    // memory_order_relaxed is okay because this is an RMW,
+    // and RMWs (with any ordering) following a release form a release sequence
+    m_countUdpPacketsReceived.fetch_add(1, std::memory_order_relaxed);
+
     const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
     if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) {
-        ++m_countCircularBufferOverruns;
+        m_countCircularBufferOverruns.fetch_add(1, std::memory_order_relaxed);
         if (!m_printedCbTooSmallNotice) {
             m_printedCbTooSmallNotice = true;
             LOG_WARNING(subprocess) << "LtpUdpEngine::StartUdpReceive(): buffers full.. you might want to increase the circular buffer size! Next UDP packet will be dropped!";
@@ -116,7 +120,7 @@ void LtpUdpEngine::SendPacket(
     std::shared_ptr<LtpClientServiceDataToSend>&& underlyingCsDataToDeleteOnSentCallback)
 {
     //called by LtpEngine Thread
-    ++m_countAsyncSendCalls;
+    m_countAsyncSendCalls.fetch_add(1, std::memory_order_relaxed);
     m_udpSocketRef.async_send_to(constBufferVec, m_remoteEndpoint,
         boost::bind(&LtpUdpEngine::HandleUdpSend, this, std::move(underlyingDataToDeleteOnSentCallback), std::move(underlyingCsDataToDeleteOnSentCallback),
             boost::asio::placeholders::error,
@@ -126,7 +130,7 @@ void LtpUdpEngine::SendPacket(
 void LtpUdpEngine::SendPackets(std::shared_ptr<std::vector<UdpSendPacketInfo> >&& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend)
 {
     //called by LtpEngine Thread
-    ++m_countBatchSendCalls;
+    m_countBatchSendCalls.fetch_add(1, std::memory_order_relaxed);
     m_udpBatchSenderConnected.QueueSendPacketsOperation_ThreadSafe(std::move(udpSendPacketInfoVecSharedPtr), numPacketsToSend); //data gets stolen
     //LtpUdpEngine::OnSentPacketsCallback will be called next
 }
@@ -144,7 +148,7 @@ void LtpUdpEngine::HandleUdpSend(std::shared_ptr<std::vector<std::vector<uint8_t
     const boost::system::error_code& error, std::size_t bytes_transferred)
 {
     //Called by m_ioServiceUdpRef thread
-    ++m_countAsyncSendCallbackCalls;
+    m_countAsyncSendCallbackCalls.fetch_add(1, std::memory_order_relaxed);
     if (error) {
         if (!m_printedUdpSendFailedNotice) {
             m_printedUdpSendFailedNotice = true;
@@ -176,8 +180,8 @@ void LtpUdpEngine::HandleUdpSend(std::shared_ptr<std::vector<std::vector<uint8_t
 
 void LtpUdpEngine::OnSentPacketsCallback(bool success, std::shared_ptr<std::vector<UdpSendPacketInfo> >& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsSent) {
     //Called by UdpBatchSender thread
-    ++m_countBatchSendCallbackCalls;
-    m_countBatchUdpPacketsSent += numPacketsSent;
+    m_countBatchSendCallbackCalls.fetch_add(1, std::memory_order_relaxed);
+    m_countBatchUdpPacketsSent.fetch_add(numPacketsSent, std::memory_order_relaxed);
     if (!success) {
         if (!m_printedUdpSendFailedNotice) {
             m_printedUdpSendFailedNotice = true;
@@ -237,5 +241,5 @@ void LtpUdpEngine::SetEndpoint(const std::string& remoteHostname, const uint16_t
 }
 
 bool LtpUdpEngine::ReadyToSend() const noexcept {
-    return !m_printedUdpSendFailedNotice;
+    return !m_printedUdpSendFailedNotice.load(std::memory_order_acquire);
 }
