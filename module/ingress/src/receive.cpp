@@ -50,6 +50,8 @@
 #include "BpSecPolicyManager.h"
 #endif
 
+#include "RedundantLeider.h"
+
 namespace hdtn {
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::ingress;
@@ -84,6 +86,7 @@ public:
     uint64_t m_bundleByteCountStorage; //protected by m_ingressToStorageZmqSocketMutex
     uint64_t m_bundleCountEgress; //protected by m_ingressToEgressZmqSocketMutex
     uint64_t m_bundleByteCountEgress; //protected by m_ingressToEgressZmqSocketMutex
+    std::unique_ptr<Leider> m_pleider;
 
 private:
     struct BundlePipelineAckingSet : private boost::noncopyable {
@@ -118,6 +121,7 @@ private:
         uint64_t m_maxBundlesInPipeline;
         uint64_t m_maxBundleSizeBytesInPipeline;
         uint64_t m_nextHopNodeId;
+        //std::unique_ptr<Leider> m_pleider;
     public:
         bool m_linkIsUp;
     };
@@ -319,7 +323,8 @@ Ingress::Impl::Impl() :
     m_aoctNeedsProcessing(false),
     m_workerThreadStartupInProgress(false),
     m_telemThreadStartupInProgress(false),
-    m_inductsFullyLoaded(false) {}
+    m_inductsFullyLoaded(false),
+    m_pleider(boost::make_unique<RedundantLeider>()) {}
 
 Ingress::Ingress() :
     m_pimpl(boost::make_unique<Ingress::Impl>()),
@@ -588,6 +593,8 @@ bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::
             LOG_INFO(subprocess) << "telem thread started";
         }
     }
+
+    //m_pleider = new RedundantLeider();
     
     return true;
 }
@@ -1070,7 +1077,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             return false;
         }
         Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
-        finalDestEid = primary.m_destinationEid;
+        finalDestEid = primary.m_destinationEid; // TODO:leider
         if (needsProcessing) {
             static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
             requestsCustody = ((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody);
@@ -1083,7 +1090,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             const bool isEcho = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO));
             if (isEcho) {
                 primary.m_destinationEid = primary.m_sourceNodeId;
-                finalDestEid = primary.m_destinationEid;
+                finalDestEid = primary.m_destinationEid; // TODO:leider
                 LOG_INFO(subprocess) << "Sending Ping for destination " << primary.m_destinationEid;
                 primary.m_sourceNodeId = M_HDTN_EID_ECHO;
                 bv.m_primaryBlockView.SetManuallyModified();
@@ -1095,7 +1102,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                 zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupPaddedVecUint8, rxBufRawPointer)));
                 bundleCurrentSize = zmqMessageToSendUniquePtr->size();
             }
-            else if (finalDestEid == M_HDTN_EID_PING) {
+            else if (finalDestEid == M_HDTN_EID_PING) { // TODO:leider
                 std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
                 bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
                 if (blocks.size() != 1) {
@@ -1126,10 +1133,10 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             return false;
         }
         Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
-        finalDestEid = primary.m_destinationEid;
+        finalDestEid = primary.m_destinationEid; // TODO:leider
         requestsCustody = false; //custody unsupported at this time
         if (needsProcessing) {
-            if (finalDestEid == M_HDTN_EID_PING) {
+            if (finalDestEid == M_HDTN_EID_PING) { // TODO:leider
                 //get payload block
                 std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
                 bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
@@ -1143,10 +1150,10 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             }
             //admin records pertaining to this hdtn node must go to storage.. they signal a deletion from disk
             static constexpr BPV7_BUNDLEFLAG requiredPrimaryFlagsForAdminRecord = BPV7_BUNDLEFLAG::ADMINRECORD;
-            isAdminRecordForHdtnStorage = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == M_HDTN_EID_CUSTODY));
-            isBundleForHdtnRouter = (finalDestEid == M_HDTN_EID_TO_ROUTER_BUNDLES);
+            isAdminRecordForHdtnStorage = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == M_HDTN_EID_CUSTODY)); // TODO:leider
+            isBundleForHdtnRouter = (finalDestEid == M_HDTN_EID_TO_ROUTER_BUNDLES); // TODO:leider
             static constexpr BPV7_BUNDLEFLAG requiredPrimaryFlagsForEcho = BPV7_BUNDLEFLAG::NO_FLAGS_SET;
-            const bool isEcho = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO));
+            const bool isEcho = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO)); // TODO:leider
             if (!isAdminRecordForHdtnStorage) {
 #ifdef BPSEC_SUPPORT_ENABLED
                 //process acceptor and verifier roles
@@ -1236,7 +1243,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
 #endif // BPSEC_SUPPORT_ENABLED
                 if (isEcho) {
                     primary.m_destinationEid = primary.m_sourceNodeId;
-                    finalDestEid = primary.m_sourceNodeId;
+                    finalDestEid = primary.m_sourceNodeId; // TODO:leider
                     LOG_ERROR(subprocess) << "Sending Ping for destination " << finalDestEid;
                     primary.m_sourceNodeId = M_HDTN_EID_ECHO;
                     bv.m_primaryBlockView.SetManuallyModified();
@@ -1358,7 +1365,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
     //Otherwise if custody flag is set but it didn't come from storage (came either from egress or ingress), send to storage first, and it will eventually come
     //back to this point in the code once storage processes custody.
     m_availableDestOpportunisticNodeIdToTcpclInductMapMutex.lock();
-    std::map<uint64_t, Induct*>::iterator tcpclInductIterator = m_availableDestOpportunisticNodeIdToTcpclInductMap.find(finalDestEid.nodeId);
+    std::map<uint64_t, Induct*>::iterator tcpclInductIterator = m_availableDestOpportunisticNodeIdToTcpclInductMap.find(finalDestEid.nodeId); // TODO:leider
     const bool isOpportunisticLinkUp = (tcpclInductIterator != m_availableDestOpportunisticNodeIdToTcpclInductMap.end());
     m_availableDestOpportunisticNodeIdToTcpclInductMapMutex.unlock();
     const bool bundleCameFromStorageModule = (!needsProcessing);
@@ -1369,7 +1376,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
         }
         else {
             LOG_ERROR(subprocess) << "Ingress::Process: tcpcl opportunistic forward timed out after 3 seconds for "
-                << Uri::GetIpnUriString(finalDestEid.nodeId, finalDestEid.serviceId) << " ..trying the cut-through path or storage instead";
+                << Uri::GetIpnUriString(finalDestEid.nodeId, finalDestEid.serviceId) << " ..trying the cut-through path or storage instead"; // TODO:leider
         }
     }
 
@@ -1382,6 +1389,25 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
         //and the first initial outduct capabilities telemetry is sent to ingress.
         bool useStorage = true; //will be set false if cut-through succeeds below
         const uint64_t fromIngressUniqueId = m_nextBundleUniqueIdAtomic.fetch_add(1, boost::memory_order_relaxed);
+
+        // Query the Leider for logical-destination
+        BundleViewV6 bv6;
+        BundleViewV7 bv7;
+        if (isBpVersion6) {
+            if (!bv6.LoadBundle(bundleDataBegin, bundleCurrentSize)) {
+                LOG_ERROR(subprocess) << "malformed bundle";
+                return false;
+            }
+            finalDestEid = m_pleider->query(bv6);
+        }
+        else if (isBpVersion7) {
+            if (!bv7.LoadBundle(bundleDataBegin, bundleCurrentSize)) {
+                LOG_ERROR(subprocess) << "malformed bundle";
+                return false;
+            }
+            finalDestEid = m_pleider->query(bv7);
+        }
+        
         { //begin scope for cut-through shared mutex lock
             uint64_t outductIndex = UINT64_MAX;
 
