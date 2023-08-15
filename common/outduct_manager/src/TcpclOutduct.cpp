@@ -28,7 +28,7 @@ TcpclOutduct::TcpclOutduct(const outduct_element_config_t & outductConfig, const
 {}
 TcpclOutduct::~TcpclOutduct() {}
 
-std::size_t TcpclOutduct::GetTotalDataSegmentsUnacked() {
+std::size_t TcpclOutduct::GetTotalBundlesUnacked() const noexcept {
     return m_tcpclBundleSource.BaseClass_GetTotalBundlesUnacked();
 }
 bool TcpclOutduct::Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
@@ -68,8 +68,8 @@ void TcpclOutduct::Stop() {
 }
 void TcpclOutduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
     finalStats.m_convergenceLayer = m_outductConfig.convergenceLayer;
-    finalStats.m_totalDataSegmentsOrPacketsAcked = m_tcpclBundleSource.BaseClass_GetTotalBundlesAcked();
-    finalStats.m_totalDataSegmentsOrPacketsSent = m_tcpclBundleSource.BaseClass_GetTotalBundlesSent();
+    finalStats.m_totalBundlesAcked = m_tcpclBundleSource.BaseClass_GetTotalBundlesAcked();
+    finalStats.m_totalBundlesSent = m_tcpclBundleSource.BaseClass_GetTotalBundlesSent();
 }
 void TcpclOutduct::PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& outductTelem) {
     std::unique_ptr<TcpclV3OutductTelemetry_t> t = boost::make_unique<TcpclV3OutductTelemetry_t>();

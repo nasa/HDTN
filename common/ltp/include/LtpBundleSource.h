@@ -49,12 +49,12 @@ public:
     LTP_LIB_EXPORT bool Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData);
     LTP_LIB_EXPORT bool Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData);
     LTP_LIB_EXPORT bool Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_t>&& userData);
-    LTP_LIB_EXPORT std::size_t GetTotalDataSegmentsAcked();
-    LTP_LIB_EXPORT std::size_t GetTotalDataSegmentsSent();
-    LTP_LIB_EXPORT std::size_t GetTotalDataSegmentsUnacked();
-    LTP_LIB_EXPORT std::size_t GetTotalBundleBytesAcked();
-    LTP_LIB_EXPORT std::size_t GetTotalBundleBytesSent();
-    LTP_LIB_EXPORT std::size_t GetTotalBundleBytesUnacked();
+    LTP_LIB_EXPORT std::size_t GetTotalBundlesAcked() const noexcept;
+    LTP_LIB_EXPORT std::size_t GetTotalBundlesSent() const noexcept;
+    LTP_LIB_EXPORT std::size_t GetTotalBundlesUnacked() const noexcept;
+    LTP_LIB_EXPORT std::size_t GetTotalBundleBytesAcked() const noexcept;
+    LTP_LIB_EXPORT std::size_t GetTotalBundleBytesSent() const noexcept;
+    LTP_LIB_EXPORT std::size_t GetTotalBundleBytesUnacked() const noexcept;
     LTP_LIB_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
     LTP_LIB_EXPORT void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
     LTP_LIB_EXPORT void SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback);

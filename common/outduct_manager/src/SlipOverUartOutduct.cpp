@@ -31,8 +31,8 @@ SlipOverUartOutduct::SlipOverUartOutduct(const outduct_element_config_t & outduc
 {}
 SlipOverUartOutduct::~SlipOverUartOutduct() {}
 
-std::size_t SlipOverUartOutduct::GetTotalDataSegmentsUnacked() {
-    return m_uartInterface.GetTotalDataSegmentsUnacked();
+std::size_t SlipOverUartOutduct::GetTotalBundlesUnacked() const noexcept {
+    return m_uartInterface.GetTotalBundlesUnacked();
 }
 bool SlipOverUartOutduct::Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
     return m_uartInterface.Forward(bundleData, size, std::move(userData));
@@ -71,8 +71,8 @@ void SlipOverUartOutduct::Stop() {
 }
 void SlipOverUartOutduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
     finalStats.m_convergenceLayer = m_outductConfig.convergenceLayer;
-    finalStats.m_totalDataSegmentsOrPacketsAcked = m_uartInterface.GetTotalDataSegmentsAcked();
-    finalStats.m_totalDataSegmentsOrPacketsSent = m_uartInterface.GetTotalDataSegmentsSent();
+    finalStats.m_totalBundlesAcked = m_uartInterface.GetTotalBundlesAcked();
+    finalStats.m_totalBundlesSent = m_uartInterface.GetTotalBundlesSent();
 }
 void SlipOverUartOutduct::PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& outductTelem) {
     m_uartInterface.SyncTelemetry();

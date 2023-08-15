@@ -47,12 +47,12 @@ public:
     UDP_LIB_EXPORT bool Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData);
     UDP_LIB_EXPORT bool Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData);
     UDP_LIB_EXPORT bool Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_t>&& userData);
-    UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsAcked() const;
-    UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsSent() const;
-    UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsUnacked() const;
-    UDP_LIB_EXPORT std::size_t GetTotalBundleBytesAcked() const;
-    UDP_LIB_EXPORT std::size_t GetTotalBundleBytesSent() const;
-    UDP_LIB_EXPORT std::size_t GetTotalBundleBytesUnacked() const;
+    UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsAcked() const noexcept;
+    UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsSent() const noexcept;
+    UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsUnacked() const noexcept;
+    UDP_LIB_EXPORT std::size_t GetTotalBundleBytesAcked() const noexcept;
+    UDP_LIB_EXPORT std::size_t GetTotalBundleBytesSent() const noexcept;
+    UDP_LIB_EXPORT std::size_t GetTotalBundleBytesUnacked() const noexcept;
     UDP_LIB_EXPORT void UpdateRate(uint64_t rateBitsPerSec);
     UDP_LIB_EXPORT void Connect(const std::string & hostname, const std::string & port);
     UDP_LIB_EXPORT bool ReadyToForward() const;

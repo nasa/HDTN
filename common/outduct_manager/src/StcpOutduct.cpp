@@ -24,8 +24,8 @@ StcpOutduct::StcpOutduct(const outduct_element_config_t & outductConfig, const u
 {}
 StcpOutduct::~StcpOutduct() {}
 
-std::size_t StcpOutduct::GetTotalDataSegmentsUnacked() {
-    return m_stcpBundleSource.GetTotalDataSegmentsUnacked();
+std::size_t StcpOutduct::GetTotalBundlesUnacked() const noexcept {
+    return m_stcpBundleSource.GetTotalBundlesUnacked();
 }
 bool StcpOutduct::Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
     return m_stcpBundleSource.Forward(bundleData, size, std::move(userData));
@@ -64,8 +64,8 @@ void StcpOutduct::Stop() {
 }
 void StcpOutduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
     finalStats.m_convergenceLayer = m_outductConfig.convergenceLayer;
-    finalStats.m_totalDataSegmentsOrPacketsAcked = m_stcpBundleSource.GetTotalDataSegmentsAcked();
-    finalStats.m_totalDataSegmentsOrPacketsSent = m_stcpBundleSource.GetTotalDataSegmentsSent();
+    finalStats.m_totalBundlesAcked = m_stcpBundleSource.GetTotalBundlesAcked();
+    finalStats.m_totalBundlesSent = m_stcpBundleSource.GetTotalBundlesSent();
 }
 void StcpOutduct::PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& outductTelem) {
     std::unique_ptr<StcpOutductTelemetry_t> t = boost::make_unique<StcpOutductTelemetry_t>();

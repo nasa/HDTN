@@ -63,8 +63,8 @@ bool LtpOutduct::Init() {
     return SetLtpBundleSourcePtr(); //virtual function call
 }
 
-std::size_t LtpOutduct::GetTotalDataSegmentsUnacked() {
-    return m_ltpBundleSourcePtr->GetTotalDataSegmentsUnacked();
+std::size_t LtpOutduct::GetTotalBundlesUnacked() const noexcept {
+    return m_ltpBundleSourcePtr->GetTotalBundlesUnacked();
 }
 bool LtpOutduct::Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
     return m_ltpBundleSourcePtr->Forward(bundleData, size, std::move(userData));
@@ -109,8 +109,8 @@ void LtpOutduct::Stop() {
 }
 void LtpOutduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
     finalStats.m_convergenceLayer = m_outductConfig.convergenceLayer;
-    finalStats.m_totalDataSegmentsOrPacketsAcked = m_ltpBundleSourcePtr->GetTotalDataSegmentsAcked();
-    finalStats.m_totalDataSegmentsOrPacketsSent = m_ltpBundleSourcePtr->GetTotalDataSegmentsSent();
+    finalStats.m_totalBundlesAcked = m_ltpBundleSourcePtr->GetTotalBundlesAcked();
+    finalStats.m_totalBundlesSent = m_ltpBundleSourcePtr->GetTotalBundlesSent();
 }
 void LtpOutduct::PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& outductTelem) {
     std::unique_ptr<LtpOutductTelemetry_t> t = boost::make_unique<LtpOutductTelemetry_t>();

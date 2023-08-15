@@ -148,7 +148,7 @@ void UartInterface::Stop() {
             m_useLocalConditionVariableAckReceived = true;
             std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
             for (unsigned int attempt = 0; attempt < 20; ++attempt) {
-                const std::size_t numUnacked = GetTotalDataSegmentsUnacked();
+                const std::size_t numUnacked = GetTotalBundlesUnacked();
                 if (numUnacked) {
                     LOG_INFO(subprocess) << "UartInterface destructor waiting on " << numUnacked << " unacked bundles";
 
@@ -556,28 +556,28 @@ void UartInterface::SyncTelemetry() {
     m_inductTelemetry.m_averageReceivedBytesPerChunk = m_outductTelemetry.m_averageReceivedBytesPerChunk;
 }
 
-std::size_t UartInterface::GetTotalDataSegmentsAcked() {
-    return m_totalBundlesAcked;
+std::size_t UartInterface::GetTotalBundlesAcked() const noexcept {
+    return m_totalBundlesAcked.load(std::memory_order_acquire);
 }
 
-std::size_t UartInterface::GetTotalDataSegmentsSent() {
-    return m_totalBundlesSent;
+std::size_t UartInterface::GetTotalBundlesSent() const noexcept {
+    return m_totalBundlesSent.load(std::memory_order_acquire);
 }
 
-std::size_t UartInterface::GetTotalDataSegmentsUnacked() {
-    return m_totalBundlesSent - m_totalBundlesAcked;//GetTotalBundlesQueued();
+std::size_t UartInterface::GetTotalBundlesUnacked() const noexcept {
+    return m_totalBundlesSent.load(std::memory_order_acquire) - m_totalBundlesAcked.load(std::memory_order_acquire);//GetTotalBundlesQueued();
 }
 
-std::size_t UartInterface::GetTotalBundleBytesAcked() {
-    return m_totalBundleBytesAcked;
+std::size_t UartInterface::GetTotalBundleBytesAcked() const noexcept {
+    return m_totalBundleBytesAcked.load(std::memory_order_acquire);
 }
 
-std::size_t UartInterface::GetTotalBundleBytesSent() {
-    return m_totalBundleBytesSent;
+std::size_t UartInterface::GetTotalBundleBytesSent() const noexcept {
+    return m_totalBundleBytesSent.load(std::memory_order_acquire);
 }
 
-std::size_t UartInterface::GetTotalBundleBytesUnacked() {
-    return m_totalBundleBytesSent - m_totalBundleBytesAcked;//GetTotalBundleBytesQueued();
+std::size_t UartInterface::GetTotalBundleBytesUnacked() const noexcept {
+    return m_totalBundleBytesSent.load(std::memory_order_acquire) - m_totalBundleBytesAcked.load(std::memory_order_acquire);//GetTotalBundleBytesQueued();
 }
 
 boost::asio::io_service& UartInterface::GetIoServiceRef() {

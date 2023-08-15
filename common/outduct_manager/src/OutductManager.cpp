@@ -176,7 +176,7 @@ void OutductManager::StopAllOutducts() {
 
 bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
     if (Outduct * const outductPtr = GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
-        if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxNumberOfBundlesInPipeline()) {
+        if (outductPtr->GetTotalBundlesUnacked() > outductPtr->GetOutductMaxNumberOfBundlesInPipeline()) {
             LOG_ERROR(subprocess) << "bundle pipeline limit exceeded";
             return false;
         }
@@ -191,7 +191,7 @@ bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, const uint8_t* bun
 }
 bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData) {
     if (Outduct * const outductPtr = GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
-        if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxNumberOfBundlesInPipeline()) {
+        if (outductPtr->GetTotalBundlesUnacked() > outductPtr->GetOutductMaxNumberOfBundlesInPipeline()) {
             LOG_ERROR(subprocess) << "bundle pipeline limit exceeded";
             return false;
         }
@@ -206,7 +206,7 @@ bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, zmq::message_t & m
 }
 bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, padded_vector_uint8_t& movableDataVec, std::vector<uint8_t>&& userData) {
     if (Outduct * const outductPtr = GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
-        if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxNumberOfBundlesInPipeline()) {
+        if (outductPtr->GetTotalBundlesUnacked() > outductPtr->GetOutductMaxNumberOfBundlesInPipeline()) {
             LOG_ERROR(subprocess) << "bundle pipeline limit exceeded";
             return false;
         }

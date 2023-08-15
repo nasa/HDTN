@@ -69,7 +69,7 @@ void StcpBundleSource::Stop() {
             m_useLocalConditionVariableAckReceived = true;
             std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
             for (unsigned int attempt = 0; attempt < 20; ++attempt) {
-                const std::size_t numUnacked = GetTotalDataSegmentsUnacked();
+                const std::size_t numUnacked = GetTotalBundlesUnacked();
                 if (numUnacked) {
                     LOG_INFO(subprocess) << "StcpBundleSource destructor waiting on " << numUnacked << " unacked bundles";
 
@@ -251,27 +251,27 @@ bool StcpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size
 }
 
 
-std::size_t StcpBundleSource::GetTotalDataSegmentsAcked() {
+std::size_t StcpBundleSource::GetTotalBundlesAcked() const noexcept {
     return m_totalBundlesAcked.load(std::memory_order_acquire);
 }
 
-std::size_t StcpBundleSource::GetTotalDataSegmentsSent() {
+std::size_t StcpBundleSource::GetTotalBundlesSent() const noexcept {
     return m_totalBundlesSent.load(std::memory_order_acquire);
 }
 
-std::size_t StcpBundleSource::GetTotalDataSegmentsUnacked() {
+std::size_t StcpBundleSource::GetTotalBundlesUnacked() const noexcept {
     return m_totalBundlesSent.load(std::memory_order_acquire) - m_totalBundlesAcked.load(std::memory_order_acquire);
 }
 
-std::size_t StcpBundleSource::GetTotalBundleBytesAcked() {
+std::size_t StcpBundleSource::GetTotalBundleBytesAcked() const noexcept {
     return m_totalBundleBytesAcked.load(std::memory_order_acquire);
 }
 
-std::size_t StcpBundleSource::GetTotalBundleBytesSent() {
+std::size_t StcpBundleSource::GetTotalBundleBytesSent() const noexcept {
     return m_totalBundleBytesSent.load(std::memory_order_acquire);
 }
 
-std::size_t StcpBundleSource::GetTotalBundleBytesUnacked() {
+std::size_t StcpBundleSource::GetTotalBundleBytesUnacked() const noexcept {
     return m_totalBundleBytesSent.load(std::memory_order_acquire) - m_totalBundleBytesAcked.load(std::memory_order_acquire);
 }
 

@@ -47,12 +47,12 @@ public:
     STCP_LIB_EXPORT bool Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData);
     STCP_LIB_EXPORT bool Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData);
     STCP_LIB_EXPORT bool Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_t>&& userData);
-    STCP_LIB_EXPORT std::size_t GetTotalDataSegmentsAcked();
-    STCP_LIB_EXPORT std::size_t GetTotalDataSegmentsSent();
-    STCP_LIB_EXPORT std::size_t GetTotalDataSegmentsUnacked();
-    STCP_LIB_EXPORT std::size_t GetTotalBundleBytesAcked();
-    STCP_LIB_EXPORT std::size_t GetTotalBundleBytesSent();
-    STCP_LIB_EXPORT std::size_t GetTotalBundleBytesUnacked();
+    STCP_LIB_EXPORT std::size_t GetTotalBundlesAcked() const noexcept;
+    STCP_LIB_EXPORT std::size_t GetTotalBundlesSent() const noexcept;
+    STCP_LIB_EXPORT std::size_t GetTotalBundlesUnacked() const noexcept;
+    STCP_LIB_EXPORT std::size_t GetTotalBundleBytesAcked() const noexcept;
+    STCP_LIB_EXPORT std::size_t GetTotalBundleBytesSent() const noexcept;
+    STCP_LIB_EXPORT std::size_t GetTotalBundleBytesUnacked() const noexcept;
     STCP_LIB_EXPORT void Connect(const std::string & hostname, const std::string & port);
     STCP_LIB_EXPORT bool ReadyToForward();
     STCP_LIB_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);

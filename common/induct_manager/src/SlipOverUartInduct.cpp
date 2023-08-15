@@ -70,7 +70,7 @@ void SlipOverUartInduct::NotifyBundleReadyToSend_FromIoServiceThread(const uint6
         return;
     }
     std::pair<std::unique_ptr<zmq::message_t>, padded_vector_uint8_t> bundleDataPair;
-    const std::size_t totalBundlesUnacked = m_uartInterface.GetTotalDataSegmentsUnacked();
+    const std::size_t totalBundlesUnacked = m_uartInterface.GetTotalBundlesUnacked();
     if ((totalBundlesUnacked < maxTxBundlesInFlight) && BundleSinkTryGetData_FromIoServiceThread(*m_opportunisticBundleQueuePtr, bundleDataPair)) {
         if (bundleDataPair.first) {
             m_uartInterface.Forward(*bundleDataPair.first, std::vector<uint8_t>());

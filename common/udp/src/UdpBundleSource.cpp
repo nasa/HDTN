@@ -197,27 +197,27 @@ bool UdpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size,
 }
 
 
-std::size_t UdpBundleSource::GetTotalUdpPacketsAcked() const {
+std::size_t UdpBundleSource::GetTotalUdpPacketsAcked() const noexcept {
     return m_totalPacketsSent.load(std::memory_order_acquire);
 }
 
-std::size_t UdpBundleSource::GetTotalUdpPacketsSent() const {
+std::size_t UdpBundleSource::GetTotalUdpPacketsSent() const noexcept {
     return m_totalPacketsDequeuedForSend.load(std::memory_order_acquire);
 }
 
-std::size_t UdpBundleSource::GetTotalUdpPacketsUnacked() const {
+std::size_t UdpBundleSource::GetTotalUdpPacketsUnacked() const noexcept {
     return m_totalPacketsDequeuedForSend.load(std::memory_order_acquire) - m_totalPacketsSent.load(std::memory_order_acquire);
 }
 
-std::size_t UdpBundleSource::GetTotalBundleBytesAcked() const {
+std::size_t UdpBundleSource::GetTotalBundleBytesAcked() const noexcept {
     return m_totalPacketBytesSent.load(std::memory_order_acquire);
 }
 
-std::size_t UdpBundleSource::GetTotalBundleBytesSent() const {
+std::size_t UdpBundleSource::GetTotalBundleBytesSent() const noexcept {
     return m_totalPacketBytesDequeuedForSend.load(std::memory_order_acquire);
 }
 
-std::size_t UdpBundleSource::GetTotalBundleBytesUnacked() const {
+std::size_t UdpBundleSource::GetTotalBundleBytesUnacked() const noexcept {
     return m_totalPacketBytesDequeuedForSend.load(std::memory_order_acquire) - m_totalPacketBytesSent.load(std::memory_order_acquire);
 }
 

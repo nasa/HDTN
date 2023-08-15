@@ -69,7 +69,7 @@ void LtpBundleSource::Stop() {
             m_useLocalConditionVariableAckReceived = true;
             std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
             for (unsigned int attempt = 0; attempt < 10; ++attempt) {
-                const std::size_t numUnacked = GetTotalDataSegmentsUnacked();
+                const std::size_t numUnacked = GetTotalBundlesUnacked();
                 if (numUnacked) {
                     LOG_WARNING(subprocess) << "LtpBundleSource destructor waiting on " << numUnacked << " unacked bundles";
 
@@ -85,7 +85,7 @@ void LtpBundleSource::Stop() {
             }
             //print stats once
             LOG_INFO(subprocess) << "LTP Outduct / Bundle Source:"
-                << "\n totalBundlesSent " << GetTotalDataSegmentsSent()
+                << "\n totalBundlesSent " << GetTotalBundlesSent()
                 << "\n totalBundlesAcked " << m_totalBundlesAcked.load(std::memory_order_acquire)
                 << "\n totalBundlesFailedToSend " << m_totalBundlesFailedToSend.load(std::memory_order_acquire)
                 << "\n totalBundleBytesSent " << GetTotalBundleBytesSent()
@@ -108,23 +108,23 @@ void LtpBundleSource::Stop() {
     }
 }
 
-std::size_t LtpBundleSource::GetTotalDataSegmentsAcked() {
+std::size_t LtpBundleSource::GetTotalBundlesAcked() const noexcept {
     return m_totalBundlesAcked.load(std::memory_order_acquire) + m_totalBundlesFailedToSend.load(std::memory_order_acquire);
 }
-std::size_t LtpBundleSource::GetTotalDataSegmentsSent() {
+std::size_t LtpBundleSource::GetTotalBundlesSent() const noexcept {
     return m_totalBundlesSent.load(std::memory_order_acquire);
 }
-std::size_t LtpBundleSource::GetTotalDataSegmentsUnacked() {
-    return GetTotalDataSegmentsSent() - GetTotalDataSegmentsAcked();
+std::size_t LtpBundleSource::GetTotalBundlesUnacked() const noexcept {
+    return GetTotalBundlesSent() - GetTotalBundlesAcked();
 }
-std::size_t LtpBundleSource::GetTotalBundleBytesAcked() {
+std::size_t LtpBundleSource::GetTotalBundleBytesAcked() const noexcept {
     return m_ltpEnginePtr->m_totalRedDataBytesSuccessfullySent.load(std::memory_order_acquire)
         + m_ltpEnginePtr->m_totalRedDataBytesFailedToSend.load(std::memory_order_acquire);
 }
-std::size_t LtpBundleSource::GetTotalBundleBytesSent() {
+std::size_t LtpBundleSource::GetTotalBundleBytesSent() const noexcept {
     return m_totalBundleBytesSent.load(std::memory_order_acquire);
 }
-std::size_t LtpBundleSource::GetTotalBundleBytesUnacked() {
+std::size_t LtpBundleSource::GetTotalBundleBytesUnacked() const noexcept {
     return GetTotalBundleBytesSent() - GetTotalBundleBytesAcked();
 }
 

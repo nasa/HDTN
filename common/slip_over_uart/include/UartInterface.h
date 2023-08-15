@@ -67,12 +67,12 @@ public:
     SLIP_OVER_UART_LIB_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
     SLIP_OVER_UART_LIB_EXPORT void SyncTelemetry();
 
-    SLIP_OVER_UART_LIB_EXPORT std::size_t GetTotalDataSegmentsAcked();
-    SLIP_OVER_UART_LIB_EXPORT std::size_t GetTotalDataSegmentsSent();
-    SLIP_OVER_UART_LIB_EXPORT std::size_t GetTotalDataSegmentsUnacked();
-    SLIP_OVER_UART_LIB_EXPORT std::size_t GetTotalBundleBytesAcked();
-    SLIP_OVER_UART_LIB_EXPORT std::size_t GetTotalBundleBytesSent();
-    SLIP_OVER_UART_LIB_EXPORT std::size_t GetTotalBundleBytesUnacked();
+    SLIP_OVER_UART_LIB_EXPORT std::size_t GetTotalBundlesAcked() const noexcept;
+    SLIP_OVER_UART_LIB_EXPORT std::size_t GetTotalBundlesSent() const noexcept;
+    SLIP_OVER_UART_LIB_EXPORT std::size_t GetTotalBundlesUnacked() const noexcept;
+    SLIP_OVER_UART_LIB_EXPORT std::size_t GetTotalBundleBytesAcked() const noexcept;
+    SLIP_OVER_UART_LIB_EXPORT std::size_t GetTotalBundleBytesSent() const noexcept;
+    SLIP_OVER_UART_LIB_EXPORT std::size_t GetTotalBundleBytesUnacked() const noexcept;
 private:
     
     SLIP_OVER_UART_LIB_NO_EXPORT void TryStartSerialReceive();
