@@ -149,6 +149,7 @@ private:
     zmq::context_t* m_hdtnOneProcessZmqInprocContextPtr;
     std::unique_ptr<boost::thread> m_threadPtr;
     std::atomic<bool> m_running;
+    bool m_isOutOfStorageSpace;
 
     //variables initialized and used only by ThreadFunc()
     std::unique_ptr<BundleStorageManagerBase> m_bsmPtr;
@@ -175,6 +176,7 @@ private:
 
 ZmqStorageInterface::Impl::Impl() :
     m_running(false),
+    m_isOutOfStorageSpace(false),
     m_workerThreadStartupInProgress(false),
     m_hdtnOneProcessZmqInprocContextPtr(nullptr),
     m_deletionPolicy(DeletionPolicy::never) {}
@@ -709,9 +711,17 @@ bool ZmqStorageInterface::Impl::WriteBundle(const PrimaryBlock& bundlePrimaryBlo
     BundleStorageManagerSession_WriteToDisk sessionWrite;
     uint64_t totalSegmentsRequired = m_bsmPtr->Push(sessionWrite, bundlePrimaryBlock, allDataSize);
     if (totalSegmentsRequired == 0) {
-        LOG_ERROR(subprocess) << "out of space";
+        if (!m_isOutOfStorageSpace) {
+            LOG_ERROR(subprocess) << "out of storage space";
+            m_isOutOfStorageSpace = true;
+        }
         return false;
     }
+    else if (m_isOutOfStorageSpace) {
+        LOG_INFO(subprocess) << "no longer out of storage space";
+        m_isOutOfStorageSpace = false;
+    }
+    
     //totalSegmentsStoredOnDisk += totalSegmentsRequired;
     //totalBytesWrittenThisTest += size;
     const uint64_t totalBytesPushed = m_bsmPtr->PushAllSegments(sessionWrite, bundlePrimaryBlock, newCustodyId, allData, allDataSize);
