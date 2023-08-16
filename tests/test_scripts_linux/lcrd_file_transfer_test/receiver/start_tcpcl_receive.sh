@@ -62,12 +62,6 @@ if (( CUSTODY == 0 )); then
 else
 	CL="TCPCL_CUSTODY"
 
-<<<<<<< HEAD:tests/test_scripts_linux/lcrd_file_transfer_test2/receiver/start_tcpcl_receive.sh
 	echo "Exiting: there's no test yet for TCPCL with custody "
         exit  
-=======
-	echo "Exiting, cannot do a tcpcl custody transfer yet"
-        exit
->>>>>>> 4cf10f96b67cc83ad97781397f4af949d75a1e2f:tests/test_scripts_linux/lcrd_file_transfer_test2/lcrd_file_transfer_test2/receiver/start_tcpcl_receive.sh
 fi
-
