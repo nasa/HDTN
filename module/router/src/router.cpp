@@ -1475,7 +1475,7 @@ void Router::Impl::SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNod
 
     LOG_INFO(subprocess) << timeLocal << ": Sending RouteUpdate event to Egress "
                                       << "final dest: " << finalDestNodeId
-                                      << "next hop: " << routeToStr(nextHopNodeId);
+                                      << " next hop: " << routeToStr(nextHopNodeId);
 
     hdtn::RouteUpdateHdr routingMsg;
     memset(&routingMsg, 0, sizeof(hdtn::RouteUpdateHdr));

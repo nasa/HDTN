@@ -6,7 +6,9 @@ DEST="HDTN_RECEIVER"
 TIME=$(date "+%Y.%m.%d-%H.%M.%S")
 
 
-#get custody type (none = 0, old = 1, new = 2)
+#default (without arguments): without custody
+#with argument "-c 1": with custody
+
 CUSTODY=0
 
 while [[ $# -gt 0 ]]; do
@@ -39,19 +41,17 @@ done
 
 
 if (( CUSTODY == 0 )); then
-	CL="LTP_NO_CUSTODY"
+	CL="TCPCL_NO_CUSTODY"
 
-	./run_hdtn_oneprocess_ltp &
+	./run_hdtn_oneprocess_tcpcl &
 	sleep 6
-	./send_files
+	./send_files_tcpcl 
 
 else
-	CL="LTP_CUSTODY"
+	CL="TCPCL_CUSTODY"
 
-	./run_hdtn_oneprocess_ltp_custody &
-	sleep 6
-	./send_files_custody
-
+        echo "Exiting, cannot do a tcpcl custody transfer yet "
+        exit 
 fi
 
 

@@ -1,6 +1,6 @@
 FROM oraclelinux:8
 
-LABEL Maintainer="Blake LaFuente, NASA GRC"
+LABEL Maintainer="Nadia Kortas, nadia.kortas@nasa.gov"
 LABEL Description="HDTN built using RHEL"
 
 

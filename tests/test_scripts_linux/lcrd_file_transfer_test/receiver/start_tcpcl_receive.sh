@@ -7,7 +7,9 @@ DEST="HDTN_SENDER"
 TIME=$(date "+%Y.%m.%d-%H.%M.%S")
 
 
-#get custody type (none = 0, old = 1, new = 2)
+#default (no arguments) without custody
+#With argument "-c 1" with custody 
+
 CUSTODY=0
 
 while [[ $# -gt 0 ]]; do
@@ -42,13 +44,14 @@ mkdir received
 mkdir checksums
 
 if (( CUSTODY == 0 )); then
-        CL="LTP_NO_CUSTODY"
+        CL="TCPCL_NO_CUSTODY"
 
-        ./run_hdtn_oneprocess_ltp &
+        ./run_hdtn_oneprocess_tcpcl &
 	sleep 6
 
 	echo "Receive"
-	./rcv_files &
+	./rcv_files_tcpcl  &
+
 	./wait.sh
 	echo "Done"
 	echo "Starting checksums"
@@ -59,23 +62,8 @@ if (( CUSTODY == 0 )); then
 	echo "Test done"
 
 else
-	CL="LTP_CUSTODY"
+	CL="TCPCL_CUSTODY"
 
-        ./run_hdtn_oneprocess_ltp_custody  &
-	sleep 6
-
-	echo "Receive"
-	./rcv_files_custody &
-	
-	./wait.sh
-	echo "Done"
-	echo "Starting checksums"
-	
-	./sha.sh ./received/
-
-	rm -rf ./received/*
-
-	echo "Test done"
-
+	echo "Exiting: there's no test yet for TCPCL with custody "
+        exit  
 fi
-

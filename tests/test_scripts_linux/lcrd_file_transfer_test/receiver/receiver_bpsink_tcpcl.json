@@ -5,7 +5,7 @@
             "name": "tcpcl_bpsink",
             "convergenceLayer": "tcpcl_v4",
             "boundPort": 4558,
-            "numRxCircularBufferElements": 200,
+            "numRxCircularBufferElements": 100,
             "numRxCircularBufferBytesPerElement": 20000,
             "keepAliveIntervalSeconds": 15,
             "tcpclV4MyMaxRxSegmentSizeBytes": 200000,
@@ -13,6 +13,6 @@
             "certificatePemFile": "",
             "privateKeyPemFile": "",
             "diffieHellmanParametersPemFile": ""
-       	}
+        }
     ]
 }
