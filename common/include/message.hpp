@@ -76,6 +76,8 @@
 #define HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY (0x5558)
 #define HDTN_MSGTYPE_DEPLETED_STORAGE_REPORT (0x5559)
 
+#define HDTN_NOROUTE (UINT64_MAX) // no route available
+
 namespace hdtn {
 //#pragma pack (push, 1)
 struct CommonHdr {

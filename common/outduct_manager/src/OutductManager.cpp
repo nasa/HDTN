@@ -24,6 +24,7 @@
 #include "LtpOverIpcOutduct.h"
 #include "SlipOverUartOutduct.h"
 #include "Uri.h"
+#include "message.hpp"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -220,14 +221,12 @@ bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, padded_vector_uint
     }
 }
 
-static const uint64_t NOROUTE = UINT64_MAX;
-
 bool OutductManager::Reroute_ThreadSafe(const uint64_t finalDestNodeId, const uint64_t newNextHopNodeId) {
 
     boost::mutex::scoped_lock lock(m_finalDestNodeIdToOutductMapMutex);
 
     // No route? Just delete any existing and return
-    if(newNextHopNodeId == NOROUTE) {
+    if(newNextHopNodeId == HDTN_NOROUTE) {
         m_finalDestNodeIdToOutductMap.erase(finalDestNodeId);
         return true;
     }

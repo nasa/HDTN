@@ -117,12 +117,9 @@
 /** logger subprocess for the router */
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::router;
 
-/** No route found for final destination */
-static constexpr uint64_t NOROUTE = UINT64_MAX;
-
 // Helper for logging
 static std::string routeToStr(uint64_t n) {
-    return n == NOROUTE ? "[no route]" : std::to_string(n);
+    return n == HDTN_NOROUTE ? "[no route]" : std::to_string(n);
 }
 
 /** A contact in the contact plan */
@@ -1233,8 +1230,8 @@ bool Router::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
     // Clear any existing routes
     for(std::unordered_map<uint64_t, uint64_t>::iterator it = m_routes.begin();
             it != m_routes.end(); it++) {
-        if(it->second != NOROUTE) {
-            SendRouteUpdate(NOROUTE, it->first);
+        if(it->second != HDTN_NOROUTE) {
+            SendRouteUpdate(HDTN_NOROUTE, it->first);
         }
     }
     m_routes.clear();
@@ -1273,7 +1270,7 @@ bool Router::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
         }
 
         // Add all possible destinations except ourself
-        m_routes[linkEvent.dest] = NOROUTE;
+        m_routes[linkEvent.dest] = HDTN_NOROUTE;
 
         if(linkEvent.source != m_hdtnConfig.m_myNodeId) {
             LOG_WARNING(subprocess) << "Found a contact with source of " << linkEvent.source
@@ -1305,7 +1302,7 @@ bool Router::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
     // then we can get rid of this
     for(std::unordered_map<uint64_t, uint64_t>::iterator it = m_routes.begin();
             it != m_routes.end(); it++) {
-        SendRouteUpdate(NOROUTE, it->first);
+        SendRouteUpdate(HDTN_NOROUTE, it->first);
     }
 
     m_contactPlanTimerIsRunning = false;
@@ -1576,7 +1573,7 @@ void Router::Impl::FilterContactPlan(uint64_t sourceNode, std::vector<cgr::Conta
  */
 void Router::Impl::UpdateRouteState(uint64_t oldNextHop, uint64_t newNextHop, uint64_t finalDest) {
     m_routes[finalDest] = newNextHop;
-    if(oldNextHop != NOROUTE) {
+    if(oldNextHop != HDTN_NOROUTE) {
         std::map<uint64_t, uint64_t>::iterator it = m_mapNextHopNodeIdToOutductArrayIndex.find(oldNextHop);
         if(it == m_mapNextHopNodeIdToOutductArrayIndex.end()) {
             LOG_ERROR(subprocess) << "Could not find outduct for next hop " << oldNextHop;
@@ -1589,7 +1586,7 @@ void Router::Impl::UpdateRouteState(uint64_t oldNextHop, uint64_t newNextHop, ui
             }
         }
     }
-    if(newNextHop != NOROUTE) {
+    if(newNextHop != HDTN_NOROUTE) {
         std::map<uint64_t, uint64_t>::iterator it = m_mapNextHopNodeIdToOutductArrayIndex.find(newNextHop);
         if(it == m_mapNextHopNodeIdToOutductArrayIndex.end()) {
             LOG_ERROR(subprocess) << "Could not find outduct for next hop " << newNextHop;
@@ -1676,7 +1673,7 @@ void Router::Impl::ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint
  * @param sourceNode the starting node for the route
  * @param the final destination node ID
  *
- * @returns The next hop node ID or NOROUTE if no route found
+ * @returns The next hop node ID or HDTN_NOROUTE if no route found
  */
 uint64_t Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t finalDestNodeId) {
 
@@ -1707,6 +1704,6 @@ uint64_t Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t finalDe
     if (bestRoute.valid()) { // successfully computed a route
         return bestRoute.next_node;
    } else {
-        return NOROUTE;
+        return HDTN_NOROUTE;
     }
 }

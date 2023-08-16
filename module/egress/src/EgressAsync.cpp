@@ -363,14 +363,15 @@ void Egress::Impl::RouterEventHandler() {
             << " truncated = " << res->size << " expected = " << sizeof(routeUpdateHdr);
     }
     else if (routeUpdateHdr.base.type == HDTN_MSGTYPE_ROUTEUPDATE) {
+        std::string nextHop = routeUpdateHdr.nextHopNodeId == HDTN_NOROUTE ? std::string("NOROUTE") : std::to_string(routeUpdateHdr.nextHopNodeId);
         if (m_outductManager.Reroute_ThreadSafe(routeUpdateHdr.finalDestNodeId, routeUpdateHdr.nextHopNodeId)) {
             ResendOutductCapabilities();
             LOG_INFO(subprocess) << "Updated the outduct based on the optimal Route for finalDestNodeId " << routeUpdateHdr.finalDestNodeId
-                << ": New Outduct Next Hop is " << routeUpdateHdr.nextHopNodeId;
+                << ": New Outduct Next Hop is " << nextHop;
         }
         else {
             LOG_INFO(subprocess) << "Failed to update the outduct based on the optimal Route for finalDestNodeId " << routeUpdateHdr.finalDestNodeId
-                << " to a next hop outduct node id " << routeUpdateHdr.nextHopNodeId;
+                << " to a next hop outduct node id " << nextHop;
         }
     }
     else {
