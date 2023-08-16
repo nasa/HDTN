@@ -48,12 +48,7 @@ if (( CUSTODY == 0 )); then
 	sleep 6
 
 	echo "Receive"
-<<<<<<< HEAD:tests/test_scripts_linux/lcrd_file_transfer_test2/receiver/start_ltp_receive.sh
-	./rcv_files  &
-=======
 	./rcv_files &
->>>>>>> 4cf10f96b67cc83ad97781397f4af949d75a1e2f:tests/test_scripts_linux/lcrd_file_transfer_test2/lcrd_file_transfer_test2/receiver/start_ltp_receive.sh
-
 	./wait.sh
 	echo "Done"
 	echo "Starting checksums"
