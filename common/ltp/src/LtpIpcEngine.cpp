@@ -215,7 +215,7 @@ void LtpIpcEngine::Reset() {
 
 void LtpIpcEngine::ReadRemoteTxShmThreadFunc() {
     ThreadNamer::SetThisThreadName("LtpIpcEngReadShm");
-    while (m_running) { //try to connect
+    while (m_running.load(std::memory_order_acquire)) { //try to connect
         try {
             //Create a shared memory object.
             m_remoteTxSharedMemoryObjectPtr = boost::make_unique<boost::interprocess::shared_memory_object>(
@@ -259,7 +259,7 @@ void LtpIpcEngine::ReadRemoteTxShmThreadFunc() {
     }
     LOG_INFO(subprocess) << "Successfully connected to remoteTxSharedMemoryName: " << m_remoteTxSharedMemoryName;
 
-    while (m_running) { //keep thread alive if running
+    while (m_running.load(std::memory_order_acquire)) { //keep thread alive if running
 #if 0
         const bool waitSuccess = m_remoteTxIpcControlPtr->m_waitUntilNotEmpty_postHasData_semaphore.try_wait();
         if (waitSuccess) {
@@ -273,14 +273,19 @@ void LtpIpcEngine::ReadRemoteTxShmThreadFunc() {
         m_remoteTxIpcControlPtr->m_waitUntilNotEmpty_postHasData_semaphore.wait();
 #endif
         //check that the destructor did not post by checking the m_running flag
-        if (m_running) { //success not empty, read from remote tx
+        if (m_running.load(std::memory_order_acquire)) { //success not empty, read from remote tx
             const unsigned int readIndex = m_remoteTxIpcControlPtr->m_circularIndexBuffer.GetIndexForRead(); //store the volatile
             if (readIndex == CIRCULAR_INDEX_BUFFER_EMPTY) {
                 LOG_FATAL(subprocess) << "LtpIpcEngine::ReadRemoteTxShmThreadFunc(): CIRCULAR BUFFER SHOULD NEVER HAVE AN EMPTY CONDITION!";
                 continue;
             }
             m_remoteTxIpcControlPtr->m_circularIndexBuffer.CommitRead(); //protected by m_waitUntilNotFull_postHasFreeSpace_semaphore (.post() not called until data processed)
-            ++m_countUdpPacketsReceived;
+            
+            //per: https://en.cppreference.com/w/cpp/atomic/memory_order
+            // memory_order_relaxed is okay because this is an RMW,
+            // and RMWs (with any ordering) following a release form a release sequence
+            m_countUdpPacketsReceived.fetch_add(1, std::memory_order_relaxed);
+
             IpcPacket& p = m_remoteTxIpcPacketCbArray[readIndex];
             //if (readIndex != p.dataIndex) {
             //    LOG_FATAL(subprocess) << "LtpIpcEngine::ReadRemoteTxShmThreadFunc(): readIndex != p.dataIndex!";
@@ -382,7 +387,7 @@ void LtpIpcEngine::DoSendPacket(const std::vector<boost::asio::const_buffer>& co
     m_myTxIpcControlPtr->m_waitUntilNotFull_postHasFreeSpace_semaphore.wait();
 #endif
     //check that the destructor did not post by checking the m_running flag
-    if (m_running) { //success not full, write to my tx
+    if (m_running.load(std::memory_order_acquire)) { //success not full, write to my tx
         const unsigned int writeIndex = m_myTxIpcControlPtr->m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
         if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) {
             LOG_FATAL(subprocess) << "LtpIpcEngine::SendPacket(): CIRCULAR BUFFER SHOULD NEVER HAVE A FULL CONDITION!";
@@ -418,7 +423,7 @@ void LtpIpcEngine::SendPacket(
     std::shared_ptr<LtpClientServiceDataToSend>&& underlyingCsDataToDeleteOnSentCallback)
 {
     //called by LtpEngine Thread
-    ++m_countAsyncSendCalls;
+    m_countAsyncSendCalls.fetch_add(1, std::memory_order_relaxed);
     
     DoSendPacket(constBufferVec);
 
@@ -427,7 +432,7 @@ void LtpIpcEngine::SendPacket(
     underlyingCsDataToDeleteOnSentCallback.reset();
 
     //HandleUdpSend(std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
-    ++m_countAsyncSendCallbackCalls;
+    m_countAsyncSendCallbackCalls.fetch_add(1, std::memory_order_relaxed);
 
     //notify the ltp engine regardless whether or not there is an error
     //NEW BEHAVIOR (always notify LtpEngine which keeps its own internal count of pending Udp Send system calls queued)
@@ -437,7 +442,7 @@ void LtpIpcEngine::SendPacket(
 void LtpIpcEngine::SendPackets(std::shared_ptr<std::vector<UdpSendPacketInfo> >&& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend)
 {
     //called by LtpEngine Thread
-    ++m_countBatchSendCalls;
+    m_countBatchSendCalls.fetch_add(1, std::memory_order_relaxed);
 
     std::vector<UdpSendPacketInfo>& udpSendPacketInfoVec = *udpSendPacketInfoVecSharedPtr;
     //for loop should not compare to udpSendPacketInfoVec.size() because that vector may be resized for preallocation,
@@ -447,8 +452,8 @@ void LtpIpcEngine::SendPackets(std::shared_ptr<std::vector<UdpSendPacketInfo> >&
     }
 
     //OnSentPacketsCallback
-    ++m_countBatchSendCallbackCalls;
-    m_countBatchUdpPacketsSent += numPacketsToSend;
+    m_countBatchSendCallbackCalls.fetch_add(1, std::memory_order_relaxed);
+    m_countBatchUdpPacketsSent.fetch_add(numPacketsToSend, std::memory_order_relaxed);
 
     //mimic std::move of shared_ptr from LtpUdpEngine
     udpSendPacketInfoVecSharedPtr.reset();
@@ -464,5 +469,5 @@ void LtpIpcEngine::SendPackets(std::shared_ptr<std::vector<UdpSendPacketInfo> >&
 
 
 bool LtpIpcEngine::ReadyToSend() const noexcept {
-    return m_running && m_remoteTxIpcDataStart;
+    return m_running.load(std::memory_order_acquire) && m_remoteTxIpcDataStart;
 }

@@ -21,7 +21,7 @@
 #define TELEMETRY_H 1
 
 #include "telem_lib_export.h"
-
+#include <atomic>
 
 class Telemetry
 {
@@ -31,11 +31,11 @@ class Telemetry
         /**
          * Starts the TelemetryRunner as a standalone process 
          */
-        TELEM_LIB_EXPORT bool Run(int argc, const char* const argv[], volatile bool & running);
+        TELEM_LIB_EXPORT bool Run(int argc, const char* const argv[], std::atomic<bool>& running);
 
     private:
         void MonitorExitKeypressThreadFunc();
-        volatile bool m_runningFromSigHandler;
+        std::atomic<bool> m_runningFromSigHandler;
 
 };
 

@@ -2,6 +2,7 @@ add_executable(unit-tests
     src/test_main.cpp
     ../../common/tcpcl/test/TestTcpcl.cpp
 	../../common/tcpcl/test/TestTcpclV4.cpp
+	../../common/slip_over_uart/test/TestSlip.cpp
 	../../common/ltp/test/TestLtp.cpp
 	../../common/ltp/test/TestLtpFragmentSet.cpp
 	../../common/ltp/test/TestLtpSessionRecreationPreventer.cpp
@@ -72,6 +73,7 @@ install(TARGETS unit-tests DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_link_libraries(unit-tests
 	hdtn_util
 	tcpcl_lib
+	slip_over_uart_lib
 	stcp_lib
 	ltp_lib
 	storage_lib

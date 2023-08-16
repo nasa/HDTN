@@ -22,6 +22,7 @@
 #include "TcpclInduct.h"
 #include "TcpclV4Induct.h"
 #include "StcpInduct.h"
+#include "SlipOverUartInduct.h"
 #include "codec/BundleViewV7.h"
 #include "Logger.h"
 #include "StatsLogger.h"
@@ -318,8 +319,19 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
 
 #ifdef BPSEC_SUPPORT_ENABLED
         //process acceptor and verifier roles
-        if (!m_bpsecPimpl->m_bpSecPolicyManager.ProcessReceivedBundle(bv, m_bpsecPimpl->m_policyProcessingCtx)) {
-            return false;
+        BpSecBundleProcessor::BpSecErrorFlist errorList;
+        const bool dontDropBundle = m_bpsecPimpl->m_bpSecPolicyManager.ProcessReceivedBundle(bv, m_bpsecPimpl->m_policyProcessingCtx, errorList, m_myEid.nodeId);
+        if (!errorList.empty()) {
+            static thread_local bool printedMsg = false;
+            if (!printedMsg) {
+                LOG_WARNING(subprocess) << "first time this induct thread got bpsec error from source node "
+                    << bv.m_primaryBlockView.header.m_sourceNodeId
+                    << ": " << BpSecBundleProcessor::ErrorListToString(errorList) << ".. (This message type will now be suppressed.)";
+                printedMsg = true;
+            }
+        }
+        if (!dontDropBundle) {
+            return false; //drop bundle
         }
 #endif // BPSEC_SUPPORT_ENABLED
 
@@ -592,6 +604,10 @@ void BpSinkPattern::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, 
     else if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
 
     }
+    else if (m_tcpclInductPtr = dynamic_cast<SlipOverUartInduct*>(thisInductPtr)) {
+        LOG_INFO(subprocess) << "New opportunistic link detected on SlipOverUart induct for ipn:" << remoteNodeId << ".*";
+        m_tcpclOpportunisticRemoteNodeId = remoteNodeId;
+    }
     else {
         LOG_ERROR(subprocess) << "Induct ptr cannot cast to TcpclInduct or TcpclV4Induct";
     }
@@ -602,7 +618,9 @@ void BpSinkPattern::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNode
     }
     else {
         m_tcpclOpportunisticRemoteNodeId = 0;
-        LOG_INFO(subprocess) << "Deleted opportunistic link on Tcpcl induct for ipn:" << remoteNodeId << ".*";
+        LOG_INFO(subprocess) << "Deleted opportunistic link on "
+            << ((sinkPtrAboutToBeDeleted) ? "Tcpcl" : "SlipOverUart")
+            << "induct for ipn : " << remoteNodeId << ".*";
     }
 }
 
@@ -637,7 +655,7 @@ void BpSinkPattern::SenderReaderThreadFunc() {
             outductMaxBundlesInPipeline = outduct->GetOutductMaxNumberOfBundlesInPipeline();
         }
     }
-    while (m_runningSenderThread) {
+    while (m_runningSenderThread.load(std::memory_order_acquire)) {
         
         if (bundleToSend.size()) { //last bundle didn't send due to timeout, try to resend this
             //no work to do
@@ -666,14 +684,14 @@ void BpSinkPattern::SenderReaderThreadFunc() {
         }
         else { //empty
             boost::mutex::scoped_lock senderReaderLock(m_mutexSendBundleQueue);
-            if (m_runningSenderThread && m_bundleToSendQueue.empty()) { //lock mutex (above) before checking flag
+            if (m_runningSenderThread.load(std::memory_order_acquire) && m_bundleToSendQueue.empty()) { //lock mutex (above) before checking flag
                 m_conditionVariableSenderReader.wait(senderReaderLock); // call lock.unlock() and blocks the current thread
             }
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
             continue;
         }
 
-        if (m_linkIsDown) {
+        if (m_linkIsDown.load(std::memory_order_acquire)) {
             //note BpSource has no routing capability so it must send to the only connection available to it
             LOG_ERROR(subprocess) << "BpSinkPattern waiting for linkup event before sending queued bundles.. retrying in 1 second";
             boost::this_thread::sleep(boost::posix_time::seconds(1));
@@ -711,13 +729,13 @@ void BpSinkPattern::SenderReaderThreadFunc() {
             }
             boost::posix_time::ptime timeoutExpiry(boost::posix_time::special_values::not_a_date_time);
             bool timeout = false;
-            while (m_runningSenderThread && (m_currentlySendingBundleIdSet.size() >= outductMaxBundlesInPipeline)) {
+            while (m_runningSenderThread.load(std::memory_order_acquire) && (m_currentlySendingBundleIdSet.size() >= outductMaxBundlesInPipeline)) {
                 if (timeoutExpiry == boost::posix_time::special_values::not_a_date_time) {
                     const boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();
                     timeoutExpiry = nowTime + TIMEOUT_DURATION;
                 }
                 boost::mutex::scoped_lock waitingForBundlePipelineFreeLock(m_mutexCurrentlySendingBundleIdSet);
-                if (m_runningSenderThread && (m_currentlySendingBundleIdSet.size() >= outductMaxBundlesInPipeline)) { //lock mutex (above) before checking condition
+                if (m_runningSenderThread.load(std::memory_order_acquire) && (m_currentlySendingBundleIdSet.size() >= outductMaxBundlesInPipeline)) { //lock mutex (above) before checking condition
                     //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
                     if (!m_cvCurrentlySendingBundleIdSet.timed_wait(waitingForBundlePipelineFreeLock, timeoutExpiry)) {
                         timeout = true;
@@ -729,7 +747,7 @@ void BpSinkPattern::SenderReaderThreadFunc() {
                 LOG_ERROR(subprocess) << "BpSinkPattern was unable to send a bundle for " << TIMEOUT_SECONDS << " seconds on the outduct";
                 continue;
             }
-            if (!m_runningSenderThread) {
+            if (!m_runningSenderThread.load(std::memory_order_acquire)) {
                 LOG_ERROR(subprocess) << "BpSinkPattern terminating before all bundles sent";
                 continue;
             }
@@ -766,9 +784,9 @@ void BpSinkPattern::OnFailedBundleVecSendCallback(padded_vector_uint8_t& movable
         LOG_ERROR(subprocess) << "cannot find bundleId " << bundleId;
     }
 
-    if (!m_linkIsDown) {
+    if (!m_linkIsDown.load(std::memory_order_acquire)) {
         LOG_INFO(subprocess) << "Setting link status to DOWN";
-        m_linkIsDown = true;
+        m_linkIsDown.store(true, std::memory_order_release);
     }
     m_cvCurrentlySendingBundleIdSet.notify_one();
 }
@@ -783,21 +801,20 @@ void BpSinkPattern::OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userDat
         LOG_ERROR(subprocess) << "cannot find bundleId " << bundleId;
     }
 
-    if (m_linkIsDown) {
+    if (m_linkIsDown.load(std::memory_order_acquire)) {
         LOG_INFO(subprocess) << "Setting link status to UP";
-        m_linkIsDown = false;
+        m_linkIsDown.store(false, std::memory_order_release);
     }
     m_cvCurrentlySendingBundleIdSet.notify_one();
 }
 void BpSinkPattern::OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid) {
     LOG_INFO(subprocess) << "OnOutductLinkStatusChangedCallback isLinkDownEvent:" << isLinkDownEvent << " outductUuid " << outductUuid;
-    const bool linkIsAlreadyDown = m_linkIsDown;
+    const bool linkIsAlreadyDown = m_linkIsDown.exchange(isLinkDownEvent);
     if (isLinkDownEvent && (!linkIsAlreadyDown)) {
         LOG_INFO(subprocess) << "Setting link status to DOWN";
     }
     else if ((!isLinkDownEvent) && linkIsAlreadyDown) {
         LOG_INFO(subprocess) << "Setting link status to UP";
     }
-    m_linkIsDown = isLinkDownEvent;
     m_cvCurrentlySendingBundleIdSet.notify_one();
 }

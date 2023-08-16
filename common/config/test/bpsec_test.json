@@ -52,13 +52,33 @@
             "bundleFinalDestination": [
                 "ipn:*.*"
             ],
+            "securityTargetBlockTypes": [
+                1,
+                2
+            ],
             "securityService": "confidentiality",
             "securityContext": "aesGcm",
             "securityFailureEventSetReference": "default_confidentiality",
             "securityContextParams": [
                 {
+                    "paramName": "aesVariant",
+                    "value": 384
+                },
+                {
+                    "paramName": "ivSizeBytes",
+                    "value": 16
+                },
+                {
                     "paramName": "keyFile",
-                    "value": "c:\/mykey.txt"
+                    "value": "c:\/mykey2.txt"
+                },
+                {
+                    "paramName": "securityBlockCrc",
+                    "value": 0
+                },
+                {
+                    "paramName": "scopeFlags",
+                    "value": 0
                 }
             ]
         }

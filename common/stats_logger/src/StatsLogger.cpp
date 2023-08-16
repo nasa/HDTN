@@ -12,7 +12,7 @@ namespace hdtn{
 
 std::unique_ptr<StatsLogger> StatsLogger::StatsLogger_; //initialized to "null"
 boost::mutex StatsLogger::mutexSingletonInstance_;
-volatile bool StatsLogger::StatsLoggerSingletonFullyInitialized_ = false;
+std::atomic<bool> StatsLogger::StatsLoggerSingletonFullyInitialized_(false);
 StatsLogger::file_name_attr_t StatsLogger::file_name_attr("");
 boost::log::sources::logger_mt StatsLogger::m_logger;
 std::map<std::string, boost::shared_ptr<StatsLogger::sink_t>> StatsLogger::m_initializedFiles;
@@ -122,6 +122,7 @@ int64_t StatsLogger::timestampMs_t::operator()(boost::log::value_ref<boost::posi
     boost::shared_ptr< sink_t > sink = boost::make_shared<sink_t>(backend);
     sink->set_filter(boost::log::expressions::attr<std::string>("fileName") == fileName);
     sink->locked_backend()->scan_for_files();
+    sink->locked_backend()->auto_flush(true);
     boost::log::core::get()->add_sink(sink);
     StatsLogger::writeHeader(fileName, metrics);
 

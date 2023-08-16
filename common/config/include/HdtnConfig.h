@@ -82,6 +82,8 @@ public:
     bool m_bufferRxToStorageOnLinkUpSaturation;
     uint64_t m_maxLtpReceiveUdpPacketSizeBytes;
 
+    uint64_t m_neighborDepletedStorageDelaySeconds;
+
     //pub-sub from router to all modules (defined in HdtnConfig as the TCP socket is used by hdtn-one-process)
     uint16_t m_zmqBoundRouterPubSubPortPath;
     uint16_t m_zmqBoundTelemApiPortPath;

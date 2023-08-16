@@ -77,7 +77,7 @@ InitializationVectorsForOneThread InitializationVectorsForOneThread::Create() {
     static boost::mutex staticMutex;
     static uint64_t staticLastTimeMicroseconds = 0;
     uint64_t currentTimeMicroseconds;
-    {
+    try {
         boost::mutex::scoped_lock lock(staticMutex);
         while (true) {
             currentTimeMicroseconds = TimestampUtil::GetMicrosecondsSinceEpochRfc5050();
@@ -95,7 +95,7 @@ InitializationVectorsForOneThread InitializationVectorsForOneThread::Create() {
             }
             boost::this_thread::sleep(maxWait);
         }
-    }
+    } catch (const boost::lock_error&) {}
     return InitializationVectorsForOneThread(currentTimeMicroseconds);
 }
 

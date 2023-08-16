@@ -24,7 +24,7 @@ UdpOutduct::UdpOutduct(const outduct_element_config_t & outductConfig, const uin
 {}
 UdpOutduct::~UdpOutduct() {}
 
-std::size_t UdpOutduct::GetTotalDataSegmentsUnacked() {
+std::size_t UdpOutduct::GetTotalBundlesUnacked() const noexcept {
     return m_udpBundleSource.GetTotalUdpPacketsUnacked();
 }
 bool UdpOutduct::Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
@@ -67,10 +67,12 @@ void UdpOutduct::Stop() {
 }
 void UdpOutduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
     finalStats.m_convergenceLayer = m_outductConfig.convergenceLayer;
-    finalStats.m_totalDataSegmentsOrPacketsAcked = m_udpBundleSource.GetTotalUdpPacketsAcked();
-    finalStats.m_totalDataSegmentsOrPacketsSent = m_udpBundleSource.GetTotalUdpPacketsSent();
+    finalStats.m_totalBundlesAcked = m_udpBundleSource.GetTotalUdpPacketsAcked();
+    finalStats.m_totalBundlesSent = m_udpBundleSource.GetTotalUdpPacketsSent();
 }
 void UdpOutduct::PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& outductTelem) {
-    outductTelem = boost::make_unique<UdpOutductTelemetry_t>(m_udpBundleSource.m_udpOutductTelemetry);
+    std::unique_ptr<UdpOutductTelemetry_t> t = boost::make_unique<UdpOutductTelemetry_t>();
+    m_udpBundleSource.GetTelemetry(*t);
+    outductTelem = std::move(t);
     outductTelem->m_linkIsUpPerTimeSchedule = m_linkIsUpPerTimeSchedule;
 }

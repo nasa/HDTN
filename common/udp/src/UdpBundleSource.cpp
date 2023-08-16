@@ -40,7 +40,14 @@ m_readyToForward(false),
 m_useLocalConditionVariableAckReceived(false), //for destructor only
 m_tokenRefreshTimerIsRunning(false),
 m_userAssignedUuid(0),
-m_rateBpsOrZeroToDisable(0)
+m_rateBpsOrZeroToDisable(0),
+//telemetry
+m_totalPacketsSent(0),
+m_totalPacketBytesSent(0),
+m_totalPacketsDequeuedForSend(0),
+m_totalPacketBytesDequeuedForSend(0),
+m_totalPacketsLimitedByRate(0),
+m_linkIsUpPhysically(false)
 {
     //m_rateManagerAsync.SetPacketsSentCallback(boost::bind(&UdpBundleSource::PacketsSentCallback, this));
     //const uint64_t minimumRateBytesPerSecond = 655360;
@@ -60,12 +67,6 @@ m_rateBpsOrZeroToDisable(0)
 
 UdpBundleSource::~UdpBundleSource() {
     Stop();
-    //print stats
-    LOG_INFO(subprocess) << "m_totalPacketsSent " << m_udpOutductTelemetry.m_totalPacketsSent;
-    LOG_INFO(subprocess) << "m_totalPacketBytesSent " << m_udpOutductTelemetry.m_totalPacketBytesSent;
-    LOG_INFO(subprocess) << "m_totalPacketsDequeuedForSend " << m_udpOutductTelemetry.m_totalPacketsDequeuedForSend;
-    LOG_INFO(subprocess) << "m_totalPacketBytesDequeuedForSend " << m_udpOutductTelemetry.m_totalPacketBytesDequeuedForSend;
-    LOG_INFO(subprocess) << "m_totalPacketsLimitedByRate " << m_udpOutductTelemetry.m_totalPacketsLimitedByRate;
 }
 
 void UdpBundleSource::Stop() {
@@ -116,6 +117,13 @@ void UdpBundleSource::Stop() {
         catch (const boost::thread_resource_error&) {
             LOG_ERROR(subprocess) << "error stopping UdpBundleSource io_service";
         }
+        //print stats once
+        LOG_INFO(subprocess) << "UDP Outduct / Bundle Source:"
+            << "\n totalBundlesSent " << GetTotalUdpPacketsSent()
+            << "\n totalBundlesAcked " << GetTotalUdpPacketsAcked()
+            << "\n totalBundleBytesSent " << GetTotalBundleBytesSent()
+            << "\n totalBundleBytesAcked " << GetTotalBundleBytesAcked()
+            << "\n totalBundlesLimitedByRate " << m_totalPacketsLimitedByRate;
     }
 
 }
@@ -132,7 +140,7 @@ void UdpBundleSource::UpdateRate(uint64_t rateBitsPerSec) {
 
 bool UdpBundleSource::Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_t>&& userData) {
 
-    if(!m_readyToForward) {
+    if(!ReadyToForward()) {
         LOG_ERROR(subprocess) << "link not ready to forward yet";
         return false;
     }
@@ -143,8 +151,8 @@ bool UdpBundleSource::Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_
         return false;
     }
 
-    ++m_udpOutductTelemetry.m_totalPacketsDequeuedForSend;
-    m_udpOutductTelemetry.m_totalPacketBytesDequeuedForSend += dataVec.size();
+    m_totalPacketsDequeuedForSend.fetch_add(1, std::memory_order_relaxed);
+    m_totalPacketBytesDequeuedForSend.fetch_add(dataVec.size(), std::memory_order_relaxed);
 
     m_bytesToAckBySentCallbackCbVec[writeIndexSentCallback] = dataVec.size();
     m_userDataCbVec[writeIndexSentCallback] = std::move(userData);
@@ -159,7 +167,7 @@ bool UdpBundleSource::Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_
 
 bool UdpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData) {
 
-    if (!m_readyToForward) {
+    if (!ReadyToForward()) {
         LOG_ERROR(subprocess) << "link not ready to forward yet";
         return false;
     }
@@ -170,8 +178,8 @@ bool UdpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& u
         return false;
     }
 
-    ++m_udpOutductTelemetry.m_totalPacketsDequeuedForSend;
-    m_udpOutductTelemetry.m_totalPacketBytesDequeuedForSend += dataZmq.size();
+    m_totalPacketsDequeuedForSend.fetch_add(1, std::memory_order_relaxed);
+    m_totalPacketBytesDequeuedForSend.fetch_add(dataZmq.size(), std::memory_order_relaxed);
 
     m_bytesToAckBySentCallbackCbVec[writeIndexSentCallback] = dataZmq.size();
     m_userDataCbVec[writeIndexSentCallback] = std::move(userData);
@@ -189,28 +197,28 @@ bool UdpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size,
 }
 
 
-std::size_t UdpBundleSource::GetTotalUdpPacketsAcked() {
-    return m_udpOutductTelemetry.m_totalPacketsSent;
+std::size_t UdpBundleSource::GetTotalUdpPacketsAcked() const noexcept {
+    return m_totalPacketsSent.load(std::memory_order_acquire);
 }
 
-std::size_t UdpBundleSource::GetTotalUdpPacketsSent() {
-    return m_udpOutductTelemetry.m_totalPacketsDequeuedForSend;
+std::size_t UdpBundleSource::GetTotalUdpPacketsSent() const noexcept {
+    return m_totalPacketsDequeuedForSend.load(std::memory_order_acquire);
 }
 
-std::size_t UdpBundleSource::GetTotalUdpPacketsUnacked() {
-    return m_udpOutductTelemetry.m_totalPacketsDequeuedForSend - m_udpOutductTelemetry.m_totalPacketsSent;
+std::size_t UdpBundleSource::GetTotalUdpPacketsUnacked() const noexcept {
+    return m_totalPacketsDequeuedForSend.load(std::memory_order_acquire) - m_totalPacketsSent.load(std::memory_order_acquire);
 }
 
-std::size_t UdpBundleSource::GetTotalBundleBytesAcked() {
-    return m_udpOutductTelemetry.m_totalPacketBytesSent;
+std::size_t UdpBundleSource::GetTotalBundleBytesAcked() const noexcept {
+    return m_totalPacketBytesSent.load(std::memory_order_acquire);
 }
 
-std::size_t UdpBundleSource::GetTotalBundleBytesSent() {
-    return m_udpOutductTelemetry.m_totalPacketBytesDequeuedForSend;
+std::size_t UdpBundleSource::GetTotalBundleBytesSent() const noexcept {
+    return m_totalPacketBytesDequeuedForSend.load(std::memory_order_acquire);
 }
 
-std::size_t UdpBundleSource::GetTotalBundleBytesUnacked() {
-    return m_udpOutductTelemetry.m_totalPacketBytesDequeuedForSend - m_udpOutductTelemetry.m_totalPacketBytesSent;
+std::size_t UdpBundleSource::GetTotalBundleBytesUnacked() const noexcept {
+    return m_totalPacketBytesDequeuedForSend.load(std::memory_order_acquire) - m_totalPacketBytesSent.load(std::memory_order_acquire);
 }
 
 
@@ -237,8 +245,8 @@ void UdpBundleSource::OnResolve(const boost::system::error_code & ec, boost::asi
 
             LOG_INFO(subprocess) << "UDP Bound on ephemeral port " << m_udpSocket.local_endpoint().port();
             LOG_INFO(subprocess) << "UDP READY";
-            m_udpOutductTelemetry.m_linkIsUpPhysically = true;
-            m_readyToForward = true;
+            m_linkIsUpPhysically.store(true, std::memory_order_release);
+            m_readyToForward.store(true, std::memory_order_release);
 
         }
         catch (const boost::system::system_error & e) {
@@ -260,7 +268,9 @@ void UdpBundleSource::HandlePostForUdpSendVecMessage(std::shared_ptr<padded_vect
                 boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
         m_queueVecDataToSendPtrs.pop();
-        m_udpOutductTelemetry.m_totalPacketsLimitedByRate += (!m_queueVecDataToSendPtrs.empty());
+        if (!m_queueVecDataToSendPtrs.empty()) {
+            m_totalPacketsLimitedByRate.fetch_add(1, std::memory_order_relaxed);
+        }
     }
     //else //no tokens available, the already queued packet will be processed by the m_tokenRefreshTimer expiration
         
@@ -279,7 +289,9 @@ void UdpBundleSource::HandlePostForUdpSendZmqMessage(std::shared_ptr<zmq::messag
                 boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
         m_queueZmqDataToSendPtrs.pop();
-        m_udpOutductTelemetry.m_totalPacketsLimitedByRate += (!m_queueZmqDataToSendPtrs.empty());
+        if (!m_queueZmqDataToSendPtrs.empty()) {
+            m_totalPacketsLimitedByRate.fetch_add(1, std::memory_order_relaxed);
+        }
     }
     //else //no tokens available, the already queued packet will be processed by the m_tokenRefreshTimer expiration
 
@@ -315,15 +327,15 @@ bool UdpBundleSource::ProcessPacketSent(std::size_t bytes_transferred) {
         return false;
     }
     else if (m_bytesToAckBySentCallbackCbVec[readIndex] == bytes_transferred) {
-        ++m_udpOutductTelemetry.m_totalPacketsSent;
-        m_udpOutductTelemetry.m_totalPacketBytesSent += m_bytesToAckBySentCallbackCbVec[readIndex];
+        m_totalPacketsSent.fetch_add(1, std::memory_order_relaxed);
+        m_totalPacketBytesSent.fetch_add(m_bytesToAckBySentCallbackCbVec[readIndex], std::memory_order_relaxed);
         std::vector<uint8_t> userData(std::move(m_userDataCbVec[readIndex]));
         m_bytesToAckBySentCallbackCb.CommitRead();
 
         if (m_onSuccessfulBundleSendCallback) {
             m_onSuccessfulBundleSendCallback(userData, m_userAssignedUuid);
         }
-        if (m_useLocalConditionVariableAckReceived) {
+        if (m_useLocalConditionVariableAckReceived.load(std::memory_order_acquire)) {
             m_localConditionVariableAckReceived.notify_one();
         }
         return true;
@@ -341,8 +353,8 @@ void UdpBundleSource::DoUdpShutdown() {
 
 void UdpBundleSource::DoHandleSocketShutdown() {
     //final code to shut down tcp sockets
-    m_udpOutductTelemetry.m_linkIsUpPhysically = false;
-    m_readyToForward = false;
+    m_linkIsUpPhysically.store(false, std::memory_order_release);
+    m_readyToForward.store(false, std::memory_order_release);
     if (m_udpSocket.is_open()) {
         try {
             LOG_INFO(subprocess) << "shutting down UdpBundleSource UDP socket..";
@@ -362,7 +374,7 @@ void UdpBundleSource::DoHandleSocketShutdown() {
 }
 
 bool UdpBundleSource::ReadyToForward() const {
-    return m_readyToForward;
+    return m_readyToForward.load(std::memory_order_acquire);
 }
 
 
@@ -408,7 +420,7 @@ void UdpBundleSource::OnTokenRefresh_TimerExpired(const boost::system::error_cod
                         boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred));
                 m_queueVecDataToSendPtrs.pop();
-                ++m_udpOutductTelemetry.m_totalPacketsLimitedByRate;
+                m_totalPacketsLimitedByRate.fetch_add(1, std::memory_order_relaxed);
             }
             else { //no tokens available, empty the packet queue at the next m_tokenRefreshTimer expiration
                 TryRestartTokenRefreshTimer(nowPtime);
@@ -425,7 +437,7 @@ void UdpBundleSource::OnTokenRefresh_TimerExpired(const boost::system::error_cod
                         boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred));
                 m_queueZmqDataToSendPtrs.pop();
-                ++m_udpOutductTelemetry.m_totalPacketsLimitedByRate;
+                m_totalPacketsLimitedByRate.fetch_add(1, std::memory_order_relaxed);
             }
             else { //no tokens available, empty the packet queue at the next m_tokenRefreshTimer expiration
                 TryRestartTokenRefreshTimer(nowPtime);
@@ -454,4 +466,17 @@ void UdpBundleSource::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkS
 }
 void UdpBundleSource::SetUserAssignedUuid(uint64_t userAssignedUuid) {
     m_userAssignedUuid = userAssignedUuid;
+}
+
+void UdpBundleSource::GetTelemetry(UdpOutductTelemetry_t& telem) const {
+    telem.m_totalBundlesSent = GetTotalUdpPacketsSent();
+    telem.m_totalBundlesAcked = GetTotalUdpPacketsAcked();
+    telem.m_totalBundleBytesSent = GetTotalBundleBytesSent();
+    telem.m_totalBundleBytesAcked = GetTotalBundleBytesAcked();
+    telem.m_totalPacketsSent = m_totalPacketsSent.load(std::memory_order_acquire);
+    telem.m_totalPacketBytesSent = m_totalPacketBytesSent.load(std::memory_order_acquire);
+    telem.m_totalPacketsDequeuedForSend = m_totalPacketsDequeuedForSend.load(std::memory_order_acquire);
+    telem.m_totalPacketBytesDequeuedForSend = m_totalPacketBytesDequeuedForSend.load(std::memory_order_acquire);
+    telem.m_totalPacketsLimitedByRate = m_totalPacketsLimitedByRate.load(std::memory_order_acquire);
+    telem.m_linkIsUpPhysically = m_linkIsUpPhysically.load(std::memory_order_acquire);
 }

@@ -468,6 +468,9 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         if(ind.convergenceLayer === "ltp_over_udp") {
             cvName = "LTP";
         }
+        else if(ind.convergenceLayer === "ltp_over_ipc") {
+            cvName = "LTPIPC";
+        }
         else if(ind.convergenceLayer === "udp") {
             cvName = "UDP";
         }
@@ -479,6 +482,9 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         }
         else if(ind.convergenceLayer === "stcp") {
             cvName = "STCP";
+        }
+        else if(ind.convergenceLayer === "slip_over_uart") {
+            cvName = "UART";
         }
         ind.name = cvName + "[" + i + "]";
         ind.absX = paramHdtnConfig.ingressD3Obj.absX + CHILD_SIDE_MARGIN_PX;
@@ -641,6 +647,9 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         if(outduct.convergenceLayer === "ltp_over_udp") {
             cvName = "LTP";
         }
+        else if(outduct.convergenceLayer === "ltp_over_ipc") {
+            cvName = "LTPIPC";
+        }
         else if(outduct.convergenceLayer === "udp") {
             cvName = "UDP";
         }
@@ -652,6 +661,9 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         }
         else if(outduct.convergenceLayer === "stcp") {
             cvName = "STCP";
+        }
+        else if(outduct.convergenceLayer === "slip_over_uart") {
+            cvName = "UART";
         }
         outduct.name = cvName + "[" + i + "]";
 

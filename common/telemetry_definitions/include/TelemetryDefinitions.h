@@ -203,6 +203,28 @@ struct TcpclV4InductConnectionTelemetry_t : public InductConnectionTelemetry_t {
     uint64_t m_totalBundlesFailedToSend;
 };
 
+struct SlipOverUartInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
+    TELEMETRY_DEFINITIONS_EXPORT SlipOverUartInductConnectionTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~SlipOverUartInductConnectionTelemetry_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const InductConnectionTelemetry_t& o) const override;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+
+    uint64_t m_totalSlipBytesSent;
+    uint64_t m_totalSlipBytesReceived;
+    uint64_t m_totalReceivedChunks;
+    uint64_t m_largestReceivedBytesPerChunk;
+    uint64_t m_averageReceivedBytesPerChunk;
+    //bidirectionality (identical to OutductTelemetry_t)
+    uint64_t m_totalBundlesSentAndAcked;
+    uint64_t m_totalBundleBytesSentAndAcked;
+    uint64_t m_totalBundlesSent;
+    uint64_t m_totalBundleBytesSent;
+    uint64_t m_totalBundlesFailedToSend;
+};
+
 struct LtpInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT LtpInductConnectionTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~LtpInductConnectionTelemetry_t() override;
@@ -365,6 +387,25 @@ struct TcpclV4OutductTelemetry_t : public OutductTelemetry_t {
     uint64_t m_totalBundlesReceived;
     uint64_t m_totalBundleBytesReceived;
     uint64_t m_numTcpReconnectAttempts;
+};
+
+struct SlipOverUartOutductTelemetry_t : public OutductTelemetry_t {
+    TELEMETRY_DEFINITIONS_EXPORT SlipOverUartOutductTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~SlipOverUartOutductTelemetry_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry_t& o) const override;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+
+    uint64_t m_totalSlipBytesSent;
+    uint64_t m_totalSlipBytesReceived;
+    uint64_t m_totalReceivedChunks;
+    uint64_t m_largestReceivedBytesPerChunk;
+    uint64_t m_averageReceivedBytesPerChunk;
+    //bidirectionality (identical to InductConnectionTelemetry_t)
+    uint64_t m_totalBundlesReceived;
+    uint64_t m_totalBundleBytesReceived;
 };
 
 struct UdpOutductTelemetry_t : public OutductTelemetry_t {

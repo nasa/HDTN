@@ -88,6 +88,9 @@ public:
     uint16_t m_zmqConnectingStorageToBoundEgressPortPath;
     uint16_t m_zmqBoundEgressToConnectingStoragePortPath;
 
+    //push sock from storage to router
+    uint64_t m_zmqConnectingStorageToBoundRouterPortPath;
+
     //pub-sub from router to all modules (defined in HdtnConfig as the TCP socket is used by hdtn-one-process)
     //uint16_t m_zmqBoundRouterPubSubPortPath;
     

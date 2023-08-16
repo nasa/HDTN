@@ -27,7 +27,7 @@ Telemetry::Telemetry()
     : m_runningFromSigHandler(false)
 {}
 
-bool Telemetry::Run(int argc, const char *const argv[], volatile bool &running)
+bool Telemetry::Run(int argc, const char *const argv[], std::atomic<bool>& running)
 {
     running = true;
 

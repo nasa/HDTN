@@ -20,6 +20,8 @@
 #include "Logger.h"
 #include <boost/algorithm/string.hpp>
 #include <boost/next_prior.hpp>
+#include <boost/make_unique.hpp>
+#include <boost/lexical_cast.hpp>
 #include "CborUint.h"
 #include <boost/noncopyable.hpp>
 #include <openssl/evp.h>
@@ -580,76 +582,29 @@ bool BpSecBundleProcessor::AesUnwrapKey(EvpCipherCtxWrapper& ctxWrapper,
 }
 
 
+
+static const char* AesVariantToString(COSE_ALGORITHMS variant) {
+    if (variant == COSE_ALGORITHMS::A128GCM) return "A128GCM";
+    if (variant == COSE_ALGORITHMS::A256GCM) return "A256GCM";
+    return "unknown_variant";
+}
 //User of this function provided KEK (key encryption key).
 //Bundle provides AES wrapped key, AES variant, IV, tag, and cipherText.
 //This function must unwrap key with KEK to get the DEK (data encryption key), then decrypt cipherText.
-bool BpSecBundleProcessor::TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
-    EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
-    BundleViewV7& bv,
-    const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping DEK only)
-    const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength, //NULL if not present (when no wrapped key is present)
-    ReusableElementsInternal& reusableElementsInternal,
-    const bool renderInPlaceWhenFinished)
-{
-    std::vector<BundleViewV7::Bpv7CanonicalBlockView*>& blocks = reusableElementsInternal.blocks;
-    bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, blocks);
-    for (std::size_t i = 0; i < blocks.size(); ++i) {
-        BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView = *(blocks[i]);
-        if (!TryDecryptBundleByIndividualBcb(ctxWrapper,
-            ctxWrapperForKeyUnwrap,
-            bv,
-            bcbBlockView,
-            keyEncryptionKey, keyEncryptionKeyLength,
-            dataEncryptionKey, dataEncryptionKeyLength,
-            reusableElementsInternal,
-            false))
-        {
-            return false;
-        }
-    }
-    //at least one bcb was marked for deletion, so rerender
-    if (renderInPlaceWhenFinished) {
-        return bv.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE);
-    }
-    return true;
-}
-bool BpSecBundleProcessor::TryVerifyDecryptionOfBundle(EvpCipherCtxWrapper& ctxWrapper,
-    EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
-    BundleViewV7& bv,
-    const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
-    const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength,
-    ReusableElementsInternal& reusableElementsInternal)
-{
-    std::vector<BundleViewV7::Bpv7CanonicalBlockView*>& blocks = reusableElementsInternal.blocks;
-    bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, blocks);
-    for (std::size_t i = 0; i < blocks.size(); ++i) {
-        BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView = *(blocks[i]);
-        if (!TryDecryptBundleByIndividualBcb(ctxWrapper,
-            ctxWrapperForKeyUnwrap,
-            bv,
-            bcbBlockView,
-            keyEncryptionKey, keyEncryptionKeyLength,
-            dataEncryptionKey, dataEncryptionKeyLength,
-            reusableElementsInternal,
-            true))
-        {
-            return false;
-        }
-    }
-    return true;
-}
-bool BpSecBundleProcessor::TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& ctxWrapper,
+BpSecBundleProcessor::BpSecErrorFlist BpSecBundleProcessor::TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& ctxWrapper,
     EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
     BundleViewV7& bv,
     BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView,
-    const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
-    const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength,
+    const ConfidentialityReceivedParameters& confidentialityReceivedParameters,
     ReusableElementsInternal& reusableElementsInternal,
     const bool verifyOnly)
 {
+    BpSecErrorFlist errorList;
     Bpv7BlockConfidentialityBlock* bcbPtr = dynamic_cast<Bpv7BlockConfidentialityBlock*>(bcbBlockView.headerPtr.get());
     if (!bcbPtr) {
-        return false;
+        errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, UINT64_MAX, boost::make_unique<std::string>(
+            "cannot cast BCB to Bpv7BlockConfidentialityBlock"));
+        return errorList;
     }
     std::vector<std::vector<uint8_t>*> patPtrs = bcbPtr->GetAllPayloadAuthenticationTagPtrs();
         
@@ -668,11 +623,30 @@ bool BpSecBundleProcessor::TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& 
     }
     else {
         //invalid variant given
-        return false;
+        errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, UINT64_MAX, boost::make_unique<std::string>(
+            std::string("invalid AES variant received (") + boost::lexical_cast<std::string>((uint64_t)variant) + "), must be 1(128) or 3(256)"));
+        return errorList;
+    }
+
+    if (variant != confidentialityReceivedParameters.expectedVariant) {
+        errorList.emplace_front(BPSEC_ERROR_CODES::MISCONFIGURED, UINT64_MAX, boost::make_unique<std::string>(
+            std::string("BCB AES variant received (") + AesVariantToString(variant)
+            + "), does not match the expected variant in the policy ("
+            + AesVariantToString(confidentialityReceivedParameters.expectedVariant) + ")"));
+        return errorList;
     }
     const std::vector<uint8_t>* ivPtr = bcbPtr->GetInitializationVectorPtr();
     if (!ivPtr) {
-        return false;
+        errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, UINT64_MAX, boost::make_unique<std::string>(
+            std::string("IV missing from BCB")));
+        return errorList;
+    }
+    if (ivPtr->size() != confidentialityReceivedParameters.expectedIvLength) {
+        errorList.emplace_front(BPSEC_ERROR_CODES::MISCONFIGURED, UINT64_MAX, boost::make_unique<std::string>(
+            std::string("BCB AES IV received length(") + boost::lexical_cast<std::string>(ivPtr->size())
+            + "), does not match the expected IV length to receive in the policy ("
+            + boost::lexical_cast<std::string>((uint64_t)confidentialityReceivedParameters.expectedIvLength) + ")"));
+        return errorList;
     }
 
 #ifdef BPSEC_MANAGER_PRINT_DEBUG
@@ -688,6 +662,14 @@ bool BpSecBundleProcessor::TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& 
     aadParts.clear();
     aadParts.reserve(4);
     const BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS scopeMask = bcbPtr->GetSecurityParameterScope();
+    if (scopeMask != confidentialityReceivedParameters.expectedAadScopeMask) {
+        errorList.emplace_front(BPSEC_ERROR_CODES::MISCONFIGURED, UINT64_MAX, boost::make_unique<std::string>(
+            std::string("BCB AES aad scope mask received (")
+            + boost::lexical_cast<std::string>((uint64_t)scopeMask)
+            + "), does not match the expected aad scope mask in the policy ("
+            + boost::lexical_cast<std::string>((uint64_t)confidentialityReceivedParameters.expectedAadScopeMask) + ")"));
+        return errorList;
+    }
     const uint8_t scopeMaskAsU8 = static_cast<uint8_t>(scopeMask);
     aadParts.emplace_back(&scopeMaskAsU8, sizeof(scopeMaskAsU8));
     if ((scopeMask & BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::INCLUDE_PRIMARY_BLOCK) != BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
@@ -715,28 +697,34 @@ bool BpSecBundleProcessor::TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& 
         //assumed that security verifiers and security acceptors can
         //independently determine the KEK used in the wrapping of the symmetric
         //AES content-encrypting key.
-        if (!keyEncryptionKey) {
+        if (!confidentialityReceivedParameters.keyEncryptionKey) {
             //no KEK present, can't unwrap key
-            return false;
+            errorList.emplace_front(BPSEC_ERROR_CODES::MISCONFIGURED, UINT64_MAX, boost::make_unique<std::string>(
+                "BCB AES has a wrapped key, but the policy does not have a key encryption key (KEK) for unwrapping"));
+            return errorList;
         }
         //unwrap key:
         if (!AesUnwrapKey(ctxWrapperForKeyUnwrap,
-            keyEncryptionKey, keyEncryptionKeyLength,
+            confidentialityReceivedParameters.keyEncryptionKey, confidentialityReceivedParameters.keyEncryptionKeyLength,
             wrappedKeyPtr->data(), static_cast<const unsigned int>(wrappedKeyPtr->size()),
             unwrappedKeyBytes, unwrappedKeyOutSize))
         {
-            return false;
+            errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, UINT64_MAX, boost::make_unique<std::string>(
+                "BCB AES has a wrapped key, but the policy's key encryption key (KEK) failed to unwrap it."));
+            return errorList;
         }
         dataEncryptionKeyToUse = unwrappedKeyBytes;
         dataEncryptionKeySizeToUse = unwrappedKeyOutSize;
     }
     else {
-        if (!dataEncryptionKey) {
+        if (!confidentialityReceivedParameters.dataEncryptionKey) {
             //no DEK present, can't decrypt anything
-            return false;
+            errorList.emplace_front(BPSEC_ERROR_CODES::MISCONFIGURED, UINT64_MAX, boost::make_unique<std::string>(
+                "the policy does not have an AES key to decrypt the bundle"));
+            return errorList;
         }
-        dataEncryptionKeyToUse = dataEncryptionKey;
-        dataEncryptionKeySizeToUse = dataEncryptionKeyLength;
+        dataEncryptionKeyToUse = confidentialityReceivedParameters.dataEncryptionKey;
+        dataEncryptionKeySizeToUse = confidentialityReceivedParameters.dataEncryptionKeyLength;
     }
 
         
@@ -752,21 +740,53 @@ bool BpSecBundleProcessor::TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& 
     //field of the security block.
     //(payload authentication tag is the only result)
     if (patPtrs.size() != targets.size()) {
-        return false;
+        errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, UINT64_MAX, boost::make_unique<std::string>(
+            std::string("the size (")
+            + boost::lexical_cast<std::string>(patPtrs.size())
+            + ") of the BCB AES target results (i.e. payload authentication tags) does not match the size of the security targets ("
+            + boost::lexical_cast<std::string>(targets.size()) + ")"));
+        return errorList;
     }
 
     if (targets.empty()) {
-        return false;
+        errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, UINT64_MAX, boost::make_unique<std::string>(
+            "the BCB AES security targets are empty"));
+        return errorList;
     }
         
+    uint64_t receivedBlockTypeCodesMask = 0;
     for (std::size_t stI = 0; stI < targets.size(); ++stI) {
         const uint64_t target = targets[stI];
         const std::vector<uint8_t>& tag = *(patPtrs[stI]);
         BundleViewV7::Bpv7CanonicalBlockView* targetCanonicalBlockViewPtr = bv.GetCanonicalBlockByBlockNumber(target);
         if (!targetCanonicalBlockViewPtr) {
-            return false;
+            errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, stI, boost::make_unique<std::string>(
+                std::string("BCB AES security target ")
+                + boost::lexical_cast<std::string>(target)
+                + " does not correspond to a canonical block number in the bundle"));
+            continue;
         }
         Bpv7CanonicalBlock& targetCanonicalHeader = *(targetCanonicalBlockViewPtr->headerPtr);
+
+        //verify if policy allows the target canonical to be decrypted
+        const uint64_t blockTypeCode = static_cast<uint64_t>(targetCanonicalHeader.m_blockTypeCode);
+        if (blockTypeCode <= 63) {
+            const uint64_t blockTypeCodeMask = ((uint64_t)1) << blockTypeCode;
+            if ((blockTypeCodeMask & confidentialityReceivedParameters.expectedTargetBlockTypesMask) == 0) {
+                errorList.emplace_front(BPSEC_ERROR_CODES::MISCONFIGURED, stI, boost::make_unique<std::string>(
+                    std::string("BCB AES security target (")
+                    + boost::lexical_cast<std::string>(target)
+                    + ") targets a canonical block type code ("
+                    + boost::lexical_cast<std::string>(blockTypeCode)
+                    + ") that was unexpected per the policy"));
+                continue;
+            }
+            receivedBlockTypeCodesMask |= blockTypeCodeMask;
+        }
+        else {
+            //TODO verify user defined block type codes?
+        }
+
         if (targetHeaderAadPiece) {
             const uint8_t* const startPtr = (reinterpret_cast<const uint8_t*>(targetCanonicalBlockViewPtr->actualSerializedBlockPtr.data())) + 1;
             const std::size_t len = targetCanonicalHeader.GetSerializationSizeOfAadPart();
@@ -805,7 +825,10 @@ bool BpSecBundleProcessor::TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& 
             tag.data(),
             decryptedDataOutPtr, decryptedDataOutSize))
         {
-            return false;
+            errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, stI, boost::make_unique<std::string>(
+                "unable to decrypt the target block number "
+                + boost::lexical_cast<std::string>(target)));
+            continue;
         }
 #ifdef BPSEC_MANAGER_PRINT_DEBUG
         {
@@ -825,7 +848,12 @@ bool BpSecBundleProcessor::TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& 
         //     same size as the plaintext making the replacement of target block
         //     information easier as length fields do not need to be changed.
         if (targetCanonicalHeader.m_dataLength != decryptedDataOutSize) {
-            return false;
+            errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, stI, boost::make_unique<std::string>(
+                std::string("the size (")
+                + boost::lexical_cast<std::string>(targetCanonicalHeader.m_dataLength)
+                + ") of the cyphertext did not match the size of the newly decrypted plaintext ("
+                + boost::lexical_cast<std::string>(decryptedDataOutSize) + ")"));
+            continue;
         }
 
         if (!verifyOnly) {
@@ -837,7 +865,10 @@ bool BpSecBundleProcessor::TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& 
             //parse now-unencrypted block
             targetCanonicalBlockViewPtr->isEncrypted = false;
             if (!targetCanonicalHeader.Virtual_DeserializeExtensionBlockDataBpv7()) { //requires m_dataPtr and m_dataLength to be set (which should be already done)
-                return false;
+                errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, stI, boost::make_unique<std::string>(
+                    "unable to deserialize the newly decrypted target block number "
+                    + boost::lexical_cast<std::string>(target)));
+                continue;
             }
 
 #ifdef BPSEC_MANAGER_PRINT_DEBUG
@@ -851,9 +882,18 @@ bool BpSecBundleProcessor::TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& 
         }
             
     }
-    bcbBlockView.markedForDeletion = !verifyOnly;
-    
-    return true;
+    if (errorList.empty()) {
+        if (receivedBlockTypeCodesMask != confidentialityReceivedParameters.expectedTargetBlockTypesMask) {
+            const uint64_t missingMask = confidentialityReceivedParameters.expectedTargetBlockTypesMask - receivedBlockTypeCodesMask;
+            errorList.emplace_front(BPSEC_ERROR_CODES::MISCONFIGURED, UINT64_MAX, boost::make_unique<std::string>(
+                "the BCB AES failed to target all of the canonical block types within the policy (missing_mask="
+                + boost::lexical_cast<std::string>(missingMask) + "d)"));
+        }
+        else { //empty error list
+            bcbBlockView.markedForDeletion = !verifyOnly; //do this only on no errors
+        }
+    }
+    return errorList;
 }
 
 //User of this function provided KEK (key encryption key), AAD scope, AES variant, IV, and targets.
@@ -1068,59 +1108,35 @@ bool BpSecBundleProcessor::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
     return true;
 }
 
+static const char* ShaVariantToString(COSE_ALGORITHMS variant) {
+    if (variant == COSE_ALGORITHMS::HMAC_512_512) return "HMAC_512_512";
+    if (variant == COSE_ALGORITHMS::HMAC_384_384) return "HMAC_384_384";
+    if (variant == COSE_ALGORITHMS::HMAC_256_256) return "HMAC_256_256";
+    return "unknown_variant";
+}
 //User of this function provided KEK (key encryption key).
 //Bundle provides AES wrapped key, AES variant, IV, tag, and cipherText.
 //This function must unwrap key with KEK to get the DEK (data encryption key), then decrypt cipherText.
-bool BpSecBundleProcessor::TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
-    EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
-    BundleViewV7& bv,
-    const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping hmac key only)
-    const uint8_t* hmacKey, const unsigned int hmacKeyLength, //NULL if not present (when no wrapped key is present)
-    ReusableElementsInternal& reusableElementsInternal,
-    const bool markBibForDeletion,
-    const bool renderInPlaceWhenFinished)
-{
-    std::vector<BundleViewV7::Bpv7CanonicalBlockView*>& blocks = reusableElementsInternal.blocks;
-    
-    bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::INTEGRITY, blocks);
-    for (std::size_t i = 0; i < blocks.size(); ++i) {
-        BundleViewV7::Bpv7CanonicalBlockView& bibBlockView = *(blocks[i]);
-        if (!TryVerifyBundleIntegrityByIndividualBib(ctxWrapper,
-            ctxWrapperForKeyUnwrap,
-            bv,
-            bibBlockView,
-            keyEncryptionKey, keyEncryptionKeyLength, //NULL if not present (for unwrapping hmac key only)
-            hmacKey, hmacKeyLength, //NULL if not present (when no wrapped key is present)
-            reusableElementsInternal,
-            markBibForDeletion))
-        {
-            return false;
-        }
-    }
-    if (markBibForDeletion && renderInPlaceWhenFinished) {
-        //at least one bib was marked for deletion, so rerender
-        return bv.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE);
-    }
-    return true;
-}
-
-bool BpSecBundleProcessor::TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrapper& ctxWrapper,
+BpSecBundleProcessor::BpSecErrorFlist BpSecBundleProcessor::TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrapper& ctxWrapper,
     EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
     BundleViewV7& bv,
     BundleViewV7::Bpv7CanonicalBlockView& bibBlockView,
-    const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping hmac key only)
-    const uint8_t* hmacKey, const unsigned int hmacKeyLength, //NULL if not present (when no wrapped key is present)
+    const IntegrityReceivedParameters& integrityReceivedParameters,
     ReusableElementsInternal& reusableElementsInternal,
     const bool markBibForDeletion)
 {
     uint8_t primaryByteStringHeader[10]; //must be at least 9
-
+    BpSecErrorFlist errorList;
     if (bibBlockView.isEncrypted) {
-        return false;
+        errorList.emplace_front(BPSEC_ERROR_CODES::MISCONFIGURED, UINT64_MAX, boost::make_unique<std::string>(
+            "cannot read an encrypted BIB (it must be decrypted first)"));
+        return errorList;
     }
     Bpv7BlockIntegrityBlock* bibPtr = dynamic_cast<Bpv7BlockIntegrityBlock*>(bibBlockView.headerPtr.get());
     if (!bibPtr) {
-        return false;
+        errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, UINT64_MAX, boost::make_unique<std::string>(
+            "cannot cast BIB to Bpv7BlockIntegrityBlock"));
+        return errorList;
     }
         
 
@@ -1138,7 +1154,18 @@ bool BpSecBundleProcessor::TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrappe
     }
     else {
         //invalid variant given
-        return false;
+        errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, UINT64_MAX, boost::make_unique<std::string>(
+            std::string("invalid HMAC variant received (") + boost::lexical_cast<std::string>((uint64_t)variant) + "), must be 5(256), 6(384), or 7(512)"));
+        return errorList;
+    }
+
+    if (variant != integrityReceivedParameters.expectedVariant) {
+        errorList.emplace_front(BPSEC_ERROR_CODES::MISCONFIGURED, UINT64_MAX, boost::make_unique<std::string>(
+            std::string("BIB HMAC variant received (") + ShaVariantToString(variant)
+            + "), does not match the expected variant in the policy ("
+            + ShaVariantToString(integrityReceivedParameters.expectedVariant) + ")"));
+        return errorList;
+        //"BIB HMAC variant received does not match the expected variant in the policy");
     }
         
 
@@ -1146,6 +1173,14 @@ bool BpSecBundleProcessor::TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrappe
     ipptParts.clear();
     ipptParts.reserve(5); //5 parts per RFC9173 - 3.7.  Canonicalization Algorithms
     const BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS scopeMask = bibPtr->GetSecurityParameterScope();
+    if (scopeMask != integrityReceivedParameters.expectedScopeMask) {
+        errorList.emplace_front(BPSEC_ERROR_CODES::MISCONFIGURED, UINT64_MAX, boost::make_unique<std::string>(
+            std::string("BIB HMAC integrity scope mask received (")
+            + boost::lexical_cast<std::string>((uint64_t)scopeMask)
+            + "), does not match the expected scope mask in the policy ("
+            + boost::lexical_cast<std::string>((uint64_t)integrityReceivedParameters.expectedScopeMask) + ")"));
+        return errorList;
+    }
     const uint8_t scopeMaskAsU8 = static_cast<uint8_t>(scopeMask);
     ipptParts.emplace_back(&scopeMaskAsU8, sizeof(scopeMaskAsU8)); //the only one guaranteed to be present and not change
 
@@ -1161,28 +1196,34 @@ bool BpSecBundleProcessor::TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrappe
         //assumed that security verifiers and security acceptors can
         //independently determine the KEK used in the wrapping of the symmetric
         //AES content-encrypting key.
-        if (!keyEncryptionKey) {
+        if (!integrityReceivedParameters.keyEncryptionKey) {
             //no KEK present, can't unwrap key
-            return false;
+            errorList.emplace_front(BPSEC_ERROR_CODES::MISCONFIGURED, UINT64_MAX, boost::make_unique<std::string>(
+                "BIB HMAC has a wrapped key, but the policy does not have a key encryption key (KEK) for unwrapping"));
+            return errorList;
         }
         //unwrap key:
         if (!AesUnwrapKey(ctxWrapperForKeyUnwrap,
-            keyEncryptionKey, keyEncryptionKeyLength,
+            integrityReceivedParameters.keyEncryptionKey, integrityReceivedParameters.keyEncryptionKeyLength,
             wrappedKeyPtr->data(), static_cast<const unsigned int>(wrappedKeyPtr->size()),
             unwrappedKeyBytes, unwrappedKeyOutSize))
         {
-            return false;
+            errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, UINT64_MAX, boost::make_unique<std::string>(
+                "BIB HMAC has a wrapped key, but the policy's key encryption key (KEK) failed to unwrap it."));
+            return errorList;
         }
         hmacKeyToUse = unwrappedKeyBytes;
         hmacKeySizeToUse = unwrappedKeyOutSize;
     }
     else {
-        if (!hmacKey) {
+        if (!integrityReceivedParameters.hmacKey) {
             //no hmacKey present, can't verify anything
-            return false;
+            errorList.emplace_front(BPSEC_ERROR_CODES::MISCONFIGURED, UINT64_MAX, boost::make_unique<std::string>(
+                "the policy does not have an hmac key to verify the BIB"));
+            return errorList;
         }
-        hmacKeyToUse = hmacKey;
-        hmacKeySizeToUse = hmacKeyLength;
+        hmacKeyToUse = integrityReceivedParameters.hmacKey;
+        hmacKeySizeToUse = integrityReceivedParameters.hmacKeyLength;
     }
 
 
@@ -1199,29 +1240,49 @@ bool BpSecBundleProcessor::TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrappe
     //field of the security block.
     //(hmac is the only result)
     if (expectedHmacPtrs.size() != targets.size()) {
-        return false;
+        errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, UINT64_MAX, boost::make_unique<std::string>(
+            std::string("the size (")
+            + boost::lexical_cast<std::string>(expectedHmacPtrs.size())
+            + ") of the BIB HMAC target results (i.e. expected HMACs) does not match the size of the security targets ("
+            + boost::lexical_cast<std::string>(targets.size()) + ")"));
+        return errorList;
     }
 
     if (targets.empty()) {
-        return false;
+        errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, UINT64_MAX, boost::make_unique<std::string>(
+            "the BIB security targets are empty"));
+        return errorList;
     }
 
+    uint64_t receivedBlockTypeCodesMask = 0;
     for (std::size_t stI = 0; stI < targets.size(); ++stI) {
         const uint64_t target = targets[stI];
         const std::vector<uint8_t>* expectedHmacPtr = expectedHmacPtrs[stI];
         if (!expectedHmacPtr) {
-            return false; //null for some reason
+            errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, stI, boost::make_unique<std::string>(
+                std::string("one of the BIB HMAC target results (i.e. expected HMACs) for security target block number=")
+                + boost::lexical_cast<std::string>(target)
+                + " was null")); //null for some reason
+            continue;
         }
         const std::vector<uint8_t>& expectedHmac = *expectedHmacPtr;
         ipptParts.resize(1); //ipptParts[0] is the scopeMask itself which is constant
         BundleViewV7::Bpv7CanonicalBlockView* targetCanonicalBlockViewPtr = NULL;
-        if (target != 0) {
+        if (target != 0) { //targetIsNotPrimary
             targetCanonicalBlockViewPtr = bv.GetCanonicalBlockByBlockNumber(target);
             if (!targetCanonicalBlockViewPtr) {
-                return false;
+                errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, stI, boost::make_unique<std::string>(
+                    std::string("BIB HMAC security target ")
+                    + boost::lexical_cast<std::string>(target)
+                    + " does not correspond to a canonical block number in the bundle"));
+                continue;
             }
             if (targetCanonicalBlockViewPtr->isEncrypted) {
-                return false;
+                errorList.emplace_front(BPSEC_ERROR_CODES::MISCONFIGURED, stI, boost::make_unique<std::string>(
+                    std::string("BIB HMAC security target ")
+                    + boost::lexical_cast<std::string>(target)
+                    + " was encrypted"));
+                continue;
             }
         }
         if (targetCanonicalBlockViewPtr) { //targetIsNotPrimary
@@ -1242,6 +1303,33 @@ bool BpSecBundleProcessor::TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrappe
                 const std::size_t len = targetCanonicalBlockViewPtr->headerPtr->GetSerializationSizeOfAadPart(); //target is already rendered in this case                    
                 ipptParts.emplace_back(startPtr, len);
             }
+            //verify if policy allows the target canonical to be verified
+            const uint64_t blockTypeCode = static_cast<uint64_t>(targetCanonicalBlockViewPtr->headerPtr->m_blockTypeCode);
+            if (blockTypeCode <= 63) {
+                const uint64_t blockTypeCodeMask = ((uint64_t)1) << blockTypeCode;
+                if ((blockTypeCodeMask & integrityReceivedParameters.expectedTargetBlockTypesMask) == 0) {
+                    errorList.emplace_front(BPSEC_ERROR_CODES::MISCONFIGURED, stI, boost::make_unique<std::string>(
+                        std::string("BIB HMAC security target (")
+                        + boost::lexical_cast<std::string>(target)
+                        + ") targets a canonical block type code ("
+                        + boost::lexical_cast<std::string>(blockTypeCode)
+                        + ") that was unexpected per the policy"));
+                    continue;
+                }
+                receivedBlockTypeCodesMask |= blockTypeCodeMask;
+            }
+            else {
+                //TODO verify user defined block type codes?
+            }
+        }
+        else { //target is primary
+            //verify if policy allows the primary to be verified
+            if ((1U & integrityReceivedParameters.expectedTargetBlockTypesMask) == 0) {
+                errorList.emplace_front(BPSEC_ERROR_CODES::MISCONFIGURED, stI, boost::make_unique<std::string>(
+                    "the BIB HMAC targets the primary but that was unexpected per the policy"));
+                continue;
+            }
+            receivedBlockTypeCodesMask |= 1U;
         }
         if ((scopeMask & BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_SECURITY_HEADER) != BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE) {
             const uint8_t* const startPtr = (reinterpret_cast<const uint8_t*>(bibBlockView.actualSerializedBlockPtr.data())) + 1;
@@ -1288,7 +1376,9 @@ bool BpSecBundleProcessor::TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrappe
             hmacKeyToUse, hmacKeySizeToUse,
             messageDigestCalculated, messageDigestOutSize))
         {
-            return false;
+            errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, stI, boost::make_unique<std::string>(
+                "an OpenSSL error occurred when trying to compute the HMAC SHA"));
+            continue;
         }
         //expectedHmac
 
@@ -1310,16 +1400,28 @@ bool BpSecBundleProcessor::TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrappe
 #endif
             
         if (messageDigestOutSize != expectedHmac.size()) {
-            return false;
+            errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, stI, boost::make_unique<std::string>(
+                "the size of the HMAC SHA did not match the computed SHA size"));
+            continue;
         }
         if (CRYPTO_memcmp(expectedHmac.data(), messageDigestCalculated, messageDigestOutSize) != 0) {
-            return false;
+            errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, stI, boost::make_unique<std::string>(
+                "the HMAC SHA did not match the computed SHA"));
+            continue;
         }
     }
-    if (markBibForDeletion) {
-        bibBlockView.markedForDeletion = true;
+    if (errorList.empty()) {
+        if (receivedBlockTypeCodesMask != integrityReceivedParameters.expectedTargetBlockTypesMask) {
+            const uint64_t missingMask = integrityReceivedParameters.expectedTargetBlockTypesMask - receivedBlockTypeCodesMask;
+            errorList.emplace_front(BPSEC_ERROR_CODES::MISCONFIGURED, UINT64_MAX, boost::make_unique<std::string>(
+                "the BIB HMAC failed to target all of the canonical block types within the policy (missing_mask="
+                + boost::lexical_cast<std::string>(missingMask) + "d)"));
+        }
+        else { //no errors occurred
+            bibBlockView.markedForDeletion = markBibForDeletion; //do this on no errors only
+        }
     }
-    return true;
+    return errorList;
 }
 
 bool BpSecBundleProcessor::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
@@ -1526,4 +1628,17 @@ bool BpSecBundleProcessor::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
         return bv.RenderInPlace(PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE);
     }
     return true;
+}
+
+std::string BpSecBundleProcessor::ErrorListToString(const BpSecErrorFlist& errorList) {
+    std::string s;
+    for (BpSecErrorFlist::const_iterator itErr = errorList.cbegin();
+        itErr != errorList.cend(); ++itErr)
+    {
+        const BpSecBundleProcessor::BpSecError& thisError = *itErr;
+        if (thisError.m_errorStringPtr) {
+            s += *thisError.m_errorStringPtr;
+        }
+    }
+    return s;
 }

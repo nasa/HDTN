@@ -15,6 +15,7 @@
     "maxIngressBundleWaitOnEgressMilliseconds": 2000,
     "bufferRxToStorageOnLinkUpSaturation": false,
     "maxLtpReceiveUdpPacketSizeBytes": 65536,
+    "neighborDepletedStorageDelaySeconds": 0, 
     "zmqBoundRouterPubSubPortPath": 10200,
     "zmqBoundTelemApiPortPath": 10305,
     "inductsConfig": {
@@ -64,9 +65,6 @@
                 "remotePort": 4556,
                 "maxNumberOfBundlesInPipeline": 50,
                 "maxSumOfBundleBytesInPipeline": 50000000,
-                "finalDestinationEidUris": [
-                    "ipn:2.*"
-                ],
                 "keepAliveIntervalSeconds": 15
             },
             {
@@ -77,9 +75,6 @@
                 "remotePort": 1113,
                 "maxNumberOfBundlesInPipeline": 50,
                 "maxSumOfBundleBytesInPipeline": 50000000,
-                "finalDestinationEidUris": [
-                    "ipn:10.*"
-                ],
                 "thisLtpEngineId": 20,
                 "remoteLtpEngineId": 10,
                 "ltpDataSegmentMtu": 1360,
@@ -91,7 +86,6 @@
                 "ltpCheckpointEveryNthDataSegment": 10,
                 "ltpRandomNumberSizeBits": 64,
                 "ltpSenderBoundPort": 1113,
-                "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0,
                 "ltpMaxUdpPacketsToSendPerSystemCall": 1,
                 "ltpSenderPingSecondsOrZeroToDisable": 15,
                 "delaySendingOfDataSegmentsTimeMsOrZeroToDisable": 20,

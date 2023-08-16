@@ -1,7 +1,7 @@
 /**
  * @file test_main.cpp
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -37,8 +37,13 @@ public:
 BoostUnitTestsFixture::BoostUnitTestsFixture() {
     boost::unit_test::results_reporter::set_level(boost::unit_test::report_level::DETAILED_REPORT);
     boost::unit_test::unit_test_log.set_threshold_level( boost::unit_test::log_messages );
+    if (boost::filesystem::exists("logs")) {
+        boost::filesystem::remove_all("logs");
+    }
+    if (boost::filesystem::exists("stats")) {
+        boost::filesystem::remove_all("stats");
+    }
     hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::unittest);
-    boost::filesystem::remove_all("logs");
 }
 
 BoostUnitTestsFixture::~BoostUnitTestsFixture() {

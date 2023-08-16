@@ -28,6 +28,7 @@
 
 #include <boost/integer.hpp>
 #include <stdint.h>
+#include <atomic>
 #include "hdtn_util_export.h"
 
 /// When equal to write index, the buffer is full.
@@ -35,83 +36,83 @@
 /// When equal to read index, the buffer is empty
 #define CIRCULAR_INDEX_BUFFER_EMPTY UINT32_MAX
 
-class HDTN_UTIL_EXPORT CircularIndexBufferSingleProducerSingleConsumerConfigurable {
+class CircularIndexBufferSingleProducerSingleConsumerConfigurable {
 private:
-    CircularIndexBufferSingleProducerSingleConsumerConfigurable();
+    CircularIndexBufferSingleProducerSingleConsumerConfigurable() = delete;
 public:
     /**
      * Set the working size of the external buffer, then initialize begin and end to zero.
      * @param size The working size of the associated external buffer.
      */
-    CircularIndexBufferSingleProducerSingleConsumerConfigurable(unsigned int size) noexcept;
+    HDTN_UTIL_EXPORT CircularIndexBufferSingleProducerSingleConsumerConfigurable(unsigned int size) noexcept;
     
     /// Default destructor
-    ~CircularIndexBufferSingleProducerSingleConsumerConfigurable() noexcept;
+    HDTN_UTIL_EXPORT ~CircularIndexBufferSingleProducerSingleConsumerConfigurable() noexcept;
 	
     /** Reset bounds.
      *
      * Set begin and end back to zero.
      */
-    void Init() noexcept;
+    HDTN_UTIL_EXPORT void Init() noexcept;
     
     /** Query whether external buffer is full.
      *
      * Checks if the next element after end (wrap on overflow) is equal to begin.
      * @return True if the external buffer is full, or False otherwise.
      */
-    bool IsFull() const noexcept;
+    HDTN_UTIL_EXPORT bool IsFull() const noexcept;
     
     /** Query whether external buffer is empty.
      *
      * Checks if begin is equal to end.
      * @return True if the external buffer is empty, or False otherwise.
      */
-    bool IsEmpty() const noexcept;
+    HDTN_UTIL_EXPORT bool IsEmpty() const noexcept;
     
     /** Get write index.
      *
      * Indicates the start of a write operation.
      * @return CIRCULAR_INDEX_BUFFER_FULL if buffer is full, else the write index.
      */
-    unsigned int GetIndexForWrite() const noexcept;
+    HDTN_UTIL_EXPORT unsigned int GetIndexForWrite() const noexcept;
     
     /** Advance write index.
      *
      * Indicates the completion of the current active write operation, advances end one element forward (wrap on overflow).
      */
-    void CommitWrite() noexcept;
+    HDTN_UTIL_EXPORT void CommitWrite() noexcept;
     
     /** Get read index.
      *
      * Indicates the start of a read operation.
      * @return CIRCULAR_INDEX_BUFFER_EMPTY if buffer is empty, else the read index.
      */
-    unsigned int GetIndexForRead() const noexcept;
+    HDTN_UTIL_EXPORT unsigned int GetIndexForRead() const noexcept;
     
     /** Advance read index.
      *
      * Indicates the completion of the current active read operation, advances begin one element forward (wrap on overflow).
      */
-    void CommitRead() noexcept;
+    HDTN_UTIL_EXPORT void CommitRead() noexcept;
     
     /** Get the number of active elements in the external buffer.
      *
      * Calculates how many elements exist between begin and end.
      * @return The number of elements in the external buffer that are currently being indexed.
      */
-    unsigned int NumInBuffer() const noexcept;
+    HDTN_UTIL_EXPORT unsigned int NumInBuffer() const noexcept;
 
     /** Get the capacity of the circular index buffer.
      *
      * @return The capacity of the circular index buffer.
      */
-    unsigned int GetCapacity() const noexcept;
+    HDTN_UTIL_EXPORT unsigned int GetCapacity() const noexcept;
 
 private:
     /// Begin
-    volatile unsigned int m_cbStartIndex;
+    std::atomic<unsigned int> m_cbStartIndex;
     /// End
-    volatile unsigned int m_cbEndIndex;
+    std::atomic<unsigned int> m_cbEndIndex;
     /// Working size of the external buffer
     const unsigned int M_CIRCULAR_INDEX_BUFFER_SIZE;
 };

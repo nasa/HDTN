@@ -34,6 +34,7 @@
 #include "DeadlineTimer.h"
 #include "ThreadNamer.h"
 #include <queue>
+#include <atomic>
 #ifdef USE_WEB_INTERFACE
 #include "BeastWebsocketServer.h"
 #endif
@@ -58,26 +59,24 @@ static const unsigned int REC_API = 0x08;
 /**
  * TelemetryRunner implementation class
  */
-class TelemetryRunner::Impl : private boost::noncopyable
-{
-public:
-    Impl();
-    bool Init(const HdtnConfig &hdtnConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options);
-    void Stop();
+class TelemetryRunner::Impl : private boost::noncopyable {
+    public:
+        Impl();
+        bool Init(const HdtnConfig& hdtnConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions& options);
+        void Stop();
 
-private:
-    void ThreadFunc(const HdtnDistributedConfig_ptr &hdtnDistributedConfigPtr, zmq::context_t *inprocContextPtr);
-    void OnNewJsonTelemetry(const char *buffer, uint64_t bufferSize);
-    void OnNewWebsocketConnectionCallback(WebsocketSessionPublicBase &conn);
-    bool OnNewWebsocketDataReceivedCallback(WebsocketSessionPublicBase &conn, std::string &receivedString);
-    bool OnApiRequest(std::string &&msgJson, ApiSource_t src);
-    bool HandlePingCommand(std::string &movablePayload, ApiSource_t src);
-    bool HandleBPSecCommand(std::string &movablePayload, ApiSource_t src);
-    bool HandleUploadContactPlanCommand(std::string &movablePayload, ApiSource_t src);
-    bool HandleGetExpiringStorageCommand(std::string &movablePayload, ApiSource_t src);
+    private:
+        void ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDistributedConfigPtr, zmq::context_t * inprocContextPtr);
+        void OnNewJsonTelemetry(const char* buffer, uint64_t bufferSize);
+        void OnNewWebsocketConnectionCallback(WebsocketSessionPublicBase& conn);
+        bool OnNewWebsocketDataReceivedCallback(WebsocketSessionPublicBase& conn, std::string& receivedString);
+        bool OnApiRequest(std::string&& msgJson, ApiSource_t src);
+        bool HandlePingCommand(std::string& movablePayload, ApiSource_t src);
+        bool HandleUploadContactPlanCommand(std::string& movablePayload, ApiSource_t src);
+        bool HandleGetExpiringStorageCommand(std::string& movablePayload, ApiSource_t src);
 
-    volatile bool m_running;
-    std::unique_ptr<boost::thread> m_threadPtr;
+        std::atomic<bool> m_running;
+        std::unique_ptr<boost::thread> m_threadPtr;
 #ifdef USE_WEB_INTERFACE
     std::unique_ptr<BeastWebsocketServer> m_websocketServerPtr;
 #endif
@@ -350,11 +349,9 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr &hdtnDist
     poller.AddConnection(*m_apiConnection);
 
     // Start loop to begin polling
-
-    while (m_running)
-    {
-        if (!m_deadlineTimer.SleepUntilNextInterval())
-        {
+    
+    while (m_running.load(std::memory_order_acquire)) {
+        if (!m_deadlineTimer.SleepUntilNextInterval()) {
             break;
         }
 

@@ -26,8 +26,10 @@
 #define BPSEC_BUNDLE_PROCESSOR_H 1
 
 #include <string>
+#include <memory>
 #include <cstdint>
 #include <vector>
+#include <forward_list>
 #include "codec/BundleViewV7.h"
 #include "codec/bpv7.h"
 #include "bpsec_export.h"
@@ -56,7 +58,69 @@ public:
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
         std::vector<uint8_t> verifyOnlyDecryptionTemporaryMemory; //will grow to max bundle size received if verify enabled
     };
+    enum class BPSEC_ERROR_CODES : uint8_t {
+        CORRUPTED = 0,
+        MISCONFIGURED,
+        MISSING
+    };
+    struct BpSecError {
+        BpSecError() = delete;
+        BpSecError(const BPSEC_ERROR_CODES ec, uint64_t securityTargetIndex, std::unique_ptr<std::string>&& es) :
+            m_errorCode(ec), m_securityTargetIndex(securityTargetIndex), m_errorStringPtr(std::move(es)) {}
+        BPSEC_ERROR_CODES m_errorCode;
+        uint64_t m_securityTargetIndex;
+        std::unique_ptr<std::string> m_errorStringPtr;
+    };
+    typedef std::forward_list<BpSecError> BpSecErrorFlist;
+    BPSEC_EXPORT static std::string ErrorListToString(const BpSecErrorFlist& errorList);
+    struct IntegrityReceivedParameters {
+        ///The key used for unwrapping any wrapped hmac keys included in the BIB blocks. (set to NULL if not present)
+        const uint8_t* keyEncryptionKey;
+        ///The length of the keyEncryptionKey. (should set to 0 if keyEncryptionKey is NULL)
+        unsigned int keyEncryptionKeyLength; 
 
+        ///The HMAC key to be used for hashing (when no wrapped key is present) (set to NULL if not present)
+        const uint8_t* hmacKey;
+        ///The length of the hmacKey. (should set to 0 if hmacKey is NULL)
+        unsigned int hmacKeyLength;
+
+        ///The expected hmac variant that the BIB will contain.  Will result in MISCONFIGURED error if it doesn't match.
+        COSE_ALGORITHMS expectedVariant;
+        ///The expected hmac scope mask that the BIB will contain.  Will result in MISCONFIGURED error if it doesn't match.
+        BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS expectedScopeMask;
+        ///The minimum expected mask of the target block types that the BIB will contain.
+        ///Currently it can only detect block types between 0 and 63.
+        ///Will result in MISCONFIGURED error if it doesn't match.
+        uint64_t expectedTargetBlockTypesMask;
+    };
+    struct ConfidentialityReceivedParameters {
+        ///The key used for wrapping the data encryption key (DEK) included in the BCB blocks.
+        ///Any wrapped keys would then be unwrapped into a dataEncryptionKey (DEK) which would be used
+        ///in lieu of the dataEncryptionKey.
+        ///(set to NULL if not present)
+        const uint8_t* keyEncryptionKey;
+        ///The length of the keyEncryptionKey. (should set to 0 if keyEncryptionKey is NULL)
+        unsigned int keyEncryptionKeyLength;
+
+        ///The key (DEK) to be used for encrypting (when no wrapped key is present)
+        ///Set to NULL if always expecting wrapped keys to be included in the received BCBs.
+        const uint8_t* dataEncryptionKey;
+        ///The length of the dataEncryptionKey. (should set to 0 if dataEncryptionKey is NULL)
+        unsigned int dataEncryptionKeyLength;
+
+        ///The expected length in bytes of the initialization vector that the BCB will contain.
+        ///Will result in MISCONFIGURED error if it doesn't match.
+        uint8_t expectedIvLength;
+        ///The expected AES variant that the BCB will contain.  Will result in MISCONFIGURED error if it doesn't match.
+        COSE_ALGORITHMS expectedVariant;
+        ///The expected additional authenticated data (AAD) scope mask that the BCB will contain.
+        ///Will result in MISCONFIGURED error if it doesn't match.
+        BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS expectedAadScopeMask;
+        ///The expected mask of the target block types that the BIB will contain.
+        ///Currently it can only detect block types between 0 and 63.
+        ///Will result in MISCONFIGURED error if it doesn't match.
+        uint64_t expectedTargetBlockTypesMask;
+    };
     
     /**
     * Generates Keyed Hash for integrity
@@ -79,38 +143,27 @@ public:
 
     
     /**
-    * Verifies any BIB block(s) within the preloaded bundle view.  The bundle must be loaded with padded data.
+    * Verifies the BIB block within the preloaded bundle view.  The bundle must be loaded with padded data.
+    * This function would generally be called within a loop over all BIB blocks within the bundle.
     *
     * @param ctxWrapper The reusable (allocated once) openssl HMAC_CTX context.
     * @param ctxWrapperForKeyUnwrap The reusable (allocated once) openssl EVP_CIPHER_CTX context (for key unwrap operations).
     * @param bv The preloaded bundle view.  The bundle must be loaded with padded data!
-    * @param keyEncryptionKey The key used for unwrapping any wrapped keys included in the BIB blocks. (set to NULL if not present)
-    * @param keyEncryptionKeyLength The length of the keyEncryptionKey. (should set to 0 if keyEncryptionKey is NULL)
-    * @param hmacKey The HMAC key to be used for hashing (when no wrapped key is present)
-    * @param hmacKeyLength The length of the hmacKey. (should set to 0 if hmacKey is NULL)
+    * @param bibBlockView The BIB of interest to use.
+    * @param IntegrityReceivedParameters The values required for verification of the BIB blocks.
     * @param reusableElementsInternal Create this once throughout the program duration.  This parameter is used internally and
     *        resizes constantly.  This parameter is intended to minimize unnecessary allocations/deallocations.
     * @param markBibForDeletion If true, mark BIB block for deletion on successful verification so that it will be removed
     *                           after the next rerender of the bundleview.
-    * @param renderInPlaceWhenFinished Perform a render in place automatically on the bundle view at function completion.
-    *                                  Set to false to render manually (i.e. if there are other operations needing completed prior to render).
-    * @return true if there were no errors, false otherwise
+    * @post The bundle view is left unrendered (i.e. if there are other operations needing completed prior to render).
+    *       The bundle must be manually rerendered in-place.
+    * @return empty list if there were no errors
     */
-    BPSEC_EXPORT static bool TryVerifyBundleIntegrity(HmacCtxWrapper& ctxWrapper,
-        EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
-        BundleViewV7& bv,
-        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping hmac key only)
-        const uint8_t* hmacKey, const unsigned int hmacKeyLength, //NULL if not present (when no wrapped key is present)
-        ReusableElementsInternal& reusableElementsInternal,
-        const bool markBibForDeletion,
-        const bool renderInPlaceWhenFinished);
-
-    BPSEC_EXPORT static bool TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrapper& ctxWrapper,
+    BPSEC_EXPORT static BpSecErrorFlist TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrapper& ctxWrapper,
         EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
         BundleViewV7& bv,
         BundleViewV7::Bpv7CanonicalBlockView& bibBlockView,
-        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength, //NULL if not present (for unwrapping hmac key only)
-        const uint8_t* hmacKey, const unsigned int hmacKeyLength, //NULL if not present (when no wrapped key is present)
+        const IntegrityReceivedParameters& integrityReceivedParameters,
         ReusableElementsInternal& reusableElementsInternal,
         const bool markBibForDeletion);
 
@@ -237,46 +290,26 @@ public:
         uint8_t* unwrappedKeyOut, unsigned int& unwrappedKeyOutSize);
 
     /**
-    * Decrypts any BCB target block(s) within the preloaded bundle view in-place.  The bundle must be loaded with padded data.
+    * Decrypts the BCB target block(s) within the preloaded bundle view in-place.  The bundle must be loaded with padded data.
+    * This function would generally be called within a loop over all BCB blocks within the bundle.
     *
     * @param ctxWrapper The reusable (allocated once) openssl EVP_CIPHER_CTX context.
     * @param ctxWrapperForKeyUnwrap The reusable (allocated once) openssl EVP_CIPHER_CTX context (for key unwrap operations).
     * @param bv The preloaded bundle view.  The bundle must be loaded with padded data!
-    * @param keyEncryptionKey The key used for unwrapping any wrapped keys included in the BCB blocks.
-    *                         Any wrapped keys would then be unwrapped into a dataEncryptionKey (DEK) which would be used
-    *                         in lieu of the function parameter dataEncryptionKey. Set to NULL if not present.
-    * @param keyEncryptionKeyLength The length of the keyEncryptionKey. (should set to 0 if keyEncryptionKey is NULL)
-    * @param dataEncryptionKey The key (DEK) to be used for decrypting (when no wrapped key is present).
-    *                          Set to NULL if always expecting wrapped keys to be included in the received BCBs.
-    * @param dataEncryptionKeyLength The length of the dataEncryptionKey. (should set to 0 if dataEncryptionKey is NULL)
+    * @param bcbBlockView The BCB of interest to use.
+    * @param ConfidentialityReceivedParameters The values required for verification of the BCB blocks.
     * @param reusableElementsInternal Create this once throughout the program duration.  This parameter is used internally and
     *        resizes constantly.  This parameter is intended to minimize unnecessary allocations/deallocations.
-    * @param renderInPlaceWhenFinished Perform a render in place automatically on the bundle view at function completion.
+    * @param verifyOnly If true, Decrypt to temporary memory, leaving the bundle unmodified (for verifiers of confidentiality).
     *                                  Set to false to render manually (i.e. if there are other operations needing completed prior to render).
-    * @post The BCB block is marked for deletion on successful in-place decryption, and the bundle view is (optionally) rerendered in-place.
-    * @return true if there were no errors, false otherwise
+    * @post The BCB block is marked for deletion on successful in-place decryption.  The bundle view must be manually rerendered in-place.
+    * @return empty list if there were no errors
     */
-    BPSEC_EXPORT static bool TryDecryptBundle(EvpCipherCtxWrapper& ctxWrapper,
-        EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
-        BundleViewV7& bv,
-        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
-        const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength,
-        ReusableElementsInternal& reusableElementsInternal,
-        const bool renderInPlaceWhenFinished);
-
-    BPSEC_EXPORT static bool TryVerifyDecryptionOfBundle(EvpCipherCtxWrapper& ctxWrapper,
-        EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
-        BundleViewV7& bv,
-        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
-        const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength,
-        ReusableElementsInternal& reusableElementsInternal);
-
-    BPSEC_EXPORT static bool TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& ctxWrapper,
+    BPSEC_EXPORT static BpSecErrorFlist TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& ctxWrapper,
         EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
         BundleViewV7& bv,
         BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView,
-        const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
-        const uint8_t* dataEncryptionKey, const unsigned int dataEncryptionKeyLength,
+        const ConfidentialityReceivedParameters& confidentialityReceivedParameters,
         ReusableElementsInternal& reusableElementsInternal,
         const bool verifyOnly);
 

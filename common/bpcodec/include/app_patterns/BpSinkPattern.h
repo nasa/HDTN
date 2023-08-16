@@ -43,6 +43,7 @@
 #include "TcpclInduct.h"
 #include <queue>
 #include <unordered_set>
+#include <atomic>
 
 class CLASS_VISIBILITY_BP_APP_PATTERNS_LIB BpSinkPattern {
 public:
@@ -112,8 +113,8 @@ private:
     typedef std::pair<uint64_t, cbhe_eid_t> bundleid_finaldesteid_pair_t;
     typedef std::pair<padded_vector_uint8_t, bundleid_finaldesteid_pair_t> bundle_userdata_pair_t;
     std::queue<bundle_userdata_pair_t> m_queueBundlesThatFailedToSend;
-    volatile bool m_linkIsDown;
-    volatile bool m_runningSenderThread;
+    std::atomic<bool> m_linkIsDown;
+    std::atomic<bool> m_runningSenderThread;
     boost::mutex m_mutexCtm;
     boost::mutex m_mutexSendBundleQueue;
     uint64_t m_tcpclOpportunisticRemoteNodeId;

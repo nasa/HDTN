@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 3.12) #using generator $<TARGET_NAME_IF_EXISTS:tg
 # to Release prior to calling PROJECT()
 #
 if(DEFINED CMAKE_BUILD_TYPE)
-   SET(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE} CACHE STRING "Choose the type of build, options are: None(CMAKE_CXX_FLAGS or CMAKE_C_FLAGS used) Debug Release RelWithDebInfo MinSizeRel.")
+   SET(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE} CACHE STRING "Choose the type of build, options are: None(CMAKE_CXX_FLAGS or CMAKE_C_FLAGS used) Debug Release RelWithDebInfo MinSizeRel Coverage.")
 else()
    SET(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build, options are: None(CMAKE_CXX_FLAGS or CMAKE_C_FLAGS used) Debug Release RelWithDebInfo MinSizeRel.")
 endif()
@@ -52,6 +52,10 @@ include(${CMAKE_SOURCE_DIR}/cpp_standard_detection.cmake) # Determine whether to
 SET(CMAKE_INSTALL_LIBDIR "lib" CACHE PATH "HDTN shared and static libraries will be installed to CMAKE_INSTALL_PREFIX/CMAKE_INSTALL_LIBDIR/")
 SET(CMAKE_INSTALL_INCLUDEDIR "include/HDTN" CACHE PATH "HDTN public headers will be installed to CMAKE_INSTALL_PREFIX/CMAKE_INSTALL_INCLUDEDIR/")
 SET(CMAKE_INSTALL_BINDIR "bin" CACHE PATH "HDTN binaries will be installed to CMAKE_INSTALL_PREFIX/CMAKE_INSTALL_BINDIR/")
+
+if( ${CMAKE_BUILD_TYPE} STREQUAL "Coverage" )
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
+endif()
 
 set(MIN_BOOST_VERSION 1.66.0)
 find_package(Boost ${MIN_BOOST_VERSION} REQUIRED system date_time filesystem timer thread regex filesystem program_options unit_test_framework iostreams random log log_setup)
@@ -200,6 +204,7 @@ add_subdirectory(common/tcpcl)
 add_subdirectory(common/ltp)
 add_subdirectory(common/stcp)
 add_subdirectory(common/udp)
+add_subdirectory(common/slip_over_uart)
 add_subdirectory(common/stats_logger)
 if(RUN_TELEMETRY)
 	add_subdirectory(module/telem_cmd_interface)

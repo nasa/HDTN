@@ -25,13 +25,13 @@
 
 #include <stdint.h>
 #include "BpSinkAsync.h"
-
+#include <atomic>
 
 class BpSinkAsyncRunner {
 public:
     BpSinkAsyncRunner();
     ~BpSinkAsyncRunner();
-    bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
+    bool Run(int argc, const char* const argv[], std::atomic<bool>& running, bool useSignalHandler);
     uint64_t m_totalBytesRx;
     uint64_t m_receivedCount;
     uint64_t m_duplicateCount;
@@ -40,7 +40,7 @@ public:
 private:
     void MonitorExitKeypressThreadFunction();
 
-    volatile bool m_runningFromSigHandler;
+    std::atomic<bool> m_runningFromSigHandler;
 };
 
 

@@ -591,6 +591,75 @@ boost::property_tree::ptree TcpclV4InductConnectionTelemetry_t::GetNewPropertyTr
     return pt;
 }
 
+SlipOverUartInductConnectionTelemetry_t::SlipOverUartInductConnectionTelemetry_t() :
+    InductConnectionTelemetry_t(),
+    m_totalSlipBytesSent(0),
+    m_totalSlipBytesReceived(0),
+    m_totalReceivedChunks(0),
+    m_largestReceivedBytesPerChunk(0),
+    m_averageReceivedBytesPerChunk(0),
+    m_totalBundlesSentAndAcked(0),
+    m_totalBundleBytesSentAndAcked(0),
+    m_totalBundlesSent(0),
+    m_totalBundleBytesSent(0),
+    m_totalBundlesFailedToSend(0) {}
+SlipOverUartInductConnectionTelemetry_t::~SlipOverUartInductConnectionTelemetry_t() {};
+bool SlipOverUartInductConnectionTelemetry_t::operator==(const InductConnectionTelemetry_t& o) const {
+    if (const SlipOverUartInductConnectionTelemetry_t* oPtr = dynamic_cast<const SlipOverUartInductConnectionTelemetry_t*>(&o)) {
+        return InductConnectionTelemetry_t::operator==(o)
+            && (m_totalSlipBytesSent == oPtr->m_totalSlipBytesSent)
+            && (m_totalSlipBytesReceived == oPtr->m_totalSlipBytesReceived)
+            && (m_totalReceivedChunks == oPtr->m_totalReceivedChunks)
+            && (m_largestReceivedBytesPerChunk == oPtr->m_largestReceivedBytesPerChunk)
+            && (m_averageReceivedBytesPerChunk == oPtr->m_averageReceivedBytesPerChunk)
+            && (m_totalBundlesSentAndAcked == oPtr->m_totalBundlesSentAndAcked)
+            && (m_totalBundleBytesSentAndAcked == oPtr->m_totalBundleBytesSentAndAcked)
+            && (m_totalBundlesSent == oPtr->m_totalBundlesSent)
+            && (m_totalBundleBytesSent == oPtr->m_totalBundleBytesSent)
+            && (m_totalBundlesFailedToSend == oPtr->m_totalBundlesFailedToSend);
+    }
+    return false;
+}
+bool SlipOverUartInductConnectionTelemetry_t::operator!=(const InductConnectionTelemetry_t& o) const {
+    return !(*this == o);
+}
+bool SlipOverUartInductConnectionTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!InductConnectionTelemetry_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
+    try {
+        m_totalSlipBytesSent = pt.get<uint64_t>("totalSlipBytesSent");
+        m_totalSlipBytesReceived = pt.get<uint64_t>("totalSlipBytesReceived");
+        m_totalReceivedChunks = pt.get<uint64_t>("totalReceivedChunks");
+        m_largestReceivedBytesPerChunk = pt.get<uint64_t>("largestReceivedBytesPerChunk");
+        m_averageReceivedBytesPerChunk = pt.get<uint64_t>("averageReceivedBytesPerChunk");
+        m_totalBundlesSentAndAcked = pt.get<uint64_t>("totalBundlesSentAndAcked");
+        m_totalBundleBytesSentAndAcked = pt.get<uint64_t>("totalBundleBytesSentAndAcked");
+        m_totalBundlesSent = pt.get<uint64_t>("totalBundlesSent");
+        m_totalBundleBytesSent = pt.get<uint64_t>("totalBundleBytesSent");
+        m_totalBundlesFailedToSend = pt.get<uint64_t>("totalBundlesFailedToSend");
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON TcpclV4InductConnectionTelemetry_t: " << e.what();
+        return false;
+    }
+    return true;
+}
+boost::property_tree::ptree SlipOverUartInductConnectionTelemetry_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt = InductConnectionTelemetry_t::GetNewPropertyTree();
+    pt.put("totalSlipBytesSent", m_totalSlipBytesSent);
+    pt.put("totalSlipBytesReceived", m_totalSlipBytesReceived);
+    pt.put("totalReceivedChunks", m_totalReceivedChunks);
+    pt.put("largestReceivedBytesPerChunk", m_largestReceivedBytesPerChunk);
+    pt.put("averageReceivedBytesPerChunk", m_averageReceivedBytesPerChunk);
+    pt.put("totalBundlesSentAndAcked", m_totalBundlesSentAndAcked);
+    pt.put("totalBundleBytesSentAndAcked", m_totalBundleBytesSentAndAcked);
+    pt.put("totalBundlesSent", m_totalBundlesSent);
+    pt.put("totalBundleBytesSent", m_totalBundleBytesSent);
+    pt.put("totalBundlesFailedToSend", m_totalBundlesFailedToSend);
+    return pt;
+}
+
 LtpInductConnectionTelemetry_t::LtpInductConnectionTelemetry_t() :
     InductConnectionTelemetry_t(),
     m_numReportSegmentTimerExpiredCallbacks(0),
@@ -715,6 +784,9 @@ bool InductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::pt
         BOOST_FOREACH(const boost::property_tree::ptree::value_type & inductConnectionPt, inductConnectionsPt) {
             if (m_convergenceLayer == "ltp_over_udp") {
                 m_listInductConnections.emplace_back(boost::make_unique<LtpInductConnectionTelemetry_t>());
+            }
+            else if (m_convergenceLayer == "slip_over_uart") {
+                m_listInductConnections.emplace_back(boost::make_unique<SlipOverUartInductConnectionTelemetry_t>());
             }
             else if (m_convergenceLayer == "udp") {
                 m_listInductConnections.emplace_back(boost::make_unique<UdpInductConnectionTelemetry_t>());
@@ -1122,6 +1194,66 @@ boost::property_tree::ptree TcpclV4OutductTelemetry_t::GetNewPropertyTree() cons
     return pt;
 }
 
+SlipOverUartOutductTelemetry_t::SlipOverUartOutductTelemetry_t() :
+    OutductTelemetry_t(),
+    m_totalSlipBytesSent(0),
+    m_totalSlipBytesReceived(0),
+    m_totalReceivedChunks(0),
+    m_largestReceivedBytesPerChunk(0),
+    m_averageReceivedBytesPerChunk(0),
+    m_totalBundlesReceived(0),
+    m_totalBundleBytesReceived(0)
+{
+    m_convergenceLayer = "slip_over_uart";
+}
+SlipOverUartOutductTelemetry_t::~SlipOverUartOutductTelemetry_t() {};
+bool SlipOverUartOutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
+    if (const SlipOverUartOutductTelemetry_t* oPtr = dynamic_cast<const SlipOverUartOutductTelemetry_t*>(&o)) {
+        return OutductTelemetry_t::operator==(o)
+            && (m_totalSlipBytesSent == oPtr->m_totalSlipBytesSent)
+            && (m_totalSlipBytesReceived == oPtr->m_totalSlipBytesReceived)
+            && (m_totalReceivedChunks == oPtr->m_totalReceivedChunks)
+            && (m_largestReceivedBytesPerChunk == oPtr->m_largestReceivedBytesPerChunk)
+            && (m_averageReceivedBytesPerChunk == oPtr->m_averageReceivedBytesPerChunk)
+            && (m_totalBundlesReceived == oPtr->m_totalBundlesReceived)
+            && (m_totalBundleBytesReceived == oPtr->m_totalBundleBytesReceived);
+    }
+    return false;
+}
+bool SlipOverUartOutductTelemetry_t::operator!=(const OutductTelemetry_t& o) const {
+    return !(*this == o);
+}
+bool SlipOverUartOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!OutductTelemetry_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
+    try {
+        m_totalSlipBytesSent = pt.get<uint64_t>("totalSlipBytesSent");
+        m_totalSlipBytesReceived = pt.get<uint64_t>("totalSlipBytesReceived");
+        m_totalReceivedChunks = pt.get<uint64_t>("totalReceivedChunks");
+        m_largestReceivedBytesPerChunk = pt.get<uint64_t>("largestReceivedBytesPerChunk");
+        m_averageReceivedBytesPerChunk = pt.get<uint64_t>("averageReceivedBytesPerChunk");
+        m_totalBundlesReceived = pt.get<uint64_t>("totalBundlesReceived");
+        m_totalBundleBytesReceived = pt.get<uint64_t>("totalBundleBytesReceived");
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON TcpclV4OutductTelemetry_t: " << e.what();
+        return false;
+    }
+    return true;
+}
+boost::property_tree::ptree SlipOverUartOutductTelemetry_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt = OutductTelemetry_t::GetNewPropertyTree();
+    pt.put("totalSlipBytesSent", m_totalSlipBytesSent);
+    pt.put("totalSlipBytesReceived", m_totalSlipBytesReceived);
+    pt.put("totalReceivedChunks", m_totalReceivedChunks);
+    pt.put("largestReceivedBytesPerChunk", m_largestReceivedBytesPerChunk);
+    pt.put("averageReceivedBytesPerChunk", m_averageReceivedBytesPerChunk);
+    pt.put("totalBundlesReceived", m_totalBundlesReceived);
+    pt.put("totalBundleBytesReceived", m_totalBundleBytesReceived);
+    return pt;
+}
+
 
 UdpOutductTelemetry_t::UdpOutductTelemetry_t() :
     OutductTelemetry_t(),
@@ -1221,6 +1353,9 @@ bool AllOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree
             
             if (convergenceLayer == "ltp_over_udp") {
                 m_listAllOutducts.emplace_back(boost::make_unique<LtpOutductTelemetry_t>());
+            }
+            else if (convergenceLayer == "slip_over_uart") {
+                m_listAllOutducts.emplace_back(boost::make_unique<SlipOverUartOutductTelemetry_t>());
             }
             else if (convergenceLayer == "udp") {
                 m_listAllOutducts.emplace_back(boost::make_unique<UdpOutductTelemetry_t>());

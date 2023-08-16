@@ -69,9 +69,10 @@ bool LtpOverUdpBundleSink::ReadyToBeDeleted() {
     return true;
 }
 
-void LtpOverUdpBundleSink::SyncTransportLayerSpecificTelem() {
+void LtpOverUdpBundleSink::GetTransportLayerSpecificTelem(LtpInductConnectionTelemetry_t& telem) const {
     if (m_ltpUdpEnginePtr) {
-        m_telemetry.m_countUdpPacketsSent = m_ltpUdpEnginePtr->m_countAsyncSendCallbackCalls + m_ltpUdpEnginePtr->m_countBatchUdpPacketsSent;
-        m_telemetry.m_countRxUdpCircularBufferOverruns = m_ltpUdpEnginePtr->m_countCircularBufferOverruns;
+        telem.m_countUdpPacketsSent = m_ltpUdpEnginePtr->m_countAsyncSendCallbackCalls.load(std::memory_order_acquire)
+            + m_ltpUdpEnginePtr->m_countBatchUdpPacketsSent.load(std::memory_order_acquire);
+        telem.m_countRxUdpCircularBufferOverruns = m_ltpUdpEnginePtr->m_countCircularBufferOverruns.load(std::memory_order_acquire);
     }
 }

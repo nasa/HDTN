@@ -67,13 +67,6 @@ TcpclV4BundleSource::TcpclV4BundleSource(
 
 TcpclV4BundleSource::~TcpclV4BundleSource() {
     Stop();
-    //print stats
-    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalBundlesAcked " << m_base_outductTelemetry.m_totalBundlesAcked;
-    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalBundleBytesAcked " << m_base_outductTelemetry.m_totalBundleBytesAcked;
-    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalBundlesSent " << m_base_outductTelemetry.m_totalBundlesSent;
-    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalFragmentsAcked " << m_base_outductTelemetry.m_totalFragmentsAcked;
-    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalFragmentsSent " << m_base_outductTelemetry.m_totalFragmentsSent;
-    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalBundleBytesSent " << m_base_outductTelemetry.m_totalBundleBytesSent;
 }
 
 void TcpclV4BundleSource::Stop() {
@@ -105,6 +98,18 @@ void TcpclV4BundleSource::Stop() {
         catch (const boost::thread_resource_error&) {
             LOG_ERROR(subprocess) << "error stopping TcpclV4BundleSource io_service";
         }
+        //print stats once
+        LOG_INFO(subprocess) << "TcpclV4 Outduct / Bundle Source:"
+            << "\n totalBundlesSent " << m_base_telem.totalBundlesSent
+            << "\n totalBundlesSentAndAcked " << m_base_telem.totalBundlesSentAndAcked
+            << "\n totalBundleBytesSent " << m_base_telem.totalBundleBytesSent
+            << "\n totalBundleBytesSentAndAcked " << m_base_telem.totalBundleBytesSentAndAcked
+            << "\n totalFragmentsSent " << m_base_telem.totalFragmentsSent
+            << "\n totalFragmentsSentAndAcked " << m_base_telem.totalFragmentsSentAndAcked
+            << "\n totalBundlesReceived " << m_base_telem.totalBundlesReceived
+            << "\n totalBundleBytesReceived " << m_base_telem.totalBundleBytesReceived
+            << "\n totalFragmentsReceived " << m_base_telem.totalFragmentsReceived
+            << "\n m_numTcpReconnectAttempts " << m_base_telem.numTcpReconnectAttempts;
     }
 }
 
@@ -146,7 +151,7 @@ void TcpclV4BundleSource::OnConnect(const boost::system::error_code & ec) {
 
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
-            if (m_base_outductTelemetry.m_numTcpReconnectAttempts <= 1) {
+            if (m_base_telem.numTcpReconnectAttempts <= 1) {
                 LOG_ERROR(subprocess) << "OnConnect: " << ec.value() << " " << ec.message();
                 LOG_ERROR(subprocess) << "Will continue to try to reconnect every 2 seconds";
             }
@@ -180,10 +185,9 @@ void TcpclV4BundleSource::OnConnect(const boost::system::error_code & ec) {
 void TcpclV4BundleSource::OnReconnectAfterOnConnectError_TimerExpired(const boost::system::error_code& e) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        if (m_base_outductTelemetry.m_numTcpReconnectAttempts == 0) {
+        if (m_base_telem.numTcpReconnectAttempts.fetch_add(1, std::memory_order_relaxed) == 0) {
             LOG_INFO(subprocess) << "TcpclV4BundleSource Trying to reconnect...";
         }
-        ++m_base_outductTelemetry.m_numTcpReconnectAttempts;
 
         boost::asio::async_connect(
 #ifdef OPENSSL_SUPPORT_ENABLED
@@ -323,10 +327,9 @@ void TcpclV4BundleSource::Virtual_WholeBundleReady(padded_vector_uint8_t & whole
 void TcpclV4BundleSource::OnNeedToReconnectAfterShutdown_TimerExpired(const boost::system::error_code& e) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        if (m_base_outductTelemetry.m_numTcpReconnectAttempts == 0) {
+        if (m_base_telem.numTcpReconnectAttempts.fetch_add(1, std::memory_order_relaxed) == 0) {
             LOG_INFO(subprocess) << "Trying to reconnect...";
         }
-        ++m_base_outductTelemetry.m_numTcpReconnectAttempts;
         m_base_shutdownCalled = false;
 #ifdef OPENSSL_SUPPORT_ENABLED
         m_base_tcpAsyncSenderSslPtr.reset();
@@ -348,5 +351,5 @@ void TcpclV4BundleSource::OnNeedToReconnectAfterShutdown_TimerExpired(const boos
 }
 
 bool TcpclV4BundleSource::ReadyToForward() const {
-    return m_base_readyToForward;
+    return m_base_readyToForward.load(std::memory_order_acquire);
 }

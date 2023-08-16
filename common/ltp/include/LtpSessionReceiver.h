@@ -233,23 +233,23 @@ public:
 
         //session receiver stats
         /// Total number of report segment timer expiry callback invocations
-        uint64_t m_numReportSegmentTimerExpiredCallbacks;
+        std::atomic<uint64_t> m_numReportSegmentTimerExpiredCallbacks;
         /// Total number of report segments unable to be issued
-        uint64_t m_numReportSegmentsUnableToBeIssued;
+        std::atomic<uint64_t> m_numReportSegmentsUnableToBeIssued;
         /// Total number of reports too large needing-fragmented (when report claims > m_maxReceptionClaims)
-        uint64_t m_numReportSegmentsTooLargeAndNeedingSplit;
+        std::atomic<uint64_t> m_numReportSegmentsTooLargeAndNeedingSplit;
         /// Total number of report segments produced from too large needing-fragmented reports
-        uint64_t m_numReportSegmentsCreatedViaSplit;
+        std::atomic<uint64_t> m_numReportSegmentsCreatedViaSplit;
         /// Total number of gaps filled by out-of-order data segments
-        uint64_t m_numGapsFilledByOutOfOrderDataSegments;
+        std::atomic<uint64_t> m_numGapsFilledByOutOfOrderDataSegments;
         /// Total number of whole primary report segments sent (only reports when no gaps)
-        uint64_t m_numDelayedFullyClaimedPrimaryReportSegmentsSent;
+        std::atomic<uint64_t> m_numDelayedFullyClaimedPrimaryReportSegmentsSent;
         /// Total number of whole secondary report segments sent (only reports when no gaps)
-        uint64_t m_numDelayedFullyClaimedSecondaryReportSegmentsSent;
+        std::atomic<uint64_t> m_numDelayedFullyClaimedSecondaryReportSegmentsSent;
         /// Total number of out-of-order partial primary report segments
-        uint64_t m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent;
+        std::atomic<uint64_t> m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent;
         /// Total number of out-of-order partial secondary report segments
-        uint64_t m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent;
+        std::atomic<uint64_t> m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent;
     };
     
     

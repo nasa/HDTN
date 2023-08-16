@@ -32,6 +32,7 @@
 #include "PaddedVectorUint8.h"
 #include "TelemetryDefinitions.h"
 #include "stcp_lib_export.h"
+#include <atomic>
 
 class StcpBundleSink {
 private:
@@ -48,17 +49,17 @@ public:
         const NotifyReadyToDeleteCallback_t & notifyReadyToDeleteCallback = NotifyReadyToDeleteCallback_t());
     STCP_LIB_EXPORT ~StcpBundleSink();
     STCP_LIB_EXPORT bool ReadyToBeDeleted();
+    STCP_LIB_EXPORT void GetTelemetry(StcpInductConnectionTelemetry_t& telem) const;
 private:
 
     STCP_LIB_NO_EXPORT void TryStartTcpReceive();
     STCP_LIB_NO_EXPORT void HandleTcpReceiveIncomingBundleSize(const boost::system::error_code & error, std::size_t bytesTransferred, const unsigned int writeIndex);
-    STCP_LIB_NO_EXPORT void HandleTcpReceiveBundleData(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
+    STCP_LIB_NO_EXPORT void HandleTcpReceiveBundleData(const boost::system::error_code & error, std::size_t bytesTransferred);
     STCP_LIB_NO_EXPORT void PopCbThreadFunc();
     STCP_LIB_NO_EXPORT void DoStcpShutdown();
     STCP_LIB_NO_EXPORT void HandleSocketShutdown();
 
-public:
-    StcpInductConnectionTelemetry_t m_telemetry;
+
 private:
     
     const WholeBundleReadyCallback_t m_wholeBundleReadyCallback;
@@ -71,15 +72,21 @@ private:
     const uint64_t M_MAX_BUNDLE_SIZE_BYTES;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_circularIndexBuffer;
     std::vector<padded_vector_uint8_t > m_tcpReceiveBuffersCbVec;
-    std::vector<std::size_t> m_tcpReceiveBytesTransferredCbVec;
     boost::condition_variable m_conditionVariableCb;
     boost::mutex m_mutexCb;
     std::unique_ptr<boost::thread> m_threadCbReaderPtr;
     bool m_stateTcpReadActive;
     bool m_printedCbTooSmallNotice;
-    volatile bool m_running;
-    volatile bool m_safeToDelete;
+    std::atomic<bool> m_running;
+    std::atomic<bool> m_safeToDelete;
     uint32_t m_incomingBundleSize;
+
+    //telemetry
+    const std::string M_CONNECTION_NAME;
+    const std::string M_INPUT_NAME;
+    std::atomic<uint64_t> m_totalStcpBytesReceived;
+    std::atomic<uint64_t> m_totalBundleBytesReceived;
+    std::atomic<uint64_t> m_totalBundlesReceived;
 };
 
 

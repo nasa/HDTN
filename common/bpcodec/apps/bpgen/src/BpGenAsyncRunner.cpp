@@ -27,9 +27,7 @@ void BpGenAsyncRunner::MonitorExitKeypressThreadFunction() {
     m_runningFromSigHandler = false; //do this first
 }
 
-
-
-static void DurationEndedThreadFunction(const boost::system::error_code& e, volatile bool * running) {
+static void DurationEndedThreadFunction(const boost::system::error_code& e, std::atomic<bool>* running) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
         LOG_INFO(subprocess) << "Reached duration.. exiting";
@@ -40,11 +38,11 @@ static void DurationEndedThreadFunction(const boost::system::error_code& e, vola
     *running = false;
 }
 
-BpGenAsyncRunner::BpGenAsyncRunner() {}
+BpGenAsyncRunner::BpGenAsyncRunner(): m_totalBundlesAcked(0), m_runningFromSigHandler(false) {}
 BpGenAsyncRunner::~BpGenAsyncRunner() {}
 
 
-bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler) {
+bool BpGenAsyncRunner::Run(int argc, const char* const argv[], std::atomic<bool>& running, bool useSignalHandler) {
     //scope to ensure clean exit before return 0
     {
         running = true;

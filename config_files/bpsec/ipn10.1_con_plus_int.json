@@ -12,13 +12,33 @@
             "bundleFinalDestination": [
                 "ipn:*.*"
             ],
+            "securityTargetBlockTypes": [
+                1,
+                11
+            ],
             "securityService": "confidentiality",
             "securityContext": "aesGcm",
             "securityFailureEventSetReference": "default_confidentiality",
             "securityContextParams": [
                 {
+                    "paramName": "aesVariant",
+                    "value": 256
+                },
+                {
+                    "paramName": "ivSizeBytes",
+                    "value": 12
+                },
+                {
                     "paramName": "keyFile",
                     "value": "config_files/bpsec/ipn1.1_confidentiality.key"
+                },
+                {
+                    "paramName": "securityBlockCrc",
+                    "value": 0
+                },
+                {
+                    "paramName": "scopeFlags",
+                    "value": 7
                 }
             ]
         },
@@ -33,13 +53,28 @@
             "bundleFinalDestination": [
                 "ipn:*.*"
             ],
+            "securityTargetBlockTypes": [
+                1
+            ],
             "securityService": "integrity",
             "securityContext": "hmacSha",
             "securityFailureEventSetReference": "default_integrity",
             "securityContextParams": [
                 {
+                    "paramName": "shaVariant",
+                    "value": 384
+                },
+                {
                     "paramName": "keyFile",
                     "value": "config_files/bpsec/ipn1.1_integrity.key"
+                },
+                {
+                    "paramName": "securityBlockCrc",
+                    "value": 0
+                },
+                {
+                    "paramName": "scopeFlags",
+                    "value": 7
                 }
             ]
         },

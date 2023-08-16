@@ -39,6 +39,7 @@ HdtnConfig::HdtnConfig() :
     m_maxIngressBundleWaitOnEgressMilliseconds(2000),
     m_bufferRxToStorageOnLinkUpSaturation(false),
     m_maxLtpReceiveUdpPacketSizeBytes(65536),
+    m_neighborDepletedStorageDelaySeconds(0),
     m_zmqBoundRouterPubSubPortPath(10200),
     m_zmqBoundTelemApiPortPath(10305),
     m_inductsConfig(),
@@ -67,6 +68,7 @@ HdtnConfig::HdtnConfig(const HdtnConfig& o) :
     m_maxIngressBundleWaitOnEgressMilliseconds(o.m_maxIngressBundleWaitOnEgressMilliseconds),
     m_bufferRxToStorageOnLinkUpSaturation(o.m_bufferRxToStorageOnLinkUpSaturation),
     m_maxLtpReceiveUdpPacketSizeBytes(o.m_maxLtpReceiveUdpPacketSizeBytes),
+    m_neighborDepletedStorageDelaySeconds(o.m_neighborDepletedStorageDelaySeconds),
     m_zmqBoundRouterPubSubPortPath(o.m_zmqBoundRouterPubSubPortPath),
     m_zmqBoundTelemApiPortPath(o.m_zmqBoundTelemApiPortPath),
     m_inductsConfig(o.m_inductsConfig),
@@ -92,6 +94,7 @@ HdtnConfig::HdtnConfig(HdtnConfig&& o) noexcept :
     m_maxIngressBundleWaitOnEgressMilliseconds(o.m_maxIngressBundleWaitOnEgressMilliseconds),
     m_bufferRxToStorageOnLinkUpSaturation(o.m_bufferRxToStorageOnLinkUpSaturation),
     m_maxLtpReceiveUdpPacketSizeBytes(o.m_maxLtpReceiveUdpPacketSizeBytes),
+    m_neighborDepletedStorageDelaySeconds(o.m_neighborDepletedStorageDelaySeconds),
     m_zmqBoundRouterPubSubPortPath(o.m_zmqBoundRouterPubSubPortPath),
     m_zmqBoundTelemApiPortPath(o.m_zmqBoundTelemApiPortPath),
     m_inductsConfig(std::move(o.m_inductsConfig)),
@@ -117,6 +120,7 @@ HdtnConfig& HdtnConfig::operator=(const HdtnConfig& o) {
     m_maxIngressBundleWaitOnEgressMilliseconds = o.m_maxIngressBundleWaitOnEgressMilliseconds;
     m_bufferRxToStorageOnLinkUpSaturation = o.m_bufferRxToStorageOnLinkUpSaturation;
     m_maxLtpReceiveUdpPacketSizeBytes = o.m_maxLtpReceiveUdpPacketSizeBytes;
+    m_neighborDepletedStorageDelaySeconds = o.m_neighborDepletedStorageDelaySeconds,
     m_zmqBoundRouterPubSubPortPath = o.m_zmqBoundRouterPubSubPortPath;
     m_zmqBoundTelemApiPortPath = o.m_zmqBoundTelemApiPortPath;
     m_inductsConfig = o.m_inductsConfig;
@@ -143,6 +147,7 @@ HdtnConfig& HdtnConfig::operator=(HdtnConfig&& o) noexcept {
     m_maxIngressBundleWaitOnEgressMilliseconds = o.m_maxIngressBundleWaitOnEgressMilliseconds;
     m_bufferRxToStorageOnLinkUpSaturation = o.m_bufferRxToStorageOnLinkUpSaturation;
     m_maxLtpReceiveUdpPacketSizeBytes = o.m_maxLtpReceiveUdpPacketSizeBytes;
+    m_neighborDepletedStorageDelaySeconds = o.m_neighborDepletedStorageDelaySeconds;
     m_zmqBoundRouterPubSubPortPath = o.m_zmqBoundRouterPubSubPortPath;
     m_zmqBoundTelemApiPortPath = o.m_zmqBoundTelemApiPortPath;
     m_inductsConfig = std::move(o.m_inductsConfig);
@@ -168,6 +173,7 @@ bool HdtnConfig::operator==(const HdtnConfig & o) const {
         (m_maxIngressBundleWaitOnEgressMilliseconds == o.m_maxIngressBundleWaitOnEgressMilliseconds) &&
         (m_bufferRxToStorageOnLinkUpSaturation == o.m_bufferRxToStorageOnLinkUpSaturation) &&
         (m_maxLtpReceiveUdpPacketSizeBytes == o.m_maxLtpReceiveUdpPacketSizeBytes) &&
+        (m_neighborDepletedStorageDelaySeconds == o.m_neighborDepletedStorageDelaySeconds) &&
         (m_zmqBoundRouterPubSubPortPath == o.m_zmqBoundRouterPubSubPortPath) &&
         (m_zmqBoundTelemApiPortPath == o.m_zmqBoundTelemApiPortPath) &&
         (m_inductsConfig == o.m_inductsConfig) &&
@@ -201,6 +207,7 @@ bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & p
         m_maxIngressBundleWaitOnEgressMilliseconds = pt.get<uint64_t>("maxIngressBundleWaitOnEgressMilliseconds");
         m_bufferRxToStorageOnLinkUpSaturation = pt.get<bool>("bufferRxToStorageOnLinkUpSaturation");
         m_maxLtpReceiveUdpPacketSizeBytes = pt.get<uint64_t>("maxLtpReceiveUdpPacketSizeBytes");
+        m_neighborDepletedStorageDelaySeconds = pt.get<uint64_t>("neighborDepletedStorageDelaySeconds");
 
         m_zmqBoundRouterPubSubPortPath = pt.get<uint16_t>("zmqBoundRouterPubSubPortPath");
         m_zmqBoundTelemApiPortPath = pt.get<uint16_t>("zmqBoundTelemApiPortPath");
@@ -298,6 +305,7 @@ boost::property_tree::ptree HdtnConfig::GetNewPropertyTree() const {
     pt.put("maxIngressBundleWaitOnEgressMilliseconds", m_maxIngressBundleWaitOnEgressMilliseconds);
     pt.put("bufferRxToStorageOnLinkUpSaturation", m_bufferRxToStorageOnLinkUpSaturation);
     pt.put("maxLtpReceiveUdpPacketSizeBytes", m_maxLtpReceiveUdpPacketSizeBytes);
+    pt.put("neighborDepletedStorageDelaySeconds", m_neighborDepletedStorageDelaySeconds);
 
     pt.put("zmqBoundRouterPubSubPortPath", m_zmqBoundRouterPubSubPortPath);
     pt.put("zmqBoundTelemApiPortPath", m_zmqBoundTelemApiPortPath);

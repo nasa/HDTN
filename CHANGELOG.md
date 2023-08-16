@@ -9,14 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* All `volatile` variables, especially `volatile bool`, have been replaced with `std::atomic` with proper memory-ordering semantics.
+* All convergence layer telemetry variables/counters use `std::atomic` with proper memory-ordering semantics.
 + Routing library now uses reloaded contact plans from the telemetry API.
 + Fixed bug where router link state information would become out of sync with
   actual link state.
 
 ### Added
 
+* Added "slip_over_uart" convergence layer, allowing bidirectional communication and framing of bundles over a COM/Serial port.
 * Added `--cla-rate` command-line argument to bpgen. This argument, defaulting to zero
   for unlimited, can be used to set the rate for LTP and UDP connections.
+* Added config option `neighborDepletedStorageDelaySeconds` allowing for optional rerouting
+  around neighboring nodes with depleted storage. Zero disables; otherwise, the value is
+  interpreted as the amount of time to wait before forwarding to the neighbor after a depleted
+  storage message is received. Requires that custody be enabled.
 
 ### Changed
 

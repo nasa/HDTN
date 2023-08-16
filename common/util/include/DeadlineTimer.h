@@ -19,7 +19,7 @@
 #define _DEADLINE_TIMER_H 1
 
 #include <boost/asio.hpp>
-
+#include <atomic>
 #include "hdtn_util_export.h"
 
 class DeadlineTimer
@@ -35,7 +35,7 @@ class DeadlineTimer
         boost::asio::io_service m_ioService;
         boost::posix_time::time_duration m_sleepValTimeDuration;
         boost::asio::deadline_timer m_deadlineTimer;
-        volatile bool m_enabled;
+        std::atomic<bool> m_enabled;
 };
 
 #endif // _DEADLINE_TIMER_H

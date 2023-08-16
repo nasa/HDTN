@@ -45,7 +45,6 @@ if (( CUSTODY == 0 )); then
 	sleep 6
 	./send_files
 
-
 else
 	CL="LTP_CUSTODY"
 

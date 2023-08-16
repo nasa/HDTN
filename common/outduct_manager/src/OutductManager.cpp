@@ -22,6 +22,7 @@
 #include "UdpOutduct.h"
 #include "LtpOverUdpOutduct.h"
 #include "LtpOverIpcOutduct.h"
+#include "SlipOverUartOutduct.h"
 #include "Uri.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
@@ -29,6 +30,11 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 OutductManager::OutductManager() : m_numEventsTooManyUnackedBundles(0) {}
 
 OutductManager::~OutductManager() {
+    // The outducts run threads that call callbacks which may
+    // interact with this OutductManager. Stop the outducts (and thus
+    // the associated threads) to prevent them from trying to interact
+    // with this OutductManager while it is being destroyed.
+    StopAllOutducts();
     LOG_INFO(subprocess) << "m_numEventsTooManyUnackedBundles " << m_numEventsTooManyUnackedBundles;
 }
 
@@ -85,6 +91,9 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
                 outductSharedPtr = std::make_shared<TcpclV4Outduct>(thisOutductConfig, myNodeId, uuidIndex, maxOpportunisticRxBundleSizeBytes);
             }
         }
+        else if (thisOutductConfig.convergenceLayer == "slip_over_uart") {
+            outductSharedPtr = std::make_shared<SlipOverUartOutduct>(thisOutductConfig, uuidIndex, outductOpportunisticProcessReceivedBundleCallback);
+        }
         else if (thisOutductConfig.convergenceLayer == "stcp") {
             outductSharedPtr = std::make_shared<StcpOutduct>(thisOutductConfig, uuidIndex);
         }
@@ -116,6 +125,7 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
             outductSharedPtr->SetOnOutductLinkStatusChangedCallback(onOutductLinkStatusChangedCallback);
             outductSharedPtr->SetUserAssignedUuid(uuidIndex);
 
+            m_outductsVec.push_back(std::move(outductSharedPtr)); //uuid will be the array index
             //for any connection-oriented convergence layer, initially send link down event,
             // and when connection completes, the convergence layer will send a link up event
             if ((thisOutductConfig.convergenceLayer == "tcpcl_v3") || (thisOutductConfig.convergenceLayer == "tcpcl_v4") || (thisOutductConfig.convergenceLayer == "stcp")) {
@@ -123,7 +133,7 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
                     LOG_DEBUG(subprocess) << "Outduct index(" << uuidIndex
                         << ") with connection-oriented convergence layer " << thisOutductConfig.convergenceLayer
                         << " setting link down before calling Connect()";
-                    onOutductLinkStatusChangedCallback(true, uuidIndex);
+                    onOutductLinkStatusChangedCallback(true, uuidIndex); //egress needs outduct added to m_outductsVec prior to this call
                 }
             }
             /* the following has issues with bpgen
@@ -136,8 +146,8 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
             }
             */
 
-            outductSharedPtr->Connect();
-            m_outductsVec.push_back(std::move(outductSharedPtr)); //uuid will be the array index
+            m_outductsVec.back()->Connect();
+            
         }
         else {
             LOG_ERROR(subprocess) << "OutductManager::LoadOutductsFromConfig: convergence layer " << thisOutductConfig.convergenceLayer << " is invalid.";
@@ -166,7 +176,7 @@ void OutductManager::StopAllOutducts() {
 
 bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
     if (Outduct * const outductPtr = GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
-        if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxNumberOfBundlesInPipeline()) {
+        if (outductPtr->GetTotalBundlesUnacked() > outductPtr->GetOutductMaxNumberOfBundlesInPipeline()) {
             LOG_ERROR(subprocess) << "bundle pipeline limit exceeded";
             return false;
         }
@@ -181,7 +191,7 @@ bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, const uint8_t* bun
 }
 bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData) {
     if (Outduct * const outductPtr = GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
-        if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxNumberOfBundlesInPipeline()) {
+        if (outductPtr->GetTotalBundlesUnacked() > outductPtr->GetOutductMaxNumberOfBundlesInPipeline()) {
             LOG_ERROR(subprocess) << "bundle pipeline limit exceeded";
             return false;
         }
@@ -196,7 +206,7 @@ bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, zmq::message_t & m
 }
 bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, padded_vector_uint8_t& movableDataVec, std::vector<uint8_t>&& userData) {
     if (Outduct * const outductPtr = GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
-        if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxNumberOfBundlesInPipeline()) {
+        if (outductPtr->GetTotalBundlesUnacked() > outductPtr->GetOutductMaxNumberOfBundlesInPipeline()) {
             LOG_ERROR(subprocess) << "bundle pipeline limit exceeded";
             return false;
         }

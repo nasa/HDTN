@@ -39,10 +39,10 @@
 
 struct OutductFinalStats {
     std::string m_convergenceLayer;
-    std::size_t m_totalDataSegmentsOrPacketsSent;
-    std::size_t m_totalDataSegmentsOrPacketsAcked;
+    std::size_t m_totalBundlesSent;
+    std::size_t m_totalBundlesAcked;
 
-    OutductFinalStats() : m_convergenceLayer(""), m_totalDataSegmentsOrPacketsSent(0), m_totalDataSegmentsOrPacketsAcked(0) {}
+    OutductFinalStats() : m_convergenceLayer(""), m_totalBundlesSent(0), m_totalBundlesAcked(0) {}
 };
 
 
@@ -55,7 +55,7 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT Outduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid);
     OUTDUCT_MANAGER_LIB_EXPORT virtual ~Outduct();
     virtual void PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& outductTelem) = 0;
-    virtual std::size_t GetTotalDataSegmentsUnacked() = 0;
+    virtual std::size_t GetTotalBundlesUnacked() const noexcept = 0;
     virtual bool Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t> && userData) = 0;
     virtual bool Forward(zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData) = 0;
     virtual bool Forward(padded_vector_uint8_t& movableDataVec, std::vector<uint8_t>&& userData) = 0;
