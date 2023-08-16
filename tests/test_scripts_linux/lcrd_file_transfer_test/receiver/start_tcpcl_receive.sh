@@ -42,13 +42,13 @@ mkdir received
 mkdir checksums
 
 if (( CUSTODY == 0 )); then
-        CL="LTP_NO_CUSTODY"
+        CL="TCPCL_NO_CUSTODY"
 
-        ./run_hdtn_oneprocess_ltp &
+        ./run_hdtn_oneprocess_tcpcl &
 	sleep 6
 
 	echo "Receive"
-	./rcv_files  &
+	./rcv_files_tcpcl  &
 
 	./wait.sh
 	echo "Done"
@@ -60,23 +60,14 @@ if (( CUSTODY == 0 )); then
 	echo "Test done"
 
 else
-	CL="LTP_CUSTODY"
+	CL="TCPCL_CUSTODY"
 
-    ./run_hdtn_oneprocess_ltp_custody  &
-	sleep 6
-
-	echo "Receive"
-	./rcv_files_custody
-	
-	./wait.sh
-	echo "Done"
-	echo "Starting checksums"
-	
-	./sha.sh ./received/
-
-	rm -rf ./received/*
-
-	echo "Test done"
-
+<<<<<<< HEAD:tests/test_scripts_linux/lcrd_file_transfer_test2/receiver/start_tcpcl_receive.sh
+	echo "Exiting: there's no test yet for TCPCL with custody "
+        exit  
+=======
+	echo "Exiting, cannot do a tcpcl custody transfer yet"
+        exit
+>>>>>>> 4cf10f96b67cc83ad97781397f4af949d75a1e2f:tests/test_scripts_linux/lcrd_file_transfer_test2/lcrd_file_transfer_test2/receiver/start_tcpcl_receive.sh
 fi
 

@@ -43,16 +43,13 @@ if (( CUSTODY == 0 )); then
 
 	./run_hdtn_oneprocess_tcpcl &
 	sleep 6
-	./send_files_tcpcl
-
+	./send_files_tcpcl 
 
 else
 	CL="TCPCL_CUSTODY"
 
-	./run_hdtn_oneprocess_ltp_custody &
-	sleep 6
-	./send_files_custody
-
+        echo "Exiting, cannot do a tcpcl custody transfer yet "
+        exit 
 fi
 
 

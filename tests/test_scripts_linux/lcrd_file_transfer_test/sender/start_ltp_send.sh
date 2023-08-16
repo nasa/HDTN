@@ -41,10 +41,9 @@ done
 if (( CUSTODY == 0 )); then
 	CL="LTP_NO_CUSTODY"
 
-	./run_hdtn_oneprocess_ltp_custody &
+	./run_hdtn_oneprocess_ltp &
 	sleep 6
-	./send_files_custody
-
+	./send_files
 
 else
 	CL="LTP_CUSTODY"
