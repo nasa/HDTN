@@ -7,7 +7,9 @@ DEST="HDTN_SENDER"
 TIME=$(date "+%Y.%m.%d-%H.%M.%S")
 
 
-#get custody type (none = 0, old = 1, new = 2)
+#default (no arguments) without custody
+#With argument "-c 1" with custody 
+
 CUSTODY=0
 
 while [[ $# -gt 0 ]]; do
