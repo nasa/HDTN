@@ -1,0 +1,3 @@
+$HDTN_SOURCE_ROOT/build/module/hdtn_one_process/hdtn-one-process --hdtn-config-file=./sender_hdtn_config_ltp.json --contact-plan-file=contactPlanLcrd.json
+
+
