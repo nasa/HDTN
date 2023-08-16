@@ -74,6 +74,7 @@ class TelemetryRunner::Impl : private boost::noncopyable {
         bool HandlePingCommand(std::string& movablePayload, ApiSource_t src);
         bool HandleUploadContactPlanCommand(std::string& movablePayload, ApiSource_t src);
         bool HandleGetExpiringStorageCommand(std::string& movablePayload, ApiSource_t src);
+        bool HandleBPSecCommand(std::string &movablePayload, ApiSource_t src);
 
         std::atomic<bool> m_running;
         std::unique_ptr<boost::thread> m_threadPtr;
