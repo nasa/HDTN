@@ -64,7 +64,8 @@ struct Ingress::Impl : private boost::noncopyable {
     ~Impl();
     void Stop();
     bool Init(const HdtnConfig& hdtnConfig, const boost::filesystem::path& bpSecConfigFilePath,
-           const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
+           const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr,
+           std::string leiderImpl);
 
 private:
     void ReadZmqAcksThreadFunc();
@@ -323,7 +324,7 @@ Ingress::Impl::Impl() :
     m_workerThreadStartupInProgress(false),
     m_telemThreadStartupInProgress(false),
     m_inductsFullyLoaded(false),
-    m_pleider(boost::make_unique<LEIDER_IMPLEMENTATION_CLASS>()) {}
+    m_pleider(std::make_unique<LEIDER_IMPLEMENTATION_CLASS>()) {}
 
 Ingress::Ingress() :
     m_pimpl(boost::make_unique<Ingress::Impl>()),
@@ -387,11 +388,12 @@ void Ingress::Impl::Stop() {
 }
 
 bool Ingress::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::path& bpSecConfigFilePath,
-		   const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr) {
-    return m_pimpl->Init(hdtnConfig, bpSecConfigFilePath, hdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr);
+		   const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr, std::string leiderImpl) {
+    return m_pimpl->Init(hdtnConfig, bpSecConfigFilePath, hdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr, leiderImpl);
 }
 bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::path& bpSecConfigFilePath,
-		         const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
+		         const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr,
+                 std::string leiderImpl) {
 
     if (m_running) {
         LOG_ERROR(subprocess) << "Ingress::Init called while Ingress is already running";
@@ -594,6 +596,12 @@ bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::
     }
 
     //m_pleider = new RedundantLeider();
+    if (leiderImpl == "redundant") {
+        m_pleider = std::make_unique<RedundantLeider>();
+    }
+    else if (leiderImpl == "shifting") {
+        m_pleider = std::make_unique<ShiftingLeider>();
+    }
     
     return true;
 }
