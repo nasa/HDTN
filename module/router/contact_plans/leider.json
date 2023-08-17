@@ -5,7 +5,7 @@
             "source": 10,
             "dest": 11,
             "finalDestination": 2,
-            "startTime": 0,
+            "startTime": 20,
             "endTime": 2000,
             "rateBitsPerSec": 0,
             "owlt": 1

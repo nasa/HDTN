@@ -14,6 +14,9 @@
 
 #include "CatalogEntry.h"
 #include <string>
+#include "Logger.h"
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
 
 catalog_entry_t::catalog_entry_t() :
     bundleSizeBytes(0),
@@ -92,6 +95,7 @@ bool catalog_entry_t::HasCustody() const {
 void catalog_entry_t::Init(const PrimaryBlock & primary, const uint64_t paramBundleSizeBytes, const uint64_t paramNumSegmentsRequired, void * paramPtrUuidKeyInMap, bool maskDestination, cbhe_eid_t mask) {
     bundleSizeBytes = paramBundleSizeBytes;
     destEid = maskDestination ? mask : primary.GetFinalDestinationEid();
+    LOG_INFO(subprocess) << "CatalogEntry dest:" << destEid.nodeId;
     encodedAbsExpirationAndCustodyAndPriority = primary.GetPriority() | (primary.GetExpirationSeconds() << 4);
     if (primary.HasCustodyFlagSet()) {
         if (primary.HasFragmentationFlagSet()) {
