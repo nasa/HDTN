@@ -1063,7 +1063,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             << m_hdtnConfig.m_maxBundleSizeBytes << " bytes";
         return false;
     }
-    cbhe_eid_t finalDestEid;
+    cbhe_eid_t finalDestEid, queryResult;
     bool requestsCustody = false;
     bool isAdminRecordForHdtnStorage = false;
     bool isBundleForHdtnRouter = false;
@@ -1076,6 +1076,9 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             LOG_ERROR(subprocess) << "malformed bundle";
             return false;
         }
+#ifdef _LEIDER_H
+        queryResult = m_pleider->query(bv);
+#endif
         Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
         finalDestEid = primary.m_destinationEid; // TODO:leider
         if (needsProcessing) {
@@ -1132,6 +1135,9 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             LOG_ERROR(subprocess) << "Process: malformed version 7 bundle received";
             return false;
         }
+#ifdef _LEIDER_H
+        queryResult = m_pleider->query(bv);
+#endif
         Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
         finalDestEid = primary.m_destinationEid; // TODO:leider
         requestsCustody = false; //custody unsupported at this time
@@ -1391,23 +1397,10 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
         const uint64_t fromIngressUniqueId = m_nextBundleUniqueIdAtomic.fetch_add(1, boost::memory_order_relaxed);
 
         // Query the Leider for logical-destination
-        BundleViewV6 bv6;
-        BundleViewV7 bv7;
-        if (isBpVersion6) {
-            if (!bv6.LoadBundle(bundleDataBegin, bundleCurrentSize)) {
-                LOG_ERROR(subprocess) << "malformed bundle";
-                return false;
-            }
-            finalDestEid = m_pleider->query(bv6);
-        }
-        else if (isBpVersion7) {
-            if (!bv7.LoadBundle(bundleDataBegin, bundleCurrentSize)) {
-                LOG_ERROR(subprocess) << "malformed bundle";
-                return false;
-            }
-            finalDestEid = m_pleider->query(bv7);
-        }
-        
+#ifdef _LEIDER_H
+        finalDestEid = queryResult;
+#endif
+
         { //begin scope for cut-through shared mutex lock
             uint64_t outductIndex = UINT64_MAX;
 
