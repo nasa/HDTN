@@ -51,6 +51,7 @@
 #endif
 
 #include "RedundantLeider.h"
+#include "ShiftingLeider.h"
 
 namespace hdtn {
 
