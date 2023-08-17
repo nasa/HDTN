@@ -60,7 +60,7 @@
             {
                 "name": "tcpcl_egress2",
                 "convergenceLayer": "tcpcl_v4",
-                "nextHopNodeId": 2, // must match EID of sink; setting =102 causes error
+                "nextHopNodeId": 2,
                 "remoteHostname": "localhost",
                 "remotePort": 4557,
                 "maxNumberOfBundlesInPipeline": 50,
