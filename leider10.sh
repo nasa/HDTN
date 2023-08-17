@@ -24,18 +24,13 @@ sleep 3
 #sleep 3
 
 # HDTN one process
-# use the option --use-unix-timestamp when using a contact plan with unix timestamp
-# use the option --use-mgr to use Multigraph Routing Algorithm (the default routing Algorithm is CGR Dijkstra) 
-#./build/module/hdtn_one_process/hdtn-one-process --hdtn-config-file=$hdtn_config --bpsec-config-file=$bpsec_config --contact-plan-file=contactPlanCutThroughMode_unlimitedRate.json &
-#oneprocess_PID=$!
-#sleep 10
 ./build/module/hdtn_one_process/hdtn-one-process --hdtn-config-file=$hdtn_config --contact-plan-file=leider.json &
 oneprocess_PID=$!
 sleep 10
 
-./build/module/hdtn_one_process/hdtn-one-process --hdtn-config-file=$hdtn_config2 --contact-plan-file=leider2.json &
-oneprocess_PID=$!
-sleep 10
+#./build/module/hdtn_one_process/hdtn-one-process --hdtn-config-file=$hdtn_config2 --contact-plan-file=leider.json &
+#oneprocess_PID2=$!
+#sleep 10
 
 
 #bpgen (configure bundle-rate=0 to send bundles at high rate)
@@ -47,7 +42,9 @@ sleep 8
 sleep 30
 echo "\nkilling bpgen1..." && kill -2 $bpgen_PID
 sleep 2
-echo "\nkilling egress..." && kill -2 $oneprocess_PID
+echo "\nkilling hdtn1..." && kill -2 $oneprocess_PID
+sleep 2
+echo "\nkilling hdtn2..." && kill -2 $oneprocess_PID2
 sleep 2
 echo "\nkilling bpsink1..." && kill -2 $bpsink1_PID
 #sleep 2
