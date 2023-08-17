@@ -121,7 +121,6 @@ private:
         uint64_t m_maxBundlesInPipeline;
         uint64_t m_maxBundleSizeBytesInPipeline;
         uint64_t m_nextHopNodeId;
-        //std::unique_ptr<Leider> m_pleider;
     public:
         bool m_linkIsUp;
     };
@@ -324,7 +323,7 @@ Ingress::Impl::Impl() :
     m_workerThreadStartupInProgress(false),
     m_telemThreadStartupInProgress(false),
     m_inductsFullyLoaded(false),
-    m_pleider(boost::make_unique<RedundantLeider>()) {}
+    m_pleider(boost::make_unique<LEIDER_IMPLEMENTATION_CLASS>()) {}
 
 Ingress::Ingress() :
     m_pimpl(boost::make_unique<Ingress::Impl>()),

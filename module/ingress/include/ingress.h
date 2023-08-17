@@ -29,8 +29,6 @@
 #include <boost/atomic.hpp>
 #include <boost/core/noncopyable.hpp>
 #include "ingress_async_lib_export.h"
-#include "Leider.h"
-
 
 namespace hdtn {
 
@@ -56,9 +54,6 @@ public:
     uint64_t& m_bundleByteCountStorage;
     uint64_t& m_bundleCountEgress;
     uint64_t& m_bundleByteCountEgress;
-protected:
-    // LEIDer
-    //std::unique_ptr<Leider> m_pleider;
 };
 
 
