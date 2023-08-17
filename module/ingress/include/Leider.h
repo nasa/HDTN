@@ -21,17 +21,23 @@
  * we encounter a problem because B->C only has room to transmit 1 of the 2 bundles, so 1 of the bundles never gets forwarded along.
  * In the optimal case, one bundle is transmitted along the route #1 A->B->C and one is transmitted along route #2 A->C. 
  *
- * This ideal setting is only possible with extra control. One way to provide this control is to introduce a Logical Endpoint "D"
- * --which can be understood to mean something like "the bundle endpoint C after route #1 has been scheduled to its capacity"--as the 
- * final destination for bundle routing and release. In this case the IDs "C" and "D" refer to the same physical endpoint (the same singleton
- * node or set of nodes) yet they are logically distinct.
+ * This ideal setting is only possible with extra control. One way to provide this control is to introduce a Logical Endpoint "D" as the 
+ * final destination for bundle routing and release. The Router would then send a RouteUpdate message to Egress associating the hop A->C
+ * with the destination "D". The Router would also update Ingress telling it to apply the LEID "D" to the second bundle. 
+ * This solution allows fine control over routing while maintaining the "final destination" as the sole criteria for 
+ * bundle release. This is useful in HDTN because Storage is optimized around the "final destination" as 
+ * linchpin for bundle catalog bookkeeping.
+ 
+ * The meaning of the Logical Endpoint "D" could be interpreted in a couple different ways
+ * (a) it means something like "the bundle endpoint C after route #1 has been scheduled to its capacity" or
+ * (b) it is a mask HDTN puts over the endpoint C but only some bundles are aware of the mask.
+ * Either way, in this case the IDs "C" and "D" refer to the same physical endpoint (the same singleton node or set of nodes) yet 
+ * they are logically distinct. If paragraph does not make sense or the abstraction seems ill-conceived, ignore this and
+ * just consider all this a hack.
  * 
- * This solution allows fine control over routing while maintaining the "final destination" as the sole criteria for bundle release.
- * This is useful in HDTN because Storage is optimized around the "final destination" as linchpin for bundle catalog bookkeeping.
- * 
- * Thus a LEIDer is merely an object that assigns LEIDs to bundles. Currently its only use in HDTN is to match bundles to logical destinations
- * for greater control over bundle routing/scheduling; from another point of view, it helps us "lie" to HDTN about bundle destinations
- * so we can get HDTN to do what we want without making great changes to its internal data structures or modifying the bundles themselves.
+ * Thus a LEIDer is merely an object that assigns LEIDs to bundles. Currently its only use in HDTN is to match bundles to Logical Destinations
+ * for greater control over bundle routing/scheduling; from another point of view, it helps us "lie" to HDTN about bundle destinations so we
+ * can get HDTN to do what we want without making great changes to its internal data structures or modifying the bundles themselves.
  * 
  */
 
