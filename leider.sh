@@ -4,8 +4,10 @@
 config_files=$HDTN_SOURCE_ROOT/config_files
 #hdtn_config=$config_files/hdtn/hdtn_ingress1tcpclv4_port4556_egress1tcpclv4_port4558flowid2.json
 hdtn_config=$config_files/hdtn/leider.json
-sink_config=$config_files/inducts/bpsink_one_tcpclv4_port4558.json
-sink_config2=$config_files/inducts/bpsink_one_tcpclv4_port4557.json
+hdtn_config2=$config_files/hdtn/leider2.json
+#sink_config=$config_files/inducts/bpsink_one_tcpclv4_port4558.json
+sink_config=$config_files/inducts/bpsink_two_tcpclv4_port4557_port4559.json
+#sink_config2=$config_files/inducts/bpsink_one_tcpclv4_port4557.json
 gen_config=$config_files/outducts/bpgen_one_tcpclv4_port4556.json
 
 
@@ -17,9 +19,9 @@ bpsink1_PID=$!
 sleep 3
 
 # bpsink2
-./build/common/bpcodec/apps/bpsink-async --my-uri-eid=ipn:102.1 --inducts-config-file=$sink_config2 &
-bpsink2_PID=$!
-sleep 3
+#./build/common/bpcodec/apps/bpsink-async --my-uri-eid=ipn:102.1 --inducts-config-file=$sink_config2 &
+#bpsink2_PID=$!
+#sleep 3
 
 # HDTN one process
 # use the option --use-unix-timestamp when using a contact plan with unix timestamp
@@ -31,6 +33,9 @@ sleep 3
 oneprocess_PID=$!
 sleep 10
 
+./build/module/hdtn_one_process/hdtn-one-process --hdtn-config-file=$hdtn_config2 --contact-plan-file=leider2.json &
+oneprocess_PID=$!
+sleep 10
 
 
 #bpgen (configure bundle-rate=0 to send bundles at high rate)

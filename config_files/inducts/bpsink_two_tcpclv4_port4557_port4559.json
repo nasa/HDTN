@@ -1,0 +1,31 @@
+{
+    "inductConfigName": "myconfig",
+    "inductVector": [
+        {
+            "name": "tcpcl_bpsink",
+            "convergenceLayer": "tcpcl_v4",
+            "boundPort": 4557,
+            "numRxCircularBufferElements": 200,
+            "numRxCircularBufferBytesPerElement": 20000,
+            "keepAliveIntervalSeconds": 15,
+            "tcpclV4MyMaxRxSegmentSizeBytes": 200000,
+            "tlsIsRequired": false,
+            "certificatePemFile": "",
+            "privateKeyPemFile": "",
+            "diffieHellmanParametersPemFile": ""
+        },
+        {
+            "name": "tcpcl_bpsink2",
+            "convergenceLayer": "tcpcl_v4",
+            "boundPort": 4559,
+            "numRxCircularBufferElements": 200,
+            "numRxCircularBufferBytesPerElement": 20000,
+            "keepAliveIntervalSeconds": 15,
+            "tcpclV4MyMaxRxSegmentSizeBytes": 200000,
+            "tlsIsRequired": false,
+            "certificatePemFile": "",
+            "privateKeyPemFile": "",
+            "diffieHellmanParametersPemFile": ""
+        }
+    ]
+}
