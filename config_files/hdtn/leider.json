@@ -42,7 +42,7 @@
             {
                 "name": "tcpcl_egress",
                 "convergenceLayer": "tcpcl_v4",
-                "nextHopNodeId": 2,
+                "nextHopNodeId": 11,
                 "remoteHostname": "localhost",
                 "remotePort": 4558,
                 "maxNumberOfBundlesInPipeline": 50,
