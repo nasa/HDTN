@@ -50,6 +50,6 @@ sleep 2
 echo "\nkilling egress..." && kill -2 $oneprocess_PID
 sleep 2
 echo "\nkilling bpsink1..." && kill -2 $bpsink1_PID
-sleep 2
-echo "\nkilling bpsink2..." && kill -2 $bpsink2_PID
+#sleep 2
+#echo "\nkilling bpsink2..." && kill -2 $bpsink2_PID
 
