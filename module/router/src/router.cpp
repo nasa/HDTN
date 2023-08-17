@@ -1007,23 +1007,25 @@ void Router::Impl::TelemEventsHandler() {
                 LOG_ERROR(subprocess) << "[TelemEventsHandler] message not received";
                 return;
             }
-            std::string apiCall = ApiCommand_t::GetApiCallFromJson(apiMsg.to_string());
-            LOG_INFO(subprocess) << "Got an api call " << apiMsg.to_string();
-            if (apiCall != "upload_contact_plan") {
-                return;
+            const std::string apiMsgAsJsonStr = apiMsg.to_string();
+            std::shared_ptr<ApiCommand_t> apiCmdPtr = ApiCommand_t::CreateFromJson(apiMsgAsJsonStr);
+            if (!apiCmdPtr) {
+                LOG_ERROR(subprocess) << "error parsing received api json message.. got\n"
+                    << apiMsgAsJsonStr;
+                continue;
             }
-            UploadContactPlanApiCommand_t uploadContactPlanApiCmd;
-            uploadContactPlanApiCmd.SetValuesFromJson(apiMsg.to_string());
-            std::string planJson = uploadContactPlanApiCmd.m_contactPlanJson;
-            boost::asio::post(
-                m_ioService,
-                boost::bind(
-                    static_cast<bool (Router::Impl::*) (const std::string&)>(&Router::Impl::ProcessContactsJsonText),
-                    this,
-                    std::move(planJson)
-                )
-            );
-            LOG_INFO(subprocess) << "received reload contact plan event with data " << uploadContactPlanApiCmd.m_contactPlanJson;
+            LOG_INFO(subprocess) << "got api call " << apiCmdPtr->m_apiCall;
+            if (UploadContactPlanApiCommand_t* uploadContactPlanApiCmdPtr = dynamic_cast<UploadContactPlanApiCommand_t*>(apiCmdPtr.get())) {
+                LOG_INFO(subprocess) << "received reload contact plan event with data " << uploadContactPlanApiCmdPtr->m_contactPlanJson;
+                boost::asio::post(
+                    m_ioService,
+                    boost::bind(
+                        static_cast<bool (Router::Impl::*) (const std::string&)>(&Router::Impl::ProcessContactsJsonText),
+                        this,
+                        std::move(uploadContactPlanApiCmdPtr->m_contactPlanJson)
+                    )
+                );
+            }
         } while (apiMsg.more());
         zmq::message_t msg;
         if (!m_zmqRepSock_connectingTelemToFromBoundRouterPtr->send(std::move(msg), zmq::send_flags::dontwait)) {

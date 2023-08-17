@@ -30,7 +30,6 @@
 #include <boost/bind/bind.hpp>
 #include <boost/make_unique.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/property_tree/json_parser.hpp>
 #include <boost/format.hpp>
 #include "Uri.h"
 #include "codec/BundleViewV6.h"
@@ -384,11 +383,13 @@ void Ingress::Impl::Stop() {
 }
 
 bool Ingress::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::path& bpSecConfigFilePath,
-		   const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr) {
+    const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr)
+{
     return m_pimpl->Init(hdtnConfig, bpSecConfigFilePath, hdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr);
 }
 bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::path& bpSecConfigFilePath,
-		         const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
+    const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr)
+{
 
     if (m_running) {
         LOG_ERROR(subprocess) << "Ingress::Init called while Ingress is already running";
@@ -897,50 +898,41 @@ void Ingress::Impl::ZmqTelemThreadFunc() {
                                 LOG_ERROR(subprocess) << "error receiving api message";
                                 continue;
                             }
-                            std::string apiCall = ApiCommand_t::GetApiCallFromJson(apiMsg.to_string());
-                            LOG_INFO(subprocess) << "got api call " << apiCall;
-                            if (apiCall == "ping") {
-                                PingApiCommand_t pingCmd;
-                                if (!pingCmd.SetValuesFromJson(apiMsg.to_string())) {
-                                    continue;
-                                }
-                                SendPing(pingCmd.m_nodeId, pingCmd.m_pingServiceNumber, pingCmd.m_bpVersion);
+                            const std::string apiMsgAsJsonStr = apiMsg.to_string();
+                            std::shared_ptr<ApiCommand_t> apiCmdPtr = ApiCommand_t::CreateFromJson(apiMsgAsJsonStr);
+                            if (!apiCmdPtr) {
+                                LOG_ERROR(subprocess) << "error parsing received api json message.. got\n"
+                                    << apiMsgAsJsonStr;
+                                continue;
+                            }
+                            LOG_INFO(subprocess) << "got api call " << apiCmdPtr->m_apiCall;
+                            if (PingApiCommand_t* pingCmd = dynamic_cast<PingApiCommand_t*>(apiCmdPtr.get())) {
+                                SendPing(pingCmd->m_nodeId, pingCmd->m_pingServiceNumber, pingCmd->m_bpVersion);
                             }
 #ifdef BPSEC_SUPPORT_ENABLED
-                            else if (apiCall == "bpSec")
-                            {
-                                    // redoing what storage has done for BPsec
-                                    std::string *bpSecConfigJson = new std::string(m_bpSecConfigPtr->ToJson());
-                                    std::string &strRefBPSec = *bpSecConfigJson;
+                            else if (apiCmdPtr->m_apiCall == "bpSec") {
+                                // redoing what storage has done for BPsec
+                                std::string *bpSecConfigJson = new std::string(m_bpSecConfigPtr->ToJson());
+                                std::string &strRefBPSec = *bpSecConfigJson;
 
-                                    zmq::message_t bpSecMessage = zmq::message_t(&strRefBPSec[0], bpSecConfigJson->size(), CustomCleanupStdString, bpSecConfigJson);
+                                zmq::message_t bpSecMessage = zmq::message_t(&strRefBPSec[0], bpSecConfigJson->size(), CustomCleanupStdString, bpSecConfigJson);
 
-                                    if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(bpSecMessage), zmq::send_flags::dontwait | zmq::send_flags::sndmore))
-                                    {
-                                        LOG_ERROR(subprocess) << "can't send json telemetry to telem";
-                                    }
-                           }
-
-			    else if (apiCall == "bpSecUpdate")
+                                if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(bpSecMessage),
+                                    zmq::send_flags::dontwait | zmq::send_flags::sndmore))
                                 {
-                                    LOG_INFO(subprocess) << "Updating bpsec";
-
-                                    // create the function
-                                    boost::property_tree::ptree pt;
-                                    read_json(apiMsg.to_string(), pt);
-                                    std::string bpsecString = pt.get<std::string>("newBPSec");
-
-                                    LOG_INFO(subprocess) << bpsecString;
-                                    m_bpSecConfigPtr = BpSecConfig::CreateFromJson(bpsecString, 0);
-                                    if (!m_bpSecConfigPtr)
-                                    {
-                                        LOG_FATAL(subprocess) << "Error loading BpSec config file: User Change";
-                                    }
-                                    if (!m_bpSecPolicyManager.LoadFromConfig(*m_bpSecConfigPtr))
-                                    {
-                                        LOG_FATAL(subprocess) << "Could not load config from for policy manager";
-                                    }
+                                    LOG_ERROR(subprocess) << "can't send json telemetry to telem";
                                 }
+                            }
+                            else if (UpdateBpSecApiCommand_t* updateBpsecCmd = dynamic_cast<UpdateBpSecApiCommand_t*>(apiCmdPtr.get())) {
+                                LOG_INFO(subprocess) << "Updating bpsec";
+                                m_bpSecConfigPtr = BpSecConfig::CreateFromJson(updateBpsecCmd->m_bpSecJson);
+                                if (!m_bpSecConfigPtr) {
+                                    LOG_FATAL(subprocess) << "Error loading BpSec config file: User Change";
+                                }
+                                else if (!m_bpSecPolicyManager.LoadFromConfig(*m_bpSecConfigPtr)) {
+                                    LOG_FATAL(subprocess) << "Could not load config from for policy manager";
+                                }
+                            }
 #endif
 
                         } while (apiMsg.more());
