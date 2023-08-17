@@ -38,7 +38,7 @@
 #ifndef _LEIDER_H
 #define _LEIDER_H 1
 
-#define LEIDER_IMPLEMENTATION_CLASS RedundantLeider
+#define LEIDER_IMPLEMENTATION_CLASS ShiftingLeider
 
 #include "codec/BundleViewV6.h"
 #include "codec/BundleViewV7.h"
