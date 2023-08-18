@@ -453,8 +453,6 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsApiCommandTestCase)
     BOOST_REQUIRE_EQUAL(o1Json, o2.ToJson());
     o2.m_apiCall = "foobar";
     BOOST_REQUIRE(o1 != o2);
-
-    BOOST_REQUIRE_EQUAL(ApiCommand_t::GetApiCallFromJson(o1Json), "my api call");
 }
 
 BOOST_AUTO_TEST_CASE(TelemetryDefinitionsPingApiCommandTestCase)
@@ -463,7 +461,7 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsPingApiCommandTestCase)
     o1.m_bpVersion = 7;
     o1.m_nodeId = 10;
     o1.m_pingServiceNumber = 20;
-    std::string o1Json = o1.ToJson();
+    const std::string o1Json = o1.ToJson();
 
     PingApiCommand_t o2;
     BOOST_REQUIRE_EQUAL(o1.m_apiCall, "ping");
@@ -474,13 +472,22 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsPingApiCommandTestCase)
     BOOST_REQUIRE_EQUAL(o1Json, o2.ToJson());
     o2.m_nodeId = 17;
     BOOST_REQUIRE(o1 != o2);
+
+    std::shared_ptr<ApiCommand_t> apiCmdPtr = ApiCommand_t::CreateFromJson(o1Json);
+    BOOST_REQUIRE(apiCmdPtr);
+    PingApiCommand_t* pingCmdPtr = dynamic_cast<PingApiCommand_t*>(apiCmdPtr.get());
+    BOOST_REQUIRE(pingCmdPtr);
+    if (pingCmdPtr) {
+        BOOST_REQUIRE_EQUAL(o1Json, apiCmdPtr->ToJson());
+        BOOST_REQUIRE_EQUAL(o1Json, pingCmdPtr->ToJson());
+    }
 }
 
 BOOST_AUTO_TEST_CASE(TelemetryDefinitionsUploadContactPlanApiCommandTestCase)
 {
     UploadContactPlanApiCommand_t o1;
     o1.m_contactPlanJson = "{'foo': 'bar'}";
-    std::string o1Json = o1.ToJson();
+    const std::string o1Json = o1.ToJson();
 
     UploadContactPlanApiCommand_t o2;
     BOOST_REQUIRE_EQUAL(o1.m_apiCall, "upload_contact_plan");
@@ -491,6 +498,15 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsUploadContactPlanApiCommandTestCase)
     BOOST_REQUIRE_EQUAL(o1Json, o2.ToJson());
     o2.m_contactPlanJson = "{'foo1': 'bar'}";
     BOOST_REQUIRE(o1 != o2);
+
+    std::shared_ptr<ApiCommand_t> apiCmdPtr = ApiCommand_t::CreateFromJson(o1Json);
+    BOOST_REQUIRE(apiCmdPtr);
+    UploadContactPlanApiCommand_t* cmdPtr = dynamic_cast<UploadContactPlanApiCommand_t*>(apiCmdPtr.get());
+    BOOST_REQUIRE(cmdPtr);
+    if (cmdPtr) {
+        BOOST_REQUIRE_EQUAL(o1Json, apiCmdPtr->ToJson());
+        BOOST_REQUIRE_EQUAL(o1Json, cmdPtr->ToJson());
+    }
 }
 
 BOOST_AUTO_TEST_CASE(TelemetryDefinitionsGetExpriringStorageApiCommandTestCase)
@@ -498,7 +514,7 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsGetExpriringStorageApiCommandTestCase)
     GetExpiringStorageApiCommand_t o1;
     o1.m_priority = 1;
     o1.m_thresholdSecondsFromNow = 10;
-    std::string o1Json = o1.ToJson();
+    const std::string o1Json = o1.ToJson();
 
     GetExpiringStorageApiCommand_t o2;
     BOOST_REQUIRE_EQUAL(o1.m_apiCall, "get_expiring_storage");
@@ -510,4 +526,40 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsGetExpriringStorageApiCommandTestCase)
     o2.m_priority = 5;
     o2.m_thresholdSecondsFromNow = 15;
     BOOST_REQUIRE(o1 != o2);
+
+    std::shared_ptr<ApiCommand_t> apiCmdPtr = ApiCommand_t::CreateFromJson(o1Json);
+    BOOST_REQUIRE(apiCmdPtr);
+    GetExpiringStorageApiCommand_t* cmdPtr = dynamic_cast<GetExpiringStorageApiCommand_t*>(apiCmdPtr.get());
+    BOOST_REQUIRE(cmdPtr);
+    if (cmdPtr) {
+        BOOST_REQUIRE_EQUAL(o1Json, apiCmdPtr->ToJson());
+        BOOST_REQUIRE_EQUAL(o1Json, cmdPtr->ToJson());
+    }
+}
+
+BOOST_AUTO_TEST_CASE(TelemetryDefinitionsBpSecUpdateApiCommandTestCase)
+{
+    UpdateBpSecApiCommand_t o1;
+    o1.m_bpSecJson = "{ \"test\": 1 }";
+    const std::string o1Json = o1.ToJson();
+
+    UpdateBpSecApiCommand_t o2;
+    BOOST_REQUIRE_EQUAL(o1.m_apiCall, "update_bpsec_config");
+    BOOST_REQUIRE_EQUAL(o2.m_apiCall, "update_bpsec_config");
+    BOOST_REQUIRE(o2.SetValuesFromJson(o1Json));
+    BOOST_REQUIRE(o1 == o2);
+    BOOST_REQUIRE_EQUAL(o1.m_bpSecJson, "{ \"test\": 1 }");
+    BOOST_REQUIRE(!(o1 != o2));
+    BOOST_REQUIRE_EQUAL(o1Json, o2.ToJson());
+    o2.m_bpSecJson = "{ \"test\": 2 }";
+    BOOST_REQUIRE(o1 != o2);
+
+    std::shared_ptr<ApiCommand_t> apiCmdPtr = ApiCommand_t::CreateFromJson(o1Json);
+    BOOST_REQUIRE(apiCmdPtr);
+    UpdateBpSecApiCommand_t* cmdPtr = dynamic_cast<UpdateBpSecApiCommand_t*>(apiCmdPtr.get());
+    BOOST_REQUIRE(cmdPtr);
+    if (cmdPtr) {
+        BOOST_REQUIRE_EQUAL(o1Json, apiCmdPtr->ToJson());
+        BOOST_REQUIRE_EQUAL(o1Json, cmdPtr->ToJson());
+    }
 }

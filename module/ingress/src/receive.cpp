@@ -383,11 +383,13 @@ void Ingress::Impl::Stop() {
 }
 
 bool Ingress::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::path& bpSecConfigFilePath,
-		   const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr) {
+    const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr)
+{
     return m_pimpl->Init(hdtnConfig, bpSecConfigFilePath, hdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr);
 }
 bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::path& bpSecConfigFilePath,
-		         const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
+    const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr)
+{
 
     if (m_running) {
         LOG_ERROR(subprocess) << "Ingress::Init called while Ingress is already running";
@@ -896,15 +898,44 @@ void Ingress::Impl::ZmqTelemThreadFunc() {
                                 LOG_ERROR(subprocess) << "error receiving api message";
                                 continue;
                             }
-                            std::string apiCall = ApiCommand_t::GetApiCallFromJson(apiMsg.to_string());
-                            LOG_INFO(subprocess) << "got api call " << apiCall;
-                            if (apiCall == "ping") {
-                                PingApiCommand_t pingCmd;
-                                if (!pingCmd.SetValuesFromJson(apiMsg.to_string())) {
-                                    continue;
-                                }
-                                SendPing(pingCmd.m_nodeId, pingCmd.m_pingServiceNumber, pingCmd.m_bpVersion);
+                            const std::string apiMsgAsJsonStr = apiMsg.to_string();
+                            std::shared_ptr<ApiCommand_t> apiCmdPtr = ApiCommand_t::CreateFromJson(apiMsgAsJsonStr);
+                            if (!apiCmdPtr) {
+                                LOG_ERROR(subprocess) << "error parsing received api json message.. got\n"
+                                    << apiMsgAsJsonStr;
+                                continue;
                             }
+                            LOG_INFO(subprocess) << "got api call " << apiCmdPtr->m_apiCall;
+                            if (PingApiCommand_t* pingCmd = dynamic_cast<PingApiCommand_t*>(apiCmdPtr.get())) {
+                                SendPing(pingCmd->m_nodeId, pingCmd->m_pingServiceNumber, pingCmd->m_bpVersion);
+                            }
+#ifdef BPSEC_SUPPORT_ENABLED
+                            else if (apiCmdPtr->m_apiCall == "get_bpsec_config") {
+                                // redoing what storage has done for BPsec
+                                std::string *bpSecConfigJson = new std::string(m_bpSecConfigPtr ? m_bpSecConfigPtr->ToJson() : "{}");
+                                std::string &strRefBPSec = *bpSecConfigJson;
+
+                                zmq::message_t bpSecMessage = zmq::message_t(&strRefBPSec[0], bpSecConfigJson->size(), CustomCleanupStdString, bpSecConfigJson);
+
+                                if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(bpSecMessage),
+                                    zmq::send_flags::dontwait | zmq::send_flags::sndmore))
+                                {
+                                    LOG_ERROR(subprocess) << "can't send json telemetry to telem";
+                                }
+                            }
+                            else if (UpdateBpSecApiCommand_t* updateBpsecCmd = dynamic_cast<UpdateBpSecApiCommand_t*>(apiCmdPtr.get())) {
+                                LOG_INFO(subprocess) << "Updating bpsec";
+                                m_bpSecConfigPtr = BpSecConfig::CreateFromJson(updateBpsecCmd->m_bpSecJson);
+                                if (!m_bpSecConfigPtr) {
+                                    LOG_FATAL(subprocess) << "Error loading BpSec config file: User Change.  Got:"
+                                        << updateBpsecCmd->m_bpSecJson;
+                                }
+                                else if (!m_bpSecPolicyManager.LoadFromConfig(*m_bpSecConfigPtr)) {
+                                    LOG_FATAL(subprocess) << "Could not load config from for policy manager";
+                                }
+                            }
+#endif
+
                         } while (apiMsg.more());
                     }
                     AllInductTelemetry_t allInductTelem;

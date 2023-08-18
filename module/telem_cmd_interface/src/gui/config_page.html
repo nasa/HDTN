@@ -8,24 +8,34 @@
     <div class="topnav">
         <a href="./hdtn_d3_gui/"> <span class="icon"><img src="./resources/home.svg" alt="Home icon" /></span><span class="title"> System View GUI</span></a>
         <a href="./index.html"><img src="./resources/statistics.svg" alt="Pie chart icon" /> Statistics</a>
-        <a href="./config_page.html"><img src="./resources/config.svg" alt="Wrench icon" /> Config</a>
+        <div class="configDropdown">
+            <button class="configDropBtn"><img src="./resources/config.svg" alt="Wrench icon" />Config</button>
+            <div class="configContents">
+                <a href="./config_page.html">System</a>
+                <a href="./bpsec_page.html">BPSec</a>
+            </div>
+        </div>
         <a onclick="toggleModes()"><img src="./resources/sun.svg" alt="Sun icon" /></a>
     </div>
-    <div class="configBox" id="System">
-        <div class="cardTitle">
+    <div class="configBody">
+        <div class="configBodyTables">
+            <div class="configBox" id="System">
+                    <div class="cardTitle">
+                    </div>
+            </div>
+            <div class="configBox" id="Inducts">
+                    <div class="cardTitle">
+                    </div>
+            </div>
+            <div class="configBox" id="Outducts">
+                    <div class="cardTitle">
+                    </div>
+            </div>
+            <div class="configBox" id="Storage">
+                    <div class="cardTitle">
+                    </div>
+            </div>
         </div>
-    </div>
-    <div class="configBox" id="Inducts">
-        <div class="cardTitle">
-        </div>
-    </div>
-    <div class="configBox" id="Outducts">
-        <div class="cardTitle">
-        </div>
-    </div>
-    <div class="configBox" id="Storage">
-        <div class="cardTitle">
-        </div> 
     </div>
 </div>
     <link type="text/css" rel="stylesheet" href="./css/style.css" />
@@ -57,13 +67,13 @@
 
         function createTable(json, tag) {
             var div = document.getElementById(tag);
-            newTable = "<table class=\"styled-table\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>"
-            newTable += "<caption>" + tag + "</caption>";
+            newTable = "<table class=\"styled-table\" style=\"width:100%\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>"
+            newTable += "<caption style=\"text-align:left;padding-left:20px;text-transform:uppercase;margin-top:5px;\">" + tag + "</caption>";
             for (var key in json) {
                 if(Array.isArray(json[key])){ 
                     //Creates subtables for each induct, outduct, and storage object
                     for(var i = 0; i < json[key].length; ++i){
-                        var newSubTable = "<table class=\"styled-table\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>";
+                        var newSubTable = "<table class=\"styled-table\" style=\"margin:15px 0px\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>";
                         for (var subKey in json[key][i]){
                             newSubTable += "<tr>" + "<td>" + subKey + "</td>";
                             if(isNaN(json[key][i][subKey])){

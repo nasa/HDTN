@@ -20,3 +20,11 @@ The following describes the types for a BpSec json config file.  Note: "IFF" sta
             "paramName": "securityBlockCrc" (IFF securityRole == source), "value": UINT64 [0,16,32] default=0
             "paramName": "keyEncryptionKeyFile", "value": boost::filesystem::path
             "paramName": "keyFile", "value": boost::filesystem::path
+
+
+"securityFailureEventSets" : VECTOR of objects
+
+    "name": STRING ANY
+    "description": STRING ANY
+    "securityOperationEvents": VECTOR of objects
+            "eventID": STRING, "actions": VECTOR of STRING

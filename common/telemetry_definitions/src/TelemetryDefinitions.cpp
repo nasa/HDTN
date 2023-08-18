@@ -1411,15 +1411,7 @@ boost::property_tree::ptree AllOutductTelemetry_t::GetNewPropertyTree() const {
  */
 
 ApiCommand_t::ApiCommand_t() : m_apiCall("") {}
-
-std::string ApiCommand_t::GetApiCallFromJson(const std::string& jsonStr) {
-    ApiCommand_t apiCmd;
-    if (!apiCmd.SetValuesFromJson(jsonStr)) {
-        return "";
-    }
-
-    return apiCmd.m_apiCall;
-}
+ApiCommand_t::~ApiCommand_t() {}
 
 bool ApiCommand_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt){
     try {
@@ -1450,6 +1442,43 @@ boost::property_tree::ptree ApiCommand_t::GetNewPropertyTree() const {
     return pt;
 }
 
+std::shared_ptr<ApiCommand_t> ApiCommand_t::CreateFromJson(const std::string& jsonStr) {
+    std::shared_ptr<ApiCommand_t> apiCommandPtr;
+    boost::property_tree::ptree pt;
+    if (!JsonSerializable::GetPropertyTreeFromJsonString(jsonStr, pt)) {
+        LOG_ERROR(subprocess) << "error parsing JSON Api command";
+        return apiCommandPtr; //null
+    }
+    std::string apiCall;
+    try {
+        apiCall = pt.get<std::string>("apiCall");
+    }
+    catch (const boost::property_tree::ptree_error&) {
+        LOG_ERROR(subprocess) << "error getting apiCall from JSON Api command";
+        return apiCommandPtr; //null
+    }
+    if (apiCall == "ping") {
+        apiCommandPtr = std::make_shared<PingApiCommand_t>();
+    }
+    else if (apiCall == "upload_contact_plan") {
+        apiCommandPtr = std::make_shared<UploadContactPlanApiCommand_t>();
+    }
+    else if (apiCall == "get_expiring_storage") {
+        apiCommandPtr = std::make_shared<GetExpiringStorageApiCommand_t>();
+    }
+    else if (apiCall == "update_bpsec_config") {
+        apiCommandPtr = std::make_shared<UpdateBpSecApiCommand_t>();
+    }
+    else { //generic api command
+        apiCommandPtr = std::make_shared<ApiCommand_t>();
+    }
+
+    if (!apiCommandPtr->SetValuesFromPropertyTree(pt)) {
+        return std::shared_ptr<ApiCommand_t>(); //NULL
+    }
+    return apiCommandPtr;
+}
+
 /**
  * PingApiCommand_t 
  */
@@ -1459,6 +1488,7 @@ PingApiCommand_t::PingApiCommand_t()
 {
     ApiCommand_t::m_apiCall = "ping";
 }
+PingApiCommand_t::~PingApiCommand_t() {}
 
 bool PingApiCommand_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
     if (!ApiCommand_t::SetValuesFromPropertyTree(pt)) {
@@ -1511,6 +1541,7 @@ UploadContactPlanApiCommand_t::UploadContactPlanApiCommand_t()
 {
     ApiCommand_t::m_apiCall = "upload_contact_plan";
 }
+UploadContactPlanApiCommand_t::~UploadContactPlanApiCommand_t() {}
 
 bool UploadContactPlanApiCommand_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
     if (!ApiCommand_t::SetValuesFromPropertyTree(pt)) {
@@ -1558,6 +1589,7 @@ GetExpiringStorageApiCommand_t::GetExpiringStorageApiCommand_t()
 {
     ApiCommand_t::m_apiCall = "get_expiring_storage";
 }
+GetExpiringStorageApiCommand_t::~GetExpiringStorageApiCommand_t() {}
 
 bool GetExpiringStorageApiCommand_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
     if (!ApiCommand_t::SetValuesFromPropertyTree(pt)) {
@@ -1596,5 +1628,53 @@ bool GetExpiringStorageApiCommand_t::operator==(const ApiCommand_t& o) const {
 }
 
 bool GetExpiringStorageApiCommand_t::operator!=(const ApiCommand_t& o) const {
+    return !(*this == o);
+}
+
+/**
+ * UpdateBpSecApiCommand_t
+ */
+
+UpdateBpSecApiCommand_t::UpdateBpSecApiCommand_t()
+    : ApiCommand_t(), m_bpSecJson("{}")
+{
+    ApiCommand_t::m_apiCall = "update_bpsec_config";
+}
+UpdateBpSecApiCommand_t::~UpdateBpSecApiCommand_t() {}
+
+bool UpdateBpSecApiCommand_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!ApiCommand_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
+    try {
+        m_bpSecJson = pt.get<std::string>("newBPSec");
+    }
+    catch (const boost::bad_lexical_cast& e) {
+        LOG_ERROR(subprocess) << "parsing JSON UpdateBpSecApiCommand_t: " << e.what();
+        return false;
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON UpdateBpSecApiCommand_t: " << e.what();
+        return false;
+    }
+    return true;
+}
+
+boost::property_tree::ptree UpdateBpSecApiCommand_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt = ApiCommand_t::GetNewPropertyTree();
+    pt.put("apiCall", "update_bpsec_config");
+    pt.put("newBPSec", m_bpSecJson);
+    return pt;
+}
+
+bool UpdateBpSecApiCommand_t::operator==(const ApiCommand_t& o) const {
+    if (const UpdateBpSecApiCommand_t* oPtr = dynamic_cast<const UpdateBpSecApiCommand_t*>(&o)) {
+        return ApiCommand_t::operator==(o)
+            && (m_bpSecJson == oPtr->m_bpSecJson);
+    }
+    return false;
+}
+
+bool UpdateBpSecApiCommand_t::operator!=(const ApiCommand_t& o) const {
     return !(*this == o);
 }
