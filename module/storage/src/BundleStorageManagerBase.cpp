@@ -149,7 +149,7 @@ uint64_t BundleStorageManagerBase::Push(BundleStorageManagerSession_WriteToDisk 
     catalog_entry_t & catalogEntry = session.catalogEntry;
     segment_id_chain_vec_t & segmentIdChainVec = catalogEntry.segmentIdChainVec;
     const uint64_t totalSegmentsRequired = (bundleSizeBytes / BUNDLE_STORAGE_PER_SEGMENT_SIZE) + ((bundleSizeBytes % BUNDLE_STORAGE_PER_SEGMENT_SIZE) == 0 ? 0 : 1);
-    LOG_INFO(subprocess) << "PUSH mask:" << mask;
+    //LOG_INFO(subprocess) << "PUSH mask:" << mask; // TODO: remove before merge
     catalogEntry.Init(bundlePrimaryBlock, bundleSizeBytes, totalSegmentsRequired, NULL, maskDestination, mask); //NULL replaced later at CatalogIncomingBundleForStore
     session.nextLogicalSegment = 0;
 

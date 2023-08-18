@@ -14,9 +14,10 @@
 
 #include "CatalogEntry.h"
 #include <string>
+// TODO: remove before merge
 #include "Logger.h"
 
-static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage; // TODO: remove before merge
 
 catalog_entry_t::catalog_entry_t() :
     bundleSizeBytes(0),
@@ -95,7 +96,7 @@ bool catalog_entry_t::HasCustody() const {
 void catalog_entry_t::Init(const PrimaryBlock & primary, const uint64_t paramBundleSizeBytes, const uint64_t paramNumSegmentsRequired, void * paramPtrUuidKeyInMap, bool maskDestination, cbhe_eid_t mask) {
     bundleSizeBytes = paramBundleSizeBytes;
     destEid = maskDestination ? mask : primary.GetFinalDestinationEid();
-    LOG_INFO(subprocess) << "CatalogEntry dest:" << destEid.nodeId;
+    //LOG_INFO(subprocess) << "CatalogEntry dest:" << destEid.nodeId; // TODO: remove before merge
     encodedAbsExpirationAndCustodyAndPriority = primary.GetPriority() | (primary.GetExpirationSeconds() << 4);
     if (primary.HasCustodyFlagSet()) {
         if (primary.HasFragmentationFlagSet()) {

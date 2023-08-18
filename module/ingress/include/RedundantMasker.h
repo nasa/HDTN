@@ -1,11 +1,11 @@
-#include "Leider.h"
+#include "Masker.h"
 
-#ifndef _RLEIDER_H
-#define _RLEIDER_H 1
+#ifndef _RMASKER_H
+#define _RMASKER_H 1
 
 namespace hdtn {
 
-class RedundantLeider : public Leider {
+class RedundantMasker : public Masker {
 public:
 	virtual cbhe_eid_t query(const BundleViewV7&) override;
 	virtual cbhe_eid_t query(const BundleViewV6&) override;

@@ -50,8 +50,8 @@
 #include "BpSecPolicyManager.h"
 #endif
 
-#include "RedundantLeider.h"
-#include "ShiftingLeider.h"
+#include "RedundantMasker.h"
+#include "ShiftingMasker.h"
 
 namespace hdtn {
 
@@ -66,7 +66,7 @@ struct Ingress::Impl : private boost::noncopyable {
     void Stop();
     bool Init(const HdtnConfig& hdtnConfig, const boost::filesystem::path& bpSecConfigFilePath,
            const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr,
-           std::string leiderImpl);
+           std::string MaskerImpl);
 
 private:
     void ReadZmqAcksThreadFunc();
@@ -88,7 +88,7 @@ public:
     uint64_t m_bundleByteCountStorage; //protected by m_ingressToStorageZmqSocketMutex
     uint64_t m_bundleCountEgress; //protected by m_ingressToEgressZmqSocketMutex
     uint64_t m_bundleByteCountEgress; //protected by m_ingressToEgressZmqSocketMutex
-    std::unique_ptr<Leider> m_pleider;
+    std::unique_ptr<Masker> m_pmasker;
 
 private:
     struct BundlePipelineAckingSet : private boost::noncopyable {
@@ -325,7 +325,7 @@ Ingress::Impl::Impl() :
     m_workerThreadStartupInProgress(false),
     m_telemThreadStartupInProgress(false),
     m_inductsFullyLoaded(false),
-    m_pleider(std::make_unique<LEIDER_IMPLEMENTATION_CLASS>()) {}
+    m_pmasker(std::make_unique<MASKER_IMPLEMENTATION_CLASS>()) {}
 
 Ingress::Ingress() :
     m_pimpl(boost::make_unique<Ingress::Impl>()),
@@ -389,12 +389,12 @@ void Ingress::Impl::Stop() {
 }
 
 bool Ingress::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::path& bpSecConfigFilePath,
-		   const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr, std::string leiderImpl) {
-    return m_pimpl->Init(hdtnConfig, bpSecConfigFilePath, hdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr, leiderImpl);
+		   const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr, std::string maskerImpl) {
+    return m_pimpl->Init(hdtnConfig, bpSecConfigFilePath, hdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr, maskerImpl);
 }
 bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::path& bpSecConfigFilePath,
 		         const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr,
-                 std::string leiderImpl) {
+                 std::string maskerImpl) {
 
     if (m_running) {
         LOG_ERROR(subprocess) << "Ingress::Init called while Ingress is already running";
@@ -596,12 +596,12 @@ bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::
         }
     }
 
-    //m_pleider = new RedundantLeider();
-    if (leiderImpl == "redundant") {
-        m_pleider = std::make_unique<RedundantLeider>();
+    //m_pmasker = new RedundantMasker();
+    if (maskerImpl == "redundant") {
+        m_pmasker = std::make_unique<RedundantMasker>();
     }
-    else if (leiderImpl == "shifting") {
-        m_pleider = std::make_unique<ShiftingLeider>();
+    else if (maskerImpl == "shifting") {
+        m_pmasker = std::make_unique<ShiftingMasker>();
     }
     
     return true;
@@ -1084,11 +1084,11 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             LOG_ERROR(subprocess) << "malformed bundle";
             return false;
         }
-#ifdef _LEIDER_H
-        queryResult = m_pleider->query(bv);
+#ifdef _MASKER_H
+        queryResult = m_pmasker->query(bv);
 #endif
         Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
-        finalDestEid = primary.m_destinationEid; // TODO:leider
+        finalDestEid = primary.m_destinationEid; // TODO:masker
         if (needsProcessing) {
             static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
             requestsCustody = ((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody);
@@ -1101,7 +1101,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             const bool isEcho = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO));
             if (isEcho) {
                 primary.m_destinationEid = primary.m_sourceNodeId;
-                finalDestEid = primary.m_destinationEid; // TODO:leider
+                finalDestEid = primary.m_destinationEid; // TODO:masker
                 LOG_INFO(subprocess) << "Sending Ping for destination " << primary.m_destinationEid;
                 primary.m_sourceNodeId = M_HDTN_EID_ECHO;
                 bv.m_primaryBlockView.SetManuallyModified();
@@ -1113,7 +1113,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                 zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupPaddedVecUint8, rxBufRawPointer)));
                 bundleCurrentSize = zmqMessageToSendUniquePtr->size();
             }
-            else if (finalDestEid == M_HDTN_EID_PING) { // TODO:leider
+            else if (finalDestEid == M_HDTN_EID_PING) { // TODO:masker
                 std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
                 bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
                 if (blocks.size() != 1) {
@@ -1143,14 +1143,14 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             LOG_ERROR(subprocess) << "Process: malformed version 7 bundle received";
             return false;
         }
-#ifdef _LEIDER_H
-        queryResult = m_pleider->query(bv);
+#ifdef _MASKER_H
+        queryResult = m_pmasker->query(bv);
 #endif
         Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
-        finalDestEid = primary.m_destinationEid; // TODO:leider
+        finalDestEid = primary.m_destinationEid; // TODO:masker
         requestsCustody = false; //custody unsupported at this time
         if (needsProcessing) {
-            if (finalDestEid == M_HDTN_EID_PING) { // TODO:leider
+            if (finalDestEid == M_HDTN_EID_PING) { // TODO:masker
                 //get payload block
                 std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
                 bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
@@ -1164,10 +1164,10 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             }
             //admin records pertaining to this hdtn node must go to storage.. they signal a deletion from disk
             static constexpr BPV7_BUNDLEFLAG requiredPrimaryFlagsForAdminRecord = BPV7_BUNDLEFLAG::ADMINRECORD;
-            isAdminRecordForHdtnStorage = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == M_HDTN_EID_CUSTODY)); // TODO:leider
-            isBundleForHdtnRouter = (finalDestEid == M_HDTN_EID_TO_ROUTER_BUNDLES); // TODO:leider
+            isAdminRecordForHdtnStorage = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == M_HDTN_EID_CUSTODY)); // TODO:masker
+            isBundleForHdtnRouter = (finalDestEid == M_HDTN_EID_TO_ROUTER_BUNDLES); // TODO:masker
             static constexpr BPV7_BUNDLEFLAG requiredPrimaryFlagsForEcho = BPV7_BUNDLEFLAG::NO_FLAGS_SET;
-            const bool isEcho = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO)); // TODO:leider
+            const bool isEcho = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO)); // TODO:masker
             if (!isAdminRecordForHdtnStorage) {
 #ifdef BPSEC_SUPPORT_ENABLED
                 //process acceptor and verifier roles
@@ -1257,7 +1257,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
 #endif // BPSEC_SUPPORT_ENABLED
                 if (isEcho) {
                     primary.m_destinationEid = primary.m_sourceNodeId;
-                    finalDestEid = primary.m_sourceNodeId; // TODO:leider
+                    finalDestEid = primary.m_sourceNodeId; // TODO:masker
                     LOG_ERROR(subprocess) << "Sending Ping for destination " << finalDestEid;
                     primary.m_sourceNodeId = M_HDTN_EID_ECHO;
                     bv.m_primaryBlockView.SetManuallyModified();
@@ -1379,7 +1379,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
     //Otherwise if custody flag is set but it didn't come from storage (came either from egress or ingress), send to storage first, and it will eventually come
     //back to this point in the code once storage processes custody.
     m_availableDestOpportunisticNodeIdToTcpclInductMapMutex.lock();
-    std::map<uint64_t, Induct*>::iterator tcpclInductIterator = m_availableDestOpportunisticNodeIdToTcpclInductMap.find(finalDestEid.nodeId); // TODO:leider
+    std::map<uint64_t, Induct*>::iterator tcpclInductIterator = m_availableDestOpportunisticNodeIdToTcpclInductMap.find(finalDestEid.nodeId); // TODO:masker
     const bool isOpportunisticLinkUp = (tcpclInductIterator != m_availableDestOpportunisticNodeIdToTcpclInductMap.end());
     m_availableDestOpportunisticNodeIdToTcpclInductMapMutex.unlock();
     const bool bundleCameFromStorageModule = (!needsProcessing);
@@ -1390,7 +1390,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
         }
         else {
             LOG_ERROR(subprocess) << "Ingress::Process: tcpcl opportunistic forward timed out after 3 seconds for "
-                << Uri::GetIpnUriString(finalDestEid.nodeId, finalDestEid.serviceId) << " ..trying the cut-through path or storage instead"; // TODO:leider
+                << Uri::GetIpnUriString(finalDestEid.nodeId, finalDestEid.serviceId) << " ..trying the cut-through path or storage instead"; // TODO:masker
         }
     }
 
@@ -1404,8 +1404,8 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
         bool useStorage = true; //will be set false if cut-through succeeds below
         const uint64_t fromIngressUniqueId = m_nextBundleUniqueIdAtomic.fetch_add(1, boost::memory_order_relaxed);
 
-        // Query the Leider for logical-destination
-#ifdef _LEIDER_H
+        // Query the Masker for logical-destination
+#ifdef _MASKER_H
         finalDestEid = queryResult;
 #endif
 
@@ -1548,7 +1548,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                         }
                         else {
                             //success                            
-                            //LOG_INFO(subprocess) << "->storage mask:" << finalDestEid.nodeId;
+                            //LOG_INFO(subprocess) << "->storage mask:" << finalDestEid.nodeId; // TODO: remove before merge
                             ++m_bundleCountStorage; //protected by m_ingressToStorageZmqSocketMutex
                             m_bundleByteCountStorage += bundleCurrentSize; //protected by m_ingressToStorageZmqSocketMutex
                         }

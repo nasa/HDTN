@@ -1,7 +1,7 @@
 add_library(ingress_async_lib
 	src/receive.cpp
 	src/IngressAsyncRunner.cpp
-	src/RedundantLeider.cpp "src/ShiftingLeider.cpp")
+	"src/RedundantMasker.cpp" "src/ShiftingMasker.cpp")
 GENERATE_EXPORT_HEADER(ingress_async_lib)
 get_target_property(target_type ingress_async_lib TYPE)
 if (target_type STREQUAL SHARED_LIBRARY)
