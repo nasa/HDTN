@@ -688,12 +688,12 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
             return false;
         }
         const Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
-        finalDestEidReturned = primary.m_destinationEid;
+        finalDestEidReturned = maskDestination ? mask : primary.m_destinationEid;
 
         const uint64_t newCustodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
 
         //write bundle
-        return WriteBundle(primary, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size());
+        return WriteBundle(primary, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size(), maskDestination, mask);
     }
     else {
         LOG_ERROR(subprocess) << "error in ZmqStorageInterface Write: unsupported bundle version detected";
