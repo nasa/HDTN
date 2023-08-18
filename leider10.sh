@@ -13,11 +13,6 @@ gen_config=$config_files/outducts/bpgen_one_tcpclv4_port4556.json
 
 cd $HDTN_SOURCE_ROOT
 
-# bpsink1
-./build/common/bpcodec/apps/bpsink-async --my-uri-eid=ipn:2.1 --inducts-config-file=$sink_config &
-bpsink1_PID=$!
-sleep 3
-
 # bpsink2
 #./build/common/bpcodec/apps/bpsink-async --my-uri-eid=ipn:102.1 --inducts-config-file=$sink_config2 &
 #bpsink2_PID=$!
@@ -45,8 +40,6 @@ sleep 2
 echo "\nkilling hdtn1..." && kill -2 $oneprocess_PID
 sleep 2
 echo "\nkilling hdtn2..." && kill -2 $oneprocess_PID2
-sleep 2
-echo "\nkilling bpsink1..." && kill -2 $bpsink1_PID
 #sleep 2
 #echo "\nkilling bpsink2..." && kill -2 $bpsink2_PID
 
