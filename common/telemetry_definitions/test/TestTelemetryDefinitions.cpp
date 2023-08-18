@@ -537,15 +537,15 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsGetExpriringStorageApiCommandTestCase)
     }
 }
 
-BOOST_AUTO_TEST_CASE(TelemetryDefinitionsGetBpSecUpdateApiCommandTestCase)
+BOOST_AUTO_TEST_CASE(TelemetryDefinitionsBpSecUpdateApiCommandTestCase)
 {
     UpdateBpSecApiCommand_t o1;
     o1.m_bpSecJson = "{ \"test\": 1 }";
     const std::string o1Json = o1.ToJson();
 
     UpdateBpSecApiCommand_t o2;
-    BOOST_REQUIRE_EQUAL(o1.m_apiCall, "bpSecUpdate");
-    BOOST_REQUIRE_EQUAL(o2.m_apiCall, "bpSecUpdate");
+    BOOST_REQUIRE_EQUAL(o1.m_apiCall, "update_bpsec_config");
+    BOOST_REQUIRE_EQUAL(o2.m_apiCall, "update_bpsec_config");
     BOOST_REQUIRE(o2.SetValuesFromJson(o1Json));
     BOOST_REQUIRE(o1 == o2);
     BOOST_REQUIRE_EQUAL(o1.m_bpSecJson, "{ \"test\": 1 }");

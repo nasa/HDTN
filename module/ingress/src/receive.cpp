@@ -910,9 +910,9 @@ void Ingress::Impl::ZmqTelemThreadFunc() {
                                 SendPing(pingCmd->m_nodeId, pingCmd->m_pingServiceNumber, pingCmd->m_bpVersion);
                             }
 #ifdef BPSEC_SUPPORT_ENABLED
-                            else if (apiCmdPtr->m_apiCall == "bpSec") {
+                            else if (apiCmdPtr->m_apiCall == "get_bpsec_config") {
                                 // redoing what storage has done for BPsec
-                                std::string *bpSecConfigJson = new std::string(m_bpSecConfigPtr->ToJson());
+                                std::string *bpSecConfigJson = new std::string(m_bpSecConfigPtr ? m_bpSecConfigPtr->ToJson() : "{}");
                                 std::string &strRefBPSec = *bpSecConfigJson;
 
                                 zmq::message_t bpSecMessage = zmq::message_t(&strRefBPSec[0], bpSecConfigJson->size(), CustomCleanupStdString, bpSecConfigJson);
@@ -927,7 +927,8 @@ void Ingress::Impl::ZmqTelemThreadFunc() {
                                 LOG_INFO(subprocess) << "Updating bpsec";
                                 m_bpSecConfigPtr = BpSecConfig::CreateFromJson(updateBpsecCmd->m_bpSecJson);
                                 if (!m_bpSecConfigPtr) {
-                                    LOG_FATAL(subprocess) << "Error loading BpSec config file: User Change";
+                                    LOG_FATAL(subprocess) << "Error loading BpSec config file: User Change.  Got:"
+                                        << updateBpsecCmd->m_bpSecJson;
                                 }
                                 else if (!m_bpSecPolicyManager.LoadFromConfig(*m_bpSecConfigPtr)) {
                                     LOG_FATAL(subprocess) << "Could not load config from for policy manager";

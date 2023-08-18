@@ -1466,7 +1466,7 @@ std::shared_ptr<ApiCommand_t> ApiCommand_t::CreateFromJson(const std::string& js
     else if (apiCall == "get_expiring_storage") {
         apiCommandPtr = std::make_shared<GetExpiringStorageApiCommand_t>();
     }
-    else if (apiCall == "bpSecUpdate") {
+    else if (apiCall == "update_bpsec_config") {
         apiCommandPtr = std::make_shared<UpdateBpSecApiCommand_t>();
     }
     else { //generic api command
@@ -1638,7 +1638,7 @@ bool GetExpiringStorageApiCommand_t::operator!=(const ApiCommand_t& o) const {
 UpdateBpSecApiCommand_t::UpdateBpSecApiCommand_t()
     : ApiCommand_t(), m_bpSecJson("{}")
 {
-    ApiCommand_t::m_apiCall = "bpSecUpdate";
+    ApiCommand_t::m_apiCall = "update_bpsec_config";
 }
 UpdateBpSecApiCommand_t::~UpdateBpSecApiCommand_t() {}
 
@@ -1650,11 +1650,11 @@ bool UpdateBpSecApiCommand_t::SetValuesFromPropertyTree(const boost::property_tr
         m_bpSecJson = pt.get<std::string>("newBPSec");
     }
     catch (const boost::bad_lexical_cast& e) {
-        LOG_ERROR(subprocess) << "parsing JSON UploadContactPlanApiCommand_t: " << e.what();
+        LOG_ERROR(subprocess) << "parsing JSON UpdateBpSecApiCommand_t: " << e.what();
         return false;
     }
     catch (const boost::property_tree::ptree_error& e) {
-        LOG_ERROR(subprocess) << "parsing JSON UploadContactPlanApiCommand_t: " << e.what();
+        LOG_ERROR(subprocess) << "parsing JSON UpdateBpSecApiCommand_t: " << e.what();
         return false;
     }
     return true;
@@ -1662,7 +1662,7 @@ bool UpdateBpSecApiCommand_t::SetValuesFromPropertyTree(const boost::property_tr
 
 boost::property_tree::ptree UpdateBpSecApiCommand_t::GetNewPropertyTree() const {
     boost::property_tree::ptree pt = ApiCommand_t::GetNewPropertyTree();
-    pt.put("apiCall", "bpSecUpdate");
+    pt.put("apiCall", "update_bpsec_config");
     pt.put("newBPSec", m_bpSecJson);
     return pt;
 }
