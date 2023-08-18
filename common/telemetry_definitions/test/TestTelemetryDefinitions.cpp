@@ -563,3 +563,14 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsBpSecUpdateApiCommandTestCase)
         BOOST_REQUIRE_EQUAL(o1Json, cmdPtr->ToJson());
     }
 }
+
+BOOST_AUTO_TEST_CASE(TelemetryDefinitionsZmqIdentityTestCase) {
+    ZmqConnectionID_t id = ZmqConnectionID_t(4);
+    zmq::message_t msg = id.Msg();
+    BOOST_REQUIRE_EQUAL(msg.size(), 5);
+    BOOST_REQUIRE_EQUAL(*(uint8_t*)msg.data(), 0);
+    BOOST_REQUIRE_EQUAL(*((uint8_t*)msg.data()+1), 0);
+    BOOST_REQUIRE_EQUAL(*((uint8_t*)msg.data()+2), 0);
+    BOOST_REQUIRE_EQUAL(*((uint8_t*)msg.data()+3), 0);
+    BOOST_REQUIRE_EQUAL(*((uint8_t*)msg.data()+4), 4);
+}

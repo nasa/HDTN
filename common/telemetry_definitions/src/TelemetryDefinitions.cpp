@@ -1407,6 +1407,19 @@ boost::property_tree::ptree AllOutductTelemetry_t::GetNewPropertyTree() const {
 }
 
 /**
+ * ZmqConnectionID_t 
+ */
+
+ZmqConnectionID_t::ZmqConnectionID_t(const uint8_t val) {
+    m_id[4] = val;
+}
+
+zmq::message_t ZmqConnectionID_t::Msg() {
+    zmq::message_t msg(m_id.data(), m_id.size());
+    return msg;
+}
+
+/**
  * ApiCommand_t 
  */
 
@@ -1480,13 +1493,55 @@ std::shared_ptr<ApiCommand_t> ApiCommand_t::CreateFromJson(const std::string& js
 }
 
 /**
+ * GetStorageApiCommand_t
+ */
+GetStorageApiCommand_t::GetStorageApiCommand_t()
+{
+    ApiCommand_t::m_apiCall = Name();
+}
+
+GetStorageApiCommand_t::~GetStorageApiCommand_t() {}
+
+const std::string GetStorageApiCommand_t::Name() {
+    return "get_storage";
+}
+
+/**
+ * GetInductsApiCommand_t
+ */
+GetInductsApiCommand_t::GetInductsApiCommand_t()
+{
+    ApiCommand_t::m_apiCall = Name();
+}
+
+GetInductsApiCommand_t::~GetInductsApiCommand_t() {}
+
+const std::string GetInductsApiCommand_t::Name() {
+    return "get_inducts";
+}
+
+/**
+ * GetOutductsApiCommand_t
+ */
+GetOutductsApiCommand_t::GetOutductsApiCommand_t()
+{
+    ApiCommand_t::m_apiCall = Name();
+}
+
+GetOutductsApiCommand_t::~GetOutductsApiCommand_t() {}
+
+const std::string GetOutductsApiCommand_t::Name() {
+    return "get_outducts";
+}
+
+/**
  * PingApiCommand_t 
  */
 
 PingApiCommand_t::PingApiCommand_t()
     : ApiCommand_t(), m_nodeId(0), m_pingServiceNumber(0), m_bpVersion(0)
 {
-    ApiCommand_t::m_apiCall = "ping";
+    ApiCommand_t::m_apiCall = Name();
 }
 PingApiCommand_t::~PingApiCommand_t() {}
 
@@ -1532,6 +1587,10 @@ bool PingApiCommand_t::operator!=(const ApiCommand_t& o) const {
     return !(*this == o);
 }
 
+const std::string PingApiCommand_t::Name() {
+    return "ping";
+}
+
 /**
  * UploadContactPlanApiCommand_t 
  */
@@ -1539,7 +1598,7 @@ bool PingApiCommand_t::operator!=(const ApiCommand_t& o) const {
 UploadContactPlanApiCommand_t::UploadContactPlanApiCommand_t()
     : ApiCommand_t(), m_contactPlanJson("{}")
 {
-    ApiCommand_t::m_apiCall = "upload_contact_plan";
+    ApiCommand_t::m_apiCall = Name();
 }
 UploadContactPlanApiCommand_t::~UploadContactPlanApiCommand_t() {}
 
@@ -1563,7 +1622,6 @@ bool UploadContactPlanApiCommand_t::SetValuesFromPropertyTree(const boost::prope
 
 boost::property_tree::ptree UploadContactPlanApiCommand_t::GetNewPropertyTree() const {
     boost::property_tree::ptree pt = ApiCommand_t::GetNewPropertyTree();
-    pt.put("apiCall", "upload_contact_plan");
     pt.put("contactPlanJson", m_contactPlanJson);
     return pt;
 }
@@ -1580,6 +1638,10 @@ bool UploadContactPlanApiCommand_t::operator!=(const ApiCommand_t& o) const {
     return !(*this == o);
 }
 
+const std::string UploadContactPlanApiCommand_t::Name() {
+    return "upload_contact_plan";
+}
+
 /**
  * GetExpiringStorageApiCommand_t
  */
@@ -1587,7 +1649,7 @@ bool UploadContactPlanApiCommand_t::operator!=(const ApiCommand_t& o) const {
 GetExpiringStorageApiCommand_t::GetExpiringStorageApiCommand_t()
     : ApiCommand_t(), m_priority(0), m_thresholdSecondsFromNow(0)
 {
-    ApiCommand_t::m_apiCall = "get_expiring_storage";
+    ApiCommand_t::m_apiCall = Name();
 }
 GetExpiringStorageApiCommand_t::~GetExpiringStorageApiCommand_t() {}
 
@@ -1612,7 +1674,6 @@ bool GetExpiringStorageApiCommand_t::SetValuesFromPropertyTree(const boost::prop
 
 boost::property_tree::ptree GetExpiringStorageApiCommand_t::GetNewPropertyTree() const {
     boost::property_tree::ptree pt = ApiCommand_t::GetNewPropertyTree();
-    pt.put("apiCall", "get_expiring_storage");
     pt.put("priority", m_priority);
     pt.put("thresholdSecondsFromNow", m_thresholdSecondsFromNow);
     return pt;
@@ -1631,6 +1692,10 @@ bool GetExpiringStorageApiCommand_t::operator!=(const ApiCommand_t& o) const {
     return !(*this == o);
 }
 
+const std::string GetExpiringStorageApiCommand_t::Name() {
+    return "get_expiring_storage";
+}
+
 /**
  * UpdateBpSecApiCommand_t
  */
@@ -1638,7 +1703,7 @@ bool GetExpiringStorageApiCommand_t::operator!=(const ApiCommand_t& o) const {
 UpdateBpSecApiCommand_t::UpdateBpSecApiCommand_t()
     : ApiCommand_t(), m_bpSecJson("{}")
 {
-    ApiCommand_t::m_apiCall = "update_bpsec_config";
+    ApiCommand_t::m_apiCall = Name();
 }
 UpdateBpSecApiCommand_t::~UpdateBpSecApiCommand_t() {}
 
@@ -1662,7 +1727,6 @@ bool UpdateBpSecApiCommand_t::SetValuesFromPropertyTree(const boost::property_tr
 
 boost::property_tree::ptree UpdateBpSecApiCommand_t::GetNewPropertyTree() const {
     boost::property_tree::ptree pt = ApiCommand_t::GetNewPropertyTree();
-    pt.put("apiCall", "update_bpsec_config");
     pt.put("newBPSec", m_bpSecJson);
     return pt;
 }
@@ -1677,4 +1741,8 @@ bool UpdateBpSecApiCommand_t::operator==(const ApiCommand_t& o) const {
 
 bool UpdateBpSecApiCommand_t::operator!=(const ApiCommand_t& o) const {
     return !(*this == o);
+}
+
+const std::string UpdateBpSecApiCommand_t::Name() {
+    return "update_bpsec_config";
 }

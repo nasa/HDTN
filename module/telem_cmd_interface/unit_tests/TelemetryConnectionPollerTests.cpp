@@ -6,7 +6,7 @@
 
 BOOST_AUTO_TEST_CASE(TelemetryConnectionPollerAddConnectionTestCase)
 {
-    TelemetryConnection connection("tcp://localhost:10301", nullptr);
+    TelemetryConnection connection("tcp://localhost:10301", nullptr, zmq::socket_type::req);
     TelemetryConnectionPoller poller;
 
     // A connection should get added successfully
@@ -17,10 +17,10 @@ BOOST_AUTO_TEST_CASE(TelemetryConnectionPollerAddConnectionTestCase)
 BOOST_AUTO_TEST_CASE(TelemetryConnectionPollerPollConnectionsTestCase)
 {
     TelemetryConnectionPoller poller;
-    TelemetryConnection connection("tcp://localhost:10301", nullptr);
+    TelemetryConnection connection("tcp://localhost:10301", nullptr, zmq::socket_type::req);
     poller.AddConnection(connection);
 
-    TelemetryConnection connection2("tcp://localhost:10302", nullptr);
+    TelemetryConnection connection2("tcp://localhost:10302", nullptr, zmq::socket_type::req);
     poller.AddConnection(connection2);
 
     // Set revents to ensure it gets cleared
@@ -36,11 +36,11 @@ BOOST_AUTO_TEST_CASE(TelemetryConnectionPollerPollConnectionsTestCase)
 BOOST_AUTO_TEST_CASE(TelemetryConnectionPollerHasNewMessageTestCase)
 {
     TelemetryConnectionPoller poller;
-    TelemetryConnection addedConnection("tcp://localhost:10301", nullptr);
+    TelemetryConnection addedConnection("tcp://localhost:10301", nullptr, zmq::socket_type::req);
     poller.AddConnection(addedConnection);
 
     // An un-added connection should not have a new message
-    TelemetryConnection unaddedConnection("tcp://localhost:10302", nullptr);
+    TelemetryConnection unaddedConnection("tcp://localhost:10302", nullptr, zmq::socket_type::req);
     BOOST_REQUIRE_EQUAL(false, poller.HasNewMessage(unaddedConnection));
  
     // An added connection with no event shouldn't have a new message
@@ -51,7 +51,7 @@ BOOST_AUTO_TEST_CASE(TelemetryConnectionPollerHasNewMessageTestCase)
     BOOST_REQUIRE_EQUAL(true, poller.HasNewMessage(addedConnection));
 
     // A second connection should also work
-    TelemetryConnection addedConnection2("tcp://localhost:10302", nullptr);;
+    TelemetryConnection addedConnection2("tcp://localhost:10302", nullptr, zmq::socket_type::req);;
     poller.AddConnection(addedConnection2);
     BOOST_REQUIRE_EQUAL(false, poller.HasNewMessage(addedConnection2));
     poller.m_pollItems[1].revents |= ZMQ_POLLIN;
