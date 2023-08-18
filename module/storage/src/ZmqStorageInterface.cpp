@@ -678,6 +678,7 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
         }
 
         //write bundle (modified by hdtn if custody requested) to disk
+        LOG_INFO(subprocess) << "WRITE mask:" << mask;
         return WriteBundle(primary, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size(), maskDestination, mask);
     }
     else if (version == BpVersion::BPV7) {
@@ -706,6 +707,7 @@ bool ZmqStorageInterface::Impl::WriteBundle(const PrimaryBlock& bundlePrimaryBlo
 {
     //write bundle
     BundleStorageManagerSession_WriteToDisk sessionWrite;
+    LOG_INFO(subprocess) << "WRITEBUNDLE mask:" << mask;
     uint64_t totalSegmentsRequired = m_bsmPtr->Push(sessionWrite, bundlePrimaryBlock, allDataSize, maskDestination, mask);
     if (totalSegmentsRequired == 0) {
         LOG_ERROR(subprocess) << "out of space";
@@ -1414,6 +1416,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
 
                             cbhe_eid_t finalDestEidReturnedFromWrite;
                             const bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord = (toStorageHeader.isCustodyOrAdminRecord == 0);
+                            LOG_INFO(subprocess) << "ingress-> mask:" << toStorageHeader.finalDestEid;
                             Write(&zmqBundleDataReceived, finalDestEidReturnedFromWrite, false, isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord, true, toStorageHeader.finalDestEid);
 
                             //storageAckHdr->finalDestEid = finalDestEidReturnedFromWrite; //no longer needed as ingress decodes that
