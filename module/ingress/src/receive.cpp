@@ -1548,7 +1548,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                         }
                         else {
                             //success                            
-                            LOG_INFO(subprocess) << "->storage mask:" << finalDestEid.nodeId;
+                            //LOG_INFO(subprocess) << "->storage mask:" << finalDestEid.nodeId;
                             ++m_bundleCountStorage; //protected by m_ingressToStorageZmqSocketMutex
                             m_bundleByteCountStorage += bundleCurrentSize; //protected by m_ingressToStorageZmqSocketMutex
                         }
