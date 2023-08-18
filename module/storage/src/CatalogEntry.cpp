@@ -89,9 +89,9 @@ bool catalog_entry_t::HasCustodyAndNonFragmentation() const {
 bool catalog_entry_t::HasCustody() const {
     return ((encodedAbsExpirationAndCustodyAndPriority & ((1U << 2) | (1U << 3)) ) != 0);
 }
-void catalog_entry_t::Init(const PrimaryBlock & primary, const uint64_t paramBundleSizeBytes, const uint64_t paramNumSegmentsRequired, void * paramPtrUuidKeyInMap) {
+void catalog_entry_t::Init(const PrimaryBlock & primary, const uint64_t paramBundleSizeBytes, const uint64_t paramNumSegmentsRequired, void * paramPtrUuidKeyInMap, bool maskDestination, cbhe_eid_t mask) {
     bundleSizeBytes = paramBundleSizeBytes;
-    destEid = primary.GetFinalDestinationEid();
+    destEid = maskDestination ? mask : primary.GetFinalDestinationEid();
     encodedAbsExpirationAndCustodyAndPriority = primary.GetPriority() | (primary.GetExpirationSeconds() << 4);
     if (primary.HasCustodyFlagSet()) {
         if (primary.HasFragmentationFlagSet()) {

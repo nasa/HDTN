@@ -48,7 +48,7 @@ struct catalog_entry_t {
     STORAGE_LIB_EXPORT bool HasCustodyAndFragmentation() const;
     STORAGE_LIB_EXPORT bool HasCustodyAndNonFragmentation() const;
     STORAGE_LIB_EXPORT bool HasCustody() const;
-    STORAGE_LIB_EXPORT void Init(const PrimaryBlock & primary, const uint64_t paramBundleSizeBytes, const uint64_t paramNumSegmentsRequired, void * paramPtrUuidKeyInMap);
+    STORAGE_LIB_EXPORT void Init(const PrimaryBlock & primary, const uint64_t paramBundleSizeBytes, const uint64_t paramNumSegmentsRequired, void * paramPtrUuidKeyInMap, bool maskDestination = false, cbhe_eid_t mask = cbhe_eid_t(0, 0));
 };
 
 #endif //_CATALOG_ENTRY_H

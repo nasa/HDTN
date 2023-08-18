@@ -110,12 +110,12 @@ private:
     bool WriteAcsBundle(const Bpv6CbhePrimaryBlock& primary, const padded_vector_uint8_t& acsBundleSerialized);
     bool Write(zmq::message_t* message,
         cbhe_eid_t& finalDestEidReturned, bool dontWriteIfCustodyFlagSet,
-        bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord);
+        bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord, bool maskDestination = false, cbhe_eid_t mask = cbhe_eid_t(0, 0));
     bool ProcessBundleCustody(BundleViewV6 &bv, uint64_t newCustodyId, size_t size);
     void ReportDepletedStorage(cbhe_eid_t &eid);
     bool ProcessAdminRecord(BundleViewV6 &bv);
     bool WriteBundle(const PrimaryBlock& bundlePrimaryBlock,
-        const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize);
+        const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize, bool maskDestination = false, cbhe_eid_t mask = cbhe_eid_t(0, 0));
     uint64_t PeekOne(const std::vector<eid_plus_isanyserviceid_pair_t>& availableDestLinks);
     bool ReleaseOne_NoBlock(const OutductInfo_t& info, const uint64_t maxBundleSizeToRead, uint64_t& returnedBundleSize);
     void RepopulateUpLinksVec();
@@ -643,7 +643,7 @@ static bool IsAdminForThisNode(const Bpv6CbhePrimaryBlock &primary, cbhe_eid_t t
 
 bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
     cbhe_eid_t & finalDestEidReturned, bool dontWriteIfCustodyFlagSet,
-    bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord)
+    bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord, bool maskDestination, cbhe_eid_t mask)
 {
     BpVersion version = GetBpVersion((const uint8_t*)message->data());
     
@@ -655,7 +655,7 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
             return false;
         }
         const Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
-        finalDestEidReturned = primary.m_destinationEid;
+        finalDestEidReturned = maskDestination? mask : primary.m_destinationEid;
         const uint64_t newCustodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
 
         if (!loadPrimaryBlockOnly) {
@@ -678,7 +678,7 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
         }
 
         //write bundle (modified by hdtn if custody requested) to disk
-        return WriteBundle(primary, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size());
+        return WriteBundle(primary, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size(), maskDestination, mask);
     }
     else if (version == BpVersion::BPV7) {
         BundleViewV7 bv;
@@ -702,11 +702,11 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
 }
 
 bool ZmqStorageInterface::Impl::WriteBundle(const PrimaryBlock& bundlePrimaryBlock,
-    const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize)
+    const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize, bool maskDestination, cbhe_eid_t mask)
 {
     //write bundle
     BundleStorageManagerSession_WriteToDisk sessionWrite;
-    uint64_t totalSegmentsRequired = m_bsmPtr->Push(sessionWrite, bundlePrimaryBlock, allDataSize);
+    uint64_t totalSegmentsRequired = m_bsmPtr->Push(sessionWrite, bundlePrimaryBlock, allDataSize, maskDestination, mask);
     if (totalSegmentsRequired == 0) {
         LOG_ERROR(subprocess) << "out of space";
         return false;
@@ -1414,7 +1414,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
 
                             cbhe_eid_t finalDestEidReturnedFromWrite;
                             const bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord = (toStorageHeader.isCustodyOrAdminRecord == 0);
-                            Write(&zmqBundleDataReceived, finalDestEidReturnedFromWrite, false, isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord);
+                            Write(&zmqBundleDataReceived, finalDestEidReturnedFromWrite, false, isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord, true, toStorageHeader.finalDestEid);
 
                             //storageAckHdr->finalDestEid = finalDestEidReturnedFromWrite; //no longer needed as ingress decodes that
 
