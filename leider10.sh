@@ -19,7 +19,7 @@ cd $HDTN_SOURCE_ROOT
 #sleep 3
 
 # HDTN one process
-./build/module/hdtn_one_process/hdtn-one-process --hdtn-config-file=$hdtn_config --contact-plan-file=leider.json &
+./build/module/hdtn_one_process/hdtn-one-process --hdtn-config-file=$hdtn_config --contact-plan-file=leider.json --leider="shifting" &
 oneprocess_PID=$!
 sleep 10
 
@@ -38,8 +38,10 @@ sleep 30
 echo "\nkilling bpgen1..." && kill -2 $bpgen_PID
 sleep 2
 echo "\nkilling hdtn1..." && kill -2 $oneprocess_PID
-sleep 2
-echo "\nkilling hdtn2..." && kill -2 $oneprocess_PID2
+#sleep 2
+#echo "\nkilling hdtn2..." && kill -2 $oneprocess_PID2
+#sleep 2
+#echo "\nkilling bpsink1..." && kill -2 $bpsink1_PID
 #sleep 2
 #echo "\nkilling bpsink2..." && kill -2 $bpsink2_PID
 
