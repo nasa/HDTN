@@ -1,31 +1,31 @@
 {
     "contacts": [
-       {
-            "contact": 0,
-            "source": 1,
-            "dest": 10,
-            "finalDestination": 2,
-            "startTime": 0,
-            "endTime": 2000,
-            "rateBitsPerSec": 0,
-            "owlt":  1
-        },
         {
-            "contact": 3,
+            "contact": 0,
             "source": 10,
-            "dest": 1,
-            "finalDestination": 1,
+            "dest": 11,
+            "finalDestination": 2,
             "startTime": 0,
             "endTime": 2000,
             "rateBitsPerSec": 0,
             "owlt": 1
         },
         {
-            "contact": 4,
-            "source": 10,
-            "dest": 102,
-            "finalDestination": 102,
+            "contact": 1,
+            "source": 11,
+            "dest": 2,
+            "finalDestination": 2,
             "startTime": 0,
+            "endTime": 2000,
+            "rateBitsPerSec": 0,
+            "owlt": 1
+        },
+        {
+            "contact": 2,
+            "source": 10,
+            "dest": 2,
+            "finalDestination": 2,
+            "startTime": 10,
             "endTime": 2000,
             "rateBitsPerSec": 0,
             "owlt": 1
