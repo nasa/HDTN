@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# See masker_test_01.sh for explanation of this script.
+
 # path variables
 config_files=$HDTN_SOURCE_ROOT/config_files
 hdtn_config=$config_files/hdtn/leider.json

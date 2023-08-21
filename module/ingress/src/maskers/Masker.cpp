@@ -9,7 +9,7 @@
 namespace hdtn {
 
 std::shared_ptr<Masker> Masker::makePointer(std::string impl) {
-    // TODO: factor out this pattern, perhaps using macros or templates.
+    // TODO: abstract this pattern, perhaps using macros or templates.
     // Make it easier to add new classes; editing this conditional will get tedious.
     if (impl == "redundant") {
         return std::make_shared<RedundantMasker>();
