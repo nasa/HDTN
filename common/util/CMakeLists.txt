@@ -69,6 +69,7 @@ set(MY_PUBLIC_HEADERS
 	include/FreeListAllocator.h
 	include/JsonSerializable.h
 	include/LtpClientServiceDataToSend.h
+	include/LtpEncap.h
 	include/MemoryInFiles.h
 	include/PaddedVectorUint8.h
 	#include/RateManagerAsync.h
