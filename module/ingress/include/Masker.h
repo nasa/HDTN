@@ -32,8 +32,6 @@
 #ifndef _MASKER_H
 #define _MASKER_H 1
 
-#define MASKER_IMPLEMENTATION_CLASS RedundantMasker
-
 #include "codec/BundleViewV6.h"
 #include "codec/BundleViewV7.h"
 
@@ -43,6 +41,7 @@ class Masker {
 public:
 	virtual cbhe_eid_t query(const BundleViewV6&) = 0;
 	virtual cbhe_eid_t query(const BundleViewV7&) = 0;
+    static std::shared_ptr<Masker> makePointer(std::string impl);
 };
 
 }

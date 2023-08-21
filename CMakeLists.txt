@@ -186,6 +186,11 @@ else()
 	message("NOT Building Web Interface!")
 endif()
 
+OPTION(ENABLE_MASKING "Enable ability to mask destination EIDs in Ingress" OFF)
+if(ENABLE_MASKING)
+	add_compile_definitions(MASKING_ENABLED)
+	list(APPEND COMPILE_DEFINITIONS_TO_EXPORT MASKING_ENABLED)
+endif()
 
 include(${CMAKE_SOURCE_DIR}/add_hdtn_package_export.cmake)
 

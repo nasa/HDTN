@@ -1,7 +1,7 @@
-#include "Masker.h"
-
 #ifndef _RMASKER_H
 #define _RMASKER_H 1
+
+#include "Masker.h"
 
 namespace hdtn {
 

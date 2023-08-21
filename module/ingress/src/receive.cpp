@@ -50,8 +50,9 @@
 #include "BpSecPolicyManager.h"
 #endif
 
-#include "RedundantMasker.h"
-#include "ShiftingMasker.h"
+#ifdef MASKING_ENABLED
+#include "Masker.h"
+#endif
 
 namespace hdtn {
 
@@ -88,7 +89,9 @@ public:
     uint64_t m_bundleByteCountStorage; //protected by m_ingressToStorageZmqSocketMutex
     uint64_t m_bundleCountEgress; //protected by m_ingressToEgressZmqSocketMutex
     uint64_t m_bundleByteCountEgress; //protected by m_ingressToEgressZmqSocketMutex
-    std::unique_ptr<Masker> m_pmasker;
+#ifdef MASKING_ENABLED
+    std::shared_ptr<Masker> m_pmasker;
+#endif
 
 private:
     struct BundlePipelineAckingSet : private boost::noncopyable {
@@ -324,8 +327,7 @@ Ingress::Impl::Impl() :
     m_aoctNeedsProcessing(false),
     m_workerThreadStartupInProgress(false),
     m_telemThreadStartupInProgress(false),
-    m_inductsFullyLoaded(false),
-    m_pmasker(std::make_unique<MASKER_IMPLEMENTATION_CLASS>()) {}
+    m_inductsFullyLoaded(false) {}
 
 Ingress::Ingress() :
     m_pimpl(boost::make_unique<Ingress::Impl>()),
@@ -596,13 +598,9 @@ bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::
         }
     }
 
-    //m_pmasker = new RedundantMasker();
-    if (maskerImpl == "redundant") {
-        m_pmasker = std::make_unique<RedundantMasker>();
-    }
-    else if (maskerImpl == "shifting") {
-        m_pmasker = std::make_unique<ShiftingMasker>();
-    }
+#ifdef MASKING_ENABLED
+    m_pmasker = Masker::makePointer(maskerImpl);
+#endif
     
     return true;
 }
@@ -1084,7 +1082,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             LOG_ERROR(subprocess) << "malformed bundle";
             return false;
         }
-#ifdef _MASKER_H
+#ifdef MASKING_ENABLED
         queryResult = m_pmasker->query(bv);
 #endif
         Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
@@ -1143,7 +1141,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             LOG_ERROR(subprocess) << "Process: malformed version 7 bundle received";
             return false;
         }
-#ifdef _MASKER_H
+#ifdef MASKING_ENABLED
         queryResult = m_pmasker->query(bv);
 #endif
         Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
