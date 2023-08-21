@@ -19,7 +19,7 @@ cd $HDTN_SOURCE_ROOT
 #sleep 3
 
 # HDTN one process
-./build/module/hdtn_one_process/hdtn-one-process --hdtn-config-file=$hdtn_config --contact-plan-file=leider.json --leider="shifting" &
+./build/module/hdtn_one_process/hdtn-one-process --hdtn-config-file=$hdtn_config --contact-plan-file=leider.json --masker="shifting" &
 oneprocess_PID=$!
 sleep 10
 
