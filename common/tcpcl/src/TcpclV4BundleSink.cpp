@@ -76,18 +76,18 @@ TcpclV4BundleSink::TcpclV4BundleSink(
 {
 #ifdef OPENSSL_SUPPORT_ENABLED
     m_base_sslStreamSharedPtr = sslStreamSharedPtr;
-    m_base_inductConnectionTelemetry.m_connectionName = sslStreamSharedPtr->next_layer().remote_endpoint().address().to_string()
+    m_base_inductConnectionName = sslStreamSharedPtr->next_layer().remote_endpoint().address().to_string()
         + ":" + boost::lexical_cast<std::string>(sslStreamSharedPtr->next_layer().remote_endpoint().port());
-    m_base_inductConnectionTelemetry.m_inputName = std::string("*:") + boost::lexical_cast<std::string>(m_base_sslStreamSharedPtr->next_layer().local_endpoint().port());
+    m_base_inductInputName = std::string("*:") + boost::lexical_cast<std::string>(m_base_sslStreamSharedPtr->next_layer().local_endpoint().port());
     m_base_tcpAsyncSenderSslPtr = boost::make_unique<TcpAsyncSenderSsl>(m_base_sslStreamSharedPtr, m_base_ioServiceRef);
     m_base_tcpAsyncSenderSslPtr->SetOnFailedBundleVecSendCallback(m_base_onFailedBundleVecSendCallback);
     m_base_tcpAsyncSenderSslPtr->SetOnFailedBundleZmqSendCallback(m_base_onFailedBundleZmqSendCallback);
     m_base_tcpAsyncSenderSslPtr->SetUserAssignedUuid(m_base_userAssignedUuid);
 #else
     m_base_tcpSocketPtr = tcpSocketPtr;
-    m_base_inductConnectionTelemetry.m_connectionName = tcpSocketPtr->remote_endpoint().address().to_string()
+    m_base_inductConnectionName = tcpSocketPtr->remote_endpoint().address().to_string()
         + ":" + boost::lexical_cast<std::string>(tcpSocketPtr->remote_endpoint().port());
-    m_base_inductConnectionTelemetry.m_inputName = std::string("*:") + boost::lexical_cast<std::string>(tcpSocketPtr->local_endpoint().port());
+    m_base_inductInputName = std::string("*:") + boost::lexical_cast<std::string>(tcpSocketPtr->local_endpoint().port());
     m_base_tcpAsyncSenderPtr = boost::make_unique<TcpAsyncSender>(m_base_tcpSocketPtr, m_tcpSocketIoServiceRef);
     m_base_tcpAsyncSenderPtr->SetOnFailedBundleVecSendCallback(m_base_onFailedBundleVecSendCallback);
     m_base_tcpAsyncSenderPtr->SetOnFailedBundleZmqSendCallback(m_base_onFailedBundleZmqSendCallback);
@@ -136,6 +136,17 @@ TcpclV4BundleSink::~TcpclV4BundleSink() {
         catch (const boost::thread_resource_error&) {
             LOG_ERROR(subprocess) << "error stopping TcpclV4BundleSink threadCbReader";
         }
+        //print stats once
+        LOG_INFO(subprocess) << "TcpclV4 Induct / Bundle Sink:"
+            << "\n totalBundlesSent " << m_base_telem.totalBundlesSent
+            << "\n totalBundlesSentAndAcked " << m_base_telem.totalBundlesSentAndAcked
+            << "\n totalBundleBytesSent " << m_base_telem.totalBundleBytesSent
+            << "\n totalBundleBytesSentAndAcked " << m_base_telem.totalBundleBytesSentAndAcked
+            << "\n totalFragmentsSent " << m_base_telem.totalFragmentsSent
+            << "\n totalFragmentsSentAndAcked " << m_base_telem.totalFragmentsSentAndAcked
+            << "\n totalBundlesReceived " << m_base_telem.totalBundlesReceived
+            << "\n totalBundleBytesReceived " << m_base_telem.totalBundleBytesReceived
+            << "\n totalFragmentsReceived " << m_base_telem.totalFragmentsReceived;
     }
 #ifdef OPENSSL_SUPPORT_ENABLED
     m_base_tcpAsyncSenderSslPtr.reset();
@@ -266,7 +277,7 @@ void TcpclV4BundleSink::PopCbThreadFunc() {
             boost::mutex::scoped_lock lock(m_mutexCb);
             consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
             if (consumeIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //if empty again (lock mutex (above) before checking condition)
-                if (!m_running) { //m_running is mutex protected, if it stopped running, exit the thread (lock mutex (above) before checking condition)
+                if (!m_running.load(std::memory_order_acquire)) { //m_running is mutex protected, if it stopped running, exit the thread (lock mutex (above) before checking condition)
                     break; //thread stopping criteria (empty and not running)
                 }
                 m_conditionVariableCb.wait(lock); // call lock.unlock() and blocks the current thread
@@ -341,7 +352,7 @@ void TcpclV4BundleSink::TrySendOpportunisticBundleIfAvailable_FromIoServiceThrea
         return;
     }
     std::pair<std::unique_ptr<zmq::message_t>, padded_vector_uint8_t> bundleDataPair;
-    const std::size_t totalBundlesUnacked = m_base_outductTelemetry.m_totalBundlesSent - m_base_outductTelemetry.m_totalBundlesAcked; //same as Virtual_GetTotalBundlesUnacked
+    const std::size_t totalBundlesUnacked = BaseClass_GetTotalBundlesUnacked();
     if ((totalBundlesUnacked < M_BASE_MY_MAX_TX_UNACKED_BUNDLES) && m_tryGetOpportunisticDataFunction && m_tryGetOpportunisticDataFunction(bundleDataPair)) {
         BaseClass_Forward(bundleDataPair.first, bundleDataPair.second, static_cast<bool>(bundleDataPair.first), std::vector<uint8_t>());
     }

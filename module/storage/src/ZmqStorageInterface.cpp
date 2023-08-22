@@ -36,6 +36,7 @@
 #include "CustodyTimers.h"
 #include "codec/BundleViewV7.h"
 #include "ThreadNamer.h"
+#include <atomic>
 
 typedef std::pair<cbhe_eid_t, bool> eid_plus_isanyserviceid_pair_t;
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
@@ -147,7 +148,8 @@ private:
 
     zmq::context_t* m_hdtnOneProcessZmqInprocContextPtr;
     std::unique_ptr<boost::thread> m_threadPtr;
-    volatile bool m_running;
+    std::atomic<bool> m_running;
+    bool m_isOutOfStorageSpace;
 
     //variables initialized and used only by ThreadFunc()
     std::unique_ptr<BundleStorageManagerBase> m_bsmPtr;
@@ -161,7 +163,7 @@ private:
     std::vector<OutductInfo_t*> m_vectorUpLinksOutductInfoPtrs; //outductIndex to info
 
     //for blocking until worker-thread startup
-    volatile bool m_workerThreadStartupInProgress;
+    std::atomic<bool> m_workerThreadStartupInProgress;
     boost::mutex m_workerThreadStartupMutex;
     boost::condition_variable m_workerThreadStartupConditionVariable;
 
@@ -174,6 +176,7 @@ private:
 
 ZmqStorageInterface::Impl::Impl() :
     m_running(false),
+    m_isOutOfStorageSpace(false),
     m_workerThreadStartupInProgress(false),
     m_hdtnOneProcessZmqInprocContextPtr(nullptr),
     m_deletionPolicy(DeletionPolicy::never) {}
@@ -477,7 +480,7 @@ bool ZmqStorageInterface::Impl::ProcessAdminRecord(BundleViewV6 &bv)
                 if (!m_custodyTimersPtr->CancelCustodyTransferTimer(catalogEntryPtr->destEid, currentCustodyId)) {
                     LOG_WARNING(subprocess) << "can't find custody timer associated with bundle identified by acs custody signal";
                 }
-                if (!m_bsmPtr->RemoveReadBundleFromDisk(catalogEntryPtr, currentCustodyId)) {
+                if (!m_bsmPtr->RemoveBundleFromDisk(catalogEntryPtr, currentCustodyId)) {
                     LOG_ERROR(subprocess) << "error freeing bundle identified by acs custody signal from disk";
                     continue;
                 }
@@ -542,7 +545,7 @@ bool ZmqStorageInterface::Impl::ProcessAdminRecord(BundleViewV6 &bv)
         if (!m_custodyTimersPtr->CancelCustodyTransferTimer(catalogEntryPtr->destEid, custodyIdFromRfc5050)) {
             LOG_WARNING(subprocess) << "notice: can't find custody timer associated with bundle identified by rfc5050 custody signal";
         }
-        if (!m_bsmPtr->RemoveReadBundleFromDisk(catalogEntryPtr, custodyIdFromRfc5050)) {
+        if (!m_bsmPtr->RemoveBundleFromDisk(catalogEntryPtr, custodyIdFromRfc5050)) {
             LOG_ERROR(subprocess) << "error freeing bundle identified by rfc5050 custody signal from disk";
             return false;
         }
@@ -625,7 +628,10 @@ bool ZmqStorageInterface::Impl::ProcessBundleCustody(BundleViewV6 &bv, uint64_t 
 
         if(!wroteCustody) {
             LOG_ERROR(subprocess) << "Failed to write custody signal to disk; deleting bundle";
-            DeleteBundleById(newCustodyId);
+            m_custodyIdAllocatorPtr->FreeCustodyId(newCustodyId);
+            if(!m_bsmPtr->RemoveBundleFromDisk(newCustodyId)) {
+                LOG_ERROR(subprocess) << "Failed to remove bundle from disk " << newCustodyId << " after failed custody signal write";
+            }
             return false;
         }
     }
@@ -708,9 +714,17 @@ bool ZmqStorageInterface::Impl::WriteBundle(const PrimaryBlock& bundlePrimaryBlo
     BundleStorageManagerSession_WriteToDisk sessionWrite;
     uint64_t totalSegmentsRequired = m_bsmPtr->Push(sessionWrite, bundlePrimaryBlock, allDataSize, maskDestination, mask);
     if (totalSegmentsRequired == 0) {
-        LOG_ERROR(subprocess) << "out of space";
+        if (!m_isOutOfStorageSpace) {
+            LOG_ERROR(subprocess) << "out of storage space";
+            m_isOutOfStorageSpace = true;
+        }
         return false;
     }
+    else if (m_isOutOfStorageSpace) {
+        LOG_INFO(subprocess) << "no longer out of storage space";
+        m_isOutOfStorageSpace = false;
+    }
+    
     //totalSegmentsStoredOnDisk += totalSegmentsRequired;
     //totalBytesWrittenThisTest += size;
     const uint64_t totalBytesPushed = m_bsmPtr->PushAllSegments(sessionWrite, bundlePrimaryBlock, newCustodyId, allData, allDataSize);
@@ -799,16 +813,7 @@ bool ZmqStorageInterface::Impl::ReleaseOne_NoBlock(const OutductInfo_t& info, co
         m_bsmPtr->ReturnTop(m_sessionRead);
         return false;
     }
-    /*
-    //if you're happy with the bundle data you read back, then officially remove it from the disk
-    if (deleteFromDiskNow) {
-        bool successRemoveBundle = bsm.RemoveReadBundleFromDisk(sessionRead);
-        if (!successRemoveBundle) {
-            return false;
-        }
-    }
-        */
-        
+
     returnedBundleSize = bytesToReadFromDisk;
     return true;
 
@@ -1078,7 +1083,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
     m_workerThreadStartupMutex.unlock();
     m_workerThreadStartupConditionVariable.notify_one();
 
-    while (m_running) {
+    while (m_running.load(std::memory_order_acquire)) {
         int rc = 0;
         try {
             rc = zmq::poll(pollItems, 4, timeoutPoll);
@@ -1625,8 +1630,8 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
 }
 
 void ZmqStorageInterface::Impl::TelemEventsHandler() {
-    bool doSendExpiring = false;
-    GetExpiringStorageApiCommand_t getExpiringStorageApiCommand;
+    std::shared_ptr<ApiCommand_t> apiCmdPtr;
+    GetExpiringStorageApiCommand_t* getExpiringStorageApiCommandPtr = NULL;
     uint8_t telemMsgByte;
     const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingTelemToFromBoundStoragePtr->recv(zmq::mutable_buffer(&telemMsgByte, sizeof(telemMsgByte)), zmq::recv_flags::dontwait);
     if (!res) {
@@ -1647,13 +1652,18 @@ void ZmqStorageInterface::Impl::TelemEventsHandler() {
                 LOG_ERROR(subprocess) << "error receiving api message";
                 return;
             }
-            std::string apiCall = ApiCommand_t::GetApiCallFromJson(apiMsg.to_string());
-            LOG_INFO(subprocess) << "got api call " << apiCall;
-            if (apiCall == "get_expiring_storage") {
-                if (!getExpiringStorageApiCommand.SetValuesFromJson(apiMsg.to_string())) {
-                    return;
-                };
-                doSendExpiring = true;
+            const std::string apiMsgAsJsonStr = apiMsg.to_string();
+            apiCmdPtr = ApiCommand_t::CreateFromJson(apiMsgAsJsonStr);
+            if (!apiCmdPtr) {
+                LOG_ERROR(subprocess) << "error parsing received api json message.. got\n"
+                    << apiMsgAsJsonStr;
+                continue;
+            }
+            LOG_INFO(subprocess) << "got api call " << apiCmdPtr->m_apiCall;
+            getExpiringStorageApiCommandPtr = dynamic_cast<GetExpiringStorageApiCommand_t*>(apiCmdPtr.get());
+            if (!getExpiringStorageApiCommandPtr) {
+                LOG_ERROR(subprocess) << "error casting to GetExpiringStorageApiCommand_t";
+                continue;
             }
         } while(apiMsg.more());
     }
@@ -1666,31 +1676,29 @@ void ZmqStorageInterface::Impl::TelemEventsHandler() {
     std::string& strRef = *storageTelemJsonStringPtr;
     zmq::message_t zmqJsonMessage(&strRef[0], storageTelemJsonStringPtr->size(), CustomCleanupStdString, storageTelemJsonStringPtr);
 
-    const zmq::send_flags additionalFlags = (doSendExpiring) ? zmq::send_flags::sndmore : zmq::send_flags::none;
+    const zmq::send_flags additionalFlags = (getExpiringStorageApiCommandPtr) ? zmq::send_flags::sndmore : zmq::send_flags::none;
     if (!m_zmqRepSock_connectingTelemToFromBoundStoragePtr->send(std::move(zmqJsonMessage), zmq::send_flags::dontwait | additionalFlags)) {
         LOG_ERROR(subprocess) << "can't send json telemetry to telem";
     }
 
-    if (!doSendExpiring) {
-        return;
-    }
+    if (getExpiringStorageApiCommandPtr) {
+        //send storage expiring telemetry
+        StorageExpiringBeforeThresholdTelemetry_t expiringTelem;
+        expiringTelem.priority = getExpiringStorageApiCommandPtr->m_priority;
+        expiringTelem.thresholdSecondsSinceStartOfYear2000 = TimestampUtil::GetSecondsSinceEpochRfc5050(
+            boost::posix_time::microsec_clock::universal_time() + boost::posix_time::seconds(getExpiringStorageApiCommandPtr->m_thresholdSecondsFromNow));
+        if (!m_bsmPtr->GetStorageExpiringBeforeThresholdTelemetry(expiringTelem)) {
+            LOG_ERROR(subprocess) << "storage can't get StorageExpiringBeforeThresholdTelemetry";
+        }
+        else {
+            std::string* expiringTelemJsonStringPtr = new std::string(expiringTelem.ToJson());
+            std::string& strRefExpiring = *expiringTelemJsonStringPtr;
+            zmq::message_t zmqExpiringTelemJsonMessage(&strRefExpiring[0],
+                expiringTelemJsonStringPtr->size(), CustomCleanupStdString, expiringTelemJsonStringPtr);
 
-    //send storage expiring telemetry
-    StorageExpiringBeforeThresholdTelemetry_t expiringTelem;
-    expiringTelem.priority = getExpiringStorageApiCommand.m_priority;
-    expiringTelem.thresholdSecondsSinceStartOfYear2000 = TimestampUtil::GetSecondsSinceEpochRfc5050(
-        boost::posix_time::microsec_clock::universal_time() + boost::posix_time::seconds(getExpiringStorageApiCommand.m_thresholdSecondsFromNow));
-    if (!m_bsmPtr->GetStorageExpiringBeforeThresholdTelemetry(expiringTelem)) {
-        LOG_ERROR(subprocess) << "storage can't get StorageExpiringBeforeThresholdTelemetry";
-    }
-    else {
-        std::string* expiringTelemJsonStringPtr = new std::string(expiringTelem.ToJson());
-        std::string& strRefExpiring = *expiringTelemJsonStringPtr;
-        zmq::message_t zmqExpiringTelemJsonMessage(&strRefExpiring[0],
-            expiringTelemJsonStringPtr->size(), CustomCleanupStdString, expiringTelemJsonStringPtr);
-
-        if (!m_zmqRepSock_connectingTelemToFromBoundStoragePtr->send(std::move(zmqExpiringTelemJsonMessage), zmq::send_flags::dontwait)) {
-            LOG_ERROR(subprocess) << "storage can't send json StorageExpiringBeforeThresholdTelemetry_t to telem";
+            if (!m_zmqRepSock_connectingTelemToFromBoundStoragePtr->send(std::move(zmqExpiringTelemJsonMessage), zmq::send_flags::dontwait)) {
+                LOG_ERROR(subprocess) << "storage can't send json StorageExpiringBeforeThresholdTelemetry_t to telem";
+            }
         }
     }
 }

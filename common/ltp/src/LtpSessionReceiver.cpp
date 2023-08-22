@@ -191,8 +191,8 @@ void LtpSessionReceiver::LtpDelaySendReportSegmentTimerExpiredCallback(const Ltp
     const csn_issecondary_pair_t& p = it->second;
     const uint64_t thisRsCheckpointSerialNumber = p.first;
     const bool thisCheckpointIsResponseToReportSegment = p.second;
-    m_ltpSessionReceiverCommonDataRef.m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent += (!thisCheckpointIsResponseToReportSegment);
-    m_ltpSessionReceiverCommonDataRef.m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent += thisCheckpointIsResponseToReportSegment;
+    m_ltpSessionReceiverCommonDataRef.m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent.fetch_add(!thisCheckpointIsResponseToReportSegment, std::memory_order_relaxed);
+    m_ltpSessionReceiverCommonDataRef.m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent.fetch_add(thisCheckpointIsResponseToReportSegment, std::memory_order_relaxed);
     HandleGenerateAndSendReportSegment(thisRsCheckpointSerialNumber, thisRsLowerBound, thisRsUpperBound, thisCheckpointIsResponseToReportSegment);
     m_ltpSessionReceiverRecycledDataUniquePtr->m_mapReportSegmentsPendingGeneration.erase(it);
     //userData shall be recycled automatically after this callback completes
@@ -237,7 +237,7 @@ void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(const Ltp::session
     //
     //Otherwise, a new copy of each affected RS segment is queued for
     //transmission to the LTP engine that originated the session.
-    ++m_ltpSessionReceiverCommonDataRef.m_numReportSegmentTimerExpiredCallbacks;
+    m_ltpSessionReceiverCommonDataRef.m_numReportSegmentTimerExpiredCallbacks.fetch_add(1, std::memory_order_relaxed);
     
 
     if (userDataPtr->retryCount <= m_ltpSessionReceiverCommonDataRef.m_maxRetriesPerSerialNumberRef) {
@@ -467,7 +467,7 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                     m_ltpSessionReceiverRecycledDataUniquePtr->m_mapReportSegmentsPendingGeneration.find(
                         LtpFragmentSet::data_fragment_no_overlap_allow_abut_t(dataSegmentMetadata.offset, dataSegmentMetadata.offset));
                 if (it != m_ltpSessionReceiverRecycledDataUniquePtr->m_mapReportSegmentsPendingGeneration.end()) { //found by lower bound
-                    ++m_ltpSessionReceiverCommonDataRef.m_numGapsFilledByOutOfOrderDataSegments;
+                    m_ltpSessionReceiverCommonDataRef.m_numGapsFilledByOutOfOrderDataSegments.fetch_add(1, std::memory_order_relaxed);
                     if (LtpFragmentSet::ContainsFragmentEntirely(m_ltpSessionReceiverRecycledDataUniquePtr->m_receivedDataFragmentsSet,
                         LtpFragmentSet::data_fragment_t(it->first.beginIndex, it->first.endIndex)))
                     { //fully claimed (no gaps)
@@ -477,8 +477,8 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                         const csn_issecondary_pair_t& p = it->second;
                         const uint64_t thisRsCheckpointSerialNumber = p.first;
                         const bool thisCheckpointIsResponseToReportSegment = p.second;
-                        m_ltpSessionReceiverCommonDataRef.m_numDelayedFullyClaimedPrimaryReportSegmentsSent += (!thisCheckpointIsResponseToReportSegment);
-                        m_ltpSessionReceiverCommonDataRef.m_numDelayedFullyClaimedSecondaryReportSegmentsSent += thisCheckpointIsResponseToReportSegment;
+                        m_ltpSessionReceiverCommonDataRef.m_numDelayedFullyClaimedPrimaryReportSegmentsSent.fetch_add(!thisCheckpointIsResponseToReportSegment, std::memory_order_relaxed);
+                        m_ltpSessionReceiverCommonDataRef.m_numDelayedFullyClaimedSecondaryReportSegmentsSent.fetch_add(thisCheckpointIsResponseToReportSegment, std::memory_order_relaxed);
                         HandleGenerateAndSendReportSegment(thisRsCheckpointSerialNumber, thisRsLowerBound, thisRsUpperBound, thisCheckpointIsResponseToReportSegment);
                         if ((thisRsLowerBound == 0) && (thisRsUpperBound == m_lengthOfRedPart)) {
                             rsWasJustNowSentWithFullRedBounds = true;
@@ -583,7 +583,7 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
             //bound(for example, due to out - of - order arrival of discretionary
             //checkpoints) then the reception report MUST NOT be issued.
             if (lowerBound >= upperBound) {
-                ++m_ltpSessionReceiverCommonDataRef.m_numReportSegmentsUnableToBeIssued;
+                m_ltpSessionReceiverCommonDataRef.m_numReportSegmentsUnableToBeIssued.fetch_add(1, std::memory_order_relaxed);
             }
             else {
                 // Github issue #22 Defer synchronous reception report with out-of-order data segments 
@@ -774,8 +774,8 @@ void LtpSessionReceiver::HandleGenerateAndSendReportSegment(const uint64_t check
         //the reception report.
         std::vector<Ltp::report_segment_t>& reportSegmentsSplitVec = m_ltpSessionReceiverRecycledDataUniquePtr->m_tempReportSegmentsSplitVec;
         LtpFragmentSet::SplitReportSegment(reportSegmentsVec[0], reportSegmentsSplitVec, m_ltpSessionReceiverCommonDataRef.m_maxReceptionClaims);
-        ++m_ltpSessionReceiverCommonDataRef.m_numReportSegmentsTooLargeAndNeedingSplit;
-        m_ltpSessionReceiverCommonDataRef.m_numReportSegmentsCreatedViaSplit += reportSegmentsSplitVec.size();
+        m_ltpSessionReceiverCommonDataRef.m_numReportSegmentsTooLargeAndNeedingSplit.fetch_add(1, std::memory_order_relaxed);
+        m_ltpSessionReceiverCommonDataRef.m_numReportSegmentsCreatedViaSplit.fetch_add(reportSegmentsSplitVec.size(), std::memory_order_relaxed);
         reportSegmentsVec = std::move(reportSegmentsSplitVec);
     }
 

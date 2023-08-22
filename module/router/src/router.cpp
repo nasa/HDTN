@@ -39,6 +39,7 @@
 #include "libcgr.h"
 #include <unordered_map>
 #include <unordered_set>
+#include <atomic>
 
 /* Messages overview:
  *      + Sockets:
@@ -116,12 +117,9 @@
 /** logger subprocess for the router */
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::router;
 
-/** No route found for final destination */
-static constexpr uint64_t NOROUTE = UINT64_MAX;
-
 // Helper for logging
 static std::string routeToStr(uint64_t n) {
-    return n == NOROUTE ? "[no route]" : std::to_string(n);
+    return n == HDTN_NOROUTE ? "[no route]" : std::to_string(n);
 }
 
 /** A contact in the contact plan */
@@ -262,7 +260,7 @@ private:
     typedef std::pair<boost::posix_time::ptime, uint64_t> ptime_index_pair_t; //used in case of identical ptimes for starting events
     typedef boost::bimap<ptime_index_pair_t, contactPlan_t> ptime_to_contactplan_bimap_t;
 
-    volatile bool m_running;
+    std::atomic<bool> m_running;
     HdtnConfig m_hdtnConfig;
     std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
 
@@ -299,7 +297,7 @@ private:
     bool m_receivedInitialOutductTelem;
 
     //for blocking until worker-thread startup
-    volatile bool m_workerThreadStartupInProgress;
+    std::atomic<bool> m_workerThreadStartupInProgress;
     boost::mutex m_workerThreadStartupMutex;
     boost::condition_variable m_workerThreadStartupConditionVariable;
 
@@ -428,7 +426,7 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
     bool useMgr,
     zmq::context_t* hdtnOneProcessZmqInprocContextPtr)
 {
-    if (m_running) {
+    if (m_running.load(std::memory_order_acquire)) {
         LOG_ERROR(subprocess) << "Router::Impl::Init called while Router is already running";
         return false;
     }
@@ -505,25 +503,24 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
         }
 
         m_zmqRepSock_connectingTelemToFromBoundRouterPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::rep);
-        const std::string connect_connectingTelemToFromBoundRouterPath(
+        const std::string bind_connectingTelemToFromBoundRouterPath(
             std::string("tcp://*:") +
             boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingTelemToFromBoundRouterPortPath));
         try {
-            m_zmqRepSock_connectingTelemToFromBoundRouterPtr->bind(connect_connectingTelemToFromBoundRouterPath);
-            LOG_INFO(subprocess) << "Router connected and listening to events from Telem " << connect_connectingTelemToFromBoundRouterPath;
+            m_zmqRepSock_connectingTelemToFromBoundRouterPtr->bind(bind_connectingTelemToFromBoundRouterPath);
+            LOG_INFO(subprocess) << "Router bound and listening to events from Telem " << bind_connectingTelemToFromBoundRouterPath;
         }
         catch (const zmq::error_t& ex) {
-            LOG_ERROR(subprocess) << "error: router cannot connect to telem socket: " << ex.what();
+            LOG_ERROR(subprocess) << "error: router cannot bind to telem socket: " << ex.what();
             return false;
         }
         m_zmqPullSock_connectingStorageToBoundRouterPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
-        const std::string connect_connectingStorageFromBoundRouterPath(
-                std::string("tcp://*") +
-                hdtnDistributedConfig.m_zmqRouterAddress +
-                std::string(":") +
+        const std::string bind_connectingStorageFromBoundRouterPath(
+                std::string("tcp://*:") +
                 boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingStorageToBoundRouterPortPath));
         try {
-            m_zmqPullSock_connectingStorageToBoundRouterPtr->bind(connect_connectingStorageFromBoundRouterPath);
+            m_zmqPullSock_connectingStorageToBoundRouterPtr->bind(bind_connectingStorageFromBoundRouterPath);
+            LOG_INFO(subprocess) << "Router bound and listening to events from Storage " << bind_connectingStorageFromBoundRouterPath;
         }
         catch (const zmq::error_t& ex) {
             LOG_ERROR(subprocess) << "error: router cannot bind to storage socket : " << ex.what();
@@ -1007,23 +1004,25 @@ void Router::Impl::TelemEventsHandler() {
                 LOG_ERROR(subprocess) << "[TelemEventsHandler] message not received";
                 return;
             }
-            std::string apiCall = ApiCommand_t::GetApiCallFromJson(apiMsg.to_string());
-            LOG_INFO(subprocess) << "Got an api call " << apiMsg.to_string();
-            if (apiCall != "upload_contact_plan") {
-                return;
+            const std::string apiMsgAsJsonStr = apiMsg.to_string();
+            std::shared_ptr<ApiCommand_t> apiCmdPtr = ApiCommand_t::CreateFromJson(apiMsgAsJsonStr);
+            if (!apiCmdPtr) {
+                LOG_ERROR(subprocess) << "error parsing received api json message.. got\n"
+                    << apiMsgAsJsonStr;
+                continue;
             }
-            UploadContactPlanApiCommand_t uploadContactPlanApiCmd;
-            uploadContactPlanApiCmd.SetValuesFromJson(apiMsg.to_string());
-            std::string planJson = uploadContactPlanApiCmd.m_contactPlanJson;
-            boost::asio::post(
-                m_ioService,
-                boost::bind(
-                    static_cast<bool (Router::Impl::*) (const std::string&)>(&Router::Impl::ProcessContactsJsonText),
-                    this,
-                    std::move(planJson)
-                )
-            );
-            LOG_INFO(subprocess) << "received reload contact plan event with data " << uploadContactPlanApiCmd.m_contactPlanJson;
+            LOG_INFO(subprocess) << "got api call " << apiCmdPtr->m_apiCall;
+            if (UploadContactPlanApiCommand_t* uploadContactPlanApiCmdPtr = dynamic_cast<UploadContactPlanApiCommand_t*>(apiCmdPtr.get())) {
+                LOG_INFO(subprocess) << "received reload contact plan event with data " << uploadContactPlanApiCmdPtr->m_contactPlanJson;
+                boost::asio::post(
+                    m_ioService,
+                    boost::bind(
+                        static_cast<bool (Router::Impl::*) (const std::string&)>(&Router::Impl::ProcessContactsJsonText),
+                        this,
+                        std::move(uploadContactPlanApiCmdPtr->m_contactPlanJson)
+                    )
+                );
+            }
         } while (apiMsg.more());
         zmq::message_t msg;
         if (!m_zmqRepSock_connectingTelemToFromBoundRouterPtr->send(std::move(msg), zmq::send_flags::dontwait)) {
@@ -1058,7 +1057,7 @@ void Router::Impl::ReadZmqAcksThreadFunc() {
     m_workerThreadStartupMutex.unlock();
     m_workerThreadStartupConditionVariable.notify_one();
 
-    while (m_running) { //keep thread alive if running
+    while (m_running.load(std::memory_order_acquire)) { //keep thread alive if running
         int rc = 0;
         try {
             rc = zmq::poll(items, NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL);
@@ -1233,8 +1232,8 @@ bool Router::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
     // Clear any existing routes
     for(std::unordered_map<uint64_t, uint64_t>::iterator it = m_routes.begin();
             it != m_routes.end(); it++) {
-        if(it->second != NOROUTE) {
-            SendRouteUpdate(NOROUTE, it->first);
+        if(it->second != HDTN_NOROUTE) {
+            SendRouteUpdate(HDTN_NOROUTE, it->first);
         }
     }
     m_routes.clear();
@@ -1273,7 +1272,7 @@ bool Router::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
         }
 
         // Add all possible destinations except ourself
-        m_routes[linkEvent.dest] = NOROUTE;
+        m_routes[linkEvent.dest] = HDTN_NOROUTE;
 
         if(linkEvent.source != m_hdtnConfig.m_myNodeId) {
             LOG_WARNING(subprocess) << "Found a contact with source of " << linkEvent.source
@@ -1305,7 +1304,7 @@ bool Router::Impl::ProcessContacts(const boost::property_tree::ptree& pt) {
     // then we can get rid of this
     for(std::unordered_map<uint64_t, uint64_t>::iterator it = m_routes.begin();
             it != m_routes.end(); it++) {
-        SendRouteUpdate(NOROUTE, it->first);
+        SendRouteUpdate(HDTN_NOROUTE, it->first);
     }
 
     m_contactPlanTimerIsRunning = false;
@@ -1475,7 +1474,7 @@ void Router::Impl::SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNod
 
     LOG_INFO(subprocess) << timeLocal << ": Sending RouteUpdate event to Egress "
                                       << "final dest: " << finalDestNodeId
-                                      << "next hop: " << routeToStr(nextHopNodeId);
+                                      << " next hop: " << routeToStr(nextHopNodeId);
 
     hdtn::RouteUpdateHdr routingMsg;
     memset(&routingMsg, 0, sizeof(hdtn::RouteUpdateHdr));
@@ -1483,7 +1482,7 @@ void Router::Impl::SendRouteUpdate(uint64_t nextHopNodeId, uint64_t finalDestNod
     routingMsg.nextHopNodeId = nextHopNodeId;
     routingMsg.finalDestNodeId = finalDestNodeId;
 
-    while (m_running && !m_zmqPushSock_connectingRouterToBoundEgressPtr->send(
+    while (m_running.load(std::memory_order_acquire) && !m_zmqPushSock_connectingRouterToBoundEgressPtr->send(
         zmq::const_buffer(&routingMsg, sizeof(hdtn::RouteUpdateHdr)),
         zmq::send_flags::dontwait))
     {
@@ -1576,7 +1575,7 @@ void Router::Impl::FilterContactPlan(uint64_t sourceNode, std::vector<cgr::Conta
  */
 void Router::Impl::UpdateRouteState(uint64_t oldNextHop, uint64_t newNextHop, uint64_t finalDest) {
     m_routes[finalDest] = newNextHop;
-    if(oldNextHop != NOROUTE) {
+    if(oldNextHop != HDTN_NOROUTE) {
         std::map<uint64_t, uint64_t>::iterator it = m_mapNextHopNodeIdToOutductArrayIndex.find(oldNextHop);
         if(it == m_mapNextHopNodeIdToOutductArrayIndex.end()) {
             LOG_ERROR(subprocess) << "Could not find outduct for next hop " << oldNextHop;
@@ -1589,7 +1588,7 @@ void Router::Impl::UpdateRouteState(uint64_t oldNextHop, uint64_t newNextHop, ui
             }
         }
     }
-    if(newNextHop != NOROUTE) {
+    if(newNextHop != HDTN_NOROUTE) {
         std::map<uint64_t, uint64_t>::iterator it = m_mapNextHopNodeIdToOutductArrayIndex.find(newNextHop);
         if(it == m_mapNextHopNodeIdToOutductArrayIndex.end()) {
             LOG_ERROR(subprocess) << "Could not find outduct for next hop " << newNextHop;
@@ -1677,7 +1676,7 @@ void Router::Impl::ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint
  * @param sourceNode the starting node for the route
  * @param the final destination node ID
  *
- * @returns The next hop node ID or NOROUTE if no route found
+ * @returns The next hop node ID or HDTN_NOROUTE if no route found
  */
 uint64_t Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t finalDestNodeId) {
 
@@ -1708,6 +1707,6 @@ uint64_t Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t finalDe
     if (bestRoute.valid()) { // successfully computed a route
         return bestRoute.next_node;
    } else {
-        return NOROUTE;
+        return HDTN_NOROUTE;
     }
 }

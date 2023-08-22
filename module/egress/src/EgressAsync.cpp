@@ -83,10 +83,10 @@ private:
     boost::mutex m_mutexLinkStatusUpdate;
 
     std::unique_ptr<boost::thread> m_threadZmqReaderPtr;
-    volatile bool m_running;
+    std::atomic<bool> m_running;
 
     //for blocking until worker-thread startup
-    volatile bool m_workerThreadStartupInProgress;
+    std::atomic<bool> m_workerThreadStartupInProgress;
     boost::mutex m_workerThreadStartupMutex;
     boost::condition_variable m_workerThreadStartupConditionVariable;
 
@@ -141,7 +141,7 @@ bool Egress::Init(const HdtnConfig& hdtnConfig, const HdtnDistributedConfig& hdt
 }
 bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
     
-    if (m_running) {
+    if (m_running.load(std::memory_order_acquire)) {
         LOG_ERROR(subprocess) << "Egress::Init called while Egress is already running";
         return false;
     }
@@ -363,14 +363,15 @@ void Egress::Impl::RouterEventHandler() {
             << " truncated = " << res->size << " expected = " << sizeof(routeUpdateHdr);
     }
     else if (routeUpdateHdr.base.type == HDTN_MSGTYPE_ROUTEUPDATE) {
+        std::string nextHop = routeUpdateHdr.nextHopNodeId == HDTN_NOROUTE ? std::string("NOROUTE") : std::to_string(routeUpdateHdr.nextHopNodeId);
         if (m_outductManager.Reroute_ThreadSafe(routeUpdateHdr.finalDestNodeId, routeUpdateHdr.nextHopNodeId)) {
             ResendOutductCapabilities();
             LOG_INFO(subprocess) << "Updated the outduct based on the optimal Route for finalDestNodeId " << routeUpdateHdr.finalDestNodeId
-                << ": New Outduct Next Hop is " << routeUpdateHdr.nextHopNodeId;
+                << ": New Outduct Next Hop is " << nextHop;
         }
         else {
             LOG_INFO(subprocess) << "Failed to update the outduct based on the optimal Route for finalDestNodeId " << routeUpdateHdr.finalDestNodeId
-                << " to a next hop outduct node id " << routeUpdateHdr.nextHopNodeId;
+                << " to a next hop outduct node id " << nextHop;
         }
     }
     else {
@@ -431,7 +432,7 @@ void Egress::Impl::ReadZmqThreadFunc() {
     ResendOutductCapabilities();
 
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
-    while (m_running) { //keep thread alive if running
+    while (m_running.load(std::memory_order_acquire)) { //keep thread alive if running
         int rc = 0;
         try {
             rc = zmq::poll(&items[0], NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL);
@@ -480,13 +481,13 @@ void Egress::Impl::ReadZmqThreadFunc() {
                     else {
                         hdtn::LinkStatusHdr linkStatusMsg;
                         linkStatusMsg.base.type = HDTN_MSGTYPE_BUNDLES_TO_ROUTER;
-                        while (m_running && !m_zmqPushSock_boundEgressToConnectingRouterPtr->send(
+                        while (m_running.load(std::memory_order_acquire) && !m_zmqPushSock_boundEgressToConnectingRouterPtr->send(
                             zmq::const_buffer(&linkStatusMsg, sizeof(linkStatusMsg)), zmq::send_flags::sndmore | zmq::send_flags::dontwait))
                         {
                             LOG_INFO(subprocess) << "waiting for router to become available to send HDTN_MSGTYPE_BUNDLES_TO_ROUTER header";
                             boost::this_thread::sleep(boost::posix_time::seconds(1));
                         }
-                        while (m_running && !m_zmqPushSock_boundEgressToConnectingRouterPtr->send(zmqMessageBundleToRouter, zmq::send_flags::dontwait)) {
+                        while (m_running.load(std::memory_order_acquire) && !m_zmqPushSock_boundEgressToConnectingRouterPtr->send(zmqMessageBundleToRouter, zmq::send_flags::dontwait)) {
                             LOG_INFO(subprocess) << "waiting for router to become available to send it a router-only bundle received by ingress";
                             boost::this_thread::sleep(boost::posix_time::seconds(1));
                         }
@@ -634,7 +635,7 @@ void Egress::Impl::ReadZmqThreadFunc() {
                 }
                 //TODO PREVENT DUPLICATE MESSAGES
                 LOG_INFO(subprocess) << "Sending LinkStatus update event to Router";
-                while (m_running && !m_zmqPushSock_boundEgressToConnectingRouterPtr->send(linkStatusMessage, zmq::send_flags::dontwait)) {
+                while (m_running.load(std::memory_order_acquire) && !m_zmqPushSock_boundEgressToConnectingRouterPtr->send(linkStatusMessage, zmq::send_flags::dontwait)) {
                     LOG_INFO(subprocess) << "waiting for router to become available to send a link status change from an outduct";
                     boost::this_thread::sleep(boost::posix_time::seconds(1));
                 }
@@ -707,14 +708,14 @@ void Egress::Impl::ResendOutductCapabilities() {
     
     { //storage
         boost::mutex::scoped_lock lock(m_mutex_zmqPushSock_boundEgressToConnectingStorage);
-        while (m_running && !m_zmqPushSock_boundEgressToConnectingStoragePtr->send(headerMessageEgressAck, zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+        while (m_running.load(std::memory_order_acquire) && !m_zmqPushSock_boundEgressToConnectingStoragePtr->send(headerMessageEgressAck, zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
             //send returns false if(!res.has_value() AND zmq_errno()=EAGAIN)
             LOG_INFO(subprocess) << "waiting for storage to become available to send outduct capabilities header";
             boost::this_thread::sleep(boost::posix_time::seconds(1));
             //LOG_FATAL(subprocess) << "m_zmqPushSock_boundEgressToConnectingStoragePtr could not send outduct capabilities header: " << zmq_strerror(zmq_errno());
             //return;
         }
-        if (m_running && !m_zmqPushSock_boundEgressToConnectingStoragePtr->send(std::move(zmqMsgToStorage), zmq::send_flags::dontwait)) {
+        if (m_running.load(std::memory_order_acquire) && !m_zmqPushSock_boundEgressToConnectingStoragePtr->send(std::move(zmqMsgToStorage), zmq::send_flags::dontwait)) {
             LOG_FATAL(subprocess) << "m_zmqPushSock_boundEgressToConnectingStoragePtr could not send outduct capabilities";
             return;
         }
@@ -722,32 +723,32 @@ void Egress::Impl::ResendOutductCapabilities() {
 
     { //ingress
         boost::mutex::scoped_lock lock(m_mutex_zmqPushSock_connectingEgressToBoundIngress);
-        while (m_running && !m_zmqPushSock_connectingEgressToBoundIngressPtr->send(headerMessageEgressAck, zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+        while (m_running.load(std::memory_order_acquire) && !m_zmqPushSock_connectingEgressToBoundIngressPtr->send(headerMessageEgressAck, zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
             LOG_INFO(subprocess) << "waiting for ingress to become available to send outduct capabilities header";
             boost::this_thread::sleep(boost::posix_time::seconds(1));
             //LOG_FATAL(subprocess) << "m_zmqPushSock_connectingEgressToBoundIngressPtr could not send outduct capabilities header";
             //return;
         }
-        if (m_running && !m_zmqPushSock_connectingEgressToBoundIngressPtr->send(std::move(zmqMsgToIngress), zmq::send_flags::dontwait)) {
+        if (m_running.load(std::memory_order_acquire) && !m_zmqPushSock_connectingEgressToBoundIngressPtr->send(std::move(zmqMsgToIngress), zmq::send_flags::dontwait)) {
             LOG_FATAL(subprocess) << "m_zmqPushSock_connectingEgressToBoundIngressPtr could not send outduct capabilities";
             return;
         }
     }
 
     { //router
-        while (m_running && !m_zmqPushSock_boundEgressToConnectingRouterPtr->send(headerMessageLinkStatus, zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+        while (m_running.load(std::memory_order_acquire) && !m_zmqPushSock_boundEgressToConnectingRouterPtr->send(headerMessageLinkStatus, zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
             LOG_INFO(subprocess) << "waiting for router to become available to send outduct capabilities header";
             boost::this_thread::sleep(boost::posix_time::seconds(1));
             //LOG_FATAL(subprocess) << "m_zmqPubSock_boundEgressToConnectingRouterPtr could not send outduct capabilities header";
             //return;
         }
-        if (m_running && !m_zmqPushSock_boundEgressToConnectingRouterPtr->send(std::move(zmqMsgToRouter), zmq::send_flags::dontwait)) {
+        if (m_running.load(std::memory_order_acquire) && !m_zmqPushSock_boundEgressToConnectingRouterPtr->send(std::move(zmqMsgToRouter), zmq::send_flags::dontwait)) {
             LOG_FATAL(subprocess) << "m_zmqPubSock_boundEgressToConnectingRouterPtr could not send outduct capabilities";
             return;
         }
         
     }
-    if (!m_running) {
+    if (!m_running.load(std::memory_order_acquire)) {
         LOG_FATAL(subprocess) << "terminated before ResendOutductCapabilities could finish";
     }
     else {

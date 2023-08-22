@@ -38,6 +38,7 @@
 #include "LtpEngine.h"
 #include "UdpBatchSender.h"
 #include "LtpEngineConfig.h"
+#include <atomic>
 
 class CLASS_VISIBILITY_LTP_LIB LtpIpcEngine : public LtpEngine {
 private:
@@ -161,12 +162,12 @@ private:
     
 
     /// Logger flag, set to False to log a notice on the SINGLE next increment of m_countCircularBufferOverruns
-    volatile bool m_running;
+    std::atomic<bool> m_running;
     const bool m_isInduct;
 
     //for safe unit test resets
     /// Whether an engine reset is currently in progress
-    volatile bool m_resetInProgress;
+    std::atomic<bool> m_resetInProgress;
     /// Engine reset mutex
     boost::mutex m_resetMutex;
     /// Engine reset condition variable
@@ -174,21 +175,21 @@ private:
 
 public:
     /// Total number of initiated send operations
-    volatile uint64_t m_countAsyncSendCalls;
+    std::atomic<uint64_t> m_countAsyncSendCalls;
     /// Total number of send operation completion handler invocations, indicates the number of completed send operations
-    volatile uint64_t m_countAsyncSendCallbackCalls; //same as udp packets sent
+    std::atomic<uint64_t> m_countAsyncSendCallbackCalls; //same as udp packets sent
     /// Total number of initiated batch send operations through m_udpBatchSenderConnected
-    volatile uint64_t m_countBatchSendCalls;
+    std::atomic<uint64_t> m_countBatchSendCalls;
     /// Total number of batch send operation completion handler invocations, indicates the number of completed batch send operations
-    volatile uint64_t m_countBatchSendCallbackCalls;
+    std::atomic<uint64_t> m_countBatchSendCallbackCalls;
     /// Total number of packets actually sent across batch send operations
-    volatile uint64_t m_countBatchUdpPacketsSent;
+    std::atomic<uint64_t> m_countBatchUdpPacketsSent;
     //total udp packets sent is m_countAsyncSendCallbackCalls + m_countBatchUdpPacketsSent
 
     /// Total number of requests attempted to queue a packet for transmission while transmission buffers were full
-    uint64_t m_countCircularBufferOverruns;
+    std::atomic<uint64_t> m_countCircularBufferOverruns;
     /// Total number of packets received, includes number of dropped packets due to receive buffers being full
-    uint64_t m_countUdpPacketsReceived;
+    std::atomic<uint64_t> m_countUdpPacketsReceived;
 };
 
 

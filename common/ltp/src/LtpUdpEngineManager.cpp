@@ -425,5 +425,5 @@ void LtpUdpEngineManager::DoUdpShutdown() {
 }
 
 bool LtpUdpEngineManager::ReadyToForward() {
-    return m_readyToForward;
+    return m_readyToForward.load(std::memory_order_acquire);
 }

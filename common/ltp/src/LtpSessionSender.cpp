@@ -164,7 +164,7 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t
     //(conceptual) application data queue for the destination LTP engine.
 
     
-    ++m_ltpSessionSenderCommonDataRef.m_numCheckpointTimerExpiredCallbacks;
+    m_ltpSessionSenderCommonDataRef.m_numCheckpointTimerExpiredCallbacks.fetch_add(1, std::memory_order_relaxed);
 
     resend_fragment_t & resendFragment = userDataPtr->resendFragment;
 
@@ -173,7 +173,7 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t
         if (isDiscretionaryCheckpoint && LtpFragmentSet::ContainsFragmentEntirely(m_ltpSessionSenderRecycledDataUniquePtr->m_dataFragmentsAckedByReceiver,
             LtpFragmentSet::data_fragment_t(resendFragment.offset, (resendFragment.offset + resendFragment.length) - 1)))
         {
-            ++m_ltpSessionSenderCommonDataRef.m_numDiscretionaryCheckpointsNotResent;
+            m_ltpSessionSenderCommonDataRef.m_numDiscretionaryCheckpointsNotResent.fetch_add(1, std::memory_order_relaxed);
         }
         else {
             //resend 
@@ -649,7 +649,8 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
                     const bool pendingReportsHaveNoGapsInClaims = LtpFragmentSet::ContainsFragmentEntirely(m_ltpSessionSenderRecycledDataUniquePtr->m_dataFragmentsAckedByReceiver,
                         LtpFragmentSet::data_fragment_t(largestBeginIndexPendingGeneration, m_largestEndIndexPendingGeneration));
                     if (pendingReportsHaveNoGapsInClaims) {
-                        m_ltpSessionSenderCommonDataRef.m_numDeletedFullyClaimedPendingReports += m_ltpSessionSenderRecycledDataUniquePtr->m_mapRsBoundsToRsnPendingGeneration.size();
+                        m_ltpSessionSenderCommonDataRef.m_numDeletedFullyClaimedPendingReports.fetch_add(
+                            m_ltpSessionSenderRecycledDataUniquePtr->m_mapRsBoundsToRsnPendingGeneration.size(), std::memory_order_relaxed);
                         //since there is a retransmission timer running stop it (there is no need to retransmit in this case)
                         //This overload of DeleteTimer auto-recycles userData (however userData not used in this timer so doesn't matter)
                         if (!m_ltpSessionSenderCommonDataRef.m_timeManagerOfSendingDelayedDataSegmentsRef.DeleteTimer(M_SESSION_ID.sessionNumber)) {

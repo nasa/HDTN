@@ -274,6 +274,34 @@ BOOST_AUTO_TEST_CASE(AllInductTelemetryTestCase)
     {
         ait.m_listAllInducts.emplace_back();
         InductTelemetry_t& inductTelem = ait.m_listAllInducts.back();
+        inductTelem.m_convergenceLayer = "slip_over_uart";
+        for (std::size_t j = 0; j < 2; ++j) {
+            std::unique_ptr<SlipOverUartInductConnectionTelemetry_t> ptr = boost::make_unique<SlipOverUartInductConnectionTelemetry_t>();
+            SlipOverUartInductConnectionTelemetry_t& conn = *ptr;
+            conn.m_connectionName = inductTelem.m_convergenceLayer + boost::lexical_cast<std::string>(j);
+            conn.m_inputName = conn.m_connectionName + "_input";
+            conn.m_totalBundleBytesReceived = conn.m_connectionName.size() + j + 100;
+            conn.m_totalBundlesReceived = conn.m_connectionName.size() + j;
+
+            conn.m_totalSlipBytesSent = 1000 + j * 1000;
+            conn.m_totalSlipBytesReceived = 1001 + j * 1000;
+            conn.m_totalReceivedChunks = 1002 + j * 1000;
+            conn.m_largestReceivedBytesPerChunk = 1003 + j * 1000;
+            conn.m_averageReceivedBytesPerChunk = 1004 + j * 1000;
+            //bidirectionality (identical to OutductTelemetry_t)
+            conn.m_totalBundlesSentAndAcked = 1005 + j * 1000;
+            conn.m_totalBundleBytesSentAndAcked = 1006 + j * 1000;
+            conn.m_totalBundlesSent = 1007 + j * 1000;
+            conn.m_totalBundleBytesSent = 1008 + j * 1000;
+            conn.m_totalBundlesFailedToSend = 1009 + j * 1000;
+
+            inductTelem.m_listInductConnections.emplace_back(std::move(ptr));
+        }
+    }
+
+    {
+        ait.m_listAllInducts.emplace_back();
+        InductTelemetry_t& inductTelem = ait.m_listAllInducts.back();
         inductTelem.m_convergenceLayer = "stcp";
         for (std::size_t j = 0; j < 2; ++j) {
             std::unique_ptr<StcpInductConnectionTelemetry_t> ptr = boost::make_unique<StcpInductConnectionTelemetry_t>();
@@ -380,6 +408,17 @@ BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
         ptr->m_totalPacketsLimitedByRate = 54;
         aot.m_listAllOutducts.emplace_back(std::move(ptr));
     }
+    {
+        std::unique_ptr<SlipOverUartOutductTelemetry_t> ptr = boost::make_unique<SlipOverUartOutductTelemetry_t>();
+        ptr->m_totalSlipBytesSent = 60;
+        ptr->m_totalSlipBytesReceived = 61;
+        ptr->m_totalReceivedChunks = 62;
+        ptr->m_largestReceivedBytesPerChunk = 63;
+        ptr->m_averageReceivedBytesPerChunk = 64;
+        ptr->m_totalBundlesReceived = 65;
+        ptr->m_totalBundleBytesReceived = 66;
+        aot.m_listAllOutducts.emplace_back(std::move(ptr));
+    }
     for (std::list<std::unique_ptr<OutductTelemetry_t> >::iterator it = aot.m_listAllOutducts.begin(); it != aot.m_listAllOutducts.end(); ++it) {
         OutductTelemetry_t& ot = *(it->get());
         ot.m_totalBundlesAcked = ot.m_convergenceLayer.size();
@@ -414,8 +453,6 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsApiCommandTestCase)
     BOOST_REQUIRE_EQUAL(o1Json, o2.ToJson());
     o2.m_apiCall = "foobar";
     BOOST_REQUIRE(o1 != o2);
-
-    BOOST_REQUIRE_EQUAL(ApiCommand_t::GetApiCallFromJson(o1Json), "my api call");
 }
 
 BOOST_AUTO_TEST_CASE(TelemetryDefinitionsPingApiCommandTestCase)
@@ -424,7 +461,7 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsPingApiCommandTestCase)
     o1.m_bpVersion = 7;
     o1.m_nodeId = 10;
     o1.m_pingServiceNumber = 20;
-    std::string o1Json = o1.ToJson();
+    const std::string o1Json = o1.ToJson();
 
     PingApiCommand_t o2;
     BOOST_REQUIRE_EQUAL(o1.m_apiCall, "ping");
@@ -435,13 +472,22 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsPingApiCommandTestCase)
     BOOST_REQUIRE_EQUAL(o1Json, o2.ToJson());
     o2.m_nodeId = 17;
     BOOST_REQUIRE(o1 != o2);
+
+    std::shared_ptr<ApiCommand_t> apiCmdPtr = ApiCommand_t::CreateFromJson(o1Json);
+    BOOST_REQUIRE(apiCmdPtr);
+    PingApiCommand_t* pingCmdPtr = dynamic_cast<PingApiCommand_t*>(apiCmdPtr.get());
+    BOOST_REQUIRE(pingCmdPtr);
+    if (pingCmdPtr) {
+        BOOST_REQUIRE_EQUAL(o1Json, apiCmdPtr->ToJson());
+        BOOST_REQUIRE_EQUAL(o1Json, pingCmdPtr->ToJson());
+    }
 }
 
 BOOST_AUTO_TEST_CASE(TelemetryDefinitionsUploadContactPlanApiCommandTestCase)
 {
     UploadContactPlanApiCommand_t o1;
     o1.m_contactPlanJson = "{'foo': 'bar'}";
-    std::string o1Json = o1.ToJson();
+    const std::string o1Json = o1.ToJson();
 
     UploadContactPlanApiCommand_t o2;
     BOOST_REQUIRE_EQUAL(o1.m_apiCall, "upload_contact_plan");
@@ -452,6 +498,15 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsUploadContactPlanApiCommandTestCase)
     BOOST_REQUIRE_EQUAL(o1Json, o2.ToJson());
     o2.m_contactPlanJson = "{'foo1': 'bar'}";
     BOOST_REQUIRE(o1 != o2);
+
+    std::shared_ptr<ApiCommand_t> apiCmdPtr = ApiCommand_t::CreateFromJson(o1Json);
+    BOOST_REQUIRE(apiCmdPtr);
+    UploadContactPlanApiCommand_t* cmdPtr = dynamic_cast<UploadContactPlanApiCommand_t*>(apiCmdPtr.get());
+    BOOST_REQUIRE(cmdPtr);
+    if (cmdPtr) {
+        BOOST_REQUIRE_EQUAL(o1Json, apiCmdPtr->ToJson());
+        BOOST_REQUIRE_EQUAL(o1Json, cmdPtr->ToJson());
+    }
 }
 
 BOOST_AUTO_TEST_CASE(TelemetryDefinitionsGetExpriringStorageApiCommandTestCase)
@@ -459,7 +514,7 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsGetExpriringStorageApiCommandTestCase)
     GetExpiringStorageApiCommand_t o1;
     o1.m_priority = 1;
     o1.m_thresholdSecondsFromNow = 10;
-    std::string o1Json = o1.ToJson();
+    const std::string o1Json = o1.ToJson();
 
     GetExpiringStorageApiCommand_t o2;
     BOOST_REQUIRE_EQUAL(o1.m_apiCall, "get_expiring_storage");
@@ -471,4 +526,40 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsGetExpriringStorageApiCommandTestCase)
     o2.m_priority = 5;
     o2.m_thresholdSecondsFromNow = 15;
     BOOST_REQUIRE(o1 != o2);
+
+    std::shared_ptr<ApiCommand_t> apiCmdPtr = ApiCommand_t::CreateFromJson(o1Json);
+    BOOST_REQUIRE(apiCmdPtr);
+    GetExpiringStorageApiCommand_t* cmdPtr = dynamic_cast<GetExpiringStorageApiCommand_t*>(apiCmdPtr.get());
+    BOOST_REQUIRE(cmdPtr);
+    if (cmdPtr) {
+        BOOST_REQUIRE_EQUAL(o1Json, apiCmdPtr->ToJson());
+        BOOST_REQUIRE_EQUAL(o1Json, cmdPtr->ToJson());
+    }
+}
+
+BOOST_AUTO_TEST_CASE(TelemetryDefinitionsBpSecUpdateApiCommandTestCase)
+{
+    UpdateBpSecApiCommand_t o1;
+    o1.m_bpSecJson = "{ \"test\": 1 }";
+    const std::string o1Json = o1.ToJson();
+
+    UpdateBpSecApiCommand_t o2;
+    BOOST_REQUIRE_EQUAL(o1.m_apiCall, "update_bpsec_config");
+    BOOST_REQUIRE_EQUAL(o2.m_apiCall, "update_bpsec_config");
+    BOOST_REQUIRE(o2.SetValuesFromJson(o1Json));
+    BOOST_REQUIRE(o1 == o2);
+    BOOST_REQUIRE_EQUAL(o1.m_bpSecJson, "{ \"test\": 1 }");
+    BOOST_REQUIRE(!(o1 != o2));
+    BOOST_REQUIRE_EQUAL(o1Json, o2.ToJson());
+    o2.m_bpSecJson = "{ \"test\": 2 }";
+    BOOST_REQUIRE(o1 != o2);
+
+    std::shared_ptr<ApiCommand_t> apiCmdPtr = ApiCommand_t::CreateFromJson(o1Json);
+    BOOST_REQUIRE(apiCmdPtr);
+    UpdateBpSecApiCommand_t* cmdPtr = dynamic_cast<UpdateBpSecApiCommand_t*>(apiCmdPtr.get());
+    BOOST_REQUIRE(cmdPtr);
+    if (cmdPtr) {
+        BOOST_REQUIRE_EQUAL(o1Json, apiCmdPtr->ToJson());
+        BOOST_REQUIRE_EQUAL(o1Json, cmdPtr->ToJson());
+    }
 }

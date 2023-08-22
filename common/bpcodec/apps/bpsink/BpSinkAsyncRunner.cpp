@@ -33,7 +33,7 @@ BpSinkAsyncRunner::BpSinkAsyncRunner() {}
 BpSinkAsyncRunner::~BpSinkAsyncRunner() {}
 
 
-bool BpSinkAsyncRunner::Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler) {
+bool BpSinkAsyncRunner::Run(int argc, const char* const argv[], std::atomic<bool>& running, bool useSignalHandler) {
     //scope to ensure clean exit before return 0
     {
         running = true;

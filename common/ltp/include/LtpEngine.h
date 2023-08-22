@@ -36,6 +36,7 @@
 #include <unordered_map>
 #include <queue>
 #include <memory>
+#include <atomic>
 #include <boost/core/noncopyable.hpp>
 
 class CLASS_VISIBILITY_LTP_LIB LtpEngine : private boost::noncopyable {
@@ -1157,70 +1158,70 @@ public:
 
     //LtpEngine
     /// ...
-    uint64_t m_countAsyncSendsLimitedByRate;
+    std::atomic<uint64_t> m_countAsyncSendsLimitedByRate;
     /// Number of packets pending further processing
-    uint64_t m_countPacketsWithOngoingOperations;
+    std::atomic<uint64_t> m_countPacketsWithOngoingOperations;
     /// Total number of packets fully processed
-    uint64_t m_countPacketsThatCompletedOngoingOperations;
+    std::atomic<uint64_t> m_countPacketsThatCompletedOngoingOperations;
     /// Total number of times a transmission request was written to disk prior to beginning transmission
-    uint64_t m_numEventsTransmissionRequestDiskWritesTooSlow;
+    std::atomic<uint64_t> m_numEventsTransmissionRequestDiskWritesTooSlow;
     /// Total red data bytes successfully sent (needed here since TransmissionSessionCompletedCallback_t doesn't provide a byte count)
-    uint64_t m_totalRedDataBytesSuccessfullySent;
+    std::atomic<uint64_t> m_totalRedDataBytesSuccessfullySent;
     /// Total red data bytes failed to send
-    uint64_t m_totalRedDataBytesFailedToSend;
+    std::atomic<uint64_t> m_totalRedDataBytesFailedToSend;
     /// Total cancel segments that were initiated
-    uint64_t m_totalCancelSegmentsStarted;
+    std::atomic<uint64_t> m_totalCancelSegmentsStarted;
     /// Total cancel segments retry operations because a timer expired
-    uint64_t m_totalCancelSegmentSendRetries;
+    std::atomic<uint64_t> m_totalCancelSegmentSendRetries;
     /// Total cancel segments that failed to send because retry limit exceeded (also serves as bool for printing one notice to logger)
-    uint64_t m_totalCancelSegmentsFailedToSend;
+    std::atomic<uint64_t> m_totalCancelSegmentsFailedToSend;
     /// Total cancel segments that were acknowledged by the remote
-    uint64_t m_totalCancelSegmentsAcknowledged;
+    std::atomic<uint64_t> m_totalCancelSegmentsAcknowledged;
     /// Total pings (which are cancel segments) that were initiated
-    uint64_t m_totalPingsStarted;
+    std::atomic<uint64_t> m_totalPingsStarted;
     /// Total pings (which are cancel segments) retry operations because a timer expired
-    uint64_t m_totalPingRetries;
+    std::atomic<uint64_t> m_totalPingRetries;
     /// Total pings (which are cancel segments) that failed to send because retry limit exceeded
-    uint64_t m_totalPingsFailedToSend;
+    std::atomic<uint64_t> m_totalPingsFailedToSend;
     /// Total pings (which are cancel segments) that were acknowledged by the remote
-    uint64_t m_totalPingsAcknowledged;
+    std::atomic<uint64_t> m_totalPingsAcknowledged;
     /// Total Tx sessions which had their data returned to the user 
-    uint64_t m_numTxSessionsReturnedToStorage;
+    std::atomic<uint64_t> m_numTxSessionsReturnedToStorage;
     /// Total Tx sessions cancelled by the receiver
-    uint64_t m_numTxSessionsCancelledByReceiver;
+    std::atomic<uint64_t> m_numTxSessionsCancelledByReceiver;
     /// Total Rx sessions cancelled by the sender
-    uint64_t m_numRxSessionsCancelledBySender;
+    std::atomic<uint64_t> m_numRxSessionsCancelledBySender;
     /// Total Stagnant Rx sessions deleted by the housekeeping
-    uint64_t m_numStagnantRxSessionsDeleted;
+    std::atomic<uint64_t> m_numStagnantRxSessionsDeleted;
 
 
     //session sender stats (references to variables within m_ltpSessionSenderCommonData)
     /// Total number of checkpoint retransmission timer expiry callback invocations
-    uint64_t & m_numCheckpointTimerExpiredCallbacksRef;
+    std::atomic<uint64_t>& m_numCheckpointTimerExpiredCallbacksRef;
     /// Total number of discretionary checkpoints reported received
-    uint64_t & m_numDiscretionaryCheckpointsNotResentRef;
+    std::atomic<uint64_t>& m_numDiscretionaryCheckpointsNotResentRef;
     /// Total number of reports deleted after claiming reception of their entire scope
-    uint64_t & m_numDeletedFullyClaimedPendingReportsRef;
+    std::atomic<uint64_t>& m_numDeletedFullyClaimedPendingReportsRef;
 
     //session receiver stats
     /// Total number of report segment timer expiry callback invocations
-    uint64_t & m_numReportSegmentTimerExpiredCallbacksRef;
+    std::atomic<uint64_t>& m_numReportSegmentTimerExpiredCallbacksRef;
     /// Total number of report segments unable to be issued
-    uint64_t & m_numReportSegmentsUnableToBeIssuedRef;
+    std::atomic<uint64_t>& m_numReportSegmentsUnableToBeIssuedRef;
     /// Total number of reports too large needing-fragmented (when report claims > m_maxReceptionClaims)
-    uint64_t & m_numReportSegmentsTooLargeAndNeedingSplitRef;
+    std::atomic<uint64_t>& m_numReportSegmentsTooLargeAndNeedingSplitRef;
     /// Total number of report segments produced from too large needing-fragmented reports
-    uint64_t & m_numReportSegmentsCreatedViaSplitRef;
+    std::atomic<uint64_t>& m_numReportSegmentsCreatedViaSplitRef;
     /// Total number of gaps filled by out-of-order data segments
-    uint64_t & m_numGapsFilledByOutOfOrderDataSegmentsRef;
+    std::atomic<uint64_t>& m_numGapsFilledByOutOfOrderDataSegmentsRef;
     /// Total number of whole primary report segments sent (only reports when no gaps)
-    uint64_t & m_numDelayedFullyClaimedPrimaryReportSegmentsSentRef;
+    std::atomic<uint64_t>& m_numDelayedFullyClaimedPrimaryReportSegmentsSentRef;
     /// Total number of whole secondary report segments sent (only reports when no gaps)
-    uint64_t & m_numDelayedFullyClaimedSecondaryReportSegmentsSentRef;
+    std::atomic<uint64_t>& m_numDelayedFullyClaimedSecondaryReportSegmentsSentRef;
     /// Total number of out-of-order partial primary report segments
-    uint64_t & m_numDelayedPartiallyClaimedPrimaryReportSegmentsSentRef;
+    std::atomic<uint64_t>& m_numDelayedPartiallyClaimedPrimaryReportSegmentsSentRef;
     /// Total number of out-of-order partial secondary report segments
-    uint64_t & m_numDelayedPartiallyClaimedSecondaryReportSegmentsSentRef;
+    std::atomic<uint64_t>& m_numDelayedPartiallyClaimedSecondaryReportSegmentsSentRef;
 };
 
 #endif // LTP_ENGINE_H

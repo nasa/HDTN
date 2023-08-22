@@ -131,7 +131,7 @@ void BundleStorageManagerAsio::TryDiskOperation_Consume_NotThreadSafe(const unsi
             segment_id_t * const circularBufferSegmentIdsPtr = &m_circularBufferSegmentIdsPtr[diskId * CIRCULAR_INDEX_BUFFER_SIZE];
 
             const segment_id_t segmentId = circularBufferSegmentIdsPtr[consumeIndex];
-            volatile boost::uint8_t * const readFromStorageDestPointer = m_circularBufferReadFromStoragePointers[diskId * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex];
+            uint8_t * const readFromStorageDestPointer = m_circularBufferReadFromStoragePointers[diskId * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex].load(std::memory_order_acquire);
 
             const bool isWriteToDisk = (readFromStorageDestPointer == NULL);
             if (segmentId == SEGMENT_ID_LAST) {
@@ -195,12 +195,12 @@ void BundleStorageManagerAsio::HandleDiskOperationCompleted(const boost::system:
         LOG_ERROR(subprocess) << "error in BundleStorageManagerMT::HandleDiskOperationCompleted: bytes_transferred(" << bytes_transferred << ") != SEGMENT_SIZE(" << SEGMENT_SIZE << ")";
     }
     else {
-        volatile bool junk;
-        volatile bool * const isReadCompletedPointer = (wasReadOperation) ?
-            m_circularBufferIsReadCompletedPointers[diskId * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex] : &junk;
+        std::atomic<bool> junk;
+        std::atomic<bool>& isReadCompletedRef = (wasReadOperation) ?
+            *m_circularBufferIsReadCompletedPointers[diskId * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex].load(std::memory_order_acquire) : junk;
         CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[diskId];
         m_mutexMainThread.lock();
-        *isReadCompletedPointer = true;
+        isReadCompletedRef.store(true, std::memory_order_release);
         cb.CommitRead();
         m_mutexMainThread.unlock();
         m_conditionVariableMainThread.notify_one();

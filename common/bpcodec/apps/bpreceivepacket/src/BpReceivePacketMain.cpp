@@ -23,7 +23,7 @@ int main(int argc, const char* argv[]) {
     // hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::bpreceivepacket);
     ThreadNamer::SetThisThreadName("BpReceivePacketMain");
     BpReceivePacketRunner runner;
-    volatile bool running;
+    std::atomic<bool> running;
     runner.Run(argc, argv, running, true);
     return 0;
 

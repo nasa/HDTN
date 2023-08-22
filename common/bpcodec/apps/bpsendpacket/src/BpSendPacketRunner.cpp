@@ -16,7 +16,7 @@ void BpSendPacketRunner::MonitorExitKeypressThreadFunction() {
 BpSendPacketRunner::BpSendPacketRunner(): m_bundleCount(0), m_totalBundlesAcked(0), m_runningFromSigHandler(false) {}
 BpSendPacketRunner::~BpSendPacketRunner() {}
 
-bool BpSendPacketRunner::Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler) {
+bool BpSendPacketRunner::Run(int argc, const char* const argv[], std::atomic<bool>& running, bool useSignalHandler) {
     //scope to ensure clean exit before return 0
     {
         running = true;

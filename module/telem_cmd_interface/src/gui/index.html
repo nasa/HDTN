@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta http-equiv="Content-Type" content="charset=UTF-8, width=device-width, initial-scale=1">
     <title>HDTN GUI_X</title>
@@ -7,121 +8,141 @@
 
 <body>
     <div class="topnav">
-        <a href="./hdtn_d3_gui/"> <span class="icon"><img src="./resources/home.svg" alt="Home icon" /></span><span class="title"> System View GUI</span></a>
+        <a href="./hdtn_d3_gui/"> <span class="icon"><img src="./resources/home.svg" alt="Home icon" /></span><span
+                class="title"> System View GUI</span></a>
         <a href="."><img src="./resources/statistics.svg" alt="Pie chart icon" /> Statistics</a>
-        <a href="./config_page.html"><img src="./resources/config.svg" alt="Wrench icon" /> Config</a>
+        <div class="configDropdown">
+            <button class="configDropBtn"><img src="./resources/config.svg" alt="Wrench icon" />Config</button>
+            <div class="configContents">
+                <a href="./config_page.html">System</a>
+                <a href="./bpsec_page.html">BPSec</a>
+            </div>
+        </div>
         <a onclick="toggleModes()"><img src="./resources/sun.svg" alt="Sun icon" /></a>
     </div>
 
-    <div class="cardBox">
-        <div class="card">
-            <div>
-                <div class="label">Ingress Data Rate (Mbps)</div>
-                <div class="data" id="rate_data"></div>
+    <div class="box">
+        <div class="ingressLeftBox">
+            <div class="cardBox">
+                <div class="card">
+                    <div>
+                        <div style="display: flex; flex-direction: row;">
+                            <div class="label">Ingress Data Rate (Mbps)</div>
+                            <span class="onOffIndicator" style="margin-left: 2px; width: 40px; height: 40px;"></span>
+                        </div>
+                        <div class="data" id="rate_data"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div>
+                        <div class="label">Average Rate</div>
+                        <div class="data" id="avg_data"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div>
+                        <div class="label">Max Rate</div>
+                        <div class="data" id="max_data"></div>
+                    </div>
+                </div>
             </div>
-            <span class="onOffIndicator"></span>
-        </div>
-        <div class="card">
-            <div>
-                <div class="label">Average Rate</div>
-                <div class="data" id="avg_data"></div>
+            <div class="details">
+                <div class="statsCard" id="ingress_stats">
+                    <div class="cardTitle">
+                        <h2>Ingress Stats</h2>
+                        <div class="iconBox"><img src="./resources/arrow-down-circle.svg" alt="Ingress icon" /></div>
+
+                    </div>
+                    <table>
+                        <tbody>
+                            <tr>
+                                <td>Ingress Bundle Count Storage</td>
+                                <td id="ingressBundleCountStorage"></td>
+                            </tr>
+                            <tr>
+                                <td>Ingress Bundle Count Egress</td>
+                                <td id="ingressBundleCountEgress"></td>
+                            </tr>
+                            <tr>
+                                <td>Ingress Bundle Count</td>
+                                <td id="ingressBundleCount"></td>
+                            </tr>
+                            <tr>
+                                <td>Ingress Bundle Data</td>
+                                <td id="ingressBundleData"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
-        <div class="card">
-            <div>
-                <div class="label">Max Rate</div>
-                <div class="data" id="max_data"></div>
-            </div>
-        </div>
+        <div class="rateGraph" id="ingress_rate_graph"></div>
     </div>
 
-    <div class="visualizations">
-        <div class="rateGraph" id="ingress_rate_graph"></div>
-    	<div class="rateGraph" id="egress_rate_graph"></div>
+    <div class="box">
+        <div class="details">
+            <div class="statsCard">
+                <div class="cardTitle">
+                    <h2>Egress Stats</h2>
+                    <div class="iconBox"><img src="./resources/arrow-up-circle.svg" alt="Egress icon" /></div>
+                </div>
+                <table>
+                    <tbody>
+                        <tr>
+                            <td>Egress Message Count</td>
+                            <td id="egressMessageCount"></td>
+                        </tr>
+                        <tr>
+                            <td>Egress Bundle Count</td>
+                            <td id="egressBundleCount"></td>
+                        </tr>
+                        <tr>
+                            <td>Egress Bundle Data</td>
+                            <td id="egressBundleData"></td>
+                        </tr>
+                        <tr>
+                            <td>Egress Data rate</td>
+                            <td id="egressDataRate"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="rateGraph" id="egress_rate_graph"></div>
+    </div>
+    <div class="box">
+        <div class="details">
+            <div class="statsCard">
+                <div class="cardTitle">
+                    <h2>Storage Stats</h2>
+                    <div class="iconBox"><img src="./resources/storage.svg" alt="Storage icon" /></div>
+                </div>
+                <table>
+                    <tbody>
+                        <tr>
+                            <td>Total Bundles Erased From Storage</td>
+                            <td id="totalBundlesErasedFromStorage"></td>
+                        </tr>
+                        <tr>
+                            <td>Total Bundles Sent To Egress From Storage</td>
+                            <td id="totalBundlesSentToEgressFromStorage"></td>
+                        </tr>
+                        <tr>
+                            <td>Used Space Bytes</td>
+                            <td id="usedSpaceBytes"></td>
+                        </tr>
+                        <tr>
+                            <td>Free Space Bytes</td>
+                            <td id="freeSpaceBytes"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
         <div class="rateGraph" id="storage_egress_chart"></div>
     </div>
 
     <div class="details">
-        <div class="statsCard" id="ingress_stats">
-            <div class="cardTitle">
-                <h2>Ingress Stats</h2>
-                <div class="iconBox"><img src="./resources/arrow-down-circle.svg" alt="Ingress icon" /></div>
-
-            </div>
-            <table>
-                <tbody>
-                    <tr>
-                        <td>Ingress Bundle Count Storage</td>
-                        <td id="ingressBundleCountStorage"></td>
-                    </tr>
-                    <tr>
-                        <td>Ingress Bundle Count Egress</td>
-                        <td id="ingressBundleCountEgress"></td>
-                    </tr>
-                    <tr>
-                        <td>Ingress Bundle Count</td>
-                        <td id="ingressBundleCount"></td>
-                    </tr>
-                    <tr>
-                        <td>Ingress Bundle Data</td>
-                        <td id="ingressBundleData"></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        <div class="statsCard">
-            <div class="cardTitle">
-                <h2>Egress Stats</h2>
-                <div class="iconBox"><img src="./resources/arrow-up-circle.svg" alt="Egress icon" /></div>
-            </div>
-            <table>
-                <tbody>
-                    <tr>
-                        <td>Egress Message Count</td>
-                        <td id="egressMessageCount"></td>
-                    </tr>
-                    <tr>
-                        <td>Egress Bundle Count</td>
-                        <td id="egressBundleCount"></td>
-                    </tr>
-                    <tr>
-                        <td>Egress Bundle Data</td>
-                        <td id="egressBundleData"></td>
-                    </tr>
-                    <tr>
-                        <td>Egress Data rate</td>
-                        <td id="egressDataRate"></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        <div class="statsCard">
-            <div class="cardTitle">
-                <h2>Storage Stats</h2>
-                <div class="iconBox"><img src="./resources/storage.svg" alt="Storage icon" /></div>
-            </div>
-            <table>
-                <tbody>
-                    <tr>
-                        <td>Total Bundles Erased From Storage</td>
-                        <td id="totalBundlesErasedFromStorage"></td>
-                    </tr>
-                    <tr>
-                        <td>Total Bundles Sent To Egress From Storage</td>
-                        <td id="totalBundlesSentToEgressFromStorage"></td>
-                    </tr>
-                    <tr>
-                        <td>Used Space Bytes</td>
-                        <td id="usedSpaceBytes"></td>
-                    </tr>
-                    <tr>
-                        <td>Free Space Bytes</td>
-                        <td id="freeSpaceBytes"></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
         <div class="statsCard hidden" id="outductTemplate">
             <div class="cardTitle">
                 <h2 id="convergenceLayer">Outduct Information</h2>
@@ -130,16 +151,16 @@
 
             </div>
             <table id="cardTable">
-		        <colgroup>
-			        <col span="1" style="width:80%;"></col>                               
-	        	    <col span="1" style="width:20%;"></col>
-		        </colgroup>
-	            <tbody id="cardTableBody">
-	            </tbody>
+                <colgroup>
+                    <col span="1" style="width:80%;">
+                    </col>
+                    <col span="1" style="width:20%;">
+                    </col>
+                </colgroup>
+                <tbody id="cardTableBody">
+                </tbody>
             </table>
         </div>
-
-
     </div>
 
     <script type="text/javascript" src="./Scripts/jquery-3.6.0.slim.min.js"></script>
@@ -173,4 +194,5 @@
     <link type="text/css" rel="stylesheet" href="./css/style.css" />
 
 </body>
+
 </html>

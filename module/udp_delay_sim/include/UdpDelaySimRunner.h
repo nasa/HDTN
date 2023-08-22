@@ -22,6 +22,7 @@
 
 #include <stdint.h>
 #include "udp_delay_sim_lib_export.h"
+#include <atomic>
 
 class UdpDelaySimRunner {
 public:
@@ -38,7 +39,7 @@ public:
      * @param useSignalHandler Whether to activate the signal handler.
      * @return True if the simulation exited cleanly, or False otherwise.
      */
-    UDP_DELAY_SIM_LIB_EXPORT bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
+    UDP_DELAY_SIM_LIB_EXPORT bool Run(int argc, const char* const argv[], std::atomic<bool>& running, bool useSignalHandler);
     
 private:
     /** Set the exit flag from the signal handler.
@@ -48,7 +49,7 @@ private:
     UDP_DELAY_SIM_LIB_NO_EXPORT void MonitorExitKeypressThreadFunction();
 
     /// Signal handler flag, whether the simulation should keep running
-    volatile bool m_runningFromSigHandler;
+    std::atomic<bool> m_runningFromSigHandler;
 };
 
 

@@ -62,9 +62,10 @@ bool LtpOverIpcBundleSink::ReadyToBeDeleted() {
     return true;
 }
 
-void LtpOverIpcBundleSink::SyncTransportLayerSpecificTelem() {
+void LtpOverIpcBundleSink::GetTransportLayerSpecificTelem(LtpInductConnectionTelemetry_t& telem) const {
     if (m_ltpIpcEnginePtr) {
-        m_telemetry.m_countUdpPacketsSent = m_ltpIpcEnginePtr->m_countAsyncSendCallbackCalls + m_ltpIpcEnginePtr->m_countBatchUdpPacketsSent;
-        m_telemetry.m_countRxUdpCircularBufferOverruns = m_ltpIpcEnginePtr->m_countCircularBufferOverruns;
+        telem.m_countUdpPacketsSent = m_ltpIpcEnginePtr->m_countAsyncSendCallbackCalls.load(std::memory_order_acquire)
+            + m_ltpIpcEnginePtr->m_countBatchUdpPacketsSent.load(std::memory_order_acquire);
+        telem.m_countRxUdpCircularBufferOverruns = m_ltpIpcEnginePtr->m_countCircularBufferOverruns.load(std::memory_order_acquire);
     }
 }

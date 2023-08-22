@@ -22,7 +22,7 @@ sleep 3
 sleep 6
 
 # Bpgen
-./build/common/bpcodec/apps/bpgen-async  --use-bp-version-7 --bundle-rate=0 --bundle-size=100000 --duration=50 --my-uri-eid=ipn:1.1 --dest-uri-eid=ipn:2.1 --outducts-config-file=$gen_config --bpsec-config-file=$bpgen_bpsec_config &
+./build/common/bpcodec/apps/bpgen-async  --use-bp-version-7 --bundle-rate=0 --bundle-size=50 --duration=50 --my-uri-eid=ipn:1.1 --dest-uri-eid=ipn:2.1 --outducts-config-file=$gen_config --bpsec-config-file=$bpgen_bpsec_config &
 sleep 8
 
 

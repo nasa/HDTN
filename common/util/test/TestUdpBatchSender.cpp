@@ -16,6 +16,7 @@
 #include "UdpBatchSender.h"
 #include <iostream>
 #include <boost/thread.hpp>
+#include <atomic>
 
 static std::vector<uint8_t> g_udpReceiveBuffer;
 static std::vector<std::vector<uint8_t> > g_udpPacketsReceived;
@@ -23,9 +24,9 @@ static boost::asio::ip::udp::endpoint g_remoteEndpoint;
 static void HandleUdpReceive(const boost::system::error_code& error, std::size_t bytesTransferred);
 static boost::asio::ip::udp::socket* g_udpSocketPtr;
 static boost::asio::deadline_timer* g_deadlineTimerPtr;
-static volatile uint64_t g_numPacketsSentFromCallback;
-static volatile uint64_t g_udpSendPacketInfoVecActualSizeFromCallback;
-static volatile bool g_sentCallbackWasSuccessful;
+static std::atomic<uint64_t> g_numPacketsSentFromCallback;
+static std::atomic<uint64_t> g_udpSendPacketInfoVecActualSizeFromCallback;
+static std::atomic<bool> g_sentCallbackWasSuccessful;
 static boost::condition_variable g_conditionVariableSentPackets;
 static boost::mutex g_conditionVariableSentPacketsMutex;
 

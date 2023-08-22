@@ -42,7 +42,7 @@ std::size_t StorageRunner::GetCurrentNumberOfBundlesDeletedFromStorage() {
 }
 
 
-bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler) {
+bool StorageRunner::Run(int argc, const char* const argv[], std::atomic<bool>& running, bool useSignalHandler) {
     //scope to ensure clean exit before return 0
     {
         running = true;

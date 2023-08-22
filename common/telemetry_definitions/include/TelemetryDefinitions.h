@@ -203,6 +203,28 @@ struct TcpclV4InductConnectionTelemetry_t : public InductConnectionTelemetry_t {
     uint64_t m_totalBundlesFailedToSend;
 };
 
+struct SlipOverUartInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
+    TELEMETRY_DEFINITIONS_EXPORT SlipOverUartInductConnectionTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~SlipOverUartInductConnectionTelemetry_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const InductConnectionTelemetry_t& o) const override;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+
+    uint64_t m_totalSlipBytesSent;
+    uint64_t m_totalSlipBytesReceived;
+    uint64_t m_totalReceivedChunks;
+    uint64_t m_largestReceivedBytesPerChunk;
+    uint64_t m_averageReceivedBytesPerChunk;
+    //bidirectionality (identical to OutductTelemetry_t)
+    uint64_t m_totalBundlesSentAndAcked;
+    uint64_t m_totalBundleBytesSentAndAcked;
+    uint64_t m_totalBundlesSent;
+    uint64_t m_totalBundleBytesSent;
+    uint64_t m_totalBundlesFailedToSend;
+};
+
 struct LtpInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT LtpInductConnectionTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~LtpInductConnectionTelemetry_t() override;
@@ -367,6 +389,25 @@ struct TcpclV4OutductTelemetry_t : public OutductTelemetry_t {
     uint64_t m_numTcpReconnectAttempts;
 };
 
+struct SlipOverUartOutductTelemetry_t : public OutductTelemetry_t {
+    TELEMETRY_DEFINITIONS_EXPORT SlipOverUartOutductTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~SlipOverUartOutductTelemetry_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry_t& o) const override;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+
+    uint64_t m_totalSlipBytesSent;
+    uint64_t m_totalSlipBytesReceived;
+    uint64_t m_totalReceivedChunks;
+    uint64_t m_largestReceivedBytesPerChunk;
+    uint64_t m_averageReceivedBytesPerChunk;
+    //bidirectionality (identical to InductConnectionTelemetry_t)
+    uint64_t m_totalBundlesReceived;
+    uint64_t m_totalBundleBytesReceived;
+};
+
 struct UdpOutductTelemetry_t : public OutductTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT UdpOutductTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~UdpOutductTelemetry_t() override;
@@ -406,13 +447,15 @@ struct ApiCommand_t : public JsonSerializable {
     std::string m_apiCall;
 
     TELEMETRY_DEFINITIONS_EXPORT ApiCommand_t();
-    TELEMETRY_DEFINITIONS_EXPORT static std::string GetApiCallFromJson(const std::string& jsonStr);
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~ApiCommand_t();
 
     TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
     TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;
 
     TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+
+    TELEMETRY_DEFINITIONS_EXPORT static std::shared_ptr<ApiCommand_t> CreateFromJson(const std::string& jsonStr);
 };
 
 struct PingApiCommand_t : public ApiCommand_t {
@@ -421,6 +464,7 @@ struct PingApiCommand_t : public ApiCommand_t {
     uint64_t m_bpVersion;
 
     TELEMETRY_DEFINITIONS_EXPORT PingApiCommand_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~PingApiCommand_t() override;
 
     TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
     TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;
@@ -433,6 +477,7 @@ struct UploadContactPlanApiCommand_t : public ApiCommand_t {
     std::string m_contactPlanJson;
 
     TELEMETRY_DEFINITIONS_EXPORT UploadContactPlanApiCommand_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~UploadContactPlanApiCommand_t() override;
 
     TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
     TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;
@@ -446,6 +491,20 @@ struct GetExpiringStorageApiCommand_t : public ApiCommand_t {
     uint64_t m_thresholdSecondsFromNow;
 
     TELEMETRY_DEFINITIONS_EXPORT GetExpiringStorageApiCommand_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~GetExpiringStorageApiCommand_t() override;
+
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+};
+
+struct UpdateBpSecApiCommand_t : public ApiCommand_t {
+    std::string m_bpSecJson;
+
+    TELEMETRY_DEFINITIONS_EXPORT UpdateBpSecApiCommand_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~UpdateBpSecApiCommand_t() override;
 
     TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
     TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;

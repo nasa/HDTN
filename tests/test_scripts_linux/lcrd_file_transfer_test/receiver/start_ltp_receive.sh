@@ -48,8 +48,7 @@ if (( CUSTODY == 0 )); then
 	sleep 6
 
 	echo "Receive"
-	./rcv_files  &
-
+	./rcv_files &
 	./wait.sh
 	echo "Done"
 	echo "Starting checksums"
@@ -62,11 +61,11 @@ if (( CUSTODY == 0 )); then
 else
 	CL="LTP_CUSTODY"
 
-    ./run_hdtn_oneprocess_ltp_custody  &
+        ./run_hdtn_oneprocess_ltp_custody  &
 	sleep 6
 
 	echo "Receive"
-	./rcv_files_custody
+	./rcv_files_custody &
 	
 	./wait.sh
 	echo "Done"

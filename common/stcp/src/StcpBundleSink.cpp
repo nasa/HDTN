@@ -37,15 +37,19 @@ StcpBundleSink::StcpBundleSink(std::shared_ptr<boost::asio::ip::tcp::socket> tcp
     M_MAX_BUNDLE_SIZE_BYTES(maxBundleSizeBytes),
     m_circularIndexBuffer(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_tcpReceiveBuffersCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
-    m_tcpReceiveBytesTransferredCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_stateTcpReadActive(false),
     m_printedCbTooSmallNotice(false),
     m_running(false),
-    m_safeToDelete(false)
+    m_safeToDelete(false),
+    m_incomingBundleSize(0),
+    //telemetry
+    M_CONNECTION_NAME(tcpSocketPtr->remote_endpoint().address().to_string()
+        + ":" + boost::lexical_cast<std::string>(tcpSocketPtr->remote_endpoint().port())),
+    M_INPUT_NAME(std::string("*:") + boost::lexical_cast<std::string>(tcpSocketPtr->local_endpoint().port())),
+    m_totalStcpBytesReceived(0),
+    m_totalBundleBytesReceived(0),
+    m_totalBundlesReceived(0)
 {
-    m_telemetry.m_connectionName = tcpSocketPtr->remote_endpoint().address().to_string() 
-        + ":" + boost::lexical_cast<std::string>(tcpSocketPtr->remote_endpoint().port());
-    m_telemetry.m_inputName = std::string("*:") + boost::lexical_cast<std::string>(tcpSocketPtr->local_endpoint().port());
     LOG_INFO(subprocess) << "stcp sink using CB size: " << M_NUM_CIRCULAR_BUFFER_VECTORS;
     m_running = true;
     m_threadCbReaderPtr = boost::make_unique<boost::thread>(
@@ -82,6 +86,13 @@ StcpBundleSink::~StcpBundleSink() {
         catch (const boost::thread_resource_error&) {
             LOG_ERROR(subprocess) << "error stopping StcpBundleSink threadCbReader";
         }
+        //print stats once
+        LOG_INFO(subprocess) << "Stcp Bundle Sink / Induct Connection:"
+            << "\n connectionName " << M_CONNECTION_NAME
+            << "\n inputName " << M_INPUT_NAME
+            << "\n totalStcpBytesReceived " << m_totalStcpBytesReceived
+            << "\n totalBundleBytesReceived " << m_totalBundleBytesReceived
+            << "\n totalBundlesReceived " << m_totalBundlesReceived;
     }
 }
 
@@ -113,7 +124,7 @@ void StcpBundleSink::TryStartTcpReceive() {
 
 void StcpBundleSink::HandleTcpReceiveIncomingBundleSize(const boost::system::error_code & error, std::size_t bytesTransferred, const unsigned int writeIndex) {
     if (!error) {
-        m_telemetry.m_totalStcpBytesReceived += bytesTransferred;
+        m_totalStcpBytesReceived.fetch_add(bytesTransferred, std::memory_order_relaxed);
         if (m_incomingBundleSize == 0) { //keepalive (0 is endian agnostic)
             LOG_DEBUG(subprocess) << "keepalive packet received";
             //StartTcpReceiveIncomingBundleSize
@@ -128,7 +139,9 @@ void StcpBundleSink::HandleTcpReceiveIncomingBundleSize(const boost::system::err
             boost::endian::big_to_native_inplace(m_incomingBundleSize);
             //continue operation StartTcpReceiveBundleData only if there was no error
             if (m_incomingBundleSize > M_MAX_BUNDLE_SIZE_BYTES) { //SAFETY CHECKS ON SIZE BEFORE ALLOCATE
-                LOG_FATAL(subprocess) << "StcpBundleSink::HandleTcpReceiveIncomingBundleSize(): size " << m_incomingBundleSize << " exceeds 100MB.. TCP receiving on StcpBundleSink will now stop!";
+                LOG_FATAL(subprocess) << "StcpBundleSink::HandleTcpReceiveIncomingBundleSize(): size "
+                    << m_incomingBundleSize << " exceeds " << M_MAX_BUNDLE_SIZE_BYTES
+                    << " bytes.. TCP receiving on StcpBundleSink will now stop!";
                 DoStcpShutdown(); //leave in m_stateTcpReadActive = true
             }
             else {
@@ -137,8 +150,7 @@ void StcpBundleSink::HandleTcpReceiveIncomingBundleSize(const boost::system::err
                     boost::asio::buffer(m_tcpReceiveBuffersCbVec[writeIndex]),
                     boost::bind(&StcpBundleSink::HandleTcpReceiveBundleData, this,
                         boost::asio::placeholders::error,
-                        boost::asio::placeholders::bytes_transferred,
-                        writeIndex));
+                        boost::asio::placeholders::bytes_transferred));
             }
         }
     }
@@ -151,17 +163,16 @@ void StcpBundleSink::HandleTcpReceiveIncomingBundleSize(const boost::system::err
     }
 }
 
-void StcpBundleSink::HandleTcpReceiveBundleData(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex) {
+void StcpBundleSink::HandleTcpReceiveBundleData(const boost::system::error_code & error, std::size_t bytesTransferred) {
     if (!error) {
         if (bytesTransferred == m_incomingBundleSize) {
-            m_tcpReceiveBytesTransferredCbVec[writeIndex] = bytesTransferred;
             m_mutexCb.lock();
             m_circularIndexBuffer.CommitWrite(); //write complete at this point
             m_mutexCb.unlock();
             m_conditionVariableCb.notify_one();
-            m_telemetry.m_totalBundleBytesReceived += bytesTransferred;
-            m_telemetry.m_totalStcpBytesReceived += bytesTransferred;
-            ++(m_telemetry.m_totalBundlesReceived);
+            m_totalBundleBytesReceived.fetch_add(bytesTransferred, std::memory_order_relaxed);
+            m_totalStcpBytesReceived.fetch_add(bytesTransferred, std::memory_order_relaxed);
+            m_totalBundlesReceived.fetch_add(1, std::memory_order_relaxed);
             m_stateTcpReadActive = false; //must be false before calling TryStartTcpReceive
             TryStartTcpReceive(); //restart operation only if there was no error
         }
@@ -192,7 +203,7 @@ void StcpBundleSink::PopCbThreadFunc() {
             boost::mutex::scoped_lock lock(m_mutexCb);
             consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
             if (consumeIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //if empty again (lock mutex (above) before checking condition)
-                if (!m_running) { //m_running is mutex protected, if it stopped running, exit the thread (lock mutex (above) before checking condition)
+                if (!m_running.load(std::memory_order_acquire)) { //m_running is mutex protected, if it stopped running, exit the thread (lock mutex (above) before checking condition)
                     break; //thread stopping criteria (empty and not running)
                 }
                 m_conditionVariableCb.wait(lock); // call lock.unlock() and blocks the current thread
@@ -245,5 +256,13 @@ void StcpBundleSink::HandleSocketShutdown() {
 }
 
 bool StcpBundleSink::ReadyToBeDeleted() {
-    return m_safeToDelete;
+    return m_safeToDelete.load(std::memory_order_acquire);
+}
+
+void StcpBundleSink::GetTelemetry(StcpInductConnectionTelemetry_t& telem) const {
+    telem.m_connectionName = M_CONNECTION_NAME;
+    telem.m_inputName = M_INPUT_NAME;
+    telem.m_totalStcpBytesReceived = m_totalStcpBytesReceived.load(std::memory_order_acquire);
+    telem.m_totalBundleBytesReceived = m_totalBundleBytesReceived.load(std::memory_order_acquire);
+    telem.m_totalBundlesReceived = m_totalBundlesReceived.load(std::memory_order_acquire);
 }

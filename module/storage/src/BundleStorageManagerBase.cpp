@@ -50,7 +50,7 @@ BOOST_FORCEINLINE void StorageSegmentHeader::ToNativeEndianInplace() {
 }
 
 BundleStorageManagerSession_ReadFromDisk::BundleStorageManagerSession_ReadFromDisk() :
-    readCache(new volatile uint8_t[READ_CACHE_NUM_SEGMENTS_PER_SESSION * SEGMENT_SIZE]) {}
+    readCache(new uint8_t[READ_CACHE_NUM_SEGMENTS_PER_SESSION * SEGMENT_SIZE]) {}
 
 BundleStorageManagerSession_ReadFromDisk::~BundleStorageManagerSession_ReadFromDisk() {}
 
@@ -72,7 +72,11 @@ BundleStorageManagerBase::BundleStorageManagerBase(const StorageConfig_ptr & sto
     M_MAX_SEGMENTS(M_TOTAL_STORAGE_CAPACITY_BYTES / SEGMENT_SIZE),
     m_memoryManager(M_MAX_SEGMENTS),
     m_filePathsVec(M_NUM_STORAGE_DISKS),
-    m_circularIndexBuffersVec(M_NUM_STORAGE_DISKS, CircularIndexBufferSingleProducerSingleConsumerConfigurable(CIRCULAR_INDEX_BUFFER_SIZE)),
+
+    //https://stackoverflow.com/a/46686862
+    m_tmpInitializerOfCircularIndexBuffersVec(M_NUM_STORAGE_DISKS, CIRCULAR_INDEX_BUFFER_SIZE), //count, value
+    m_circularIndexBuffersVec(m_tmpInitializerOfCircularIndexBuffersVec.begin(), m_tmpInitializerOfCircularIndexBuffersVec.end()),
+
     m_circularBufferBlockDataPtr(NULL),
     m_circularBufferSegmentIdsPtr(NULL),
     m_circularBufferIsReadCompletedPointers(), //zero initialize
@@ -83,6 +87,9 @@ BundleStorageManagerBase::BundleStorageManagerBase(const StorageConfig_ptr & sto
     m_totalBytesRestored(0),
     m_totalSegmentsRestored(0)
 {
+    m_tmpInitializerOfCircularIndexBuffersVec.resize(0);
+    m_tmpInitializerOfCircularIndexBuffersVec.shrink_to_fit();
+
     if (!m_storageConfigPtr) {
         return;
     }
@@ -192,7 +199,7 @@ int BundleStorageManagerBase::PushSegment(BundleStorageManagerSession_WriteToDis
 
     uint8_t * const dataCb = &circularBufferBlockDataPtr[produceIndex * SEGMENT_SIZE];
     circularBufferSegmentIdsPtr[produceIndex] = segmentId;
-    m_circularBufferReadFromStoragePointers[diskIndex * CIRCULAR_INDEX_BUFFER_SIZE + produceIndex] = NULL; //isWriteToDisk = true
+    m_circularBufferReadFromStoragePointers[diskIndex * CIRCULAR_INDEX_BUFFER_SIZE + produceIndex].store(NULL, std::memory_order_release); //isWriteToDisk = true
 
     storageSegmentHeader.nextSegmentId = (session.nextLogicalSegment == segmentIdChainVec.size()) ? SEGMENT_ID_LAST : segmentIdChainVec[session.nextLogicalSegment];
     storageSegmentHeader.custodyId = custodyId;
@@ -307,27 +314,30 @@ std::size_t BundleStorageManagerBase::TopSegment(BundleStorageManagerSession_Rea
             }
         }
 
-        session.readCacheIsSegmentReady[session.cacheWriteIndex] = false;
-        m_circularBufferIsReadCompletedPointers[diskIndex * CIRCULAR_INDEX_BUFFER_SIZE + produceIndex] = &session.readCacheIsSegmentReady[session.cacheWriteIndex];
-        m_circularBufferReadFromStoragePointers[diskIndex * CIRCULAR_INDEX_BUFFER_SIZE + produceIndex] = &session.readCache[session.cacheWriteIndex * SEGMENT_SIZE];
+        session.readCacheIsSegmentReady[session.cacheWriteIndex].store(false, std::memory_order_release);
+        const unsigned int cbPtrIndex = diskIndex * CIRCULAR_INDEX_BUFFER_SIZE + produceIndex;
+        m_circularBufferIsReadCompletedPointers[cbPtrIndex].store(
+            &session.readCacheIsSegmentReady[session.cacheWriteIndex], std::memory_order_release);
+        m_circularBufferSegmentIdsPtr[cbPtrIndex] = segmentId;
+        m_circularBufferReadFromStoragePointers[cbPtrIndex].store(
+            &session.readCache[session.cacheWriteIndex * SEGMENT_SIZE], std::memory_order_release);
         session.cacheWriteIndex = (session.cacheWriteIndex + 1) % READ_CACHE_NUM_SEGMENTS_PER_SESSION;
-        m_circularBufferSegmentIdsPtr[diskIndex * CIRCULAR_INDEX_BUFFER_SIZE + produceIndex] = segmentId;
 
         CommitWriteAndNotifyDiskOfWorkToDo_ThreadSafe(diskIndex);
     }
 
-    volatile bool & readIsReadyRef = session.readCacheIsSegmentReady[session.cacheReadIndex];
-    while (!readIsReadyRef) { //store the volatile, wait until read is ready		
+    std::atomic<bool> & readIsReadyRef = session.readCacheIsSegmentReady[session.cacheReadIndex];
+    while (!readIsReadyRef.load(std::memory_order_acquire)) { //wait until read is ready		
         //try again, but with the mutex
         boost::mutex::scoped_lock lockMainThread(m_mutexMainThread);
-        if (!readIsReadyRef) { //if not ready again (lock mutex (above) before checking condition)
+        if (!readIsReadyRef.load(std::memory_order_acquire)) { //if not ready again (lock mutex (above) before checking condition)
             m_conditionVariableMainThread.wait(lockMainThread); // call lock.unlock() and blocks the current thread
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
         }
     }
 
     StorageSegmentHeader storageSegmentHeader;
-    memcpy(&storageSegmentHeader, (void*)&session.readCache[session.cacheReadIndex * SEGMENT_SIZE + 0], SEGMENT_RESERVED_SPACE);
+    memcpy(&storageSegmentHeader, &session.readCache[session.cacheReadIndex * SEGMENT_SIZE + 0], SEGMENT_RESERVED_SPACE);
     storageSegmentHeader.ToNativeEndianInplace(); //should optimize out and do nothing
     if ((session.nextLogicalSegment == 0) && (storageSegmentHeader.bundleSizeBytes != session.catalogEntryPtr->bundleSizeBytes)) {// ? chainInfo.first : UINT64_MAX;
         LOG_ERROR(subprocess) << "Error: read bundle size bytes = " << storageSegmentHeader.bundleSizeBytes <<
@@ -354,7 +364,7 @@ std::size_t BundleStorageManagerBase::TopSegment(BundleStorageManagerSession_Rea
         }
     }
 
-    memcpy(buf, (void*)&session.readCache[session.cacheReadIndex * SEGMENT_SIZE + SEGMENT_RESERVED_SPACE], size);
+    memcpy(buf, &session.readCache[session.cacheReadIndex * SEGMENT_SIZE + SEGMENT_RESERVED_SPACE], size);
     session.cacheReadIndex = (session.cacheReadIndex + 1) % READ_CACHE_NUM_SEGMENTS_PER_SESSION;
 
 
@@ -397,6 +407,14 @@ bool BundleStorageManagerBase::RemoveBundleFromDisk(const catalog_entry_t *catal
     bool err = m_bundleStorageCatalog.RemoveEntryFromAwaitingSend(*catalogEntryPtr, custodyId);
     return RemoveReadBundleFromDisk(catalogEntryPtr, custodyId);
 }
+bool BundleStorageManagerBase::RemoveBundleFromDisk(const uint64_t custodyId) {
+    const catalog_entry_t * catalogEntryPtr = m_bundleStorageCatalog.GetEntryFromCustodyId(custodyId);
+    if (catalogEntryPtr == NULL) {
+        return false;
+    }
+    // NOT RemoveReadBundleFromDisk
+    return RemoveBundleFromDisk(catalogEntryPtr, custodyId);
+}
 bool BundleStorageManagerBase::RemoveReadBundleFromDisk(const uint64_t custodyId) {
     const catalog_entry_t * catalogEntryPtr = m_bundleStorageCatalog.GetEntryFromCustodyId(custodyId);
     if (catalogEntryPtr == NULL) {
@@ -435,7 +453,7 @@ bool BundleStorageManagerBase::RemoveReadBundleFromDisk(const catalog_entry_t * 
 
     uint8_t * const dataCb = &circularBufferBlockDataPtr[produceIndex * SEGMENT_SIZE];
     circularBufferSegmentIdsPtr[produceIndex] = segmentId;
-    m_circularBufferReadFromStoragePointers[diskIndex * CIRCULAR_INDEX_BUFFER_SIZE + produceIndex] = NULL; //isWriteToDisk = true
+    m_circularBufferReadFromStoragePointers[diskIndex * CIRCULAR_INDEX_BUFFER_SIZE + produceIndex].store(NULL, std::memory_order_release); //isWriteToDisk = true
 
     memcpy(dataCb, &bundleSizeBytesLittleEndian, sizeof(bundleSizeBytesLittleEndian));
 
