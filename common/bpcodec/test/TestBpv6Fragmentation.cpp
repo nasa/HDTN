@@ -148,15 +148,14 @@ static void CheckCanonicalBlock(BundleViewV6::Bpv6CanonicalBlockView &block, siz
     BOOST_REQUIRE(block.headerPtr->m_blockProcessingControlFlags == flags);
 }
 
-static void CheckPayload(BundleViewV6 & bv, size_t expectedLen, const void * expectedData) {
+static void CheckPayload(BundleViewV6 & bv, size_t expectedLen, const void * expectedData, BPV6_BLOCKFLAG flags=BPV6_BLOCKFLAG::NO_FLAGS_SET) {
     std::vector<BundleViewV6::Bpv6CanonicalBlockView *> blocks;
     bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
     BOOST_REQUIRE(blocks.size() == 1);
     BundleViewV6::Bpv6CanonicalBlockView &payload = *blocks[0];
 
-    BPV6_BLOCKFLAG flags = BPV6_BLOCKFLAG::NO_FLAGS_SET;
     if(bv.m_listCanonicalBlockView.back().headerPtr->m_blockTypeCode == BPV6_BLOCK_TYPE_CODE::PAYLOAD) {
-        flags = BPV6_BLOCKFLAG::IS_LAST_BLOCK;
+        flags |= BPV6_BLOCKFLAG::IS_LAST_BLOCK;
     }
     CheckCanonicalBlock(payload, expectedLen, expectedData, BPV6_BLOCK_TYPE_CODE::PAYLOAD, flags);
 }
@@ -961,8 +960,10 @@ BOOST_AUTO_TEST_CASE(TestReferenceFragmentsSize20)
         BundleViewV6 &a = fragments.front(), &b = fragments.back();
 
         BOOST_REQUIRE(a.m_renderedBundle.size() == refA.size());
-
         BOOST_REQUIRE(b.m_renderedBundle.size() == refB.size());
+
+        CheckPayload(a, 20, "abcdefghijklmnopqrst", BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT);
+        CheckPayload(b, 7, "uvwxyz\n", BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT);
 
         BOOST_REQUIRE(!memcmp(a.m_renderedBundle.data(), refA.data(), refA.size()));
         BOOST_REQUIRE(!memcmp(b.m_renderedBundle.data(), refB.data(), refB.size()));
@@ -982,6 +983,8 @@ BOOST_AUTO_TEST_CASE(TestReferenceFragmentsSize20)
         BOOST_REQUIRE(v.Render(5000));
 
         BOOST_REQUIRE(v.m_renderedBundle.size() == ref.size());
+
+        CheckPayload(v, 27, "abcdefghijklmnopqrstuvwxyz\n", BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT);
 
         BOOST_REQUIRE(!memcmp(v.m_renderedBundle.data(), ref.data(), ref.size()));
     }
@@ -1043,6 +1046,10 @@ BOOST_AUTO_TEST_CASE(TestReferenceFragmentsSize10)
         BOOST_REQUIRE(b.m_renderedBundle.size() == refB.size());
         BOOST_REQUIRE(c.m_renderedBundle.size() == refC.size());
 
+        CheckPayload(a, 10, "abcdefghij", BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT);
+        CheckPayload(b, 10, "klmnopqrst", BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT);
+        CheckPayload(c, 7, "uvwxyz\n", BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT);
+
         BOOST_REQUIRE(!memcmp(a.m_renderedBundle.data(), refA.data(), refA.size()));
         BOOST_REQUIRE(!memcmp(b.m_renderedBundle.data(), refB.data(), refB.size()));
         BOOST_REQUIRE(!memcmp(c.m_renderedBundle.data(), refC.data(), refC.size()));
@@ -1064,6 +1071,8 @@ BOOST_AUTO_TEST_CASE(TestReferenceFragmentsSize10)
         BOOST_REQUIRE(v.Render(5000));
 
         BOOST_REQUIRE(v.m_renderedBundle.size() == ref.size());
+
+        CheckPayload(v, 27, "abcdefghijklmnopqrstuvwxyz\n", BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT);
 
         BOOST_REQUIRE(!memcmp(v.m_renderedBundle.data(), ref.data(), ref.size()));
     }
