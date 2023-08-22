@@ -971,8 +971,8 @@ BOOST_AUTO_TEST_CASE(TestReferenceFragmentsSize20)
     // Assemble
     {
         std::list<BundleViewV6> fragments;
-        BundleViewV6 &a = fragments.emplace_back();
-        BundleViewV6 &b = fragments.emplace_back();
+        BundleViewV6 &a = *fragments.emplace(fragments.cend());
+        BundleViewV6 &b = *fragments.emplace(fragments.cend());
 
         BOOST_REQUIRE(a.CopyAndLoadBundle(refA.data(), refA.size()));
         BOOST_REQUIRE(b.CopyAndLoadBundle(refB.data(), refB.size()));
@@ -1051,9 +1051,9 @@ BOOST_AUTO_TEST_CASE(TestReferenceFragmentsSize10)
     // Assemble
     {
         std::list<BundleViewV6> fragments;
-        BundleViewV6 &a = fragments.emplace_back();
-        BundleViewV6 &b = fragments.emplace_back();
-        BundleViewV6 &c = fragments.emplace_back();
+        BundleViewV6 &a = *fragments.emplace(fragments.cend());
+        BundleViewV6 &b = *fragments.emplace(fragments.cend());
+        BundleViewV6 &c = *fragments.emplace(fragments.cend());
 
         BOOST_REQUIRE(a.CopyAndLoadBundle(refA.data(), refA.size()));
         BOOST_REQUIRE(b.CopyAndLoadBundle(refB.data(), refB.size()));
