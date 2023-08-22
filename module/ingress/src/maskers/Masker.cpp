@@ -1,14 +1,16 @@
-#include "Masker.h"
+#include "maskers/Masker.h"
 
 // Subclass Implementation Includes
-#include "RedundantMasker.h"
-#include "ShiftingMasker.h"
+#include "maskers/RedundantMasker.h"
+#include "maskers/ShiftingMasker.h"
 
 #define MASKER_IMPLEMENTATION_CLASS RedundantMasker
 
 namespace hdtn {
 
 std::shared_ptr<Masker> Masker::makePointer(std::string impl) {
+    // TODO: factor out this pattern, perhaps using macros or templates.
+    // Make it easier to add new classes; editing this conditional will get tedious.
     if (impl == "redundant") {
         return std::make_shared<RedundantMasker>();
     }
