@@ -915,5 +915,159 @@ BOOST_DATA_TEST_CASE(
     uint64_t numFragments = Bpv6Fragmenter::CalcNumFragments(test.payloadSize, test.fragmentSize);
     BOOST_REQUIRE(numFragments == test.expected);
 }
+
+/* Compare with reference fragments */
+
+BOOST_AUTO_TEST_CASE(TestReferenceFragmentsSize20)
+{
+    const std::string unfragmentedHex(
+            "06811014811501811501811501000082"
+            "e3c9823b01822c0005110a69706e0031"
+            "34392e30001401010001091b61626364"
+            "65666768696a6b6c6d6e6f7071727374"
+            "75767778797a0a"
+            );
+    const std::string fragAHex(
+            "06811116811501811501811501000082"
+            "e3c9823b01822c00001b05110a69706e"
+            "003134392e3000140101000109146162"
+            "636465666768696a6b6c6d6e6f707172"
+            "7374"
+            );
+    const std::string fragBHex(
+            "06811116811501811501811501000082"
+            "e3c9823b01822c00141b05110a69706e"
+            "003134392e3000140101000109077576"
+            "7778797a0a"
+            );
+
+    std::vector<uint8_t> ref, refA, refB;
+
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(unfragmentedHex, ref));
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(fragAHex, refA));
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(fragBHex, refB));
+
+    // Fragment
+    {
+        BundleViewV6 bv;
+
+        BOOST_REQUIRE(bv.CopyAndLoadBundle(ref.data(), ref.size()));
+
+        std::list<BundleViewV6> fragments;
+        BOOST_REQUIRE(Bpv6Fragmenter::Fragment(bv, 20, fragments));
+
+        BOOST_REQUIRE(fragments.size() == 2);
+
+        BundleViewV6 &a = fragments.front(), &b = fragments.back();
+
+        BOOST_REQUIRE(a.m_renderedBundle.size() == refA.size());
+
+        BOOST_REQUIRE(b.m_renderedBundle.size() == refB.size());
+
+        BOOST_REQUIRE(!memcmp(a.m_renderedBundle.data(), refA.data(), refA.size()));
+        BOOST_REQUIRE(!memcmp(b.m_renderedBundle.data(), refB.data(), refB.size()));
+    }
+
+    // Assemble
+    {
+        std::list<BundleViewV6> fragments;
+        BundleViewV6 &a = fragments.emplace_back();
+        BundleViewV6 &b = fragments.emplace_back();
+
+        BOOST_REQUIRE(a.CopyAndLoadBundle(refA.data(), refA.size()));
+        BOOST_REQUIRE(b.CopyAndLoadBundle(refB.data(), refB.size()));
+
+        BundleViewV6 v;
+        BOOST_REQUIRE(Bpv6Fragmenter::Assemble(fragments, v));
+        BOOST_REQUIRE(v.Render(5000));
+
+        BOOST_REQUIRE(v.m_renderedBundle.size() == ref.size());
+
+        BOOST_REQUIRE(!memcmp(v.m_renderedBundle.data(), ref.data(), ref.size()));
+    }
+}
+
+BOOST_AUTO_TEST_CASE(TestReferenceFragmentsSize10)
+{
+    const std::string unfragmentedHex(
+            "06811014811501811501811501000082"
+            "e3c9856901822c0005110a69706e0031"
+            "34392e30001401010001091b61626364"
+            "65666768696a6b6c6d6e6f7071727374"
+            "75767778797a0a"
+            );
+    const std::string fragAHex(
+            "06811116811501811501811501000082"
+            "e3c9856901822c00001b05110a69706e"
+            "003134392e30001401010001090a6162"
+            "636465666768696a"
+            );
+    const std::string fragBHex(
+            "06811116811501811501811501000082"
+            "e3c9856901822c000a1b05110a69706e"
+            "003134392e30001401010001090a6b6c"
+            "6d6e6f7071727374"
+            );
+    const std::string fragCHex(
+            "06811116811501811501811501000082"
+            "e3c9856901822c00141b05110a69706e"
+            "003134392e3000140101000109077576"
+            "7778797a0a"
+            );
+
+    std::vector<uint8_t> ref, refA, refB, refC;
+
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(unfragmentedHex, ref));
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(fragAHex, refA));
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(fragBHex, refB));
+    BOOST_REQUIRE(BinaryConversions::HexStringToBytes(fragCHex, refC));
+
+    // Fragment
+    {
+        BundleViewV6 bv;
+
+        BOOST_REQUIRE(bv.CopyAndLoadBundle(ref.data(), ref.size()));
+
+        std::list<BundleViewV6> fragments;
+        BOOST_REQUIRE(Bpv6Fragmenter::Fragment(bv, 10, fragments));
+
+        BOOST_REQUIRE(fragments.size() == 3);
+
+        std::list<BundleViewV6>::iterator it = fragments.begin();
+
+        BundleViewV6 &a = *(it++);
+        BundleViewV6 &b = *(it++);
+        BundleViewV6 &c = *(it++);
+
+        BOOST_REQUIRE(a.m_renderedBundle.size() == refA.size());
+        BOOST_REQUIRE(b.m_renderedBundle.size() == refB.size());
+        BOOST_REQUIRE(c.m_renderedBundle.size() == refC.size());
+
+        BOOST_REQUIRE(!memcmp(a.m_renderedBundle.data(), refA.data(), refA.size()));
+        BOOST_REQUIRE(!memcmp(b.m_renderedBundle.data(), refB.data(), refB.size()));
+        BOOST_REQUIRE(!memcmp(c.m_renderedBundle.data(), refC.data(), refC.size()));
+    }
+
+    // Assemble
+    {
+        std::list<BundleViewV6> fragments;
+        BundleViewV6 &a = fragments.emplace_back();
+        BundleViewV6 &b = fragments.emplace_back();
+        BundleViewV6 &c = fragments.emplace_back();
+
+        BOOST_REQUIRE(a.CopyAndLoadBundle(refA.data(), refA.size()));
+        BOOST_REQUIRE(b.CopyAndLoadBundle(refB.data(), refB.size()));
+        BOOST_REQUIRE(c.CopyAndLoadBundle(refC.data(), refC.size()));
+
+        BundleViewV6 v;
+        BOOST_REQUIRE(Bpv6Fragmenter::Assemble(fragments, v));
+        BOOST_REQUIRE(v.Render(5000));
+
+        BOOST_REQUIRE(v.m_renderedBundle.size() == ref.size());
+
+        BOOST_REQUIRE(!memcmp(v.m_renderedBundle.data(), ref.data(), ref.size()));
+    }
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
