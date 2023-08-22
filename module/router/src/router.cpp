@@ -1627,7 +1627,6 @@ void Router::Impl::ComputeAllRoutes(uint64_t sourceNode) {
                              << routeToStr(newNextHop) << ", (was " << routeToStr(origNextHop) << ")";
 
         SendRouteUpdate(newNextHop, finalDest);
-        SendRouteUpdate(11, 102); // hardcoded for testing
     }
 }
 
