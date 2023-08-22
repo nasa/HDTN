@@ -1436,7 +1436,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
         // relaxed ok because the compiler doesn't have to synchronize any other data
         const uint64_t fromIngressUniqueId = m_nextBundleUniqueIdAtomic.fetch_add(1, std::memory_order_relaxed);
 
-        // Query the Masker for logical-destination
+        // Query the Masker for pseudo-destination
 #ifdef _MASKER_H
         finalDestEid = queryResult;
 #endif
