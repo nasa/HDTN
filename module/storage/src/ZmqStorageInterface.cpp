@@ -111,7 +111,7 @@ private:
     bool WriteAcsBundle(const Bpv6CbhePrimaryBlock& primary, const padded_vector_uint8_t& acsBundleSerialized);
     bool Write(zmq::message_t* message,
         cbhe_eid_t& finalDestEidReturned, bool dontWriteIfCustodyFlagSet,
-        bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord, bool maskDestination = false, cbhe_eid_t *maskPtr = NULL);
+        bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord, cbhe_eid_t *maskPtr = NULL);
     bool ProcessBundleCustody(BundleViewV6 &bv, uint64_t newCustodyId, size_t size);
     void ReportDepletedStorage(cbhe_eid_t &eid);
     bool ProcessAdminRecord(BundleViewV6 &bv);
@@ -649,7 +649,7 @@ static bool IsAdminForThisNode(const Bpv6CbhePrimaryBlock &primary, cbhe_eid_t t
 
 bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
     cbhe_eid_t & finalDestEidReturned, bool dontWriteIfCustodyFlagSet,
-    bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord, bool maskDestination, cbhe_eid_t *maskPtr)
+    bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord, cbhe_eid_t *maskPtr)
 {
     BpVersion version = GetBpVersion((const uint8_t*)message->data());
     
@@ -661,7 +661,7 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
             return false;
         }
         const Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
-        finalDestEidReturned = maskDestination? *maskPtr : primary.m_destinationEid;
+        finalDestEidReturned = (maskPtr == NULL) ? primary.m_destinationEid : *maskPtr;
         const uint64_t newCustodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
 
         if (!loadPrimaryBlockOnly) {
@@ -693,7 +693,7 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
             return false;
         }
         const Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
-        finalDestEidReturned = maskDestination ? *maskPtr : primary.m_destinationEid;
+        finalDestEidReturned = (maskPtr == NULL) ? primary.m_destinationEid : *maskPtr;
 
         const uint64_t newCustodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
 
@@ -1419,7 +1419,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
 
                             cbhe_eid_t finalDestEidReturnedFromWrite;
                             const bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord = (toStorageHeader.isCustodyOrAdminRecord == 0);
-                            Write(&zmqBundleDataReceived, finalDestEidReturnedFromWrite, false, isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord, true, &toStorageHeader.finalDestEid);
+                            Write(&zmqBundleDataReceived, finalDestEidReturnedFromWrite, false, isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord, &toStorageHeader.finalDestEid);
 
                             //storageAckHdr->finalDestEid = finalDestEidReturnedFromWrite; //no longer needed as ingress decodes that
 
