@@ -40,7 +40,7 @@ public:
     INGRESS_ASYNC_LIB_EXPORT void Stop();
     INGRESS_ASYNC_LIB_EXPORT bool Init(const HdtnConfig& hdtnConfig,
         const boost::filesystem::path& bpSecConfigFilePath, const HdtnDistributedConfig& hdtnDistributedConfig,
-        zmq::context_t* hdtnOneProcessZmqInprocContextPtr = NULL, std::string maskerImpl = "");
+        zmq::context_t* hdtnOneProcessZmqInprocContextPtr = NULL, const std::string& maskerImpl = "");
 private:
 
     // Internal implementation class

@@ -45,7 +45,7 @@ class Masker {
 public:
 	virtual cbhe_eid_t query(const BundleViewV6&) = 0;
 	virtual cbhe_eid_t query(const BundleViewV7&) = 0;
-    static std::shared_ptr<Masker> makePointer(std::string impl);
+    static std::shared_ptr<Masker> makePointer(const std::string& impl);
 };
 
 }
