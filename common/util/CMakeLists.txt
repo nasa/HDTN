@@ -55,6 +55,7 @@ target_include_directories(hdtn_util
 		
 )
 set(MY_PUBLIC_HEADERS
+	include/AsyncDuplexLocalStream.h
     include/BinaryConversions.h
 	include/BundleCallbackFunctionDefines.h
 	include/CborUint.h

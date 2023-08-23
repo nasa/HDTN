@@ -18,6 +18,9 @@
  * Based on: Encapsulation Packet Protocol: https://public.ccsds.org/Pubs/133x1b3e1.pdf
  */
 
+#ifndef _LTP_ENCAP_H
+#define _LTP_ENCAP_H 1
+
 #include <cstdint>
 #include <boost/endian/conversion.hpp>
 #include <boost/config/detail/suffix.hpp>
@@ -90,7 +93,7 @@
     ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━┷━━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
  */
-bool GetCcsdsLtpEncapHeader(uint8_t* outHeader8Byte, const uint32_t encappedPayloadSize, uint8_t& outHeaderSize) {
+static bool GetCcsdsLtpEncapHeader(uint8_t* outHeader8Byte, const uint32_t encappedPayloadSize, uint8_t& outHeaderSize) {
 
     // Need larger packet length field than 2 octets, since IP is 2 bytes and we have an additional 5 byte header
     // We can dynamically switch headers depending on packet size, in the interest of lower header overhead,
@@ -154,7 +157,7 @@ bool GetCcsdsLtpEncapHeader(uint8_t* outHeader8Byte, const uint32_t encappedPayl
   Decapsulate a CCSDS encapsulation packet into an IP packet
 
  */
-BOOST_FORCEINLINE uint8_t DecodeCcsdsLtpEncapHeaderSizeFromFirstByte(const uint8_t firstByte) {
+BOOST_FORCEINLINE static uint8_t DecodeCcsdsLtpEncapHeaderSizeFromFirstByte(const uint8_t firstByte) {
     const uint8_t lengthOfLength = firstByte & 0x3u;
     const uint8_t headerLength = 1u << lengthOfLength;
     const uint8_t expectedHeaderFirstByte = ((PACKET_VERSION_NUMBER << 5) | (LTP_ENCAP_PROTOCOL_ID << 2)) | lengthOfLength;
@@ -162,7 +165,7 @@ BOOST_FORCEINLINE uint8_t DecodeCcsdsLtpEncapHeaderSizeFromFirstByte(const uint8
     return valid * headerLength;
 }
 
-bool DecodeCcsdsLtpEncapPayloadSizeFromSecondToRemainingBytes(const uint8_t encapHeaderLength,
+static bool DecodeCcsdsLtpEncapPayloadSizeFromSecondToRemainingBytes(const uint8_t encapHeaderLength,
     const uint8_t* secondByte,
     uint8_t& userDefinedField,
     uint32_t& payloadSize)
@@ -208,3 +211,4 @@ bool DecodeCcsdsLtpEncapPayloadSizeFromSecondToRemainingBytes(const uint8_t enca
         return false; //failure (invalid encapHeaderLength)
     }
 }
+#endif // _LTP_ENCAP_H
