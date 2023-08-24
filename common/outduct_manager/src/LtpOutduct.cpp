@@ -39,6 +39,7 @@ LtpOutduct::LtpOutduct(const outduct_element_config_t& outductConfig, const uint
     m_ltpTxCfg.remoteHostname = m_outductConfig.remoteHostname;
     m_ltpTxCfg.remotePort = m_outductConfig.remotePort;
     m_ltpTxCfg.myBoundUdpPort = outductConfig.ltpSenderBoundPort;
+    m_ltpTxCfg.encapLocalSocketOrPipePath = outductConfig.ltpEncapLocalSocketOrPipePath;
     m_ltpTxCfg.numUdpRxCircularBufferVectors = outductConfig.numRxCircularBufferElements;
     m_ltpTxCfg.estimatedBytesToReceivePerSession = 0; //unused for outducts
     m_ltpTxCfg.maxRedRxBytesPerSession = 0; //unused for outducts
@@ -117,6 +118,7 @@ void LtpOutduct::PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& o
     std::unique_ptr<LtpOutductTelemetry_t> t = boost::make_unique<LtpOutductTelemetry_t>();
     m_ltpBundleSourcePtr->GetTelemetry(*t);
     outductTelem = std::move(t);
+    outductTelem->m_convergenceLayer = m_outductConfig.convergenceLayer;
     outductTelem->m_linkIsUpPerTimeSchedule = m_linkIsUpPerTimeSchedule;
     outductTelem->m_linkIsUpPhysically = m_linkIsUpPhysically;
 }

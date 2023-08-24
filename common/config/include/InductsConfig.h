@@ -50,6 +50,7 @@ struct induct_element_config_t {
     uint64_t preallocatedRedDataBytes;
     uint32_t ltpMaxRetriesPerSerialNumber;
     uint32_t ltpRandomNumberSizeBits;
+    std::string ltpEncapLocalSocketOrPipePath;
     std::string ltpRemoteUdpHostname;
     uint16_t ltpRemoteUdpPort;
     uint64_t ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;

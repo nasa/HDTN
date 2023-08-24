@@ -173,7 +173,7 @@ private:
             std::cout << "error: " << ecAssign.what() << "\n";
             return;
         }
-        m_readyToSend = true;
+        boost::asio::post(m_ioServiceRef, boost::bind(&AsyncDuplexLocalStream::OnConnectionThreadCompleted_NotThreadSafe, this));
     }
     void TryToOpenExistingPipeThreadFunc() {
         while (m_running) {
@@ -197,10 +197,19 @@ private:
                     std::cout << "error: " << ecAssign.what() << "\n";
                     return;
                 }
-                m_readyToSend = true;
+                boost::asio::post(m_ioServiceRef, boost::bind(&AsyncDuplexLocalStream::OnConnectionThreadCompleted_NotThreadSafe, this));
                 return;
             }
         }
+    }
+    void OnConnectionThreadCompleted_NotThreadSafe() {
+        if (m_threadWaitForConnection) {
+            m_threadWaitForConnection->join();
+            m_threadWaitForConnection.reset();
+            std::cout << "connection thread erased\n";
+        }
+        StartReadFirstEncapHeaderByte_NotThreadSafe();
+        m_readyToSend = true;
     }
 public:
     void StartReadFirstEncapHeaderByte_NotThreadSafe() {
@@ -217,8 +226,10 @@ public:
 private:
     void HandleFirstEncapByteReadCompleted(const boost::system::error_code& error, std::size_t bytes_transferred) {
         if (error) {
-            std::cout << "HandleFirstEncapByteReadCompleted: " << error.message() << "\n";
-            return;
+            if (error.value() != ERROR_MORE_DATA) {
+                std::cout << "HandleFirstEncapByteReadCompleted: " << error.what() << "\n";
+                return;
+            }
         }
         if (bytes_transferred != 1) {
             std::cout << "HandleFirstEncapByteReadCompleted: bytes_transferred != 1\n";
@@ -243,8 +254,10 @@ private:
 
     void HandleRemainingEncapHeaderReadCompleted(const boost::system::error_code& error, std::size_t bytes_transferred, uint8_t decodedEncapHeaderSize) {
         if (error) {
-            std::cout << "HandleRemainingEncapHeaderReadCompleted: " << error.message() << "\n";
-            return;
+            if (error.value() != ERROR_MORE_DATA) {
+                std::cout << "HandleRemainingEncapHeaderReadCompleted: " << error.what() << "\n";
+                return;
+            }
         }
         if (bytes_transferred != (decodedEncapHeaderSize - 1)) {
             std::cout << "HandleRemainingEncapHeaderReadCompleted: bytes_transferred != (decodedEncapHeaderSize - 1)\n";
@@ -274,8 +287,10 @@ private:
         uint32_t decodedEncapPayloadSize, uint8_t decodedEncapHeaderSize)
     {
         if (error) {
-            std::cout << "HandleEncapPayloadReadCompleted: " << error.message() << "\n";
-            return;
+            if (error.value() != ERROR_MORE_DATA) {
+                std::cout << "HandleEncapPayloadReadCompleted: " << error.what() << "\n";
+                return;
+            }
         }
         if (bytes_transferred != decodedEncapPayloadSize) {
             std::cout << "HandleEncapPayloadReadCompleted: bytes_transferred != decodedEncapPayloadSize\n";

@@ -783,7 +783,10 @@ bool InductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::pt
         const boost::property_tree::ptree& inductConnectionsPt = pt.get_child("inductConnections", EMPTY_PTREE); //non-throw version
         m_listInductConnections.clear();
         BOOST_FOREACH(const boost::property_tree::ptree::value_type & inductConnectionPt, inductConnectionsPt) {
-            if (m_convergenceLayer == "ltp_over_udp") {
+            if ((m_convergenceLayer == "ltp_over_udp")
+                || (m_convergenceLayer == "ltp_over_ipc")
+                || (m_convergenceLayer == "ltp_over_encap_local_stream"))
+            {
                 m_listInductConnections.emplace_back(boost::make_unique<LtpInductConnectionTelemetry_t>());
             }
             else if (m_convergenceLayer == "slip_over_uart") {
@@ -1352,7 +1355,10 @@ bool AllOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree
         BOOST_FOREACH(const boost::property_tree::ptree::value_type & outductPt, allOutductsPt) {
             const std::string convergenceLayer = outductPt.second.get<std::string>("convergenceLayer");
             
-            if (convergenceLayer == "ltp_over_udp") {
+            if ((convergenceLayer == "ltp_over_udp")
+                || (convergenceLayer == "ltp_over_ipc")
+                || (convergenceLayer == "ltp_over_encap_local_stream"))
+            {
                 m_listAllOutducts.emplace_back(boost::make_unique<LtpOutductTelemetry_t>());
             }
             else if (convergenceLayer == "slip_over_uart") {

@@ -22,6 +22,7 @@
 #include "UdpInduct.h"
 #include "LtpOverUdpInduct.h"
 #include "LtpOverIpcInduct.h"
+#include "LtpOverEncapLocalStreamInduct.h"
 #include "SlipOverUartInduct.h"
 #include "TimestampUtil.h"
 
@@ -68,6 +69,9 @@ void InductManager::LoadInductsFromConfig(const InductProcessBundleCallback_t & 
         }
         else if (thisInductConfig.convergenceLayer == "ltp_over_ipc") {
             m_inductsList.emplace_back(boost::make_unique<LtpOverIpcInduct>(inductProcessBundleCallback, thisInductConfig, maxBundleSizeBytes));
+        }
+        else if (thisInductConfig.convergenceLayer == "ltp_over_encap_local_stream") {
+            m_inductsList.emplace_back(boost::make_unique<LtpOverEncapLocalStreamInduct>(inductProcessBundleCallback, thisInductConfig, maxBundleSizeBytes));
         }
         else {
             LOG_ERROR(hdtn::Logger::SubProcess::none) << "error in InductManager::LoadInductsFromConfig: unknown convergence layer "

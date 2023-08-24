@@ -5,6 +5,7 @@ add_library(induct_manager_lib
 	src/StcpInduct.cpp
     src/UdpInduct.cpp
 	src/LtpInduct.cpp
+	src/LtpOverEncapLocalStreamInduct.cpp
 	src/LtpOverIpcInduct.cpp
 	src/LtpOverUdpInduct.cpp
 	src/SlipOverUartInduct.cpp
@@ -20,6 +21,7 @@ set(MY_PUBLIC_HEADERS
     include/Induct.h
 	include/InductManager.h
 	include/LtpInduct.h
+	include/LtpOverEncapLocalStreamInduct.h
 	include/LtpOverIpcInduct.h
 	include/LtpOverUdpInduct.h
 	include/SlipOverUartInduct.h

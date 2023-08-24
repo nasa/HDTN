@@ -5,6 +5,7 @@ add_library(outduct_manager_lib
 	src/StcpOutduct.cpp
     src/UdpOutduct.cpp
 	src/LtpOutduct.cpp
+	src/LtpOverEncapLocalStreamOutduct.cpp
 	src/LtpOverIpcOutduct.cpp
 	src/LtpOverUdpOutduct.cpp
 	src/SlipOverUartOutduct.cpp
@@ -17,6 +18,7 @@ if (target_type STREQUAL SHARED_LIBRARY)
 	set_property(TARGET outduct_manager_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
 endif()
 set(MY_PUBLIC_HEADERS
+	include/LtpOverEncapLocalStreamOutduct.h
 	include/LtpOverIpcOutduct.h
     include/LtpOverUdpOutduct.h
 	include/LtpOutduct.h

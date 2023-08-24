@@ -33,6 +33,7 @@ LtpInduct::LtpInduct(const InductProcessBundleCallback_t & inductProcessBundleCa
     m_ltpRxCfg.remoteHostname = inductConfig.ltpRemoteUdpHostname;
     m_ltpRxCfg.remotePort = inductConfig.ltpRemoteUdpPort;
     m_ltpRxCfg.myBoundUdpPort = inductConfig.boundPort;
+    m_ltpRxCfg.encapLocalSocketOrPipePath = inductConfig.ltpEncapLocalSocketOrPipePath;
     m_ltpRxCfg.numUdpRxCircularBufferVectors = inductConfig.numRxCircularBufferElements;
     m_ltpRxCfg.estimatedBytesToReceivePerSession = inductConfig.preallocatedRedDataBytes;
     m_ltpRxCfg.maxRedRxBytesPerSession = maxBundleSizeBytes;
@@ -60,7 +61,7 @@ bool LtpInduct::Init() {
 LtpInduct::~LtpInduct() {}
 
 void LtpInduct::PopulateInductTelemetry(InductTelemetry_t& inductTelem) {
-    inductTelem.m_convergenceLayer = "ltp_over_udp";
+    inductTelem.m_convergenceLayer = m_inductConfig.convergenceLayer;
     inductTelem.m_listInductConnections.clear();
     if (m_ltpBundleSinkPtr) {
         std::unique_ptr<LtpInductConnectionTelemetry_t> t = boost::make_unique<LtpInductConnectionTelemetry_t>();

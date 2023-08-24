@@ -22,6 +22,7 @@
 #include "UdpOutduct.h"
 #include "LtpOverUdpOutduct.h"
 #include "LtpOverIpcOutduct.h"
+#include "LtpOverEncapLocalStreamOutduct.h"
 #include "SlipOverUartOutduct.h"
 #include "Uri.h"
 #include "message.hpp"
@@ -106,6 +107,9 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
         }
         else if (thisOutductConfig.convergenceLayer == "ltp_over_ipc") {
             outductSharedPtr = std::make_shared<LtpOverIpcOutduct>(thisOutductConfig, uuidIndex);
+        }
+        else if (thisOutductConfig.convergenceLayer == "ltp_over_encap_local_stream") {
+            outductSharedPtr = std::make_shared<LtpOverEncapLocalStreamOutduct>(thisOutductConfig, uuidIndex);
         }
 
         if (outductSharedPtr) {

@@ -1,0 +1,26 @@
+{
+    "inductConfigName": "myconfig",
+    "inductVector": [
+        {
+            "name": "i1",
+            "convergenceLayer": "ltp_over_encap_local_stream",
+            "thisLtpEngineId": 10004558,
+            "remoteLtpEngineId": 20004558,
+            "ltpReportSegmentMtu": 1000,
+            "oneWayLightTimeMs": 1000,
+            "oneWayMarginTimeMs": 200,
+            "clientServiceId": 1,
+            "preallocatedRedDataBytes": 200000,
+            "ltpMaxRetriesPerSerialNumber": 5,
+            "ltpRandomNumberSizeBits": 64,
+            "ltpEncapLocalSocketOrPipePath": "\\\\.\\pipe\\ltp_local_pipe",
+            "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
+            "ltpMaxExpectedSimultaneousSessions": 500,
+            "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+            "delaySendingOfReportSegmentsTimeMsOrZeroToDisable": 20,
+            "keepActiveSessionDataOnDisk": false,
+            "activeSessionDataOnDiskNewFileDurationMs": 2000,
+            "activeSessionDataOnDiskDirectory": ".\/"
+        }
+    ]
+}

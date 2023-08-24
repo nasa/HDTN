@@ -288,7 +288,7 @@ function UpdateAllOutductTelemetry(paramHdtnConfig, paramAot) {
     paramAot.allOutducts.forEach(function(outductTelem, i) {
         let od = outductVector[i];
         if(od.convergenceLayer != outductTelem.convergenceLayer) {
-            console.log("invalid AOT");
+            console.log("invalid AOT: od.convergenceLayer(" + od.convergenceLayer + ") != outductTelem.convergenceLayer(" + outductTelem.convergenceLayer + ")");
             return;
         }
         od.toolTipText = ObjToTooltipText(outductTelem);
@@ -471,6 +471,9 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         else if(ind.convergenceLayer === "ltp_over_ipc") {
             cvName = "LTPIPC";
         }
+        else if(ind.convergenceLayer === "ltp_over_encap_local_stream") {
+            cvName = "LTPENC";
+        }
         else if(ind.convergenceLayer === "udp") {
             cvName = "UDP";
         }
@@ -649,6 +652,9 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         }
         else if(outduct.convergenceLayer === "ltp_over_ipc") {
             cvName = "LTPIPC";
+        }
+        else if(outduct.convergenceLayer === "ltp_over_encap_local_stream") {
+            cvName = "LTPENC";
         }
         else if(outduct.convergenceLayer === "udp") {
             cvName = "UDP";

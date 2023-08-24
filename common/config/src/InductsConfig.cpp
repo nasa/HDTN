@@ -24,7 +24,7 @@
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = {
-    "ltp_over_udp", "ltp_over_ipc", "udp", "stcp", "tcpcl_v3", "tcpcl_v4", "slip_over_uart"
+    "ltp_over_udp", "ltp_over_ipc", "ltp_over_encap_local_stream", "udp", "stcp", "tcpcl_v3", "tcpcl_v4", "slip_over_uart"
 };
 
 induct_element_config_t::induct_element_config_t() :
@@ -42,6 +42,7 @@ induct_element_config_t::induct_element_config_t() :
     preallocatedRedDataBytes(0),
     ltpMaxRetriesPerSerialNumber(0),
     ltpRandomNumberSizeBits(0),
+    ltpEncapLocalSocketOrPipePath(""),
     ltpRemoteUdpHostname(""),
     ltpRemoteUdpPort(0),
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize(0),
@@ -85,6 +86,7 @@ induct_element_config_t::induct_element_config_t(const induct_element_config_t& 
     preallocatedRedDataBytes(o.preallocatedRedDataBytes),
     ltpMaxRetriesPerSerialNumber(o.ltpMaxRetriesPerSerialNumber),
     ltpRandomNumberSizeBits(o.ltpRandomNumberSizeBits),
+    ltpEncapLocalSocketOrPipePath(o.ltpEncapLocalSocketOrPipePath),
     ltpRemoteUdpHostname(o.ltpRemoteUdpHostname),
     ltpRemoteUdpPort(o.ltpRemoteUdpPort),
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize(o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize),
@@ -125,6 +127,7 @@ induct_element_config_t::induct_element_config_t(induct_element_config_t&& o) no
     preallocatedRedDataBytes(o.preallocatedRedDataBytes),
     ltpMaxRetriesPerSerialNumber(o.ltpMaxRetriesPerSerialNumber),
     ltpRandomNumberSizeBits(o.ltpRandomNumberSizeBits),
+    ltpEncapLocalSocketOrPipePath(std::move(o.ltpEncapLocalSocketOrPipePath)),
     ltpRemoteUdpHostname(std::move(o.ltpRemoteUdpHostname)),
     ltpRemoteUdpPort(o.ltpRemoteUdpPort),
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize(o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize),
@@ -165,6 +168,7 @@ induct_element_config_t& induct_element_config_t::operator=(const induct_element
     preallocatedRedDataBytes = o.preallocatedRedDataBytes;
     ltpMaxRetriesPerSerialNumber = o.ltpMaxRetriesPerSerialNumber;
     ltpRandomNumberSizeBits = o.ltpRandomNumberSizeBits;
+    ltpEncapLocalSocketOrPipePath = o.ltpEncapLocalSocketOrPipePath;
     ltpRemoteUdpHostname = o.ltpRemoteUdpHostname;
     ltpRemoteUdpPort = o.ltpRemoteUdpPort;
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize = o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;
@@ -207,6 +211,7 @@ induct_element_config_t& induct_element_config_t::operator=(induct_element_confi
     preallocatedRedDataBytes = o.preallocatedRedDataBytes;
     ltpMaxRetriesPerSerialNumber = o.ltpMaxRetriesPerSerialNumber;
     ltpRandomNumberSizeBits = o.ltpRandomNumberSizeBits;
+    ltpEncapLocalSocketOrPipePath = std::move(o.ltpEncapLocalSocketOrPipePath);
     ltpRemoteUdpHostname = std::move(o.ltpRemoteUdpHostname);
     ltpRemoteUdpPort = o.ltpRemoteUdpPort;
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize = o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;
@@ -248,6 +253,7 @@ bool induct_element_config_t::operator==(const induct_element_config_t & o) cons
         (preallocatedRedDataBytes == o.preallocatedRedDataBytes) &&
         (ltpMaxRetriesPerSerialNumber == o.ltpMaxRetriesPerSerialNumber) &&
         (ltpRandomNumberSizeBits == o.ltpRandomNumberSizeBits) &&
+        (ltpEncapLocalSocketOrPipePath == o.ltpEncapLocalSocketOrPipePath) &&
         (ltpRemoteUdpHostname == o.ltpRemoteUdpHostname) &&
         (ltpRemoteUdpPort == o.ltpRemoteUdpPort) &&
         (ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize == o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize) &&
@@ -336,14 +342,18 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                     return false;
                 }
             }
-            if (inductElementConfig.convergenceLayer != "slip_over_uart") { //uses com port only
+            if ((inductElementConfig.convergenceLayer != "ltp_over_encap_local_stream")
+                && (inductElementConfig.convergenceLayer != "slip_over_uart")) //uses com port only
+            {
                 inductElementConfig.boundPort = inductElementConfigPt.second.get<uint16_t>("boundPort");
                 if (inductElementConfig.boundPort == 0) {
                     LOG_ERROR(subprocess) << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: boundPort must be non-zero";
                     return false;
                 }
             }
-            inductElementConfig.numRxCircularBufferElements = inductElementConfigPt.second.get<uint32_t>("numRxCircularBufferElements");
+            if (inductElementConfig.convergenceLayer != "ltp_over_encap_local_stream") { //no cb, relies on buffering from the local socket or pipe
+                inductElementConfig.numRxCircularBufferElements = inductElementConfigPt.second.get<uint32_t>("numRxCircularBufferElements");
+            }
             if ((inductElementConfig.convergenceLayer == "udp") || (inductElementConfig.convergenceLayer == "tcpcl_v3") || (inductElementConfig.convergenceLayer == "tcpcl_v4")) {
                 inductElementConfig.numRxCircularBufferBytesPerElement = inductElementConfigPt.second.get<uint32_t>("numRxCircularBufferBytesPerElement");
             }
@@ -353,7 +363,10 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                 return false;
             }
 
-            if ((inductElementConfig.convergenceLayer == "ltp_over_udp") || (inductElementConfig.convergenceLayer == "ltp_over_ipc")) {
+            if ((inductElementConfig.convergenceLayer == "ltp_over_udp")
+                || (inductElementConfig.convergenceLayer == "ltp_over_ipc")
+                || (inductElementConfig.convergenceLayer == "ltp_over_encap_local_stream"))
+            {
                 inductElementConfig.thisLtpEngineId = inductElementConfigPt.second.get<uint64_t>("thisLtpEngineId");
                 inductElementConfig.remoteLtpEngineId = inductElementConfigPt.second.get<uint64_t>("remoteLtpEngineId");
                 inductElementConfig.ltpReportSegmentMtu = inductElementConfigPt.second.get<uint32_t>("ltpReportSegmentMtu");
@@ -368,8 +381,13 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                         << inductElementConfig.ltpRandomNumberSizeBits << ") must be either 32 or 64";
                     return false;
                 }
-                inductElementConfig.ltpRemoteUdpHostname = inductElementConfigPt.second.get<std::string>("ltpRemoteUdpHostname");
-                inductElementConfig.ltpRemoteUdpPort = inductElementConfigPt.second.get<uint16_t>("ltpRemoteUdpPort");
+                if (inductElementConfig.convergenceLayer == "ltp_over_encap_local_stream") {
+                    inductElementConfig.ltpEncapLocalSocketOrPipePath = inductElementConfigPt.second.get<std::string>("ltpEncapLocalSocketOrPipePath");
+                }
+                else {
+                    inductElementConfig.ltpRemoteUdpHostname = inductElementConfigPt.second.get<std::string>("ltpRemoteUdpHostname");
+                    inductElementConfig.ltpRemoteUdpPort = inductElementConfigPt.second.get<uint16_t>("ltpRemoteUdpPort");
+                }
                 inductElementConfig.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize = inductElementConfigPt.second.get<uint64_t>("ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize");
                 inductElementConfig.ltpMaxExpectedSimultaneousSessions = inductElementConfigPt.second.get<uint64_t>("ltpMaxExpectedSimultaneousSessions");
                 inductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall = inductElementConfigPt.second.get<uint64_t>("ltpMaxUdpPacketsToSendPerSystemCall");
@@ -540,14 +558,21 @@ boost::property_tree::ptree InductsConfig::GetNewPropertyTree() const {
         boost::property_tree::ptree & inductElementConfigPt = (inductElementConfigVectorPt.push_back(std::make_pair("", boost::property_tree::ptree())))->second; //using "" as key creates json array
         inductElementConfigPt.put("name", inductElementConfig.name);
         inductElementConfigPt.put("convergenceLayer", inductElementConfig.convergenceLayer);
-        if (inductElementConfig.convergenceLayer != "slip_over_uart") {
+        if ((inductElementConfig.convergenceLayer != "ltp_over_encap_local_stream")
+            && (inductElementConfig.convergenceLayer != "slip_over_uart")) //uses com port only
+        {
             inductElementConfigPt.put("boundPort", inductElementConfig.boundPort);
         }
-        inductElementConfigPt.put("numRxCircularBufferElements", inductElementConfig.numRxCircularBufferElements);
+        if (inductElementConfig.convergenceLayer != "ltp_over_encap_local_stream") { //no cb, relies on buffering from the local socket or pipe
+            inductElementConfigPt.put("numRxCircularBufferElements", inductElementConfig.numRxCircularBufferElements);
+        }
         if ((inductElementConfig.convergenceLayer == "udp") || (inductElementConfig.convergenceLayer == "tcpcl_v3") || (inductElementConfig.convergenceLayer == "tcpcl_v4")) {
             inductElementConfigPt.put("numRxCircularBufferBytesPerElement", inductElementConfig.numRxCircularBufferBytesPerElement);
         }
-        if ((inductElementConfig.convergenceLayer == "ltp_over_udp") || (inductElementConfig.convergenceLayer == "ltp_over_ipc")) {
+        if ((inductElementConfig.convergenceLayer == "ltp_over_udp")
+            || (inductElementConfig.convergenceLayer == "ltp_over_ipc")
+            || (inductElementConfig.convergenceLayer == "ltp_over_encap_local_stream"))
+        {
             inductElementConfigPt.put("thisLtpEngineId", inductElementConfig.thisLtpEngineId);
             inductElementConfigPt.put("remoteLtpEngineId", inductElementConfig.remoteLtpEngineId);
             inductElementConfigPt.put("ltpReportSegmentMtu", inductElementConfig.ltpReportSegmentMtu);
@@ -557,8 +582,13 @@ boost::property_tree::ptree InductsConfig::GetNewPropertyTree() const {
             inductElementConfigPt.put("preallocatedRedDataBytes", inductElementConfig.preallocatedRedDataBytes);
             inductElementConfigPt.put("ltpMaxRetriesPerSerialNumber", inductElementConfig.ltpMaxRetriesPerSerialNumber);
             inductElementConfigPt.put("ltpRandomNumberSizeBits", inductElementConfig.ltpRandomNumberSizeBits);
-            inductElementConfigPt.put("ltpRemoteUdpHostname", inductElementConfig.ltpRemoteUdpHostname);
-            inductElementConfigPt.put("ltpRemoteUdpPort", inductElementConfig.ltpRemoteUdpPort);
+            if (inductElementConfig.convergenceLayer == "ltp_over_encap_local_stream") {
+                inductElementConfigPt.put("ltpEncapLocalSocketOrPipePath", inductElementConfig.ltpEncapLocalSocketOrPipePath);
+            }
+            else {
+                inductElementConfigPt.put("ltpRemoteUdpHostname", inductElementConfig.ltpRemoteUdpHostname);
+                inductElementConfigPt.put("ltpRemoteUdpPort", inductElementConfig.ltpRemoteUdpPort);
+            }
             inductElementConfigPt.put("ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize", inductElementConfig.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize);
             inductElementConfigPt.put("ltpMaxExpectedSimultaneousSessions", inductElementConfig.ltpMaxExpectedSimultaneousSessions);
             inductElementConfigPt.put("ltpMaxUdpPacketsToSendPerSystemCall", inductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall);

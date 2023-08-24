@@ -86,6 +86,29 @@
             "maxSumOfBundleBytesInPipeline": 50000000,
             "comPort": "COM1",
             "baudRate": 115200
+        },
+        {
+            "name": "o1",
+            "convergenceLayer": "ltp_over_encap_local_stream",
+            "nextHopNodeId": 50,
+            "maxNumberOfBundlesInPipeline": 5,
+            "maxSumOfBundleBytesInPipeline": 50000000,
+            "thisLtpEngineId": 102,
+            "remoteLtpEngineId": 103,
+            "ltpDataSegmentMtu": 1003,
+            "oneWayLightTimeMs": 1004,
+            "oneWayMarginTimeMs": 205,
+            "clientServiceId": 1,
+            "ltpMaxRetriesPerSerialNumber": 5,
+            "ltpCheckpointEveryNthDataSegment": 0,
+            "ltpRandomNumberSizeBits": 32,
+            "ltpEncapLocalSocketOrPipePath": "\\\\.\\pipe\\ltp_local_pipe",
+            "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+            "ltpSenderPingSecondsOrZeroToDisable": 15,
+            "delaySendingOfDataSegmentsTimeMsOrZeroToDisable": 20,
+            "keepActiveSessionDataOnDisk": false,
+            "activeSessionDataOnDiskNewFileDurationMs": 2000,
+            "activeSessionDataOnDiskDirectory": ".\/"
         }
     ]
 }

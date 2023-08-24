@@ -98,6 +98,17 @@ struct LtpEngineConfig {
     uint16_t myBoundUdpPort = 1113;
 
     /**
+     * When LTP is run in "ltp_over_encap_local_stream", this is the
+     * socket or pipe name, and remoteHostname, remotePort, and myBoundUdpPort are ignored.
+     * On Windows, this is acomplished using a full-duplex named pipe in the form of
+     * "\\\\.\\pipe\\mynamedpipe" (including c string escape characters) or
+     * \\.\pipe\mynamedpipe (without c string escape characters).
+     * On Linux, this is accomplished using a local "AF_UNIX" duplex socket,
+     * usually in the form of "/tmp/my_ltp_local_socket"
+     */
+    std::string encapLocalSocketOrPipePath = "/tmp/ltp_local_socket";
+
+    /**
      * The max number of unprocessed LTP received UDP packets to buffer.
      * If this buffer fills up, received UDP packets will be dropped.
      */
