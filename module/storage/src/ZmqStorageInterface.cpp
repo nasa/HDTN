@@ -111,12 +111,12 @@ private:
     bool WriteAcsBundle(const Bpv6CbhePrimaryBlock& primary, const padded_vector_uint8_t& acsBundleSerialized);
     bool Write(zmq::message_t* message,
         cbhe_eid_t& finalDestEidReturned, bool dontWriteIfCustodyFlagSet,
-        bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord, cbhe_eid_t *maskPtr = NULL);
+        bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord, cbhe_eid_t *bundleEidMaskPtr = NULL);
     bool ProcessBundleCustody(BundleViewV6 &bv, uint64_t newCustodyId, size_t size);
     void ReportDepletedStorage(cbhe_eid_t &eid);
     bool ProcessAdminRecord(BundleViewV6 &bv);
     bool WriteBundle(const PrimaryBlock& bundlePrimaryBlock,
-        const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize, cbhe_eid_t *maskPtr = NULL);
+        const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize, cbhe_eid_t *bundleEidMaskPtr = NULL);
     uint64_t PeekOne(const std::vector<eid_plus_isanyserviceid_pair_t>& availableDestLinks);
     bool ReleaseOne_NoBlock(const OutductInfo_t& info, const uint64_t maxBundleSizeToRead, uint64_t& returnedBundleSize);
     void RepopulateUpLinksVec();
@@ -649,7 +649,7 @@ static bool IsAdminForThisNode(const Bpv6CbhePrimaryBlock &primary, cbhe_eid_t t
 
 bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
     cbhe_eid_t & finalDestEidReturned, bool dontWriteIfCustodyFlagSet,
-    bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord, cbhe_eid_t *maskPtr)
+    bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord, cbhe_eid_t *bundleEidMaskPtr)
 {
     BpVersion version = GetBpVersion((const uint8_t*)message->data());
     
@@ -661,7 +661,7 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
             return false;
         }
         const Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
-        finalDestEidReturned = (maskPtr == NULL) ? primary.m_destinationEid : *maskPtr;
+        finalDestEidReturned = (bundleEidMaskPtr == NULL) ? primary.m_destinationEid : *bundleEidMaskPtr;
         const uint64_t newCustodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
 
         if (!loadPrimaryBlockOnly) {
@@ -684,7 +684,7 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
         }
 
         //write bundle (modified by hdtn if custody requested) to disk
-        return WriteBundle(primary, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size(), maskPtr);
+        return WriteBundle(primary, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size(), bundleEidMaskPtr);
     }
     else if (version == BpVersion::BPV7) {
         BundleViewV7 bv;
@@ -693,12 +693,12 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
             return false;
         }
         const Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
-        finalDestEidReturned = (maskPtr == NULL) ? primary.m_destinationEid : *maskPtr;
+        finalDestEidReturned = (bundleEidMaskPtr == NULL) ? primary.m_destinationEid : *bundleEidMaskPtr;
 
         const uint64_t newCustodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
 
         //write bundle
-        return WriteBundle(primary, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size(), maskPtr);
+        return WriteBundle(primary, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size(), bundleEidMaskPtr);
     }
     else {
         LOG_ERROR(subprocess) << "error in ZmqStorageInterface Write: unsupported bundle version detected";
@@ -708,11 +708,11 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
 }
 
 bool ZmqStorageInterface::Impl::WriteBundle(const PrimaryBlock& bundlePrimaryBlock,
-    const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize, cbhe_eid_t *maskPtr)
+    const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize, cbhe_eid_t *bundleEidMaskPtr)
 {
     //write bundle
     BundleStorageManagerSession_WriteToDisk sessionWrite;
-    uint64_t totalSegmentsRequired = m_bsmPtr->Push(sessionWrite, bundlePrimaryBlock, allDataSize, maskPtr);
+    uint64_t totalSegmentsRequired = m_bsmPtr->Push(sessionWrite, bundlePrimaryBlock, allDataSize, bundleEidMaskPtr);
     if (totalSegmentsRequired == 0) {
         if (!m_isOutOfStorageSpace) {
             LOG_ERROR(subprocess) << "out of storage space";

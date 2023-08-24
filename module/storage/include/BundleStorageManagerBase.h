@@ -85,7 +85,7 @@ public:
 
     //write
     STORAGE_LIB_EXPORT uint64_t Push(BundleStorageManagerSession_WriteToDisk & session,
-        const PrimaryBlock & bundlePrimaryBlock, const uint64_t bundleSizeBytes, cbhe_eid_t *maskPtr = NULL); //return totalSegmentsRequired
+        const PrimaryBlock & bundlePrimaryBlock, const uint64_t bundleSizeBytes, cbhe_eid_t *bundleEidMaskPtr = NULL); //return totalSegmentsRequired
     STORAGE_LIB_EXPORT int PushSegment(BundleStorageManagerSession_WriteToDisk & session,
         const PrimaryBlock & bundlePrimaryBlock, const uint64_t custodyId,
         const uint8_t * buf, std::size_t size);
