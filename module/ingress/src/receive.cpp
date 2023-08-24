@@ -1435,7 +1435,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
         const uint64_t fromIngressUniqueId = m_nextBundleUniqueIdAtomic.fetch_add(1, std::memory_order_relaxed);
 
         // Query the Masker for pseudo-destination
-#ifdef _MASKER_H
+#ifdef MASKING_ENABLED
         finalDestEid = queryResult;
 #endif
 
