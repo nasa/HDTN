@@ -93,11 +93,12 @@ LtpEncapLocalStreamEngine::LtpEncapLocalStreamEngine(const uint64_t maxEncapRxPa
 LtpEncapLocalStreamEngine::~LtpEncapLocalStreamEngine() {
     Stop();
 
-    LOG_INFO(subprocess) << "~LtpEncapLocalStreamEngine: m_countAsyncSendCalls " << m_countAsyncSendCalls 
-        << " m_countBatchSendCalls " << m_countBatchSendCalls
-        << " m_countBatchUdpPacketsSent " << m_countBatchUdpPacketsSent
-        << " m_countCircularBufferOverruns " << m_countCircularBufferOverruns
-        << " m_countUdpPacketsReceived " << m_countUdpPacketsReceived;
+    LOG_INFO(subprocess) << "~LtpEncapLocalStreamEngine:"
+        << "\n m_countAsyncSendCalls " << m_countAsyncSendCalls 
+        << "\n m_countBatchSendCalls " << m_countBatchSendCalls
+        << "\n m_countBatchUdpPacketsSent " << m_countBatchUdpPacketsSent
+        << "\n m_countCircularBufferOverruns " << m_countCircularBufferOverruns
+        << "\n m_countUdpPacketsReceived " << m_countUdpPacketsReceived;
 }
 
 void LtpEncapLocalStreamEngine::Stop() {
@@ -180,7 +181,7 @@ void LtpEncapLocalStreamEngine::HandleSendOperationCompleted(const boost::system
             LOG_INFO(subprocess) << "LtpEncapLocalStreamEngine sender back to normal operation";
         }
 
-        if (el.numPacketsToSend > 1) { //batch send
+        if (el.udpSendPacketInfoVecSharedPtr) { //batch send
             m_countBatchSendCallbackCalls.fetch_add(1, std::memory_order_relaxed);
             m_countBatchUdpPacketsSent.fetch_add(el.numPacketsToSend, std::memory_order_relaxed);
         }
