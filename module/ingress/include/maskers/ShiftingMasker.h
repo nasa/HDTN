@@ -7,8 +7,15 @@ namespace hdtn {
 
 class ShiftingMasker : public Masker {
 public:
+	ShiftingMasker();
+	ShiftingMasker(uint64_t shiftNum);
+	virtual ~ShiftingMasker() override;
 	virtual cbhe_eid_t query(const BundleViewV7&) override;
 	virtual cbhe_eid_t query(const BundleViewV6&) override;
+private:
+	// This is arbitrarily initialized to 100 by default in order to use this class in a specific demonstration scenario.
+	// See tests/test_scripts_linux/masker_test_01.sh.
+	const uint64_t SHIFT_NUM;
 };
 
 }

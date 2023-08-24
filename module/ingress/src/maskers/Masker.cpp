@@ -8,6 +8,8 @@
 
 namespace hdtn {
 
+Masker::~Masker() {}
+
 std::shared_ptr<Masker> Masker::makePointer(const std::string& impl) {
     if (impl == "redundant") {
         return std::make_shared<RedundantMasker>();
