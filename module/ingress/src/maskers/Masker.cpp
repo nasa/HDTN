@@ -4,13 +4,11 @@
 #include "maskers/RedundantMasker.h"
 #include "maskers/ShiftingMasker.h"
 
-#define MASKER_IMPLEMENTATION_CLASS RedundantMasker
+#define DEFAULT_MASKER_IMPLEMENTATION RedundantMasker
 
 namespace hdtn {
 
 std::shared_ptr<Masker> Masker::makePointer(const std::string& impl) {
-    // TODO: abstract this pattern, perhaps using macros or templates.
-    // Make it easier to add new classes; editing this conditional will get tedious.
     if (impl == "redundant") {
         return std::make_shared<RedundantMasker>();
     }
@@ -18,7 +16,7 @@ std::shared_ptr<Masker> Masker::makePointer(const std::string& impl) {
         return std::make_shared<ShiftingMasker>();
     }
     else {
-        return std::make_shared<MASKER_IMPLEMENTATION_CLASS>();
+        return std::make_shared<DEFAULT_MASKER_IMPLEMENTATION>();
     }
 }
 }
