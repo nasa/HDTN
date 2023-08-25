@@ -92,7 +92,7 @@ bool BundleStorageCatalog::CatalogIncomingBundleForStore(catalog_entry_t & catal
     if (primary.HasCustodyFlagSet()) {
         if (primary.HasFragmentationFlagSet()) {
             uint64_t payloadSizeBytes = catalogEntryToTake.payloadSizeBytes;
-            const uuid_to_custid_hashmap_t::key_value_pair_t * p = m_uuidToCustodyIdHashMap.Insert(primary.GetCbheBundleUuidFromPrimary(payloadSizeBytes), custodyId);
+            const uuid_to_custid_hashmap_t::key_value_pair_t * p = m_uuidToCustodyIdHashMap.Insert(primary.GetCbheBundleUuidFragmentFromPrimary(payloadSizeBytes), custodyId);
             if (p == NULL) {
                 return false;
             }

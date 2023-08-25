@@ -135,7 +135,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogTestCase)
                 BOOST_REQUIRE(cidFromUuidPtr != NULL);
                 BOOST_REQUIRE_EQUAL(*cidFromUuidPtr, expectedCustodyId);
                 //make sure the fragmented uuid version above doesn't exist
-                BOOST_REQUIRE(bsc.GetCustodyIdFromUuid(primaries[i]->GetCbheBundleUuidFromPrimary(800 + i)) == NULL);
+                BOOST_REQUIRE(bsc.GetCustodyIdFromUuid(primaries[i]->GetCbheBundleUuidFragmentFromPrimary(800 + i)) == NULL);
             
                 //since request custody was set in the bundle, the catalog entry shall be retrievable by CTEB/ACS custody Id
                 catalog_entry_t * entryFromCustodyIdPtr = bsc.GetEntryFromCustodyId(expectedCustodyId);

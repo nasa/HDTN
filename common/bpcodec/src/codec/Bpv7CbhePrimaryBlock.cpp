@@ -500,7 +500,7 @@ bool Bpv7CbhePrimaryBlock::HasFragmentationFlagSet() const {
     return isFragment;
 }
 
-cbhe_bundle_uuid_t Bpv7CbhePrimaryBlock::GetCbheBundleUuidFromPrimary(uint64_t payloadSizeBytes) const {
+cbhe_bundle_uuid_t Bpv7CbhePrimaryBlock::GetCbheBundleUuidFragmentFromPrimary(uint64_t payloadSizeBytes) const {
     cbhe_bundle_uuid_t uuid;
     uuid.creationSeconds = m_creationTimestamp.millisecondsSinceStartOfYear2000;
     uuid.sequence = m_creationTimestamp.sequenceNumber;
