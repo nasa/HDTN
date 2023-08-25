@@ -11,6 +11,8 @@ if (target_type STREQUAL SHARED_LIBRARY)
 endif()
 set(MY_PUBLIC_HEADERS
     include/Masker.h
+	include/RedundantMasker.h
+	include/ShiftingMasker.h
 	${CMAKE_CURRENT_BINARY_DIR}/masker_lib_export.h
 )
 set_target_properties(masker_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
@@ -29,4 +31,4 @@ install(TARGETS masker_lib
 	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
 	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
-add_hdtn_package_export(masker_lib HDTNMaskerLib) #exported target will have the name HDTN::HDTNCgrLib and not cgr_lib. Also requires install to EXPORT cgr_lib-targets
+add_hdtn_package_export(masker_lib HDTNMaskerLib) #exported target will have the name HDTN::HDTNMaskerLib and not masker_lib. Also requires install to EXPORT masker_lib-targets
