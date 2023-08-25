@@ -2,8 +2,8 @@
 
 # path variables
 config_files=$HDTN_SOURCE_ROOT/config_files
-hdtn_config=$config_files/hdtn/hdtn_ingress1stcp_port4556_egress1ltpencap_unixsocket_flowid2.json.json
-sink_config=$config_files/inducts/bpsink_one_ltpencap_unixsocket.json.json
+hdtn_config=$config_files/hdtn/hdtn_ingress1stcp_port4556_egress1ltpencap_unixsocket_flowid2.json
+sink_config=$config_files/inducts/bpsink_one_ltpencap_unixsocket.json
 gen_config=$config_files/outducts/bpgen_one_stcp_port4556.json
 
 cd $HDTN_SOURCE_ROOT
