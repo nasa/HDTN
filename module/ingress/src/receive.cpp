@@ -52,6 +52,10 @@
 #include "BpSecPolicyManager.h"
 #endif
 
+#ifdef MASKING_ENABLED
+#include "Masker.h"
+#endif
+
 namespace hdtn {
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::ingress;
@@ -64,7 +68,7 @@ struct Ingress::Impl : private boost::noncopyable {
     ~Impl();
     void Stop();
     bool Init(const HdtnConfig& hdtnConfig, const boost::filesystem::path& bpSecConfigFilePath,
-           const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr);
+           const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr, const std::string& maskerImpl);
 
 private:
     void ReadZmqAcksThreadFunc();
@@ -86,6 +90,9 @@ public:
     uint64_t m_bundleByteCountStorage; //protected by m_ingressToStorageZmqSocketMutex
     uint64_t m_bundleCountEgress; //protected by m_ingressToEgressZmqSocketMutex
     uint64_t m_bundleByteCountEgress; //protected by m_ingressToEgressZmqSocketMutex
+#ifdef MASKING_ENABLED
+    std::shared_ptr<Masker> m_pmasker;
+#endif
 
 private:
     struct BundlePipelineAckingSet : private boost::noncopyable {
@@ -383,13 +390,11 @@ void Ingress::Impl::Stop() {
 }
 
 bool Ingress::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::path& bpSecConfigFilePath,
-    const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr)
-{
-    return m_pimpl->Init(hdtnConfig, bpSecConfigFilePath, hdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr);
+		   const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr, const std::string& maskerImpl) {
+    return m_pimpl->Init(hdtnConfig, bpSecConfigFilePath, hdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr, maskerImpl);
 }
 bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::path& bpSecConfigFilePath,
-    const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr)
-{
+		         const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr, const std::string& maskerImpl) {
 
     if (m_running) {
         LOG_ERROR(subprocess) << "Ingress::Init called while Ingress is already running";
@@ -590,6 +595,10 @@ bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::
             LOG_INFO(subprocess) << "telem thread started";
         }
     }
+
+#ifdef MASKING_ENABLED
+    m_pmasker = Masker::makePointer(maskerImpl);
+#endif
     
     return true;
 }
@@ -1090,6 +1099,9 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
         return false;
     }
     cbhe_eid_t finalDestEid;
+#ifdef MASKING_ENABLED
+    cbhe_eid_t queryResult;
+#endif
     bool requestsCustody = false;
     bool isAdminRecordForHdtnStorage = false;
     bool isBundleForHdtnRouter = false;
@@ -1102,6 +1114,9 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             LOG_ERROR(subprocess) << "malformed bundle";
             return false;
         }
+#ifdef MASKING_ENABLED
+        queryResult = m_pmasker->query(bv);
+#endif
         Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
         finalDestEid = primary.m_destinationEid;
         if (needsProcessing) {
@@ -1158,6 +1173,9 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             LOG_ERROR(subprocess) << "Process: malformed version 7 bundle received";
             return false;
         }
+#ifdef MASKING_ENABLED
+        queryResult = m_pmasker->query(bv);
+#endif
         Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
         finalDestEid = primary.m_destinationEid;
         requestsCustody = false; //custody unsupported at this time
@@ -1418,6 +1436,11 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
         //C++ Concurrency in Action SE, section 8.2.2 read-modify-write operation..
         // relaxed ok because the compiler doesn't have to synchronize any other data
         const uint64_t fromIngressUniqueId = m_nextBundleUniqueIdAtomic.fetch_add(1, std::memory_order_relaxed);
+
+        // Query the Masker for pseudo-destination
+#ifdef MASKING_ENABLED
+        finalDestEid = queryResult;
+#endif
 
         { //begin scope for cut-through shared mutex lock
             uint64_t outductIndex = UINT64_MAX;

@@ -78,6 +78,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], std::atomic<b
         bool usingUnixTimestamp;
         bool useMgr;
         boost::filesystem::path contactPlanFilePath;
+        std::string maskerImpl;
 
 #ifdef RUN_TELEMETRY
         TelemetryRunnerProgramOptions telemetryRunnerOptions;
@@ -92,7 +93,8 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], std::atomic<b
                 ("contact-plan-file", boost::program_options::value<boost::filesystem::path>()->default_value(DEFAULT_CONTACT_FILE), "Contact Plan file that router relies on for link availability.")
                 ("use-unix-timestamp", "Use unix timestamp in contact plan.")
                 ("use-mgr", "Use Multigraph Routing Algorithm")
-    	        ;
+                ("masker", boost::program_options::value<std::string>()->default_value(""), "Which Masker implementation to use")
+                ;
 #ifdef RUN_TELEMETRY
             TelemetryRunnerProgramOptions::AppendToDesc(desc);
 #endif
@@ -137,6 +139,8 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], std::atomic<b
             }
 
             LOG_INFO(subprocess) << "ContactPlan file: " << contactPlanFilePath;
+
+            maskerImpl = vm["masker"].as<std::string>();
         }
         catch (boost::bad_any_cast & e) {
             LOG_ERROR(subprocess) << "invalid data error: " << e.what();
@@ -174,7 +178,8 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], std::atomic<b
         std::unique_ptr<hdtn::Ingress> ingressPtr = boost::make_unique<hdtn::Ingress>();
         if (!ingressPtr->Init(*hdtnConfig, bpSecConfigFilePath,
             unusedHdtnDistributedConfig,
-            hdtnOneProcessZmqInprocContextPtr.get()))
+            hdtnOneProcessZmqInprocContextPtr.get(),
+            maskerImpl))
         {
             return false;
         }

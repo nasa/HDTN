@@ -1,7 +1,7 @@
 add_library(ingress_async_lib
 	src/receive.cpp
 	src/IngressAsyncRunner.cpp
-)
+	)
 GENERATE_EXPORT_HEADER(ingress_async_lib)
 get_target_property(target_type ingress_async_lib TYPE)
 if (target_type STREQUAL SHARED_LIBRARY)
@@ -23,6 +23,7 @@ target_link_libraries(ingress_async_lib
 		bpcodec
 		telemetry_definitions
 		Boost::program_options
+		$<$<BOOL:${ENABLE_MASKING}>:masker_lib>
 )
 target_include_directories(ingress_async_lib
 	PUBLIC
