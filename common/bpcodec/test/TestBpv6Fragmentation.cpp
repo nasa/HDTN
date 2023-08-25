@@ -626,7 +626,6 @@ BOOST_DATA_TEST_CASE(
     BOOST_REQUIRE(bv.m_renderedBundle.size() == av.m_renderedBundle.size());
 
     size_t bundleLen = bv.m_renderedBundle.size();
-    BOOST_TEST_MESSAGE("bundle rendered length: " << bundleLen);
 
     int cmp = memcmp(bv.m_renderedBundle.data(), av.m_renderedBundle.data(), bundleLen); 
 
@@ -691,9 +690,7 @@ BOOST_AUTO_TEST_CASE(AssembleDifferent)
 
     std::list<BundleViewV6> fragmentsA, fragmentsB;
     BOOST_REQUIRE(Bpv6Fragmenter::Fragment(a, sz, fragmentsA));
-    BOOST_TEST_MESSAGE("Done fragmenting A");
     BOOST_REQUIRE(Bpv6Fragmenter::Fragment(b, sz, fragmentsB));
-    BOOST_TEST_MESSAGE("Done fragmenting B");
 
     BOOST_REQUIRE(fragmentsA.size() == 3);
     BOOST_REQUIRE(fragmentsB.size() == 3);
