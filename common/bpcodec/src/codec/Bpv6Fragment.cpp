@@ -161,10 +161,10 @@ bool Bpv6Fragmenter::Fragment(BundleViewV6& orig, uint64_t sz, std::list<BundleV
     const uint64_t baseAbsoluteOffset = origIsFragment ? orig.m_primaryBlockView.header.m_fragmentOffset : 0;
     const uint64_t totalApplicationDataUnitLength = origIsFragment ? orig.m_primaryBlockView.header.m_totalApplicationDataUnitLength : origPayloadSize;
 
-    const int numFragments = CalcNumFragments(origPayloadSize, sz);
+    const uint64_t numFragments = CalcNumFragments(origPayloadSize, sz);
     LOG_INFO(subprocess) << "Making " << numFragments << " fragments with base offset " << baseAbsoluteOffset << " and adu len " << totalApplicationDataUnitLength;
 
-    for(int i = 0; i < numFragments; i++) {
+    for(uint64_t i = 0; i < numFragments; i++) {
         const bool isFirst = (i == 0);
         const bool isLast = (i == (numFragments - 1));
 
