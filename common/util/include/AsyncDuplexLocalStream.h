@@ -252,7 +252,7 @@ private:
 #else //unix sockets
     void OnSocketAccept(const boost::system::error_code& error) {
         if (error) {
-            std::cout << "Error OnSocketAccept: " << error.what() << "\n";
+            std::cout << "Error OnSocketAccept: " << error.message() << "\n";
         }
         else {
             std::cout << "remote client connected to this local unix socket " << m_socketOrPipePath << "\n";
@@ -265,7 +265,7 @@ private:
         if (error) {
             if (error != boost::asio::error::operation_aborted) {
                 if (m_numReconnectAttempts <= 1) {
-                    std::cout << "OnConnect: " << error.what()
+                    std::cout << "OnConnect: " << error.message()
                         << "\n Will continue to try to reconnect every 2 seconds\n";
                 }
                 m_reconnectAfterOnConnectErrorTimer.expires_from_now(boost::posix_time::seconds(2));
@@ -313,7 +313,7 @@ private:
             if (error.value() != ERROR_MORE_DATA)
 #endif
             {
-                std::cout << "HandleFirstEncapByteReadCompleted: " << error.what() << "\n";
+                std::cout << "HandleFirstEncapByteReadCompleted: " << error.message() << "\n";
                 return;
             }
         }
@@ -344,7 +344,7 @@ private:
             if (error.value() != ERROR_MORE_DATA)
 #endif
             {
-                std::cout << "HandleRemainingEncapHeaderReadCompleted: " << error.what() << "\n";
+                std::cout << "HandleRemainingEncapHeaderReadCompleted: " << error.message() << "\n";
                 return;
             }
         }
@@ -380,7 +380,7 @@ private:
             if (error.value() != ERROR_MORE_DATA)
 #endif
             {
-                std::cout << "HandleEncapPayloadReadCompleted: " << error.what() << "\n";
+                std::cout << "HandleEncapPayloadReadCompleted: " << error.message() << "\n";
                 return;
             }
         }
