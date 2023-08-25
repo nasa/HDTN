@@ -1098,7 +1098,10 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             << m_hdtnConfig.m_maxBundleSizeBytes << " bytes";
         return false;
     }
-    cbhe_eid_t finalDestEid, queryResult;
+    cbhe_eid_t finalDestEid;
+#ifdef MASKING_ENABLED
+    cbhe_eid_t queryResult;
+#endif
     bool requestsCustody = false;
     bool isAdminRecordForHdtnStorage = false;
     bool isBundleForHdtnRouter = false;
