@@ -1,4 +1,4 @@
-#include "maskers/RedundantMasker.h"
+#include "RedundantMasker.h"
 
 namespace hdtn {
 

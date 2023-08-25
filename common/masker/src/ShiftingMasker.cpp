@@ -1,4 +1,4 @@
-#include "maskers/ShiftingMasker.h"
+#include "ShiftingMasker.h"
 
 namespace hdtn {
 

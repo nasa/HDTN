@@ -53,7 +53,7 @@
 #endif
 
 #ifdef MASKING_ENABLED
-#include "maskers/Masker.h"
+#include "Masker.h"
 #endif
 
 namespace hdtn {

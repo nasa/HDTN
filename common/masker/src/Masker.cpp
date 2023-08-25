@@ -1,8 +1,8 @@
-#include "maskers/Masker.h"
+#include "Masker.h"
 
 // Subclass Implementation Includes
-#include "maskers/RedundantMasker.h"
-#include "maskers/ShiftingMasker.h"
+#include "RedundantMasker.h"
+#include "ShiftingMasker.h"
 
 #define DEFAULT_MASKER_IMPLEMENTATION RedundantMasker
 

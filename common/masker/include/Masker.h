@@ -38,15 +38,16 @@
 
 #include "codec/BundleViewV6.h"
 #include "codec/BundleViewV7.h"
+#include "masker_lib_export.h"
 
 namespace hdtn {
 
 class Masker {
 public:
-	virtual ~Masker();
-	virtual cbhe_eid_t query(const BundleViewV6&) = 0;
-	virtual cbhe_eid_t query(const BundleViewV7&) = 0;
-    static std::shared_ptr<Masker> makePointer(const std::string& impl);
+	MASKER_LIB_EXPORT virtual ~Masker();
+	MASKER_LIB_EXPORT virtual cbhe_eid_t query(const BundleViewV6&) = 0;
+	MASKER_LIB_EXPORT virtual cbhe_eid_t query(const BundleViewV7&) = 0;
+	MASKER_LIB_EXPORT static std::shared_ptr<Masker> makePointer(const std::string& impl);
 };
 
 }
