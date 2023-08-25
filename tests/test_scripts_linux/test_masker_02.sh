@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# See masker_test_01.sh for explanation of this script.
+# See test_masker_01.sh for explanation of this script.
 
 # path variables
 config_files=$HDTN_SOURCE_ROOT/config_files
