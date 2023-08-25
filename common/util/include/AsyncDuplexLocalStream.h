@@ -58,6 +58,7 @@ public:
 #endif
         m_streamHandle(ioService),
         m_numReconnectAttempts(0),
+        m_isStreamCreator(false),
         m_running(false),
         m_readyToSend(false),
         m_shutdownComplete(true)
@@ -112,6 +113,7 @@ public:
             return false;
         }
         m_socketOrPipePath = socketOrPipePath;
+        m_isStreamCreator = isStreamCreator;
 
 #ifdef STREAM_USE_WINDOWS_NAMED_PIPE
         if (isStreamCreator) { //binding
@@ -145,6 +147,12 @@ public:
 #else //unix sockets
         const boost::asio::local::stream_protocol::endpoint streamProtocolEndpoint(m_socketOrPipePath);
         if (isStreamCreator) { //binding
+            {
+                boost::system::error_code ec;
+                if (boost::filesystem::remove(m_socketOrPipePath, ec)) {
+                    std::cout << "stream creator removed existing " << m_socketOrPipePath << "\n";
+                }
+            }
             m_streamAcceptorPtr = boost::make_unique<boost::asio::local::stream_protocol::acceptor>(
                 m_ioServiceRef, streamProtocolEndpoint);
             m_streamAcceptorPtr->async_accept(m_streamHandle,
@@ -417,6 +425,14 @@ private:
                 std::cout << "AsyncDuplexLocalStream::HandleSocketShutdown: " << e.what() << "\n";
             }
         }
+#ifndef STREAM_USE_WINDOWS_NAMED_PIPE
+        if (m_isStreamCreator) { //binding
+            boost::system::error_code ec;
+            if (boost::filesystem::remove(m_socketOrPipePath, ec)) {
+                std::cout << "stream creator removed local socket " << m_socketOrPipePath << " after shutdown\n";
+            }
+        }
+#endif
         m_shutdownComplete = true;
     }
 
@@ -441,6 +457,7 @@ private:
 #endif
     stream_handle_t m_streamHandle;
     uint64_t m_numReconnectAttempts;
+    std::atomic<bool> m_isStreamCreator;
     std::atomic<bool> m_running;
     std::atomic<bool> m_readyToSend;
     std::atomic<bool> m_shutdownComplete;
