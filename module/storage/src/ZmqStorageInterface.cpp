@@ -628,7 +628,8 @@ bool ZmqStorageInterface::Impl::ProcessBundleCustody(BundleViewV6 &bv, size_t si
 
     // We're either writing the original bundle (but modified) or fragments
     // Select which here (Use pointers because BundleViews cannot be moved (or copied))
-    std::vector<BundleViewV6*> bundles;
+    static thread_local std::vector<BundleViewV6*> bundles;
+    bundles.resize(0);
     uint64_t payloadSizeBytes = 0;
     bv.GetPayloadSize(payloadSizeBytes); // okay if this fails
     std::list<BundleViewV6> fragments;
