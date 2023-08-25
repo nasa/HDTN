@@ -242,7 +242,7 @@ static bool AssemblePayload(std::list<BundleViewV6>& fragments, std::vector<uint
         uint64_t o = fragment.m_primaryBlockView.header.m_fragmentOffset;
         uint64_t s = payload.headerPtr->m_blockTypeSpecificDataLength;
 
-        FragmentSet::InsertFragment(fragmentSet, FragmentSet::data_fragment_t(o, o + s));
+        FragmentSet::InsertFragment(fragmentSet, FragmentSet::data_fragment_t(o, (o + s) - 1));
 
         const uint8_t *p = payload.headerPtr->m_blockTypeSpecificDataPtr;
         if(o + s > size) {

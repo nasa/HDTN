@@ -68,11 +68,11 @@ bool Bpv6FragmentManager::AddFragmentAndGetComplete(uint8_t *data, size_t len, b
 
     FragmentSet::data_fragment_t rng(
             primary.m_fragmentOffset, 
-            primary.m_fragmentOffset + payloadSizeBytes);
+            primary.m_fragmentOffset + payloadSizeBytes - 1);
 
     FragmentSet::data_fragment_t full(
             0, 
-            primary.m_totalApplicationDataUnitLength);
+            primary.m_totalApplicationDataUnitLength - 1);
 
     FragmentSet::InsertFragment(info.fragmentSet, rng);
 
