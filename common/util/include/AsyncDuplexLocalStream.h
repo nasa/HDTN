@@ -32,6 +32,10 @@
 #include "PaddedVectorUint8.h"
 #include "LtpEncap.h"
 #ifdef _WIN32
+# define STREAM_USE_WINDOWS_NAMED_PIPE 1
+#endif // _WIN32
+
+#ifdef STREAM_USE_WINDOWS_NAMED_PIPE
 # include <windows.h>
 #endif // _WIN32
 
@@ -49,9 +53,14 @@ public:
         m_ioServiceRef(ioService),
         m_workPtr(boost::make_unique<boost::asio::io_service::work>(ioService)),
         m_onFullEncapPacketReceivedCallback(onFullEncapPacketReceivedCallback),
+#ifndef STREAM_USE_WINDOWS_NAMED_PIPE
+        m_reconnectAfterOnConnectErrorTimer(ioService),
+#endif
         m_streamHandle(ioService),
+        m_numReconnectAttempts(0),
         m_running(false),
-        m_readyToSend(false)
+        m_readyToSend(false),
+        m_shutdownComplete(true)
     {
         m_receivedFullEncapPacket_swappable.resize(maxEncapRxPacketSizeBytes);
     }
@@ -69,13 +78,27 @@ public:
      */
     void Stop() {
         m_running = false;
+        DoShutdown();
+        while (!m_shutdownComplete.load(std::memory_order_acquire)) {
+            try {
+                boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+            }
+            catch (const boost::thread_resource_error&) {}
+            catch (const boost::thread_interrupted&) {}
+            catch (const boost::condition_error&) {}
+            catch (const boost::lock_error&) {}
+        }
         if (m_workPtr) {
             m_workPtr.reset();
         }
+#ifdef STREAM_USE_WINDOWS_NAMED_PIPE
         if (m_threadWaitForConnection) {
             m_threadWaitForConnection->join();
             m_threadWaitForConnection.reset();
         }
+#else
+        m_reconnectAfterOnConnectErrorTimer.cancel();
+#endif
     }
     
     /** Initialize the underlying I/O and connect to given host at given port.
@@ -89,6 +112,8 @@ public:
             return false;
         }
         m_socketOrPipePath = socketOrPipePath;
+
+#ifdef STREAM_USE_WINDOWS_NAMED_PIPE
         if (isStreamCreator) { //binding
             //LPTSTR lpszPipename = TEXT("\\\\.\\pipe\\mynamedpipe");
             HANDLE hPipeInst = CreateNamedPipeA(
@@ -108,23 +133,35 @@ public:
                 printf("CreateNamedPipe failed with %d.\n", GetLastError());
                 return false;
             }
-            
-
-            
-
             m_running = true;
             m_threadWaitForConnection = boost::make_unique<boost::thread>(
                 boost::bind(&AsyncDuplexLocalStream::WaitForConnectionThreadFunc, this, hPipeInst));
-            
         }
         else { //connecting
             m_running = true;
             m_threadWaitForConnection = boost::make_unique<boost::thread>(
                 boost::bind(&AsyncDuplexLocalStream::TryToOpenExistingPipeThreadFunc, this));
         }
+#else //unix sockets
+        const boost::asio::local::stream_protocol::endpoint streamProtocolEndpoint(m_socketOrPipePath);
+        if (isStreamCreator) { //binding
+            m_streamAcceptorPtr = boost::make_unique<boost::asio::local::stream_protocol::acceptor>(
+                m_ioServiceRef, streamProtocolEndpoint);
+            m_streamAcceptorPtr->async_accept(m_streamHandle,
+                boost::bind(&AsyncDuplexLocalStream::OnSocketAccept, this, boost::asio::placeholders::error));
+            m_running = true;
+        }
+        else { //connecting
+            m_streamHandle.async_connect(streamProtocolEndpoint,
+                boost::bind(&AsyncDuplexLocalStream::OnSocketConnect, this, boost::asio::placeholders::error));
+            m_running = true;
+        }
+#endif //STREAM_USE_WINDOWS_NAMED_PIPE
         return true;
     }
 private:
+    
+#ifdef STREAM_USE_WINDOWS_NAMED_PIPE
     void WaitForConnectionThreadFunc(HANDLE hPipeInst) {
         HANDLE hEventWaitForConnection = CreateEvent(
             NULL,    // default security attribute 
@@ -209,8 +246,53 @@ private:
             std::cout << "connection thread erased\n";
         }
         StartReadFirstEncapHeaderByte_NotThreadSafe();
+        m_shutdownComplete = false;
         m_readyToSend = true;
     }
+#else //unix sockets
+    void OnSocketAccept(const boost::system::error_code& error) {
+        if (error) {
+            std::cout << "Error OnSocketAccept: " << error.what() << "\n";
+        }
+        else {
+            std::cout << "remote client connected to this local unix socket " << m_socketOrPipePath << "\n";
+            StartReadFirstEncapHeaderByte_NotThreadSafe();
+            m_shutdownComplete = false;
+            m_readyToSend = true;
+        }
+    }
+    void OnSocketConnect(const boost::system::error_code& error) {
+        if (error) {
+            if (error != boost::asio::error::operation_aborted) {
+                if (m_numReconnectAttempts <= 1) {
+                    std::cout << "OnConnect: " << error.what()
+                        << "\n Will continue to try to reconnect every 2 seconds\n";
+                }
+                m_reconnectAfterOnConnectErrorTimer.expires_from_now(boost::posix_time::seconds(2));
+                m_reconnectAfterOnConnectErrorTimer.async_wait(
+                    boost::bind(&AsyncDuplexLocalStream::OnReconnectAfterOnConnectError_TimerExpired, this, boost::asio::placeholders::error));
+            }
+        }
+        else {
+            std::cout << "connected to local unix socket " << m_socketOrPipePath << "\n";
+            StartReadFirstEncapHeaderByte_NotThreadSafe();
+            m_shutdownComplete = false;
+            m_readyToSend = true;
+        }
+    }
+    void OnReconnectAfterOnConnectError_TimerExpired(const boost::system::error_code& e) {
+        if (e != boost::asio::error::operation_aborted) {
+            // Timer was not cancelled, take necessary action.
+
+            if (m_numReconnectAttempts++ == 0) {
+                std::cout << "Trying to reconnect...\n";
+            }
+            const boost::asio::local::stream_protocol::endpoint streamProtocolEndpoint(m_socketOrPipePath);
+            m_streamHandle.async_connect(streamProtocolEndpoint,
+                boost::bind(&AsyncDuplexLocalStream::OnSocketConnect, this, boost::asio::placeholders::error));
+        }
+    }
+#endif //STREAM_USE_WINDOWS_NAMED_PIPE
 public:
     void StartReadFirstEncapHeaderByte_NotThreadSafe() {
         m_receivedFullEncapPacket_swappable.resize(8);
@@ -226,7 +308,11 @@ public:
 private:
     void HandleFirstEncapByteReadCompleted(const boost::system::error_code& error, std::size_t bytes_transferred) {
         if (error) {
-            if (error.value() != ERROR_MORE_DATA) {
+#ifdef STREAM_USE_WINDOWS_NAMED_PIPE
+            //ERROR_BROKEN_PIPE
+            if (error.value() != ERROR_MORE_DATA)
+#endif
+            {
                 std::cout << "HandleFirstEncapByteReadCompleted: " << error.what() << "\n";
                 return;
             }
@@ -254,7 +340,10 @@ private:
 
     void HandleRemainingEncapHeaderReadCompleted(const boost::system::error_code& error, std::size_t bytes_transferred, uint8_t decodedEncapHeaderSize) {
         if (error) {
-            if (error.value() != ERROR_MORE_DATA) {
+#ifdef STREAM_USE_WINDOWS_NAMED_PIPE
+            if (error.value() != ERROR_MORE_DATA)
+#endif
+            {
                 std::cout << "HandleRemainingEncapHeaderReadCompleted: " << error.what() << "\n";
                 return;
             }
@@ -287,7 +376,10 @@ private:
         uint32_t decodedEncapPayloadSize, uint8_t decodedEncapHeaderSize)
     {
         if (error) {
-            if (error.value() != ERROR_MORE_DATA) {
+#ifdef STREAM_USE_WINDOWS_NAMED_PIPE
+            if (error.value() != ERROR_MORE_DATA)
+#endif
+            {
                 std::cout << "HandleEncapPayloadReadCompleted: " << error.what() << "\n";
                 return;
             }
@@ -301,6 +393,33 @@ private:
         //this StartReadFirstEncapHeaderByte_NotThreadSafe() is optionally called within m_onFullEncapPacketReceivedCallback;
     }
 
+    void DoShutdown() {
+        boost::asio::post(m_ioServiceRef, boost::bind(&AsyncDuplexLocalStream::HandleShutdown, this));
+    }
+
+    void HandleShutdown() {
+        //final code to shut down tcp sockets
+        if (m_streamHandle.is_open()) {
+#ifndef STREAM_USE_WINDOWS_NAMED_PIPE
+            try {
+                std::cout << "shutting down Local Stream..\n";
+                m_streamHandle.shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
+            }
+            catch (const boost::system::system_error& e) {
+                std::cout << "AsyncDuplexLocalStream::HandleShutdown: " << e.what() << "\n";
+            }
+#endif
+            try {
+                std::cout << "closing Local Stream..\n";
+                m_streamHandle.close();
+            }
+            catch (const boost::system::system_error& e) {
+                std::cout << "AsyncDuplexLocalStream::HandleSocketShutdown: " << e.what() << "\n";
+            }
+        }
+        m_shutdownComplete = true;
+    }
+
     
 
     const uint64_t M_MAX_ENCAP_RX_PACKET_SIZE_BYTES;
@@ -312,13 +431,19 @@ private:
     std::string m_socketOrPipePath;
     padded_vector_uint8_t m_receivedFullEncapPacket_swappable;
     /// UDP socket to connect to destination endpoint
-#ifdef _WIN32
+#ifdef STREAM_USE_WINDOWS_NAMED_PIPE
     typedef boost::asio::windows::basic_stream_handle<boost::asio::any_io_executor> stream_handle_t;
-    stream_handle_t m_streamHandle;
     std::unique_ptr<boost::thread> m_threadWaitForConnection;
+#else
+    typedef boost::asio::local::stream_protocol::socket stream_handle_t;
+    std::unique_ptr<boost::asio::local::stream_protocol::acceptor> m_streamAcceptorPtr;
+    boost::asio::deadline_timer m_reconnectAfterOnConnectErrorTimer;
 #endif
+    stream_handle_t m_streamHandle;
+    uint64_t m_numReconnectAttempts;
     std::atomic<bool> m_running;
     std::atomic<bool> m_readyToSend;
+    std::atomic<bool> m_shutdownComplete;
 
 public:
     stream_handle_t& GetStreamHandleRef() noexcept {
