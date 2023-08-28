@@ -1,5 +1,5 @@
 /**
- * @file LtpEncap.h
+ * @file CcsdsEncap.h
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  * @author  Patrick Zhong <patrick.zhong@nasa.gov>
  *
@@ -14,7 +14,7 @@
  *
  * @section DESCRIPTION
  *
- * This is a header-only library for LTP encapsulation and decapsulation functions.
+ * This is a header-only library for LTP/BP/IDLE encapsulation and decapsulation functions.
  * Based on: Encapsulation Packet Protocol: https://public.ccsds.org/Pubs/133x1b3e1.pdf
  */
 
@@ -26,20 +26,55 @@
 #include <boost/config/detail/suffix.hpp>
 
 // Encapsulation parameters
-#define PACKET_VERSION_NUMBER 7  // 0b111 for encapsulation packet: https://sanaregistry.org/r/packet_version_number/
-#define LTP_ENCAP_PROTOCOL_ID 1  // 0b001 for LTP Protocol Extension: https://sanaregistry.org/r/protocol_id/
-#define USER_DEFINED_FIELD 0
-#define ENCAP_PROTOCOL_ID_EXT 0
-#define CCSDS_DEFINED_FIELD 0
+#define CCSDS_ENCAP_PACKET_VERSION_NUMBER 7  // 0b111 for encapsulation packet: https://sanaregistry.org/r/packet_version_number/
+#define SANA_IDLE_ENCAP_PROTOCOL_ID 0  // 0b000 for Encap Idle Packet: https://sanaregistry.org/r/protocol_id/
+#define SANA_LTP_ENCAP_PROTOCOL_ID 1  // 0b001 for LTP Protocol: https://sanaregistry.org/r/protocol_id/
+#define SANA_BP_ENCAP_PROTOCOL_ID 4  // 0b100 for Bundle Protocol (BP): https://sanaregistry.org/r/protocol_id/
+#define CCSDS_ENCAP_USER_DEFINED_FIELD 0
+#define CCSDS_ENCAP_PROTOCOL_ID_EXT 0
+#define CCSDS_ENCAP_DEFINED_FIELD 0
 
-
+enum class ENCAP_PACKET_TYPE : uint8_t {
+    IDLE = ((CCSDS_ENCAP_PACKET_VERSION_NUMBER << 5) | (SANA_IDLE_ENCAP_PROTOCOL_ID << 2)),
+    LTP =  ((CCSDS_ENCAP_PACKET_VERSION_NUMBER << 5) | (SANA_LTP_ENCAP_PROTOCOL_ID << 2)),
+    BP =   ((CCSDS_ENCAP_PACKET_VERSION_NUMBER << 5) | (SANA_BP_ENCAP_PROTOCOL_ID << 2))
+};
 
 /*
+Encapsulation Packet Protocol: https://public.ccsds.org/Pubs/133x1b3e1.pdf
 
- Encapsulate an LTP packet
+///////////////
+// Idle Packet
+///////////////
+4.1.2.4.4:
+If the Length of Length field has the value ‘00’ then
+the Protocol ID field shall have the value ‘000’,
+indicating that the packet is an Encapsulation Idle Packet.
+NOTE – If the Length of Length field has the value ‘00’,
+then the Packet Length field and the Encapsulated Data Unit
+field are both absent from the packet.
+In this case, the length of the Encapsulation Packet is one octet.
+    ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+    ┃      IDLE ENCAPSULATION       ┃
+    ┃           PACKET              ┃
+    ┃           HEADER              ┃
+    ┠───────────┬───────────┬───────┨
+    ┃           │    Idle   │       ┃
+    ┃  PACKET   │   ENCAP   │  LEN  ┃
+    ┃  VERSION  │  PROTOCOL │  OF   ┃
+    ┃  NUMBER   │     ID    │  LEN  ┃
+    ┃  (0b111)  │  (0b000)  │ (0b00)┃
+    ┣━━━━━━━━━━━┿━━━━━━━━━━━┿━━━━━━━┫
+    ┃ 7 │ 6 │ 5 │ 4 │ 3 │ 2 │ 1 │ 0 ┃
+    ┃             data[0]           ┃
+    ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+
+//////////////////////////////////
+// Encapsulate an LTP or BP packet
+//////////////////////////////////
  
- Encapsulation Packet Protocol: https://public.ccsds.org/Pubs/133x1b3e1.pdf
- Protocol Id (0b001) for LTP Encap: https://sanaregistry.org/r/protocol_id/
+
     
     Payload length <= 255-2: 1 octet length field
     2 byte header
@@ -48,11 +83,11 @@
     ┃                             PACKET                            ┃
     ┃                             HEADER                            ┃
     ┠───────────┬───────────┬───────┬───────────────────────────────┨
-    ┃           │    LTP    │       │                               ┃
+    ┃           │           │       │                               ┃
     ┃  PACKET   │   ENCAP   │  LEN  │             PACKET            ┃
-    ┃  VERSION  │  PROTOCOL │  OF   │             LENGTH            ┃     LTP PDU     ┃
+    ┃  VERSION  │  PROTOCOL │  OF   │             LENGTH            ┃  LTP/BP PDU     ┃
     ┃  NUMBER   │     ID    │  LEN  │                               ┃
-    ┃  (0b111)  │  (0b001)  │ (0b01)│                               ┃
+    ┃  (0b111)  │  (LTP/BP) │ (0b01)│                               ┃
     ┣━━━━━━━━━━━┿━━━━━━━━━━━┿━━━━━━━┿━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
     ┃ 7 │ 6 │ 5 │ 4 │ 3 │ 2 │ 1 │ 0 │ 7 │ 6 │ 5 │ 4 │ 3 │ 2 │ 1 │ 0 ┃
     ┃             data[0]           │            data[1]            ┃
@@ -65,11 +100,11 @@
     ┃                                                            PACKET                                                             ┃
     ┃                                                            HEADER                                                             ┃
     ┠───────────┬───────────┬───────┬───────────────┬───────────────┬───────────────────────────────────────────────────────────────┨
-    ┃           │    LTP    │       │               │               │                                                               ┃
+    ┃           │           │       │               │               │                                                               ┃
     ┃  PACKET   │   ENCAP   │  LEN  │     USER      │ ENCAPSULATION │                            PACKET                             ┃
-    ┃  VERSION  │  PROTOCOL │  OF   │    DEFINED    │  PROTOCOL ID  │                            LENGTH                             ┃     LTP PDU     ┃
+    ┃  VERSION  │  PROTOCOL │  OF   │    DEFINED    │  PROTOCOL ID  │                            LENGTH                             ┃  LTP/BP PDU     ┃
     ┃  NUMBER   │     ID    │  LEN  │     FIELD     │   EXTENSION   │                         (big endian)                          ┃
-    ┃  (0b111)  │  (0b001)  │ (0b10)│    (zeros)    │    (zeros)    │                                                               ┃
+    ┃  (0b111)  │  (LTP/BP) │ (0b10)│    (zeros)    │    (zeros)    │                                                               ┃
     ┣━━━━━━━━━━━┿━━━━━━━━━━━┿━━━━━━━┿━━━━━━━━━━━━━━━┿━━━━━━━━━━━━━━━┿━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
     ┃ 7 │ 6 │ 5 │ 4 │ 3 │ 2 │ 1 │ 0 │ 7 │ 6 │ 5 │ 4 │ 3 │ 2 │ 1 │ 0 │ 7 │ 6 │ 5 │ 4 │ 3 │ 2 │ 1 │ 0 │ 7 │ 6 │ 5 │ 4 │ 3 │ 2 │ 1 │ 0 ┃
     ┃             data[0]           │            data[1]            │            data[2]            │            data[3]            ┃
@@ -82,22 +117,28 @@
     ┃                                                            PACKET                                                                         ┃
     ┃                                                            HEADER                                                                         ┃
     ┠───────────┬───────────┬───────┬───────────────┬───────────────┬───────────────────┬───────────────────────────────────────────────────────┨
-    ┃           │    LTP    │       │               │               │                   │                                                       ┃
+    ┃           │           │       │               │               │                   │                                                       ┃
     ┃  PACKET   │   ENCAP   │  LEN  │     USER      │ ENCAPSULATION │       CCSDS       │                        PACKET                         ┃
-    ┃  VERSION  │  PROTOCOL │  OF   │    DEFINED    │  PROTOCOL ID  │      DEFINED      │                        LENGTH                         ┃     LTP PDU     ┃
+    ┃  VERSION  │  PROTOCOL │  OF   │    DEFINED    │  PROTOCOL ID  │      DEFINED      │                        LENGTH                         ┃  LTP/BP PDU     ┃
     ┃  NUMBER   │     ID    │  LEN  │     FIELD     │   EXTENSION   │       FIELD       │                     (big endian)                      ┃
-    ┃  (0b111)  │  (0b001)  │ (0b11)│    (zeros)    │    (zeros)    │      (zeros)      │                                                       ┃
+    ┃  (0b111)  │ (LTP/BP)  │ (0b11)│    (zeros)    │    (zeros)    │      (zeros)      │                                                       ┃
     ┣━━━━━━━━━━━┿━━━━━━━━━━━┿━━━━━━━┿━━━━━━━━━━━━━━━┿━━━━━━━━━━━━━━━┿━━━━━━━━━┯━━━━━━━━━┿━━━━━━━━━━━━━┯━━━━━━━━━━━━━┯━━━━━━━━━━━━━┯━━━━━━━━━━━━━┫
     ┃ 7 │ 6 │ 5 │ 4 │ 3 │ 2 │ 1 │ 0 │ 7 │ 6 │ 5 │ 4 │ 3 │ 2 │ 1 │ 0 │ 7 ... 0 │ 7 ... 0 │ 7 │ ... │ 0 │ 7 │ ... │ 0 │ 7 │ ... │ 0 │ 7 │ ... │ 0 ┃
     ┃             data[0]           │            data[1]            │ data[2] │ data[3] │   data[4]   │   data[5]   │   data[6]   │   data[7]   ┃
     ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━┷━━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
  */
-static bool GetCcsdsLtpEncapHeader(uint8_t* outHeader8Byte, const uint32_t encappedPayloadSize, uint8_t& outHeaderSize) {
 
-    // Need larger packet length field than 2 octets, since IP is 2 bytes and we have an additional 5 byte header
-    // We can dynamically switch headers depending on packet size, in the interest of lower header overhead,
-    //      but that adds an additional dependency on length-of-length field.
+
+/** Get a CCSDS Encap header.
+*
+* @param type The SANA type of encap packet to generate.
+* @param outHeader8Byte An 8-byte buffer to write/return the generated 1, 2, 4, or 8 byte Encap header
+* @param encappedPayloadSize The size of the PDU or payload part that is getting encapsulated.
+* @param outHeaderSize The returned size of the encap header (valid only when the function returns true).
+* @return true on success, false on failure.
+*/
+static bool GetCcsdsEncapHeader(const ENCAP_PACKET_TYPE type, uint8_t* outHeader8Byte, const uint32_t encappedPayloadSize, uint8_t& outHeaderSize) {
 
     uint8_t lengthOfLength;
 
@@ -106,13 +147,19 @@ static bool GetCcsdsLtpEncapHeader(uint8_t* outHeader8Byte, const uint32_t encap
         outHeaderSize = 0;
         return false;
     }
-    else if (encappedPayloadSize == 0) { //keep alive
+    else if (encappedPayloadSize == 0) { //idle packet
         lengthOfLength = 0; // outHeaderSize = 1;
+        if (type != ENCAP_PACKET_TYPE::IDLE) {
+            return false;
+        }
     }
-    else if(encappedPayloadSize <= (0xff - 2)) {
+    else if (type == ENCAP_PACKET_TYPE::IDLE) { //implicit && (encappedPayloadSize > 0)
+        return false;
+    }
+    else if (encappedPayloadSize <= (0xff - 2)) {
         lengthOfLength = 1; // outHeaderSize = 2;
     }
-    else if(encappedPayloadSize <= (0xffffu - 4)) {
+    else if (encappedPayloadSize <= (0xffffu - 4)) {
         lengthOfLength = 2; // outHeaderSize = 4;
     }
     else {
@@ -120,52 +167,65 @@ static bool GetCcsdsLtpEncapHeader(uint8_t* outHeader8Byte, const uint32_t encap
     }
     outHeaderSize = 1u << lengthOfLength;
 
-    const uint32_t encapLen = encappedPayloadSize + outHeaderSize; // total size of encapsulation packet
-
-    *outHeader8Byte++ = ((PACKET_VERSION_NUMBER << 5) | (LTP_ENCAP_PROTOCOL_ID << 2)) | lengthOfLength;
-
-    if(lengthOfLength >= 2) {
-        *outHeader8Byte++ = (USER_DEFINED_FIELD << 4) | (ENCAP_PROTOCOL_ID_EXT);
-        
-        if(lengthOfLength == 3) {
-            *outHeader8Byte++ = CCSDS_DEFINED_FIELD >> 8;
-            *outHeader8Byte++ = CCSDS_DEFINED_FIELD;
-        }
-    }
+    *outHeader8Byte++ = (static_cast<uint8_t>(type)) | lengthOfLength;
 
     if (lengthOfLength == 0) { // length field absent
-        
+        return true;
     }
-    else if(lengthOfLength == 1) { // 1 octet length field
+
+    const uint32_t encapLen = encappedPayloadSize + outHeaderSize; // total size of encapsulation packet
+
+    if (lengthOfLength == 1) { // 1 octet length field
         *outHeader8Byte = static_cast<uint8_t>(encapLen);
     }
-    else if(lengthOfLength == 2) { // 2 octet length field
-        const uint16_t encapLenBe = boost::endian::native_to_big(static_cast<uint16_t>(encapLen));
-        memcpy(outHeader8Byte, &encapLenBe, sizeof(encapLenBe));
-    }
-    else { // 4 octet length field
-        const uint32_t encapLenBe = boost::endian::native_to_big(encapLen);
-        memcpy(outHeader8Byte, &encapLenBe, sizeof(encapLenBe));
+    else { //if(lengthOfLength >= 2) {
+        *outHeader8Byte++ = (CCSDS_ENCAP_USER_DEFINED_FIELD << 4) | (CCSDS_ENCAP_PROTOCOL_ID_EXT);
+        
+        if(lengthOfLength == 3) { // 4 octet length field
+            *outHeader8Byte++ = CCSDS_ENCAP_DEFINED_FIELD >> 8;
+            *outHeader8Byte++ = CCSDS_ENCAP_DEFINED_FIELD;
+            const uint32_t encapLenBe = boost::endian::native_to_big(encapLen);
+            memcpy(outHeader8Byte, &encapLenBe, sizeof(encapLenBe));
+        }
+        else { //if(lengthOfLength == 2) { // 2 octet length field
+            const uint16_t encapLenBe = boost::endian::native_to_big(static_cast<uint16_t>(encapLen));
+            memcpy(outHeader8Byte, &encapLenBe, sizeof(encapLenBe));
+        }
     }
 
     return true;
 }
 
-
-/*
-  
-  Decapsulate a CCSDS encapsulation packet into an IP packet
-
- */
-BOOST_FORCEINLINE static uint8_t DecodeCcsdsLtpEncapHeaderSizeFromFirstByte(const uint8_t firstByte) {
+/** Decode the first byte of a CCSDS Encap header.
+*
+* @param type The non-idle SANA type of encap packet expected to be decoded.
+* @param firstByte The first byte of the Encap header to decode.
+* @return 1, 2, 4, or 8 on success (denoting the size of the encap header), or 0 on failure.
+*/
+BOOST_FORCEINLINE static uint8_t DecodeCcsdsEncapHeaderSizeFromFirstByte(const ENCAP_PACKET_TYPE type, const uint8_t firstByte) {
+    if (firstByte == (static_cast<uint8_t>(ENCAP_PACKET_TYPE::IDLE))) { //in this case, lengthOfLength == 0
+        return 1;
+    }
     const uint8_t lengthOfLength = firstByte & 0x3u;
     const uint8_t headerLength = 1u << lengthOfLength;
-    const uint8_t expectedHeaderFirstByte = ((PACKET_VERSION_NUMBER << 5) | (LTP_ENCAP_PROTOCOL_ID << 2)) | lengthOfLength;
-    const bool valid = (firstByte == expectedHeaderFirstByte);
+    const uint8_t expectedHeaderFirstByte = (static_cast<uint8_t>(type)) | lengthOfLength;
+    const bool valid = (static_cast<bool>(firstByte == expectedHeaderFirstByte)) * (static_cast<bool>(lengthOfLength != 0));
     return valid * headerLength;
 }
 
-static bool DecodeCcsdsLtpEncapPayloadSizeFromSecondToRemainingBytes(const uint8_t encapHeaderLength,
+/** Decode the second to remaining byte(s) of a CCSDS Encap header,
+* called after the DecodeCcsdsEncapHeaderSizeFromFirstByte function
+*
+* @param encapHeaderLength The 1, 2, 4, or 8 byte size of encap packet expected to be decoded.
+*                          This function need not be called if this value is 1.
+* @param secondByte The pointer to the start of the second byte of the Encap header to decode.
+* @param userDefinedField The returned user defined field of the Encap packet (usually 0)
+*                         if encapHeaderLength is 4 or 8 bytes.
+* @param payloadSize The returned payload size (i.e. size of the data being encapsulated)
+*                    if encapHeaderLength is 2, 4, or 8 bytes.
+* @return true on success (denoting valid userDefinedField and payloadSize), or false on failure.
+*/
+static bool DecodeCcsdsEncapPayloadSizeFromSecondToRemainingBytes(const uint8_t encapHeaderLength,
     const uint8_t* secondByte,
     uint8_t& userDefinedField,
     uint32_t& payloadSize)
@@ -181,16 +241,16 @@ static bool DecodeCcsdsLtpEncapPayloadSizeFromSecondToRemainingBytes(const uint8
     }
     else if ((encapHeaderLength == 4) || (encapHeaderLength == 8)) {
         const uint8_t udfPlusExt = *secondByte++;
-        if ((udfPlusExt & 0x0fu) != ENCAP_PROTOCOL_ID_EXT) {
+        if ((udfPlusExt & 0x0fu) != CCSDS_ENCAP_PROTOCOL_ID_EXT) {
             return false; //failure
         }
         userDefinedField = (udfPlusExt >> 4);
 
         if (encapHeaderLength == 8) {
-            if ((*secondByte++) != (static_cast<uint8_t>(CCSDS_DEFINED_FIELD >> 8))) {
+            if ((*secondByte++) != (static_cast<uint8_t>(CCSDS_ENCAP_DEFINED_FIELD >> 8))) {
                 return false; //failure
             }
-            if ((*secondByte++) != (static_cast<uint8_t>(CCSDS_DEFINED_FIELD))) {
+            if ((*secondByte++) != (static_cast<uint8_t>(CCSDS_ENCAP_DEFINED_FIELD))) {
                 return false; //failure
             }
             // 4 octet length field

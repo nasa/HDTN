@@ -30,7 +30,7 @@
 #include <atomic>
 #include <memory>
 #include "PaddedVectorUint8.h"
-#include "LtpEncap.h"
+#include "CcsdsEncap.h"
 #ifdef _WIN32
 # define STREAM_USE_WINDOWS_NAMED_PIPE 1
 #endif // _WIN32
@@ -47,6 +47,7 @@ public:
         uint32_t decodedEncapPayloadSize, uint8_t decodedEncapHeaderSize)> OnFullEncapPacketReceivedCallback_t;
 
     AsyncDuplexLocalStream(boost::asio::io_service& ioService,
+        const ENCAP_PACKET_TYPE encapPacketType,
         const uint64_t maxEncapRxPacketSizeBytes,
         const OnFullEncapPacketReceivedCallback_t& onFullEncapPacketReceivedCallback) :
         M_MAX_ENCAP_RX_PACKET_SIZE_BYTES(maxEncapRxPacketSizeBytes),
@@ -58,6 +59,7 @@ public:
 #endif
         m_streamHandle(ioService),
         m_numReconnectAttempts(0),
+        M_ENCAP_PACKET_TYPE(encapPacketType),
         m_isStreamCreator(false),
         m_running(false),
         m_readyToSend(false),
@@ -117,6 +119,7 @@ public:
 
 #ifdef STREAM_USE_WINDOWS_NAMED_PIPE
         if (isStreamCreator) { //binding
+            const DWORD bufferSize = 4096 * 2;
             //LPTSTR lpszPipename = TEXT("\\\\.\\pipe\\mynamedpipe");
             HANDLE hPipeInst = CreateNamedPipeA(
                 m_socketOrPipePath.c_str(),            // pipe name 
@@ -126,8 +129,8 @@ public:
                 PIPE_READMODE_MESSAGE |  // message-read mode 
                 PIPE_WAIT,               // blocking mode 
                 1,               // number of instances 
-                4096 * sizeof(TCHAR),   // output buffer size 
-                4096 * sizeof(TCHAR),   // input buffer size 
+                bufferSize,   // output buffer size 
+                bufferSize,   // input buffer size 
                 5000,            // client time-out 
                 NULL);                   // default security attributes 
 
@@ -329,11 +332,12 @@ private:
             std::cout << "HandleFirstEncapByteReadCompleted: bytes_transferred != 1\n";
             return;
         }
-        const uint8_t decodedEncapHeaderSize = DecodeCcsdsLtpEncapHeaderSizeFromFirstByte(m_receivedFullEncapPacket_swappable[0]);
+        const uint8_t decodedEncapHeaderSize = DecodeCcsdsEncapHeaderSizeFromFirstByte(
+            M_ENCAP_PACKET_TYPE, m_receivedFullEncapPacket_swappable[0]);
         if (decodedEncapHeaderSize == 0) {
             std::cout << "HandleFirstEncapByteReadCompleted: invalid LTP encap header received\n";
         }
-        else if (decodedEncapHeaderSize == 1) { //keep alive (no data)
+        else if (decodedEncapHeaderSize == 1) { //idle packet (no data)
             StartReadFirstEncapHeaderByte_NotThreadSafe();
         }
         else {
@@ -362,7 +366,7 @@ private:
         }
         uint8_t userDefinedField;
         uint32_t decodedEncapPayloadSize;
-        if (!DecodeCcsdsLtpEncapPayloadSizeFromSecondToRemainingBytes(decodedEncapHeaderSize,
+        if (!DecodeCcsdsEncapPayloadSizeFromSecondToRemainingBytes(decodedEncapHeaderSize,
             &m_receivedFullEncapPacket_swappable[1],
             userDefinedField,
             decodedEncapPayloadSize))
@@ -457,6 +461,7 @@ private:
 #endif
     stream_handle_t m_streamHandle;
     uint64_t m_numReconnectAttempts;
+    const ENCAP_PACKET_TYPE M_ENCAP_PACKET_TYPE;
     std::atomic<bool> m_isStreamCreator;
     std::atomic<bool> m_running;
     std::atomic<bool> m_readyToSend;

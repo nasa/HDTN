@@ -27,6 +27,7 @@ LtpEncapLocalStreamEngine::LtpEncapLocalStreamEngine(const uint64_t maxEncapRxPa
     const LtpEngineConfig& ltpRxOrTxCfg) :
     LtpEngine(ltpRxOrTxCfg, ENGINE_INDEX, true),
     m_asyncDuplexLocalStream(m_ioServiceLtpEngine, //ltp engine will handle i/o, keeping entirely single threaded
+        ENCAP_PACKET_TYPE::LTP,
         maxEncapRxPacketSizeBytes,
         boost::bind(&LtpEncapLocalStreamEngine::OnFullEncapPacketReceived, this,
             boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3)),
@@ -298,7 +299,7 @@ void LtpEncapLocalStreamEngine::SendPacket(
     uint8_t* const encapOutHeader8Byte = &(el.m_encapHeaders[0][0]); //resized to 1 by Reset()
     uint8_t encodedEncapHeaderSize;
     //encode
-    if (GetCcsdsLtpEncapHeader(encapOutHeader8Byte, static_cast<uint32_t>(ltpPayloadSize), encodedEncapHeaderSize)) {
+    if (GetCcsdsEncapHeader(ENCAP_PACKET_TYPE::LTP, encapOutHeader8Byte, static_cast<uint32_t>(ltpPayloadSize), encodedEncapHeaderSize)) {
         el.constBufferVec[0] = boost::asio::buffer(encapOutHeader8Byte, encodedEncapHeaderSize);
         el.underlyingDataToDeleteOnSentCallback = std::move(underlyingDataToDeleteOnSentCallback);
         el.underlyingCsDataToDeleteOnSentCallback = std::move(underlyingCsDataToDeleteOnSentCallback);
@@ -346,7 +347,7 @@ void LtpEncapLocalStreamEngine::SendPackets(std::shared_ptr<std::vector<UdpSendP
         uint8_t* const encapOutHeader8Byte = &(el.m_encapHeaders[packetI][0]); //resized to 1 by Reset()
         uint8_t encodedEncapHeaderSize;
         //encode
-        if (GetCcsdsLtpEncapHeader(encapOutHeader8Byte, static_cast<uint32_t>(ltpPayloadSize), encodedEncapHeaderSize)) {
+        if (GetCcsdsEncapHeader(ENCAP_PACKET_TYPE::LTP, encapOutHeader8Byte, static_cast<uint32_t>(ltpPayloadSize), encodedEncapHeaderSize)) {
             *thisElEncapConstBufPtr = boost::asio::buffer(encapOutHeader8Byte, encodedEncapHeaderSize);
         }
         else {

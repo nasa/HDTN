@@ -59,6 +59,7 @@ set(MY_PUBLIC_HEADERS
     include/BinaryConversions.h
 	include/BundleCallbackFunctionDefines.h
 	include/CborUint.h
+	include/CcsdsEncap.h
 	include/CircularIndexBufferSingleProducerSingleConsumerConfigurable.h
 	include/CpuFlagDetection.h
 	include/DeadlineTimer.h
@@ -70,7 +71,6 @@ set(MY_PUBLIC_HEADERS
 	include/FreeListAllocator.h
 	include/JsonSerializable.h
 	include/LtpClientServiceDataToSend.h
-	include/LtpEncap.h
 	include/MemoryInFiles.h
 	include/PaddedVectorUint8.h
 	#include/RateManagerAsync.h
