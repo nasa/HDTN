@@ -26,7 +26,7 @@ static const uint8_t ENGINE_INDEX = 1; //this is a don't care for inducts, only 
 LtpEncapLocalStreamEngine::LtpEncapLocalStreamEngine(const uint64_t maxEncapRxPacketSizeBytes,
     const LtpEngineConfig& ltpRxOrTxCfg) :
     LtpEngine(ltpRxOrTxCfg, ENGINE_INDEX, true),
-    m_asyncDuplexLocalStream(m_ioServiceLtpEngine, //ltp engine will handle i/o, keeping entirely single threaded
+    m_encapAsyncDuplexLocalStream(m_ioServiceLtpEngine, //ltp engine will handle i/o, keeping entirely single threaded
         ENCAP_PACKET_TYPE::LTP,
         maxEncapRxPacketSizeBytes,
         boost::bind(&LtpEncapLocalStreamEngine::OnFullEncapPacketReceived, this,
@@ -103,11 +103,11 @@ LtpEncapLocalStreamEngine::~LtpEncapLocalStreamEngine() {
 }
 
 void LtpEncapLocalStreamEngine::Stop() {
-    m_asyncDuplexLocalStream.Stop();
+    m_encapAsyncDuplexLocalStream.Stop();
 }
 
 bool LtpEncapLocalStreamEngine::Connect(const std::string& socketOrPipePath, bool isStreamCreator) {
-    return m_asyncDuplexLocalStream.Init(socketOrPipePath, isStreamCreator);
+    return m_encapAsyncDuplexLocalStream.Init(socketOrPipePath, isStreamCreator);
 }
 
 void LtpEncapLocalStreamEngine::Reset_ThreadSafe_Blocking() {
@@ -142,7 +142,7 @@ void LtpEncapLocalStreamEngine::OnFullEncapPacketReceived(padded_vector_uint8_t&
     if (VerifyLtpPacketReceive(ltpPacketPtr, decodedEncapPayloadSize)) {
         PacketIn(true, ltpPacketPtr, decodedEncapPayloadSize); //Not thread safe, immediately puts into ltp rx state machine and calls PacketInFullyProcessedCallback
     }
-    m_asyncDuplexLocalStream.StartReadFirstEncapHeaderByte_NotThreadSafe();
+    m_encapAsyncDuplexLocalStream.StartReadFirstEncapHeaderByte_NotThreadSafe();
 }
 
 void LtpEncapLocalStreamEngine::TrySendOperationIfAvailable_NotThreadSafe() {
@@ -156,7 +156,7 @@ void LtpEncapLocalStreamEngine::TrySendOperationIfAvailable_NotThreadSafe() {
             if (consumeIndex != CIRCULAR_INDEX_BUFFER_EMPTY) {
                 SendElement& el = m_txCbVec[consumeIndex];
                 m_writeInProgress = true;
-                boost::asio::async_write(m_asyncDuplexLocalStream.GetStreamHandleRef(),
+                boost::asio::async_write(m_encapAsyncDuplexLocalStream.GetStreamHandleRef(),
                     el.constBufferVec,
                     boost::bind(&LtpEncapLocalStreamEngine::HandleSendOperationCompleted, this,
                         boost::asio::placeholders::error,
@@ -366,5 +366,5 @@ void LtpEncapLocalStreamEngine::SendPackets(std::shared_ptr<std::vector<UdpSendP
 
 
 bool LtpEncapLocalStreamEngine::ReadyToSend() const noexcept {
-    return m_asyncDuplexLocalStream.ReadyToSend();
+    return m_encapAsyncDuplexLocalStream.ReadyToSend();
 }

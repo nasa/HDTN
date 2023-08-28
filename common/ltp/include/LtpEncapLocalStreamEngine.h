@@ -32,7 +32,7 @@
 #include "UdpBatchSender.h"
 #include "LtpEngineConfig.h"
 #include <atomic>
-#include "AsyncDuplexLocalStream.h"
+#include "EncapAsyncDuplexLocalStream.h"
 
 class CLASS_VISIBILITY_LTP_LIB LtpEncapLocalStreamEngine : public LtpEngine {
 private:
@@ -134,7 +134,7 @@ private:
     LTP_LIB_NO_EXPORT void OnFullEncapPacketReceived(padded_vector_uint8_t& receivedFullEncapPacket,
         uint32_t decodedEncapPayloadSize, uint8_t decodedEncapHeaderSize);
     
-    AsyncDuplexLocalStream m_asyncDuplexLocalStream;
+    EncapAsyncDuplexLocalStream m_encapAsyncDuplexLocalStream;
 
     
     const uint64_t M_REMOTE_ENGINE_ID;

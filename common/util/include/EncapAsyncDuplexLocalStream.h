@@ -1,5 +1,5 @@
 /**
- * @file AsyncDuplexLocalStream.h
+ * @file EncapAsyncDuplexLocalStream.h
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
  * @copyright Copyright © 2021 United States Government as represented by
@@ -13,13 +13,13 @@
  *
  * @section DESCRIPTION
  *
- * This AsyncDuplexLocalStream class encapsulates a cross-platform local stream.
+ * This EncapAsyncDuplexLocalStream class encapsulates a cross-platform local stream.
  * On Windows, this is acomplished using a full-duplex named pipe.
  * On Linux, this is accomplished using a local "AF_UNIX" duplex socket.
  */
 
-#ifndef _ASYNC_DUPLEX_LOCAL_STREAM_H
-#define _ASYNC_DUPLEX_LOCAL_STREAM_H 1
+#ifndef _ENCAP_ASYNC_DUPLEX_LOCAL_STREAM_H
+#define _ENCAP_ASYNC_DUPLEX_LOCAL_STREAM_H 1
 
 #include <string>
 #include <boost/thread.hpp>
@@ -41,12 +41,12 @@
 
 
 
-class AsyncDuplexLocalStream {
+class EncapAsyncDuplexLocalStream {
 public:
     typedef boost::function<void(padded_vector_uint8_t& receivedFullEncapPacket,
         uint32_t decodedEncapPayloadSize, uint8_t decodedEncapHeaderSize)> OnFullEncapPacketReceivedCallback_t;
 
-    AsyncDuplexLocalStream(boost::asio::io_service& ioService,
+    EncapAsyncDuplexLocalStream(boost::asio::io_service& ioService,
         const ENCAP_PACKET_TYPE encapPacketType,
         const uint64_t maxEncapRxPacketSizeBytes,
         const OnFullEncapPacketReceivedCallback_t& onFullEncapPacketReceivedCallback) :
@@ -69,7 +69,7 @@ public:
     }
     
     
-    ~AsyncDuplexLocalStream() {
+    ~EncapAsyncDuplexLocalStream() {
         Stop();
     }
     
@@ -140,12 +140,12 @@ public:
             }
             m_running = true;
             m_threadWaitForConnection = boost::make_unique<boost::thread>(
-                boost::bind(&AsyncDuplexLocalStream::WaitForConnectionThreadFunc, this, hPipeInst));
+                boost::bind(&EncapAsyncDuplexLocalStream::WaitForConnectionThreadFunc, this, hPipeInst));
         }
         else { //connecting
             m_running = true;
             m_threadWaitForConnection = boost::make_unique<boost::thread>(
-                boost::bind(&AsyncDuplexLocalStream::TryToOpenExistingPipeThreadFunc, this));
+                boost::bind(&EncapAsyncDuplexLocalStream::TryToOpenExistingPipeThreadFunc, this));
         }
 #else //unix sockets
         const boost::asio::local::stream_protocol::endpoint streamProtocolEndpoint(m_socketOrPipePath);
@@ -159,12 +159,12 @@ public:
             m_streamAcceptorPtr = boost::make_unique<boost::asio::local::stream_protocol::acceptor>(
                 m_ioServiceRef, streamProtocolEndpoint);
             m_streamAcceptorPtr->async_accept(m_streamHandle,
-                boost::bind(&AsyncDuplexLocalStream::OnSocketAccept, this, boost::asio::placeholders::error));
+                boost::bind(&EncapAsyncDuplexLocalStream::OnSocketAccept, this, boost::asio::placeholders::error));
             m_running = true;
         }
         else { //connecting
             m_streamHandle.async_connect(streamProtocolEndpoint,
-                boost::bind(&AsyncDuplexLocalStream::OnSocketConnect, this, boost::asio::placeholders::error));
+                boost::bind(&EncapAsyncDuplexLocalStream::OnSocketConnect, this, boost::asio::placeholders::error));
             m_running = true;
         }
 #endif //STREAM_USE_WINDOWS_NAMED_PIPE
@@ -221,7 +221,7 @@ private:
             std::cout << "error: " << ecAssign.what() << "\n";
             return;
         }
-        boost::asio::post(m_ioServiceRef, boost::bind(&AsyncDuplexLocalStream::OnConnectionThreadCompleted_NotThreadSafe, this));
+        boost::asio::post(m_ioServiceRef, boost::bind(&EncapAsyncDuplexLocalStream::OnConnectionThreadCompleted_NotThreadSafe, this));
     }
     void TryToOpenExistingPipeThreadFunc() {
         while (m_running) {
@@ -245,7 +245,7 @@ private:
                     std::cout << "error: " << ecAssign.what() << "\n";
                     return;
                 }
-                boost::asio::post(m_ioServiceRef, boost::bind(&AsyncDuplexLocalStream::OnConnectionThreadCompleted_NotThreadSafe, this));
+                boost::asio::post(m_ioServiceRef, boost::bind(&EncapAsyncDuplexLocalStream::OnConnectionThreadCompleted_NotThreadSafe, this));
                 return;
             }
         }
@@ -281,7 +281,7 @@ private:
                 }
                 m_reconnectAfterOnConnectErrorTimer.expires_from_now(boost::posix_time::seconds(2));
                 m_reconnectAfterOnConnectErrorTimer.async_wait(
-                    boost::bind(&AsyncDuplexLocalStream::OnReconnectAfterOnConnectError_TimerExpired, this, boost::asio::placeholders::error));
+                    boost::bind(&EncapAsyncDuplexLocalStream::OnReconnectAfterOnConnectError_TimerExpired, this, boost::asio::placeholders::error));
             }
         }
         else {
@@ -300,7 +300,7 @@ private:
             }
             const boost::asio::local::stream_protocol::endpoint streamProtocolEndpoint(m_socketOrPipePath);
             m_streamHandle.async_connect(streamProtocolEndpoint,
-                boost::bind(&AsyncDuplexLocalStream::OnSocketConnect, this, boost::asio::placeholders::error));
+                boost::bind(&EncapAsyncDuplexLocalStream::OnSocketConnect, this, boost::asio::placeholders::error));
         }
     }
 #endif //STREAM_USE_WINDOWS_NAMED_PIPE
@@ -309,12 +309,12 @@ public:
         m_receivedFullEncapPacket_swappable.resize(8);
         boost::asio::async_read(m_streamHandle,
             boost::asio::buffer(&m_receivedFullEncapPacket_swappable[0], 1),
-            boost::bind(&AsyncDuplexLocalStream::HandleFirstEncapByteReadCompleted, this,
+            boost::bind(&EncapAsyncDuplexLocalStream::HandleFirstEncapByteReadCompleted, this,
                 boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
     }
     void StartReadFirstEncapHeaderByte_ThreadSafe() {
-        boost::asio::post(m_ioServiceRef, boost::bind(&AsyncDuplexLocalStream::StartReadFirstEncapHeaderByte_NotThreadSafe, this));
+        boost::asio::post(m_ioServiceRef, boost::bind(&EncapAsyncDuplexLocalStream::StartReadFirstEncapHeaderByte_NotThreadSafe, this));
     }
 private:
     void HandleFirstEncapByteReadCompleted(const boost::system::error_code& error, std::size_t bytes_transferred) {
@@ -343,7 +343,7 @@ private:
         else {
             boost::asio::async_read(m_streamHandle,
                 boost::asio::buffer(&m_receivedFullEncapPacket_swappable[1], decodedEncapHeaderSize - 1),
-                boost::bind(&AsyncDuplexLocalStream::HandleRemainingEncapHeaderReadCompleted, this,
+                boost::bind(&EncapAsyncDuplexLocalStream::HandleRemainingEncapHeaderReadCompleted, this,
                     boost::asio::placeholders::error,
                     boost::asio::placeholders::bytes_transferred,
                     decodedEncapHeaderSize));
@@ -377,7 +377,7 @@ private:
             m_receivedFullEncapPacket_swappable.resize(decodedEncapPayloadSize + decodedEncapHeaderSize);
             boost::asio::async_read(m_streamHandle,
                 boost::asio::buffer(&m_receivedFullEncapPacket_swappable[decodedEncapHeaderSize], decodedEncapPayloadSize),
-                boost::bind(&AsyncDuplexLocalStream::HandleEncapPayloadReadCompleted, this,
+                boost::bind(&EncapAsyncDuplexLocalStream::HandleEncapPayloadReadCompleted, this,
                     boost::asio::placeholders::error,
                     boost::asio::placeholders::bytes_transferred,
                     decodedEncapPayloadSize, decodedEncapHeaderSize));
@@ -406,7 +406,7 @@ private:
     }
 
     void DoShutdown() {
-        boost::asio::post(m_ioServiceRef, boost::bind(&AsyncDuplexLocalStream::HandleShutdown, this));
+        boost::asio::post(m_ioServiceRef, boost::bind(&EncapAsyncDuplexLocalStream::HandleShutdown, this));
     }
 
     void HandleShutdown() {
@@ -418,7 +418,7 @@ private:
                 m_streamHandle.shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
             }
             catch (const boost::system::system_error& e) {
-                std::cout << "AsyncDuplexLocalStream::HandleShutdown: " << e.what() << "\n";
+                std::cout << "EncapAsyncDuplexLocalStream::HandleShutdown: " << e.what() << "\n";
             }
 #endif
             try {
@@ -426,7 +426,7 @@ private:
                 m_streamHandle.close();
             }
             catch (const boost::system::system_error& e) {
-                std::cout << "AsyncDuplexLocalStream::HandleSocketShutdown: " << e.what() << "\n";
+                std::cout << "EncapAsyncDuplexLocalStream::HandleSocketShutdown: " << e.what() << "\n";
             }
         }
 #ifndef STREAM_USE_WINDOWS_NAMED_PIPE
@@ -476,8 +476,4 @@ public:
     }
 };
 
-
-
-
-
-#endif //_ASYNC_DUPLEX_LOCAL_STREAM_H
+#endif //_ENCAP_ASYNC_DUPLEX_LOCAL_STREAM_H

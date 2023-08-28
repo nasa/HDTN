@@ -55,7 +55,6 @@ target_include_directories(hdtn_util
 		
 )
 set(MY_PUBLIC_HEADERS
-	include/AsyncDuplexLocalStream.h
     include/BinaryConversions.h
 	include/BundleCallbackFunctionDefines.h
 	include/CborUint.h
@@ -64,6 +63,7 @@ set(MY_PUBLIC_HEADERS
 	include/CpuFlagDetection.h
 	include/DeadlineTimer.h
 	include/DirectoryScanner.h
+	include/EncapAsyncDuplexLocalStream.h
 	include/EnumAsFlagsMacro.h
     include/Environment.h
 	include/ForwardListQueue.h

@@ -18,8 +18,8 @@
  * Based on: Encapsulation Packet Protocol: https://public.ccsds.org/Pubs/133x1b3e1.pdf
  */
 
-#ifndef _LTP_ENCAP_H
-#define _LTP_ENCAP_H 1
+#ifndef _CCSDS_ENCAP_H
+#define _CCSDS_ENCAP_H 1
 
 #include <cstdint>
 #include <boost/endian/conversion.hpp>
@@ -271,4 +271,4 @@ static bool DecodeCcsdsEncapPayloadSizeFromSecondToRemainingBytes(const uint8_t 
         return false; //failure (invalid encapHeaderLength)
     }
 }
-#endif // _LTP_ENCAP_H
+#endif // _CCSDS_ENCAP_H
