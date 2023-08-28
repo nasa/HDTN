@@ -1,0 +1,59 @@
+{
+    "bpsecConfigName": "my BPSec Config",
+    "policyRules": [
+        {
+            "description": "HDTN confidentiality acceptor",
+            "securityPolicyRuleId": 1,
+            "securityRole": "acceptor",
+            "securitySource": "ipn:1.1",
+            "bundleSource": [
+                "ipn:*.*"
+            ],
+            "bundleFinalDestination": [
+                "ipn:*.*"
+            ],
+            "securityTargetBlockTypes": [
+                1
+            ],
+            "securityService": "confidentiality",
+            "securityContext": "aesGcm",
+            "securityFailureEventSetReference": "default_confidentiality",
+            "securityContextParams": [
+                {
+                    "paramName": "aesVariant",
+                    "value": 256
+                },
+                {
+                    "paramName": "ivSizeBytes",
+                    "value": 12
+                },
+                {
+                    "paramName": "keyFile",
+                    "value": "config_files/bpsec/ipn1.1_confidentiality.key"
+                },
+                {
+                    "paramName": "securityBlockCrc",
+                    "value": 0
+                },
+                {
+                    "paramName": "scopeFlags",
+                    "value": 7
+                }
+            ]
+        }
+    ],
+    "securityFailureEventSets": [
+        {
+            "name": "default_confidentiality",
+            "description": "default bcb confidentiality security operations event set",
+            "securityOperationEvents": [
+                {
+                    "eventId": "sopCorruptedAtAcceptor",
+                    "actions": [
+                        "removeSecurityOperationTargetBlock"
+                    ]
+                }
+            ]
+        }
+    ]
+}
