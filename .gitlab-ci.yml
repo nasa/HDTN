@@ -254,6 +254,7 @@ sloc-count:
   dependencies: []
   needs: []
   artifacts:
+    expose_as: 'SLOC Counts'
     name: sloc-counts
     paths:
       - reports
