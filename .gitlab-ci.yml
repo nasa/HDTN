@@ -248,7 +248,7 @@ sloc-count:
   image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
   script:
     - git fetch
-    - git pull origin $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+    - git reset --hard origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
     - git checkout $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
     - ./cloc.sh "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" "origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
   dependencies: []
@@ -274,7 +274,7 @@ monthly-sloc-count:
     # Get SLOC counts from the beginning of the previous month to now
     - git fetch
     - git checkout $CI_COMMIT_BRANCH
-    - git pull origin $CI_COMMIT_BRANCH
+    - git reset --hard origin/$CI_COMMIT_BRANCH
     - current_date=$(date +"%Y-%m-%d")
     - first_day_of_previous_month=$(date -d "$current_date -1 month" +"%Y-%m-01 00:00:00")
     - echo "Getting SLOC counts from $first_day_of_previous_month to now"
