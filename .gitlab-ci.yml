@@ -238,3 +238,54 @@ code-test-coverage:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_PIPELINE_SOURCE == "schedule"
+
+# SLOC
+sloc-count:
+  stage: scan-stage
+  tags:
+    - docker
+    - linux-x86
+  image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
+  script:
+    - git fetch
+    - git pull origin $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+    - git checkout $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+    - ./cloc.sh "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" "origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
+  dependencies: []
+  needs: []
+  artifacts:
+    name: sloc-counts
+    paths:
+      - reports
+    expire_in: 2 years
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+
+
+# Monthly SLOC
+monthly-sloc-count:
+  stage: scan-stage
+  tags:
+    - docker
+    - linux-x86
+  image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
+  script:
+    # Get SLOC counts from the beginning of the previous month to now
+    - git fetch
+    - git checkout development
+    - git pull origin development
+    - current_date=$(date +"%Y-%m-%d")
+    - first_day_of_previous_month=$(date -d "$current_date -1 month" +"%Y-%m-01 00:00:00")
+    - echo "Getting SLOC counts from $first_day_of_previous_month to now"
+    - git_commit=$(git log --before="$first_day_of_previous_month" -n 1 --pretty=format:"%H")
+    - ./cloc.sh $git_commit "origin/development"
+  dependencies: []
+  needs: []
+  artifacts:
+    name: sloc-counts
+    paths:
+      - reports
+    expire_in: 2 years
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $DO_MONTHLY_SLOC_COUNT == "true"
