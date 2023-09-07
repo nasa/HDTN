@@ -257,7 +257,7 @@ sloc-count:
     name: sloc-counts
     paths:
       - reports
-    expire_in: 2 years
+    expire_in: 1 month
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
 
@@ -285,7 +285,7 @@ monthly-sloc-count:
     name: sloc-counts
     paths:
       - reports
-    expire_in: 2 years
+    expire_in: 1 month
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $DO_MONTHLY_SLOC_COUNT == "true"
