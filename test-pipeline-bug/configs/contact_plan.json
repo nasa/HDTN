@@ -6,7 +6,7 @@
             "dest": 2,
             "startTime": 0,
             "endTime": 6000000,
-            "rateBitsPerSec": 559240,
+            "rateBitsPerSec": 64,
             "owlt": 1
         },
         {
@@ -15,7 +15,7 @@
             "dest": 1,
             "startTime": 0,
             "endTime": 6000000,
-            "rateBitsPerSec": 559240,
+            "rateBitsPerSec": 1000000000,
             "owlt": 1
         }
     ]

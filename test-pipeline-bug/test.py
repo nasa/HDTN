@@ -10,11 +10,33 @@ import socket
 import time
 import unittest
 import zmq
-from adminrecord import AdminRecord, CustodySignal, BpBlock
+from scapy.contrib.bp import BP
+from adminrecord import AdminRecord, CustodySignal, BpBlock, Bundle
 from backgroundprocess import BackgroundProcess
 from scapy.all import raw, Raw
-from scapy.contrib.bp import BP
+import datetime
 
+class DtnTime:
+    def __init__(self, ts, seq):
+        self.ts = ts 
+        self.seq = seq
+
+    BASE = datetime.datetime.fromisoformat('2000-01-01T00:00:00+00:00').timestamp()
+    last_ts = 0
+    next_count = 0
+
+    @staticmethod
+    def get_dtn_time():
+        ts = int(datetime.datetime.now().timestamp())
+        if ts == DtnTime.last_ts:
+            seq = DtnTime.next_count
+            DtnTime.next_count += 1
+            return DtnTime(ts, seq)
+        else:
+            DtnTime.last_ts = ts
+            DtnTime.next_count = 1
+            seq = 0
+        return DtnTime(ts, seq)
 
 @contextmanager
 def l(*args, end=" "):
@@ -26,37 +48,9 @@ def l(*args, end=" "):
     finally:
         pass
 
-
-def do_api_command(cmd):
-    """Send HDTN an API Command"""
-    with zmq.Context() as c:
-        with c.socket(zmq.REQ) as s:
-            s.connect("tcp://127.0.0.1:10305")
-            s.send_json(cmd)
-            if s.poll(2000, zmq.POLLIN):
-                s.recv()
-            s.close()
-
-
-def clear_contacts():
-    """Send HDTN an empty contact plan"""
-    p = {"contacts": []}
-    cmd = {"apiCall": "upload_contact_plan", "contactPlanJson": json.dumps(p)}
-    do_api_command(cmd)
-
-
-def get_expiring():
-    """Get expiring bundles of priority zero"""
-    cmd = {
-        "apiCall": "get_expiring_storage",
-        "priority": 0,
-        "thresholdSecondsFromNow": 10000000,
-    }
-    do_api_command(cmd)
-
-
-def build_bundle():
+def build_bundle(bundle_num, payload_size):
     """Create bundle to send to HDTN"""
+    dtn_time = DtnTime.get_dtn_time()
     bundle = BP(
         version=6,  # Version
         ProcFlags=1 << 4 | 1 << 3,  # Bundle processing control flags
@@ -64,31 +58,38 @@ def build_bundle():
         DSSO=3,  # Destination SSP offset
         SSO=1,  # Source scheme offset
         SSSO=4,  # Source SSP offset
-        CT=5,  # Creation time timestamp
-        CTSN=6,  # Creation timestamp sequence number
+        CT=dtn_time.ts,  # Creation time timestamp
+        CTSN=dtn_time.seq,  # Creation timestamp sequence number
         CSO=1,
         CSSO=4,
         LT=1000,  # Life time
         DL=0,  # Dictionary length
     )
 
-    payload = BpBlock(Type=1, flags=(1 << 3)) / Raw(b"hello world")
+    payload_base = f'bundle {bundle_num}'.encode('ascii')
+    remain_size = payload_size - len(payload_base)
+    if remain_size < 0:
+        raise Exception(f"Requested payload size {payload_size} bytes too small")
+    payload_content = payload_base + (b' ' * remain_size)
+
+    payload = BpBlock(Type=1, flags=(1 << 3)) / Raw(payload_content)
     return bundle / payload
 
 
 def build_custody_signal(custody_bundle):
     """Build custody signal to send to HDTN"""
-    bp = custody_bundle["BP"]
+    bp = custody_bundle["Bundle"]
+    dtn_time = DtnTime.get_dtn_time()
     sig = (
         BP(
             version=6,
             ProcFlags=1 << 4 | 1 << 1,
-            DSO=bp.CSO,
-            DSSO=bp.CSSO,
+            DSO=bp.custodian_scheme_offset,
+            DSSO=bp.custodian_ssp_offset,
             SSO=2,
             SSSO=3,
-            CT=12,
-            CTSN=13,
+            CT=dtn_time.ts,  # Creation time timestamp
+            CTSN=dtn_time.seq,  # Creation timestamp sequence number
             LT=1000,
             DL=0,
         )
@@ -99,9 +100,9 @@ def build_custody_signal(custody_bundle):
             reason=0,
             sig_time_sec=0xCAFE,
             sig_time_nano=0xBEEF,
-            creat_time=bp.CT,
-            creat_seq=bp.CTSN,
-            src_eid=f"ipn:{bp.SSO}.{bp.SSSO}",
+            creat_time=bp.creation_timestamp_time,
+            creat_seq=bp.creation_timestamp_num,
+            src_eid=f"ipn:{bp.src_scheme_offset}.{bp.src_ssp_offset}",
         )
     )
     return sig
@@ -153,8 +154,8 @@ class TestCustodyBug(unittest.TestCase):
         self.sockets.append(s)
         return s
 
-    def test_expedited_in_store(self):
-        """Test storage full of expedited, receiving normal"""
+    def test_pipeline(self):
+        """Test pipeline errors"""
 
         # Final destination for bundle
         node_two_sock = self.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -173,48 +174,55 @@ class TestCustodyBug(unittest.TestCase):
             hdtn = self.process(cmd, "hdtn")
             hdtn.wait_for_output("UdpBundleSink bound successfully on UDP port", 5)
 
-        with l("Sending bundle to HDTN"):
+        with l("Sending bundles to HDTN"):
             s = self.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            bundle = build_bundle()
-            packet = raw(bundle)
-            s.sendto(packet, ("127.0.0.1", 4010))
+            for i in range(2):
+                bundle = build_bundle(i, 32)
+                packet = raw(bundle)
+                print(f"sending bundle {i} of size {len(packet)}")
+                s.sendto(packet, ("127.0.0.1", 4010))
 
         custody_bundle = None
         with l("Waiting for bundles from HDTN...", end="\n"):
-            for _ in range(2):
-                has_data = select.select([node_one_sock, node_two_sock], [], [], 10)
-                self.assertGreater(len(has_data[0]), 0)
+            #for _ in range(2):
+            while True:
+                has_data = select.select([node_one_sock, node_two_sock], [], [], 1000)
+                #self.assertGreater(len(has_data[0]), 0)
+                if not has_data[0]:
+                    break
                 rcv = has_data[0][0]
                 recv_bundle, recv_addr = rcv.recvfrom(1024)
-                b = BP(recv_bundle)
+                b = Bundle(recv_bundle)
                 if rcv == node_two_sock:
                     custody_bundle = b
-                    payload = raw(b["Raw"]).decode("ascii", errors="backslashreplace")
+                    payload = raw(b["Payload"]).decode("ascii", errors="backslashreplace")
                     print(
                         f"  Node two got bundle from {recv_addr}:\n    {b} : {payload}"
                     )
+                    custody_signal = build_custody_signal(custody_bundle)
+                    s.sendto(raw(custody_signal), ("127.0.0.1", 4010))
                 elif rcv == node_one_sock:
                     print(f"  Node one got custody signal from {recv_addr}:\n    {b}")
 
         self.assertIsNotNone(custody_bundle)
 
-        with l("Clearing contacts"):
-            clear_contacts()
-
-        with l("Waiting for custody transfer timer to expire"):
-            time.sleep(5)  # In config, set this to 2 seconds
-
-        with l("Sending custody signal"):
-            custody_signal = build_custody_signal(custody_bundle)
-            s.sendto(raw(custody_signal), ("127.0.0.1", 4010))
-
-        with l("Call get_expiring_storage API to cause crash"):
-            get_expiring()
-
-        with l("Testing that HDTN has not crashed"):
-            time.sleep(1)  # This sleep probably not needed
-            # poll returns None if the process is still running
-            self.assertIsNone(hdtn.proc.poll())
+#        with l("Clearing contacts"):
+#            clear_contacts()
+#
+#        with l("Waiting for custody transfer timer to expire"):
+#            time.sleep(5)  # In config, set this to 2 seconds
+#
+#        with l("Sending custody signal"):
+#            custody_signal = build_custody_signal(custody_bundle)
+#            s.sendto(raw(custody_signal), ("127.0.0.1", 4010))
+#
+#        with l("Call get_expiring_storage API to cause crash"):
+#            get_expiring()
+#
+#        with l("Testing that HDTN has not crashed"):
+#            time.sleep(1)  # This sleep probably not needed
+#            # poll returns None if the process is still running
+#            self.assertIsNone(hdtn.proc.poll())
 
 
 if __name__ == "__main__":

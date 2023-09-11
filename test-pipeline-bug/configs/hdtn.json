@@ -7,7 +7,7 @@
     "myCustodialSsp": "unused_custodial_ssp",
     "myCustodialServiceId": 0,
     "myRouterServiceId": 100,
-    "isAcsAware": false,
+    "isAcsAware": true,
     "acsMaxFillsPerAcsPacket": 100,
     "acsSendPeriodMilliseconds": 1000,
     "retransmitBundleAfterNoCustodySignalMilliseconds": 2000,
