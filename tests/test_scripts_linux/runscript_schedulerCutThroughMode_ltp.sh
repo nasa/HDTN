@@ -17,7 +17,7 @@ sleep 3
 sleep 10
 
 #bpgen
-./build/common/bpcodec/apps/bpgen-async --bundle-rate=100 --my-uri-eid=ipn:1.1 --dest-uri-eid=ipn:2.1 --outducts-config-file=$gen_config &
+./build/common/bpcodec/apps/bpgen-async --bundle-rate=10000 --my-uri-eid=ipn:1.1 --dest-uri-eid=ipn:2.1 --outducts-config-file=$gen_config &
 sleep 8
 
 

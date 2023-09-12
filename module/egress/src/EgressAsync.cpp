@@ -50,6 +50,7 @@ private:
     void OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid);
     void ResendOutductCapabilities();
     void RouterEventHandler(hdtn::IreleaseChangeHdr& releaseChangeHdr);
+    void SetMaxSendRate(uint64_t rateBps, uint64_t outductUuid);
 
 public:
     //telemetry
@@ -584,48 +585,89 @@ void Egress::Impl::ReadZmqThreadFunc() {
             }
 
             if (items[3].revents & ZMQ_POLLIN) { //telemetry requests data
-                uint8_t telemMsgByte;
-                const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingTelemToFromBoundEgressPtr->recv(zmq::mutable_buffer(&telemMsgByte, sizeof(telemMsgByte)), zmq::recv_flags::dontwait);
-                if (!res) {
-                    LOG_ERROR(subprocess) << "ReadZmqThreadFunc: cannot read telemMsgByte";
-                }
-                else if ((res->truncated()) || (res->size != sizeof(telemMsgByte))) {
-                    LOG_ERROR(subprocess) << "telemMsgByte message mismatch: untruncated = " << res->untruncated_size
-                        << " truncated = " << res->size << " expected = " << sizeof(telemMsgByte);
-                }
-                else if (telemMsgByte != TELEM_REQ_MSG) {
-                    LOG_ERROR(subprocess) << "error telemMsgByte not 1";
-                }
-                else {
+                zmq::message_t apiMsg;
+                std::string* respPtr;
+                do {
+                    // The first message is the connection ID
+                    zmq::message_t connectionID;
+                    if (!m_zmqRepSock_connectingTelemToFromBoundEgressPtr->recv(connectionID, zmq::recv_flags::dontwait)) {
+                        LOG_ERROR(subprocess) << "error receiving api message";
+                        return;
+                    }
+                    // The second message is the api request
+                    if (!m_zmqRepSock_connectingTelemToFromBoundEgressPtr->recv(apiMsg, zmq::recv_flags::dontwait)) {
+                        LOG_ERROR(subprocess) << "error receiving api message";
+                        return;
+                    }
+                    const std::string apiMsgAsJsonStr = apiMsg.to_string();
+                    std::shared_ptr<ApiCommand_t> apiCmdPtr = ApiCommand_t::CreateFromJson(apiMsgAsJsonStr);
+                    if (!apiCmdPtr) {
+                        LOG_ERROR(subprocess) << "error parsing received api json message.. got\n"
+                            << apiMsgAsJsonStr;
+                        continue;
+                    }
+                    
+                    // Send the connection ID
+                    if (!m_zmqRepSock_connectingTelemToFromBoundEgressPtr->send(std::move(connectionID), zmq::send_flags::dontwait | zmq::send_flags::sndmore)) {
+                        LOG_ERROR(subprocess) << "can't send json telemetry to telem";
+                    }
+
+                    // Send the API command
+                    zmq::message_t apiCall = zmq::message_t(apiCmdPtr->m_apiCall);
+                    if (!m_zmqRepSock_connectingTelemToFromBoundEgressPtr->send(std::move(apiCall), zmq::send_flags::dontwait | zmq::send_flags::sndmore)) {
+                        LOG_ERROR(subprocess) << "can't send json telemetry to telem";
+                    }
+
+                    // Prepare telemetry
                     m_outductManager.PopulateAllOutductTelemetry(m_allOutductTelem); //also sets m_totalBundlesSuccessfullySent, m_totalBundleBytesSuccessfullySent
                     m_mutexPushBundleToIngress.lock();
                     m_allOutductTelem.m_totalTcpclBundlesReceived = m_totalTcpclBundlesReceivedMutexProtected;
                     m_allOutductTelem.m_totalTcpclBundleBytesReceived = m_totalTcpclBundleBytesReceivedMutexProtected;
                     m_mutexPushBundleToIngress.unlock();
 
-                    std::string* allOutductTelemJsonStringPtr = new std::string(m_allOutductTelem.ToJson());
-                    std::string& strRef = *allOutductTelemJsonStringPtr;
-                    zmq::message_t zmqJsonMessage(&strRef[0], allOutductTelemJsonStringPtr->size(), CustomCleanupStdString, allOutductTelemJsonStringPtr);
-
-                    //send telemetry
-                    if (m_lastJsonAoctSharedPtr) {
-                        std::shared_ptr<std::string>* jsonRawPtrToSharedPtr = new std::shared_ptr<std::string>(std::move(m_lastJsonAoctSharedPtr));
-
-                        std::shared_ptr<std::string>& sharedPtrRef = *jsonRawPtrToSharedPtr;
-                        std::string& strAoctRef = *sharedPtrRef;
-
-                        zmq::message_t zmqTelemMessageWithDataStolen(&strAoctRef[0], strAoctRef.size(),
-                                CustomCleanupSharedPtrStdString, jsonRawPtrToSharedPtr);
-                        //use msg.more() on receiving end to know if this is multipart
-                        if (!m_zmqRepSock_connectingTelemToFromBoundEgressPtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
-                            LOG_ERROR(subprocess) << "can't send Json Aoct telemetry to telemetry interface";
+                    // Send the message body, depending on the type of request
+                    const zmq::send_flags additionalFlags = (apiMsg.more() ? zmq::send_flags::sndmore : zmq::send_flags::none);
+                    if (apiCmdPtr->m_apiCall == GetOutductsApiCommand_t::Name()) {
+                        respPtr = new std::string(m_allOutductTelem.ToJson());
+                        std::string& strRef = *respPtr;
+                        zmq::message_t zmqJsonMessage(&strRef[0], respPtr->size(), CustomCleanupStdString, respPtr);
+                        if (!m_zmqRepSock_connectingTelemToFromBoundEgressPtr->send(std::move(zmqJsonMessage), zmq::send_flags::dontwait | additionalFlags)) {
+                            LOG_ERROR(subprocess) << "can't send json telemetry to telem";
+                        }
+                    } else if (apiCmdPtr->m_apiCall == SetMaxSendRateApiCommand_t::Name()) {
+                        SetMaxSendRateApiCommand_t* cmd = dynamic_cast<SetMaxSendRateApiCommand_t*>(apiCmdPtr.get());
+                        LOG_INFO(subprocess) << "Setting max send rate ";
+                        SetMaxSendRate(cmd->m_rateBitsPerSec, cmd->m_outduct);
+                        ApiResp_t resp;
+                        resp.m_success = true;
+                        respPtr = new std::string(resp.ToJson());
+                        std::string& strRef = *respPtr;
+                        zmq::message_t zmqJsonMessage(&strRef[0], respPtr->size(), CustomCleanupStdString, respPtr);
+                        if (!m_zmqRepSock_connectingTelemToFromBoundEgressPtr->send(std::move(zmqJsonMessage), zmq::send_flags::dontwait | additionalFlags)) {
+                            LOG_ERROR(subprocess) << "can't send json telemetry to telem";
+                        }
+                    } else if (apiCmdPtr->m_apiCall == GetOutductCapabilitiesApiCommand_t::Name()) {
+                        if (m_lastJsonAoctSharedPtr) {
+                            std::shared_ptr<std::string>* jsonRawPtrToSharedPtr = new std::shared_ptr<std::string>(std::move(m_lastJsonAoctSharedPtr));
+                            std::shared_ptr<std::string>& sharedPtrRef = *jsonRawPtrToSharedPtr;
+                            std::string& strAoctRef = *sharedPtrRef;
+                            zmq::message_t zmqTelemMessageWithDataStolen(&strAoctRef[0], strAoctRef.size(),
+                                    CustomCleanupSharedPtrStdString, jsonRawPtrToSharedPtr);
+                            if (!m_zmqRepSock_connectingTelemToFromBoundEgressPtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+                                LOG_ERROR(subprocess) << "can't send Json Aoct telemetry to telemetry interface";
+                            }
+                        } else {
+                            ApiResp_t resp;
+                            resp.m_success = false;
+                            respPtr = new std::string(resp.ToJson());
+                            std::string& strRef = *respPtr;
+                            zmq::message_t zmqJsonMessage(&strRef[0], respPtr->size(), CustomCleanupStdString, respPtr);
+                            if (!m_zmqRepSock_connectingTelemToFromBoundEgressPtr->send(std::move(zmqJsonMessage), zmq::send_flags::dontwait | additionalFlags)) {
+                                LOG_ERROR(subprocess) << "can't send json telemetry to telem";
+                            }
                         }
                     }
-
-                    if (!m_zmqRepSock_connectingTelemToFromBoundEgressPtr->send(std::move(zmqJsonMessage), zmq::send_flags::dontwait)) {
-                        LOG_ERROR(subprocess) << "can't send json telemetry to telem";
-                    }
-                }
+                } while (apiMsg.more());
             }
 
             if (items[4].revents & ZMQ_POLLIN) { //zmq inproc from link changes
@@ -938,6 +980,16 @@ void Egress::Impl::RouterEventHandler(hdtn::IreleaseChangeHdr& releaseChangeHdr)
         }
         outduct->m_linkIsUpPerTimeSchedule = false;
     }
+}
+
+void Egress::Impl::SetMaxSendRate(uint64_t rateBps, uint64_t outductUuid) {
+    Outduct* outduct = m_outductManager.GetOutductByOutductUuid(outductUuid);
+    if (!outduct) {
+        LOG_ERROR(subprocess) << "could not find outduct from uuid; not adjusting rate";
+        return;
+    }
+    LOG_INFO(subprocess) << "setting rate to " << rateBps << " bps from api call";
+    outduct->SetRate(rateBps);
 }
 
 }  // namespace hdtn

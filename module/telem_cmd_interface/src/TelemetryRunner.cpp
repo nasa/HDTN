@@ -72,10 +72,10 @@ class TelemetryRunner::Impl : private boost::noncopyable {
         void OnNewWebsocketConnectionCallback(WebsocketSessionPublicBase& conn);
         bool OnNewWebsocketDataReceivedCallback(WebsocketSessionPublicBase& conn, std::string& receivedString);
         bool OnApiRequest(std::string&& msgJson, zmq::message_t&& connectionID);
-        bool HandlePingCommand(std::string& movablePayload, zmq::message_t& connectionID);
-        bool HandleUploadContactPlanCommand(std::string& movablePayload, zmq::message_t& connectionID);
-        bool HandleStorageCommands(std::string& movablePayload, zmq::message_t& connectionID);
-        bool HandleBPSecCommand(std::string &movablePayload, zmq::message_t& connectionID);
+        bool HandleIngressCommand(std::string& movablePayload, zmq::message_t& connectionID);
+        bool HandleStorageCommand(std::string& movablePayload, zmq::message_t& connectionID);
+        bool HandleRouterCommand(std::string &movablePayload, zmq::message_t& connectionID);
+        bool HandleEgressCommand(std::string &movablePayload, zmq::message_t& connectionID);
         void QueueTelemRequests();
 
         std::atomic<bool> m_running;
@@ -129,12 +129,16 @@ TelemetryRunner::Impl::Impl() :
     m_running(false),
     m_deadlineTimer(THREAD_INTERVAL_MS)
 {
-    m_apiCmdMap[PingApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandlePingCommand, this, boost::placeholders::_1, boost::placeholders::_2);
-    m_apiCmdMap["get_bpsec_config"] = boost::bind(&TelemetryRunner::Impl::HandleBPSecCommand, this, boost::placeholders::_1, boost::placeholders::_2);
-    m_apiCmdMap["update_bpsec_config"] = boost::bind(&TelemetryRunner::Impl::HandleBPSecCommand, this, boost::placeholders::_1, boost::placeholders::_2);
-    m_apiCmdMap["upload_contact_plan"] = boost::bind(&TelemetryRunner::Impl::HandleUploadContactPlanCommand, this, boost::placeholders::_1, boost::placeholders::_2);
-    m_apiCmdMap[GetExpiringStorageApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandleStorageCommands, this, boost::placeholders::_1, boost::placeholders::_2);
-    m_apiCmdMap[GetStorageApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandleStorageCommands, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[PingApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandleIngressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[GetBpSecApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandleIngressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[UpdateBpSecApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandleIngressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[UploadContactPlanApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandleRouterCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[GetExpiringStorageApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandleStorageCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[GetStorageApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandleStorageCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[SetMaxSendRateApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandleEgressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[GetOutductsApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandleEgressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[GetOutductCapabilitiesApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandleEgressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[GetInductsApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandleIngressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
 }
 
 bool TelemetryRunner::Impl::Init(const HdtnConfig &hdtnConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options) {
@@ -210,20 +214,20 @@ bool TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback(WebsocketSessionP
     return true; // keep open
 }
 
-bool TelemetryRunner::Impl::HandlePingCommand(std::string &movablePayload, zmq::message_t& connectionID) {
+bool TelemetryRunner::Impl::HandleIngressCommand(std::string &movablePayload, zmq::message_t& connectionID) {
     return m_ingressConnection->EnqueueApiPayload(std::move(movablePayload), std::move(connectionID));
 }
 
-bool TelemetryRunner::Impl::HandleBPSecCommand(std::string &movablePayload, zmq::message_t& connectionID) {
-    return m_ingressConnection->EnqueueApiPayload(std::move(movablePayload), std::move(connectionID));
-}
-
-bool TelemetryRunner::Impl::HandleUploadContactPlanCommand(std::string &movablePayload, zmq::message_t& connectionID) {
+bool TelemetryRunner::Impl::HandleRouterCommand(std::string &movablePayload, zmq::message_t& connectionID) {
     return m_routerConnection->EnqueueApiPayload(std::move(movablePayload), std::move(connectionID));
 }
 
-bool TelemetryRunner::Impl::HandleStorageCommands(std::string &movablePayload, zmq::message_t& connectionID) {
+bool TelemetryRunner::Impl::HandleStorageCommand(std::string &movablePayload, zmq::message_t& connectionID) {
     return m_storageConnection->EnqueueApiPayload(std::move(movablePayload), std::move(connectionID));
+}
+
+bool TelemetryRunner::Impl::HandleEgressCommand(std::string &movablePayload, zmq::message_t& connectionID) {
+    return m_egressConnection->EnqueueApiPayload(std::move(movablePayload), std::move(connectionID));
 }
 
 bool TelemetryRunner::Impl::OnApiRequest(std::string &&msgJson, zmq::message_t&& connectionID) {
@@ -254,7 +258,7 @@ static bool ReceivedStorage(unsigned int mask) {
 }
 
 static bool ReceivedAllRequired(unsigned int mask) {
-    return ReceivedStorage(mask);// && ReceivedEgress(mask) && ReceivedIngress(mask);
+    return ReceivedStorage(mask) && ReceivedEgress(mask) && ReceivedIngress(mask);
 }
 
 void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr &hdtnDistributedConfigPtr, zmq::context_t *inprocContextPtr) {
@@ -366,9 +370,9 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr &hdtnDist
 
         // Send pending requests to all hdtn modules
         m_storageConnection->SendRequests();
-        // m_egressConnection->SendRequests();
-        // m_ingressConnection->SendRequests();
-        // m_routerConnection->SendRequests();
+        m_egressConnection->SendRequests();
+        m_ingressConnection->SendRequests();
+        m_routerConnection->SendRequests();
 
         // Poll for responses from all modules
         unsigned int receiveEventsMask = 0;
@@ -386,47 +390,72 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr &hdtnDist
 
             if (poller.HasNewMessage(*m_ingressConnection)) {
                 receiveEventsMask |= REC_INGRESS;
-                zmq::message_t msgJson = m_ingressConnection->ReadMessage();
-                zmq::message_t msg2;
-                OnNewJsonTelemetry((const char *)msgJson.data(), msgJson.size());
-                if (msgJson.more()) {
-                    msg2 = m_ingressConnection->ReadMessage();
-                    OnNewJsonTelemetry((const char*)msg2.data(), msg2.size());                
-                }
+                bool more;
+                do {
+                    zmq::message_t connectionID = m_ingressConnection->ReadMessage();
+                    std::string apiCall = m_ingressConnection->ReadMessage().to_string();
+                    zmq::message_t responseMsg = m_ingressConnection->ReadMessage();
+                    more = responseMsg.more();
 
-                zmq::message_t& msgInductTelem = msgJson.more() ? msg2 : msgJson;
-                if (!inductTelem.SetValuesFromJsonCharArray((const char *)msgInductTelem.data(), msgInductTelem.size())) {
-                    LOG_ERROR(subprocess) << "cannot deserialize AllInductTelemetry_t for TelemetryLogger";
-                }
-                if (m_ingressConnection->m_apiSocketAwaitingResponse) {
-                    m_ingressConnection->m_apiSocketAwaitingResponse = false;
-                    zmq::message_t msg;
-                    m_apiConnection->SendZmqMessage(std::move(msg), false);
-                }
+                    // Handle the response depending on who sent it
+                    if (connectionID == TELEM_REQ_CONN_ID) {
+                        OnNewJsonTelemetry((const char *)responseMsg.data(), responseMsg.size());
+                        if (apiCall == GetInductsApiCommand_t::Name()) {
+                            if (!inductTelem.SetValuesFromJsonCharArray((const char *)responseMsg.data(), responseMsg.size())) {
+                                LOG_ERROR(subprocess) << "cannot deserialize AllInductTelemetry_t";
+                            }
+                        }
+                    } else if (connectionID == GUI_REQ_CONN_ID) {
+                        // Request came from GUI; No action needed
+                    } else {
+                        LOG_INFO(subprocess) << "Sending to API";
+                        // Request came from external API. Respond to the appropraite connection.
+                        zmq::message_t blank;
+                        m_apiConnection->SendZmqMessage(std::move(connectionID), true);
+                        m_apiConnection->SendZmqMessage(std::move(blank), true);
+                        m_apiConnection->SendZmqMessage(std::move(responseMsg), false);
+                    }
+                } while (more);
             }
             if (poller.HasNewMessage(*m_egressConnection)) {
                 receiveEventsMask |= REC_EGRESS;
-                zmq::message_t msg = m_egressConnection->ReadMessage();
-                zmq::message_t msg2;
-                const zmq::message_t *messageOutductTelemPtr = &msg;
-                OnNewJsonTelemetry((const char *)msg.data(), msg.size());
-                if (msg.more()) { // msg was Aoct type, msg2 is normal ouduct telem
-                    {
-                        boost::mutex::scoped_lock lock(m_lastSerializedAllOutductCapabilitiesMutex);
-                        m_lastJsonSerializedAllOutductCapabilitiesPtr = std::make_shared<std::string>(msg.to_string());
+
+                bool more;
+                do {
+                    zmq::message_t connectionID = m_egressConnection->ReadMessage();
+                    std::string apiCall = m_egressConnection->ReadMessage().to_string();
+                    zmq::message_t responseMsg = m_egressConnection->ReadMessage();
+                    more = responseMsg.more();    
+
+                    // Handle the response depending on who sent it
+                    if (connectionID == TELEM_REQ_CONN_ID) {
+                        if (apiCall == GetOutductCapabilitiesApiCommand_t::Name()) {
+                            ApiResp_t response;
+                            if (response.SetValuesFromJson(responseMsg.to_string()) && response.m_success == false) {
+                                // There was no outduct capability data. Do nothing.
+                            } else {
+                                boost::mutex::scoped_lock lock(m_lastSerializedAllOutductCapabilitiesMutex);
+                                m_lastJsonSerializedAllOutductCapabilitiesPtr = std::make_shared<std::string>(responseMsg.to_string());
+                                OnNewJsonTelemetry((const char *)responseMsg.data(), responseMsg.size());
+                            }
+                        }
+                        else if (apiCall == GetOutductsApiCommand_t::Name()) {
+                            if (!outductTelem.SetValuesFromJsonCharArray((const char *)responseMsg.data(), responseMsg.size())) {
+                                LOG_ERROR(subprocess) << "cannot deserialize AllOutductTelemetry_t";
+                            }
+                            OnNewJsonTelemetry((const char *)responseMsg.data(), responseMsg.size());
+                        }
+                    } else if (connectionID == GUI_REQ_CONN_ID) {
+                        // Request came from GUI; No action needed
+                    } else {
+                        LOG_INFO(subprocess) << "Sending to API";
+                        // Request came from external API. Respond to the appropriate connection.
+                        zmq::message_t blank;
+                        m_apiConnection->SendZmqMessage(std::move(connectionID), true);
+                        m_apiConnection->SendZmqMessage(std::move(blank), true);
+                        m_apiConnection->SendZmqMessage(std::move(responseMsg), false);
                     }
-#ifdef USE_WEB_INTERFACE
-                    if (m_websocketServerPtr) {
-                        m_websocketServerPtr->SendTextDataToActiveWebsockets(m_lastJsonSerializedAllOutductCapabilitiesPtr);
-                    }
-#endif
-                    msg2 = m_egressConnection->ReadMessage();
-                    OnNewJsonTelemetry((const char *)msg2.data(), msg2.size());
-                    messageOutductTelemPtr = &msg2;
-                }
-                if (!outductTelem.SetValuesFromJsonCharArray((const char *)messageOutductTelemPtr->data(), messageOutductTelemPtr->size())) {
-                    LOG_ERROR(subprocess) << "cannot deserialize AllOutductTelemetry_t";
-                }
+                } while (more);
             }
             if (poller.HasNewMessage(*m_storageConnection)) {
                 receiveEventsMask |= REC_STORAGE;
@@ -448,7 +477,6 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr &hdtnDist
                     } else if (connectionID == GUI_REQ_CONN_ID) {
                         // Request came from GUI; No action needed
                     } else {
-                        LOG_INFO(subprocess) << "Sending to API";
                         // Request came from external API. Respond to the appropraite connection.
                         zmq::message_t blank;
                         m_apiConnection->SendZmqMessage(std::move(connectionID), true);
@@ -458,14 +486,25 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr &hdtnDist
                 } while (more);
             }
             if (poller.HasNewMessage(*m_routerConnection)) {
-                // We only get this response if we sent an API command to router.
-                // Router does not currently send data, so throw away the message content.
-                m_routerConnection->ReadMessage();
-                if (m_routerConnection->m_apiSocketAwaitingResponse) {
-                    m_routerConnection->m_apiSocketAwaitingResponse = false;
-                    zmq::message_t msg;
-                    m_apiConnection->SendZmqMessage(std::move(msg), false);
-                }
+                bool more;
+                do {
+                    zmq::message_t connectionID = m_routerConnection->ReadMessage();
+                    std::string apiCall = m_routerConnection->ReadMessage().to_string();
+                    zmq::message_t responseMsg = m_routerConnection->ReadMessage();
+                    more = responseMsg.more();    
+
+                    // Handle the response depending on who sent it
+                   if (connectionID == GUI_REQ_CONN_ID) {
+                        // Request came from GUI; No action needed
+                    } else {
+                        LOG_INFO(subprocess) << "Sending to API";
+                        // Request came from external API. Respond to the appropraite connection.
+                        zmq::message_t blank;
+                        m_apiConnection->SendZmqMessage(std::move(connectionID), true);
+                        m_apiConnection->SendZmqMessage(std::move(blank), true);
+                        m_apiConnection->SendZmqMessage(std::move(responseMsg), false);
+                    }
+                } while (more);
             }
         }
         if (ReceivedAllRequired(receiveEventsMask)) {
@@ -485,6 +524,10 @@ void TelemetryRunner::Impl::QueueTelemRequests() {
     zmq::message_t connectionId;
     connectionId.copy(TELEM_REQ_CONN_ID);
     m_storageConnection->EnqueueApiPayload(std::move(request), std::move(connectionId));
+
+    request = GetOutductCapabilitiesApiCommand_t().ToJson();
+    connectionId.copy(TELEM_REQ_CONN_ID);
+    m_egressConnection->EnqueueApiPayload(std::move(request), std::move(connectionId));
 
     request = GetOutductsApiCommand_t().ToJson();
     connectionId.copy(TELEM_REQ_CONN_ID);

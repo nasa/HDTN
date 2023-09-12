@@ -469,6 +469,12 @@ struct GetOutductsApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT static const std::string Name();
 };
 
+struct GetOutductCapabilitiesApiCommand_t : public ApiCommand_t {
+    TELEMETRY_DEFINITIONS_EXPORT GetOutductCapabilitiesApiCommand_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~GetOutductCapabilitiesApiCommand_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT static const std::string Name();
+};
+
 struct GetInductsApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT GetInductsApiCommand_t();
     TELEMETRY_DEFINITIONS_EXPORT ~GetInductsApiCommand_t();
@@ -535,6 +541,38 @@ struct UpdateBpSecApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     TELEMETRY_DEFINITIONS_EXPORT static const std::string Name();
+};
+
+struct GetBpSecApiCommand_t : public ApiCommand_t {
+    TELEMETRY_DEFINITIONS_EXPORT GetBpSecApiCommand_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~GetBpSecApiCommand_t() override;
+
+    TELEMETRY_DEFINITIONS_EXPORT static const std::string Name();
+};
+
+struct SetMaxSendRateApiCommand_t : public ApiCommand_t {
+    uint64_t m_rateBitsPerSec;
+    uint64_t m_outduct;
+
+    TELEMETRY_DEFINITIONS_EXPORT SetMaxSendRateApiCommand_t();
+
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+
+    TELEMETRY_DEFINITIONS_EXPORT static const std::string Name();
+};
+
+struct ApiResp_t : public JsonSerializable {
+    bool m_success;
+
+    TELEMETRY_DEFINITIONS_EXPORT ApiResp_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~ApiResp_t();
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 };
 
 /**

@@ -880,64 +880,40 @@ void Ingress::Impl::ZmqTelemThreadFunc() {
         }
         if (rc > 0) {
             if (items[0].revents & ZMQ_POLLIN) { //telem requests data
-                uint8_t telemMsgByte;
-                const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingTelemToFromBoundIngressPtr->recv(zmq::mutable_buffer(&telemMsgByte, sizeof(telemMsgByte)), zmq::recv_flags::dontwait);
-                if (!res) {
-                    LOG_ERROR(subprocess) << "ReadZmqAcksThreadFunc: cannot read telemMsgByte";
-                }
-                else if ((res->truncated()) || (res->size != sizeof(telemMsgByte))) {
-                    LOG_ERROR(subprocess) << "telemMsgByte message mismatch: untruncated = " << res->untruncated_size
-                        << " truncated = " << res->size << " expected = " << sizeof(telemMsgByte);
-                }
-                else {
-                    const bool hasApiCalls = telemMsgByte > TELEM_REQ_MSG;
-                    if (hasApiCalls) {
-                        zmq::message_t apiMsg;
-                        do {
-                            if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->recv(apiMsg, zmq::recv_flags::dontwait)) {
-                                LOG_ERROR(subprocess) << "error receiving api message";
-                                continue;
-                            }
-                            const std::string apiMsgAsJsonStr = apiMsg.to_string();
-                            std::shared_ptr<ApiCommand_t> apiCmdPtr = ApiCommand_t::CreateFromJson(apiMsgAsJsonStr);
-                            if (!apiCmdPtr) {
-                                LOG_ERROR(subprocess) << "error parsing received api json message.. got\n"
-                                    << apiMsgAsJsonStr;
-                                continue;
-                            }
-                            LOG_INFO(subprocess) << "got api call " << apiCmdPtr->m_apiCall;
-                            if (PingApiCommand_t* pingCmd = dynamic_cast<PingApiCommand_t*>(apiCmdPtr.get())) {
-                                SendPing(pingCmd->m_nodeId, pingCmd->m_pingServiceNumber, pingCmd->m_bpVersion);
-                            }
-#ifdef BPSEC_SUPPORT_ENABLED
-                            else if (apiCmdPtr->m_apiCall == "get_bpsec_config") {
-                                // redoing what storage has done for BPsec
-                                std::string *bpSecConfigJson = new std::string(m_bpSecConfigPtr ? m_bpSecConfigPtr->ToJson() : "{}");
-                                std::string &strRefBPSec = *bpSecConfigJson;
-
-                                zmq::message_t bpSecMessage = zmq::message_t(&strRefBPSec[0], bpSecConfigJson->size(), CustomCleanupStdString, bpSecConfigJson);
-
-                                if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(bpSecMessage),
-                                    zmq::send_flags::dontwait | zmq::send_flags::sndmore))
-                                {
-                                    LOG_ERROR(subprocess) << "can't send json telemetry to telem";
-                                }
-                            }
-                            else if (UpdateBpSecApiCommand_t* updateBpsecCmd = dynamic_cast<UpdateBpSecApiCommand_t*>(apiCmdPtr.get())) {
-                                LOG_INFO(subprocess) << "Updating bpsec";
-                                m_bpSecConfigPtr = BpSecConfig::CreateFromJson(updateBpsecCmd->m_bpSecJson);
-                                if (!m_bpSecConfigPtr) {
-                                    LOG_FATAL(subprocess) << "Error loading BpSec config file: User Change.  Got:"
-                                        << updateBpsecCmd->m_bpSecJson;
-                                }
-                                else if (!m_bpSecPolicyManager.LoadFromConfig(*m_bpSecConfigPtr)) {
-                                    LOG_FATAL(subprocess) << "Could not load config from for policy manager";
-                                }
-                            }
-#endif
-
-                        } while (apiMsg.more());
+                zmq::message_t apiMsg;
+                std::string* respPtr;
+                do {
+                    // The first message is the connection ID
+                    zmq::message_t connectionID;
+                    if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->recv(connectionID, zmq::recv_flags::dontwait)) {
+                        LOG_ERROR(subprocess) << "error receiving api message";
+                        return;
                     }
+                    // The second message is the api request
+                    if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->recv(apiMsg, zmq::recv_flags::dontwait)) {
+                        LOG_ERROR(subprocess) << "error receiving api message";
+                        return;
+                    }
+                    const std::string apiMsgAsJsonStr = apiMsg.to_string();
+                    std::shared_ptr<ApiCommand_t> apiCmdPtr = ApiCommand_t::CreateFromJson(apiMsgAsJsonStr);
+                    if (!apiCmdPtr) {
+                        LOG_ERROR(subprocess) << "error parsing received api json message.. got\n"
+                            << apiMsgAsJsonStr;
+                        continue;
+                    }
+                    
+                    // Send the connection ID
+                    if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(connectionID), zmq::send_flags::dontwait | zmq::send_flags::sndmore)) {
+                        LOG_ERROR(subprocess) << "can't send json telemetry to telem";
+                    }
+
+                    // Send the API command
+                    zmq::message_t apiCall = zmq::message_t(apiCmdPtr->m_apiCall);
+                    if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(apiCall), zmq::send_flags::dontwait | zmq::send_flags::sndmore)) {
+                        LOG_ERROR(subprocess) << "can't send json telemetry to telem";
+                    }
+
+                    // Sync telemetry
                     AllInductTelemetry_t allInductTelem;
                     m_inductManager.PopulateAllInductTelemetry(allInductTelem); //sets timestamp
                     m_ingressToEgressZmqSocketMutex.lock();
@@ -949,14 +925,74 @@ void Ingress::Impl::ZmqTelemThreadFunc() {
                     allInductTelem.m_bundleByteCountStorage = m_bundleByteCountStorage;
                     m_ingressToStorageZmqSocketMutex.unlock();
 
-                    std::string* allInductTelemJsonStringPtr = new std::string(allInductTelem.ToJson());
-                    std::string& strRef = *allInductTelemJsonStringPtr;
-                    zmq::message_t zmqJsonMessage(&strRef[0], allInductTelemJsonStringPtr->size(), CustomCleanupStdString, allInductTelemJsonStringPtr);
-
-                    if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(zmqJsonMessage), zmq::send_flags::dontwait)) {
-                        LOG_ERROR(subprocess) << "can't send json telemetry to telem";
+                    // Send the message body, depending on the type of request
+                    const zmq::send_flags additionalFlags = (apiMsg.more() ? zmq::send_flags::sndmore : zmq::send_flags::none);
+                    if (PingApiCommand_t* pingCmd = dynamic_cast<PingApiCommand_t*>(apiCmdPtr.get())) {
+                        SendPing(pingCmd->m_nodeId, pingCmd->m_pingServiceNumber, pingCmd->m_bpVersion);
+                        ApiResp_t response;
+                        response.m_success = true;
+                        respPtr = new std::string(response.ToJson());
+                        std::string &strRefResp = *respPtr;
+                        zmq::message_t message = zmq::message_t(&strRefResp[0], respPtr->size(), CustomCleanupStdString, respPtr);
+                        if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(message),
+                            zmq::send_flags::dontwait | additionalFlags))
+                        {
+                            LOG_ERROR(subprocess) << "can't send json telemetry to telem";
+                        }
                     }
-                }
+                    else if (GetInductsApiCommand_t* apiCmd = dynamic_cast<GetInductsApiCommand_t*>(apiCmdPtr.get())) {
+                        respPtr = new std::string(allInductTelem.ToJson());
+                        std::string &strRefResp = *respPtr;
+                        zmq::message_t message = zmq::message_t(&strRefResp[0], respPtr->size(), CustomCleanupStdString, respPtr);
+                        if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(message),
+                            zmq::send_flags::dontwait | additionalFlags))
+                        {
+                            LOG_ERROR(subprocess) << "can't send json telemetry to telem";
+                        }
+                    }
+                    else if (GetBpSecApiCommand_t* bpsecCmd = dynamic_cast<GetBpSecApiCommand_t*>(apiCmdPtr.get())) {
+                        // redoing what storage has done for BPsec
+                    #ifdef BPSEC_SUPPORT_ENABLED
+                        respPtr = new std::string(m_bpSecConfigPtr ? m_bpSecConfigPtr->ToJson() : "{}");
+                    #else
+                        respPtr = new std::string("{}")
+                    #endif
+                        std::string &strRefResp = *respPtr;
+                        zmq::message_t message = zmq::message_t(&strRefResp[0], respPtr->size(), CustomCleanupStdString, respPtr);
+                        if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(message),
+                            zmq::send_flags::dontwait | additionalFlags))
+                        {
+                            LOG_ERROR(subprocess) << "can't send json telemetry to telem";
+                        }
+                    }
+                    else if (UpdateBpSecApiCommand_t* updateBpsecCmd = dynamic_cast<UpdateBpSecApiCommand_t*>(apiCmdPtr.get())) {
+                        ApiResp_t response;
+                        response.m_success = true;
+                    #ifdef BPSEC_SUPPORT_ENABLED
+                        m_bpSecConfigPtr = BpSecConfig::CreateFromJson(updateBpsecCmd->m_bpSecJson);
+                        if (!m_bpSecConfigPtr) {
+                            LOG_FATAL(subprocess) << "Error loading BpSec config file: User Change.  Got:"
+                                << updateBpsecCmd->m_bpSecJson;
+                            response.m_success = false;
+                        }
+                        else if (!m_bpSecPolicyManager.LoadFromConfig(*m_bpSecConfigPtr)) {
+                            LOG_FATAL(subprocess) << "Could not load config from for policy manager";
+                            response.m_success = false;
+                        }
+                        response.m_success = true;
+                    #else
+                        response.m_success = false;
+                    #endif
+                        respPtr = new std::string(response.ToJson());
+                        std::string &strRefResp = *respPtr;
+                        zmq::message_t message = zmq::message_t(&strRefResp[0], respPtr->size(), CustomCleanupStdString, respPtr);
+                        if (!m_zmqRepSock_connectingTelemToFromBoundIngressPtr->send(std::move(message),
+                            zmq::send_flags::dontwait | additionalFlags))
+                        {
+                            LOG_ERROR(subprocess) << "can't send json telemetry to telem";
+                        }
+                    }
+                } while(apiMsg.more());
             }
 
         }
