@@ -408,7 +408,6 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr &hdtnDist
                     } else if (connectionID == GUI_REQ_CONN_ID) {
                         // Request came from GUI; No action needed
                     } else {
-                        LOG_INFO(subprocess) << "Sending to API";
                         // Request came from external API. Respond to the appropraite connection.
                         zmq::message_t blank;
                         m_apiConnection->SendZmqMessage(std::move(connectionID), true);
@@ -448,7 +447,6 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr &hdtnDist
                     } else if (connectionID == GUI_REQ_CONN_ID) {
                         // Request came from GUI; No action needed
                     } else {
-                        LOG_INFO(subprocess) << "Sending to API";
                         // Request came from external API. Respond to the appropriate connection.
                         zmq::message_t blank;
                         m_apiConnection->SendZmqMessage(std::move(connectionID), true);

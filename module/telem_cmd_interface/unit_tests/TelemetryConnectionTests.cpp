@@ -107,7 +107,8 @@ BOOST_AUTO_TEST_CASE(TelemetryConnectionRouterTestCase)
     std::unique_ptr<TelemetryConnection> router = boost::make_unique<TelemetryConnection>("inproc://my-connection", contextPtr.get(), zmq::socket_type::router, true);
         std::unique_ptr<MockTelemetryResponder> responder = boost::make_unique<MockTelemetryResponder>(
         "inproc://my-connection",
-        contextPtr.get()
+        contextPtr.get(),
+        false
     );
     responder->Send(6);
     // First message is a 5-byte id
