@@ -72,7 +72,6 @@ class TelemetryConnection
          */
         TELEM_LIB_EXPORT bool EnqueueApiPayload(std::string&& payload, zmq::message_t&& connectionID);
 
-        bool m_apiSocketAwaitingResponse;
     private:
         TelemetryConnection() = delete;
         std::string m_addr;

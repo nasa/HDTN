@@ -1675,8 +1675,7 @@ void ZmqStorageInterface::Impl::TelemEventsHandler() {
             if (!m_zmqRepSock_connectingTelemToFromBoundStoragePtr->send(std::move(zmqJsonMessage), zmq::send_flags::dontwait | additionalFlags)) {
                 LOG_ERROR(subprocess) << "can't send json telemetry to telem";
             }
-        } else if (apiCmdPtr->m_apiCall == GetExpiringStorageApiCommand_t::Name()) {
-            GetExpiringStorageApiCommand_t* getExpiringStorageApiCommandPtr = dynamic_cast<GetExpiringStorageApiCommand_t*>(apiCmdPtr.get());
+        } else if (GetExpiringStorageApiCommand_t* getExpiringStorageApiCommandPtr = dynamic_cast<GetExpiringStorageApiCommand_t*>(apiCmdPtr.get())) {
             StorageExpiringBeforeThresholdTelemetry_t expiringTelem;
             expiringTelem.priority = getExpiringStorageApiCommandPtr->m_priority;
             expiringTelem.thresholdSecondsSinceStartOfYear2000 = TimestampUtil::GetSecondsSinceEpochRfc5050(
