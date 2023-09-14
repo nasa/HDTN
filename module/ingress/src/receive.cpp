@@ -955,7 +955,7 @@ void Ingress::Impl::ZmqTelemThreadFunc() {
                     #ifdef BPSEC_SUPPORT_ENABLED
                         respPtr = new std::string(m_bpSecConfigPtr ? m_bpSecConfigPtr->ToJson() : "{}");
                     #else
-                        respPtr = new std::string("{}")
+                        respPtr = new std::string("{}");
                     #endif
                         std::string &strRefResp = *respPtr;
                         zmq::message_t message = zmq::message_t(&strRefResp[0], respPtr->size(), CustomCleanupStdString, respPtr);

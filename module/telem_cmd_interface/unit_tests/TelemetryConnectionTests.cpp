@@ -67,12 +67,12 @@ BOOST_AUTO_TEST_CASE(TelemetryConnectionReadMessageTestCase)
     );
 
     std::unique_ptr<TelemetryConnection> requester = boost::make_unique<TelemetryConnection>("inproc://my-connection", contextPtr.get(), zmq::socket_type::pair);
-    responder->Send(TELEM_REQ_MSG);
+    responder->Send(4);
     zmq::message_t msg = requester->ReadMessage();
     requester.reset();
     responder.reset();
     BOOST_REQUIRE_EQUAL(msg.size(), 1);
-    BOOST_REQUIRE_EQUAL(TELEM_REQ_MSG, *((uint8_t*)(msg.data())));
+    BOOST_REQUIRE_EQUAL(4, *((uint8_t*)(msg.data())));
 }
 
 BOOST_AUTO_TEST_CASE(TelemetryConnectionSendMessageTestCase)
@@ -88,6 +88,9 @@ BOOST_AUTO_TEST_CASE(TelemetryConnectionSendMessageTestCase)
     static const zmq::const_buffer buf(&sendData, sizeof(sendData));
     requester->SendZmqConstBufferMessage(buf, false);
     uint8_t receiveData = responder->Read();
+    requester.reset();
+    responder.reset();
+
     BOOST_REQUIRE_EQUAL(sendData, receiveData);
 }
 
@@ -106,7 +109,7 @@ BOOST_AUTO_TEST_CASE(TelemetryConnectionRouterTestCase)
         "inproc://my-connection",
         contextPtr.get()
     );
-    responder->Send(TELEM_REQ_MSG);
+    responder->Send(6);
     // First message is a 5-byte id
     zmq::message_t id = router->ReadMessage();
     // Second message is a null "envelope"
@@ -119,5 +122,5 @@ BOOST_AUTO_TEST_CASE(TelemetryConnectionRouterTestCase)
     BOOST_REQUIRE_EQUAL(id.size(), 5);
     BOOST_REQUIRE_EQUAL(env.size(), 0);
     BOOST_REQUIRE_EQUAL(msg.size(), 1);
-    BOOST_REQUIRE_EQUAL(TELEM_REQ_MSG, *((uint8_t*)(msg.data())));
+    BOOST_REQUIRE_EQUAL(6, *((uint8_t*)(msg.data())));
 }

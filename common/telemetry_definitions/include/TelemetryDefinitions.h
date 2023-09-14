@@ -594,9 +594,4 @@ class ZmqConnectionID_t {
 static zmq::message_t TELEM_REQ_CONN_ID = ZmqConnectionID_t(1).Msg();
 static zmq::message_t GUI_REQ_CONN_ID = ZmqConnectionID_t(2).Msg();
 
-
-// TODO delete
-static const uint8_t TELEM_REQ_MSG = 1;
-static const uint8_t TELEM_REQ_MSG_PLUS_API_CALLS = 2;
-
 #endif // HDTN_TELEMETRY_H
