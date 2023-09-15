@@ -120,6 +120,9 @@ class TestCustodyBug(unittest.TestCase):
         self.hdtn_exec = (
             root / "build" / "module" / "hdtn_one_process" / "hdtn-one-process"
         )
+        self.bpsink_exec = (
+            root / "build" / "common" / "bpcodec" / "apps" / "bpsink-async"
+        )
 
         self.configs = Path(__file__).parent.resolve() / "configs"
 
@@ -158,8 +161,8 @@ class TestCustodyBug(unittest.TestCase):
         """Test pipeline errors"""
 
         # Final destination for bundle
-        node_two_sock = self.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        node_two_sock.bind(("127.0.0.1", 4002))
+        #node_two_sock = self.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        #node_two_sock.bind(("127.0.0.1", 4002))
 
         # For receiving custody signal from HDTN
         node_one_sock = self.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -174,6 +177,18 @@ class TestCustodyBug(unittest.TestCase):
             hdtn = self.process(cmd, "hdtn")
             hdtn.wait_for_output("UdpBundleSink bound successfully on UDP port", 5)
 
+        with l("Starting bpsink"):
+            cmd = (
+                self.bpsink_exec,
+                f'--my-uri-eid=ipn:2.3',
+                f'--acs-aware-bundle-agent',
+                f'--inducts-config-file={self.configs / "bpsink-in.json"}',
+                f'--custody-transfer-outducts-config-file={self.configs / "bpsink-out.json"}',
+            )
+            bpsink = self.process(cmd, "bpsink")
+            #bpsink.wait_for_output("UdpBundleSink bound successfully on UDP port", 5)
+            time.sleep(5)
+
         with l("Sending bundles to HDTN"):
             s = self.socket(socket.AF_INET, socket.SOCK_DGRAM)
             for i in range(2):
@@ -186,23 +201,25 @@ class TestCustodyBug(unittest.TestCase):
         with l("Waiting for bundles from HDTN...", end="\n"):
             #for _ in range(2):
             while True:
-                has_data = select.select([node_one_sock, node_two_sock], [], [], 1000)
+                #has_data = select.select([node_one_sock, node_two_sock], [], [], 1000)
+                has_data = select.select([node_one_sock], [], [], 1000)
                 #self.assertGreater(len(has_data[0]), 0)
                 if not has_data[0]:
                     break
                 rcv = has_data[0][0]
                 recv_bundle, recv_addr = rcv.recvfrom(1024)
                 b = Bundle(recv_bundle)
-                if rcv == node_two_sock:
-                    custody_bundle = b
-                    payload = raw(b["Payload"]).decode("ascii", errors="backslashreplace")
-                    print(
-                        f"  Node two got bundle from {recv_addr}:\n    {b} : {payload}"
-                    )
-                    custody_signal = build_custody_signal(custody_bundle)
-                    s.sendto(raw(custody_signal), ("127.0.0.1", 4010))
-                elif rcv == node_one_sock:
+#                if rcv == node_two_sock:
+#                    custody_bundle = b
+#                    payload = raw(b["Payload"]).decode("ascii", errors="backslashreplace")
+#                    print(
+#                        f"  Node two got bundle from {recv_addr}:\n    {b} : {payload}"
+#                    )
+#                    custody_signal = build_custody_signal(custody_bundle)
+#                    s.sendto(raw(custody_signal), ("127.0.0.1", 4010))
+                if rcv == node_one_sock:
                     print(f"  Node one got custody signal from {recv_addr}:\n    {b}")
+                    b.show2()
 
         self.assertIsNotNone(custody_bundle)
 
