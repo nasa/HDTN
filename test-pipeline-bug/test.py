@@ -161,8 +161,6 @@ class TestCustodyBug(unittest.TestCase):
         """Test pipeline errors"""
 
         # Final destination for bundle
-        #node_two_sock = self.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        #node_two_sock.bind(("127.0.0.1", 4002))
 
         # For receiving custody signal from HDTN
         node_one_sock = self.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -191,37 +189,48 @@ class TestCustodyBug(unittest.TestCase):
 
         with l("Sending bundles to HDTN"):
             s = self.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            # how many bundles do I need here? I need to back up the queue, so at
+            # least two bundles: one to put back-pressure on the queue, and one that
+            # will be held up
+            sent_bundles = []
             for i in range(2):
                 bundle = build_bundle(i, 32)
                 packet = raw(bundle)
                 print(f"sending bundle {i} of size {len(packet)}")
                 s.sendto(packet, ("127.0.0.1", 4010))
+                sent_bundles.append(Bundle(packet))
 
-        custody_bundle = None
-        with l("Waiting for bundles from HDTN...", end="\n"):
-            #for _ in range(2):
-            while True:
-                #has_data = select.select([node_one_sock, node_two_sock], [], [], 1000)
+        with l("Waiting for custody signals from HDTN"):
+            custody_bundles = list(sent_bundles)
+            while custody_bundles:
                 has_data = select.select([node_one_sock], [], [], 1000)
-                #self.assertGreater(len(has_data[0]), 0)
                 if not has_data[0]:
-                    break
-                rcv = has_data[0][0]
-                recv_bundle, recv_addr = rcv.recvfrom(1024)
+                    raise Exception("No data")
+                recv_bundle, _ = node_one_sock.recvfrom(1024)
                 b = Bundle(recv_bundle)
-#                if rcv == node_two_sock:
-#                    custody_bundle = b
-#                    payload = raw(b["Payload"]).decode("ascii", errors="backslashreplace")
-#                    print(
-#                        f"  Node two got bundle from {recv_addr}:\n    {b} : {payload}"
-#                    )
-#                    custody_signal = build_custody_signal(custody_bundle)
-#                    s.sendto(raw(custody_signal), ("127.0.0.1", 4010))
-                if rcv == node_one_sock:
-                    print(f"  Node one got custody signal from {recv_addr}:\n    {b}")
-                    b.show2()
 
-        self.assertIsNotNone(custody_bundle)
+                self.assertIn('AdminRecord', b)
+
+                found_index = None
+                for i, c in enumerate(custody_bundles):
+                    t = b['CustodySignal'].creat_time
+                    s = b['CustodySignal'].creat_seq
+                    if (
+                        c['Bundle'].creation_timestamp_time == t and
+                        c['Bundle'].creation_timestamp_num == s):
+                        found_index = i
+                        break
+                else:
+                    raise Exception("Custody signal not for bundle we know")
+                custody_bundles.pop(found_index)
+
+        # Wait for log errors
+        with l("Waiting for insert error message"):
+            hdtn.wait_for_output('could not insert custody id into finalDestNodeIdToOpenCustIdsMap')
+        with l("waiting for timer message"):
+            hdtn.wait_for_output("can't find custody timer associated with bundle identified by acs custody signal")
+        with l("waiting for catalog entry error message"):
+            hdtn.wait_for_output("error finding catalog entry for bundle identified by acs custody signal")
 
 #        with l("Clearing contacts"):
 #            clear_contacts()
