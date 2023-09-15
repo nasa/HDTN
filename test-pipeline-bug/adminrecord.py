@@ -20,7 +20,8 @@ class BpBlock(Packet):
     """Bpv6 Canonical Block"""
 
     def guess_payload_class(self, payload):
-        ul = self.underlayer
+        #ul = self.underlayer
+        ul = self.parent
         if isinstance(ul, Bundle):
             bundle = ul
             if (bundle.processing_control_flags & 2) == 2:
@@ -84,12 +85,18 @@ class Payload(Packet):
     fields_desc = [
             StrLenField("data", b"", length_from=lambda p: p.underlayer.block_len)
                     ]
-    def extract_padding(self, s):
-        return '', s
+    #def extract_padding(self, s):
+    #    return '', s
 
 
 class AdminRecord(Packet):
     """Bpv6 Admin Record"""
+
+    def guess_payload_class(self, payload):
+        if self.Type == 2:
+            return CustodySignal
+        else:
+            return Packet
 
     fields_desc = [
         BitEnumField(
@@ -109,8 +116,8 @@ class AdminRecord(Packet):
     def mysummary(self):
         return self.sprintf("AdminRecord t:%Type% f:%flags%")
 
-    def extract_padding(self, s):
-        return '', s
+    #def extract_padding(self, s):
+    #    return '', s
 
 def _is_for_fragment(pkt):
     """Is a packet for a fragment?
