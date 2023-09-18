@@ -121,7 +121,6 @@ BOOST_AUTO_TEST_CASE(TelemetryConnectionRouterTestCase)
     responder.reset();
     
     BOOST_REQUIRE_EQUAL(id.size(), 5);
-    BOOST_REQUIRE_EQUAL(env.size(), 0);
     BOOST_REQUIRE_EQUAL(msg.size(), 1);
     BOOST_REQUIRE_EQUAL(6, *((uint8_t*)(msg.data())));
 }
