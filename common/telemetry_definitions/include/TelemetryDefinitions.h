@@ -460,25 +460,25 @@ struct ApiCommand_t : public JsonSerializable {
 struct GetStorageApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT GetStorageApiCommand_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~GetStorageApiCommand_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT static const std::string Name();
+    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
 struct GetOutductsApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT GetOutductsApiCommand_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~GetOutductsApiCommand_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT static const std::string Name();
+    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
 struct GetOutductCapabilitiesApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT GetOutductCapabilitiesApiCommand_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~GetOutductCapabilitiesApiCommand_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT static const std::string Name();
+    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
 struct GetInductsApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT GetInductsApiCommand_t();
     TELEMETRY_DEFINITIONS_EXPORT ~GetInductsApiCommand_t();
-    TELEMETRY_DEFINITIONS_EXPORT static const std::string Name();
+    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
 struct PingApiCommand_t : public ApiCommand_t {
@@ -494,7 +494,7 @@ struct PingApiCommand_t : public ApiCommand_t {
 
     TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
-    TELEMETRY_DEFINITIONS_EXPORT static const std::string Name();
+    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
 struct UploadContactPlanApiCommand_t : public ApiCommand_t {
@@ -509,7 +509,7 @@ struct UploadContactPlanApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
-    TELEMETRY_DEFINITIONS_EXPORT static const std::string Name();
+    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
 struct GetExpiringStorageApiCommand_t : public ApiCommand_t {
@@ -525,7 +525,7 @@ struct GetExpiringStorageApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
-    TELEMETRY_DEFINITIONS_EXPORT static const std::string Name();
+    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
 struct UpdateBpSecApiCommand_t : public ApiCommand_t {
@@ -540,14 +540,14 @@ struct UpdateBpSecApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
-    TELEMETRY_DEFINITIONS_EXPORT static const std::string Name();
+    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
 struct GetBpSecApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT GetBpSecApiCommand_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~GetBpSecApiCommand_t() override;
 
-    TELEMETRY_DEFINITIONS_EXPORT static const std::string Name();
+    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
 struct SetMaxSendRateApiCommand_t : public ApiCommand_t {
@@ -562,11 +562,12 @@ struct SetMaxSendRateApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
-    TELEMETRY_DEFINITIONS_EXPORT static const std::string Name();
+    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
 struct ApiResp_t : public JsonSerializable {
     bool m_success;
+    std::string m_message;
 
     TELEMETRY_DEFINITIONS_EXPORT ApiResp_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~ApiResp_t();
@@ -576,13 +577,20 @@ struct ApiResp_t : public JsonSerializable {
 };
 
 /**
- * Represents a ZMQ connection identifier. ZMQ identities are 5 bytes. 
+ * Represents a ZMQ connection identifier. ZMQ identities are 5 bytes.
  */
-class ZmqConnectionID_t {
+class ZmqConnectionId_t {
     public:
-        TELEMETRY_DEFINITIONS_EXPORT ZmqConnectionID_t(const uint8_t val);
+        TELEMETRY_DEFINITIONS_EXPORT ZmqConnectionId_t();
 
+        // Initialize ZmqConnectionId with a single byte
+        TELEMETRY_DEFINITIONS_EXPORT ZmqConnectionId_t(const uint8_t val);
+
+        // Convert ZmqConnectionId to a zmq::message_t
         TELEMETRY_DEFINITIONS_EXPORT zmq::message_t Msg();
+
+        // Compare two ZmqConnectionId objects
+        TELEMETRY_DEFINITIONS_DEPRECATED_NO_EXPORT bool operator==(const ZmqConnectionId_t& other) const;
 
     private:
         std::array<uint8_t, 5> m_id;
@@ -591,7 +599,7 @@ class ZmqConnectionID_t {
 /**
  * Custom ZMQ "connection identities".
  */
-static zmq::message_t TELEM_REQ_CONN_ID = ZmqConnectionID_t(1).Msg();
-static zmq::message_t GUI_REQ_CONN_ID = ZmqConnectionID_t(2).Msg();
+static zmq::message_t TELEM_REQ_CONN_ID = ZmqConnectionId_t(1).Msg();
+static zmq::message_t GUI_REQ_CONN_ID = ZmqConnectionId_t(2).Msg();
 
 #endif // HDTN_TELEMETRY_H

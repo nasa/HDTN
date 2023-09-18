@@ -129,16 +129,16 @@ TelemetryRunner::Impl::Impl() :
     m_running(false),
     m_deadlineTimer(THREAD_INTERVAL_MS)
 {
-    m_apiCmdMap[PingApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandleIngressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
-    m_apiCmdMap[GetBpSecApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandleIngressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
-    m_apiCmdMap[UpdateBpSecApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandleIngressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
-    m_apiCmdMap[UploadContactPlanApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandleRouterCommand, this, boost::placeholders::_1, boost::placeholders::_2);
-    m_apiCmdMap[GetExpiringStorageApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandleStorageCommand, this, boost::placeholders::_1, boost::placeholders::_2);
-    m_apiCmdMap[GetStorageApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandleStorageCommand, this, boost::placeholders::_1, boost::placeholders::_2);
-    m_apiCmdMap[SetMaxSendRateApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandleEgressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
-    m_apiCmdMap[GetOutductsApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandleEgressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
-    m_apiCmdMap[GetOutductCapabilitiesApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandleEgressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
-    m_apiCmdMap[GetInductsApiCommand_t::Name()] = boost::bind(&TelemetryRunner::Impl::HandleIngressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[PingApiCommand_t::name] = boost::bind(&TelemetryRunner::Impl::HandleIngressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[GetBpSecApiCommand_t::name] = boost::bind(&TelemetryRunner::Impl::HandleIngressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[UpdateBpSecApiCommand_t::name] = boost::bind(&TelemetryRunner::Impl::HandleIngressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[UploadContactPlanApiCommand_t::name] = boost::bind(&TelemetryRunner::Impl::HandleRouterCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[GetExpiringStorageApiCommand_t::name] = boost::bind(&TelemetryRunner::Impl::HandleStorageCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[GetStorageApiCommand_t::name] = boost::bind(&TelemetryRunner::Impl::HandleStorageCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[SetMaxSendRateApiCommand_t::name] = boost::bind(&TelemetryRunner::Impl::HandleEgressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[GetOutductsApiCommand_t::name] = boost::bind(&TelemetryRunner::Impl::HandleEgressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[GetOutductCapabilitiesApiCommand_t::name] = boost::bind(&TelemetryRunner::Impl::HandleEgressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[GetInductsApiCommand_t::name] = boost::bind(&TelemetryRunner::Impl::HandleIngressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
 }
 
 bool TelemetryRunner::Impl::Init(const HdtnConfig &hdtnConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options) {
@@ -400,7 +400,7 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr &hdtnDist
                     // Handle the response depending on who sent it
                     if (connectionID == TELEM_REQ_CONN_ID) {
                         OnNewJsonTelemetry((const char *)responseMsg.data(), responseMsg.size());
-                        if (apiCall == GetInductsApiCommand_t::Name()) {
+                        if (apiCall == GetInductsApiCommand_t::name) {
                             if (!inductTelem.SetValuesFromJsonCharArray((const char *)responseMsg.data(), responseMsg.size())) {
                                 LOG_ERROR(subprocess) << "cannot deserialize AllInductTelemetry_t";
                             }
@@ -428,7 +428,7 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr &hdtnDist
 
                     // Handle the response depending on who sent it
                     if (connectionID == TELEM_REQ_CONN_ID) {
-                        if (apiCall == GetOutductCapabilitiesApiCommand_t::Name()) {
+                        if (apiCall == GetOutductCapabilitiesApiCommand_t::name) {
                             ApiResp_t response;
                             if (response.SetValuesFromJson(responseMsg.to_string()) && response.m_success == false) {
                                 // There was no outduct capability data. Do nothing.
@@ -438,7 +438,7 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr &hdtnDist
                                 OnNewJsonTelemetry((const char *)responseMsg.data(), responseMsg.size());
                             }
                         }
-                        else if (apiCall == GetOutductsApiCommand_t::Name()) {
+                        else if (apiCall == GetOutductsApiCommand_t::name) {
                             if (!outductTelem.SetValuesFromJsonCharArray((const char *)responseMsg.data(), responseMsg.size())) {
                                 LOG_ERROR(subprocess) << "cannot deserialize AllOutductTelemetry_t";
                             }
@@ -467,7 +467,7 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr &hdtnDist
                     // Handle the response depending on who sent it
                     if (connectionID == TELEM_REQ_CONN_ID) {
                         OnNewJsonTelemetry((const char *)responseMsg.data(), responseMsg.size());
-                        if (apiCall == GetStorageApiCommand_t::Name()) {
+                        if (apiCall == GetStorageApiCommand_t::name) {
                             if (!storageTelem.SetValuesFromJsonCharArray((const char *)responseMsg.data(), responseMsg.size())) {
                                 LOG_ERROR(subprocess) << "cannot deserialize StorageTelemetry_t";
                             }

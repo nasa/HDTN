@@ -564,8 +564,151 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsBpSecUpdateApiCommandTestCase)
     }
 }
 
+BOOST_AUTO_TEST_CASE(GetStorageApiCommandTestCase)
+{
+    GetStorageApiCommand_t o1;
+    const std::string o1Json = o1.ToJson();
+
+    GetStorageApiCommand_t o2;
+    BOOST_REQUIRE_EQUAL(o1.m_apiCall, "get_storage");
+    BOOST_REQUIRE_EQUAL(o2.m_apiCall, "get_storage");
+    BOOST_REQUIRE(o2.SetValuesFromJson(o1Json));
+    BOOST_REQUIRE(o1 == o2);
+    BOOST_REQUIRE(!(o1 != o2));
+    BOOST_REQUIRE_EQUAL(o1Json, o2.ToJson());
+
+    std::shared_ptr<ApiCommand_t> apiCmdPtr = ApiCommand_t::CreateFromJson(o1Json);
+    BOOST_REQUIRE(apiCmdPtr);
+    GetStorageApiCommand_t* cmdPtr = dynamic_cast<GetStorageApiCommand_t*>(apiCmdPtr.get());
+    BOOST_REQUIRE(cmdPtr);
+    if (cmdPtr) {
+        BOOST_REQUIRE_EQUAL(o1Json, apiCmdPtr->ToJson());
+        BOOST_REQUIRE_EQUAL(o1Json, cmdPtr->ToJson());
+    }
+}
+
+BOOST_AUTO_TEST_CASE(GetOutductsApiCommandTestCase)
+{
+    GetOutductsApiCommand_t o1;
+    const std::string o1Json = o1.ToJson();
+
+    GetOutductsApiCommand_t o2;
+    BOOST_REQUIRE_EQUAL(o1.m_apiCall, "get_outducts");
+    BOOST_REQUIRE_EQUAL(o2.m_apiCall, "get_outducts");
+    BOOST_REQUIRE(o2.SetValuesFromJson(o1Json));
+    BOOST_REQUIRE(o1 == o2);
+    BOOST_REQUIRE(!(o1 != o2));
+    BOOST_REQUIRE_EQUAL(o1Json, o2.ToJson());
+
+    std::shared_ptr<ApiCommand_t> apiCmdPtr = ApiCommand_t::CreateFromJson(o1Json);
+    BOOST_REQUIRE(apiCmdPtr);
+    GetOutductsApiCommand_t* cmdPtr = dynamic_cast<GetOutductsApiCommand_t*>(apiCmdPtr.get());
+    BOOST_REQUIRE(cmdPtr);
+    if (cmdPtr) {
+        BOOST_REQUIRE_EQUAL(o1Json, apiCmdPtr->ToJson());
+        BOOST_REQUIRE_EQUAL(o1Json, cmdPtr->ToJson());
+    }
+}
+
+BOOST_AUTO_TEST_CASE(GetOutductCapabilitiesApiCommandTestCase)
+{
+    GetOutductCapabilitiesApiCommand_t o1;
+    const std::string o1Json = o1.ToJson();
+
+    GetOutductCapabilitiesApiCommand_t o2;
+    BOOST_REQUIRE_EQUAL(o1.m_apiCall, "get_outduct_capabilities");
+    BOOST_REQUIRE_EQUAL(o2.m_apiCall, "get_outduct_capabilities");
+    BOOST_REQUIRE(o2.SetValuesFromJson(o1Json));
+    BOOST_REQUIRE(o1 == o2);
+    BOOST_REQUIRE(!(o1 != o2));
+    BOOST_REQUIRE_EQUAL(o1Json, o2.ToJson());
+
+    std::shared_ptr<ApiCommand_t> apiCmdPtr = ApiCommand_t::CreateFromJson(o1Json);
+    BOOST_REQUIRE(apiCmdPtr);
+    GetOutductCapabilitiesApiCommand_t* cmdPtr = dynamic_cast<GetOutductCapabilitiesApiCommand_t*>(apiCmdPtr.get());
+    BOOST_REQUIRE(cmdPtr);
+    if (cmdPtr) {
+        BOOST_REQUIRE_EQUAL(o1Json, apiCmdPtr->ToJson());
+        BOOST_REQUIRE_EQUAL(o1Json, cmdPtr->ToJson());
+    }
+}
+
+BOOST_AUTO_TEST_CASE(GetInductsApiCommandTestCase)
+{
+    GetInductsApiCommand_t o1;
+    const std::string o1Json = o1.ToJson();
+
+    GetInductsApiCommand_t o2;
+    BOOST_REQUIRE_EQUAL(o1.m_apiCall, "get_inducts");
+    BOOST_REQUIRE_EQUAL(o2.m_apiCall, "get_inducts");
+    BOOST_REQUIRE(o2.SetValuesFromJson(o1Json));
+    BOOST_REQUIRE(o1 == o2);
+    BOOST_REQUIRE(!(o1 != o2));
+    BOOST_REQUIRE_EQUAL(o1Json, o2.ToJson());
+
+    std::shared_ptr<ApiCommand_t> apiCmdPtr = ApiCommand_t::CreateFromJson(o1Json);
+    BOOST_REQUIRE(apiCmdPtr);
+    GetInductsApiCommand_t* cmdPtr = dynamic_cast<GetInductsApiCommand_t*>(apiCmdPtr.get());
+    BOOST_REQUIRE(cmdPtr);
+    if (cmdPtr) {
+        BOOST_REQUIRE_EQUAL(o1Json, apiCmdPtr->ToJson());
+        BOOST_REQUIRE_EQUAL(o1Json, cmdPtr->ToJson());
+    }
+}
+
+BOOST_AUTO_TEST_CASE(GetBpSecApiCommandTestCase)
+{
+    GetBpSecApiCommand_t o1;
+    const std::string o1Json = o1.ToJson();
+
+    GetBpSecApiCommand_t o2;
+    BOOST_REQUIRE_EQUAL(o1.m_apiCall, "get_bpsec_config");
+    BOOST_REQUIRE_EQUAL(o2.m_apiCall, "get_bpsec_config");
+    BOOST_REQUIRE(o2.SetValuesFromJson(o1Json));
+    BOOST_REQUIRE(o1 == o2);
+    BOOST_REQUIRE(!(o1 != o2));
+    BOOST_REQUIRE_EQUAL(o1Json, o2.ToJson());
+
+    std::shared_ptr<ApiCommand_t> apiCmdPtr = ApiCommand_t::CreateFromJson(o1Json);
+    BOOST_REQUIRE(apiCmdPtr);
+    GetBpSecApiCommand_t* cmdPtr = dynamic_cast<GetBpSecApiCommand_t*>(apiCmdPtr.get());
+    BOOST_REQUIRE(cmdPtr);
+    if (cmdPtr) {
+        BOOST_REQUIRE_EQUAL(o1Json, apiCmdPtr->ToJson());
+        BOOST_REQUIRE_EQUAL(o1Json, cmdPtr->ToJson());
+    }
+}
+
+BOOST_AUTO_TEST_CASE(SetMaxSendRateApiCommandTestCase)
+{
+    SetMaxSendRateApiCommand_t o1;
+    o1.m_rateBitsPerSec = 1000;
+    o1.m_outduct = 42;
+    const std::string o1Json = o1.ToJson();
+
+    SetMaxSendRateApiCommand_t o2;
+    BOOST_REQUIRE_EQUAL(o1.m_apiCall, "set_max_send_rate");
+    BOOST_REQUIRE_EQUAL(o2.m_apiCall, "set_max_send_rate");
+    BOOST_REQUIRE(o2.SetValuesFromJson(o1Json));
+    BOOST_REQUIRE(o1 == o2);
+    BOOST_REQUIRE(!(o1 != o2));
+    BOOST_REQUIRE_EQUAL(o1Json, o2.ToJson());
+    o2.m_rateBitsPerSec = 2000;
+    o2.m_outduct = 84;
+    BOOST_REQUIRE(o1 != o2);
+
+    std::shared_ptr<ApiCommand_t> apiCmdPtr = ApiCommand_t::CreateFromJson(o1Json);
+    BOOST_REQUIRE(apiCmdPtr);
+    SetMaxSendRateApiCommand_t* cmdPtr = dynamic_cast<SetMaxSendRateApiCommand_t*>(apiCmdPtr.get());
+    BOOST_REQUIRE(cmdPtr);
+    if (cmdPtr) {
+        BOOST_REQUIRE_EQUAL(o1Json, apiCmdPtr->ToJson());
+        BOOST_REQUIRE_EQUAL(o1Json, cmdPtr->ToJson());
+    }
+}
+
 BOOST_AUTO_TEST_CASE(TelemetryDefinitionsZmqIdentityTestCase) {
-    ZmqConnectionID_t id = ZmqConnectionID_t(4);
+    ZmqConnectionId_t id (4);
     zmq::message_t msg = id.Msg();
     BOOST_REQUIRE_EQUAL(msg.size(), 5);
     BOOST_REQUIRE_EQUAL(*(uint8_t*)msg.data(), 0);
@@ -573,4 +716,10 @@ BOOST_AUTO_TEST_CASE(TelemetryDefinitionsZmqIdentityTestCase) {
     BOOST_REQUIRE_EQUAL(*((uint8_t*)msg.data()+2), 0);
     BOOST_REQUIRE_EQUAL(*((uint8_t*)msg.data()+3), 0);
     BOOST_REQUIRE_EQUAL(*((uint8_t*)msg.data()+4), 4);
+
+    ZmqConnectionId_t otherId(5);
+    BOOST_REQUIRE(!(id == otherId));
+
+    ZmqConnectionId_t matchingId(4);
+    BOOST_REQUIRE(id == matchingId);
 }
