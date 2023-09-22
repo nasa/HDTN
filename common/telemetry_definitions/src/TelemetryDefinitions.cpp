@@ -1437,6 +1437,7 @@ const std::string GetExpiringStorageApiCommand_t::name = "get_expiring_storage";
 const std::string UpdateBpSecApiCommand_t::name = "update_bpsec_config";
 const std::string GetBpSecApiCommand_t::name = "get_bpsec_config";
 const std::string SetMaxSendRateApiCommand_t::name = "set_max_send_rate";
+const std::string GetHdtnConfigApiCommand_t::name = "get_hdtn_config";
 
 /**
  * ApiCommand_t 
