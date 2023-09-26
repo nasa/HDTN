@@ -12,7 +12,7 @@ import unittest
 import zmq
 from scapy.contrib.bp import BP
 from adminrecord import AdminRecord, CustodySignal, BpBlock, Bundle
-from backgroundprocess import BackgroundProcess
+from backgroundprocess import BackgroundProcess, TimeoutException
 from scapy.all import raw, Raw
 import datetime
 
@@ -225,31 +225,24 @@ class TestCustodyBug(unittest.TestCase):
                 custody_bundles.pop(found_index)
 
         # Wait for log errors
-        with l("Waiting for insert error message"):
-            hdtn.wait_for_output('could not insert custody id into finalDestNodeIdToOpenCustIdsMap')
-        with l("waiting for timer message"):
-            hdtn.wait_for_output("can't find custody timer associated with bundle identified by acs custody signal")
-        with l("waiting for catalog entry error message"):
-            hdtn.wait_for_output("error finding catalog entry for bundle identified by acs custody signal")
-
-#        with l("Clearing contacts"):
-#            clear_contacts()
-#
-#        with l("Waiting for custody transfer timer to expire"):
-#            time.sleep(5)  # In config, set this to 2 seconds
-#
-#        with l("Sending custody signal"):
-#            custody_signal = build_custody_signal(custody_bundle)
-#            s.sendto(raw(custody_signal), ("127.0.0.1", 4010))
-#
-#        with l("Call get_expiring_storage API to cause crash"):
-#            get_expiring()
-#
-#        with l("Testing that HDTN has not crashed"):
-#            time.sleep(1)  # This sleep probably not needed
-#            # poll returns None if the process is still running
-#            self.assertIsNone(hdtn.proc.poll())
-
+        with l("Checking for insert error message"):
+            self.assertRaises(
+                TimeoutException,
+                hdtn.wait_for_output,
+                'could not insert custody id into finalDestNodeIdToOpenCustIdsMap', 
+                timeout=10)
+        with l("Checking for timer message"):
+            self.assertRaises(
+                TimeoutException,
+                hdtn.wait_for_output,
+                "can't find custody timer associated with bundle identified by acs custody signal",
+                timeout=1)
+        with l("Checking for catalog entry error message"):
+            self.assertRaises(
+                TimeoutException,
+                hdtn.wait_for_output,
+                "error finding catalog entry for bundle identified by acs custody signal",
+                timeout=1)
 
 if __name__ == "__main__":
     unittest.main()
