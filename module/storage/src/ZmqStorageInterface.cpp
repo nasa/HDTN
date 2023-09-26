@@ -27,6 +27,7 @@
 #include "TelemetryDefinitions.h"
 #include <boost/core/noncopyable.hpp>
 #include <set>
+#include <unordered_set>
 #include <unordered_map>
 #include <boost/lexical_cast.hpp>
 #include <boost/make_unique.hpp>
@@ -172,6 +173,13 @@ private:
     enum class DeletionPolicy { never, onExpiration, onStorageFull };
     DeletionPolicy m_deletionPolicy;
     BundleViewV6 m_bundleDeletionStatusReport;
+
+    // Used to track which custody bundles have been sent from egress.
+    // We only want to start the timer when a bundle has been sent. Furthermore,
+    // we may receive a custody signal before we hear from egress that a bundle
+    // has been sent. Use this data structure to track "pending egress send"
+    // so that we know whether to start the timer for a given bundle
+    std::unordered_set<uint64_t> m_custodyIdsWaitingTimerStart;
 };
 
 ZmqStorageInterface::Impl::Impl() :
@@ -477,8 +485,12 @@ bool ZmqStorageInterface::Impl::ProcessAdminRecord(BundleViewV6 &bv)
                     LOG_ERROR(subprocess) << "error finding catalog entry for bundle identified by acs custody signal";
                     continue;
                 }
-                if (!m_custodyTimersPtr->CancelCustodyTransferTimer(catalogEntryPtr->destEid, currentCustodyId)) {
-                    LOG_WARNING(subprocess) << "can't find custody timer associated with bundle identified by acs custody signal";
+                if(!m_custodyIdsWaitingTimerStart.count(currentCustodyId)) {
+                    if (!m_custodyTimersPtr->CancelCustodyTransferTimer(catalogEntryPtr->destEid, currentCustodyId)) {
+                        LOG_WARNING(subprocess) << "can't find custody timer associated with bundle identified by acs custody signal";
+                    }
+                } else {
+                    m_custodyIdsWaitingTimerStart.erase(currentCustodyId);
                 }
                 if (!m_bsmPtr->RemoveBundleFromDisk(catalogEntryPtr, currentCustodyId)) {
                     LOG_ERROR(subprocess) << "error freeing bundle identified by acs custody signal from disk";
@@ -542,8 +554,12 @@ bool ZmqStorageInterface::Impl::ProcessAdminRecord(BundleViewV6 &bv)
             LOG_ERROR(subprocess) << "error finding catalog entry for bundle identified by rfc5050 custody signal";
             return false;
         }
-        if (!m_custodyTimersPtr->CancelCustodyTransferTimer(catalogEntryPtr->destEid, custodyIdFromRfc5050)) {
-            LOG_WARNING(subprocess) << "notice: can't find custody timer associated with bundle identified by rfc5050 custody signal";
+        if(!m_custodyIdsWaitingTimerStart.count(custodyIdFromRfc5050)) {
+            if (!m_custodyTimersPtr->CancelCustodyTransferTimer(catalogEntryPtr->destEid, custodyIdFromRfc5050)) {
+                LOG_WARNING(subprocess) << "notice: can't find custody timer associated with bundle identified by rfc5050 custody signal";
+            }
+        } else {
+            m_custodyIdsWaitingTimerStart.erase(custodyIdFromRfc5050);
         }
         if (!m_bsmPtr->RemoveBundleFromDisk(catalogEntryPtr, custodyIdFromRfc5050)) {
             LOG_ERROR(subprocess) << "error freeing bundle identified by rfc5050 custody signal from disk";
@@ -966,6 +982,7 @@ void ZmqStorageInterface::Impl::DeleteBundleById(const uint64_t custodyId) {
     if(entry->HasCustody()) {
         // Bundle may not have a custody transfer timer, so it's fine if this fails
         m_custodyTimersPtr->CancelCustodyTransferTimer(entry->destEid, custodyId);
+        m_custodyIdsWaitingTimerStart.erase(custodyId);
 
         bool sent = SendDeletionStatusReport(entry);
         if(!sent) {
@@ -1199,6 +1216,16 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                         else {
                                             ++m_telem.m_totalBundlesErasedFromStorageNoCustodyTransfer;
                                         }
+                                    } else {
+                                        // bundle has custody; start timer if we haven't seen custody signal already
+                                        if(m_custodyIdsWaitingTimerStart.count(egressAckHdr.custodyId)) {
+                                            catalog_entry_t * entry = m_bsmPtr->GetCatalogEntryPtrFromCustodyId(egressAckHdr.custodyId);
+                                            if(!entry) {
+                                                LOG_ERROR(subprocess) << "Unable to find catalog id for egress ack " << egressAckHdr.custodyId;
+                                            } else {
+                                                m_custodyTimersPtr->StartCustodyTransferTimer(entry->destEid, egressAckHdr.custodyId);
+                                            }
+                                        } /* else: we've already received custody signal and deleted bundle; nothing to do */
                                     }
                                     info.bytesInPipeline -= it->second;
                                     mapCustodyIdToSize.erase(it);
@@ -1218,6 +1245,9 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                         printedMsg = true;
                                     }
                                 }
+                                // We've either started the timer, or returned bundle to awaiting send state,
+                                // so we're not longer waiting to start the timer
+                                m_custodyIdsWaitingTimerStart.erase(egressAckHdr.custodyId);
                             }
                         }
                     }
@@ -1587,8 +1617,12 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                 }
                 else if (ReleaseOne_NoBlock(info, maxBundleSizeToRead, returnedBundleSizeReadFromDisk)) { //true => (successfully sent to egress)
                     if (info.mapOpenCustodyIdToBundleSizeBytes.emplace(m_sessionRead.custodyId, returnedBundleSizeReadFromDisk).second) {
+
                         if (m_sessionRead.catalogEntryPtr->HasCustody()) {
-                            m_custodyTimersPtr->StartCustodyTransferTimer(m_sessionRead.catalogEntryPtr->destEid, m_sessionRead.custodyId);
+                            // Start custody timer when we receive ack from egress that bundle has been sent
+                            if (!m_custodyIdsWaitingTimerStart.insert(m_sessionRead.custodyId).second) {
+                                LOG_WARNING(subprocess) << "Could not insert into m_custodyIdsWaitingTimerStart";
+                            }
                         }
                         info.bytesInPipeline += returnedBundleSizeReadFromDisk;
                         timeoutPoll = 0; //no timeout as we need to keep feeding to egress
