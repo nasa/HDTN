@@ -38,6 +38,9 @@
 
 #include "codec/BundleViewV6.h"
 #include "codec/BundleViewV7.h"
+#include "HdtnConfig.h"
+#include "HdtnDistributedConfig.h"
+#include "zmq.hpp"
 #include "masker_lib_export.h"
 
 namespace hdtn {
@@ -47,7 +50,7 @@ public:
 	MASKER_LIB_EXPORT virtual ~Masker();
 	MASKER_LIB_EXPORT virtual cbhe_eid_t query(const BundleViewV6&) = 0;
 	MASKER_LIB_EXPORT virtual cbhe_eid_t query(const BundleViewV7&) = 0;
-	MASKER_LIB_EXPORT static std::shared_ptr<Masker> makePointer(const std::string& impl);
+	MASKER_LIB_EXPORT static std::shared_ptr<Masker> makePointer(const std::string&, const HdtnConfig&, zmq::context_t*, const HdtnDistributedConfig&);
 };
 
 }

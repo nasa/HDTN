@@ -494,7 +494,7 @@ bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::
             const std::string bind_connectingTelemToFromBoundIngressPath(
                 std::string("tcp://*:") + boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingTelemToFromBoundIngressPortPath));
             m_zmqRepSock_connectingTelemToFromBoundIngressPtr->bind(bind_connectingTelemToFromBoundIngressPath);
-                
+
         }
     }
     catch (const zmq::error_t & ex) {
@@ -597,7 +597,7 @@ bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::
     }
 
 #ifdef MASKING_ENABLED
-    m_pmasker = Masker::makePointer(maskerImpl);
+        m_pmasker = Masker::makePointer(maskerImpl, hdtnConfig, hdtnOneProcessZmqInprocContextPtr, hdtnDistributedConfig);
 #endif
     
     return true;
