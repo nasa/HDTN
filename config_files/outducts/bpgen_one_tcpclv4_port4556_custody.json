@@ -1,0 +1,23 @@
+{
+    "outductConfigName": "myconfig",
+    "outductVector": [
+        {
+            "name": "bpgen",
+            "convergenceLayer": "tcpcl_v4",
+            "nextHopNodeId": 10,
+            "remoteHostname": "localhost",
+            "remotePort": 4556,
+            "maxNumberOfBundlesInPipeline": 5,
+            "maxSumOfBundleBytesInPipeline": 50000000,
+            "keepAliveIntervalSeconds": 17,
+            "tcpclAllowOpportunisticReceiveBundles": true,
+            "tcpclV4MyMaxRxSegmentSizeBytes": 200000,
+            "tryUseTls": false,
+            "tlsIsRequired": false,
+            "useTlsVersion1_3": false,
+            "doX509CertificateVerification": false,
+            "verifySubjectAltNameInX509Certificate": false,
+            "certificationAuthorityPemFileForVerification": ""
+        }
+    ]
+}

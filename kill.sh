@@ -1,6 +1,6 @@
 #!/bin/bash
 
-for j in hdtn-one-process hdtn-ingress hdtn-egress-async hdtn-storage hdtn-scheduler bpsink-async  bpgen-async bpreceivefile bpsendfile hdtn-router telem_cmd_interface
+for j in hdtn-one-process hdtn-ingress hdtn-egress-async hdtn-storage bpsink-async  bpgen-async bpreceivefile bpsendfile hdtn-router telem_cmd_interface udp-delay-sim
 do
 for i in `pidof $j`
 do
@@ -10,7 +10,7 @@ done
 
 sleep 6
 
-for j in hdtn-one-process hdtn-ingress hdtn-egress-async hdtn-storage hdtn-scheduler bpsink-async bpgen-async bpreceivefile bpsendfile hdtn-router telem_cmd_interface
+for j in hdtn-one-process hdtn-ingress hdtn-egress-async hdtn-storage bpsink-async bpgen-async bpreceivefile bpsendfile hdtn-router telem_cmd_interface udp-delay-sim
 
 do
 for i in `pidof $j`
