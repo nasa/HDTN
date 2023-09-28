@@ -43,14 +43,14 @@ if (( CUSTODY == 0 )); then
 
 	./run_hdtn_oneprocess_ltp &
 	sleep 6
-	./send_files
+	./send_files_bpv6
 
 else
 	CL="LTP_CUSTODY"
 
 	./run_hdtn_oneprocess_ltp_custody &
 	sleep 6
-	./send_files_custody
+	./send_files_bpv6_custody
 
 fi
 

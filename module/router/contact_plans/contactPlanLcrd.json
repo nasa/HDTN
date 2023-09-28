@@ -29,6 +29,36 @@
             "endTime": 100000,
             "rateBitsPerSec": 1000000000,
             "owlt":  1
+        }, 
+	{
+            "contact": 3,
+            "source": 2,
+            "dest": 20,
+            "finalDestination": 1,
+            "startTime": 0,
+            "endTime": 100000,
+            "rateBitsPerSec": 1000000000,
+            "owlt":  1
+        },
+        {
+            "contact": 4,
+            "source": 20,
+            "dest": 10,
+            "finalDestination": 1,
+            "startTime": 0,
+            "endTime": 100000,
+            "rateBitsPerSec": 1000000000,
+            "owlt":  1
+        },
+        {
+            "contact": 5,
+            "source": 10,
+            "dest": 1,
+            "finalDestination": 1,
+            "startTime": 0,
+            "endTime": 100000,
+            "rateBitsPerSec": 1000000000,
+            "owlt":  1
         }
     ]
 }
