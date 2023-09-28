@@ -597,7 +597,7 @@ bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::
     }
 
 #ifdef MASKING_ENABLED
-        m_pmasker = Masker::makePointer(maskerImpl, hdtnConfig, hdtnOneProcessZmqInprocContextPtr, hdtnDistributedConfig);
+    m_pmasker = Masker::makePointer(maskerImpl, hdtnConfig, hdtnOneProcessZmqInprocContextPtr, hdtnDistributedConfig);
 #endif
     
     return true;
