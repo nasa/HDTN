@@ -1,0 +1,108 @@
+{
+    "bpsecConfigName": "my BPSec Config",
+    "policyRules": [
+        {
+            "description": "Bpsource confidentiality",
+            "securityPolicyRuleId": 1,
+            "securityRole": "source",
+            "securitySource": "ipn:1.1",
+            "bundleSource": [
+                "ipn:1.1"
+            ],
+            "bundleFinalDestination": [
+                "ipn:2.1"
+            ],
+            "securityTargetBlockTypes": [
+                1,
+                11
+            ],
+            "securityService": "confidentiality",
+            "securityContext": "aesGcm",
+            "securityFailureEventSetReference": "default_confidentiality",
+            "securityContextParams": [
+                {
+                    "paramName": "aesVariant",
+                    "value": 256
+                },
+                {
+                    "paramName": "ivSizeBytes",
+                    "value": 12
+                },
+                {
+                    "paramName": "keyFile",
+                    "value": "ipn1.1_confidentiality.key"
+                },
+                {
+                    "paramName": "securityBlockCrc",
+                    "value": 0
+                },
+                {
+                    "paramName": "scopeFlags",
+                    "value": 7
+                }
+            ]
+        },
+        {
+            "description": "Bpsource integrity",
+            "securityPolicyRuleId": 2,
+            "securityRole": "source",
+            "securitySource": "ipn:1.1",
+            "bundleSource": [
+                "ipn:1.1"
+            ],
+            "bundleFinalDestination": [
+                "ipn:2.1"
+            ],
+            "securityTargetBlockTypes": [
+                1
+            ],
+            "securityService": "integrity",
+            "securityContext": "hmacSha",
+            "securityFailureEventSetReference": "default_integrity",
+            "securityContextParams": [
+                {
+                    "paramName": "shaVariant",
+                    "value": 384
+                },
+                {
+                    "paramName": "keyFile",
+                    "value": "ipn1.1_integrity.key"
+                },
+                {
+                    "paramName": "securityBlockCrc",
+                    "value": 0
+                },
+                {
+                    "paramName": "scopeFlags",
+                    "value": 7
+                }
+            ]
+        }
+    ],
+    "securityFailureEventSets": [
+        {
+            "name": "default_confidentiality",
+            "description": "default bcb confidentiality security operations event set",
+            "securityOperationEvents": [
+                {
+                    "eventId": "sopCorruptedAtAcceptor",
+                    "actions": [
+                        "removeSecurityOperationTargetBlock"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "default_integrity",
+            "description": "default bcb confidentiality security operations event set",
+            "securityOperationEvents": [
+                {
+                    "eventId": "sopCorruptedAtAcceptor",
+                    "actions": [
+                        "removeSecurityOperationTargetBlock"
+                    ]
+                }
+            ]
+        }
+    ]
+}
