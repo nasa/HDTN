@@ -19,6 +19,7 @@ set_target_properties(masker_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}"
 target_link_libraries(masker_lib
 	PUBLIC
 		bpcodec
+		config_lib
 )
 target_include_directories(masker_lib
 	PUBLIC
