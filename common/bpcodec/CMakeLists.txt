@@ -97,6 +97,13 @@ install(TARGETS bp_app_patterns_lib
 	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
 	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/app_patterns"
 )
+
+set_property(
+	SOURCE src/app_patterns/BpSourcePattern.cpp
+	PROPERTY COMPILE_DEFINITIONS
+		$<$<BOOL:${ENABLE_BPV7_PRIORITY}>:ENABLE_BPV7_PRIORITY>
+)
+
 add_hdtn_package_export(bp_app_patterns_lib BpAppPatternsLib) #exported target will have the name HDTN::BpAppPatternsLib and not bp_app_patterns_lib.  Also requires install to EXPORT bp_app_patterns_lib-targets
 
 add_subdirectory(apps)

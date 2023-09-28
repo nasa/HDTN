@@ -192,6 +192,8 @@ if(ENABLE_MASKING)
 	list(APPEND COMPILE_DEFINITIONS_TO_EXPORT MASKING_ENABLED)
 endif()
 
+OPTION(ENABLE_BPV7_PRIORITY "Enable priority block for bpv7" OFF)
+
 include(${CMAKE_SOURCE_DIR}/add_hdtn_package_export.cmake)
 
 add_subdirectory(common/bpcodec)
