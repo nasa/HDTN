@@ -2,7 +2,7 @@
  * @file BpSourcePattern.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -448,11 +448,11 @@ void BpSourcePattern::BpSourcePatternThreadFunc(double bundleRate, const boost::
                 }
 
                 // Append priority block
+                #ifdef ENABLE_BPV7_PRIORITY
                 {
                     std::unique_ptr<Bpv7CanonicalBlock> blockPtr;
                     static constexpr std::size_t blockTypeCodeAsSizeT = static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::PRIORITY);
                     if (bv7.m_blockNumberToRecycledCanonicalBlockArray[blockTypeCodeAsSizeT]) {
-                        //std::cout << "recycle priority\n";
                         blockPtr = std::move(bv7.m_blockNumberToRecycledCanonicalBlockArray[blockTypeCodeAsSizeT]);
                     }
                     else {
@@ -466,6 +466,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(double bundleRate, const boost::
                     block.m_bundlePriority = m_bundlePriority; // MUST be 0 = Bulk, 1 = Normal, or 2 = Expedited
                     bv7.AppendMoveCanonicalBlock(std::move(blockPtr));
                 }
+                #endif // ENABLE_BPV7_PRIORITY
 
                 //append payload block (must be last block)
                 {

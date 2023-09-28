@@ -481,9 +481,6 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
 void BpSinkPattern::LogStats(PrimaryBlock& primaryBlock, bool isBpVersion6) {
     std::vector<hdtn::StatsLogger::metric_t> metrics;
     metrics.push_back(hdtn::StatsLogger::metric_t(
-        "priority", (uint64_t)primaryBlock.GetPriority()
-    ));
-    metrics.push_back(hdtn::StatsLogger::metric_t(
         "expiration_ms", (uint64_t)primaryBlock.GetExpirationMilliseconds()
     ));
 
@@ -508,6 +505,9 @@ void BpSinkPattern::LogStats(PrimaryBlock& primaryBlock, bool isBpVersion6) {
             "creation_seconds_since_2000",
             (uint64_t)primaryBlock6.m_creationTimestamp.secondsSinceStartOfYear2000
         ));
+        metrics.push_back(hdtn::StatsLogger::metric_t(
+            "priority", (uint64_t)primaryBlock.GetPriority()
+        ));
     } else {
         Bpv7CbhePrimaryBlock& primaryBlock7 = static_cast<Bpv7CbhePrimaryBlock&>(primaryBlock);
         metrics.push_back(hdtn::StatsLogger::metric_t(
@@ -520,6 +520,9 @@ void BpSinkPattern::LogStats(PrimaryBlock& primaryBlock, bool isBpVersion6) {
         metrics.push_back(hdtn::StatsLogger::metric_t(
             "creation_ms_since_2000",
             (uint64_t)primaryBlock7.m_creationTimestamp.millisecondsSinceStartOfYear2000
+        ));
+        metrics.push_back(hdtn::StatsLogger::metric_t(
+            "priority", (uint64_t)m_bpv7Priority
         ));
     }
     hdtn::StatsLogger::Log("bundle_stats", metrics);
