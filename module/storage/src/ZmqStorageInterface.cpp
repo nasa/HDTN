@@ -974,18 +974,18 @@ bool ZmqStorageInterface::Impl::SendDeletionStatusReport(catalog_entry_t * entry
  */
 void ZmqStorageInterface::Impl::DeleteBundleById(const uint64_t custodyId) {
     catalog_entry_t *entry = m_bsmPtr->GetCatalogEntryPtrFromCustodyId(custodyId);
-    if(!entry) {
+    if (!entry) {
         LOG_ERROR(subprocess) << "Failed to get catalog entry for " << custodyId << " while deleting for expiry";
         return;
     }
 
-    if(entry->HasCustody()) {
+    if (entry->HasCustody()) {
         // Bundle may not have a custody transfer timer, so it's fine if this fails
         m_custodyTimersPtr->CancelCustodyTransferTimer(entry->destEid, custodyId);
         m_custodyIdsWaitingTimerStart.erase(custodyId);
 
         bool sent = SendDeletionStatusReport(entry);
-        if(!sent) {
+        if (!sent) {
             LOG_ERROR(subprocess) << "Failed to send bundle deletion status report for bundle with custody ID " << custodyId;
         }
     }
@@ -993,7 +993,7 @@ void ZmqStorageInterface::Impl::DeleteBundleById(const uint64_t custodyId) {
     m_custodyIdAllocatorPtr->FreeCustodyId(custodyId);
 
     bool success = m_bsmPtr->RemoveBundleFromDisk(entry, custodyId);
-    if(!success) {
+    if (!success) {
         LOG_ERROR(subprocess) << "Failed to remove bundle from disk " << custodyId << " while deleting for expiry";
     }
 }
