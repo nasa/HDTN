@@ -55,6 +55,7 @@ bool BpSinkPatternMockChild::ProcessPayload(const uint8_t * data, const uint64_t
 }
 
 void BpSinkPatternMockChild::LogStats(PrimaryBlock& primaryBlock, bool isBpVersion6) {
+    m_bpv7Priority = 0;
     BpSinkPattern::LogStats(primaryBlock, isBpVersion6);
 }
 
