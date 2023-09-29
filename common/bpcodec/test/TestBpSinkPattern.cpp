@@ -58,7 +58,7 @@ void BpSinkPatternMockChild::LogStats(PrimaryBlock& primaryBlock, bool isBpVersi
     BpSinkPattern::LogStats(primaryBlock, isBpVersion6);
 }
 
-BOOST_AUTO_TEST_CASE(BpSinkPatterLogStatsV6TestCase)
+BOOST_AUTO_TEST_CASE(BpSinkPatternLogStatsV6TestCase)
 {
     hdtn::StatsLogger::Reset();
     if (boost::filesystem::exists("stats/bundle_stats")) {
@@ -81,13 +81,13 @@ BOOST_AUTO_TEST_CASE(BpSinkPatterLogStatsV6TestCase)
     BOOST_TEST(boost::regex_match(
         file_contents_to_str(fileName),
         boost::regex(
-            "^timestamp\\(ms\\),priority,expiration_ms,destination_node_id,destination_service_id,source_node_id,source_service_id,bundle_source_to_sink_latency_s,lifetime_seconds,creation_seconds_since_2000\n" +
+            "^timestamp\\(ms\\),expiration_ms,destination_node_id,destination_service_id,source_node_id,source_service_id,bundle_source_to_sink_latency_s,lifetime_seconds,creation_seconds_since_2000,priority\n" +
             timestamp_regex + ",0,0,0,0,0,0,\\d+,0,0\n"
         )
     ));
 }
 
-BOOST_AUTO_TEST_CASE(BpSinkPatterLogStatsV7TestCase)
+BOOST_AUTO_TEST_CASE(BpSinkPatternLogStatsV7TestCase)
 {
     hdtn::StatsLogger::Reset();
     if (boost::filesystem::exists("stats/bundle_stats")) {
@@ -110,8 +110,8 @@ BOOST_AUTO_TEST_CASE(BpSinkPatterLogStatsV7TestCase)
     BOOST_TEST(boost::regex_match(
         file_contents_to_str(fileName),
         boost::regex(
-            "^timestamp\\(ms\\),priority,expiration_ms,destination_node_id,destination_service_id,source_node_id,source_service_id,bundle_source_to_sink_latency_ms,lifetime_ms,creation_ms_since_2000\n" +
-            timestamp_regex + ",2,0,0,0,0,0,\\d+,0,0\n"
+            "^timestamp\\(ms\\),expiration_ms,destination_node_id,destination_service_id,source_node_id,source_service_id,bundle_source_to_sink_latency_ms,lifetime_ms,creation_ms_since_2000,priority\n" +
+            timestamp_regex + ",0,0,0,0,0,\\d+,0,0,2\n"
         )
     ));
 }
