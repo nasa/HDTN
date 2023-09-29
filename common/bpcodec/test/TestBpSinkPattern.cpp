@@ -82,7 +82,7 @@ BOOST_AUTO_TEST_CASE(BpSinkPatternLogStatsV6TestCase)
         file_contents_to_str(fileName),
         boost::regex(
             "^timestamp\\(ms\\),expiration_ms,destination_node_id,destination_service_id,source_node_id,source_service_id,bundle_source_to_sink_latency_s,lifetime_seconds,creation_seconds_since_2000,priority\n" +
-            timestamp_regex + ",0,0,0,0,0,0,\\d+,0,0\n"
+            timestamp_regex + ",0,0,0,0,0,\\d+,0,0,0\n"
         )
     ));
 }
@@ -111,7 +111,7 @@ BOOST_AUTO_TEST_CASE(BpSinkPatternLogStatsV7TestCase)
         file_contents_to_str(fileName),
         boost::regex(
             "^timestamp\\(ms\\),expiration_ms,destination_node_id,destination_service_id,source_node_id,source_service_id,bundle_source_to_sink_latency_ms,lifetime_ms,creation_ms_since_2000,priority\n" +
-            timestamp_regex + ",0,0,0,0,0,\\d+,0,0,2\n"
+            timestamp_regex + ",0,0,0,0,0,\\d+,0,0,0\n"
         )
     ));
 }
