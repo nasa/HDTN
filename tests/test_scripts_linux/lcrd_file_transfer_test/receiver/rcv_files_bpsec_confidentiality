@@ -1,0 +1,1 @@
+$HDTN_SOURCE_ROOT/build/common/bpcodec/apps/bpreceivefile --bpsec-config-file=ipn2.1_con.json --save-directory=./received --my-uri-eid=ipn:2.1 --inducts-config-file=./receiver_bpsink_stcp.json

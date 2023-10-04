@@ -1,0 +1,55 @@
+{
+    "bpsecConfigName": "my BPSec Config",
+    "policyRules": [
+        {
+            "description": "HDTN integrity acceptor",
+            "securityPolicyRuleId": 2,
+            "securityRole": "acceptor",
+            "securitySource": "ipn:1.1",
+            "bundleSource": [
+                "ipn:*.*"
+            ],
+            "bundleFinalDestination": [
+                "ipn:*.*"
+            ],
+            "securityTargetBlockTypes": [
+                1
+            ],
+            "securityService": "integrity",
+            "securityContext": "hmacSha",
+            "securityFailureEventSetReference": "default_integrity",
+            "securityContextParams": [
+                {
+                    "paramName": "shaVariant",
+                    "value": 384
+                },
+                {
+                    "paramName": "keyFile",
+                    "value": "ipn2.1_integrity.key"
+                },
+                {
+                    "paramName": "securityBlockCrc",
+                    "value": 0
+                },
+                {
+                    "paramName": "scopeFlags",
+                    "value": 7
+                }
+            ]
+        }
+    ],
+    "securityFailureEventSets": [
+        {
+            "name": "default_integrity",
+            "description": "default bib integrity security operations event set",
+            "securityOperationEvents": [
+                {
+                    "eventId": "sopCorruptedAtAcceptor",
+                    "actions": [
+                        "removeSecurityOperationTargetBlock"
+                    ]
+                }
+            ]
+        }
+    ]
+}
