@@ -34,7 +34,12 @@ enum class ApiSource_t {
 class TelemetryConnection
 {
     public:
-        TELEM_LIB_EXPORT TelemetryConnection(const std::string& addr, zmq::context_t* inprocContextPtr, bool bind = false);
+        TELEM_LIB_EXPORT TelemetryConnection(
+            const std::string& addr,
+            zmq::context_t* contextPtr,
+            zmq::socket_type socketType,
+            bool bind = false
+        );
         TELEM_LIB_EXPORT ~TelemetryConnection();
 
         /**
@@ -60,21 +65,20 @@ class TelemetryConnection
          * Sends a new request for telemetry. Handles sending queued API calls.
          * @param alwaysRequest whether to always request data, even if there are no API calls queued
          */
-        TELEM_LIB_EXPORT void SendRequest(bool alwaysRequest = true);
+        TELEM_LIB_EXPORT void SendRequests();
 
         /**
          * Enqueues a new API payload to be sent on the next request 
          */
-        TELEM_LIB_EXPORT bool EnqueueApiPayload(std::string&& payload, ApiSource_t src);
+        TELEM_LIB_EXPORT bool EnqueueApiPayload(std::string&& payload, zmq::message_t&& connectionID);
 
-        bool m_apiSocketAwaitingResponse;
     private:
         TelemetryConnection() = delete;
         std::string m_addr;
-        std::unique_ptr<zmq::socket_t> m_requestSocket;
-        std::unique_ptr<zmq::context_t> m_contextPtr;
-        typedef std::pair<zmq::message_t, ApiSource_t> zmq_api_msg_plus_source_pair_t;
-        std::queue<zmq_api_msg_plus_source_pair_t> m_apiCallsQueue;
+        std::unique_ptr<zmq::socket_t> m_socket;
+        std::unique_ptr<zmq::context_t> m_context;
+        typedef std::pair<zmq::message_t, zmq::message_t> zmq_api_msg_plus_connection_id_pair_t;
+        std::queue<zmq_api_msg_plus_connection_id_pair_t> m_apiCallsQueue;
         boost::mutex m_apiCallsMutex;
 };
 

@@ -1,5 +1,6 @@
 add_library(telemetry_definitions
 	src/TelemetryDefinitions.cpp
+	src/TelemetryServer.cpp
 )
 GENERATE_EXPORT_HEADER(telemetry_definitions)
 get_target_property(target_type telemetry_definitions TYPE)
@@ -9,6 +10,7 @@ if (target_type STREQUAL SHARED_LIBRARY)
 endif()
 set(MY_PUBLIC_HEADERS
     include/TelemetryDefinitions.h
+	include/TelemetryServer.h
 	${CMAKE_CURRENT_BINARY_DIR}/telemetry_definitions_export.h
 )
 set_target_properties(telemetry_definitions PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list

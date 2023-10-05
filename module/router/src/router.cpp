@@ -40,6 +40,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <atomic>
+#include "TelemetryServer.h"
 
 /* Messages overview:
  *      + Sockets:
@@ -317,6 +318,8 @@ private:
     boost::bimap <ptime_index_pair_t, uint64_t> m_storageExpirationTimes;
     boost::asio::deadline_timer m_storageFullTimer;
     bool m_storageFullTimerIsRunning;
+
+    TelemetryServer m_telemServer;
 };
 
 boost::filesystem::path Router::GetFullyQualifiedFilename(const boost::filesystem::path& filename) {
@@ -982,53 +985,34 @@ bool Router::Impl::SendBundle(const uint8_t* payloadData, const uint64_t payload
     return true;
 }
 
+static void CustomCleanupStdString(void* data, void* hint) {
+    delete static_cast<std::string*>(hint);
+}
+
 /** Handle events from telemetry. Receives new contact plan and updates router to use that contact plan */
 void Router::Impl::TelemEventsHandler() {
-    uint8_t telemMsgByte;
-    const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingTelemToFromBoundRouterPtr->recv(zmq::mutable_buffer(&telemMsgByte, sizeof(telemMsgByte)), zmq::recv_flags::dontwait);
-    if (!res) {
-        LOG_ERROR(subprocess) << "error in Router::Impl::TelemEventsHandler: cannot read message";
-    }
-    else if ((res->truncated()) || (res->size != sizeof(telemMsgByte))) {
-        LOG_ERROR(subprocess) << "TelemEventsHandler message mismatch: untruncated = " << res->untruncated_size
-            << " truncated = " << res->size << " expected = " << sizeof(hdtn::ToEgressHdr);
-    }
-    else {
-        const bool hasApiCalls = telemMsgByte > TELEM_REQ_MSG;
-        if (!hasApiCalls) {
-            return;
+    bool more = false;
+    do {
+        TelemetryRequest request = m_telemServer.ReadRequest(m_zmqRepSock_connectingTelemToFromBoundRouterPtr);
+        if (request.Error()) {
+            continue;
         }
-        zmq::message_t apiMsg;
-        do {
-            if (!m_zmqRepSock_connectingTelemToFromBoundRouterPtr->recv(apiMsg, zmq::recv_flags::none)) {
-                LOG_ERROR(subprocess) << "[TelemEventsHandler] message not received";
-                return;
-            }
-            const std::string apiMsgAsJsonStr = apiMsg.to_string();
-            std::shared_ptr<ApiCommand_t> apiCmdPtr = ApiCommand_t::CreateFromJson(apiMsgAsJsonStr);
-            if (!apiCmdPtr) {
-                LOG_ERROR(subprocess) << "error parsing received api json message.. got\n"
-                    << apiMsgAsJsonStr;
-                continue;
-            }
-            LOG_INFO(subprocess) << "got api call " << apiCmdPtr->m_apiCall;
-            if (UploadContactPlanApiCommand_t* uploadContactPlanApiCmdPtr = dynamic_cast<UploadContactPlanApiCommand_t*>(apiCmdPtr.get())) {
-                LOG_INFO(subprocess) << "received reload contact plan event with data " << uploadContactPlanApiCmdPtr->m_contactPlanJson;
-                boost::asio::post(
-                    m_ioService,
-                    boost::bind(
-                        static_cast<bool (Router::Impl::*) (const std::string&)>(&Router::Impl::ProcessContactsJsonText),
-                        this,
-                        std::move(uploadContactPlanApiCmdPtr->m_contactPlanJson)
-                    )
-                );
-            }
-        } while (apiMsg.more());
-        zmq::message_t msg;
-        if (!m_zmqRepSock_connectingTelemToFromBoundRouterPtr->send(std::move(msg), zmq::send_flags::dontwait)) {
-            LOG_ERROR(subprocess) << "error replying to telem module";
+
+        // Send the message body, depending on the type of request
+        if (UploadContactPlanApiCommand_t* uploadContactPlanApiCmdPtr = dynamic_cast<UploadContactPlanApiCommand_t*>(request.Command().get())) {
+            LOG_INFO(subprocess) << "received reload contact plan event with data " << uploadContactPlanApiCmdPtr->m_contactPlanJson;
+            boost::asio::post(
+                m_ioService,
+                boost::bind(
+                    static_cast<bool (Router::Impl::*) (const std::string&)>(&Router::Impl::ProcessContactsJsonText),
+                    this,
+                    std::move(uploadContactPlanApiCmdPtr->m_contactPlanJson)
+                )
+            );
+            request.SendResponseSuccess(m_zmqRepSock_connectingTelemToFromBoundRouterPtr);
         }
-    }
+        more = request.More();
+    } while (more);
 }
 
 /** Event thread loop */

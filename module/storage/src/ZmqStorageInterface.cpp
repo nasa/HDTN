@@ -37,6 +37,7 @@
 #include "CustodyTimers.h"
 #include "codec/BundleViewV7.h"
 #include "ThreadNamer.h"
+#include "TelemetryServer.h"
 #include <atomic>
 
 typedef std::pair<cbhe_eid_t, bool> eid_plus_isanyserviceid_pair_t;
@@ -180,6 +181,8 @@ private:
     // has been sent. Use this data structure to track "pending egress send"
     // so that we know whether to start the timer for a given bundle
     std::unordered_set<uint64_t> m_custodyIdsWaitingTimerStart;
+
+    TelemetryServer m_telemServer;
 };
 
 ZmqStorageInterface::Impl::Impl() :
@@ -1664,77 +1667,36 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
 }
 
 void ZmqStorageInterface::Impl::TelemEventsHandler() {
-    std::shared_ptr<ApiCommand_t> apiCmdPtr;
-    GetExpiringStorageApiCommand_t* getExpiringStorageApiCommandPtr = NULL;
-    uint8_t telemMsgByte;
-    const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingTelemToFromBoundStoragePtr->recv(zmq::mutable_buffer(&telemMsgByte, sizeof(telemMsgByte)), zmq::recv_flags::dontwait);
-    if (!res) {
-        LOG_ERROR(subprocess) << "error in ZmqStorageInterface::ThreadFunc: cannot read telemMsgByte";
-        return;
-    }
-    else if ((res->truncated()) || (res->size != sizeof(telemMsgByte))) {
-        LOG_ERROR(subprocess) << "telemMsgByte message mismatch: untruncated = " << res->untruncated_size
-            << " truncated = " << res->size << " expected = " << sizeof(telemMsgByte);
-        return;
-    }
-
-    bool hasApiCalls = telemMsgByte > TELEM_REQ_MSG;
-    if (hasApiCalls) {
-        zmq::message_t apiMsg;
-        do {
-            if (!m_zmqRepSock_connectingTelemToFromBoundStoragePtr->recv(apiMsg, zmq::recv_flags::dontwait)) {
-                LOG_ERROR(subprocess) << "error receiving api message";
-                return;
-            }
-            const std::string apiMsgAsJsonStr = apiMsg.to_string();
-            apiCmdPtr = ApiCommand_t::CreateFromJson(apiMsgAsJsonStr);
-            if (!apiCmdPtr) {
-                LOG_ERROR(subprocess) << "error parsing received api json message.. got\n"
-                    << apiMsgAsJsonStr;
-                continue;
-            }
-            LOG_INFO(subprocess) << "got api call " << apiCmdPtr->m_apiCall;
-            getExpiringStorageApiCommandPtr = dynamic_cast<GetExpiringStorageApiCommand_t*>(apiCmdPtr.get());
-            if (!getExpiringStorageApiCommandPtr) {
-                LOG_ERROR(subprocess) << "error casting to GetExpiringStorageApiCommand_t";
-                continue;
-            }
-        } while(apiMsg.more());
-    }
-
-    //send normal storage telemetry
+    // Prepare telemetry
     SyncTelemetry();
     m_telem.m_timestampMilliseconds = TimestampUtil::GetMillisecondsSinceEpochRfc5050();
 
-    std::string* storageTelemJsonStringPtr = new std::string(m_telem.ToJson());
-    std::string& strRef = *storageTelemJsonStringPtr;
-    zmq::message_t zmqJsonMessage(&strRef[0], storageTelemJsonStringPtr->size(), CustomCleanupStdString, storageTelemJsonStringPtr);
-
-    const zmq::send_flags additionalFlags = (getExpiringStorageApiCommandPtr) ? zmq::send_flags::sndmore : zmq::send_flags::none;
-    if (!m_zmqRepSock_connectingTelemToFromBoundStoragePtr->send(std::move(zmqJsonMessage), zmq::send_flags::dontwait | additionalFlags)) {
-        LOG_ERROR(subprocess) << "can't send json telemetry to telem";
-    }
-
-    if (getExpiringStorageApiCommandPtr) {
-        //send storage expiring telemetry
-        StorageExpiringBeforeThresholdTelemetry_t expiringTelem;
-        expiringTelem.priority = getExpiringStorageApiCommandPtr->m_priority;
-        expiringTelem.thresholdSecondsSinceStartOfYear2000 = TimestampUtil::GetSecondsSinceEpochRfc5050(
-            boost::posix_time::microsec_clock::universal_time() + boost::posix_time::seconds(getExpiringStorageApiCommandPtr->m_thresholdSecondsFromNow));
-        if (!m_bsmPtr->GetStorageExpiringBeforeThresholdTelemetry(expiringTelem)) {
-            LOG_ERROR(subprocess) << "storage can't get StorageExpiringBeforeThresholdTelemetry";
+    bool more = false;
+    do {
+        TelemetryRequest request = m_telemServer.ReadRequest(m_zmqRepSock_connectingTelemToFromBoundStoragePtr);
+        if (request.Error()) {
+            continue;
         }
-        else {
-            std::string* expiringTelemJsonStringPtr = new std::string(expiringTelem.ToJson());
-            std::string& strRefExpiring = *expiringTelemJsonStringPtr;
-            zmq::message_t zmqExpiringTelemJsonMessage(&strRefExpiring[0],
-                expiringTelemJsonStringPtr->size(), CustomCleanupStdString, expiringTelemJsonStringPtr);
-
-            if (!m_zmqRepSock_connectingTelemToFromBoundStoragePtr->send(std::move(zmqExpiringTelemJsonMessage), zmq::send_flags::dontwait)) {
-                LOG_ERROR(subprocess) << "storage can't send json StorageExpiringBeforeThresholdTelemetry_t to telem";
+        if (request.Command()->m_apiCall == GetStorageApiCommand_t::name) {
+            std::string resp = m_telem.ToJson();
+            request.SendResponse(resp, m_zmqRepSock_connectingTelemToFromBoundStoragePtr);
+        } else if (GetExpiringStorageApiCommand_t* getExpiringStorageApiCommandPtr = dynamic_cast<GetExpiringStorageApiCommand_t*>(request.Command().get())) {
+            StorageExpiringBeforeThresholdTelemetry_t expiringTelem;
+            expiringTelem.priority = getExpiringStorageApiCommandPtr->m_priority;
+            expiringTelem.thresholdSecondsSinceStartOfYear2000 = TimestampUtil::GetSecondsSinceEpochRfc5050(
+                boost::posix_time::microsec_clock::universal_time() + boost::posix_time::seconds(getExpiringStorageApiCommandPtr->m_thresholdSecondsFromNow));
+            if (!m_bsmPtr->GetStorageExpiringBeforeThresholdTelemetry(expiringTelem)) {
+                LOG_ERROR(subprocess) << "storage can't get StorageExpiringBeforeThresholdTelemetry";
+                const std::string error = "Failed to get expiring storage";
+                request.SendResponseError(error, m_zmqRepSock_connectingTelemToFromBoundStoragePtr);
+            }
+            else {
+                const std::string resp = expiringTelem.ToJson();
+                request.SendResponse(resp, m_zmqRepSock_connectingTelemToFromBoundStoragePtr);
             }
         }
-    }
+        more = request.More();
+    } while (more);
 }
 
 std::size_t ZmqStorageInterface::Impl::GetCurrentNumberOfBundlesDeletedFromStorage() {
