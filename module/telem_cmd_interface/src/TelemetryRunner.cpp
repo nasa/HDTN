@@ -80,7 +80,8 @@ class TelemetryRunner::Impl : private boost::noncopyable {
 
         template <typename TelemetryType>
         void ProcessConnectionResponse(const std::unique_ptr<TelemetryConnection>& connection, TelemetryType& telemetry);
-
+        bool ProcessHdtnConfigRequest(std::string &movablePayload, zmq::message_t& connectionID);
+       
         std::atomic<bool> m_running;
         std::unique_ptr<boost::thread> m_threadPtr;
 #ifdef USE_WEB_INTERFACE
@@ -150,6 +151,7 @@ TelemetryRunner::Impl::Impl() :
     m_apiCmdMap[GetOutductsApiCommand_t::name] = boost::bind(&TelemetryRunner::Impl::HandleEgressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
     m_apiCmdMap[GetOutductCapabilitiesApiCommand_t::name] = boost::bind(&TelemetryRunner::Impl::HandleEgressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
     m_apiCmdMap[GetInductsApiCommand_t::name] = boost::bind(&TelemetryRunner::Impl::HandleIngressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[GetHdtnConfigApiCommand_t::name] = boost::bind(&TelemetryRunner::Impl::ProcessHdtnConfigRequest, this, boost::placeholders::_1, boost::placeholders::_2);
 }
 
 bool TelemetryRunner::Impl::Init(const HdtnConfig &hdtnConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options) {
@@ -253,6 +255,21 @@ bool TelemetryRunner::Impl::OnApiRequest(std::string &&msgJson, zmq::message_t&&
     }
     return it->second(msgJson, connectionID); // note: msgJson will still be moved (boost::function doesn't support r-value references as parameters)
 }
+
+bool TelemetryRunner::Impl::ProcessHdtnConfigRequest(std::string &movablePayload, zmq::message_t& connectionID) {
+     //moveablePayload parameter (not used)
+    // Processes external API request by retrieving HDTN config and sending it back to the requester
+   
+    zmq::message_t blank;
+    zmq::message_t response(m_hdtnConfigJsonPtr->c_str(), m_hdtnConfigJsonPtr->size());
+    
+    m_apiConnection->SendZmqMessage(std::move(connectionID), true);
+    m_apiConnection->SendZmqMessage(std::move(blank), true);
+
+    return m_apiConnection->SendZmqMessage(std::move(response), false);
+  
+}
+
 
 static bool ReceivedIngress(unsigned int mask) {
     return (mask & REC_INGRESS);

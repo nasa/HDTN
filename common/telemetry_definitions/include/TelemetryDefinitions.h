@@ -565,6 +565,14 @@ struct SetMaxSendRateApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
+
+
+struct GetHdtnConfigApiCommand_t : public ApiCommand_t {
+    TELEMETRY_DEFINITIONS_EXPORT GetHdtnConfigApiCommand_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~GetHdtnConfigApiCommand_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
+};
+
 struct ApiResp_t : public JsonSerializable {
     bool m_success;
     std::string m_message;
