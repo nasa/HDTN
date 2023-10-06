@@ -48,10 +48,19 @@ class TelemetryRequest {
         */
         TELEMETRY_DEFINITIONS_EXPORT void SendResponseError(const std::string& message, std::unique_ptr<zmq::socket_t>& socket);
 
+        /**
+         * Gets whether there are more commands associated with this request 
+         */
         TELEMETRY_DEFINITIONS_EXPORT bool More();
 
+        /**
+         * Gets whether there was an error processing the request 
+         */
         TELEMETRY_DEFINITIONS_EXPORT bool Error();
 
+        /**
+         * Gets the underlying API command
+         */
         TELEMETRY_DEFINITIONS_EXPORT std::shared_ptr<ApiCommand_t> Command();
 
     private:
