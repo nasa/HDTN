@@ -30,7 +30,7 @@ public:
     void Send(uint8_t byte)
     {
         zmq::message_t msg(&byte, sizeof(byte));
-        m_respSocket->send(std::move(msg), zmq::send_flags::dontwait);
+        m_respSocket->send(std::move(msg), zmq::send_flags::none);
     }
 
     uint8_t Read()
@@ -105,19 +105,18 @@ BOOST_AUTO_TEST_CASE(TelemetryConnectionGetSocketHandleTestCase)
 
 BOOST_AUTO_TEST_CASE(TelemetryConnectionRouterTestCase)
 {
-    std::unique_ptr<zmq::context_t> contextPtr = boost::make_unique<zmq::context_t>(0);
+    std::unique_ptr<zmq::context_t> contextPtr = boost::make_unique<zmq::context_t>(1);
     std::unique_ptr<TelemetryConnection> router = boost::make_unique<TelemetryConnection>("inproc://my-connection", contextPtr.get(), zmq::socket_type::router, true);
-        std::unique_ptr<MockTelemetryResponder> responder = boost::make_unique<MockTelemetryResponder>(
+    std::unique_ptr<MockTelemetryResponder> responder = boost::make_unique<MockTelemetryResponder>(
         "inproc://my-connection",
         contextPtr.get(),
         zmq::socket_type::req,
         false
     );
     responder->Send(6);
+
     // First message is a 5-byte id
     zmq::message_t id = router->ReadMessage();
-    // Second message is a null "envelope"
-    zmq::message_t env = router->ReadMessage();
     // Third message is the actual message body
     zmq::message_t msg = router->ReadMessage();
     router.reset();
