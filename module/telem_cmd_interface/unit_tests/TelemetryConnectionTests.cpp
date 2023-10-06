@@ -11,7 +11,7 @@ public:
     std::unique_ptr<zmq::socket_t> m_respSocket;
     zmq::pollitem_t m_pollItems[1];
 
-    MockTelemetryResponder(std::string addr, zmq::context_t *inprocContextPtr, zmq::socket_t sockType, bool bind = true)
+    MockTelemetryResponder(std::string addr, zmq::context_t *inprocContextPtr, zmq::socket_type sockType, bool bind = true)
     {
         m_respSocket = boost::make_unique<zmq::socket_t>(*inprocContextPtr, zmq::socket_type::pair);
         if (bind) {
