@@ -61,7 +61,7 @@ def count_issues():
             else:
                 break
         
-        output = json.dumps(json.loads(count), indent=2)
+        output = json.dumps(count, indent=2)
         print(output)
 
     except requests.exceptions.RequestException as error:
