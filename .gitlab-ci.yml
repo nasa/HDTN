@@ -253,7 +253,6 @@ sloc-count:
   script:
     - git fetch
     - git reset --hard origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
-    - git checkout $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
     - ./ci/cloc.sh "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" "origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
   dependencies: []
   needs: []
