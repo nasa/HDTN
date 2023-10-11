@@ -586,13 +586,17 @@ struct ApiResp_t : public JsonSerializable {
 
 /**
  * Represents a ZMQ connection identifier. ZMQ identities are sent by router sockets
- * and used to keep track of and send responses to specific clients.
+ * and used to keep track of and send responses to specific clients. ZMQ connection
+ * IDs are always 5 bytes
  */
+static constexpr uint8_t ZMQ_CONNECTION_ID_LEN = 5;
+
 class ZmqConnectionId_t {
     public:
         TELEMETRY_DEFINITIONS_EXPORT ZmqConnectionId_t();
 
-        // Initialize ZmqConnectionId with a single byte
+        // This constructor generates custom ZMQ connection IDs. It accepts a single byte (uint8_t)
+        // and assigns it to the last byte of the ID, while prepending all other bytes with 0's.
         TELEMETRY_DEFINITIONS_EXPORT ZmqConnectionId_t(const uint8_t val);
 
         // Convert ZmqConnectionId to a zmq::message_t
@@ -605,7 +609,7 @@ class ZmqConnectionId_t {
         TELEMETRY_DEFINITIONS_EXPORT bool operator==(const zmq::message_t& msg) const;
 
     private:
-        std::array<uint8_t, 5> m_id;
+        std::array<uint8_t, ZMQ_CONNECTION_ID_LEN> m_id;
 };
 
 /**

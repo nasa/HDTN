@@ -1412,7 +1412,8 @@ boost::property_tree::ptree AllOutductTelemetry_t::GetNewPropertyTree() const {
  */
 
 ZmqConnectionId_t::ZmqConnectionId_t(const uint8_t val) {
-    m_id = {0, 0, 0, 0, val};
+    std::fill(m_id.begin(), m_id.end(), 0);
+    m_id[ZMQ_CONNECTION_ID_LEN - 1] = val;
 }
 
 zmq::message_t ZmqConnectionId_t::Msg() {
@@ -1424,16 +1425,7 @@ bool ZmqConnectionId_t::operator==(const ZmqConnectionId_t& other) const {
 }
 
 bool ZmqConnectionId_t::operator==(const zmq::message_t& msg) const {
-    if (msg.size() != m_id.size()) {
-        return false;
-    }
-    for (std::size_t i = 0; i < msg.size(); ++i) {
-        uint8_t* msgArr = (uint8_t*)msg.data();
-        if (m_id[i] != msgArr[i]) {
-            return false;
-        }
-    }
-    return true;
+    return memcmp(msg.data(), m_id.data(), m_id.size()) == 0;
 }
 
 ZmqConnectionId_t::ZmqConnectionId_t() {}
