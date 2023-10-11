@@ -20,6 +20,7 @@
 #include "Uri.h"
 #include <boost/make_unique.hpp>
 #include <boost/foreach.hpp>
+#include <vector>
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -1407,6 +1408,47 @@ boost::property_tree::ptree AllOutductTelemetry_t::GetNewPropertyTree() const {
 }
 
 /**
+ * ZmqConnectionID_t 
+ */
+
+ZmqConnectionId_t::ZmqConnectionId_t(const uint8_t val) {
+    std::fill(m_id.begin(), m_id.end(), 0);
+    m_id[ZMQ_CONNECTION_ID_LEN - 1] = val;
+}
+
+zmq::message_t ZmqConnectionId_t::Msg() {
+    return zmq::message_t(m_id.data(), m_id.size());
+}
+
+bool ZmqConnectionId_t::operator==(const ZmqConnectionId_t& other) const {
+    return m_id == other.m_id;
+}
+
+bool ZmqConnectionId_t::operator==(const zmq::message_t& msg) const {
+    if (msg.size() != m_id.size()) {
+        return false;
+    }
+    return memcmp(msg.data(), m_id.data(), m_id.size()) == 0;
+}
+
+ZmqConnectionId_t::ZmqConnectionId_t() {}
+
+/**
+ * API Command Names
+*/
+const std::string GetStorageApiCommand_t::name = "get_storage";
+const std::string GetInductsApiCommand_t::name = "get_inducts";
+const std::string GetOutductsApiCommand_t::name = "get_outducts";
+const std::string GetOutductCapabilitiesApiCommand_t::name = "get_outduct_capabilities";
+const std::string PingApiCommand_t::name = "ping";
+const std::string UploadContactPlanApiCommand_t::name = "upload_contact_plan";
+const std::string GetExpiringStorageApiCommand_t::name = "get_expiring_storage";
+const std::string UpdateBpSecApiCommand_t::name = "update_bpsec_config";
+const std::string GetBpSecApiCommand_t::name = "get_bpsec_config";
+const std::string SetMaxSendRateApiCommand_t::name = "set_max_send_rate";
+const std::string GetHdtnConfigApiCommand_t::name = "get_hdtn_config";
+
+/**
  * ApiCommand_t 
  */
 
@@ -1457,17 +1499,35 @@ std::shared_ptr<ApiCommand_t> ApiCommand_t::CreateFromJson(const std::string& js
         LOG_ERROR(subprocess) << "error getting apiCall from JSON Api command";
         return apiCommandPtr; //null
     }
-    if (apiCall == "ping") {
+    if (apiCall == PingApiCommand_t::name) {
         apiCommandPtr = std::make_shared<PingApiCommand_t>();
     }
-    else if (apiCall == "upload_contact_plan") {
+    else if (apiCall == UploadContactPlanApiCommand_t::name) {
         apiCommandPtr = std::make_shared<UploadContactPlanApiCommand_t>();
     }
-    else if (apiCall == "get_expiring_storage") {
+    else if (apiCall == GetExpiringStorageApiCommand_t::name) {
         apiCommandPtr = std::make_shared<GetExpiringStorageApiCommand_t>();
     }
-    else if (apiCall == "update_bpsec_config") {
+    else if (apiCall == UpdateBpSecApiCommand_t::name) {
         apiCommandPtr = std::make_shared<UpdateBpSecApiCommand_t>();
+    }
+    else if (apiCall == GetBpSecApiCommand_t::name) {
+        apiCommandPtr = std::make_shared<GetBpSecApiCommand_t>();
+    }
+    else if (apiCall == SetMaxSendRateApiCommand_t::name) {
+        apiCommandPtr = std::make_shared<SetMaxSendRateApiCommand_t>();
+    }
+    else if (apiCall == GetInductsApiCommand_t::name) {
+        apiCommandPtr = std::make_shared<GetInductsApiCommand_t>();
+    }
+    else if (apiCall == GetOutductsApiCommand_t::name) {
+        apiCommandPtr = std::make_shared<GetOutductsApiCommand_t>();
+    }
+    else if (apiCall == GetOutductCapabilitiesApiCommand_t::name) {
+        apiCommandPtr = std::make_shared<GetOutductCapabilitiesApiCommand_t>();
+    }
+    else if (apiCall == GetStorageApiCommand_t::name) {
+        apiCommandPtr = std::make_shared<GetStorageApiCommand_t>();
     }
     else { //generic api command
         apiCommandPtr = std::make_shared<ApiCommand_t>();
@@ -1480,13 +1540,53 @@ std::shared_ptr<ApiCommand_t> ApiCommand_t::CreateFromJson(const std::string& js
 }
 
 /**
+ * GetStorageApiCommand_t
+ */
+GetStorageApiCommand_t::GetStorageApiCommand_t()
+{
+    ApiCommand_t::m_apiCall = GetStorageApiCommand_t::name;
+}
+
+GetStorageApiCommand_t::~GetStorageApiCommand_t() {}
+
+/**
+ * GetInductsApiCommand_t
+ */
+GetInductsApiCommand_t::GetInductsApiCommand_t()
+{
+    ApiCommand_t::m_apiCall = GetInductsApiCommand_t::name;
+}
+
+GetInductsApiCommand_t::~GetInductsApiCommand_t() {}
+
+/**
+ * GetOutductsApiCommand_t
+ */
+GetOutductsApiCommand_t::GetOutductsApiCommand_t()
+{
+    ApiCommand_t::m_apiCall = GetOutductsApiCommand_t::name;
+}
+
+GetOutductsApiCommand_t::~GetOutductsApiCommand_t() {}
+
+/**
+ * GetOutductCapabilitiesApiCommand_t
+ */
+GetOutductCapabilitiesApiCommand_t::GetOutductCapabilitiesApiCommand_t()
+{
+    ApiCommand_t::m_apiCall = GetOutductCapabilitiesApiCommand_t::name;
+}
+
+GetOutductCapabilitiesApiCommand_t::~GetOutductCapabilitiesApiCommand_t() {}
+
+/**
  * PingApiCommand_t 
  */
 
 PingApiCommand_t::PingApiCommand_t()
     : ApiCommand_t(), m_nodeId(0), m_pingServiceNumber(0), m_bpVersion(0)
 {
-    ApiCommand_t::m_apiCall = "ping";
+    ApiCommand_t::m_apiCall = PingApiCommand_t::name;
 }
 PingApiCommand_t::~PingApiCommand_t() {}
 
@@ -1539,7 +1639,7 @@ bool PingApiCommand_t::operator!=(const ApiCommand_t& o) const {
 UploadContactPlanApiCommand_t::UploadContactPlanApiCommand_t()
     : ApiCommand_t(), m_contactPlanJson("{}")
 {
-    ApiCommand_t::m_apiCall = "upload_contact_plan";
+    ApiCommand_t::m_apiCall = UploadContactPlanApiCommand_t::name;
 }
 UploadContactPlanApiCommand_t::~UploadContactPlanApiCommand_t() {}
 
@@ -1563,7 +1663,6 @@ bool UploadContactPlanApiCommand_t::SetValuesFromPropertyTree(const boost::prope
 
 boost::property_tree::ptree UploadContactPlanApiCommand_t::GetNewPropertyTree() const {
     boost::property_tree::ptree pt = ApiCommand_t::GetNewPropertyTree();
-    pt.put("apiCall", "upload_contact_plan");
     pt.put("contactPlanJson", m_contactPlanJson);
     return pt;
 }
@@ -1587,7 +1686,7 @@ bool UploadContactPlanApiCommand_t::operator!=(const ApiCommand_t& o) const {
 GetExpiringStorageApiCommand_t::GetExpiringStorageApiCommand_t()
     : ApiCommand_t(), m_priority(0), m_thresholdSecondsFromNow(0)
 {
-    ApiCommand_t::m_apiCall = "get_expiring_storage";
+    ApiCommand_t::m_apiCall = GetExpiringStorageApiCommand_t::name;
 }
 GetExpiringStorageApiCommand_t::~GetExpiringStorageApiCommand_t() {}
 
@@ -1612,7 +1711,6 @@ bool GetExpiringStorageApiCommand_t::SetValuesFromPropertyTree(const boost::prop
 
 boost::property_tree::ptree GetExpiringStorageApiCommand_t::GetNewPropertyTree() const {
     boost::property_tree::ptree pt = ApiCommand_t::GetNewPropertyTree();
-    pt.put("apiCall", "get_expiring_storage");
     pt.put("priority", m_priority);
     pt.put("thresholdSecondsFromNow", m_thresholdSecondsFromNow);
     return pt;
@@ -1638,7 +1736,7 @@ bool GetExpiringStorageApiCommand_t::operator!=(const ApiCommand_t& o) const {
 UpdateBpSecApiCommand_t::UpdateBpSecApiCommand_t()
     : ApiCommand_t(), m_bpSecJson("{}")
 {
-    ApiCommand_t::m_apiCall = "update_bpsec_config";
+    ApiCommand_t::m_apiCall = UpdateBpSecApiCommand_t::name;
 }
 UpdateBpSecApiCommand_t::~UpdateBpSecApiCommand_t() {}
 
@@ -1662,7 +1760,6 @@ bool UpdateBpSecApiCommand_t::SetValuesFromPropertyTree(const boost::property_tr
 
 boost::property_tree::ptree UpdateBpSecApiCommand_t::GetNewPropertyTree() const {
     boost::property_tree::ptree pt = ApiCommand_t::GetNewPropertyTree();
-    pt.put("apiCall", "update_bpsec_config");
     pt.put("newBPSec", m_bpSecJson);
     return pt;
 }
@@ -1677,4 +1774,93 @@ bool UpdateBpSecApiCommand_t::operator==(const ApiCommand_t& o) const {
 
 bool UpdateBpSecApiCommand_t::operator!=(const ApiCommand_t& o) const {
     return !(*this == o);
+}
+
+/**
+ * GetBpSecApiCommand_t
+ */
+
+GetBpSecApiCommand_t::GetBpSecApiCommand_t()
+    : ApiCommand_t()
+{
+    ApiCommand_t::m_apiCall = GetBpSecApiCommand_t::name;
+}
+GetBpSecApiCommand_t::~GetBpSecApiCommand_t() {}
+
+
+/**
+ * SetMaxSendRateApiCommand_t
+ */
+
+SetMaxSendRateApiCommand_t::SetMaxSendRateApiCommand_t()
+    : ApiCommand_t(), m_rateBitsPerSec(0), m_outduct(0)
+{
+    ApiCommand_t::m_apiCall = SetMaxSendRateApiCommand_t::name;
+}
+
+bool SetMaxSendRateApiCommand_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!ApiCommand_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
+    try {
+        m_rateBitsPerSec = pt.get<uint64_t>("rateBitsPerSec");
+        m_outduct = pt.get<uint64_t>("outduct");
+    }
+    catch (const boost::bad_lexical_cast& e) {
+        LOG_ERROR(subprocess) << "parsing JSON SetMaxSendRateApiCommand_t: " << e.what();
+        return false;
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON SetMaxSendRateApiCommand_t: " << e.what();
+        return false;
+    }
+    return true;
+}
+
+boost::property_tree::ptree SetMaxSendRateApiCommand_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt = ApiCommand_t::GetNewPropertyTree();
+    pt.put("rateBitsPerSec", m_rateBitsPerSec);
+    pt.put("outduct", m_outduct);
+    return pt;
+}
+
+bool SetMaxSendRateApiCommand_t::operator==(const ApiCommand_t& o) const {
+    if (const SetMaxSendRateApiCommand_t* oPtr = dynamic_cast<const SetMaxSendRateApiCommand_t*>(&o)) {
+        return ApiCommand_t::operator==(o)
+            && (m_rateBitsPerSec == oPtr->m_rateBitsPerSec) &&
+            (m_outduct == oPtr->m_outduct);
+    }
+    return true;
+}
+
+bool SetMaxSendRateApiCommand_t::operator!=(const ApiCommand_t& o) const {
+    return !(*this == o);
+}
+
+/**
+ * ApiResp_t
+*/
+
+ApiResp_t::ApiResp_t() : m_success(false), m_message("") {}
+ApiResp_t::~ApiResp_t() {}
+
+bool ApiResp_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt){
+    try {
+        m_success = pt.get<bool>("success");
+        m_message = pt.get<std::string>("message");
+    }
+    catch (const boost::bad_lexical_cast& e) {
+        return false;
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        return false;
+    }
+    return true;
+}
+
+boost::property_tree::ptree ApiResp_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt;
+    pt.put("success", m_success);
+    pt.put("message", m_message);
+    return pt;
 }
