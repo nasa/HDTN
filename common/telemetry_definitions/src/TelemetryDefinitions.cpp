@@ -1425,6 +1425,9 @@ bool ZmqConnectionId_t::operator==(const ZmqConnectionId_t& other) const {
 }
 
 bool ZmqConnectionId_t::operator==(const zmq::message_t& msg) const {
+    if (msg.size() != m_id.size()) {
+        return false;
+    }
     return memcmp(msg.data(), m_id.data(), m_id.size()) == 0;
 }
 
