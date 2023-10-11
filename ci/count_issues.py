@@ -6,7 +6,7 @@ PROJECT_ID = os.environ.get("CI_PROJECT_ID")
 PROJECT_PATH = os.environ.get("CI_PROJECT_PATH")
 
 start = sys.argv[1]
-end = sys.argv[1]
+end = sys.argv[2]
 
 def count_issues():
     try:
