@@ -88,6 +88,8 @@ build-static-analysis:
       - build
     expire_in: 2 days
   rules:
+    - if: $DO_MONTHLY_SLOC_COUNT == "true"
+      when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
 
@@ -188,6 +190,8 @@ static-analysis-development:
     - cov-analyze --dir build/idir --all --enable-constraint-fpp --enable-fnptr --enable-virtual --strip-path $HDTN_SOURCE_ROOT
     - cov-commit-defects --dir build/idir --url $COV_BUILD_SERVER --stream HDTN-development --auth-key-file /home/hdtn/auth-gitlab.key
   rules:
+    - if: $DO_MONTHLY_SLOC_COUNT == "true"
+      when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
 
 
@@ -238,3 +242,72 @@ code-test-coverage:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_PIPELINE_SOURCE == "schedule"
+
+# SLOC
+sloc-count:
+  stage: scan-stage
+  tags:
+    - docker
+    - linux-x86
+  image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
+  script:
+    - git fetch
+    - git reset --hard origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+    - ./ci/cloc.sh "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" "origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
+  dependencies: []
+  needs: []
+  artifacts:
+    expose_as: 'SLOC Counts'
+    name: sloc-counts
+    paths:
+      - reports
+    expire_in: 1 month
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+
+
+# Monthly SLOC
+monthly-sloc-count:
+  stage: scan-stage
+  tags:
+    - docker
+    - linux-x86
+  image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
+  script:
+    # Get SLOC counts from the beginning of the previous month to now
+    - git fetch
+    - git checkout $CI_COMMIT_BRANCH
+    - git reset --hard origin/$CI_COMMIT_BRANCH
+    - current_date=$(date +"%Y-%m-%d")
+    - first_day_of_previous_month=$(date -d "$current_date -1 month" +"%Y-%m-01 00:00:00")
+    - echo "Getting SLOC counts from $first_day_of_previous_month to now"
+    - git_commit=$(git log --before="$first_day_of_previous_month" -n 1 --pretty=format:"%H")
+    - ./ci/cloc.sh $git_commit "origin/$CI_COMMIT_BRANCH"
+  dependencies: []
+  needs: []
+  artifacts:
+    name: sloc-counts
+    paths:
+      - reports
+    expire_in: 1 month
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $DO_MONTHLY_SLOC_COUNT == "true"
+
+# Issue Count
+issue-count:
+  stage: scan-stage
+  tags:
+    - docker
+    - linux-x86
+  image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
+  script:
+    - current_date=$(date +"%Y-%m-01T00:00:00.000Z")
+    - first_day_of_previous_month=$(date -d "$current_date -1 month" +"%Y-%m-01T00:00:00.000Z")
+    - echo "Getting issue counts from $first_day_of_previous_month to now"
+    - python3 ci/count_issues.py $first_day_of_previous_month $current_date
+  dependencies: []
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $DO_MONTHLY_SLOC_COUNT == "true"
