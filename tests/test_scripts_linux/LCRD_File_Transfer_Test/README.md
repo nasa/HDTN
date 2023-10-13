@@ -9,16 +9,16 @@ lder titled "flightdata". Once the test is over, a folder called "received" will
 eceiver side of the application
 * Once you have put all the files you want to be transfered, you are now ready to start the receiver
  script
-    * run ./start\_ltp\_receive_bpv6.sh for the ltp test using Bpv6, add the option "-c 1" to enable
+    * run ./start\_ltp\_receive\_bpv6.sh for the ltp test using Bpv6, add the option "-c 1" to enable
  custody transfer
-    * run ./start\_ltp\_receive_bpv7.sh for the ltp test using bpv7, add the option "-s 1" to enable
+    * run ./start\_ltp\_receive\_bpv7.sh for the ltp test using bpv7, add the option "-s 1" to enable
  security
     * run ./start\_tcpcl\_receive.sh for the tcpcl test
 * Wait for about 3 seconds
 * The start the corresponding sender script
-    * run ./start\_ltp\_send_bpv6.sh for the ltp test using bpv6, add the option "-c 1" to enable cu
+    * run ./start\_ltp\_send\_bpv6.sh for the ltp test using bpv6, add the option "-c 1" to enable cu
 stody transfer
-    * run ./start\_ltp\_send_bpv7.sh for the ltp test using bpv7, add the option "-s 1" to enable se
+    * run ./start\_ltp\_send\_bpv7.sh for the ltp test using bpv7, add the option "-s 1" to enable se
 curity
     * run ./start\_tcpcl\_send.sh for the tcpcl test
 * Wait about 10 seconds for the sender and receiver programs to initialize and operate
@@ -28,4 +28,7 @@ curity
     * the host machine running the container
 * Running tcpdump on these different locations will show a different perspective on network traffic 
 which may be beneficial for your testing
+* The data rate can be updated dynamically using the python script set\_ltp\_rate.py in this directory 
+and that is run using "python3 set\_ltp\_rate.py rate(in bits per second)"
+
 
