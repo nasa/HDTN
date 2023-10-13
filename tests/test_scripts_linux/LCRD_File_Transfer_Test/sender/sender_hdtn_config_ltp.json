@@ -48,7 +48,7 @@
                 "oneWayMarginTimeMs": 200,
                 "clientServiceId": 1,
                 "numRxCircularBufferElements": 1000,
-                "ltpMaxRetriesPerSerialNumber": 7,
+                "ltpMaxRetriesPerSerialNumber": 500,
                 "ltpCheckpointEveryNthDataSegment": 0,
                 "ltpRandomNumberSizeBits": 64,
                 "ltpSenderBoundPort": 1113,
