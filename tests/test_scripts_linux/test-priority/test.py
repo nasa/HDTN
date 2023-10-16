@@ -189,7 +189,7 @@ class TestPriority(unittest.TestCase):
     def check_priority(self):
         """Assert that priorities in stats file are ordered"""
         stat_files = list((self.tmpdir / "stats" / "bundle_stats").glob("*.csv"))
-        self.assertEqual(len(stat_files), 1)
+        self.assertEqual(len(stat_files), 1, msg="No stats file, requires DO_STATS_LOGGING")
         stat_file = stat_files[0]
         with open(stat_file, "r") as f:
             reader = csv.DictReader(f)
