@@ -4,6 +4,7 @@
 config_files=$HDTN_RTP_DIR/config_files/ltp/test_6_luna_net
 contact_plan=$HDTN_RTP_DIR/config_files/contact_plans/LunaNetContactPlanNodeIDs.json
 hdtn_config=$config_files/hdtn_one_process_node_6.json
+bpsec_config=$HDTN_SOURCE_ROOT/config_files/bpsec/ipn7.1_con.json
 bprecvstream_config=$config_files/bprecvstream_sctp.json
 
 output_file_path="/home/$USER/test_outputs/lunanet"
@@ -38,7 +39,7 @@ sleep .5
 
 # HDTN one process
 cd $HDTN_SOURCE_ROOT
-cd /home/$USER/HDTN
+#cd /home/$USER/HDTN
 ./build/module/hdtn_one_process/hdtn-one-process  --contact-plan-file=$contact_plan --hdtn-config-file=$hdtn_config &
 one_process_pid=$!
 
@@ -48,7 +49,7 @@ sleep 5
 export GST_DEBUG=3,filesink:7,mp4mux:7
 export GST_DEBUG_FILE=/tmp/hdtn_gst_log.log
 cd $HDTN_RTP_DIR
-./build/bprecv_stream  --my-uri-eid=ipn:7.1 --inducts-config-file=$bprecvstream_config --max-rx-bundle-size-bytes 63000 \
+./build/bprecv_stream  --my-uri-eid=ipn:7.1 --inducts-config-file=$bprecvstream_config --max-rx-bundle-size-bytes 63000 --bpsec-config-file=$bpsec_config \
         --num-circular-buffer-vectors=10000 --max-outgoing-rtp-packet-size-bytes=1460 --outduct-type="appsrc" --shm-socket-path=$shm_socket_path_display &
 bprecv_stream_pid=$!
 sleep 3

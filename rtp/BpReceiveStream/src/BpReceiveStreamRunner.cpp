@@ -1,4 +1,3 @@
-#include "BpReceiveStream.h"
 #include "BpReceiveStreamRunner.h"
 #include "Logger.h"
 #include "SignalHandler.h"
@@ -42,8 +41,8 @@ bool BpReceiveStreamRunner::Run(int argc, const char *const argv[], volatile boo
         uint16_t maxOutgoingRtpPacketSizeBytes;
         std::string shmSocketPath;
         std::string gstCaps;
-
         std::string outductType;
+        boost::filesystem::path bpSecConfigFilePath;
 
         boost::program_options::options_description desc("Allowed options");
         try {
@@ -61,7 +60,8 @@ bool BpReceiveStreamRunner::Run(int argc, const char *const argv[], volatile boo
                 ("shm-socket-path", boost::program_options::value<std::string>()->default_value(GST_HDTN_OUTDUCT_SOCKET_PATH), "Location of the socket for shared memory sink to gstreamer")
                 ("outduct-type", boost::program_options::value<std::string>()->default_value("udp"), "Outduct type to offboard RTP stream")
                 ("gst-caps",boost::program_options::value<std::string>()->default_value("application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)H264, payload=(int)96"), "Caps to apply to GStreamer elements before shared memory interface")
-                ;
+                ("bpsec-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "BpSec Configuration File.")      
+		;
 
             boost::program_options::variables_map vm;
             boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc, boost::program_options::command_line_style::unix_style | boost::program_options::command_line_style::case_insensitive), vm);
@@ -76,6 +76,8 @@ bool BpReceiveStreamRunner::Run(int argc, const char *const argv[], volatile boo
                 LOG_ERROR(subprocess) << "bad BpReceiveStream uri string: " << myUriEid;
                 return false;
             }
+
+	    bpSecConfigFilePath = vm["bpsec-config-file"].as<boost::filesystem::path>();
 
             const boost::filesystem::path configFileNameInducts = vm["inducts-config-file"].as<boost::filesystem::path>();
             if (!configFileNameInducts.empty()) {
@@ -157,8 +159,9 @@ bool BpReceiveStreamRunner::Run(int argc, const char *const argv[], volatile boo
         LOG_INFO(subprocess) << "starting..";
 
         BpReceiveStream BpReceiveStream(numCircularBufferVectors, bpRecvStreamParams);
-        BpReceiveStream.Init(inductsConfigPtr, outductsConfigPtr, isAcsAware, myEid, 0, maxBundleSizeBytes);
-
+        BpReceiveStream.Init(inductsConfigPtr, outductsConfigPtr, 
+			     bpSecConfigFilePath, isAcsAware, 
+			     myEid, 0, maxBundleSizeBytes);
 
         if (useSignalHandler) {
             sigHandler.Start(false);

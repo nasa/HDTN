@@ -8,6 +8,7 @@ test_media_folder=/home/$USER/test_media/official_test_media
 file=$test_media_folder/water_bubble_crf18.mp4
 
 hdtn_config=$config_files/hdtn_one_process_node_1.json
+bpsec_config=$HDTN_SOURCE_ROOT/config_files/bpsec/ipn8.1_con.json
 contact_plan=$HDTN_RTP_DIR/config_files/contact_plans/LunaNetContactPlanNodeIDs.json
 
 incoming_rtp_port=6565
@@ -23,8 +24,8 @@ sleep 9
 
 cd $HDTN_RTP_DIR
 export GST_DEBUG=3
-./build/bpsend_stream  --bundle-size=65535 --bundle-rate=0 --use-bp-version-7 \
-        --my-uri-eid=ipn:1.500 --dest-uri-eid=ipn:7.1 --outducts-config-file=$bpsendstream_config \
+./build/bpsend_stream  --bundle-size=65535 --bundle-rate=0 --use-bp-version-7 --bpsec-config-file=$bpsec_config \
+        --my-uri-eid=ipn:8.1 --dest-uri-eid=ipn:7.1 --outducts-config-file=$bpsendstream_config \
         --num-circular-buffer-vectors=10000 --rtp-packets-per-bundle=20 --max-incoming-udp-packet-size-bytes=1460\
         --induct-type="udp" --incoming-rtp-stream-port=$incoming_rtp_port &  
         # --induct-type="appsink" --file-to-stream=$file  &

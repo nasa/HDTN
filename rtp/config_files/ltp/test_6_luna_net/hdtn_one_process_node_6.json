@@ -6,7 +6,7 @@
     "myBpEchoServiceId": 2047,
     "myCustodialSsp": "unused_custodial_ssp",
     "myCustodialServiceId": 0,
-    "mySchedulerServiceId": 100,
+    "myRouterServiceId": 100,
     "isAcsAware": true,
     "acsMaxFillsPerAcsPacket": 100,
     "acsSendPeriodMilliseconds": 1000,
@@ -15,7 +15,8 @@
     "maxIngressBundleWaitOnEgressMilliseconds": 2000,
     "bufferRxToStorageOnLinkUpSaturation": false,
     "maxLtpReceiveUdpPacketSizeBytes": 65536,
-    "zmqBoundSchedulerPubSubPortPath": 10200,
+    "neighborDepletedStorageDelaySeconds": 0,
+    "zmqBoundRouterPubSubPortPath": 10200,
     "zmqBoundTelemApiPortPath": 10305,
     "inductsConfig": {
         "inductConfigName": "from DSN (madrid)",
@@ -81,7 +82,6 @@
                 "remotePort": 7000,
                 "maxNumberOfBundlesInPipeline": 300000000,
                 "maxSumOfBundleBytesInPipeline": 100000000000,
-                "finalDestinationEidUris": ["ipn:7.*"],
                 "keepAliveIntervalSeconds": 17
             }
         ]
