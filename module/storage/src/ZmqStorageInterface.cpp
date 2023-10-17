@@ -196,7 +196,6 @@ private:
 
     TelemetryServer m_telemServer;
 
-    std::size_t lastIndexToUpLinkVectorOutductInfoRoundRobin;
     std::size_t m_lastIndexToUpLinkVectorOutductInfoRoundRobin;
 
     // stats
