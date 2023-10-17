@@ -732,6 +732,7 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
     
     if (version == BpVersion::BPV6) {
         BundleViewV6 bv;
+        // This also captures whether or not we might fragment the bundle
         const bool loadPrimaryBlockOnly = isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord;
         if (!bv.LoadBundle((uint8_t *)message->data(), message->size(), loadPrimaryBlockOnly)) { //invalid bundle
             LOG_ERROR(subprocess) << "malformed bundle";
@@ -739,6 +740,15 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
         }
         const Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
         finalDestEidReturned = (bundleEidMaskPtr == NULL) ? primary.m_destinationEid : *bundleEidMaskPtr;
+
+        // Full bundle must be loaded if it's a fragment to get payload size for ID later
+        if(m_hdtnConfig.m_fragmentBundlesLargerThanBytes || primary.HasFragmentationFlagSet()) {
+            if (!bv.LoadBundle((uint8_t *)message->data(), message->size(), false)) {
+                LOG_ERROR(subprocess) << "malformed bundle (full fragment load)";
+                return false;
+            }
+        }
+
         if (!loadPrimaryBlockOnly) {
             static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
             const bool bpv6CustodyIsRequested = ((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody);
@@ -760,34 +770,37 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
                 // return here because this writes bundle to disk
                 return ProcessBundleCustody(bv, message->size(), bundleEidMaskPtr);
             }
-        }
 
-        //write bundle to disk, possibly fragmenting if too big
-        uint64_t payloadSizeBytes = 0;
-        bv.GetPayloadSize(payloadSizeBytes);
-        bool needsFragmenting = (m_hdtnConfig.m_fragmentBundlesLargerThanBytes &&
-                (!bv.m_primaryBlockView.header.HasFlagSet(BPV6_BUNDLEFLAG::NOFRAGMENT)) &&
-                (payloadSizeBytes > m_hdtnConfig.m_fragmentBundlesLargerThanBytes));
-        if(needsFragmenting) {
-            std::list<BundleViewV6> fragments;
-            if(!Bpv6Fragmenter::Fragment(bv, m_hdtnConfig.m_fragmentBundlesLargerThanBytes, fragments)) {
-                LOG_ERROR(subprocess) << "Failed to fragment bundle";
+            uint64_t payloadSizeBytes = 0;
+            if(!bv.GetPayloadSize(payloadSizeBytes)) {
+                LOG_ERROR(subprocess) << "Failed to get payload size for bundle";
                 return false;
             }
-            const uint64_t newCustodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
-            bool ret = true;
-            for(std::list<BundleViewV6>::iterator it = fragments.begin(); it != fragments.end(); it++) {
-                BundleViewV6 &b = *it;
-                const Bpv6CbhePrimaryBlock & p = b.m_primaryBlockView.header;
-                const uint64_t id = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(p.m_sourceNodeId);
-                ret &= WriteBundle(b, id);
-            }
-            return ret;
 
-        } else {
-            const uint64_t newCustodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
-            return WriteBundle(bv, newCustodyId, bundleEidMaskPtr);
+            // Fragment if requested
+            bool needsFragmenting = (m_hdtnConfig.m_fragmentBundlesLargerThanBytes &&
+                    (!bv.m_primaryBlockView.header.HasFlagSet(BPV6_BUNDLEFLAG::NOFRAGMENT)) &&
+                    (payloadSizeBytes > m_hdtnConfig.m_fragmentBundlesLargerThanBytes));
+            if(needsFragmenting) {
+                std::list<BundleViewV6> fragments;
+                if(!Bpv6Fragmenter::Fragment(bv, m_hdtnConfig.m_fragmentBundlesLargerThanBytes, fragments)) {
+                    LOG_ERROR(subprocess) << "Failed to fragment bundle";
+                    return false;
+                }
+                const uint64_t newCustodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
+                bool ret = true;
+                for(std::list<BundleViewV6>::iterator it = fragments.begin(); it != fragments.end(); it++) {
+                    BundleViewV6 &b = *it;
+                    const Bpv6CbhePrimaryBlock & p = b.m_primaryBlockView.header;
+                    const uint64_t id = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(p.m_sourceNodeId);
+                    ret &= WriteBundle(b, id);
+                }
+                return ret;
+            }
         }
+
+        const uint64_t newCustodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
+        return WriteBundle(bv, newCustodyId, bundleEidMaskPtr);
     }
     else if (version == BpVersion::BPV7) {
         BundleViewV7 bv;
@@ -813,8 +826,8 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
 bool ZmqStorageInterface::Impl::WriteBundle(BundleViewV6 &bv, const uint64_t newCustodyId, cbhe_eid_t *bundleEidMaskPtr)
 {
     uint64_t payloadSize = 0;
-    if(!bv.GetPayloadSize(payloadSize)) {
-        LOG_ERROR(subprocess) << "unable to get payload size";
+    if(bv.m_primaryBlockView.header.HasFragmentationFlagSet() && !bv.GetPayloadSize(payloadSize)) {
+        LOG_ERROR(subprocess) << "WriteBundleV6: unable to get payload size";
         return false;
     }
     return WriteBundle(bv.m_primaryBlockView.header, newCustodyId, static_cast<const uint8_t*>(bv.m_renderedBundle.data()), bv.m_renderedBundle.size(), payloadSize, bundleEidMaskPtr);
@@ -822,11 +835,9 @@ bool ZmqStorageInterface::Impl::WriteBundle(BundleViewV6 &bv, const uint64_t new
 
 bool ZmqStorageInterface::Impl::WriteBundle(BundleViewV7 &bv, const uint64_t newCustodyId, cbhe_eid_t *bundleEidMaskPtr)
 {
+    // BPv7 fragmentation not supported; if we get here, we know that it's not
+    // a fragment, so we can set payloadSize to zero
     uint64_t payloadSize = 0;
-    if(!bv.GetPayloadSize(payloadSize)) {
-        LOG_ERROR(subprocess) << "unable to get payload size";
-        return false;
-    }
     return WriteBundle(bv.m_primaryBlockView.header, newCustodyId, static_cast<const uint8_t*>(bv.m_renderedBundle.data()), bv.m_renderedBundle.size(), payloadSize, bundleEidMaskPtr);
 }
 
