@@ -94,6 +94,12 @@ def get_current_config():
     }
     send(reqdata)
 
+def get_curent_hdtn_config():
+    reqdata = {
+        "apiCall": "get_hdtn_version",
+    }
+    send(reqdata)
+
 while True:
     print("1: Get Storage")
     print("2: Get Expiring Storage")
@@ -104,6 +110,7 @@ while True:
     print("7: Set Max Send Rate")
     print("8: Upload Contact Plan")
     print("9: Get Current HDTN Config")
+    print("10: Get Current HDTN Version")
     option = input("API command: ")
 
     if option == "1":
@@ -132,5 +139,7 @@ while True:
             upload_contact_plan(contactPlan)
     elif option == "9":
         get_current_config()
+    elif option == "10":
+        get_curent_hdtn_config()
     else:
         print("Invalid option")
