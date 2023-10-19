@@ -41,6 +41,7 @@
 
 class HDTN_UTIL_EXPORT JsonSerializable {
 public:
+    virtual ~JsonSerializable();
     static bool LoadTextFileIntoString(const boost::filesystem::path& filePath, std::string& fileContentsAsString);
     static void GetAllJsonKeys(const std::string& jsonText, std::set<std::string> & jsonKeysNoQuotesSetToAppend);
     static void GetAllJsonKeysLineByLine(std::istream& stream, std::set<std::string>& jsonKeysNoQuotesSetToAppend);
