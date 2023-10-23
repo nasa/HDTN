@@ -48,7 +48,7 @@ void TelemetryRunnerProgramOptions::AppendToDesc(boost::program_options::options
 {
 #ifdef USE_WEB_INTERFACE
     desc.add_options()
-        ("document-root", boost::program_options::value<boost::filesystem::path>()->default_value(Environment::GetPathHdtnSourceRoot() / "module" / "telem_cmd_interface" / "src" / "gui"), "Document Root.")
+        ("document-root", boost::program_options::value<boost::filesystem::path>()->default_value(Environment::GetPathGuiDocumentRoot()), "Document Root.")
         ("port-number", boost::program_options::value<uint16_t>()->default_value(8086), "Port number.")
 # ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
         ("gui-certificate-pem-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "GUI Server certificate file in PEM format (not preferred)")

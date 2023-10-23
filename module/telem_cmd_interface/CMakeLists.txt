@@ -79,3 +79,7 @@ add_executable(telem_cmd_interface
 
 install(TARGETS telem_cmd_interface DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_link_libraries(telem_cmd_interface telem_lib)
+
+if(USE_WEB_INTERFACE)
+    install(DIRECTORY src/gui DESTINATION ${CMAKE_INSTALL_DATADIR})
+endif()

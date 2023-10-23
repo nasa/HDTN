@@ -22,6 +22,7 @@ add_library(hdtn_util
 	src/Utf8Paths.cpp)
 
 
+target_compile_definitions(hdtn_util PRIVATE INSTALL_DATA_DIR=${CMAKE_INSTALL_DATADIR})
 target_compile_options(hdtn_util PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 GENERATE_EXPORT_HEADER(hdtn_util)
 get_target_property(target_type hdtn_util TYPE)
