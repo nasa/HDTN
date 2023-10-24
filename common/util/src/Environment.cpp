@@ -43,7 +43,7 @@ boost::filesystem::path Environment::GetPathHdtnBuildRoot() {
 
 boost::filesystem::path Environment::GetPathContactPlans() {
     if (const char * const s = std::getenv("HDTN_SOURCE_ROOT")) {
-        return boost::filesystem::path(s) / "module/router/contact_plans/";
+        return boost::filesystem::path(s) / "module/router/contact_plans";
     } else {
         return boost::filesystem::path(InstallDataDir) / "contact_plans";
     }
@@ -51,7 +51,7 @@ boost::filesystem::path Environment::GetPathContactPlans() {
 
 boost::filesystem::path Environment::GetPathGuiDocumentRoot() {
     if (const char * const s = std::getenv("HDTN_SOURCE_ROOT")) {
-        return boost::filesystem::path(s) / "module/telem_cmd_interface/src/gui/";
+        return boost::filesystem::path(s) / "module/telem_cmd_interface/src/gui";
     } else {
         return boost::filesystem::path(InstallDataDir) / "gui";
     }
