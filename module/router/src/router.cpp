@@ -323,7 +323,7 @@ private:
 };
 
 boost::filesystem::path Router::GetFullyQualifiedFilename(const boost::filesystem::path& filename) {
-    return (Environment::GetPathHdtnSourceRoot() / "module/router/contact_plans/") / filename;
+    return (Environment::GetPathContactPlans()) / filename;
 }
 
 bool contactPlan_t::operator<(const contactPlan_t& o) const {
