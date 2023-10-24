@@ -45,7 +45,8 @@ static void SendUdpPacket(const std::string host, int port, void *data, size_t s
     boost::asio::ip::udp::socket socket(ios);
     socket.open(boost::asio::ip::udp::v4());
     boost::asio::const_buffer b(data, size);
-    socket.send_to(b, ep);
+    size_t sz_sent = socket.send_to(b, ep);
+    BOOST_REQUIRE(sz_sent == b.size());
 }
 
 static InductsConfig_ptr GetInductsConfig(std::string configName) {
@@ -65,7 +66,8 @@ BOOST_AUTO_TEST_CASE(it_TestBpSinkPatternFragment, * boost::unit_test::enabled()
     OutductsConfig_ptr outducts; // null
 
     cbhe_eid_t eid(149, 1); // From bundles below
-    sink.Init(inducts, outducts, boost::filesystem::path(), false, eid, 25, 1000);
+    bool ret = sink.Init(inducts, outducts, boost::filesystem::path(), false, eid, 25, 1000);
+    BOOST_REQUIRE(ret == true);
 
     // TODO better way? Need to wait for UDP induct to start listening
     boost::this_thread::sleep(boost::posix_time::milliseconds(100));
