@@ -763,7 +763,7 @@ BOOST_AUTO_TEST_CASE(DeletionStatusReportTestCase)
         CustodyTransferManager ctmHdtn(false, PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC);
 
         TimestampUtil::dtn_time_t timeBefore = TimestampUtil::GenerateDtnTimeNow();
-        bool success = ctmHdtn.GenerateBundleDeletionStatusReport(deletedPrimary, bv);
+        bool success = ctmHdtn.GenerateBundleDeletionStatusReport(deletedPrimary, bundleDataStr.size(), bv);
         TimestampUtil::dtn_time_t timeAfter = TimestampUtil::GenerateDtnTimeNow();
 
         BOOST_REQUIRE(success);

@@ -17,12 +17,14 @@
 
 catalog_entry_t::catalog_entry_t() :
     bundleSizeBytes(0),
+    payloadSizeBytes(0),
     encodedAbsExpirationAndCustodyAndPriority(0),
     sequence(0),
     ptrUuidKeyInMap(NULL) { } //a default constructor: X()
 catalog_entry_t::~catalog_entry_t() { } //a destructor: ~X()
 catalog_entry_t::catalog_entry_t(const catalog_entry_t& o) :
     bundleSizeBytes(o.bundleSizeBytes),
+    payloadSizeBytes(o.payloadSizeBytes),
     segmentIdChainVec(o.segmentIdChainVec),
     destEid(o.destEid),
     encodedAbsExpirationAndCustodyAndPriority(o.encodedAbsExpirationAndCustodyAndPriority),
@@ -30,6 +32,7 @@ catalog_entry_t::catalog_entry_t(const catalog_entry_t& o) :
     ptrUuidKeyInMap(o.ptrUuidKeyInMap) { } //a copy constructor: X(const X&)
 catalog_entry_t::catalog_entry_t(catalog_entry_t&& o) :
     bundleSizeBytes(o.bundleSizeBytes),
+    payloadSizeBytes(o.payloadSizeBytes),
     segmentIdChainVec(std::move(o.segmentIdChainVec)),
     destEid(o.destEid),
     encodedAbsExpirationAndCustodyAndPriority(o.encodedAbsExpirationAndCustodyAndPriority),
@@ -37,6 +40,7 @@ catalog_entry_t::catalog_entry_t(catalog_entry_t&& o) :
     ptrUuidKeyInMap(o.ptrUuidKeyInMap) { } //a move constructor: X(X&&)
 catalog_entry_t& catalog_entry_t::operator=(const catalog_entry_t& o) { //a copy assignment: operator=(const X&)
     bundleSizeBytes = o.bundleSizeBytes;
+    payloadSizeBytes = o.payloadSizeBytes;
     segmentIdChainVec = o.segmentIdChainVec;
     destEid = o.destEid;
     encodedAbsExpirationAndCustodyAndPriority = o.encodedAbsExpirationAndCustodyAndPriority;
@@ -46,6 +50,7 @@ catalog_entry_t& catalog_entry_t::operator=(const catalog_entry_t& o) { //a copy
 }
 catalog_entry_t& catalog_entry_t::operator=(catalog_entry_t && o) { //a move assignment: operator=(X&&)
     bundleSizeBytes = o.bundleSizeBytes;
+    payloadSizeBytes = o.payloadSizeBytes;
     segmentIdChainVec = std::move(o.segmentIdChainVec);
     destEid = o.destEid;
     encodedAbsExpirationAndCustodyAndPriority = o.encodedAbsExpirationAndCustodyAndPriority;
@@ -56,6 +61,7 @@ catalog_entry_t& catalog_entry_t::operator=(catalog_entry_t && o) { //a move ass
 bool catalog_entry_t::operator==(const catalog_entry_t & o) const {
     return
         (bundleSizeBytes == o.bundleSizeBytes) &&
+        (payloadSizeBytes == o.payloadSizeBytes) &&
         (segmentIdChainVec == o.segmentIdChainVec) &&
         (destEid == o.destEid) &&
         (encodedAbsExpirationAndCustodyAndPriority == o.encodedAbsExpirationAndCustodyAndPriority) &&
@@ -65,6 +71,7 @@ bool catalog_entry_t::operator==(const catalog_entry_t & o) const {
 bool catalog_entry_t::operator!=(const catalog_entry_t & o) const {
     return
         (bundleSizeBytes != o.bundleSizeBytes) ||
+        (payloadSizeBytes != o.payloadSizeBytes) ||
         (segmentIdChainVec != o.segmentIdChainVec) ||
         (destEid != o.destEid) ||
         (encodedAbsExpirationAndCustodyAndPriority != o.encodedAbsExpirationAndCustodyAndPriority) ||
@@ -89,8 +96,9 @@ bool catalog_entry_t::HasCustodyAndNonFragmentation() const {
 bool catalog_entry_t::HasCustody() const {
     return ((encodedAbsExpirationAndCustodyAndPriority & ((1U << 2) | (1U << 3)) ) != 0);
 }
-void catalog_entry_t::Init(const PrimaryBlock & primary, const uint64_t paramBundleSizeBytes, const uint64_t paramNumSegmentsRequired, void * paramPtrUuidKeyInMap, cbhe_eid_t *bundleEidMaskPtr) {
+void catalog_entry_t::Init(const PrimaryBlock & primary, const uint64_t paramBundleSizeBytes, const uint64_t paramPayloadSizeBytes, const uint64_t paramNumSegmentsRequired, void * paramPtrUuidKeyInMap, cbhe_eid_t *bundleEidMaskPtr) {
     bundleSizeBytes = paramBundleSizeBytes;
+    payloadSizeBytes = paramPayloadSizeBytes;
     destEid = (bundleEidMaskPtr == NULL) ? primary.GetFinalDestinationEid() : *bundleEidMaskPtr;
     encodedAbsExpirationAndCustodyAndPriority = primary.GetPriority() | (primary.GetExpirationSeconds() << 4);
     if (primary.HasCustodyFlagSet()) {

@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   around neighboring nodes with depleted storage. Zero disables; otherwise, the value is
   interpreted as the amount of time to wait before forwarding to the neighbor after a depleted
   storage message is received. Requires that custody be enabled.
++ Added config option `fragmentBundlesLargerThanBytes` allowing for optionally fragmenting
+  BPv6 bundles. Setting this option to zero disables BPv6 fragmentation. Otherwise, HDTN will
+  attempt to fragment received BPv6 bundles with payloads larger than this value. Bundles
+  that cannot be fragmented will be forwareded as usual.
 
 ### Changed
 

@@ -109,6 +109,7 @@ public:
     BPCODEC_EXPORT bool SwapInAndLoadBundle(padded_vector_uint8_t& bundleData, const bool loadPrimaryBlockOnly = false);
     BPCODEC_EXPORT bool CopyAndLoadBundle(const uint8_t * bundleData, const std::size_t size, const bool loadPrimaryBlockOnly = false);
     BPCODEC_EXPORT bool IsValid() const;
+    BPCODEC_EXPORT bool GetPayloadSize(uint64_t& sz);
     BPCODEC_EXPORT bool Render(const std::size_t maxBundleSizeBytes);
     //bool RenderInPlace(const std::size_t paddingLeft);
     BPCODEC_EXPORT void Reset(); //should be private
@@ -130,6 +131,5 @@ public:
     padded_vector_uint8_t m_frontBuffer;
     padded_vector_uint8_t m_backBuffer;
 };
-
 #endif // BUNDLE_VIEW_V6_H
 

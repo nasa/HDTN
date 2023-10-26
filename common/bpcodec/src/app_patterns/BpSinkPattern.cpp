@@ -225,7 +225,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
     const bool isBpVersion6 = (firstByte == 6);
     const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
     if (isBpVersion6) {
-        static thread_local BundleViewV6 bv;
+        static thread_local BundleViewV6 bv, av;
         if (!bv.LoadBundle(rxBuf.data(), rxBuf.size())) { //invalid bundle
             LOG_ERROR(subprocess) << "malformed bundle";
             return false;
@@ -287,25 +287,44 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
             }
         }
 
+        uint64_t payloadSizeBytes;
+        if(bv.GetPayloadSize(payloadSizeBytes)) {
+            m_totalPayloadBytesRx += payloadSizeBytes;
+        }
+        m_totalBundleBytesRx += messageSize;
+        ++m_totalBundlesVersion6Rx;
+        #ifdef DO_STATS_LOGGING
+            LogStats(primary, true);
+        #endif
+
+        BundleViewV6 *curBvPtr = &bv;
+
+        if(primary.HasFragmentationFlagSet()) {
+            bool isComplete;
+            if(!m_fragmentManager.AddFragmentAndGetComplete_ThreadSafe(rxBuf.data(), messageSize, isComplete, av)) {
+                LOG_ERROR(subprocess) << "Failed to add fragment to fragment manager";
+                return false;
+            }
+            if(isComplete) {
+                curBvPtr = & av;
+            }
+            else {
+                // Early exit: skip payload processing, we don't have a complete bundle
+                return true;
+            }
+        }
         std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+        curBvPtr->GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
         if (blocks.size() != 1) {
             LOG_ERROR(subprocess) << "payload block not found";
             return false;
         }
         Bpv6CanonicalBlock & payloadBlock = *(blocks[0]->headerPtr);
-        m_totalPayloadBytesRx += payloadBlock.m_blockTypeSpecificDataLength;
-        m_totalBundleBytesRx += messageSize;
-        ++m_totalBundlesVersion6Rx;
 
         if (!ProcessPayload(payloadBlock.m_blockTypeSpecificDataPtr, payloadBlock.m_blockTypeSpecificDataLength)) {
             LOG_ERROR(subprocess) << "ProcessPayload";
             return false;
         }
-
-        #ifdef DO_STATS_LOGGING
-            LogStats(primary, true);
-        #endif
     }
     else if (isBpVersion7) {
         static thread_local BundleViewV7 bv;

@@ -45,7 +45,7 @@ void CustodyTransferManager::SetCreationAndSequence(uint64_t & creation, uint64_
     sequence = m_sequence++;
 }
 
-bool CustodyTransferManager::GenerateCustodySignalBundle(BundleViewV6 & newRenderedBundleView, const Bpv6CbhePrimaryBlock & primaryFromSender, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) {
+bool CustodyTransferManager::GenerateCustodySignalBundle(BundleViewV6 & newRenderedBundleView, const Bpv6CbhePrimaryBlock & primaryFromSender, uint64_t payloadSizeBytes, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) {
     Bpv6CbhePrimaryBlock & newPrimary = newRenderedBundleView.m_primaryBlockView.header;
     newPrimary.SetZero();
     
@@ -67,6 +67,7 @@ bool CustodyTransferManager::GenerateCustodySignalBundle(BundleViewV6 & newRende
         block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET;
 
         block.m_adminRecordTypeCode = BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::CUSTODY_SIGNAL;
+        block.m_isFragment = primaryFromSender.HasFragmentationFlagSet();
         block.m_adminRecordContentPtr = boost::make_unique<Bpv6AdministrativeRecordContentCustodySignal>();
 
         Bpv6AdministrativeRecordContentCustodySignal & sig = *(reinterpret_cast<Bpv6AdministrativeRecordContentCustodySignal*>(block.m_adminRecordContentPtr.get()));
@@ -77,6 +78,13 @@ bool CustodyTransferManager::GenerateCustodySignalBundle(BundleViewV6 & newRende
         sig.SetTimeOfSignalGeneration(TimestampUtil::GenerateDtnTimeNow());//add custody
         const uint8_t sri = static_cast<uint8_t>(statusReasonIndex);
         sig.SetCustodyTransferStatusAndReason(INDEX_TO_IS_SUCCESS[sri], INDEX_TO_REASON_CODE[sri]);
+        // Note: need to set this on both the custody signal and the block
+        sig.m_isFragment = primaryFromSender.HasFragmentationFlagSet();
+
+        if(primaryFromSender.HasFragmentationFlagSet()) {
+            sig.m_fragmentOffsetIfPresent = primaryFromSender.m_fragmentOffset;
+            sig.m_fragmentLengthIfPresent = payloadSizeBytes;
+        }
 
         newRenderedBundleView.AppendMoveCanonicalBlock(std::move(blockPtr));
     }
@@ -197,21 +205,26 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
 {
 
     CustodyTransferContext prevCustodyInfo;
-    if(!UpdateBundleCustodyFields(bv, acceptCustody, custodyId, prevCustodyInfo)) {
+    if(!GetCustodyInfo(bv, prevCustodyInfo)) {
+        return false;
+    }
+    if(!UpdateBundleCustodyFields(bv, acceptCustody, custodyId)) {
         return false;
     }
 
-    return GenerateCustodySignal(prevCustodyInfo, acceptCustody, custodyId, statusReasonIndex, custodySignalRfc5050RenderedBundleView);
+    return GenerateCustodySignal(prevCustodyInfo, acceptCustody, statusReasonIndex, custodySignalRfc5050RenderedBundleView);
 
 }
 
-bool CustodyTransferManager::UpdateBundleCustodyFields(BundleViewV6 & bv, bool acceptCustody, const uint64_t custodyId, struct CustodyTransferContext &prevCustodyInfo)
+bool CustodyTransferManager::GetCustodyInfo(BundleViewV6 & bv, CustodyTransferContext &prevCustodyInfo)
 {
     Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
-    //Bpv6CbhePrimaryBlock originalPrimaryFromSender = primary; //make a copy
     const cbhe_eid_t custodianEidFromPrimary(primary.m_custodianEid);
 
     prevCustodyInfo.primary = primary;
+    if(!bv.GetPayloadSize(prevCustodyInfo.payloadSizeBytes)) {
+        return false;
+    }
 
     if (m_isAcsAware) {
         prevCustodyInfo.validCtebPresent = false;
@@ -239,6 +252,42 @@ bool CustodyTransferManager::UpdateBundleCustodyFields(BundleViewV6 & bv, bool a
             if (custodianEidFromPrimary == custodianEidFromCteb) {
                 prevCustodyInfo.validCtebPresent = true;
                 prevCustodyInfo.receivedCtebCustodyId = ctebBlockPtr->m_custodyId;
+            }
+        }
+    }
+    return true;
+}
+
+bool CustodyTransferManager::UpdateBundleCustodyFields(BundleViewV6 & bv, bool acceptCustody, const uint64_t custodyId)
+{
+    Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+    //Bpv6CbhePrimaryBlock originalPrimaryFromSender = primary; //make a copy
+    const cbhe_eid_t custodianEidFromPrimary(primary.m_custodianEid);
+
+    if (m_isAcsAware) {
+        std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+        Bpv6CustodyTransferEnhancementBlock* ctebBlockPtr;
+        bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT, blocks);
+        if (blocks.size() > 1) { //D3.3.3 There shall be only one CTEB per bundle.
+            return false; //treat as malformed
+        }
+        else if (blocks.size() == 1) { //cteb present
+            ctebBlockPtr = dynamic_cast<Bpv6CustodyTransferEnhancementBlock*>(blocks[0]->headerPtr.get());
+            if (ctebBlockPtr == NULL) {
+                return false;
+            }
+
+            uint64_t ctebNodeNumber;
+            uint64_t ctebServiceNumber;
+            if (!Uri::ParseIpnUriString(ctebBlockPtr->m_ctebCreatorCustodianEidString, ctebNodeNumber, ctebServiceNumber)) {
+                return false;
+            }
+            cbhe_eid_t custodianEidFromCteb(ctebNodeNumber, ctebServiceNumber);
+            //d) For an intermediate node which is ACS capable and accepts custody, the bundle
+            //protocol agent compares the CTEB custodian with the primary bundle block
+            //custodian.
+            if (custodianEidFromPrimary == custodianEidFromCteb) {
+                // Leave cteb in place TODO why?
             }
             else {
                 //If they are different, the CTEB is invalid and deleted.
@@ -290,7 +339,7 @@ bool CustodyTransferManager::UpdateBundleCustodyFields(BundleViewV6 & bv, bool a
     return true;
 }
 
-bool CustodyTransferManager::GenerateCustodySignal(CustodyTransferContext &info, bool acceptCustody, const uint64_t custodyId,
+bool CustodyTransferManager::GenerateCustodySignal(CustodyTransferContext &info, bool acceptCustody,
     const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex, BundleViewV6 & custodySignalRfc5050RenderedBundleView)
 {
     custodySignalRfc5050RenderedBundleView.Reset();
@@ -328,7 +377,7 @@ bool CustodyTransferManager::GenerateCustodySignal(CustodyTransferContext &info,
             else { //invalid cteb
                 //acs capable ba, ba accepts custody, invalid cteb => generate succeeded and follow 5.10
                 //invalid cteb was deleted above
-                if (!GenerateCustodySignalBundle(custodySignalRfc5050RenderedBundleView, info.primary, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION)) {
+                if (!GenerateCustodySignalBundle(custodySignalRfc5050RenderedBundleView, info.primary, info.payloadSizeBytes, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION)) {
                     return false;
                 }
             }
@@ -362,7 +411,7 @@ bool CustodyTransferManager::GenerateCustodySignal(CustodyTransferContext &info,
 
                 //a) for bundles without a valid CTEB block as identified in RFC 5050 section 5.10, the
                 //  bundle protocol agent shall generate a Failed status;
-                if (!GenerateCustodySignalBundle(custodySignalRfc5050RenderedBundleView, info.primary, statusReasonIndex)) {
+                if (!GenerateCustodySignalBundle(custodySignalRfc5050RenderedBundleView, info.primary, info.payloadSizeBytes, statusReasonIndex)) {
                     return false;
                 }
             }
@@ -380,7 +429,7 @@ bool CustodyTransferManager::GenerateCustodySignal(CustodyTransferContext &info,
 
             //acs unsupported ba, ba accepts custody => update pbb with custodian and generate succeeded and follow 5.10
                 //invalid cteb was deleted above
-            if (!GenerateCustodySignalBundle(custodySignalRfc5050RenderedBundleView, info.primary, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION)) {
+            if (!GenerateCustodySignalBundle(custodySignalRfc5050RenderedBundleView, info.primary, info.payloadSizeBytes, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION)) {
                 return false;
             }
         }
@@ -391,7 +440,7 @@ bool CustodyTransferManager::GenerateCustodySignal(CustodyTransferContext &info,
 
             //acs unsupported ba, ba refuses custody => generate failed and follow 5.10
 
-            if (!GenerateCustodySignalBundle(custodySignalRfc5050RenderedBundleView, info.primary, statusReasonIndex)) {
+            if (!GenerateCustodySignalBundle(custodySignalRfc5050RenderedBundleView, info.primary, info.payloadSizeBytes, statusReasonIndex)) {
                 return false;
             }
         }
@@ -403,7 +452,7 @@ const Bpv6AdministrativeRecordContentAggregateCustodySignal & CustodyTransferMan
     return m_mapCustodianToAcsArray[custodianEid][static_cast<uint8_t>(statusReasonIndex)];
 }
 
-bool CustodyTransferManager::GenerateBundleDeletionStatusReport(const Bpv6CbhePrimaryBlock & primaryOfDeleted, BundleViewV6 & bv) {
+bool CustodyTransferManager::GenerateBundleDeletionStatusReport(const Bpv6CbhePrimaryBlock & primaryOfDeleted, uint64_t payloadSizeBytes, BundleViewV6 & bv) {
 
     // Get values needed for report from orginal bundle primary block
 
@@ -414,7 +463,7 @@ bool CustodyTransferManager::GenerateBundleDeletionStatusReport(const Bpv6CbhePr
     uint64_t fragmentOffset = 0, fragmentLength = 0;
     if(isFragment) {
         fragmentOffset = primaryOfDeleted.m_fragmentOffset;
-        fragmentLength = primaryOfDeleted.m_totalApplicationDataUnitLength;
+        fragmentLength = payloadSizeBytes;
     }
     TimestampUtil::bpv6_creation_timestamp_t copyOfCreationTime = primaryOfDeleted.m_creationTimestamp;
 

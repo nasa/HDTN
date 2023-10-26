@@ -63,7 +63,7 @@ typedef uint64_t segment_id_t;
 #error "STORAGE_SEGMENT_SIZE_MULTIPLE_OF_4KB must be an integer of at least 1"
 #endif
 #define SEGMENT_SIZE (4096 * STORAGE_SEGMENT_SIZE_MULTIPLE_OF_4KB)  
-#define SEGMENT_RESERVED_SPACE (sizeof(uint64_t) + sizeof(segment_id_t) + sizeof(uint64_t))
+#define SEGMENT_RESERVED_SPACE (sizeof(uint64_t) + sizeof(uint64_t) + sizeof(segment_id_t) + sizeof(uint64_t))
 #define BUNDLE_STORAGE_PER_SEGMENT_SIZE (SEGMENT_SIZE - SEGMENT_RESERVED_SPACE)
 #define READ_CACHE_NUM_SEGMENTS_PER_SESSION 50
 

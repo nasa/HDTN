@@ -350,7 +350,7 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7CbhePrimaryBlock : public PrimaryBlock {
 
     BPCODEC_EXPORT virtual bool HasCustodyFlagSet() const override;
     BPCODEC_EXPORT virtual bool HasFragmentationFlagSet() const override;
-    BPCODEC_EXPORT virtual cbhe_bundle_uuid_t GetCbheBundleUuidFromPrimary() const override;
+    BPCODEC_EXPORT virtual cbhe_bundle_uuid_t GetCbheBundleUuidFragmentFromPrimary(uint64_t payloadSizeBytes) const override;
     BPCODEC_EXPORT virtual cbhe_bundle_uuid_nofragment_t GetCbheBundleUuidNoFragmentFromPrimary() const override;
     BPCODEC_EXPORT virtual cbhe_eid_t GetFinalDestinationEid() const override;
     BPCODEC_EXPORT virtual cbhe_eid_t GetSourceEid() const override;

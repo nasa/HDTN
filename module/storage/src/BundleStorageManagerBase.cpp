@@ -35,16 +35,19 @@ struct StorageSegmentHeader {
     void ToNativeEndianInplace();
     uint64_t bundleSizeBytes;
     uint64_t custodyId;
+    uint64_t payloadSizeBytes;
     segment_id_t nextSegmentId;
 };
 StorageSegmentHeader::StorageSegmentHeader() {}
 BOOST_FORCEINLINE void StorageSegmentHeader::ToLittleEndianInplace() {
     boost::endian::native_to_little_inplace(bundleSizeBytes);
+    boost::endian::native_to_little_inplace(payloadSizeBytes);
     boost::endian::native_to_little_inplace(custodyId);
     boost::endian::native_to_little_inplace(nextSegmentId);
 }
 BOOST_FORCEINLINE void StorageSegmentHeader::ToNativeEndianInplace() {
     boost::endian::little_to_native_inplace(bundleSizeBytes);
+    boost::endian::little_to_native_inplace(payloadSizeBytes);
     boost::endian::little_to_native_inplace(custodyId);
     boost::endian::little_to_native_inplace(nextSegmentId);
 }
@@ -152,11 +155,12 @@ uint64_t BundleStorageManagerBase::GetTotalCapacityBytes() const noexcept {
 }
 
 
-uint64_t BundleStorageManagerBase::Push(BundleStorageManagerSession_WriteToDisk & session, const PrimaryBlock & bundlePrimaryBlock, const uint64_t bundleSizeBytes, cbhe_eid_t *bundleEidMaskPtr) {
+uint64_t BundleStorageManagerBase::Push(BundleStorageManagerSession_WriteToDisk & session, const PrimaryBlock & bundlePrimaryBlock, const uint64_t bundleSizeBytes, 
+        const uint64_t payloadSizeBytes, cbhe_eid_t *bundleEidMaskPtr) {
     catalog_entry_t & catalogEntry = session.catalogEntry;
     segment_id_chain_vec_t & segmentIdChainVec = catalogEntry.segmentIdChainVec;
     const uint64_t totalSegmentsRequired = (bundleSizeBytes / BUNDLE_STORAGE_PER_SEGMENT_SIZE) + ((bundleSizeBytes % BUNDLE_STORAGE_PER_SEGMENT_SIZE) == 0 ? 0 : 1);
-    catalogEntry.Init(bundlePrimaryBlock, bundleSizeBytes, totalSegmentsRequired, NULL, bundleEidMaskPtr); //NULL replaced later at CatalogIncomingBundleForStore
+    catalogEntry.Init(bundlePrimaryBlock, bundleSizeBytes, payloadSizeBytes, totalSegmentsRequired, NULL, bundleEidMaskPtr); //NULL replaced later at CatalogIncomingBundleForStore
     session.nextLogicalSegment = 0;
 
 
@@ -178,6 +182,7 @@ int BundleStorageManagerBase::PushSegment(BundleStorageManagerSession_WriteToDis
     }
     StorageSegmentHeader storageSegmentHeader;
     storageSegmentHeader.bundleSizeBytes = (session.nextLogicalSegment == 0) ? catalogEntry.bundleSizeBytes : UINT64_MAX;
+    storageSegmentHeader.payloadSizeBytes = (session.nextLogicalSegment == 0) ? catalogEntry.payloadSizeBytes : UINT64_MAX;
     const segment_id_t segmentId = segmentIdChainVec[session.nextLogicalSegment++];
     const unsigned int diskIndex = segmentId % M_NUM_STORAGE_DISKS;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[diskIndex];
@@ -345,6 +350,14 @@ std::size_t BundleStorageManagerBase::TopSegment(BundleStorageManagerSession_Rea
     }
     else if (session.nextLogicalSegment != 0 && storageSegmentHeader.bundleSizeBytes != UINT64_MAX) {// ? chainInfo.first : UINT64_MAX;
         LOG_ERROR(subprocess) << "Error: read bundle size bytes = " << storageSegmentHeader.bundleSizeBytes << " is not UINT64_MAX";
+    }
+
+    if ((session.nextLogicalSegment == 0) && (storageSegmentHeader.payloadSizeBytes != session.catalogEntryPtr->payloadSizeBytes)) {// ? chainInfo.first : UINT64_MAX;
+        LOG_ERROR(subprocess) << "Error: read payload size bytes = " << storageSegmentHeader.payloadSizeBytes <<
+            " does not match catalog payloadSizeBytes = " << session.catalogEntryPtr->payloadSizeBytes;
+    }
+    else if (session.nextLogicalSegment != 0 && storageSegmentHeader.payloadSizeBytes != UINT64_MAX) {// ? chainInfo.first : UINT64_MAX;
+        LOG_ERROR(subprocess) << "Error: read payload size bytes = " << storageSegmentHeader.bundleSizeBytes << " is not UINT64_MAX";
     }
 
     ++session.nextLogicalSegment;
@@ -580,7 +593,7 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
 
                 *totalBytesRestored += storageSegmentHeader.bundleSizeBytes;
                 *totalSegmentsRestored += totalSegmentsRequired;
-                catalogEntry.Init(*primaryBasePtr, storageSegmentHeader.bundleSizeBytes, totalSegmentsRequired, NULL); //NULL replaced later at CatalogIncomingBundleForStore
+                catalogEntry.Init(*primaryBasePtr, storageSegmentHeader.bundleSizeBytes, storageSegmentHeader.payloadSizeBytes, totalSegmentsRequired, NULL); //NULL replaced later at CatalogIncomingBundleForStore
             }
             if (!headSegmentFound) break;
             if (custodyIdHeadSegment != storageSegmentHeader.custodyId) { //shall be the same across all segments

@@ -202,7 +202,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAllTestCase)
             primary.m_creationTimestamp.sequenceNumber = PRIMARY_SEQ;
 
             //std::cout << "writing\n";
-            uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, primary, size);
+            uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, primary, size, 0);
             //std::cout << "totalSegmentsRequired " << totalSegmentsRequired << "\n";
             BOOST_REQUIRE_NE(totalSegmentsRequired, 0);
 
@@ -372,7 +372,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAll_RestoreFromDisk_TestCase)
                     }
                     //std::cout << "generate bundle of size " << bundle.size() << std::endl;
                     //std::cout << "writing\n";
-                    uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, *primaryBlockPtr, bundle.size());
+                    uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, *primaryBlockPtr, bundle.size(), 0);
 
                     //std::cout << "totalSegmentsRequired " << totalSegmentsRequired << "\n";
                     BOOST_REQUIRE_NE(totalSegmentsRequired, 0);

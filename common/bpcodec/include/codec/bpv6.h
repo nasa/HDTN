@@ -119,6 +119,7 @@ struct CLASS_VISIBILITY_BPCODEC Bpv6CbhePrimaryBlock : public PrimaryBlock {
     BPCODEC_EXPORT uint64_t GetSerializationSize() const;
     BPCODEC_EXPORT bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
     BPCODEC_EXPORT uint64_t GetSecondsSinceCreate() const;
+    BPCODEC_EXPORT bool HasFlagSet(BPV6_BUNDLEFLAG flag) const;
     
     /**
      * Dumps a primary block to stdout in a human-readable way
@@ -133,7 +134,7 @@ struct CLASS_VISIBILITY_BPCODEC Bpv6CbhePrimaryBlock : public PrimaryBlock {
 
     BPCODEC_EXPORT virtual bool HasCustodyFlagSet() const override;
     BPCODEC_EXPORT virtual bool HasFragmentationFlagSet() const override;
-    BPCODEC_EXPORT virtual cbhe_bundle_uuid_t GetCbheBundleUuidFromPrimary() const override;
+    BPCODEC_EXPORT virtual cbhe_bundle_uuid_t GetCbheBundleUuidFragmentFromPrimary(uint64_t payloadSizeBytes) const override;
     BPCODEC_EXPORT virtual cbhe_bundle_uuid_nofragment_t GetCbheBundleUuidNoFragmentFromPrimary() const override;
     BPCODEC_EXPORT virtual cbhe_eid_t GetFinalDestinationEid() const override;
     BPCODEC_EXPORT virtual cbhe_eid_t GetSourceEid() const override;

@@ -1,6 +1,7 @@
 add_executable(integrated-tests
 	src/it_test_main.cpp
         src/integrated_tests.cpp
+        src/bp_sink_pattern.cpp
         ../../common/bpcodec/apps/bpgen/src/BpGenAsync.cpp
         ../../common/bpcodec/apps/bpgen/src/BpGenAsyncRunner.cpp
         ../../common/bpcodec/apps/bpsink/BpSinkAsyncRunner.cpp

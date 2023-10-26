@@ -1087,9 +1087,11 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
 #ifdef MASKING_ENABLED
     cbhe_eid_t queryResult;
 #endif
+    uint64_t payloadSize = 0;
     bool requestsCustody = false;
     bool isAdminRecordForHdtnStorage = false;
     bool isBundleForHdtnRouter = false;
+    bool canBeFragmented = false;
     const uint8_t firstByte = bundleDataBegin[0];
     const bool isBpVersion6 = (firstByte == 6);
     const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
@@ -1104,6 +1106,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
 #endif
         Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
         finalDestEid = primary.m_destinationEid;
+        bv.GetPayloadSize(payloadSize);
         if (needsProcessing) {
             static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
             requestsCustody = ((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody);
@@ -1111,6 +1114,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::ADMINRECORD;
             isAdminRecordForHdtnStorage = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == M_HDTN_EID_CUSTODY));
             isBundleForHdtnRouter = (finalDestEid == M_HDTN_EID_TO_ROUTER_BUNDLES);
+            canBeFragmented = !primary.HasFlagSet(BPV6_BUNDLEFLAG::NOFRAGMENT);
             static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForEcho = BPV6_BUNDLEFLAG::NO_FLAGS_SET;
             //BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::NOFRAGMENT;
             const bool isEcho = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO));
@@ -1129,6 +1133,10 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                 bundleCurrentSize = zmqMessageToSendUniquePtr->size();
             }
             else if (finalDestEid == M_HDTN_EID_PING) {
+                if(primary.HasFragmentationFlagSet()) {
+                    LOG_ERROR(subprocess) << "Received a ping response bundle that was fragmented";
+                    return true;
+                }
                 std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
                 bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
                 if (blocks.size() != 1) {
@@ -1398,8 +1406,12 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
     const bool isOpportunisticLinkUp = (tcpclInductIterator != m_availableDestOpportunisticNodeIdToTcpclInductMap.end());
     m_availableDestOpportunisticNodeIdToTcpclInductMapMutex.unlock();
     const bool bundleCameFromStorageModule = (!needsProcessing);
+    bool needsFragmenting = (m_hdtnConfig.m_fragmentBundlesLargerThanBytes &&
+            isBpVersion6 && canBeFragmented &&
+            (payloadSize >  m_hdtnConfig.m_fragmentBundlesLargerThanBytes));
     bool sentDataOnOpportunisticLink = false;
-    if (isOpportunisticLinkUp && (bundleCameFromStorageModule || !(requestsCustody || isAdminRecordForHdtnStorage))) {
+    const bool trySendOpportunistic = isOpportunisticLinkUp && (bundleCameFromStorageModule || !(requestsCustody || isAdminRecordForHdtnStorage || needsFragmenting));
+    if (trySendOpportunistic) {
         if (tcpclInductIterator->second->ForwardOnOpportunisticLink(finalDestEid.nodeId, *zmqMessageToSendUniquePtr, 3)) { //thread safe forward with 3 second timeout
             sentDataOnOpportunisticLink = true;
         }
@@ -1462,7 +1474,8 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             if (outductIndex != UINT64_MAX) {
                 BundlePipelineAckingSet& bundleCutThroughPipelineAckingSetObj = *(m_vectorBundlePipelineAckingSet[outductIndex]);
 
-                const bool shouldTryToUseCustThrough = ((bundleCutThroughPipelineAckingSetObj.m_linkIsUp && (!requestsCustody) && (!isAdminRecordForHdtnStorage)));
+                const bool shouldTryToUseCustThrough =
+                    ((bundleCutThroughPipelineAckingSetObj.m_linkIsUp && (!requestsCustody) && (!isAdminRecordForHdtnStorage) && (!needsFragmenting)));
                 useStorage = !shouldTryToUseCustThrough;
 
                 if (shouldTryToUseCustThrough) { //type egress cut through ("while loop" instead of "if statement" to support breaking to storage)
@@ -1550,7 +1563,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                     toStorageHdr->ingressUniqueId = fromIngressUniqueId;
                     toStorageHdr->outductIndex = outductIndex;
                     toStorageHdr->dontStoreBundle = reservedStorageCutThroughPipelineAvailability;
-                    toStorageHdr->isCustodyOrAdminRecord = (requestsCustody || isAdminRecordForHdtnStorage);
+                    toStorageHdr->isCustodyOrAdminRecord = (requestsCustody || isAdminRecordForHdtnStorage || needsFragmenting);
                     toStorageHdr->finalDestEid = finalDestEid;
 
                     //zmq threads not thread safe but protected by mutex below
