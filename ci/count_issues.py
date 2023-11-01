@@ -11,7 +11,7 @@ end = sys.argv[2]
 def count_issues():
     try:
         headers = {
-            'Private-Token': TOKEN,
+            'PRIVATE-TOKEN': TOKEN,
         }
         url = f'{API_URL}/projects/{PROJECT_ID}/issues'
         params = {
@@ -26,7 +26,7 @@ def count_issues():
             "open": {}
         }
         while True:
-            response = requests.get(url, headers=headers, params=params)
+            response = requests.get(url, headers=headers, params=params, verify=False)
             issues = response.json()
 
             for issue in issues:
@@ -35,14 +35,14 @@ def count_issues():
                     issueType = "bug"
                 elif any(label in ["feature", "enhancement"] for label in issue["labels"]):
                     issueType = "feature"
-                elif "support" in issue["labels"]:
+                elif any(label in ["support", "documentation"] for label in issue["labels"]):
                     issueType = "support"
                 elif any(label in ["NFR", "discussion"] for label in issue["labels"]):
                     issueType = "nfr"
                 elif "duplicate" in issue["labels"]:
                     issueType = "duplicate"
                 else:
-                    print(f'Label needed for {PROJECT_PATH}/{issue["iid"]}!!')
+                    print(f'Label needed for {PROJECT_PATH}/issues/{issue["iid"]}!!')
 
                 if issue["closed_at"] and issue["closed_at"] > start and issue["closed_at"] < end:
                     count["closed_this_month"][issueType] = count["closed_this_month"].get(issueType, 0) + 1
