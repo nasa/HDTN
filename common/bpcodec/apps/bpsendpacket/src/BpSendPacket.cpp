@@ -1,5 +1,4 @@
 #include <iostream>
-// #include "UdpInduct.h"
 #include "app_patterns/BpSinkPattern.h"
 #include "BpSendPacket.h"
 

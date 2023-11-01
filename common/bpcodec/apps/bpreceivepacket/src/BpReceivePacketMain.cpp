@@ -20,7 +20,6 @@
 
 int main(int argc, const char* argv[]) {
 
-    // hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::bpreceivepacket);
     ThreadNamer::SetThisThreadName("BpReceivePacketMain");
     BpReceivePacketRunner runner;
     std::atomic<bool> running;

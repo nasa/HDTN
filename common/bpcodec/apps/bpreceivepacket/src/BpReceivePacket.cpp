@@ -1,17 +1,3 @@
-/**
- * @file BpReceiveFile.cpp
- * @author  Brian Tomko <brian.j.tomko@nasa.gov>
- *
- * @copyright Copyright © 2021 United States Government as represented by
- * the National Aeronautics and Space Administration.
- * No copyright is claimed in the United States under Title 17, U.S.Code.
- * All Other Rights Reserved.
- *
- * @section LICENSE
- * Released under the NASA Open Source Agreement (NOSA)
- * See LICENSE.md in the source root directory for more information.
- */
-
 #include "BpReceivePacket.h"
 #include "Logger.h"
 #include <boost/make_unique.hpp>
@@ -29,17 +15,10 @@ BpReceivePacket::BpReceivePacket()
 BpReceivePacket::~BpReceivePacket() {}
 
 bool BpReceivePacket::ProcessPayload(const uint8_t * data, const uint64_t size) {
-    // LOG_INFO(subprocess) << "[Receive app] received bundle";
     std::vector<uint8_t> userdata(sizeof(bundleid_payloadsize_pair_t));
     Outduct* outduct = m_packetOutductManager.GetOutductByOutductUuid(0);
     
-    if (outduct) {
-        // if (outduct != m_packetOutductManager.GetOutductByFinalDestinationEid_ThreadSafe(m_finalDestinationEid)) {
-        //     LOG_ERROR(subprocess) << "outduct 0 does not support finalDestinationEid " << m_finalDestinationEid;
-        //     return false;
-        // }
-    }
-    else {
+    if (!outduct) {
         LOG_ERROR(subprocess) << "null outduct";
         return false;
     }
@@ -47,22 +26,19 @@ bool BpReceivePacket::ProcessPayload(const uint8_t * data, const uint64_t size) 
     if (!outduct->Forward(data, size, std::move(userdata))) {
         LOG_ERROR(subprocess) << "[Receive app] unable to send bundle on the outduct.";
         return false;
-        // boost::this_thread::sleep(boost::posix_time::seconds(1));
     }
     else {
-        // LOG_INFO(subprocess) << "[ReceivePacket app] Transferred bundle to UDP";
-        // std::cout << std::string(data, size) << std::endl;
-        // std::cout << data << " (" << size << " bytes" << std::endl;
+        LOG_DEBUG(subprocess) << "[ReceivePacket app] Transferred bundle to UDP";
     }
     return true;
 }
 
 bool BpReceivePacket::socketInit(OutductsConfig_ptr & outductsConfigPtr, const cbhe_eid_t & myEid, const uint64_t maxBundleSizeBytes) {
-    std::cout << "INIT" << std::endl;
+    LOG_DEBUG(subprocess) << "[ReceivePacket app] INIT";
     if (!m_packetOutductManager.LoadOutductsFromConfig(*outductsConfigPtr, myEid.nodeId, UINT16_MAX, 10000000))
     {
         return false;
     }
-    std::cout << "INITIALIZED PACKET OUTDUCT" << std::endl;
+    LOG_DEBUG(subprocess) << "[ReceivePacket app] INITIALIZED PACKET OUTDUCT";
     return true;
 }

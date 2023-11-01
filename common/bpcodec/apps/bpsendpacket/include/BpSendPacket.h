@@ -18,7 +18,7 @@
  * used for extracting payload data from a (UDP) packet, wrapping it into a 
  * bundle, and sending it. It is episodic and overrides 
  * TryWaitForDataAvailable since it monitors a socket that will not always
- *  have new data.
+ * have new data.
  */
 
 #ifndef _BP_SEND_PACKET_H
@@ -44,8 +44,6 @@ private:
     void ProcessPacketCallback(padded_vector_uint8_t & packet);
     void NullCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtr);
     InductManager m_packetInductManager;
-    // m_inductPtr std::unique_ptr<Induct>;
-    // UdpBundleSink m_udpSink;
     std::queue<padded_vector_uint8_t> m_queue;
     uint64_t m_maxBundleSizeBytes;
 };
