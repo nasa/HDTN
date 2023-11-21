@@ -1,0 +1,106 @@
+{
+    "hdtnConfigName": "moc hdtn one process config",
+    "userInterfaceOn": true,
+    "mySchemeName": "unused_scheme_name",
+    "myNodeId": 6,
+    "myBpEchoServiceId": 2047,
+    "myCustodialSsp": "unused_custodial_ssp",
+    "myCustodialServiceId": 0,
+    "myRouterServiceId": 100,
+    "isAcsAware": true,
+    "acsMaxFillsPerAcsPacket": 100,
+    "acsSendPeriodMilliseconds": 1000,
+    "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
+    "maxBundleSizeBytes": 1000000,
+    "maxIngressBundleWaitOnEgressMilliseconds": 2000,
+    "bufferRxToStorageOnLinkUpSaturation": false,
+    "maxLtpReceiveUdpPacketSizeBytes": 65536,
+    "neighborDepletedStorageDelaySeconds": 0,
+    "zmqBoundRouterPubSubPortPath": 10200,
+    "zmqBoundTelemApiPortPath": 10305,
+    "inductsConfig": {
+        "inductConfigName": "from DSN (madrid)",
+        "inductVector": [
+            {
+                "name": "ltp induct from madrid",
+                "convergenceLayer": "ltp_over_udp",
+                "boundPort": 60000,
+                "numRxCircularBufferElements": 10000,
+                "thisLtpEngineId": 6000,
+                "remoteLtpEngineId": 4002,
+                "ltpReportSegmentMtu": 1360,
+                "oneWayLightTimeMs": 20,
+                "oneWayMarginTimeMs": 20,
+                "clientServiceId": 1,
+                "preallocatedRedDataBytes": 200000,
+                "ltpMaxRetriesPerSerialNumber": 5,
+                "ltpRandomNumberSizeBits": 64,
+                "ltpRemoteUdpHostname": "10.1.1.111",
+                "ltpRemoteUdpPort": 50000,
+                "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
+                "ltpMaxExpectedSimultaneousSessions": 500,
+                "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+                "delaySendingOfReportSegmentsTimeMsOrZeroToDisable": 0,
+                "keepActiveSessionDataOnDisk": false,
+                "activeSessionDataOnDiskNewFileDurationMs": 2000,
+                "activeSessionDataOnDiskDirectory": ".\/"
+            },
+            {
+                "name": "ltp induct from NSN (white sands)",
+                "convergenceLayer": "ltp_over_udp",
+                "boundPort": 60001,
+                "numRxCircularBufferElements": 10000,
+                "thisLtpEngineId": 6001,
+                "remoteLtpEngineId": 5002,
+                "ltpReportSegmentMtu": 1360,
+                "oneWayLightTimeMs": 20,
+                "oneWayMarginTimeMs": 20,
+                "clientServiceId": 1,
+                "preallocatedRedDataBytes": 200000,
+                "ltpMaxRetriesPerSerialNumber": 5,
+                "ltpRandomNumberSizeBits": 64,
+                "ltpRemoteUdpHostname": "10.1.1.110",
+                "ltpRemoteUdpPort": 50000,
+                "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
+                "ltpMaxExpectedSimultaneousSessions": 500,
+                "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+                "delaySendingOfReportSegmentsTimeMsOrZeroToDisable": 0,
+                "keepActiveSessionDataOnDisk": false,
+                "activeSessionDataOnDiskNewFileDurationMs": 2000,
+                "activeSessionDataOnDiskDirectory": ".\/"
+            }
+        ]
+    },
+    "outductsConfig": {
+        "outductConfigName": "myconfig",
+        "outductVector": [
+            {
+                "name": "to MOC",
+                "convergenceLayer": "stcp",
+                "nextHopNodeId": 7,
+                "remoteHostname": "localhost",
+                "remotePort": 7000,
+                "maxNumberOfBundlesInPipeline": 300000000,
+                "maxSumOfBundleBytesInPipeline": 100000000000,
+                "keepAliveIntervalSeconds": 17
+            }
+        ]
+    },
+    "storageConfig": {
+        "storageImplementation": "asio_single_threaded",
+        "tryToRestoreFromDisk": false,
+        "autoDeleteFilesOnExit": true,
+        "totalStorageCapacityBytes": 8192000000,
+        "storageDeletionPolicy" : "never",
+        "storageDiskConfigVector": [
+            {
+                "name": "d1",
+                "storeFilePath": ".\/store1.bin"
+            },
+            {
+                "name": "d2",
+                "storeFilePath": ".\/store2.bin"
+            }
+        ]
+    }
+}

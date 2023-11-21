@@ -1,0 +1,18 @@
+{
+    "outductConfigName": "myconfig",
+    "outductVector": [
+        {
+            "name": "to hdtn local",
+            "convergenceLayer": "stcp",
+            "nextHopNodeId": 10,
+            "remoteHostname": "localhost",
+            "remotePort": 5002,
+            "maxNumberOfBundlesInPipeline": 10000,
+            "maxSumOfBundleBytesInPipeline": 500000000,
+            "finalDestinationEidUris": [
+                "ipn:2.*"
+            ],
+            "keepAliveIntervalSeconds": 1000
+        }
+    ]
+}

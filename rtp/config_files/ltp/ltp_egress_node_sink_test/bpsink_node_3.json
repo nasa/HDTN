@@ -1,0 +1,29 @@
+{
+    "inductConfigName": "terminal config",
+    "inductVector": [
+        {
+            "name": "sink from gateway",
+            "convergenceLayer": "ltp_over_udp",
+            "boundPort": 40005,
+            "numRxCircularBufferElements": 100,
+            "thisLtpEngineId": 4,
+            "remoteLtpEngineId": 3,
+            "ltpReportSegmentMtu": 1000,
+            "oneWayLightTimeMs": 1000,
+            "oneWayMarginTimeMs": 200,
+            "clientServiceId": 1,
+            "preallocatedRedDataBytes": 200000,
+            "ltpMaxRetriesPerSerialNumber": 5,
+            "ltpRandomNumberSizeBits": 64,
+            "ltpRemoteUdpHostname": "madrid.local",
+            "ltpRemoteUdpPort": 7000,
+            "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
+            "ltpMaxExpectedSimultaneousSessions": 500,
+            "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+            "delaySendingOfReportSegmentsTimeMsOrZeroToDisable": 20,
+            "keepActiveSessionDataOnDisk": false,
+            "activeSessionDataOnDiskNewFileDurationMs": 2000,
+            "activeSessionDataOnDiskDirectory": ".\/"
+        }
+    ]
+}

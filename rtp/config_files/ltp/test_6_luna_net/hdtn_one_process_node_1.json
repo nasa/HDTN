@@ -1,0 +1,133 @@
+{
+    "hdtnConfigName": "through lunanet to earth",
+    "userInterfaceOn": true,
+    "mySchemeName": "unused_scheme_name",
+    "myNodeId": 1,
+    "myBpEchoServiceId": 2047,
+    "myCustodialSsp": "unused_custodial_ssp",
+    "myCustodialServiceId": 0,
+    "myRouterServiceId": 100,
+    "isAcsAware": true,
+    "acsMaxFillsPerAcsPacket": 100,
+    "acsSendPeriodMilliseconds": 1000,
+    "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
+    "maxBundleSizeBytes": 10000000,
+    "maxIngressBundleWaitOnEgressMilliseconds": 2000,
+    "bufferRxToStorageOnLinkUpSaturation": false,
+    "maxLtpReceiveUdpPacketSizeBytes": 65536,
+    "neighborDepletedStorageDelaySeconds": 0,
+    "zmqBoundRouterPubSubPortPath": 10200,
+    "zmqBoundTelemApiPortPath": 10305,
+    "inductsConfig": {
+        "inductConfigName": "from local bpsendstream",
+        "inductVector": [
+            {
+                "name": "stcp_ingress",
+                "convergenceLayer": "stcp",
+                "boundPort": 5000,
+                "numRxCircularBufferElements": 10000,
+                "keepAliveIntervalSeconds": 15
+            }
+        ]
+    },
+    "outductsConfig": {
+        "outductConfigName": "three way outduct config",
+        "outductVector": [
+            {
+                "name": "to gateway",
+                "convergenceLayer": "ltp_over_udp",
+                "nextHopNodeId": 2,
+                "remoteHostname": "10.1.1.100",
+                "remotePort": 5001,
+                "maxNumberOfBundlesInPipeline": 30000,
+                "maxSumOfBundleBytesInPipeline": 1000000000,
+                "thisLtpEngineId": 1000,
+                "remoteLtpEngineId": 2000,
+                "ltpDataSegmentMtu": 1360,
+                "oneWayLightTimeMs": 20,
+                "oneWayMarginTimeMs": 20,
+                "clientServiceId": 1,
+                "numRxCircularBufferElements": 10000,
+                "ltpMaxRetriesPerSerialNumber": 5,
+                "ltpCheckpointEveryNthDataSegment": 0,
+                "ltpRandomNumberSizeBits": 64,
+                "ltpSenderBoundPort": 40000,
+                "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+                "ltpSenderPingSecondsOrZeroToDisable": 0,
+                "delaySendingOfDataSegmentsTimeMsOrZeroToDisable": 0,
+                "keepActiveSessionDataOnDisk": false,
+                "activeSessionDataOnDiskNewFileDurationMs": 2000,
+                "activeSessionDataOnDiskDirectory": ".\/"
+            },
+            {
+                "name": "to relay",
+                "convergenceLayer": "ltp_over_udp",
+                "nextHopNodeId": 3,
+                "remoteHostname": "10.1.1.101",
+                "remotePort": 5001,
+                "maxNumberOfBundlesInPipeline": 30000,
+                "maxSumOfBundleBytesInPipeline": 1000000000,
+                "thisLtpEngineId": 1001,
+                "remoteLtpEngineId": 3000,
+                "ltpDataSegmentMtu": 1360,
+                "oneWayLightTimeMs": 20,
+                "oneWayMarginTimeMs": 20,
+                "clientServiceId": 1,
+                "numRxCircularBufferElements": 10000,
+                "ltpMaxRetriesPerSerialNumber": 5,
+                "ltpCheckpointEveryNthDataSegment": 0,
+                "ltpRandomNumberSizeBits": 64,
+                "ltpSenderBoundPort": 40001,
+                "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+                "ltpSenderPingSecondsOrZeroToDisable": 0,
+                "delaySendingOfDataSegmentsTimeMsOrZeroToDisable": 0,
+                "keepActiveSessionDataOnDisk": false,
+                "activeSessionDataOnDiskNewFileDurationMs": 2000,
+                "activeSessionDataOnDiskDirectory": ".\/"
+            },
+            {
+                "name": "to madrid",
+                "convergenceLayer": "ltp_over_udp",
+                "nextHopNodeId": 4,
+                "remoteHostname": "10.1.1.111",
+                "remotePort": 40000,
+                "maxNumberOfBundlesInPipeline": 30000,
+                "maxSumOfBundleBytesInPipeline": 1000000000,
+                "thisLtpEngineId": 1002,
+                "remoteLtpEngineId": 4000,
+                "ltpDataSegmentMtu": 1000,
+                "oneWayLightTimeMs": 1500,
+                "oneWayMarginTimeMs": 200,
+                "clientServiceId": 1,
+                "numRxCircularBufferElements": 10000,
+                "ltpMaxRetriesPerSerialNumber": 5,
+                "ltpCheckpointEveryNthDataSegment": 0,
+                "ltpRandomNumberSizeBits": 64,
+                "ltpSenderBoundPort": 40002,
+                "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+                "ltpSenderPingSecondsOrZeroToDisable": 0,
+                "delaySendingOfDataSegmentsTimeMsOrZeroToDisable": 0,
+                "keepActiveSessionDataOnDisk": false,
+                "activeSessionDataOnDiskNewFileDurationMs": 2000,
+                "activeSessionDataOnDiskDirectory": ".\/"
+            }
+        ]
+    },
+    "storageConfig": {
+        "storageImplementation": "asio_single_threaded",
+        "tryToRestoreFromDisk": false,
+        "autoDeleteFilesOnExit": true,
+        "totalStorageCapacityBytes": 8192000000,
+        "storageDeletionPolicy" : "never",
+        "storageDiskConfigVector": [
+            {
+                "name": "d1",
+                "storeFilePath": ".\/store1.bin"
+            },
+            {
+                "name": "d2",
+                "storeFilePath": ".\/store2.bin"
+            }
+        ]
+    }
+}

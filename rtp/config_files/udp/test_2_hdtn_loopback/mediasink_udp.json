@@ -1,0 +1,12 @@
+{
+    "inductConfigName": "bprecv stream from bp send stream",
+    "inductVector": [
+        {
+            "name": "induct from localhost",
+            "convergenceLayer": "udp",
+            "boundPort": 60000,
+            "numRxCircularBufferElements": 10000,
+            "numRxCircularBufferBytesPerElement":100000
+        }
+    ]
+}
