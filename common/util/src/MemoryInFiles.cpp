@@ -496,7 +496,7 @@ MemoryInFiles::Impl::FileInfo::FileInfo(const boost::filesystem::path& filePath,
     m_valid(false)
 {
     const boost::filesystem::path::value_type* filePathCstr = m_filePath.c_str();
-#ifdef _WIN32
+#if defined(_WIN32)
     //
     //https://docs.microsoft.com/en-us/windows/win32/fileio/synchronous-and-asynchronous-i-o
     //In synchronous file I/O, a thread starts an I/O operation and immediately enters a wait state until the I/O request has completed.
@@ -517,9 +517,14 @@ MemoryInFiles::Impl::FileInfo::FileInfo(const boost::filesystem::path& filePath,
     if (hFile == INVALID_HANDLE_VALUE) {
         LOG_ERROR(subprocess) << "error opening " << m_filePath;
         return;
+    } 
+#elif defined(__APPLE__)
+    int hFile = open(filePathCstr, (O_CREAT | O_RDWR | O_TRUNC), DEFFILEMODE);
+    if (hFile < 0) {
+        LOG_ERROR(subprocess) << "error opening " << m_filePath;
+        return;
     }
-    
-#else
+#else // Linux (not WIN32 or APPLE)
     int hFile = open(filePathCstr, (O_CREAT | O_RDWR | O_TRUNC | O_LARGEFILE), DEFFILEMODE);
     if (hFile < 0) {
         LOG_ERROR(subprocess) << "error opening " << m_filePath;
@@ -545,9 +550,12 @@ void MemoryInFiles::Impl::FileInfo::TryStartNextQueuedIoOperation() {
         io_operation_t& op = m_queueIoOperations.front();
         m_diskOperationInProgress = true;
         if (op.m_readToThisLocationPtr) {
-#ifdef _WIN32
+#if defined(_WIN32)
             boost::asio::async_read_at(*m_fileHandlePtr, op.m_offsetWithinFile,
-#else
+#elif defined(__APPLE__)
+    lseek(m_fileHandlePtr->native_handle(), op.m_offsetWithinFile, SEEK_SET);
+            boost::asio::async_read(*m_fileHandlePtr,
+#else // Linux (not WIN32 or APPLE)
             lseek64(m_fileHandlePtr->native_handle(), op.m_offsetWithinFile, SEEK_SET);
             boost::asio::async_read(*m_fileHandlePtr,
 #endif
@@ -557,9 +565,12 @@ void MemoryInFiles::Impl::FileInfo::TryStartNextQueuedIoOperation() {
                     boost::asio::placeholders::bytes_transferred));
         }
         else { //write operation
-#ifdef _WIN32
+#if defined(_WIN32)
             boost::asio::async_write_at(*m_fileHandlePtr, op.m_offsetWithinFile,
-#else
+#elif defined(__APPLE__)
+            lseek(m_fileHandlePtr->native_handle(), op.m_offsetWithinFile, SEEK_SET);
+            boost::asio::async_write(*m_fileHandlePtr,
+#else // Linux (not WIN32 or APPLE)
             lseek64(m_fileHandlePtr->native_handle(), op.m_offsetWithinFile, SEEK_SET);
             boost::asio::async_write(*m_fileHandlePtr,
 #endif

@@ -399,7 +399,11 @@ bool BundleStorageManagerBase::ReadFirstSegment(BundleStorageManagerSession_Read
         return false;
     }
 
+#ifdef __APPLE__
+    const uint64_t totalBytesToRead = std::min(session.catalogEntryPtr->bundleSizeBytes, static_cast<unsigned long long>(BUNDLE_STORAGE_PER_SEGMENT_SIZE));
+#else
     const uint64_t totalBytesToRead = std::min(session.catalogEntryPtr->bundleSizeBytes, BUNDLE_STORAGE_PER_SEGMENT_SIZE);
+#endif
     buf.resize(totalBytesToRead);
     std::size_t totalBytesRead = TopSegment(session, buf.data());
     return (totalBytesRead == totalBytesToRead);
