@@ -45,21 +45,26 @@ class EncapAsyncDuplexLocalStream {
 public:
     typedef boost::function<void(padded_vector_uint8_t& receivedFullEncapPacket,
         uint32_t decodedEncapPayloadSize, uint8_t decodedEncapHeaderSize)> OnFullEncapPacketReceivedCallback_t;
+    typedef boost::function<void(bool isOnConnectionEvent)> OnLocalStreamConnectionStatusChangedCallback_t;
 
     EncapAsyncDuplexLocalStream(boost::asio::io_service& ioService,
         const ENCAP_PACKET_TYPE encapPacketType,
         const uint64_t maxEncapRxPacketSizeBytes,
-        const OnFullEncapPacketReceivedCallback_t& onFullEncapPacketReceivedCallback) :
+        const OnFullEncapPacketReceivedCallback_t& onFullEncapPacketReceivedCallback,
+        const OnLocalStreamConnectionStatusChangedCallback_t& onLocalStreamConnectionStatusChangedCallback,
+        const bool rxCallbackDontDiscardEncapHeader = true) :
         M_MAX_ENCAP_RX_PACKET_SIZE_BYTES(maxEncapRxPacketSizeBytes),
         m_ioServiceRef(ioService),
         m_workPtr(boost::make_unique<boost::asio::io_service::work>(ioService)),
         m_onFullEncapPacketReceivedCallback(onFullEncapPacketReceivedCallback),
+        m_onLocalStreamConnectionStatusChangedCallback(onLocalStreamConnectionStatusChangedCallback),
 #ifndef STREAM_USE_WINDOWS_NAMED_PIPE
         m_reconnectAfterOnConnectErrorTimer(ioService),
 #endif
         m_streamHandle(ioService),
         m_numReconnectAttempts(0),
         M_ENCAP_PACKET_TYPE(encapPacketType),
+        M_RX_CALLBACK_DONT_DISCARD_ENCAP_HEADER(rxCallbackDontDiscardEncapHeader),
         m_isStreamCreator(false),
         m_running(false),
         m_readyToSend(false),
@@ -75,25 +80,26 @@ public:
     
     /** Perform graceful shutdown.
      *
-     * If no previous successful call to UdpBatchSender::Init(), returns immediately.
+     * If no previous successful call to Init(), returns immediately.
      * Else, tries to perform graceful shutdown on the socket, then releases all underlying I/O resources.
-     * @post The object is ready to be reused after the next successful call to UdpBatchSender::Init().
+     * @post The object is ready to be reused after the next successful call to Init().
      */
     void Stop() {
         m_running = false;
-        DoShutdown();
-        while (!m_shutdownComplete.load(std::memory_order_acquire)) {
-            try {
-                boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+        if (!m_shutdownComplete.load(std::memory_order_acquire)) {
+            boost::asio::post(m_ioServiceRef, boost::bind(&EncapAsyncDuplexLocalStream::HandleShutdown, this));
+            while (!m_shutdownComplete.load(std::memory_order_acquire)) {
+                try {
+                    boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+                }
+                catch (const boost::thread_resource_error&) {}
+                catch (const boost::thread_interrupted&) {}
+                catch (const boost::condition_error&) {}
+                catch (const boost::lock_error&) {}
             }
-            catch (const boost::thread_resource_error&) {}
-            catch (const boost::thread_interrupted&) {}
-            catch (const boost::condition_error&) {}
-            catch (const boost::lock_error&) {}
         }
-        if (m_workPtr) {
-            m_workPtr.reset();
-        }
+        
+        m_workPtr.reset();
 #ifdef STREAM_USE_WINDOWS_NAMED_PIPE
         if (m_threadWaitForConnection) {
             m_threadWaitForConnection->join();
@@ -121,6 +127,9 @@ public:
         if (isStreamCreator) { //binding
             const DWORD bufferSize = 4096 * 2;
             //LPTSTR lpszPipename = TEXT("\\\\.\\pipe\\mynamedpipe");
+            //https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-server-using-overlapped-i-o
+            //https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-server-using-completion-routines
+            //https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createnamedpipea
             HANDLE hPipeInst = CreateNamedPipeA(
                 m_socketOrPipePath.c_str(),            // pipe name 
                 PIPE_ACCESS_DUPLEX |     // read/write access 
@@ -191,6 +200,7 @@ private:
         BOOL fConnected;// , fPendingIO = FALSE;
 
         // Start an overlapped connection for this pipe instance. 
+        //https://learn.microsoft.com/en-us/windows/win32/api/namedpipeapi/nf-namedpipeapi-connectnamedpipe
         fConnected = ConnectNamedPipe(hPipeInst, &oOverlap);
 
         // Overlapped ConnectNamedPipe should return zero. 
@@ -215,6 +225,8 @@ private:
             }
         }
         CloseHandle(hEventWaitForConnection);
+
+        //https://github.com/boostorg/process/issues/83
         boost::system::error_code ecAssign;
         m_streamHandle.assign(hPipeInst, ecAssign);
         if (ecAssign) {
@@ -226,6 +238,7 @@ private:
     void TryToOpenExistingPipeThreadFunc() {
         while (m_running) {
             //std::cout << "S: Creating pipe " << pipeName << "\n";
+            //https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilea
             HANDLE hPipeInst = CreateFileA(m_socketOrPipePath.c_str(),
                 GENERIC_READ | GENERIC_WRITE,
                 0, nullptr,
@@ -259,6 +272,9 @@ private:
         StartReadFirstEncapHeaderByte_NotThreadSafe();
         m_shutdownComplete = false;
         m_readyToSend = true;
+        if (m_onLocalStreamConnectionStatusChangedCallback) {
+            m_onLocalStreamConnectionStatusChangedCallback(m_readyToSend);
+        }
     }
 #else //unix sockets
     void OnSocketAccept(const boost::system::error_code& error) {
@@ -270,6 +286,9 @@ private:
             StartReadFirstEncapHeaderByte_NotThreadSafe();
             m_shutdownComplete = false;
             m_readyToSend = true;
+            if (m_onLocalStreamConnectionStatusChangedCallback) {
+                m_onLocalStreamConnectionStatusChangedCallback(m_readyToSend);
+            }
         }
     }
     void OnSocketConnect(const boost::system::error_code& error) {
@@ -289,6 +308,9 @@ private:
             StartReadFirstEncapHeaderByte_NotThreadSafe();
             m_shutdownComplete = false;
             m_readyToSend = true;
+            if (m_onLocalStreamConnectionStatusChangedCallback) {
+                m_onLocalStreamConnectionStatusChangedCallback(m_readyToSend);
+            }
         }
     }
     void OnReconnectAfterOnConnectError_TimerExpired(const boost::system::error_code& e) {
@@ -320,6 +342,7 @@ private:
     void HandleFirstEncapByteReadCompleted(const boost::system::error_code& error, std::size_t bytes_transferred) {
         if (error) {
 #ifdef STREAM_USE_WINDOWS_NAMED_PIPE
+            //https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--0-499-
             //ERROR_BROKEN_PIPE
             if (error.value() != ERROR_MORE_DATA)
 #endif
@@ -374,13 +397,14 @@ private:
             std::cout << "HandleRemainingEncapHeaderReadCompleted: invalid LTP encap header received\n";
         }
         else {
-            m_receivedFullEncapPacket_swappable.resize(decodedEncapPayloadSize + decodedEncapHeaderSize);
+            const uint8_t encapHeaderSize = decodedEncapHeaderSize * M_RX_CALLBACK_DONT_DISCARD_ENCAP_HEADER;
+            m_receivedFullEncapPacket_swappable.resize(decodedEncapPayloadSize + encapHeaderSize);
             boost::asio::async_read(m_streamHandle,
-                boost::asio::buffer(&m_receivedFullEncapPacket_swappable[decodedEncapHeaderSize], decodedEncapPayloadSize),
+                boost::asio::buffer(&m_receivedFullEncapPacket_swappable[encapHeaderSize], decodedEncapPayloadSize),
                 boost::bind(&EncapAsyncDuplexLocalStream::HandleEncapPayloadReadCompleted, this,
                     boost::asio::placeholders::error,
                     boost::asio::placeholders::bytes_transferred,
-                    decodedEncapPayloadSize, decodedEncapHeaderSize));
+                    decodedEncapPayloadSize, encapHeaderSize));
         }
     }
 
@@ -405,13 +429,13 @@ private:
         //this StartReadFirstEncapHeaderByte_NotThreadSafe() is optionally called within m_onFullEncapPacketReceivedCallback;
     }
 
-    void DoShutdown() {
-        boost::asio::post(m_ioServiceRef, boost::bind(&EncapAsyncDuplexLocalStream::HandleShutdown, this));
-    }
-
     void HandleShutdown() {
+        m_readyToSend = false;
         //final code to shut down tcp sockets
         if (m_streamHandle.is_open()) {
+            if (m_onLocalStreamConnectionStatusChangedCallback) {
+                m_onLocalStreamConnectionStatusChangedCallback(m_readyToSend);
+            }
 #ifndef STREAM_USE_WINDOWS_NAMED_PIPE
             try {
                 std::cout << "shutting down Local Stream..\n";
@@ -448,6 +472,7 @@ private:
     /// Explicit work controller for m_ioService, allows for graceful shutdown of running tasks
     std::unique_ptr<boost::asio::io_service::work> m_workPtr;
     const OnFullEncapPacketReceivedCallback_t m_onFullEncapPacketReceivedCallback;
+    const OnLocalStreamConnectionStatusChangedCallback_t m_onLocalStreamConnectionStatusChangedCallback;
     std::string m_socketOrPipePath;
     padded_vector_uint8_t m_receivedFullEncapPacket_swappable;
     /// UDP socket to connect to destination endpoint
@@ -462,6 +487,7 @@ private:
     stream_handle_t m_streamHandle;
     uint64_t m_numReconnectAttempts;
     const ENCAP_PACKET_TYPE M_ENCAP_PACKET_TYPE;
+    const bool M_RX_CALLBACK_DONT_DISCARD_ENCAP_HEADER;
     std::atomic<bool> m_isStreamCreator;
     std::atomic<bool> m_running;
     std::atomic<bool> m_readyToSend;

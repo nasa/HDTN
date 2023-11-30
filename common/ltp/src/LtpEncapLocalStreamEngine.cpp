@@ -30,7 +30,10 @@ LtpEncapLocalStreamEngine::LtpEncapLocalStreamEngine(const uint64_t maxEncapRxPa
         ENCAP_PACKET_TYPE::LTP,
         maxEncapRxPacketSizeBytes,
         boost::bind(&LtpEncapLocalStreamEngine::OnFullEncapPacketReceived, this,
-            boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3)),
+            boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
+        boost::bind(&LtpEncapLocalStreamEngine::OnLocalStreamConnectionStatusChanged, this,
+            boost::placeholders::_1),
+        true), //true => keep encap header
     M_REMOTE_ENGINE_ID(ltpRxOrTxCfg.remoteEngineId),
     MAX_TX_SEND_SYSTEM_CALLS_IN_FLIGHT(6), //from LtpEngine.cpp MAX_QUEUED_SEND_SYSTEM_CALLS = 5;
     m_txCb(MAX_TX_SEND_SYSTEM_CALLS_IN_FLIGHT),
@@ -143,6 +146,22 @@ void LtpEncapLocalStreamEngine::OnFullEncapPacketReceived(padded_vector_uint8_t&
         PacketIn(true, ltpPacketPtr, decodedEncapPayloadSize); //Not thread safe, immediately puts into ltp rx state machine and calls PacketInFullyProcessedCallback
     }
     m_encapAsyncDuplexLocalStream.StartReadFirstEncapHeaderByte_NotThreadSafe();
+}
+void LtpEncapLocalStreamEngine::OnLocalStreamConnectionStatusChanged(bool isOnConnectionEvent) {
+    LOG_INFO(subprocess) << "LtpEncapLocalStreamEngine connection " << ((isOnConnectionEvent) ? "up" : "down");
+    const bool error = !isOnConnectionEvent;
+    if (error) {
+        if (!m_sendErrorOccurred) {
+            m_sendErrorOccurred = true;
+            LOG_ERROR(subprocess) << "LtpEncapLocalStreamEngine.. future packets will be dropped";
+        }
+    }
+    else {
+        if (m_sendErrorOccurred) {
+            m_sendErrorOccurred = false; //trigger these prints on "rising edge"
+            LOG_INFO(subprocess) << "LtpEncapLocalStreamEngine sender back to normal operation";
+        }
+    }
 }
 
 void LtpEncapLocalStreamEngine::TrySendOperationIfAvailable_NotThreadSafe() {

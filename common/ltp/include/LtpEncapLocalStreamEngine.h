@@ -133,6 +133,7 @@ private:
 
     LTP_LIB_NO_EXPORT void OnFullEncapPacketReceived(padded_vector_uint8_t& receivedFullEncapPacket,
         uint32_t decodedEncapPayloadSize, uint8_t decodedEncapHeaderSize);
+    LTP_LIB_NO_EXPORT void OnLocalStreamConnectionStatusChanged(bool isOnConnectionEvent);
     
     EncapAsyncDuplexLocalStream m_encapAsyncDuplexLocalStream;
 
