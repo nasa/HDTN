@@ -81,8 +81,8 @@ target_link_libraries(ltp_lib
 		hdtn_util
 		telemetry_definitions
 		Boost::random
-		log_lib
-		$<$<BOOL:${UNIX}>:rt> #for shared memory in LtpOverIpc
+		$<$<PLATFORM_ID:Linux>:rt> #for shared memory in LtpOverIpc
+		$<$<BOOL:${APPLE}>:${COCOA_LIBRARY}> # Cocoa framework required to be linked on Apple platforms for CoreFoundation calls within boost::asio
 )
 target_include_directories(ltp_lib
 	PUBLIC

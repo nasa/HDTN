@@ -2,7 +2,7 @@
  * @file UdpBatchSender.h
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -159,7 +159,7 @@ private:
     boost::asio::ip::udp::endpoint m_udpDestinationEndpoint;
     /// Thread that invokes m_ioService.run()
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
-#ifdef _WIN32
+#if defined(_WIN32)
 //# define UDP_BATCH_SENDER_USE_OVERLAPPED 1
     /// WINAPI TransmitPackets function pointer
     LPFN_TRANSMITPACKETS m_transmitPacketsFunctionPointer;
@@ -169,7 +169,10 @@ private:
 # endif
     /// Vector of packets to send
     std::vector<TRANSMIT_PACKETS_ELEMENT> m_transmitPacketsElementVec;
-#else //not #ifdef _WIN32
+#elif defined(__APPLE__)
+    /// Vector of packets to send
+    std::vector<struct msghdr> m_transmitPacketsElementVec;
+#else // Linux (not WIN32 or APPLE)
     /// Vector of packets to send
     std::vector<struct mmsghdr> m_transmitPacketsElementVec;
 #endif

@@ -237,7 +237,11 @@ void UdpBatchSender::AppendConstBufferVecToTransmissionElements(std::vector<boos
         };
         */
         m_transmitPacketsElementVec.emplace_back();
-        struct mmsghdr& mmsgHeader = m_transmitPacketsElementVec.back();
+#ifdef __APPLE__
+        struct msghdr& msgHeader = m_transmitPacketsElementVec.back();
+#else
+        struct mmsghdr& msgHeader = m_transmitPacketsElementVec.back();
+#endif
         /*
         struct msghdr {
             void    *   msg_name;   // Socket name
@@ -257,10 +261,15 @@ void UdpBatchSender::AppendConstBufferVecToTransmissionElements(std::vector<boos
                                    //return value from a single sendmsg(2) call).
         };
         */
-        memset(&mmsgHeader, 0, sizeof(struct mmsghdr));
-        mmsgHeader.msg_hdr.msg_iov = reinterpret_cast<struct iovec*>(currentPacketConstBuffers.data());
-        mmsgHeader.msg_hdr.msg_iovlen = currentPacketConstBuffersSize;
-
+#ifdef __APPLE__
+        memset(&msgHeader, 0, sizeof(struct msghdr));
+        msgHeader.msg_iov = reinterpret_cast<struct iovec*>(currentPacketConstBuffers.data());
+        msgHeader.msg_iovlen = currentPacketConstBuffersSize;
+#else
+        memset(&msgHeader, 0, sizeof(struct mmsghdr));
+        msgHeader.msg_hdr.msg_iov = reinterpret_cast<struct iovec*>(currentPacketConstBuffers.data());
+        msgHeader.msg_hdr.msg_iovlen = currentPacketConstBuffersSize;
+#endif     
 #endif //#ifdef _WIN32
     }
     else {}
@@ -318,7 +327,11 @@ bool UdpBatchSender::SendTransmissionElements() {
         //A blocking sendmmsg() call (WHICH THIS IS) blocks until vlen messages have been
         //sent.  A nonblocking call sends as many messages as possible (up
         //to the limit specified by vlen) and returns immediately.
+#ifdef __APPLE__
+        const int retval = sendmsg(sockfd, m_transmitPacketsElementVec.data(), vlen);
+#else
         const int retval = sendmmsg(sockfd, m_transmitPacketsElementVec.data(), vlen, 0);
+#endif
 
         //On success, sendmmsg() returns the number of messages sent from
         //msgvec; if this is less than vlen, the caller can retry with a
