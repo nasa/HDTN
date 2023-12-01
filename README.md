@@ -57,7 +57,6 @@ sudo yum install cmake boost-devel zeromq zeromq-devel
 * Ubuntu distributions may install an older CMake version that is not compatible
 * Some processors may not support hardware acceleration or the RDSEED instruction, both ON by default in the cmake file
 
-
 ## Notes on C++ Standard Version ##
 HDTN build environment sets by default the CMake cache variable `HDTN_TRY_USE_CPP17` to `On`.
 * If set to `On`, CMake will test if the compiler supports C++17.  If the test fails, CMake will fall back to C++11 and compile HDTN with C++11.  If the test passes, CMake will compile HDTN with C++17.
