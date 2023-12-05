@@ -505,8 +505,12 @@ bool TestHDTNStorageModeLTPv7() {
     runningBpgen = false;
     threadBpgen.join();
 
+    Delay(1);
+
     runningHdtnOneProcess = false;
     threadHdtn.join();
+
+    Delay(1);
 
     runningBpsink = false;
     threadBpsink.join();
@@ -997,8 +1001,12 @@ bool TestHDTNCutThroughModeTCPCL() {
     runningBpgen = false;
     threadBpgen.join();
 
+    Delay(1);
+
     runningHdtnOneProcess = false;
     threadHdtn.join();
+
+    Delay(1);
 
     runningBpsink = false;
     threadBpsink.join();

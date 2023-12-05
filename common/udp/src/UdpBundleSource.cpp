@@ -23,10 +23,7 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-static const boost::posix_time::time_duration static_tokenMaxLimitDurationWindow(boost::posix_time::milliseconds(100));
-static const boost::posix_time::time_duration static_tokenRefreshTimeDurationWindow(boost::posix_time::milliseconds(20));
-
-UdpBundleSource::UdpBundleSource(const unsigned int maxUnacked) :
+UdpBundleSource::UdpBundleSource(const unsigned int maxUnacked, const uint64_t rateLimitPrecisionMicroSec) :
 m_work(m_ioService), //prevent stopping of ioservice until destructor
 m_resolver(m_ioService),
 m_tokenRefreshTimer(m_ioService),
@@ -49,17 +46,14 @@ m_totalPacketBytesDequeuedForSend(0),
 m_totalPacketsLimitedByRate(0),
 m_linkIsUpPhysically(false)
 {
-    //m_rateManagerAsync.SetPacketsSentCallback(boost::bind(&UdpBundleSource::PacketsSentCallback, this));
-    //const uint64_t minimumRateBytesPerSecond = 655360;
-    //const uint64_t minimumRateBitsPerSecond = 655360 << 3;
+    m_rateLimitPrecisionInterval = boost::posix_time::microsec(rateLimitPrecisionMicroSec);
+    // To prevent token exhaustion, the token refresh interval must be shorter than the rate limit precision
+    m_tokenRefreshInterval = boost::posix_time::microsec(rateLimitPrecisionMicroSec / 2);
+
     UpdateRate(0);
     
     const uint64_t tokenLimit = m_tokenRateLimiter.GetRemainingTokens();
     LOG_INFO(subprocess) << "UdpBundleSource: rate bitsPerSec = " << 0 << "  token limit = " << tokenLimit;
-
-    //The following error message should no longer be relevant since the Token Bucket is allowed to go negative if there is at least 1 token in the bucket.
-    //if (tokenLimit < 65536u) {
-    //}
 
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
     ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceUdpBundleSource");
@@ -134,7 +128,7 @@ void UdpBundleSource::UpdateRate(uint64_t rateBitsPerSec) {
     m_tokenRateLimiter.SetRate(
         rateBytesPerSecond, // 20ms per token
         boost::posix_time::seconds(1),
-        static_tokenMaxLimitDurationWindow //token limit of rateBytesPerSecond / (1000ms/100ms) = rateBytesPerSecond / 10
+        m_rateLimitPrecisionInterval
     );
 }
 
@@ -385,7 +379,7 @@ void UdpBundleSource::TryRestartTokenRefreshTimer() {
         if (m_lastTimeTokensWereRefreshed.is_neg_infinity()) {
             m_lastTimeTokensWereRefreshed = nowPtime;
         }
-        m_tokenRefreshTimer.expires_at(nowPtime + static_tokenRefreshTimeDurationWindow);
+        m_tokenRefreshTimer.expires_at(nowPtime + m_tokenRefreshInterval);
         m_tokenRefreshTimer.async_wait(boost::bind(&UdpBundleSource::OnTokenRefresh_TimerExpired, this, boost::asio::placeholders::error));
         m_tokenRefreshTimerIsRunning = true;
     }
@@ -396,7 +390,7 @@ void UdpBundleSource::TryRestartTokenRefreshTimer(const boost::posix_time::ptime
         if (m_lastTimeTokensWereRefreshed.is_neg_infinity()) {
             m_lastTimeTokensWereRefreshed = nowPtime;
         }
-        m_tokenRefreshTimer.expires_at(nowPtime + static_tokenRefreshTimeDurationWindow);
+        m_tokenRefreshTimer.expires_at(nowPtime + m_tokenRefreshInterval);
         m_tokenRefreshTimer.async_wait(boost::bind(&UdpBundleSource::OnTokenRefresh_TimerExpired, this, boost::asio::placeholders::error));
         m_tokenRefreshTimerIsRunning = true;
     }

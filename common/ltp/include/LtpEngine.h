@@ -2,7 +2,7 @@
  * @file LtpEngine.h
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -1129,6 +1129,10 @@ private:
     bool m_tokenRefreshTimerIsRunning;
     /// Time point, used by the token refresh timer to calculate delta time
     boost::posix_time::ptime m_lastTimeTokensWereRefreshed;
+    /// The window of time for averaging the UDP send rate over
+    boost::posix_time::time_duration m_rateLimitPrecisionInterval;
+    /// The interval to refresh tokens for the rate limiter
+    boost::posix_time::time_duration m_tokenRefreshInterval;
     /// Thread that invokes m_ioServiceLtpEngine.run() (if using dedicated I/O thread)
     std::unique_ptr<boost::thread> m_ioServiceLtpEngineThreadPtr;
 

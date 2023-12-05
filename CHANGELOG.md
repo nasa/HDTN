@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   BPv6 bundles. Setting this option to zero disables BPv6 fragmentation. Otherwise, HDTN will
   attempt to fragment received BPv6 bundles with payloads larger than this value. Bundles
   that cannot be fragmented will be forwareded as usual.
++ Added optional config field `rateLimitPrecisionMicroSec`. This new field defines the window of time the UDP rate limit will be guaranteed over, for UDP and LTP convergence layers. If not provided, this field will default to a value of 100000.
 
 ### Changed
 
