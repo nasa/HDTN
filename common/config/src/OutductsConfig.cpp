@@ -2,7 +2,7 @@
  * @file OutductsConfig.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -27,6 +27,8 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = {
     "ltp_over_udp", "ltp_over_ipc", "udp", "stcp", "tcpcl_v3", "tcpcl_v4", "slip_over_uart"
 };
+
+static const uint64_t DEFAULT_RATE_LIMIT_PRECISION = 100000;
 
 outduct_element_config_t::outduct_element_config_t() :
     name(""),
@@ -54,6 +56,7 @@ outduct_element_config_t::outduct_element_config_t() :
     keepActiveSessionDataOnDisk(false),
     activeSessionDataOnDiskNewFileDurationMs(2000),
     activeSessionDataOnDiskDirectory("./"),
+    rateLimitPrecisionMicroSec(DEFAULT_RATE_LIMIT_PRECISION),
 
     comPort(""),
     baudRate(115200),
@@ -100,6 +103,7 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     keepActiveSessionDataOnDisk(o.keepActiveSessionDataOnDisk),
     activeSessionDataOnDiskNewFileDurationMs(o.activeSessionDataOnDiskNewFileDurationMs),
     activeSessionDataOnDiskDirectory(o.activeSessionDataOnDiskDirectory),
+    rateLimitPrecisionMicroSec(o.rateLimitPrecisionMicroSec),
 
     comPort(o.comPort),
     baudRate(o.baudRate),
@@ -143,6 +147,7 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     keepActiveSessionDataOnDisk(o.keepActiveSessionDataOnDisk),
     activeSessionDataOnDiskNewFileDurationMs(o.activeSessionDataOnDiskNewFileDurationMs),
     activeSessionDataOnDiskDirectory(std::move(o.activeSessionDataOnDiskDirectory)),
+    rateLimitPrecisionMicroSec(o.rateLimitPrecisionMicroSec),
 
     comPort(std::move(o.comPort)),
     baudRate(o.baudRate),
@@ -186,6 +191,7 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
     keepActiveSessionDataOnDisk = o.keepActiveSessionDataOnDisk;
     activeSessionDataOnDiskNewFileDurationMs = o.activeSessionDataOnDiskNewFileDurationMs;
     activeSessionDataOnDiskDirectory = o.activeSessionDataOnDiskDirectory;
+    rateLimitPrecisionMicroSec = o.rateLimitPrecisionMicroSec;
 
     comPort = o.comPort;
     baudRate = o.baudRate;
@@ -232,6 +238,7 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
     keepActiveSessionDataOnDisk = o.keepActiveSessionDataOnDisk;
     activeSessionDataOnDiskNewFileDurationMs = o.activeSessionDataOnDiskNewFileDurationMs;
     activeSessionDataOnDiskDirectory = std::move(o.activeSessionDataOnDiskDirectory);
+    rateLimitPrecisionMicroSec = o.rateLimitPrecisionMicroSec;
 
     comPort = std::move(o.comPort);
     baudRate = o.baudRate;
@@ -277,6 +284,7 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
         (keepActiveSessionDataOnDisk == o.keepActiveSessionDataOnDisk) &&
         (activeSessionDataOnDiskNewFileDurationMs == o.activeSessionDataOnDiskNewFileDurationMs) &&
         (activeSessionDataOnDiskDirectory == o.activeSessionDataOnDiskDirectory) &&
+        (rateLimitPrecisionMicroSec == o.rateLimitPrecisionMicroSec) &&
 
         (comPort == o.comPort) &&
         (baudRate == o.baudRate) &&
@@ -422,6 +430,19 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                         return false;
                     }
                 }
+            }
+
+            if (outductElementConfig.convergenceLayer == "ltp_over_udp" || outductElementConfig.convergenceLayer == "udp") {
+                outductElementConfig.rateLimitPrecisionMicroSec = outductElementConfigPt.second.get<uint64_t>("rateLimitPrecisionMicroSec", DEFAULT_RATE_LIMIT_PRECISION);
+                if (outductElementConfig.rateLimitPrecisionMicroSec == 0) {
+                    LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: rateLimitPrecisionMicroSec " <<
+                        "must be greater than 0";
+                        return false;
+                }
+            } else if (outductElementConfigPt.second.count("rateLimitPrecisionMicroSec")) {
+                LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
+                            << " has an ltp/udp outduct only configuration parameter of rateLimitPrecisionMicroSec .. please remove";
+                        return false;
             }
 
             if (outductElementConfig.convergenceLayer == "slip_over_uart") {
@@ -581,6 +602,9 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
             outductElementConfigPt.put("keepActiveSessionDataOnDisk", outductElementConfig.keepActiveSessionDataOnDisk);
             outductElementConfigPt.put("activeSessionDataOnDiskNewFileDurationMs", outductElementConfig.activeSessionDataOnDiskNewFileDurationMs);
             outductElementConfigPt.put("activeSessionDataOnDiskDirectory", outductElementConfig.activeSessionDataOnDiskDirectory.string()); //.string() prevents nested quotes in json file
+        }
+        if ((outductElementConfig.convergenceLayer == "ltp_over_udp") || (outductElementConfig.convergenceLayer == "udp")) {
+            outductElementConfigPt.put("rateLimitPrecisionMicroSec", outductElementConfig.rateLimitPrecisionMicroSec);
         }
         if (outductElementConfig.convergenceLayer == "slip_over_uart") {
             outductElementConfigPt.put("comPort", outductElementConfig.comPort);

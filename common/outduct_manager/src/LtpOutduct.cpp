@@ -55,6 +55,7 @@ LtpOutduct::LtpOutduct(const outduct_element_config_t& outductConfig, const uint
     m_ltpTxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable = (m_outductConfig.keepActiveSessionDataOnDisk) ? //for both inducts and outducts
         m_outductConfig.activeSessionDataOnDiskNewFileDurationMs : 0;
     m_ltpTxCfg.activeSessionDataOnDiskDirectory = m_outductConfig.activeSessionDataOnDiskDirectory; //for both inducts and outducts
+    m_ltpTxCfg.rateLimitPrecisionMicroSec = m_outductConfig.rateLimitPrecisionMicroSec;
 
 }
 LtpOutduct::~LtpOutduct() {}

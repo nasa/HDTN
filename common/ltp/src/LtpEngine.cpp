@@ -21,11 +21,6 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-/// Token limit of rateBytesPerSecond / (1000ms/100ms) = rateBytesPerSecond / 10
-static const boost::posix_time::time_duration static_tokenMaxLimitDurationWindow(boost::posix_time::milliseconds(100));
-/// Token refresh timer duration
-static const boost::posix_time::time_duration static_tokenRefreshTimeDurationWindow(boost::posix_time::milliseconds(20));
-
 /// Maximum number of pending SendPackets operations.
 /// assumes (time to complete 5 batch udp send operations or 5 single packet udp send operations) < (margin time).
 static constexpr unsigned int MAX_QUEUED_SEND_SYSTEM_CALLS = 5;
@@ -79,6 +74,9 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     m_housekeepingTimer(m_ioServiceLtpEngine),
     m_tokenRefreshTimer(m_ioServiceLtpEngine),
     m_maxSendRateBitsPerSecOrZeroToDisable(ltpRxOrTxCfg.maxSendRateBitsPerSecOrZeroToDisable),
+    m_rateLimitPrecisionInterval(boost::posix_time::microsec(ltpRxOrTxCfg.rateLimitPrecisionMicroSec)),
+    // To prevent token exhaustion, the token refresh interval must be shorter than the rate limit precision
+    m_tokenRefreshInterval(boost::posix_time::microsec(ltpRxOrTxCfg.rateLimitPrecisionMicroSec / 2)),
     m_tokenRefreshTimerIsRunning(false),
     m_lastTimeTokensWereRefreshed(boost::posix_time::special_values::neg_infin),
     m_ltpSessionSenderRecycler(M_MAX_SIMULTANEOUS_SESSIONS + 1),
@@ -1508,7 +1506,7 @@ void LtpEngine::UpdateRate(const uint64_t maxSendRateBitsPerSecOrZeroToDisable) 
         m_tokenRateLimiter.SetRate(
             rateBytesPerSecond,
             boost::posix_time::seconds(1),
-            static_tokenMaxLimitDurationWindow //token limit of rateBytesPerSecond / (1000ms/100ms) = rateBytesPerSecond / 10
+            m_rateLimitPrecisionInterval
         );
     }
 }
@@ -1525,7 +1523,7 @@ void LtpEngine::TryRestartTokenRefreshTimer() {
         if (m_lastTimeTokensWereRefreshed.is_neg_infinity()) {
             m_lastTimeTokensWereRefreshed = nowPtime;
         }
-        m_tokenRefreshTimer.expires_at(nowPtime + static_tokenRefreshTimeDurationWindow);
+        m_tokenRefreshTimer.expires_at(nowPtime + m_rateLimitPrecisionInterval);
         m_tokenRefreshTimer.async_wait(boost::bind(&LtpEngine::OnTokenRefresh_TimerExpired, this, boost::asio::placeholders::error));
         m_tokenRefreshTimerIsRunning = true;
     }
@@ -1536,7 +1534,7 @@ void LtpEngine::TryRestartTokenRefreshTimer(const boost::posix_time::ptime & now
         if (m_lastTimeTokensWereRefreshed.is_neg_infinity()) {
             m_lastTimeTokensWereRefreshed = nowPtime;
         }
-        m_tokenRefreshTimer.expires_at(nowPtime + static_tokenRefreshTimeDurationWindow);
+        m_tokenRefreshTimer.expires_at(nowPtime + m_rateLimitPrecisionInterval);
         m_tokenRefreshTimer.async_wait(boost::bind(&LtpEngine::OnTokenRefresh_TimerExpired, this, boost::asio::placeholders::error));
         m_tokenRefreshTimerIsRunning = true;
     }

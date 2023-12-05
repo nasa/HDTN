@@ -20,7 +20,7 @@
 
 UdpOutduct::UdpOutduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid) :
     Outduct(outductConfig, outductUuid, false),
-    m_udpBundleSource(outductConfig.maxNumberOfBundlesInPipeline + 5)
+    m_udpBundleSource(outductConfig.maxNumberOfBundlesInPipeline + 5, outductConfig.rateLimitPrecisionMicroSec)
 {}
 UdpOutduct::~UdpOutduct() {}
 

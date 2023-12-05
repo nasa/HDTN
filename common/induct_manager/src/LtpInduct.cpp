@@ -2,7 +2,7 @@
  * @file LtpInduct.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -48,7 +48,8 @@ LtpInduct::LtpInduct(const InductProcessBundleCallback_t & inductProcessBundleCa
     m_ltpRxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable = 0; //unused for inducts (must be set to 0)
     m_ltpRxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable = (inductConfig.keepActiveSessionDataOnDisk) ? //for both inducts and outducts
         inductConfig.activeSessionDataOnDiskNewFileDurationMs : 0;
-    m_ltpRxCfg.activeSessionDataOnDiskDirectory = inductConfig.activeSessionDataOnDiskDirectory; //for both inducts and outducts 
+    m_ltpRxCfg.activeSessionDataOnDiskDirectory = inductConfig.activeSessionDataOnDiskDirectory; //for both inducts and outducts
+    m_ltpRxCfg.rateLimitPrecisionMicroSec = 0; //unused for inducts
 
 }
 

@@ -2,7 +2,7 @@
  * @file UdpBundleSource.h
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -40,7 +40,7 @@ class UdpBundleSource {
 private:
     UdpBundleSource();
 public:
-    UDP_LIB_EXPORT UdpBundleSource(const unsigned int maxUnacked); //const unsigned int maxUnacked = 100
+    UDP_LIB_EXPORT UdpBundleSource(const unsigned int maxUnacked, const uint64_t rateLimitPrecisionMicroSec); //const unsigned int maxUnacked = 100
 
     UDP_LIB_EXPORT ~UdpBundleSource();
     UDP_LIB_EXPORT void Stop();
@@ -111,6 +111,10 @@ private:
     uint64_t m_userAssignedUuid;
 
     uint64_t m_rateBpsOrZeroToDisable;
+    // The window of time for averaging the UDP send rate over
+    boost::posix_time::time_duration m_rateLimitPrecisionInterval;
+    // The interval to refresh tokens for the rate limiter
+    boost::posix_time::time_duration m_tokenRefreshInterval;
 
     //udp stats
     std::atomic<uint64_t> m_totalPacketsSent;
