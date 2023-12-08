@@ -217,8 +217,12 @@ bool TestHDTNCutThroughModeLTP() {
     runningBpgen = false;
     threadBpgen.join();
 
+    Delay(1);
+
     runningHdtnOneProcess = false;
     threadHdtn.join();
+
+    Delay(1);
 
     runningBpsink = false;
     threadBpsink.join();
@@ -313,8 +317,12 @@ bool TestHDTNCutThroughModeLTPv7() {
     runningBpgen = false;
     threadBpgen.join();
 
+    Delay(1);
+
     runningHdtnOneProcess = false;
     threadHdtn.join();
+
+    Delay(1);
 
     runningBpsink = false;
     threadBpsink.join();
@@ -407,8 +415,12 @@ bool TestHDTNStorageModeLTP() {
     runningBpgen = false;
     threadBpgen.join();
 
+    Delay(1);
+
     runningHdtnOneProcess = false;
     threadHdtn.join();
+
+    Delay(1);
 
     runningBpsink = false;
     threadBpsink.join();
@@ -1102,8 +1114,12 @@ bool TestHDTNCutThroughModeUDP() {
     runningBpgen = false;
     threadBpgen.join();
 
+    Delay(1);
+
     runningHdtnOneProcess = false;
     threadHdtn.join();
+
+    Delay(1);
 
     runningBpsink = false;
     threadBpsink.join();
@@ -1203,8 +1219,12 @@ bool TestHDTNStorageModeUDP() {
     runningBpgen = false;
     threadBpgen.join();
 
+    Delay(1);
+
     runningHdtnOneProcess = false;
     threadHdtn.join();
+
+    Delay(1);
 
     runningBpsink = false;
     threadBpsink.join();
@@ -1434,8 +1454,12 @@ bool TestHDTNStorageModeTCPCL() {
     runningBpgen = false;
     threadBpgen.join();
 
+    Delay(1);
+
     runningHdtnOneProcess = false;
     threadHdtn.join();
+
+    Delay(1);
 
     runningBpsink = false;
     threadBpsink.join();
