@@ -5,7 +5,7 @@
             "name": "udp_bpsink",
             "convergenceLayer": "udp",
             "boundPort": 4558,
-            "numRxCircularBufferElements": 200,
+            "numRxCircularBufferElements": 2000,
             "numRxCircularBufferBytesPerElement": 65535
         }
     ]
