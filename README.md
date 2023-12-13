@@ -53,6 +53,34 @@ sudo apt-get install cmake build-essential libzmq3-dev libboost-dev libboost-all
 sudo dnf install epel-release
 sudo yum install cmake boost-devel zeromq zeromq-devel
 ```
+
+## macOS Dependencies ##
+
+* ZeroMQ
+On macOS, ZeroMQ needs to be built from source and installed in the /usr/local directory which can be done with:
+```
+sudo git clone https://github.com/zeromq/libzmq /usr/local/libzmq
+cd /usr/local/libzmq
+git checkout v4.3.4
+sudo mkdir build
+sudo chmod -R 777 .
+cd build
+cmake ..
+make -j4
+make install
+```
+
+* OpenSSL and gnutls
+First, install Homebrew, which is a package manager for macOS:
+```
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+Finally, install OpenSSL and gnutls using Homebrew:
+```
+brew install openssl gnutls
+```
+
 ## Known issue ##
 * Ubuntu distributions may install an older CMake version that is not compatible
 * Some processors may not support hardware acceleration or the RDSEED instruction, both ON by default in the cmake file
