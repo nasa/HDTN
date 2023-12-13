@@ -26,7 +26,7 @@
                 "name": "udp_ingress",
                 "convergenceLayer": "udp",
                 "boundPort": 4556,
-                "numRxCircularBufferElements": 200,
+                "numRxCircularBufferElements": 2000,
                 "numRxCircularBufferBytesPerElement": 65535
             }
         ]
