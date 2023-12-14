@@ -23,6 +23,10 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
+// The divisor used in setting the token refresh interval based on the rate
+// limit precision window
+static constexpr uint64_t TOKEN_REFRESH_INTERVAL_DIVISOR = 5;
+
 UdpBundleSource::UdpBundleSource(const unsigned int maxUnacked, const uint64_t rateLimitPrecisionMicroSec) :
 m_work(m_ioService), //prevent stopping of ioservice until destructor
 m_resolver(m_ioService),
@@ -48,7 +52,7 @@ m_linkIsUpPhysically(false)
 {
     m_rateLimitPrecisionInterval = boost::posix_time::microsec(rateLimitPrecisionMicroSec);
     // To prevent token exhaustion, the token refresh interval must be shorter than the rate limit precision
-    m_tokenRefreshInterval = boost::posix_time::microsec(rateLimitPrecisionMicroSec / 2);
+    m_tokenRefreshInterval = boost::posix_time::microsec(rateLimitPrecisionMicroSec / TOKEN_REFRESH_INTERVAL_DIVISOR);
 
     UpdateRate(0);
     

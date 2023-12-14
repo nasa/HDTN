@@ -30,6 +30,10 @@ static constexpr unsigned int MIN_QUEUED_SEND_SYSTEM_CALLS = 1;
 /// should be even number to split between ingress and storage cut-through pipeline.
 static constexpr uint64_t diskPipelineLimit = 6;
 
+// The divisor used in setting the token refresh interval based on the rate
+// limit precision window
+static constexpr uint64_t TOKEN_REFRESH_INTERVAL_DIVISOR = 5;
+
 LtpEngine::cancel_segment_timer_info_t::cancel_segment_timer_info_t(const uint8_t* data) {
     memcpy(this, data, sizeof(cancel_segment_timer_info_t));
 }
@@ -76,7 +80,7 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     m_maxSendRateBitsPerSecOrZeroToDisable(ltpRxOrTxCfg.maxSendRateBitsPerSecOrZeroToDisable),
     m_rateLimitPrecisionInterval(boost::posix_time::microsec(ltpRxOrTxCfg.rateLimitPrecisionMicroSec)),
     // To prevent token exhaustion, the token refresh interval must be shorter than the rate limit precision
-    m_tokenRefreshInterval(boost::posix_time::microsec(ltpRxOrTxCfg.rateLimitPrecisionMicroSec / 2)),
+    m_tokenRefreshInterval(boost::posix_time::microsec(ltpRxOrTxCfg.rateLimitPrecisionMicroSec / TOKEN_REFRESH_INTERVAL_DIVISOR)),
     m_tokenRefreshTimerIsRunning(false),
     m_lastTimeTokensWereRefreshed(boost::posix_time::special_values::neg_infin),
     m_ltpSessionSenderRecycler(M_MAX_SIMULTANEOUS_SESSIONS + 1),
