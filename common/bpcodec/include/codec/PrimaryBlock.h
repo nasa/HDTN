@@ -26,6 +26,7 @@
 
 
 struct PrimaryBlock {
+    virtual ~PrimaryBlock() {};
     virtual bool HasCustodyFlagSet() const = 0;
     virtual bool HasFragmentationFlagSet() const = 0;
     virtual cbhe_bundle_uuid_t GetCbheBundleUuidFragmentFromPrimary(uint64_t payloadSizeBytes) const = 0;
