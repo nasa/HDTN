@@ -1849,10 +1849,10 @@ bool ApiResp_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt)
         m_success = pt.get<bool>("success");
         m_message = pt.get<std::string>("message");
     }
-    catch (const boost::bad_lexical_cast& e) {
+    catch (const boost::bad_lexical_cast&) {
         return false;
     }
-    catch (const boost::property_tree::ptree_error& e) {
+    catch (const boost::property_tree::ptree_error&) {
         return false;
     }
     return true;

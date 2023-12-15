@@ -51,7 +51,7 @@ BOOST_AUTO_TEST_CASE(OutductsConfigRatePrecisionMicroSecTestCase)
   BOOST_REQUIRE_EQUAL(oc1->m_outductElementConfigVector[1].rateLimitPrecisionMicroSec, 500);
 
   // Verify the default is used when the field is missing
-  for (uint i = 2; i < oc1->m_outductElementConfigVector.size(); i++) {
+  for (uint64_t i = 2; i < oc1->m_outductElementConfigVector.size(); i++) {
     BOOST_REQUIRE_EQUAL(oc1->m_outductElementConfigVector[i].rateLimitPrecisionMicroSec, 100000);
   }
 }
