@@ -162,6 +162,7 @@ bool Bpv7AdministrativeRecord::Virtual_DeserializeExtensionBlockDataBpv7() {
         //     m_adminRecordContentPtr = boost::make_unique<Bpv7AdministrativeRecordContentBibeCustodySignal>();
         //     break;
         default:
+	    //Ignore unsupported Admin Records
 	    m_adminRecordContentPtr.reset();
             return true;
     }
