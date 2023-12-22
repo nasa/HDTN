@@ -7,7 +7,7 @@ Delay Tolerant Networking (DTN) has been identified as a key technology to facil
 
 High-rate Delay Tolerant Networking (HDTN) takes advantage of modern hardware platforms to substantially reduce latency and improve throughput compared to today’s DTN operations. HDTN maintains compatibility with existing deployments of DTN that conform to IETF RFC 5050. At the same time, HDTN defines a new data format better suited to higher-rate operation. It defines and adopts a massively parallel pipelined and message-oriented architecture, allowing the system to scale gracefully as its resources increase. HDTN’s architecture also supports hooks to replace various processing pipeline elements with specialized hardware accelerators. This offers improved Size, Weight, and Power (SWaP) characteristics while reducing development complexity and cost.
 
-Also see the [HDTN Wiki](https://github.com/nasa/HDTN/wiki) and the [HDTN User Guide](https://ntrs.nasa.gov/api/citations/20230000826/downloads/TM-2023000826.pdf) for more information. 
+Also see the [HDTN Wiki](https://github.com/nasa/HDTN/wiki) and the [HDTN User Guide](https://ntrs.nasa.gov/api/citations/20230015434/downloads/HDTN_Users_Guide_AfterEditor2.pdf) for more information.
 
 Architecture
 =============

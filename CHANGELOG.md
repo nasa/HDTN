@@ -5,14 +5,14 @@ All notable changes to HDTN will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.0] - 2023-12-14
 
 ### Fixed
 
 * All `volatile` variables, especially `volatile bool`, have been replaced with `std::atomic` with proper memory-ordering semantics.
 * All convergence layer telemetry variables/counters use `std::atomic` with proper memory-ordering semantics.
-+ Routing library now uses reloaded contact plans from the telemetry API.
-+ Fixed bug where router link state information would become out of sync with
+* Routing library now uses reloaded contact plans from the telemetry API.
+* Fixed bug where router link state information would become out of sync with
   actual link state.
 
 ### Added
@@ -24,11 +24,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   around neighboring nodes with depleted storage. Zero disables; otherwise, the value is
   interpreted as the amount of time to wait before forwarding to the neighbor after a depleted
   storage message is received. Requires that custody be enabled.
-+ Added config option `fragmentBundlesLargerThanBytes` allowing for optionally fragmenting
+* Added config option `fragmentBundlesLargerThanBytes` allowing for optionally fragmenting
   BPv6 bundles. Setting this option to zero disables BPv6 fragmentation. Otherwise, HDTN will
   attempt to fragment received BPv6 bundles with payloads larger than this value. Bundles
   that cannot be fragmented will be forwareded as usual.
-+ Added optional config field `rateLimitPrecisionMicroSec`. This new field defines the window of time the UDP rate limit will be guaranteed over, for UDP and LTP convergence layers. If not provided, this field will default to a value of 100000.
+* Added optional config field `rateLimitPrecisionMicroSec`. This new field defines the window of time the UDP rate limit will be guaranteed over, for UDP and LTP convergence layers. If not provided, this field will default to a value of 100000.
+* Added support for BPSec
+* Added MacOS build instructions
+
 
 ### Changed
 
