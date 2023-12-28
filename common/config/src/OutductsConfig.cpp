@@ -25,7 +25,8 @@
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = {
-    "ltp_over_udp", "ltp_over_ipc", "ltp_over_encap_local_stream", "udp", "stcp", "tcpcl_v3", "tcpcl_v4", "slip_over_uart"
+    "ltp_over_udp", "ltp_over_ipc", "ltp_over_encap_local_stream", "bp_over_encap_local_stream",
+    "udp", "stcp", "tcpcl_v3", "tcpcl_v4", "slip_over_uart"
 };
 
 static const uint64_t DEFAULT_RATE_LIMIT_PRECISION = 100000;
@@ -38,6 +39,8 @@ outduct_element_config_t::outduct_element_config_t() :
     remotePort(0),
     maxNumberOfBundlesInPipeline(0),
     maxSumOfBundleBytesInPipeline(0),
+
+    bpEncapLocalSocketOrPipePath(""),
     
     thisLtpEngineId(0),
     remoteLtpEngineId(0),
@@ -86,6 +89,8 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     remotePort(o.remotePort),
     maxNumberOfBundlesInPipeline(o.maxNumberOfBundlesInPipeline),
     maxSumOfBundleBytesInPipeline(o.maxSumOfBundleBytesInPipeline),
+
+    bpEncapLocalSocketOrPipePath(o.bpEncapLocalSocketOrPipePath),
     
     thisLtpEngineId(o.thisLtpEngineId),
     remoteLtpEngineId(o.remoteLtpEngineId),
@@ -131,6 +136,8 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     remotePort(o.remotePort),
     maxNumberOfBundlesInPipeline(o.maxNumberOfBundlesInPipeline),
     maxSumOfBundleBytesInPipeline(o.maxSumOfBundleBytesInPipeline),
+
+    bpEncapLocalSocketOrPipePath(std::move(o.bpEncapLocalSocketOrPipePath)),
     
     thisLtpEngineId(o.thisLtpEngineId),
     remoteLtpEngineId(o.remoteLtpEngineId),
@@ -176,6 +183,8 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
     remotePort = o.remotePort;
     maxNumberOfBundlesInPipeline = o.maxNumberOfBundlesInPipeline;
     maxSumOfBundleBytesInPipeline = o.maxSumOfBundleBytesInPipeline;
+
+    bpEncapLocalSocketOrPipePath = o.bpEncapLocalSocketOrPipePath;
     
     thisLtpEngineId = o.thisLtpEngineId;
     remoteLtpEngineId = o.remoteLtpEngineId;
@@ -225,6 +234,8 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
     maxNumberOfBundlesInPipeline = o.maxNumberOfBundlesInPipeline;
     maxSumOfBundleBytesInPipeline = o.maxSumOfBundleBytesInPipeline;
 
+    bpEncapLocalSocketOrPipePath = std::move(o.bpEncapLocalSocketOrPipePath);
+
     thisLtpEngineId = o.thisLtpEngineId;
     remoteLtpEngineId = o.remoteLtpEngineId;
     ltpDataSegmentMtu = o.ltpDataSegmentMtu;
@@ -271,6 +282,8 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
         (remotePort == o.remotePort) &&
         (maxNumberOfBundlesInPipeline == o.maxNumberOfBundlesInPipeline) &&
         (maxSumOfBundleBytesInPipeline == o.maxSumOfBundleBytesInPipeline) &&
+
+        (bpEncapLocalSocketOrPipePath == o.bpEncapLocalSocketOrPipePath) &&
         
         (thisLtpEngineId == o.thisLtpEngineId) &&
         (remoteLtpEngineId == o.remoteLtpEngineId) &&
@@ -374,6 +387,7 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 }
             }
             if ((outductElementConfig.convergenceLayer != "ltp_over_encap_local_stream")
+                && (outductElementConfig.convergenceLayer != "bp_over_encap_local_stream")
                 && (outductElementConfig.convergenceLayer != "slip_over_uart")) //uses com port only
             {
                 outductElementConfig.remoteHostname = outductElementConfigPt.second.get<std::string>("remoteHostname");
@@ -457,10 +471,15 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                         "must be greater than 0";
                         return false;
                 }
-            } else if (outductElementConfigPt.second.count("rateLimitPrecisionMicroSec")) {
+            }
+            else if (outductElementConfigPt.second.count("rateLimitPrecisionMicroSec")) {
                 LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
-                            << " has an ltp/udp outduct only configuration parameter of rateLimitPrecisionMicroSec .. please remove";
-                        return false;
+                    << " has an ltp/udp outduct only configuration parameter of rateLimitPrecisionMicroSec .. please remove";
+                return false;
+            }
+
+            if (outductElementConfig.convergenceLayer == "bp_over_encap_local_stream") {
+                outductElementConfig.bpEncapLocalSocketOrPipePath = outductElementConfigPt.second.get<std::string>("bpEncapLocalSocketOrPipePath");
             }
 
             if (outductElementConfig.convergenceLayer == "slip_over_uart") {
@@ -596,6 +615,7 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
         outductElementConfigPt.put("convergenceLayer", outductElementConfig.convergenceLayer);
         outductElementConfigPt.put("nextHopNodeId", outductElementConfig.nextHopNodeId);
         if ((outductElementConfig.convergenceLayer != "ltp_over_encap_local_stream")
+            && (outductElementConfig.convergenceLayer != "bp_over_encap_local_stream")
             && (outductElementConfig.convergenceLayer != "slip_over_uart")) //uses com port only
         {
             outductElementConfigPt.put("remoteHostname", outductElementConfig.remoteHostname);
@@ -635,6 +655,9 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
         }
         if ((outductElementConfig.convergenceLayer == "ltp_over_udp") || (outductElementConfig.convergenceLayer == "udp")) {
             outductElementConfigPt.put("rateLimitPrecisionMicroSec", outductElementConfig.rateLimitPrecisionMicroSec);
+        }
+        if (outductElementConfig.convergenceLayer == "bp_over_encap_local_stream") {
+            outductElementConfigPt.put("bpEncapLocalSocketOrPipePath", outductElementConfig.bpEncapLocalSocketOrPipePath);
         }
         if (outductElementConfig.convergenceLayer == "slip_over_uart") {
             outductElementConfigPt.put("comPort", outductElementConfig.comPort);

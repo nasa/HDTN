@@ -302,6 +302,34 @@ BOOST_AUTO_TEST_CASE(AllInductTelemetryTestCase)
     {
         ait.m_listAllInducts.emplace_back();
         InductTelemetry_t& inductTelem = ait.m_listAllInducts.back();
+        inductTelem.m_convergenceLayer = "bp_over_encap_local_stream";
+        for (std::size_t j = 0; j < 2; ++j) {
+            std::unique_ptr<BpOverEncapLocalStreamInductConnectionTelemetry_t> ptr = boost::make_unique<BpOverEncapLocalStreamInductConnectionTelemetry_t>();
+            BpOverEncapLocalStreamInductConnectionTelemetry_t& conn = *ptr;
+            conn.m_connectionName = inductTelem.m_convergenceLayer + boost::lexical_cast<std::string>(j);
+            conn.m_inputName = conn.m_connectionName + "_input";
+            conn.m_totalBundleBytesReceived = conn.m_connectionName.size() + j + 100;
+            conn.m_totalBundlesReceived = conn.m_connectionName.size() + j;
+
+            conn.m_totalEncapHeaderBytesSent = 1000 + j * 1000;
+            conn.m_totalEncapHeaderBytesReceived = 1001 + j * 1000;
+            conn.m_largestEncapHeaderSizeBytesReceived = 1002 + j * 1000;
+            conn.m_smallestEncapHeaderSizeBytesReceived = 1003 + j * 1000;
+            conn.m_averageEncapHeaderSizeBytesReceived = 1004 + j * 1000;
+            //bidirectionality (identical to OutductTelemetry_t)
+            conn.m_totalBundlesSentAndAcked = 1005 + j * 1000;
+            conn.m_totalBundleBytesSentAndAcked = 1006 + j * 1000;
+            conn.m_totalBundlesSent = 1007 + j * 1000;
+            conn.m_totalBundleBytesSent = 1008 + j * 1000;
+            conn.m_totalBundlesFailedToSend = 1009 + j * 1000;
+
+            inductTelem.m_listInductConnections.emplace_back(std::move(ptr));
+        }
+    }
+
+    {
+        ait.m_listAllInducts.emplace_back();
+        InductTelemetry_t& inductTelem = ait.m_listAllInducts.back();
         inductTelem.m_convergenceLayer = "stcp";
         for (std::size_t j = 0; j < 2; ++j) {
             std::unique_ptr<StcpInductConnectionTelemetry_t> ptr = boost::make_unique<StcpInductConnectionTelemetry_t>();
@@ -417,6 +445,17 @@ BOOST_AUTO_TEST_CASE(AllOutductTelemetryTestCase)
         ptr->m_averageReceivedBytesPerChunk = 64;
         ptr->m_totalBundlesReceived = 65;
         ptr->m_totalBundleBytesReceived = 66;
+        aot.m_listAllOutducts.emplace_back(std::move(ptr));
+    }
+    {
+        std::unique_ptr<BpOverEncapLocalStreamOutductTelemetry_t> ptr = boost::make_unique<BpOverEncapLocalStreamOutductTelemetry_t>();
+        ptr->m_totalEncapHeaderBytesSent = 70;
+        ptr->m_totalEncapHeaderBytesReceived = 71;
+        ptr->m_largestEncapHeaderSizeBytesSent = 72;
+        ptr->m_smallestEncapHeaderSizeBytesSent = 73;
+        ptr->m_averageEncapHeaderSizeBytesSent = 74;
+        ptr->m_totalBundlesReceived = 75;
+        ptr->m_totalBundleBytesReceived = 76;
         aot.m_listAllOutducts.emplace_back(std::move(ptr));
     }
     for (std::list<std::unique_ptr<OutductTelemetry_t> >::iterator it = aot.m_listAllOutducts.begin(); it != aot.m_listAllOutducts.end(); ++it) {

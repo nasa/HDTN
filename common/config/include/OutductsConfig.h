@@ -42,6 +42,8 @@ struct outduct_element_config_t {
     uint32_t maxNumberOfBundlesInPipeline;
     uint64_t maxSumOfBundleBytesInPipeline;
     
+    //specific to bp over encap
+    std::string bpEncapLocalSocketOrPipePath;
 
     //specific to ltp
     uint64_t thisLtpEngineId;

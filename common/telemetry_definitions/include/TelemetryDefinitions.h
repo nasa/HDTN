@@ -224,6 +224,28 @@ struct SlipOverUartInductConnectionTelemetry_t : public InductConnectionTelemetr
     uint64_t m_totalBundlesFailedToSend;
 };
 
+struct BpOverEncapLocalStreamInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
+    TELEMETRY_DEFINITIONS_EXPORT BpOverEncapLocalStreamInductConnectionTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~BpOverEncapLocalStreamInductConnectionTelemetry_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const InductConnectionTelemetry_t& o) const override;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+
+    uint64_t m_totalEncapHeaderBytesSent;
+    uint64_t m_totalEncapHeaderBytesReceived;
+    uint64_t m_largestEncapHeaderSizeBytesReceived;
+    uint64_t m_smallestEncapHeaderSizeBytesReceived;
+    uint64_t m_averageEncapHeaderSizeBytesReceived;
+    //bidirectionality (identical to OutductTelemetry_t)
+    uint64_t m_totalBundlesSentAndAcked;
+    uint64_t m_totalBundleBytesSentAndAcked;
+    uint64_t m_totalBundlesSent;
+    uint64_t m_totalBundleBytesSent;
+    uint64_t m_totalBundlesFailedToSend;
+};
+
 struct LtpInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT LtpInductConnectionTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~LtpInductConnectionTelemetry_t() override;
@@ -402,6 +424,25 @@ struct SlipOverUartOutductTelemetry_t : public OutductTelemetry_t {
     uint64_t m_totalReceivedChunks;
     uint64_t m_largestReceivedBytesPerChunk;
     uint64_t m_averageReceivedBytesPerChunk;
+    //bidirectionality (identical to InductConnectionTelemetry_t)
+    uint64_t m_totalBundlesReceived;
+    uint64_t m_totalBundleBytesReceived;
+};
+
+struct BpOverEncapLocalStreamOutductTelemetry_t : public OutductTelemetry_t {
+    TELEMETRY_DEFINITIONS_EXPORT BpOverEncapLocalStreamOutductTelemetry_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~BpOverEncapLocalStreamOutductTelemetry_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry_t& o) const override;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+
+    uint64_t m_totalEncapHeaderBytesSent;
+    uint64_t m_totalEncapHeaderBytesReceived;
+    uint64_t m_largestEncapHeaderSizeBytesSent;
+    uint64_t m_smallestEncapHeaderSizeBytesSent;
+    uint64_t m_averageEncapHeaderSizeBytesSent;
     //bidirectionality (identical to InductConnectionTelemetry_t)
     uint64_t m_totalBundlesReceived;
     uint64_t m_totalBundleBytesReceived;

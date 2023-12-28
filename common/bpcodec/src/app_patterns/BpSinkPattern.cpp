@@ -23,6 +23,7 @@
 #include "TcpclV4Induct.h"
 #include "StcpInduct.h"
 #include "SlipOverUartInduct.h"
+#include "BpOverEncapLocalStreamInduct.h"
 #include "codec/BundleViewV7.h"
 #include "Logger.h"
 #include "StatsLogger.h"
@@ -183,7 +184,14 @@ bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_pt
         }
         m_currentlySendingBundleIdSet.reserve(outductsConfigPtr->m_outductElementConfigVector[0].maxNumberOfBundlesInPipeline);
     }
-    else if ((inductsConfigPtr) && ((inductsConfigPtr->m_inductElementConfigVector[0].convergenceLayer == "tcpcl_v3") || (inductsConfigPtr->m_inductElementConfigVector[0].convergenceLayer == "tcpcl_v4"))) {
+    else if ((inductsConfigPtr) &&
+        (
+            (inductsConfigPtr->m_inductElementConfigVector[0].convergenceLayer == "tcpcl_v3")
+            || (inductsConfigPtr->m_inductElementConfigVector[0].convergenceLayer == "tcpcl_v4")
+            || (inductsConfigPtr->m_inductElementConfigVector[0].convergenceLayer == "slip_over_uart")
+            || (inductsConfigPtr->m_inductElementConfigVector[0].convergenceLayer == "bp_over_encap_local_stream")
+        ))
+    {
         m_hasSendCapability = true;
         m_hasSendCapabilityOverTcpclBidirectionalInduct = true;
         LOG_INFO(subprocess) << "this bpsink pattern detected tcpcl convergence layer which is bidirectional.. supporting custody transfer";
@@ -616,12 +624,14 @@ void BpSinkPattern::SendAcsFromTimerThread() {
 
 void BpSinkPattern::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtr) {
     if (m_tcpclInductPtr = dynamic_cast<TcpclInduct*>(thisInductPtr)) {
-        LOG_INFO(subprocess) << "New opportunistic link detected on Tcpcl induct for ipn:" << remoteNodeId << ".*";
+        LOG_INFO(subprocess) << "New opportunistic link detected on TcpclV3 induct for ipn:" << remoteNodeId << ".*";
         m_tcpclOpportunisticRemoteNodeId = remoteNodeId;
+        m_opportunisticConvergenceLayerName = "TcpclV3";
     }
     else if (m_tcpclInductPtr = dynamic_cast<TcpclV4Induct*>(thisInductPtr)) {
         LOG_INFO(subprocess) << "New opportunistic link detected on TcpclV4 induct for ipn:" << remoteNodeId << ".*";
         m_tcpclOpportunisticRemoteNodeId = remoteNodeId;
+        m_opportunisticConvergenceLayerName = "TcpclV4";
     }
     else if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
 
@@ -629,6 +639,12 @@ void BpSinkPattern::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, 
     else if (m_tcpclInductPtr = dynamic_cast<SlipOverUartInduct*>(thisInductPtr)) {
         LOG_INFO(subprocess) << "New opportunistic link detected on SlipOverUart induct for ipn:" << remoteNodeId << ".*";
         m_tcpclOpportunisticRemoteNodeId = remoteNodeId;
+        m_opportunisticConvergenceLayerName = "SlipOverUart";
+    }
+    else if (m_tcpclInductPtr = dynamic_cast<BpOverEncapLocalStreamInduct*>(thisInductPtr)) {
+        LOG_INFO(subprocess) << "New opportunistic link detected on BpOverEncapLocalStream induct for ipn:" << remoteNodeId << ".*";
+        m_tcpclOpportunisticRemoteNodeId = remoteNodeId;
+        m_opportunisticConvergenceLayerName = "BpOverEncapLocalStream";
     }
     else {
         LOG_ERROR(subprocess) << "Induct ptr cannot cast to TcpclInduct or TcpclV4Induct";
@@ -641,8 +657,8 @@ void BpSinkPattern::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNode
     else {
         m_tcpclOpportunisticRemoteNodeId = 0;
         LOG_INFO(subprocess) << "Deleted opportunistic link on "
-            << ((sinkPtrAboutToBeDeleted) ? "Tcpcl" : "SlipOverUart")
-            << "induct for ipn : " << remoteNodeId << ".*";
+            << m_opportunisticConvergenceLayerName
+            << " induct for ipn : " << remoteNodeId << ".*";
     }
 }
 

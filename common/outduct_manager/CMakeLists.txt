@@ -9,6 +9,7 @@ add_library(outduct_manager_lib
 	src/LtpOverIpcOutduct.cpp
 	src/LtpOverUdpOutduct.cpp
 	src/SlipOverUartOutduct.cpp
+	src/BpOverEncapLocalStreamOutduct.cpp
 	src/OutductManager.cpp
 )
 GENERATE_EXPORT_HEADER(outduct_manager_lib)
@@ -29,6 +30,7 @@ set(MY_PUBLIC_HEADERS
 	include/TcpclV4Outduct.h
 	include/UdpOutduct.h
 	include/SlipOverUartOutduct.h
+	include/BpOverEncapLocalStreamOutduct.h
 	${CMAKE_CURRENT_BINARY_DIR}/outduct_manager_lib_export.h
 )
 set_target_properties(outduct_manager_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list

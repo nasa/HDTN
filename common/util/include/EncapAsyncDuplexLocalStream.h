@@ -348,17 +348,19 @@ private:
 #endif
             {
                 std::cout << "HandleFirstEncapByteReadCompleted: " << error.message() << "\n";
+                HandleShutdown();
                 return;
             }
         }
         if (bytes_transferred != 1) {
             std::cout << "HandleFirstEncapByteReadCompleted: bytes_transferred != 1\n";
+            HandleShutdown();
             return;
         }
         const uint8_t decodedEncapHeaderSize = DecodeCcsdsEncapHeaderSizeFromFirstByte(
             M_ENCAP_PACKET_TYPE, m_receivedFullEncapPacket_swappable[0]);
         if (decodedEncapHeaderSize == 0) {
-            std::cout << "HandleFirstEncapByteReadCompleted: invalid LTP encap header received\n";
+            std::cout << "HandleFirstEncapByteReadCompleted: invalid encap header received\n";
         }
         else if (decodedEncapHeaderSize == 1) { //idle packet (no data)
             StartReadFirstEncapHeaderByte_NotThreadSafe();
@@ -380,11 +382,13 @@ private:
 #endif
             {
                 std::cout << "HandleRemainingEncapHeaderReadCompleted: " << error.message() << "\n";
+                HandleShutdown();
                 return;
             }
         }
         if (bytes_transferred != (decodedEncapHeaderSize - 1)) {
             std::cout << "HandleRemainingEncapHeaderReadCompleted: bytes_transferred != (decodedEncapHeaderSize - 1)\n";
+            HandleShutdown();
             return;
         }
         uint8_t userDefinedField;
@@ -394,7 +398,7 @@ private:
             userDefinedField,
             decodedEncapPayloadSize))
         {
-            std::cout << "HandleRemainingEncapHeaderReadCompleted: invalid LTP encap header received\n";
+            std::cout << "HandleRemainingEncapHeaderReadCompleted: invalid encap header received\n";
         }
         else {
             const uint8_t encapHeaderSize = decodedEncapHeaderSize * M_RX_CALLBACK_DONT_DISCARD_ENCAP_HEADER;
@@ -404,7 +408,10 @@ private:
                 boost::bind(&EncapAsyncDuplexLocalStream::HandleEncapPayloadReadCompleted, this,
                     boost::asio::placeholders::error,
                     boost::asio::placeholders::bytes_transferred,
-                    decodedEncapPayloadSize, encapHeaderSize));
+                    decodedEncapPayloadSize,
+                    decodedEncapHeaderSize //decoded encap header size given regardless of whether or not user chose to discard
+                    //encapHeaderSize //commented out to prevent passing in zero if user chose to discard
+                ));
         }
     }
 
@@ -417,11 +424,13 @@ private:
 #endif
             {
                 std::cout << "HandleEncapPayloadReadCompleted: " << error.message() << "\n";
+                HandleShutdown();
                 return;
             }
         }
         if (bytes_transferred != decodedEncapPayloadSize) {
             std::cout << "HandleEncapPayloadReadCompleted: bytes_transferred != decodedEncapPayloadSize\n";
+            HandleShutdown();
             return;
         }
         m_onFullEncapPacketReceivedCallback(m_receivedFullEncapPacket_swappable,

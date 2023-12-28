@@ -23,6 +23,7 @@
 #include "LtpOverUdpInduct.h"
 #include "LtpOverIpcInduct.h"
 #include "LtpOverEncapLocalStreamInduct.h"
+#include "BpOverEncapLocalStreamInduct.h"
 #include "SlipOverUartInduct.h"
 #include "TimestampUtil.h"
 
@@ -55,6 +56,10 @@ void InductManager::LoadInductsFromConfig(const InductProcessBundleCallback_t & 
         }
         else if (thisInductConfig.convergenceLayer == "slip_over_uart") {
             m_inductsList.emplace_back(boost::make_unique<SlipOverUartInduct>(inductProcessBundleCallback, thisInductConfig,
+                maxBundleSizeBytes, onNewOpportunisticLinkCallback, onDeletedOpportunisticLinkCallback));
+        }
+        else if (thisInductConfig.convergenceLayer == "bp_over_encap_local_stream") {
+            m_inductsList.emplace_back(boost::make_unique<BpOverEncapLocalStreamInduct>(inductProcessBundleCallback, thisInductConfig,
                 maxBundleSizeBytes, onNewOpportunisticLinkCallback, onDeletedOpportunisticLinkCallback));
         }
         else if (thisInductConfig.convergenceLayer == "stcp") {

@@ -67,7 +67,7 @@
             "numRxCircularBufferElements": 5,
             "comPort": "COM1",
             "baudRate": 115200,
-            "uartRemoteNodeId": 11
+            "remoteNodeId": 11
         },
         {
             "name": "i7",
@@ -89,6 +89,12 @@
             "keepActiveSessionDataOnDisk": false,
             "activeSessionDataOnDiskNewFileDurationMs": 2000,
             "activeSessionDataOnDiskDirectory": ".\/"
+        },
+        {
+            "name": "i8",
+            "convergenceLayer": "bp_over_encap_local_stream",
+            "bpEncapLocalSocketOrPipePath": "\\\\.\\pipe\\bp_local_pipe",
+            "remoteNodeId": 12
         }
     ]
 }

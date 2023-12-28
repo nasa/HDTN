@@ -119,6 +119,7 @@ private:
     boost::mutex m_mutexCtm;
     boost::mutex m_mutexSendBundleQueue;
     uint64_t m_tcpclOpportunisticRemoteNodeId;
+    std::string m_opportunisticConvergenceLayerName;
     Induct * m_tcpclInductPtr;
 
     struct BpSecImpl;

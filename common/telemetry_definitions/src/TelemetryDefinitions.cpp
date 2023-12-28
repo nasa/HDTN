@@ -661,6 +661,75 @@ boost::property_tree::ptree SlipOverUartInductConnectionTelemetry_t::GetNewPrope
     return pt;
 }
 
+BpOverEncapLocalStreamInductConnectionTelemetry_t::BpOverEncapLocalStreamInductConnectionTelemetry_t() :
+    InductConnectionTelemetry_t(),
+    m_totalEncapHeaderBytesSent(0),
+    m_totalEncapHeaderBytesReceived(0),
+    m_largestEncapHeaderSizeBytesReceived(0),
+    m_smallestEncapHeaderSizeBytesReceived(0),
+    m_averageEncapHeaderSizeBytesReceived(0),
+    m_totalBundlesSentAndAcked(0),
+    m_totalBundleBytesSentAndAcked(0),
+    m_totalBundlesSent(0),
+    m_totalBundleBytesSent(0),
+    m_totalBundlesFailedToSend(0) {}
+BpOverEncapLocalStreamInductConnectionTelemetry_t::~BpOverEncapLocalStreamInductConnectionTelemetry_t() {};
+bool BpOverEncapLocalStreamInductConnectionTelemetry_t::operator==(const InductConnectionTelemetry_t& o) const {
+    if (const BpOverEncapLocalStreamInductConnectionTelemetry_t* oPtr = dynamic_cast<const BpOverEncapLocalStreamInductConnectionTelemetry_t*>(&o)) {
+        return InductConnectionTelemetry_t::operator==(o)
+            && (m_totalEncapHeaderBytesSent == oPtr->m_totalEncapHeaderBytesSent)
+            && (m_totalEncapHeaderBytesReceived == oPtr->m_totalEncapHeaderBytesReceived)
+            && (m_largestEncapHeaderSizeBytesReceived == oPtr->m_largestEncapHeaderSizeBytesReceived)
+            && (m_smallestEncapHeaderSizeBytesReceived == oPtr->m_smallestEncapHeaderSizeBytesReceived)
+            && (m_averageEncapHeaderSizeBytesReceived == oPtr->m_averageEncapHeaderSizeBytesReceived)
+            && (m_totalBundlesSentAndAcked == oPtr->m_totalBundlesSentAndAcked)
+            && (m_totalBundleBytesSentAndAcked == oPtr->m_totalBundleBytesSentAndAcked)
+            && (m_totalBundlesSent == oPtr->m_totalBundlesSent)
+            && (m_totalBundleBytesSent == oPtr->m_totalBundleBytesSent)
+            && (m_totalBundlesFailedToSend == oPtr->m_totalBundlesFailedToSend);
+    }
+    return false;
+}
+bool BpOverEncapLocalStreamInductConnectionTelemetry_t::operator!=(const InductConnectionTelemetry_t& o) const {
+    return !(*this == o);
+}
+bool BpOverEncapLocalStreamInductConnectionTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!InductConnectionTelemetry_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
+    try {
+        m_totalEncapHeaderBytesSent = pt.get<uint64_t>("totalEncapHeaderBytesSent");
+        m_totalEncapHeaderBytesReceived = pt.get<uint64_t>("totalEncapHeaderBytesReceived");
+        m_largestEncapHeaderSizeBytesReceived = pt.get<uint64_t>("largestEncapHeaderSizeBytesReceived");
+        m_smallestEncapHeaderSizeBytesReceived = pt.get<uint64_t>("smallestEncapHeaderSizeBytesReceived");
+        m_averageEncapHeaderSizeBytesReceived = pt.get<uint64_t>("averageEncapHeaderSizeBytesReceived");
+        m_totalBundlesSentAndAcked = pt.get<uint64_t>("totalBundlesSentAndAcked");
+        m_totalBundleBytesSentAndAcked = pt.get<uint64_t>("totalBundleBytesSentAndAcked");
+        m_totalBundlesSent = pt.get<uint64_t>("totalBundlesSent");
+        m_totalBundleBytesSent = pt.get<uint64_t>("totalBundleBytesSent");
+        m_totalBundlesFailedToSend = pt.get<uint64_t>("totalBundlesFailedToSend");
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON TcpclV4InductConnectionTelemetry_t: " << e.what();
+        return false;
+    }
+    return true;
+}
+boost::property_tree::ptree BpOverEncapLocalStreamInductConnectionTelemetry_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt = InductConnectionTelemetry_t::GetNewPropertyTree();
+    pt.put("totalEncapHeaderBytesSent", m_totalEncapHeaderBytesSent);
+    pt.put("totalEncapHeaderBytesReceived", m_totalEncapHeaderBytesReceived);
+    pt.put("largestEncapHeaderSizeBytesReceived", m_largestEncapHeaderSizeBytesReceived);
+    pt.put("smallestEncapHeaderSizeBytesReceived", m_smallestEncapHeaderSizeBytesReceived);
+    pt.put("averageEncapHeaderSizeBytesReceived", m_averageEncapHeaderSizeBytesReceived);
+    pt.put("totalBundlesSentAndAcked", m_totalBundlesSentAndAcked);
+    pt.put("totalBundleBytesSentAndAcked", m_totalBundleBytesSentAndAcked);
+    pt.put("totalBundlesSent", m_totalBundlesSent);
+    pt.put("totalBundleBytesSent", m_totalBundleBytesSent);
+    pt.put("totalBundlesFailedToSend", m_totalBundlesFailedToSend);
+    return pt;
+}
+
 LtpInductConnectionTelemetry_t::LtpInductConnectionTelemetry_t() :
     InductConnectionTelemetry_t(),
     m_numReportSegmentTimerExpiredCallbacks(0),
@@ -788,6 +857,9 @@ bool InductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::pt
                 || (m_convergenceLayer == "ltp_over_encap_local_stream"))
             {
                 m_listInductConnections.emplace_back(boost::make_unique<LtpInductConnectionTelemetry_t>());
+            }
+            else if (m_convergenceLayer == "bp_over_encap_local_stream") {
+                m_listInductConnections.emplace_back(boost::make_unique<BpOverEncapLocalStreamInductConnectionTelemetry_t>());
             }
             else if (m_convergenceLayer == "slip_over_uart") {
                 m_listInductConnections.emplace_back(boost::make_unique<SlipOverUartInductConnectionTelemetry_t>());
@@ -1259,6 +1331,67 @@ boost::property_tree::ptree SlipOverUartOutductTelemetry_t::GetNewPropertyTree()
 }
 
 
+BpOverEncapLocalStreamOutductTelemetry_t::BpOverEncapLocalStreamOutductTelemetry_t() :
+    OutductTelemetry_t(),
+    m_totalEncapHeaderBytesSent(0),
+    m_totalEncapHeaderBytesReceived(0),
+    m_largestEncapHeaderSizeBytesSent(0),
+    m_smallestEncapHeaderSizeBytesSent(0),
+    m_averageEncapHeaderSizeBytesSent(0),
+    m_totalBundlesReceived(0),
+    m_totalBundleBytesReceived(0)
+{
+    m_convergenceLayer = "bp_over_encap_local_stream";
+}
+BpOverEncapLocalStreamOutductTelemetry_t::~BpOverEncapLocalStreamOutductTelemetry_t() {};
+bool BpOverEncapLocalStreamOutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
+    if (const BpOverEncapLocalStreamOutductTelemetry_t* oPtr = dynamic_cast<const BpOverEncapLocalStreamOutductTelemetry_t*>(&o)) {
+        return OutductTelemetry_t::operator==(o)
+            && (m_totalEncapHeaderBytesSent == oPtr->m_totalEncapHeaderBytesSent)
+            && (m_totalEncapHeaderBytesReceived == oPtr->m_totalEncapHeaderBytesReceived)
+            && (m_largestEncapHeaderSizeBytesSent == oPtr->m_largestEncapHeaderSizeBytesSent)
+            && (m_smallestEncapHeaderSizeBytesSent == oPtr->m_smallestEncapHeaderSizeBytesSent)
+            && (m_averageEncapHeaderSizeBytesSent == oPtr->m_averageEncapHeaderSizeBytesSent)
+            && (m_totalBundlesReceived == oPtr->m_totalBundlesReceived)
+            && (m_totalBundleBytesReceived == oPtr->m_totalBundleBytesReceived);
+    }
+    return false;
+}
+bool BpOverEncapLocalStreamOutductTelemetry_t::operator!=(const OutductTelemetry_t& o) const {
+    return !(*this == o);
+}
+bool BpOverEncapLocalStreamOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!OutductTelemetry_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
+    try {
+        m_totalEncapHeaderBytesSent = pt.get<uint64_t>("totalEncapHeaderBytesSent");
+        m_totalEncapHeaderBytesReceived = pt.get<uint64_t>("totalEncapHeaderBytesReceived");
+        m_largestEncapHeaderSizeBytesSent = pt.get<uint64_t>("largestEncapHeaderSizeBytesSent");
+        m_smallestEncapHeaderSizeBytesSent = pt.get<uint64_t>("smallestEncapHeaderSizeBytesSent");
+        m_averageEncapHeaderSizeBytesSent = pt.get<uint64_t>("averageEncapHeaderSizeBytesSent");
+        m_totalBundlesReceived = pt.get<uint64_t>("totalBundlesReceived");
+        m_totalBundleBytesReceived = pt.get<uint64_t>("totalBundleBytesReceived");
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON TcpclV4OutductTelemetry_t: " << e.what();
+        return false;
+    }
+    return true;
+}
+boost::property_tree::ptree BpOverEncapLocalStreamOutductTelemetry_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt = OutductTelemetry_t::GetNewPropertyTree();
+    pt.put("totalEncapHeaderBytesSent", m_totalEncapHeaderBytesSent);
+    pt.put("totalEncapHeaderBytesReceived", m_totalEncapHeaderBytesReceived);
+    pt.put("largestEncapHeaderSizeBytesSent", m_largestEncapHeaderSizeBytesSent);
+    pt.put("smallestEncapHeaderSizeBytesSent", m_smallestEncapHeaderSizeBytesSent);
+    pt.put("averageEncapHeaderSizeBytesSent", m_averageEncapHeaderSizeBytesSent);
+    pt.put("totalBundlesReceived", m_totalBundlesReceived);
+    pt.put("totalBundleBytesReceived", m_totalBundleBytesReceived);
+    return pt;
+}
+
+
 UdpOutductTelemetry_t::UdpOutductTelemetry_t() :
     OutductTelemetry_t(),
     m_totalPacketsSent(0), m_totalPacketBytesSent(0), m_totalPacketsDequeuedForSend(0),
@@ -1360,6 +1493,9 @@ bool AllOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree
                 || (convergenceLayer == "ltp_over_encap_local_stream"))
             {
                 m_listAllOutducts.emplace_back(boost::make_unique<LtpOutductTelemetry_t>());
+            }
+            else if (convergenceLayer == "bp_over_encap_local_stream") {
+                m_listAllOutducts.emplace_back(boost::make_unique<BpOverEncapLocalStreamOutductTelemetry_t>());
             }
             else if (convergenceLayer == "slip_over_uart") {
                 m_listAllOutducts.emplace_back(boost::make_unique<SlipOverUartOutductTelemetry_t>());
