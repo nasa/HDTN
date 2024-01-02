@@ -189,6 +189,13 @@ unexpectedly or the contact plan gets updated, the router will be notified and w
 RouteUpdate events to egress accordingly. 
 An example of Routing scenario test with 4 HDTN nodes was added under $HDTN_SOURCE_ROOT/test_scripts_linux/Routing_Test
 
+Bundle Protocol Security (BPSec)
+================================
+BPSec library module interacts with Ingress and Egress modules and HDTN utility applications such as BPGen/BPSendFile and BPSink/BPReceiveFile to apply and process integrity and confidentiality security services based on the security role. BPSec is enabled by default with Bundle Protocol Version 7 and it requires OpenSSL FIPS module.
+
+Examples of tests with BPSec enabled using intergity and confidentiality services were added under $HDTN_SOURCE_ROOT/test_scripts_linux/BPSec_Tests
+BPSec configuration files which include security policy rules and the security operation failure events handling are located under $HDTN_SOURCE_ROOT/config_files/bpsec.   
+
 TLS Support for TCPCL Version 4
 =======
 TLS Versions 1.2 and 1.3 are supported for the TCPCL Version 4 convergence layer.  The X.509 certificates must be version 3 in order to validate IPN URIs using the X.509 "Subject Alternative Name" field.  HDTN must be compiled with ENABLE_OPENSSL_SUPPORT turned on in CMake.
