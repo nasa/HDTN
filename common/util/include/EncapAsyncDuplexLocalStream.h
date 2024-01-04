@@ -205,7 +205,7 @@ private:
             }
         }
 
-        if (e != boost::asio::error::operation_aborted) {
+        if (!e) {
             // Not cancelled, take necessary action.
             //https://github.com/boostorg/process/issues/83
             boost::system::error_code ecAssign;
@@ -217,7 +217,7 @@ private:
             std::cout << "Connection established from a remote to my pipe " << m_socketOrPipePath << "\n";
             OnConnectionCompleted_NotThreadSafe();
         }
-        else {
+        else if (e != boost::asio::error::operation_aborted) {
             std::cerr << "Unknown error occurred in OnPipeConnected " << e.message() << "\n";
         }
     }
