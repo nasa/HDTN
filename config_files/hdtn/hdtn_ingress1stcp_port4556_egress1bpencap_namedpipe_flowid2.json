@@ -16,6 +16,7 @@
     "bufferRxToStorageOnLinkUpSaturation": false,
     "maxLtpReceiveUdpPacketSizeBytes": 65536,
     "neighborDepletedStorageDelaySeconds": 0,
+    "fragmentBundlesLargerThanBytes": 0,
     "zmqBoundRouterPubSubPortPath": 10200,
     "zmqBoundTelemApiPortPath": 10305,
     "inductsConfig": {
