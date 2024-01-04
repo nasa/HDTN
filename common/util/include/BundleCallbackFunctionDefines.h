@@ -22,6 +22,7 @@
 
 #include <cstdint>
 #include <vector>
+#include "PaddedVectorUint8.h"
 #include <boost/function.hpp>
 #include <zmq.hpp>
 //bool successCallbackCalled shall denote that, if ltp sender session is storing to disk, an OnSuccessfulBundleSendCallback_t shall be called
@@ -31,10 +32,13 @@
 // to free up ZMQ bundle pipeline.
 // If successCallbackCalled is true, then the OnFailed callbacks shall not ack ingress or storage to free up ZMQ pipeline,
 // but instead treat the returned movableBundle as a new bundle.
-typedef boost::function<void(std::vector<uint8_t> & movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled)> OnFailedBundleVecSendCallback_t;
+typedef boost::function<void(padded_vector_uint8_t& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled)> OnFailedBundleVecSendCallback_t;
 typedef boost::function<void(zmq::message_t & movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled)> OnFailedBundleZmqSendCallback_t;
 typedef boost::function<void(std::vector<uint8_t>& userData, uint64_t outductUuid)> OnSuccessfulBundleSendCallback_t;
 typedef boost::function<void(bool isLinkDownEvent, uint64_t outductUuid)> OnOutductLinkStatusChangedCallback_t;
+
+//Bidirectional Links
+typedef boost::function<void(padded_vector_uint8_t& movableBundle)> OutductOpportunisticProcessReceivedBundleCallback_t;
 
 #endif // BUNDLE_CALLBACK_FUNCTION_DEFINES_H
 

@@ -72,7 +72,7 @@ public:
     uint64_t m_myBpEchoServiceId;
     std::string m_myCustodialSsp;
     uint64_t m_myCustodialServiceId;
-    uint64_t m_mySchedulerServiceId;
+    uint64_t m_myRouterServiceId;
     bool m_isAcsAware;
     uint64_t m_acsMaxFillsPerAcsPacket;
     uint64_t m_acsSendPeriodMilliseconds;
@@ -82,8 +82,11 @@ public:
     bool m_bufferRxToStorageOnLinkUpSaturation;
     uint64_t m_maxLtpReceiveUdpPacketSizeBytes;
 
-    //pub-sub from scheduler to all modules (defined in HdtnConfig as the TCP socket is used by hdtn-one-process)
-    uint16_t m_zmqBoundSchedulerPubSubPortPath;
+    uint64_t m_neighborDepletedStorageDelaySeconds;
+    uint64_t m_fragmentBundlesLargerThanBytes;
+
+    //pub-sub from router to all modules (defined in HdtnConfig as the TCP socket is used by hdtn-one-process)
+    uint16_t m_zmqBoundRouterPubSubPortPath;
     uint16_t m_zmqBoundTelemApiPortPath;
 
     InductsConfig m_inductsConfig;

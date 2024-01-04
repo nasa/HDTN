@@ -29,7 +29,7 @@ void BPingRunner::MonitorExitKeypressThreadFunction() {
 
 
 
-static void DurationEndedThreadFunction(const boost::system::error_code& e, volatile bool * running) {
+static void DurationEndedThreadFunction(const boost::system::error_code& e, std::atomic<bool>* running) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
         LOG_INFO(subprocess) << "Reached duration.. exiting";
@@ -44,7 +44,7 @@ BPingRunner::BPingRunner() {}
 BPingRunner::~BPingRunner() {}
 
 
-bool BPingRunner::Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler) {
+bool BPingRunner::Run(int argc, const char* const argv[], std::atomic<bool>& running, bool useSignalHandler) {
     //scope to ensure clean exit before return 0
     {
         running = true;
@@ -171,6 +171,7 @@ bool BPingRunner::Run(int argc, const char* const argv[], volatile bool & runnin
         bping.Start(
             outductsConfigPtr,
             inductsConfigPtr,
+            "",
             custodyTransferUseAcs,
             myEid,
             bundleRate,

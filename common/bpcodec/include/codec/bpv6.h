@@ -119,6 +119,7 @@ struct CLASS_VISIBILITY_BPCODEC Bpv6CbhePrimaryBlock : public PrimaryBlock {
     BPCODEC_EXPORT uint64_t GetSerializationSize() const;
     BPCODEC_EXPORT bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
     BPCODEC_EXPORT uint64_t GetSecondsSinceCreate() const;
+    BPCODEC_EXPORT bool HasFlagSet(BPV6_BUNDLEFLAG flag) const;
     
     /**
      * Dumps a primary block to stdout in a human-readable way
@@ -133,9 +134,10 @@ struct CLASS_VISIBILITY_BPCODEC Bpv6CbhePrimaryBlock : public PrimaryBlock {
 
     BPCODEC_EXPORT virtual bool HasCustodyFlagSet() const override;
     BPCODEC_EXPORT virtual bool HasFragmentationFlagSet() const override;
-    BPCODEC_EXPORT virtual cbhe_bundle_uuid_t GetCbheBundleUuidFromPrimary() const override;
+    BPCODEC_EXPORT virtual cbhe_bundle_uuid_t GetCbheBundleUuidFragmentFromPrimary(uint64_t payloadSizeBytes) const override;
     BPCODEC_EXPORT virtual cbhe_bundle_uuid_nofragment_t GetCbheBundleUuidNoFragmentFromPrimary() const override;
     BPCODEC_EXPORT virtual cbhe_eid_t GetFinalDestinationEid() const override;
+    BPCODEC_EXPORT virtual cbhe_eid_t GetSourceEid() const override;
     BPCODEC_EXPORT virtual uint8_t GetPriority() const override;
     BPCODEC_EXPORT virtual uint64_t GetExpirationSeconds() const override;
     BPCODEC_EXPORT virtual uint64_t GetSequenceForSecondsScale() const override;
@@ -160,6 +162,7 @@ enum class BPV6_BLOCK_TYPE_CODE : uint8_t {
     UNUSED_12                         = 12,
     BPLIB_BIB                         = 13,
     BUNDLE_AGE                        = 20,
+    RESERVED_MAX_BLOCK_TYPES          = 21 //for sizing lookup tables
 };
 MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV6_BLOCK_TYPE_CODE);
 
@@ -198,7 +201,8 @@ struct CLASS_VISIBILITY_BPCODEC Bpv6CanonicalBlock {
     BPCODEC_EXPORT uint64_t GetSerializationSize() const;
     BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
     BPCODEC_EXPORT static bool DeserializeBpv6(std::unique_ptr<Bpv6CanonicalBlock> & canonicalPtr, const uint8_t * serialization,
-        uint64_t & numBytesTakenToDecode, uint64_t bufferSize, const bool isAdminRecord);
+        uint64_t & numBytesTakenToDecode, uint64_t bufferSize, const bool isAdminRecord,
+        std::unique_ptr<Bpv6CanonicalBlock>* blockNumberToRecycledCanonicalBlockArray);
     BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv6();
     //virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
     /**

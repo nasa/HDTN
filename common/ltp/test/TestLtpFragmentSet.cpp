@@ -607,6 +607,23 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
         
     }
 
+    //TEST FragmentSetsHaveOverlap (not used in ltp)
+    {
+        BOOST_REQUIRE(LtpFragmentSet::FragmentSetsHaveOverlap(df_set({ df(100, 200) }), df_set({ df(100, 200) })));
+
+        BOOST_REQUIRE(!LtpFragmentSet::FragmentSetsHaveOverlap(df_set({ df(10, 20) }), df_set({ df(100, 200) })));
+        BOOST_REQUIRE(!LtpFragmentSet::FragmentSetsHaveOverlap(df_set({ df(100, 200) }), df_set({ df(10, 20) })));
+
+        BOOST_REQUIRE(!LtpFragmentSet::FragmentSetsHaveOverlap(df_set({ df(100, 200), df(300, 400) }), df_set({ df(201, 299) })));
+        BOOST_REQUIRE(!LtpFragmentSet::FragmentSetsHaveOverlap(df_set({ df(201, 299) }), df_set({ df(100, 200), df(300, 400) })));
+
+        BOOST_REQUIRE(LtpFragmentSet::FragmentSetsHaveOverlap(df_set({ df(100, 200), df(300, 400) }), df_set({ df(200, 299) })));
+        BOOST_REQUIRE(LtpFragmentSet::FragmentSetsHaveOverlap(df_set({ df(200, 299) }), df_set({ df(100, 200), df(300, 400) })));
+
+        BOOST_REQUIRE(LtpFragmentSet::FragmentSetsHaveOverlap(df_set({ df(100, 200), df(300, 400) }), df_set({ df(201, 300) })));
+        BOOST_REQUIRE(LtpFragmentSet::FragmentSetsHaveOverlap(df_set({ df(201, 300) }), df_set({ df(100, 200), df(300, 400) })));
+    }
+
 
     //LARGE REPORT SEGMENTS NEEDING SPLIT UP
     {

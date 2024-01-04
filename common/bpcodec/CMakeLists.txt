@@ -15,6 +15,8 @@ add_library(bpcodec
 		src/codec/BundleViewV6.cpp
 		src/codec/BundleViewV7.cpp
 		src/codec/Bpv7Crc.cpp
+		src/codec/Bpv6Fragment.cpp
+		src/codec/Bpv6FragmentManager.cpp
 )
 target_compile_options(bpcodec PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 GENERATE_EXPORT_HEADER(bpcodec)
@@ -47,6 +49,8 @@ set(MY_PUBLIC_HEADERS
 	include/codec/CustodyIdAllocator.h
 	include/codec/CustodyTransferManager.h
 	include/codec/PrimaryBlock.h
+	include/codec/Bpv6Fragment.h
+	include/codec/Bpv6FragmentManager.h
 	${CMAKE_CURRENT_BINARY_DIR}/bpcodec_export.h
 )
 set_target_properties(bpcodec PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
@@ -78,6 +82,7 @@ target_link_libraries(bp_app_patterns_lib
 		hdtn_util
 		outduct_manager_lib
 		induct_manager_lib
+		$<$<BOOL:${ENABLE_BPSEC}>:bpsec>
 )
 target_include_directories(bp_app_patterns_lib
 	PUBLIC
@@ -96,6 +101,13 @@ install(TARGETS bp_app_patterns_lib
 	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
 	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/app_patterns"
 )
+
+set_property(
+	SOURCE src/app_patterns/BpSourcePattern.cpp
+	PROPERTY COMPILE_DEFINITIONS
+		$<$<BOOL:${ENABLE_BPV7_PRIORITY}>:ENABLE_BPV7_PRIORITY>
+)
+
 add_hdtn_package_export(bp_app_patterns_lib BpAppPatternsLib) #exported target will have the name HDTN::BpAppPatternsLib and not bp_app_patterns_lib.  Also requires install to EXPORT bp_app_patterns_lib-targets
 
 add_subdirectory(apps)

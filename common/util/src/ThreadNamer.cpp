@@ -18,6 +18,10 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
+#ifdef __APPLE__
+#include <thread>
+#endif
+
 //https://stackoverflow.com/questions/10121560/stdthread-naming-your-thread
 #ifdef _WIN32
 #include <cstdlib>
@@ -89,10 +93,17 @@ static void ImplSetThreadName(std::thread& thread, const std::string& threadName
 # endif //THREAD_NAMER_ENABLE_DEPRECATED_FUNCTIONS
 
 #else
+#if defined(_WIN32)
+#elif defined(__APPLE__)
+static void ImplSetCurrentThreadName(const std::string& threadName) {
+    pthread_setname_np(threadName.c_str());
+}
+#else // Linux (not WIN32 or APPLE)
 #include <sys/prctl.h>
 static void ImplSetCurrentThreadName(const std::string& threadName) {
     prctl(PR_SET_NAME, threadName.c_str(), 0, 0, 0);
 }
+#endif
 # ifdef THREAD_NAMER_ENABLE_DEPRECATED_FUNCTIONS
 static void ImplSetThreadName(boost::thread& thread, const std::string& threadName) {
     pthread_setname_np(thread.native_handle(), threadName.c_str());

@@ -2,6 +2,7 @@ add_executable(unit-tests
     src/test_main.cpp
     ../../common/tcpcl/test/TestTcpcl.cpp
 	../../common/tcpcl/test/TestTcpclV4.cpp
+	../../common/slip_over_uart/test/TestSlip.cpp
 	../../common/ltp/test/TestLtp.cpp
 	../../common/ltp/test/TestLtpFragmentSet.cpp
 	../../common/ltp/test/TestLtpSessionRecreationPreventer.cpp
@@ -32,18 +33,25 @@ add_executable(unit-tests
 	../../common/util/test/dir_monitor/test_sync.cpp
 	#../../common/util/test/test_running.cpp
 	../../common/telemetry_definitions/test/TestTelemetryDefinitions.cpp
+	../../common/telemetry_definitions/test/TestTelemetryServer.cpp
 	../../common/bpcodec/test/TestAggregateCustodySignal.cpp
 	../../common/bpcodec/test/TestCustodyTransfer.cpp
 	../../common/bpcodec/test/TestCustodyIdAllocator.cpp
 	../../common/bpcodec/test/TestBundleViewV6.cpp
 	../../common/bpcodec/test/TestBundleViewV7.cpp
+	../../common/bpcodec/test/TestBpv6Fragmentation.cpp
 	../../common/bpcodec/test/TestBpsecDefaultSecurityContexts.cpp
+	$<$<BOOL:${ENABLE_BPSEC}>:../../common/bpsec/test/TestBpsecDefault.cpp>
+	$<$<BOOL:${ENABLE_BPSEC}>:../../common/bpsec/test/TestInitializationVectors.cpp>
+	$<$<BOOL:${ENABLE_BPSEC}>:../../common/bpsec/test/TestBpSecPolicyManager.cpp>
 	../../common/bpcodec/test/TestBpv7Crc.cpp
+	../../common/bpcodec/test/TestBpSinkPattern.cpp
 	../../common/config/test/TestInductsConfig.cpp
 	../../common/config/test/TestOutductsConfig.cpp
 	../../common/config/test/TestStorageConfig.cpp
 	../../common/config/test/TestHdtnConfig.cpp
 	../../common/config/test/TestHdtnDistributedConfig.cpp
+	$<$<BOOL:${ENABLE_BPSEC}>:../../common/config/test/TestBpSecConfig.cpp>
 	../../common/cgr/test/TestDijkstra.cpp
 	../../common/logger/unit_tests/LoggerTests.cpp
 	../../common/stats_logger/unit_tests/StatsLoggerTests.cpp
@@ -59,7 +67,7 @@ add_executable(unit-tests
 	$<$<BOOL:${RUN_TELEMETRY}>:../../module/telem_cmd_interface/unit_tests/TelemetryConnectionPollerTests.cpp>
 	$<$<BOOL:${RUN_TELEMETRY}>:../../module/telem_cmd_interface/unit_tests/TelemetryLoggerTests.cpp>
 	$<$<BOOL:${RUN_TELEMETRY}>:../../module/telem_cmd_interface/unit_tests/TelemetryRunnerProgramOptionsTests.cpp>
-	../../module/scheduler/unit_tests/SchedulerTests.cpp
+    ../../module/router/unit_tests/RouterTests.cpp
 )
 
 install(TARGETS unit-tests DESTINATION ${CMAKE_INSTALL_BINDIR})
@@ -67,6 +75,7 @@ install(TARGETS unit-tests DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_link_libraries(unit-tests
 	hdtn_util
 	tcpcl_lib
+	slip_over_uart_lib
 	stcp_lib
 	ltp_lib
 	storage_lib
@@ -78,7 +87,9 @@ target_link_libraries(unit-tests
 	log_lib
 	stats_lib
 	$<$<BOOL:${RUN_TELEMETRY}>:telem_lib>
-	scheduler_lib
+	router_lib
+	outduct_manager_lib
+	bp_app_patterns_lib
 	Boost::unit_test_framework
 	Boost::timer
 )

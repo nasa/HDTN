@@ -142,17 +142,16 @@ var INITIAL_HDTN_CONFIG = {
     "zmqIngressAddress": "localhost",
     "zmqEgressAddress": "localhost",
     "zmqStorageAddress": "localhost",
-    "zmqSchedulerAddress": "localhost",
+    "zmqRouterAddress": "localhost",
     "zmqRouterAddress": "localhost",
     "zmqBoundIngressToConnectingEgressPortPath": 10100,
     "zmqConnectingEgressToBoundIngressPortPath": 10160,
-    "zmqConnectingEgressToBoundSchedulerPortPath": 10162,
+    "zmqConnectingEgressToBoundRouterPortPath": 10162,
     "zmqConnectingEgressBundlesOnlyToBoundIngressPortPath": 10161,
     "zmqBoundIngressToConnectingStoragePortPath": 10110,
     "zmqConnectingStorageToBoundIngressPortPath": 10150,
     "zmqConnectingStorageToBoundEgressPortPath": 10120,
     "zmqBoundEgressToConnectingStoragePortPath": 10130,
-    "zmqBoundSchedulerPubSubPortPath": 10200,
     "zmqBoundTelemApiPortPath": 10305,
     "zmqBoundRouterPubSubPortPath": 10210,
     "inductsConfig": {
@@ -232,11 +231,6 @@ var INITIAL_HDTN_CONFIG = {
                 "remotePort": 1113,
                 "maxNumberOfBundlesInPipeline": 5,
                 "maxSumOfBundleBytesInPipeline": 50000000,
-                "finalDestinationEidUris": [
-                    "ipn:1.1",
-                    "ipn:2.1",
-                    "ipn:7.*"
-                ],
                 "thisLtpEngineId": 102,
                 "remoteLtpEngineId": 103,
                 "ltpDataSegmentMtu": 1003,
@@ -248,7 +242,6 @@ var INITIAL_HDTN_CONFIG = {
                 "ltpCheckpointEveryNthDataSegment": 0,
                 "ltpRandomNumberSizeBits": 32,
                 "ltpSenderBoundPort": 2113,
-                "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0,
                 "ltpMaxUdpPacketsToSendPerSystemCall": 1,
                 "ltpSenderPingSecondsOrZeroToDisable": 15,
                 "delaySendingOfDataSegmentsTimeMsOrZeroToDisable": 20,
@@ -263,12 +256,7 @@ var INITIAL_HDTN_CONFIG = {
                 "remoteHostname": "localhost",
                 "remotePort": 4557,
                 "maxNumberOfBundlesInPipeline": 5,
-                "maxSumOfBundleBytesInPipeline": 50000000,
-                "finalDestinationEidUris": [
-                    "ipn:4.1",
-                    "ipn:6.1"
-                ],
-                "udpRateBps": 50000
+                "maxSumOfBundleBytesInPipeline": 50000000
             },
             {
                 "name": "o3",
@@ -278,10 +266,6 @@ var INITIAL_HDTN_CONFIG = {
                 "remotePort": 4558,
                 "maxNumberOfBundlesInPipeline": 5,
                 "maxSumOfBundleBytesInPipeline": 50000000,
-                "finalDestinationEidUris": [
-                    "ipn:10.1",
-                    "ipn:26.1"
-                ],
                 "keepAliveIntervalSeconds": 16,
                 "tcpclV3MyMaxTxSegmentSizeBytes": 200000,
                 "tcpclAllowOpportunisticReceiveBundles": true
@@ -294,9 +278,6 @@ var INITIAL_HDTN_CONFIG = {
                 "remotePort": 4560,
                 "maxNumberOfBundlesInPipeline": 50,
                 "maxSumOfBundleBytesInPipeline": 50000000,
-                "finalDestinationEidUris": [
-                    "ipn:3.1"
-                ],
                 "keepAliveIntervalSeconds": 17,
                 "tcpclAllowOpportunisticReceiveBundles": true,
                 "tcpclV4MyMaxRxSegmentSizeBytes": 200000,
@@ -315,11 +296,6 @@ var INITIAL_HDTN_CONFIG = {
                 "remotePort": 4559,
                 "maxNumberOfBundlesInPipeline": 5,
                 "maxSumOfBundleBytesInPipeline": 50000000,
-                "finalDestinationEidUris": [
-                    "ipn:100.1",
-                    "ipn:200.1",
-                    "ipn:300.1"
-                ],
                 "keepAliveIntervalSeconds": 17
             }
         ]
@@ -648,6 +624,40 @@ let changeFunctions = [
     function() { //outduct 3 goes down time based
         OUTDUCT_TELEM_UPDATE.allOutducts[3].linkIsUpPerTimeSchedule = false;
         let clone = JSON.parse(JSON.stringify(OUTDUCT_TELEM_UPDATE));
+        app.UpdateWithData(clone);
+    },
+    //simulate eid list going empty and restoring
+    function() {
+        AOCT.outductCapabilityTelemetryList[2].fdBackup = AOCT.outductCapabilityTelemetryList[2].finalDestinationEidsList;
+        AOCT.outductCapabilityTelemetryList[2].finalDestinationEidsList = [];
+        let clone = JSON.parse(JSON.stringify(AOCT));
+        app.UpdateWithData(clone);
+    },
+    function() {
+        AOCT.outductCapabilityTelemetryList[3].fdBackup = AOCT.outductCapabilityTelemetryList[3].finalDestinationEidsList;
+        AOCT.outductCapabilityTelemetryList[3].finalDestinationEidsList = [];
+        let clone = JSON.parse(JSON.stringify(AOCT));
+        app.UpdateWithData(clone);
+    },
+    function() {
+        AOCT.outductCapabilityTelemetryList[2].finalDestinationEidsList = AOCT.outductCapabilityTelemetryList[2].fdBackup;
+        let clone = JSON.parse(JSON.stringify(AOCT));
+        app.UpdateWithData(clone);
+    },
+    function() {
+        AOCT.outductCapabilityTelemetryList[3].finalDestinationEidsList = AOCT.outductCapabilityTelemetryList[3].fdBackup;
+        let clone = JSON.parse(JSON.stringify(AOCT));
+        app.UpdateWithData(clone);
+    },
+    function() {
+        AOCT.outductCapabilityTelemetryList[0].fdBackup = AOCT.outductCapabilityTelemetryList[0].finalDestinationEidsList;
+        AOCT.outductCapabilityTelemetryList[0].finalDestinationEidsList = [];
+        let clone = JSON.parse(JSON.stringify(AOCT));
+        app.UpdateWithData(clone);
+    },
+    function() {
+        AOCT.outductCapabilityTelemetryList[0].finalDestinationEidsList = AOCT.outductCapabilityTelemetryList[0].fdBackup;
+        let clone = JSON.parse(JSON.stringify(AOCT));
         app.UpdateWithData(clone);
     }
 ];

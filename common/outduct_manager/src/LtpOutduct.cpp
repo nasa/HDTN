@@ -18,9 +18,12 @@
 #include <memory>
 #include <boost/lexical_cast.hpp>
 
+static constexpr bool hasPing(const outduct_element_config_t& cfg) {
+    return cfg.ltpSenderPingSecondsOrZeroToDisable != 0;
+}
 
 LtpOutduct::LtpOutduct(const outduct_element_config_t& outductConfig, const uint64_t outductUuid) :
-    Outduct(outductConfig, outductUuid),
+    Outduct(outductConfig, outductUuid, hasPing(outductConfig)),
     m_ltpBundleSourcePtr(NULL)
 {
 
@@ -42,7 +45,7 @@ LtpOutduct::LtpOutduct(const outduct_element_config_t& outductConfig, const uint
     m_ltpTxCfg.checkpointEveryNthDataPacketSender = outductConfig.ltpCheckpointEveryNthDataSegment;
     m_ltpTxCfg.maxRetriesPerSerialNumber = outductConfig.ltpMaxRetriesPerSerialNumber;
     m_ltpTxCfg.force32BitRandomNumbers = (outductConfig.ltpRandomNumberSizeBits == 32);
-    m_ltpTxCfg.maxSendRateBitsPerSecOrZeroToDisable = m_outductConfig.ltpMaxSendRateBitsPerSecOrZeroToDisable;
+    m_ltpTxCfg.maxSendRateBitsPerSecOrZeroToDisable = 0; // Set by contact plan (or commandline arg for apps)
     m_ltpTxCfg.maxSimultaneousSessions = m_outductConfig.maxNumberOfBundlesInPipeline;
     m_ltpTxCfg.rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable = 0; //unused for outducts
     m_ltpTxCfg.maxUdpPacketsToSendPerSystemCall = m_outductConfig.ltpMaxUdpPacketsToSendPerSystemCall;
@@ -52,6 +55,7 @@ LtpOutduct::LtpOutduct(const outduct_element_config_t& outductConfig, const uint
     m_ltpTxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable = (m_outductConfig.keepActiveSessionDataOnDisk) ? //for both inducts and outducts
         m_outductConfig.activeSessionDataOnDiskNewFileDurationMs : 0;
     m_ltpTxCfg.activeSessionDataOnDiskDirectory = m_outductConfig.activeSessionDataOnDiskDirectory; //for both inducts and outducts
+    m_ltpTxCfg.rateLimitPrecisionMicroSec = m_outductConfig.rateLimitPrecisionMicroSec;
 
 }
 LtpOutduct::~LtpOutduct() {}
@@ -60,8 +64,8 @@ bool LtpOutduct::Init() {
     return SetLtpBundleSourcePtr(); //virtual function call
 }
 
-std::size_t LtpOutduct::GetTotalDataSegmentsUnacked() {
-    return m_ltpBundleSourcePtr->GetTotalDataSegmentsUnacked();
+std::size_t LtpOutduct::GetTotalBundlesUnacked() const noexcept {
+    return m_ltpBundleSourcePtr->GetTotalBundlesUnacked();
 }
 bool LtpOutduct::Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
     return m_ltpBundleSourcePtr->Forward(bundleData, size, std::move(userData));
@@ -69,7 +73,7 @@ bool LtpOutduct::Forward(const uint8_t* bundleData, const std::size_t size, std:
 bool LtpOutduct::Forward(zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData) {
     return m_ltpBundleSourcePtr->Forward(movableDataZmq, std::move(userData));
 }
-bool LtpOutduct::Forward(std::vector<uint8_t> & movableDataVec, std::vector<uint8_t>&& userData) {
+bool LtpOutduct::Forward(padded_vector_uint8_t& movableDataVec, std::vector<uint8_t>&& userData) {
     return m_ltpBundleSourcePtr->Forward(movableDataVec, std::move(userData));
 }
 
@@ -94,9 +98,6 @@ void LtpOutduct::SetRate(uint64_t maxSendRateBitsPerSecOrZeroToDisable) {
 uint64_t LtpOutduct::GetOutductMaxNumberOfBundlesInPipeline() const {
     return m_ltpBundleSourcePtr->GetOutductMaxNumberOfBundlesInPipeline();
 }
-uint64_t LtpOutduct::GetStartingMaxSendRateBitsPerSec() const noexcept {
-    return m_outductConfig.ltpMaxSendRateBitsPerSecOrZeroToDisable;
-}
 
 void LtpOutduct::Connect() {
 
@@ -109,12 +110,13 @@ void LtpOutduct::Stop() {
 }
 void LtpOutduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
     finalStats.m_convergenceLayer = m_outductConfig.convergenceLayer;
-    finalStats.m_totalDataSegmentsOrPacketsAcked = m_ltpBundleSourcePtr->GetTotalDataSegmentsAcked();
-    finalStats.m_totalDataSegmentsOrPacketsSent = m_ltpBundleSourcePtr->GetTotalDataSegmentsSent();
+    finalStats.m_totalBundlesAcked = m_ltpBundleSourcePtr->GetTotalBundlesAcked();
+    finalStats.m_totalBundlesSent = m_ltpBundleSourcePtr->GetTotalBundlesSent();
 }
 void LtpOutduct::PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& outductTelem) {
-    m_ltpBundleSourcePtr->SyncTelemetry();
-    outductTelem = boost::make_unique<LtpOutductTelemetry_t>(m_ltpBundleSourcePtr->m_ltpOutductTelemetry);
+    std::unique_ptr<LtpOutductTelemetry_t> t = boost::make_unique<LtpOutductTelemetry_t>();
+    m_ltpBundleSourcePtr->GetTelemetry(*t);
+    outductTelem = std::move(t);
     outductTelem->m_linkIsUpPerTimeSchedule = m_linkIsUpPerTimeSchedule;
     outductTelem->m_linkIsUpPhysically = m_linkIsUpPhysically;
 }

@@ -47,20 +47,32 @@ class CustodyTransferManager {
 private:
     CustodyTransferManager();
 public:
+
+    struct CustodyTransferContext {
+        Bpv6CbhePrimaryBlock primary;
+        bool validCtebPresent;
+        uint64_t receivedCtebCustodyId;
+        uint64_t payloadSizeBytes;
+    };
+
     
     BPCODEC_EXPORT CustodyTransferManager(const bool isAcsAware, const uint64_t myCustodianNodeId, const uint64_t myCustodianServiceId);
     BPCODEC_EXPORT ~CustodyTransferManager();
 
     BPCODEC_EXPORT bool ProcessCustodyOfBundle(BundleViewV6 & bv, bool acceptCustody, const uint64_t custodyId,
         const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex, BundleViewV6 & custodySignalRfc5050RenderedBundleView);
+    BPCODEC_EXPORT bool GetCustodyInfo(BundleViewV6 & bv, CustodyTransferContext &prevCustodyInfo);
+    BPCODEC_EXPORT bool UpdateBundleCustodyFields(BundleViewV6 & bv, bool acceptCustody, const uint64_t custodyId);
+    BPCODEC_EXPORT bool GenerateCustodySignal(CustodyTransferContext &info, bool acceptCustody,
+        const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex, BundleViewV6 & custodySignalRfc5050RenderedBundleView);
     BPCODEC_EXPORT void SetCreationAndSequence(uint64_t & creation, uint64_t & sequence);
-    BPCODEC_EXPORT bool GenerateCustodySignalBundle(BundleViewV6 & newRenderedBundleView, const Bpv6CbhePrimaryBlock & primaryFromSender, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
+    BPCODEC_EXPORT bool GenerateCustodySignalBundle(BundleViewV6 & newRenderedBundleView, const Bpv6CbhePrimaryBlock & primaryFromSender, uint64_t payloadSizeBytes, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
     BPCODEC_EXPORT bool GenerateAllAcsBundlesAndClear(std::list<BundleViewV6> & newAcsRenderedBundleViewList);
     BPCODEC_EXPORT bool GenerateAcsBundle(BundleViewV6 & newAcsRenderedBundleView, const cbhe_eid_t & custodianEid, Bpv6AdministrativeRecordContentAggregateCustodySignal & acsToMove, const bool copyAcsOnly = false);
     BPCODEC_EXPORT bool GenerateAcsBundle(BundleViewV6 & newAcsRenderedBundleView, const cbhe_eid_t & custodianEid, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex, const bool copyAcsOnly = false);
     BPCODEC_EXPORT const Bpv6AdministrativeRecordContentAggregateCustodySignal & GetAcsConstRef(const cbhe_eid_t & custodianEid, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
     BPCODEC_EXPORT uint64_t GetLargestNumberOfFills() const;
-    BPCODEC_EXPORT bool GenerateBundleDeletionStatusReport(const Bpv6CbhePrimaryBlock & primaryOfDeleted, BundleViewV6 & statusReport);
+    BPCODEC_EXPORT bool GenerateBundleDeletionStatusReport(const Bpv6CbhePrimaryBlock & primaryOfDeleted, uint64_t payloadSizeBytes, BundleViewV6 & statusReport);
 private:
     const bool m_isAcsAware;
     const uint64_t m_myCustodianNodeId;

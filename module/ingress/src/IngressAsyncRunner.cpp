@@ -43,21 +43,25 @@ IngressAsyncRunner::IngressAsyncRunner() :
 IngressAsyncRunner::~IngressAsyncRunner() {}
 
 
-bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler) {
+bool IngressAsyncRunner::Run(int argc, const char* const argv[], std::atomic<bool>& running, bool useSignalHandler) {
     //scope to ensure clean exit before return 0
     {
         running = true;
         m_runningFromSigHandler = true;
         SignalHandler sigHandler(boost::bind(&IngressAsyncRunner::MonitorExitKeypressThreadFunction, this));
         HdtnConfig_ptr hdtnConfig;
+        boost::filesystem::path bpSecConfigFilePath;
         HdtnDistributedConfig_ptr hdtnDistributedConfig;
+        std::string maskerImpl;
 
         boost::program_options::options_description desc("Allowed options");
         try {
             desc.add_options()
                 ("help", "Produce help message.")
                 ("hdtn-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
+                ("bpsec-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "BpSec Configuration File.")
                 ("hdtn-distributed-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn_distributed.json"), "HDTN Distributed Mode Configuration File.")
+                ("masker", boost::program_options::value<std::string>()->default_value(""), "Which Masker implementation to use")
                 ;
 
             boost::program_options::variables_map vm;
@@ -69,7 +73,6 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
                 return false;
             }
 
-
             const boost::filesystem::path configFileName = vm["hdtn-config-file"].as<boost::filesystem::path>();
             hdtnConfig = HdtnConfig::CreateFromJsonFilePath(configFileName);
             if (!hdtnConfig) {
@@ -77,12 +80,16 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
                 return false;
             }
 
+            bpSecConfigFilePath = vm["bpsec-config-file"].as<boost::filesystem::path>();
+
             const boost::filesystem::path distributedConfigFileName = vm["hdtn-distributed-config-file"].as<boost::filesystem::path>();
             hdtnDistributedConfig = HdtnDistributedConfig::CreateFromJsonFilePath(distributedConfigFileName);
             if (!hdtnDistributedConfig) {
                 LOG_ERROR(subprocess) << "error loading HDTN distributed config file: " << distributedConfigFileName;
                 return false;
             }
+
+            maskerImpl = vm["masker"].as<std::string>();
         }
         catch (boost::bad_any_cast & e) {
             LOG_ERROR(subprocess) << "invalid data error: " << e.what();
@@ -100,7 +107,7 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
 
         LOG_INFO(subprocess) << "starting ingress..";
         hdtn::Ingress ingress;
-        if (!ingress.Init(*hdtnConfig, *hdtnDistributedConfig)) {
+        if (!ingress.Init(*hdtnConfig, bpSecConfigFilePath, *hdtnDistributedConfig, NULL, maskerImpl)) {
             return false;
         }
 

@@ -303,13 +303,13 @@ bool Bpv6CbhePrimaryBlock::HasFragmentationFlagSet() const {
     return ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::ISFRAGMENT) != BPV6_BUNDLEFLAG::NO_FLAGS_SET);
 }
 
-cbhe_bundle_uuid_t Bpv6CbhePrimaryBlock::GetCbheBundleUuidFromPrimary() const {
+cbhe_bundle_uuid_t Bpv6CbhePrimaryBlock::GetCbheBundleUuidFragmentFromPrimary(uint64_t payloadSizeBytes) const {
     cbhe_bundle_uuid_t uuid;
     uuid.creationSeconds = m_creationTimestamp.secondsSinceStartOfYear2000;
     uuid.sequence = m_creationTimestamp.sequenceNumber;
     uuid.srcEid = m_sourceNodeId;
     uuid.fragmentOffset = m_fragmentOffset;
-    uuid.dataLength = m_totalApplicationDataUnitLength;
+    uuid.dataLength = payloadSizeBytes;
     return uuid;
 }
 cbhe_bundle_uuid_nofragment_t Bpv6CbhePrimaryBlock::GetCbheBundleUuidNoFragmentFromPrimary() const {
@@ -322,6 +322,9 @@ cbhe_bundle_uuid_nofragment_t Bpv6CbhePrimaryBlock::GetCbheBundleUuidNoFragmentF
 
 cbhe_eid_t Bpv6CbhePrimaryBlock::GetFinalDestinationEid() const {
     return m_destinationEid;
+}
+cbhe_eid_t Bpv6CbhePrimaryBlock::GetSourceEid() const {
+    return m_sourceNodeId;
 }
 uint8_t Bpv6CbhePrimaryBlock::GetPriority() const {
     return static_cast<uint8_t>(GetPriorityFromFlags(m_bundleProcessingControlFlags));
@@ -342,4 +345,8 @@ uint64_t Bpv6CbhePrimaryBlock::GetSequenceForMillisecondsScale() const {
 uint64_t Bpv6CbhePrimaryBlock::GetSecondsSinceCreate() const {
     return TimestampUtil::GetSecondsSinceEpochRfc5050() - 
         m_creationTimestamp.secondsSinceStartOfYear2000;
+}
+
+bool Bpv6CbhePrimaryBlock::HasFlagSet(BPV6_BUNDLEFLAG flag) const {
+    return ((m_bundleProcessingControlFlags & flag) == flag);
 }

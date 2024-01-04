@@ -68,15 +68,14 @@ public:
     std::string m_zmqIngressAddress;
     std::string m_zmqEgressAddress;
     std::string m_zmqStorageAddress;
-    std::string m_zmqSchedulerAddress;
     std::string m_zmqRouterAddress;
 
     //push-pull between ingress and egress
     uint16_t m_zmqBoundIngressToConnectingEgressPortPath;
     uint16_t m_zmqConnectingEgressToBoundIngressPortPath;
 
-    //push sock from egress to scheduler
-    uint16_t m_zmqBoundEgressToConnectingSchedulerPortPath;
+    //push sock from egress to router
+    uint16_t m_zmqBoundEgressToConnectingRouterPortPath;
 
     //push sock from egress to ingress for TCPCL bundles received by egress
     uint16_t m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath;
@@ -89,8 +88,11 @@ public:
     uint16_t m_zmqConnectingStorageToBoundEgressPortPath;
     uint16_t m_zmqBoundEgressToConnectingStoragePortPath;
 
-    //pub-sub from scheduler to all modules (defined in HdtnConfig as the TCP socket is used by hdtn-one-process)
-    //uint16_t m_zmqBoundSchedulerPubSubPortPath;
+    //push sock from storage to router
+    uint64_t m_zmqConnectingStorageToBoundRouterPortPath;
+
+    //pub-sub from router to all modules (defined in HdtnConfig as the TCP socket is used by hdtn-one-process)
+    //uint16_t m_zmqBoundRouterPubSubPortPath;
     
     //push sock from router to egress
     uint16_t m_zmqConnectingRouterToBoundEgressPortPath;
@@ -99,7 +101,7 @@ public:
     uint16_t m_zmqConnectingTelemToFromBoundIngressPortPath;
     uint16_t m_zmqConnectingTelemToFromBoundEgressPortPath;
     uint16_t m_zmqConnectingTelemToFromBoundStoragePortPath;
-    uint16_t m_zmqConnectingTelemToFromBoundSchedulerPortPath;
+    uint16_t m_zmqConnectingTelemToFromBoundRouterPortPath;
 };
 
 #endif // HDTN_DISTRIBUTED_CONFIG_H

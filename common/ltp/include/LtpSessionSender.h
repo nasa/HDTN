@@ -150,11 +150,11 @@ public:
 
         //session sender stats
         /// Total number of checkpoint retransmission timer expiry callback invocations
-        uint64_t m_numCheckpointTimerExpiredCallbacks;
+        std::atomic<uint64_t> m_numCheckpointTimerExpiredCallbacks;
         /// Total number of discretionary checkpoints reported received
-        uint64_t m_numDiscretionaryCheckpointsNotResent;
+        std::atomic<uint64_t> m_numDiscretionaryCheckpointsNotResent;
         /// Total number of reports deleted after claiming reception of their entire scope
-        uint64_t m_numDeletedFullyClaimedPendingReports;
+        std::atomic<uint64_t> m_numDeletedFullyClaimedPendingReports;
     };
 
     

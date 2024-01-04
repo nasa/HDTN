@@ -2,19 +2,19 @@
     "zmqIngressAddress": "localhost",
     "zmqEgressAddress": "localhost",
     "zmqStorageAddress": "localhost",
-    "zmqSchedulerAddress": "localhost",
     "zmqRouterAddress": "localhost",
     "zmqBoundIngressToConnectingEgressPortPath": 10100,
     "zmqConnectingEgressToBoundIngressPortPath": 10160,
-    "zmqBoundEgressToConnectingSchedulerPortPath": 10162,
+    "zmqBoundEgressToConnectingRouterPortPath": 10162,
     "zmqConnectingEgressBundlesOnlyToBoundIngressPortPath": 10161,
     "zmqBoundIngressToConnectingStoragePortPath": 10110,
     "zmqConnectingStorageToBoundIngressPortPath": 10150,
     "zmqConnectingStorageToBoundEgressPortPath": 10120,
+    "zmqConnectingStorageToBoundRouterPortPath": 10121,
     "zmqBoundEgressToConnectingStoragePortPath": 10130,
     "zmqConnectingRouterToBoundEgressPortPath": 10210,
     "zmqConnectingTelemToFromBoundIngressPortPath": 10301,
     "zmqConnectingTelemToFromBoundEgressPortPath": 10302,
     "zmqConnectingTelemToFromBoundStoragePortPath": 10303,
-    "zmqConnectingTelemToFromBoundSchedulerPortPath": 10304
+    "zmqConnectingTelemToFromBoundRouterPortPath": 10304
 }

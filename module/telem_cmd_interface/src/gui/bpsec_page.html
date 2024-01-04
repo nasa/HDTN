@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html>
+<!--
+ * @file bpsec_page.html
+ * @author  Thais Campanac <Carnegie Mellon University>
+ *          Nadia Kortas <nadia.kortas@nasa.gov>
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+-->
+
+<head>
+    <meta http-equiv="Content-Type" content="charset=UTF-8, width=device-width, initial-scale=1">
+    <title>HDTN BPSEC CONFIG</title>
+</head>
+
+<body>
+    <div class="topnav">
+        <a href="./hdtn_d3_gui/"> <span class="icon"><img src="./resources/home.svg" alt="Home icon" /></span><span
+                class="title"> System View GUI</span></a>
+        <a href="./index.html"><img src="./resources/statistics.svg" alt="Pie chart icon" /> Statistics</a>
+        <div class="configDropdown">
+            <button class="configDropBtn"><img src="./resources/config.svg" alt="Wrench icon" />Config</button>
+            <div class="configContents">
+                <a href="./config_page.html">System</a>
+                <a href="./bpsec_page.html">BPSec</a>
+            </div>
+        </div>
+        <a onclick="toggleModes()"><img src="./resources/sun.svg" alt="Sun icon" /></a>
+    </div>
+    <div class="bpsecBody">
+        <div class="bpsecTitle">
+            <div class="bpsecButtons">
+                <button class="bpSecAddPolicy" onclick="openForm()">Add Policy</button>
+                <button class="bpSecAddSecurityEvent" onclick="openEventForm()">Add Event</button>
+            </div>
+            <h1 class="bpSecConfigTitle">BPSec Config</h1>
+        </div>
+        <div class="bpsecPolicies">
+            <div class="bpSecList" id="listBPSecJSON" onload="showJSON()"></div>
+        </div>
+    </div>
+
+    <div class="bpSecAddPolicyForm">
+        <div class="formPopup" id="popupForm">
+            <div class="formLayout">
+                <div class="popupTitle">
+                    <button class="policyQuitBtn" id="policyQuitBtnp" onclick="closeForm()">X</button>
+                    <h2 class="popupTitle">Create New Policy</h2>
+                </div>
+                <div class="bpSecPolicyElements">
+                    <div class="input">
+                        <input type="text" id="description" placeholder="Description" style="margin-right: 1px;">
+                        <input type="number" id="securityPolicyRuleID" placeholder="Security Policy ID"
+                            style="margin-left: 1px;">
+                    </div>
+                    <div class="input" style="flex-direction: column;">
+                        <label>Security Role</label>
+                        <select id="roleType" required>
+                            <option value="acceptor">acceptor</option>
+                            <option value="verifier">verifier</option>
+                            <option value="source">source</option>
+                        </select>
+                    </div>
+                    <div class="input" style="flex-direction: column;">
+                        <input type="text" id="securitySource" step=".01" placeholder="Security Source"
+                            style="margin-right: 1px;" required>
+                        <input type="text" id="bundleSource" step=".01" placeholder="Bundle Source"
+                            style="margin-left: 1px;" required>
+                        <input type="text" id="bundleDestination" step=".01" placeholder="Bundle Final Destination"
+                            required>
+                    </div>
+                    <div class="input">
+                        <label>Security Service</label>
+                        <select id="securityService" required>
+                            <option value="aes">Confidentiality - AES GCM</option>
+                            <option value="sha">Integrity - HMAC SHA</option>
+                        </select>
+                    </div>
+                    <div class="input">
+                        <input type="text" id="securityEventId" placeholder="Security Event Reference" required>
+                    </div>
+                    <div class="sourceType" id="sourceType" style="display: none; flex-direction: column;">
+                        <div style="display: flex; flex-wrap: wrap; flex-direction: column; align-items: center;">
+                            <label>Security Target Block Type</label>
+                            <select id="securityTargets" style="text-align: center; width: 75px;" multiple>
+                                <option>0</option>
+                                <option>1</option>
+                                <option>2</option>
+                                <option>3</option>
+                                <option>4</option>
+                                <option>5</option>
+                                <option>6</option>
+                                <option>7</option>
+                                <option>8</option>
+                                <option>9</option>
+                                <option>10</option>
+                                <option>11</option>
+                                <option>12</option>
+                                <option>13</option>
+                            </select>
+                        </div>
+                        <h3 style="margin-top: 2px; margin-bottom: 2px;">Security Parameters for Source</h3>
+                        <div class="aesVariant" id="aesVariantDiv"
+                            style="display: flex; flex-direction: row; justify-content: space-between;">
+                            <label>AES Variant</label>
+                            <select id="aesVariant">
+                                <option>128</option>
+                                <option selected>256</option>
+                            </select>
+                            <div class="input">
+                                <label>IV Size(Bytes)</label>
+                                <select id="ivSize">
+                                    <option selected>12</option>
+                                    <option>16</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="shaVariant" id="shaVariantDiv"
+                            style="display: none; flex-direction: row; justify-content: space-between;">
+                            <label>SHA Variant</label>
+                            <select id="shaVariant">
+                                <option>256</option>
+                                <option selected>384</option>
+                                <option>512</option>
+                            </select>
+                        </div>
+                        <div class="input">
+                            <label>Scope Flags</label>
+                            <select id="scopeFlags">
+                                <option>0</option>
+                                <option>1</option>
+                                <option>2</option>
+                                <option>3</option>
+                                <option>4</option>
+                                <option>5</option>
+                                <option>6</option>
+                                <option selected>7</option>
+                            </select>
+                        </div>
+                        <div class="input">
+                            <label>Security Block CRC</label>
+                            <select id="securityBlockCRC">
+                                <option selected>0</option>
+                                <option>16</option>
+                                <option>32</option>
+                            </select>
+                        </div>
+                    </div>
+                    <label>Key File</label>
+                    <input type="file" id="keyFile" required>
+                    <button id="submitPolicy" type="submit" onclick="checkNewPolicy()">Add Policy</button>
+                    <button id="savePolicy" style="display: none;" onclick="editPolicy(this.id)">Save Changes</button>
+                    <button id="cancelButtonp" style="display: none;" onclick="cancelChanges(this.id)">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="bpsecAddSecurityEventForm">
+            <div class="eventFormPopup" id="eventFormPopup">
+                <div class="formLayout">
+                    <div class="popupTitle">
+                        <button class="policyQuitBtn" id="policyQuitBtne" onclick="closeEventForm()">X</button>
+                        <h2 class="popupTitle">Create New Event</h2>
+                        <p style="margin: 1px;">SOP means Security Operation</p>
+                    </div>
+                    <div class="input">
+                        <input type="text" id="eventName" placeholder="Name of Event" required>
+                    </div>
+                    <div class="input">
+                        <input type="text" id="eventDescription" placeholder="Description" required>
+                    </div>
+                    <div id="sopEvents">
+                        <div class="input" style="flex-direction: column;">
+                            <label>Event ID</label>
+                            <select id="eventID" required>
+                                <option>sopMisconfiguredAtVerifier</option>
+                                <option>sopMissingAtVerifier</option>
+                                <option>sopCorruptedAtVerifier</option>
+                                <option>sopMisconfiguredAtAcceptor</option>
+                                <option>sopMissingAtAcceptor</option>
+                                <option>sopCorruptedAtAcceptor</option>
+                            </select>
+                        </div>
+                        <div class="input" style="flex-direction: column;">
+                            <label>Action</label>
+                            <select id="eventActions" multiple required>
+                                <option>removeSecurityOperation</option>
+                                <option>removeSecurityOperationTargetBlock</option>
+                                <option>removeAllSecurityTargetOperations</option>
+                                <option>failBundleForwarding</option>
+                                <option>requestBundleStorage</option>
+                                <option>reportReasonCode</option>
+                                <option>overrideSecurityTargetBlockBpcf</option>
+                                <option>overrideSecurityBlockBpcf</option>
+                            </select>
+                        </div>
+                    </div>
+                    <br />
+                    <span id="writeroot"></span>
+                    <button onclick="addNewEvent()">Add another Event</button>
+                    <button id="submitEvent" type="submit" onclick="checkEvent()">Submit</button>
+                    <button id="saveEvent" style="display: none;" onclick="editEvent(this.id)">Save Changes</button>
+                    <button id="cancelButtone" style="display: none;" onclick="cancelChanges(this.id)">Cancel</button>
+                </div>
+            </div>
+        </div>
+        <div id="sopEventsAdd" style="display: none">
+            <div class="input">
+                <label>Event ID</label>
+                <select id="eventID" required>
+                    <option>sopMisconfiguredAtVerifier</option>
+                    <option>sopMissingAtVerifier</option>
+                    <option>sopCorruptedAtVerifier</option>
+                    <option>sopMisconfiguredAtAcceptor</option>
+                    <option>sopMissingAtAcceptor</option>
+                    <option>sopCorruptedAtAcceptor</option>
+                </select>
+            </div>
+            <div class="input">
+                <label>Action</label>
+                <select id="eventActions" multiple required>
+                    <option>removeSecurityOperation</option>
+                    <option>removeSecurityOperationTargetBlock</option>
+                    <option>removeAllSecurityTargetOperations</option>
+                    <option>failBundleForwarding</option>
+                    <option>requestBundleStorage</option>
+                    <option>reportReasonCode</option>
+                    <option>overrideSecurityTargetBlockBpcf</option>
+                    <option>overrideSecurityBlockBpcf</option>
+                </select>
+            </div>
+            <br />
+            <input type="button" value="Remove review"
+                onclick="this.parentNode.parentNode.removeChild(this.parentNode);" /><br /><br />
+        </div>
+    </div>
+
+    <link type="text/css" rel="stylesheet" href="./css/style.css" />
+    <script>
+        let bpsecConfig = null;
+        var createNewEvent = 0;
+
+        var description = document.getElementById("description");
+        var securityPolicyRuleID = document.getElementById("securityPolicyRuleID");
+        var securitySource = document.getElementById("securitySource");
+        var bundleSource = document.getElementById('bundleSource');
+        var bundleDestination = document.getElementById('bundleDestination');
+        var fileInput = document.getElementById("keyFile");
+        var roleField = document.getElementById('roleType');
+        var securityService = document.getElementById('securityService');
+        var aesVariant = document.getElementById('aesVariant');
+        var shaVariant = document.getElementById('shaVariant');
+        var ivSize = document.getElementById('ivSize');
+        var scopeFlags = document.getElementById('scopeFlags');
+        var scopeCRC = document.getElementById('securityBlockCRC');
+        var eventName = document.getElementById('eventName');
+        var eventDescription = document.getElementById('eventDescription');
+        var eventID = document.getElementById("eventID");
+        var key = document.getElementById('securityEventId').value;
+        var valid = 1;
+        var validEvent = true;
+
+        var currentPolicies = { "bpsecConfigName": "myBPSecConfig", "policyRules": [], "securityFailureEventSets": [] };
+
+        function openForm() {
+            document.getElementById("popupForm").style.display = "flex";
+        }
+
+        function closeForm() {
+            document.getElementById("popupForm").style.display = "none";
+        }
+
+        function openEventForm() {
+            document.getElementById("eventFormPopup").style.display = "flex";
+        }
+
+        function closeEventForm() {
+            if (!createNewEvent) {
+                document.getElementById("eventFormPopup").style.display = "none";
+            } else {
+                alert("REQUIRED EVENT");
+            }
+        }
+
+        function cancelChanges(id) {
+            var removalType = id.slice(-1);
+            var newId = id.substring(0, id.length - 1);
+            if (removalType === "c") {
+                var removalType = newId.slice(-1);
+                if (removalType === 'p') {
+                    var changeButton = document.getElementById(id);
+                    changeButton.id = "savePolicy";
+                } else {
+                    var changeButton = document.getElementById(id);
+                    changeButton.id = "saveEvent";
+                }
+            }
+            //reset forms
+            if (removalType === 'p') {
+                closeForm();
+
+                //change the form
+                var addButton = document.getElementById("submitPolicy");
+                addButton.style.display = "block";
+                var exitButton = document.getElementById("policyQuitBtnp");
+                exitButton.style.display = "block";
+
+                //make it a general button 
+                var changeButton = document.getElementById("savePolicy");
+                changeButton.style.display = "none";
+
+                var cancelButton = document.getElementById("cancelButtonp");
+                cancelButton.style.display = "none";
+
+                resetFormValues();
+            }
+            else {
+                closeEventForm();
+                //make previous form different
+                var addButton = document.getElementById("submitEvent");
+                addButton.style.display = "block";
+                var exitButton = document.getElementById("policyQuitBtne");
+                exitButton.style.display = "block";
+
+                //make it a general button 
+                var changeButton = document.getElementById("saveEvent");
+                changeButton.style.display = "none";
+
+                var cancelButton = document.getElementById("cancelButtone");
+                cancelButton.style.display = "none";
+
+                clearEventForm();
+            }
+        }
+
+        function editPolicy(id) {
+            console.log(id)
+            var newId = id.substring(0, id.length - 1);
+            //check that the user gave good new info
+            checkNewPolicy();
+            if (valid) {
+                //if so add that to the json and remove the previous
+                removeTable(id);
+                //change the form to what it was before
+                cancelChanges(id);
+            }
+        }
+
+        function editEvent(id) {
+            console.log(id);
+            var newId = id.substring(0, id.length - 1);
+            //check that the user gave good new info
+            checkEvent();
+            if (validEvent) {
+                //if so add that to the json and remove the previous
+                removeTable(id);
+                //change the form to what it was before
+                cancelChanges(id);
+            }
+        }
+
+        function setSelectedValue(selectObj, valueToSet) {
+            for (var i = 0; i < selectObj.options.length; i++) {
+                if (selectObj.options[i].text == valueToSet) {
+                    selectObj.options[i].selected = true;
+                    return;
+                }
+            }
+        }
+
+        function editTable(id) {
+            //find the json
+            var removalType = id.slice(-1);
+            var idKey = id.substring(0, id.length - 1);
+
+            for (var parts in currentPolicies) {
+                for (var i = 0; i < currentPolicies[parts].length; i++) {
+                    if (removalType === 'p') {
+                        if (currentPolicies[parts][i].description === idKey) {
+                            //add the json to the edit popup
+                            openForm();
+                            //change the form
+                            var addButton = document.getElementById("submitPolicy");
+                            addButton.style.display = "none";
+                            var exitButton = document.getElementById("policyQuitBtnp");
+                            exitButton.style.display = "none";
+
+                            var changeButton = document.getElementById("savePolicy");
+                            changeButton.style.display = "block";
+                            var cancelButton = document.getElementById("cancelButtonp");
+                            cancelButton.style.display = "block";
+
+                            //make id the id to remove and change the previous 
+                            var editPolicyButton = document.getElementById("savePolicy");
+                            editPolicyButton.id = id + "c";
+
+                            //add the current information to the form
+                            if (currentPolicies[parts][i].securityRole === "source") {
+                                for (params in currentPolicies[parts][i]) {
+                                    if (params === "securityContextParams") {
+                                        sourceExtraFields.style.display = 'flex';
+                                        for (var j = 0; j < currentPolicies[parts][i][params][j]; j++) {
+                                            if (currentPolicies[parts][i][params][j].paramName === "aesVariant") {
+                                                aesVariant.value = currentPolicies[parts][i][params][j].value;
+                                            }
+                                            if (currentPolicies[parts][i][params][j].paramName === "shaVariant") {
+                                                shaVariant.value = currentPolicies[parts][i][params][j].value;
+                                            }
+                                            if (currentPolicies[parts][i][params][j].paramName === "ivSizeBytes") {
+                                                ivSize.value = currentPolicies[parts][i][params][j].value;
+                                            }
+                                            if (currentPolicies[parts][i][params][j].paramName === "scopeFlags") {
+                                                scopeFlags.value = currentPolicies[parts][i][params][j].value;
+                                            }
+                                            if (currentPolicies[parts][i][params][j].paramName === "securityBlockCrc") {
+                                                scopeCRC.value = currentPolicies[parts][i][params][j].value;
+                                            }
+                                            if (currentPolicies[parts][i][params][j].paramName === "keyFile") {
+                                                console.log(currentPolicies[parts][i][params][j].value);
+                                                fileInput.value = currentPolicies[parts][i][params][j].value;
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                console.log(currentPolicies[parts][i].securityContextParams[0].value);
+                                //fileInput.files = currentPolicies[parts][i].securityContextParams[0].value;
+                            }
+                            description.value = currentPolicies[parts][i].description;
+                            securityPolicyRuleID.value = currentPolicies[parts][i].securityPolicyRuleId;
+                            securitySource.value = /*"ipn:" +*/ currentPolicies[parts][i].securitySource;
+                            bundleSource.value = /*"ipn:" +*/ currentPolicies[parts][i].bundleSource;
+                            bundleDestination.value = /*"ipn:" +*/ currentPolicies[parts][i].bundleDestination;
+                            roleField.value = currentPolicies[parts][i].securityRole;
+                            if (currentPolicies[parts][i].securityService === "confidentiality") {
+                                securityService.value = 'aes';
+                            } else {
+                                securityService.value = 'sha'
+                            }
+
+                            document.getElementById('securityEventId').value = currentPolicies[parts][i].securityFailureEventSetReference;
+                            break;
+                        }
+                    }
+                    else {
+                        if (currentPolicies[parts][i].name === idKey) {
+                            //add the json to the edit popup
+                            openEventForm();
+
+                            //make previous form different
+                            var addButton = document.getElementById("submitEvent");
+                            addButton.style.display = "none";
+                            var exitButton = document.getElementById("policyQuitBtne");
+                            exitButton.style.display = "none";
+
+                            var changeButton = document.getElementById("saveEvent");
+                            changeButton.style.display = "block";
+                            var cancelButton = document.getElementById("cancelButtone");
+                            cancelButton.style.display = "block";
+
+                            //make id the id to remove and change the previous 
+                            var editEventButton = document.getElementById("saveEvent");
+                            editEventButton.id = id + "c";
+
+                            //add the current information to the form
+                            eventName.value = currentPolicies[parts][i].name;
+                            eventDescription.value = currentPolicies[parts][i].description;
+                            console.log(currentPolicies[parts][i].securityOperationEvents[0]);
+                            eventID.value = currentPolicies[parts][i].securityOperationEvents[0].eventId;
+                            setSelectedValue(eventID, currentPolicies[parts][i].eventId);
+                            document.getElementById('eventActions').value = currentPolicies[parts][i].securityOperationEvents[0].actions;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        function removeTable(id) {
+            //have to make sure that the event is not deleted before the policy
+            var validDeletion = 1;
+            var deletedNode = 0;
+            var noChangeDeletion = 1;
+            var removalType = id.slice(-1);
+            var idKey = id.substring(0, id.length - 1);
+            if (removalType === "c") {
+                removalType = idKey.slice(-1);
+                idKey = idKey.substring(0, idKey.length - 1);
+                noChangeDeletion = 0;
+            }
+            //id is the key for the array index to delete
+            for (var parts in currentPolicies) {
+                for (var i = 0; i < currentPolicies[parts].length; i++) {
+                    if (removalType === 'p') {
+                        if (currentPolicies[parts][i].description === idKey && validDeletion) {
+                            if (currentPolicies[parts].length === 1) {
+                                currentPolicies[parts] = [];
+                                deletedNode = 1;
+                            } else {
+                                currentPolicies[parts].splice(i, 1);
+                                deletedNode = 1;
+                            }
+                            showJSON();
+                            sendNewBPSecJSON();
+                            if (noChangeDeletion) {
+                                alert("Deleted " + idKey + " from configurations.");
+                            }
+                            break;
+                        }
+                    } else {
+                        if (currentPolicies[parts][i].securityFailureEventSetReference === idKey && noChangeDeletion) {
+                            validDeletion = 0;
+                            alert("INVALID DELETION\nCannot delete an event before the policy.")
+                            break;
+                        } else if (currentPolicies[parts][i].name === idKey && validDeletion && !noChangeDeletion) {
+                            if (currentPolicies[parts].length === 1) {
+                                currentPolicies[parts] = [];
+                                deletedNode = 1;
+                            } else {
+                                currentPolicies[parts].splice(i, 1);
+                                deletedNode = 1;
+                            }
+                            showJSON();
+                            sendNewBPSecJSON();
+                            if (noChangeDeletion) {
+                                alert("Deleted " + idKey + " from configurations.");
+                            }
+                            break;
+                        }
+                    }
+                }
+                if (deletedNode) {
+                    break;
+                }
+            }
+        }
+
+        function showJSON() {
+            console.log(currentPolicies);
+            var div = document.getElementById("listBPSecJSON");
+            div.innerHTML = '';
+            newTable = "<div><table class=\"styled-table\" style=\"width:100%\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>"
+            for (var key in currentPolicies) {
+                if (key !== "bpsecConfigName") {
+                    if (Array.isArray(currentPolicies[key])) {
+                        //create table
+                        if (key === "policyRules") {
+                            newTable += "<caption style=\"text-align:left;padding-left:20px;text-transform:uppercase;margin-top:5px;font-size=20px;\">Policy Rules</caption>";
+                        }
+                        else if (key === "securityFailureEventSets") {
+                            newTable += "<caption style=\"text-align:left;padding-left:20px;text-transform:uppercase;margin-top:5px;font-size=20px;\">Security Failure Events</caption>";
+                        }
+                        for (var i = 0; i < currentPolicies[key].length; ++i) {
+                            var newSubTable = "<table class=\"styled-table\" style=\"margin:15px 0px\"><colgroup><col style=\"width:65%\"><col style=\"width:35%\"></colgroup>";
+
+                            var idValue = null;
+                            for (var subKey in currentPolicies[key][i]) {
+                                newSubTable += "<tr>" + "<td>" + subKey + "</td>";
+                                if (isNaN(currentPolicies[key][i][subKey])) {
+                                    if ((typeof currentPolicies[key][i][subKey]) === 'object') {
+                                        for (var j = 0; j < currentPolicies[key][i][subKey].length; ++j) {
+                                            newSubTable += "<td>";
+                                            for (arraySubkey in currentPolicies[key][i][subKey][j]) {
+                                                newSubTable += arraySubkey + " : ";
+                                                newSubTable += currentPolicies[key][i][subKey][j][arraySubkey] + '<br \\ >';
+                                            }
+                                        }
+                                    } else {
+                                        if (key === "policyRules") {
+                                            idValue = currentPolicies[key][i].description + 'p';
+                                        } else {
+                                            idValue = currentPolicies[key][i].name + 'e';
+                                        }
+
+                                        newSubTable += "<td>" + currentPolicies[key][i][subKey] + "</td>" + "</tr>";
+                                    }
+                                } else {
+                                    newSubTable += "<td>" + (currentPolicies[key][i][subKey]).toLocaleString('en') + "</td>" + "</tr>";
+                                }
+                            }
+                            newSubTable += "</table>";
+                            if (idValue !== null) {
+                                newSubTable += "<button class=\"bpSecEditPolicies\" class=\"bpsecPolicyEventRemoveEdit\" id=\"" + idValue + "\" onclick=\"editTable(this.id);\">Edit</button>";
+                                newSubTable += "<button class=\"bpSecEditPolicies\" class=\"bpsecPolicyEventRemoveEdit\" id=\"" + idValue + "\" onclick=\"removeTable(this.id);\">Remove</button>";
+                            }
+                            newTable += newSubTable;
+                        }
+                    }
+                    else {
+                        if (isNaN(currentPolicies[key])) {
+                            var newRow = "<tr>" + "<td>" + key + "</td>" + "<td>" + currentPolicies[key] + "</td>" + "</tr>";
+                        }
+                        else {
+                            //if data is a number, adds commas
+                            var newRow = "<tr>" + "<td>" + key + "</td>" + "<td>" + (currentPolicies[key]).toLocaleString('en') + "</td>" + "</tr>";
+                        }
+                        newTable += newRow;
+                    }
+                }
+            }
+            newTable += "</table></div>";
+            div.innerHTML = newTable;
+        }
+
+        var numberOfEvents = 1;
+        function addNewEvent() {
+            numberOfEvents++;
+            var newFields = document.getElementById('sopEventsAdd').cloneNode(true);
+
+            newFields.id = 'sopEventsAdd' + numberOfEvents;
+            newFields.style.display = 'block';
+            var newField = newFields.childNodes;
+            for (var i = 0; i < newField.length; i++) {
+                var theName = newField[i].name
+                if (theName)
+                    newField[i].name = theName + counter;
+            }
+            var insertHere = document.getElementById('writeroot');
+            insertHere.parentNode.insertBefore(newFields, insertHere);
+        }
+
+        function clearEventForm() {
+            eventName.value = '';
+            eventDescription.value = '';
+            eventID.value = 'sopCorruptedAtAcceptor';
+            document.getElementById('eventActions').value = '';
+        }
+
+        function checkEvent() {
+            var allActions = getSelected('eventActions');
+
+            //check that the information was filled out
+            if (eventName.value === "") {
+                alert("REQUIRED: Name");
+                validEvent = false;
+            }
+            if (eventDescription.value === "") {
+                alert("REQUIRED: Description");
+                validEvent = false;
+            }
+            if (allActions.length === 0) {
+                alert("REQUIRED: Actions");
+                validEvent = false;
+            }
+
+            //check that the actions selected corresponds to the options within the Table for Security Events
+            if (eventID.value === "sopCorruptedAtAcceptor") {
+                if (allActions.includes("Retain Security Operations BPCFs")) {
+                    alert("Invalid Action for Acceptor!");
+                    validEvent = false;
+                    document.getElementById("eventActions").value = "";
+                }
+            }
+            if (eventID.value === "sopCorruptedAtVerifier") {
+                if (allActions.includes("Retain Security Operations BPCFs")) {
+                    alert("Invalid Action for Verifier!");
+                    validEvent = false;
+                    document.getElementById("eventActions").value = "";
+                }
+            }
+            /*if (eventID.value === "sop Added At Source") {
+                if (!allActions.includes("overrideSecurityBlockBpcf") && (allActions.length > 0)) {
+                    alert("Invalid Action for Source!");
+                    validEvent = false;
+                    document.getElementById("eventActions").value = "";
+                }
+            }*/
+            if ((eventID.value === "sopMissingAtVerifier") || (eventID.value === "sopMissingAtAcceptor")) {
+                if (allActions.includes("Retain Security Operations BPCFs") || allActions.includes("Remove Security Operations") || allActions.includes("Remove All Security Target Operations") || allActions.includes("overrideSecurityBlockBpcf")) {
+                    if (eventID.value === "sop Misconfigured At Acceptor") {
+                        alert("Invalid Action for Acceptor!");
+                    } else {
+                        alert("Invalid Action for Verifer!");
+                    }
+                    validEvent = false;
+                    document.getElementById("eventActions").value = "";
+                }
+            }
+            if ((eventID.value === "sopMisconfiguredAtAcceptor") || (eventID.value === "sopMisconfiguredAtVerifier")) {
+                if (allActions.includes("Retain Security Operations BPCFs") || allActions.includes("Remove All Security Target Operations")) {
+                    if (eventID.value === "sop Misconfigured At Acceptor") {
+                        alert("Invalid Action for Acceptor!");
+                    } else {
+                        alert("Invalid Action for Verifer!");
+                    }
+                    validEvent = false;
+                    document.getElementById("eventActions").value = "";
+                }
+            }
+            if (eventID.value === "sop Misconfigured At Source") {
+                if (allActions.includes("Retain Security Operations BPCFs") || allActions.includes("Override Security Target Block BPCFs") || allActions.includes("overrideSecurityBlockBpcf")) {
+                    alert("Invalid Action for Source!");
+                    validEvent = false;
+                    document.getElementById("eventActions").value = "";
+                }
+            }
+
+            if (validEvent) {
+                var newEvent = new Object();
+                var securityOperationEvents = [];
+
+                newEvent.name = eventName.value;
+                newEvent.description = eventDescription.value;
+
+                var eventJSON = new Object();
+                eventJSON.eventId = eventID.value;
+                eventJSON.actions = allActions;
+
+                securityOperationEvents.push(eventJSON);
+                newEvent.securityOperationEvents = securityOperationEvents;
+                currentPolicies.securityFailureEventSets.push(newEvent);
+
+                alert("New Event added to BPSec Config");
+                eventName.removeAttribute("readonly");
+                clearEventForm();
+                createNewEvent = 0;
+                closeEventForm();
+                showJSON();
+                sendNewBPSecJSON();
+            }
+            else {
+                validEvent = 1;
+            }
+        }
+
+        function resetFormValues() {
+            if (roleField.value === "source") {
+                if (securityService.value === 'aes') {
+                    aesVariant.value = '256';
+                    ivSize.value = '12';
+                } else {
+                    shaVariant.value = '384';
+                }
+
+                scopeFlags.value = '7';
+                scopeCRC.value = '0';
+            }
+            description.value = '';
+            securityPolicyRuleID.value = '';
+            securitySource.value = '';
+            bundleSource.value = '';
+            bundleDestination.value = '';
+            fileInput.value = '';
+            roleField.value = 'acceptor';
+            sourceExtraFields.style.display = 'none';
+            securityService.value = 'aes';
+            document.getElementById('securityEventId').value = '';
+        }
+
+        function getSelected(tagName) {
+            var options = document.getElementById(tagName).options,
+                result = [];
+
+            for (var i = 0, len = options.length; i < len; i++) {
+                var opt = options[i];
+
+                if (opt.selected) {
+                    result.push(opt.value);
+                }
+            }
+            return result;
+        }
+
+        function createNewPolicy() {
+            var newPolicy = new Object();
+            newPolicy.description = description.value;
+            newPolicy.securityPolicyRuleId = securityPolicyRuleID.value;
+            newPolicy.securityRole = roleField.value;
+            newPolicy.securitySource = securitySource.value;
+            newPolicy.bundleSource = bundleSource.value;
+            newPolicy.bundleDestination = bundleDestination.value;
+            newPolicy.securityFailureEventSetReference = document.getElementById('securityEventId').value;
+
+            if (securityService.value === "aes") {
+                newPolicy.securityService = 'confidentiality';
+                newPolicy.securityContext = 'aesGcm';
+            } else {
+                newPolicy.securityService = 'integrity';
+                newPolicy.securityContext = 'hmacSha';
+            }
+
+            var securityContextParams = [];
+            if (roleField.value === 'source') {
+                var securityTargets = getSelected("securityTargets");
+                newPolicy.securityTargetBlockTypes = securityTargets;
+                if (securityService.value === "aes") {
+                    var newParam = {
+                        "paramName": "aesVariant",
+                        "value": aesVariant.value
+                    }
+                    securityContextParams.push(newParam);
+                    var ivParam = {
+                        "paramName": "ivSizeBytes",
+                        "value": ivSize.value
+                    }
+                    securityContextParams.push(ivParam);
+                } else {
+                    var newParam = {
+                        "paramName": "shaVariant",
+                        "value": shaVariant.value
+                    }
+                    securityContextParams.push(newParam);
+                }
+
+                //all the following params are required for source
+                var scopeParam = {
+                    "paramName": "scopeFlags",
+                    "value": scopeFlags.value
+                }
+                securityContextParams.push(scopeParam);
+
+                var securityBlockParam = {
+                    "paramName": "securityBlockCrc",
+                    "value": scopeCRC.value
+                }
+                securityContextParams.push(securityBlockParam);
+            }
+
+            var fileParam = {
+                "paramName": "keyFile",
+                "value": fileInput.value
+            }
+            securityContextParams.push(fileParam);
+
+            newPolicy.securityContextParams = securityContextParams;
+            currentPolicies.policyRules.push(newPolicy);
+
+            alert("New Policy Added");
+            resetFormValues();
+            showJSON();
+            sendNewBPSecJSON();
+            closeForm();
+        }
+
+        function checkNewPolicy(event) {
+            //check the node ids for the policies
+            var ipRegex = /\d{1,2}\.\d{1,2}[^1]|1\.1|1\.\d{1,2}|\*\.\*|1\.\*/g; //for ips of *.*, 1.*, 1.1
+
+            if (!ipRegex.test(securitySource.value)) {
+                alert('Invalid Security Source\nValid Security Source are 1.*, *.*, or 1.1')
+                console.log("Error: Wrong value for security source");
+                securitySource.value = '';
+                valid = 0;
+            }
+
+            var ipRegex2 = /\d{1,2}\.\d{1,2}[^1]|1\.1|1\.\d{1,2}|\*\.\*|1\.\*/g; //for ips of *.*, 1.*, 1.1
+
+            if (!ipRegex2.test(bundleSource.value)) {
+                alert('Invalid Bundle Source\nValid Bundle Source are 1.*, *.*, or 1.1')
+                console.log("Error: Wrong value for bundle source");
+                bundleSource.value = '';
+                valid = 0;
+            }
+
+            var ipRegex3 = /\d{1,2}\.\d{1,2}[^1]|1\.1|1\.\d{1,2}|\*\.\*|1\.\*/g; //for ips of *.*, 1.*, 1.1
+
+            if (!ipRegex3.test(bundleDestination.value)) {
+                alert('Invalid Bundle Destination\nValid Bundle Destination are 1.*, *.*, or 1.1')
+                console.log("Error: Wrong value for bundle Destination");
+                bundleDestination.value = '';
+                valid = 0;
+            }
+
+            //check the file type of the form
+            var filePath = fileInput.value;
+            var fileRegex = /\.key$/i;
+            if (!fileRegex.test(filePath)) {
+                alert('Invalid file type');
+                console.log("Error: Wrong File Type.");
+                fileInput.value = '';
+                valid = 0;
+            }
+
+            securityEventSet = currentPolicies.securityFailureEventSets;
+
+            if (securityEventSet.length === 0) {
+                createNewEvent = 1;
+            } else {
+                for (var el in securityEventSet) {
+                    if (securityEventSet[el].name === document.getElementById('securityEventId').value) {
+                        createNewEvent = 0;
+                        break;
+                    }
+                    createNewEvent = 1;
+                }
+            }
+
+            if (createNewEvent) {
+                eventName.value = document.getElementById('securityEventId').value;
+                eventName.setAttribute("readonly", "true");
+            }
+
+            if (valid) {
+                if (createNewEvent) {
+                    openEventForm();
+                }
+                createNewPolicy();
+            } else {
+                valid = 1;
+            }
+        }
+
+        var sourceExtraFields = document.getElementById('sourceType');
+        roleField.addEventListener('change', function () {
+            if (roleField.value === "source") {
+                sourceExtraFields.style.display = 'flex';
+            } else {
+                sourceExtraFields.style.display = 'none';
+            }
+        });
+
+        var securityService = document.getElementById('securityService');
+        securityService.addEventListener('change', function () {
+            if (securityService.value === 'aes') {
+                document.getElementById('aesVariantDiv').style.display = 'flex';
+                document.getElementById('shaVariantDiv').style.display = 'none';
+            } else {
+                document.getElementById('shaVariantDiv').style.display = 'flex';
+                document.getElementById('aesVariantDiv').style.display = 'none';
+            }
+        });
+
+        function HandleNewBPSecJson(objectJSON) {
+            currentPolicies = objectJSON;
+            showJSON();
+        }
+
+        function UpdatePageWithObj(objectJSON) {
+            if ("bpsecConfigName" in objectJSON) {
+                HandleNewBPSecJson(objectJSON);
+            }
+        }
+
+        function loadNewBPSecJSON() {
+            let apiObj = {
+                "apiCall": "get_bpsec_config",
+            };
+            WebSocketSend(JSON.stringify(apiObj));
+        }
+
+        function sendNewBPSecJSON() {
+            let apiObj = {
+                "apiCall": "update_bpsec_config",
+            };
+
+            apiObj.newBPSec = JSON.stringify(currentPolicies);
+            WebSocketSend(JSON.stringify(apiObj));
+        }
+
+        var connection = null;
+        window.addEventListener("load", function (event) {
+            console.log("All resources finished loading!");
+            if (!("WebSocket" in window)) {
+                alert("WebSocket is not supported by your Browser!");
+            }
+            else {
+                var wsproto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
+                connection = new WebSocket(wsproto + '//' + window.location.host + '/websocket');
+                connection.binaryType = "arraybuffer";
+
+
+                //This event occurs when socket connection is established.
+                connection.onopen = function () {
+                    console.log("ws opened");
+                    loadNewBPSecJSON();
+                }
+
+                //This event occurs when connection is closed.
+                connection.onclose = function () {
+                    console.log("ws closed");
+                }
+
+                //This event occurs when client receives data from server.
+                connection.onmessage = function (e) {
+                    if (e.data instanceof ArrayBuffer) { //this is binary data
+                        console.log("binary data received.. ignoring");
+                    }
+                    else { //this is text data such as json
+                        if (e.data === "Hello websocket") {
+                            console.log(e.data);
+                        }
+                        else { //json data
+                            var objectJSON = JSON.parse(e.data); //can error depending on the encoding
+                            UpdatePageWithObj(objectJSON);
+                            //console.log(e.data);
+                        }
+                    }
+                }
+
+                //This event occurs when there is any error in communication.
+                connection.onerror = function (error) {
+                    connection.close();
+                }
+            } //running http(s)
+
+        });
+
+        function WebSocketSend(str) {
+            connection.send(str);
+        }
+    </script>
+</body>
+
+</html>

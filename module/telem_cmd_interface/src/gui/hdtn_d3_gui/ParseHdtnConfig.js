@@ -221,6 +221,7 @@ function UpdateAllOutductCapabilities(paramHdtnConfig, paramAoct) {
         }
         od["finalDestinationEidUris"] = oct.finalDestinationEidsList;
     });
+    paramHdtnConfig["didReceiveInitialAoct"] = true;
 }
 
 function UpdateAllOutductTelemetry(paramHdtnConfig, paramAot) {
@@ -467,6 +468,9 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         if(ind.convergenceLayer === "ltp_over_udp") {
             cvName = "LTP";
         }
+        else if(ind.convergenceLayer === "ltp_over_ipc") {
+            cvName = "LTPIPC";
+        }
         else if(ind.convergenceLayer === "udp") {
             cvName = "UDP";
         }
@@ -478,6 +482,9 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         }
         else if(ind.convergenceLayer === "stcp") {
             cvName = "STCP";
+        }
+        else if(ind.convergenceLayer === "slip_over_uart") {
+            cvName = "UART";
         }
         ind.name = cvName + "[" + i + "]";
         ind.absX = paramHdtnConfig.ingressD3Obj.absX + CHILD_SIDE_MARGIN_PX;
@@ -640,6 +647,9 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         if(outduct.convergenceLayer === "ltp_over_udp") {
             cvName = "LTP";
         }
+        else if(outduct.convergenceLayer === "ltp_over_ipc") {
+            cvName = "LTPIPC";
+        }
         else if(outduct.convergenceLayer === "udp") {
             cvName = "UDP";
         }
@@ -651,6 +661,9 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         }
         else if(outduct.convergenceLayer === "stcp") {
             cvName = "STCP";
+        }
+        else if(outduct.convergenceLayer === "slip_over_uart") {
+            cvName = "UART";
         }
         outduct.name = cvName + "[" + i + "]";
 
@@ -671,6 +684,13 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
         //console.log(outduct);
         paramHdtnConfig.egressD3Obj.d3ChildArray.push(outduct);
 
+        var finalDestinationEidUris = outduct["finalDestinationEidUris"];
+
+        //prevent first outduct from overlapping egress label if finalDestinationEidUris is empty
+        if((i == 0) && (finalDestinationEidUris.length <= 1)) {
+            nextHopsAbsPositionY += PARENT_TOP_HEADER_PX;
+        }
+
         ///////////next hop
         var nextHopObj = {};
         nextHopObj.topHeaderHeight = PARENT_TOP_HEADER_PX;
@@ -688,8 +708,9 @@ function ParseHdtnConfig(paramWireConnectionsOldMap, paramHdtnOldDrawHash, param
 
 
 
-        var finalDestinationEidUris = outduct["finalDestinationEidUris"];
+
         var nextHopRelY =  PARENT_TOP_HEADER_PX;// + CHILD_HEIGHT_PX/2;
+        nextHopObj.height = nextHopRelY + CHILD_BOTTOM_MARGIN_PX; //in the event that final dests list is empty
         finalDestinationEidUris.forEach(function(fd, j) {
 
             ///////////next hop out port

@@ -1,0 +1,10 @@
+get_filename_component(HDTNMASKERLIB_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+include(CMakeFindDependencyMacro)
+
+find_dependency(Bpcodec REQUIRED)
+
+if(NOT TARGET HDTN::HDTNMaskerLib)
+    include("${HDTNMASKERLIB_CMAKE_DIR}/HDTNMaskerLibTargets.cmake")
+endif()
+
+set(HDTNMaskerLIB_LIBRARIES HDTN::HDTNMaskerLib)

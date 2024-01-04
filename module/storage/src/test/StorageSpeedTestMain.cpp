@@ -21,6 +21,7 @@
 #include <boost/timer/timer.hpp>
 #include "SignalHandler.h"
 #include "Logger.h"
+#include <atomic>
 
 static const uint64_t PRIMARY_SRC_NODE = 100;
 static const uint64_t PRIMARY_SRC_SVC = 1;
@@ -31,7 +32,7 @@ static const uint64_t PRIMARY_SRC_SVC = 1;
 static const uint64_t PRIMARY_SEQ = 1;
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
 
-static volatile bool g_running = true;
+static std::atomic<bool> g_running(true);
 
 static void MonitorExitKeypressThreadFunction() {
     LOG_INFO(subprocess) << "Keyboard Interrupt.. exiting";
@@ -51,7 +52,7 @@ struct TestFile {
             m_data[i] = distRandomData(gen);
         }
     }
-    std::vector<boost::uint8_t> m_data;
+    padded_vector_uint8_t m_data;
 };
 
 //two days
@@ -134,9 +135,9 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
             LOG_INFO(subprocess) << "filling up the storage";
             boost::uint64_t totalBytesWrittenThisTest = 0;
             boost::timer::cpu_timer timer;
-            while (g_running) {
+            while (g_running.load(std::memory_order_acquire)) {
                 const unsigned int fileIdx = distFileId(gen);
-                std::vector<boost::uint8_t> & data = testFiles[fileIdx].m_data;
+                padded_vector_uint8_t& data = testFiles[fileIdx].m_data;
                 const boost::uint64_t size = data.size();
 
                 const unsigned int linkId = distLinkId(gen);
@@ -157,7 +158,9 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
                 primary.m_lifetimeSeconds = absExpiration;
                 primary.m_creationTimestamp.sequenceNumber = PRIMARY_SEQ;
 
-                boost::uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, primary, size);
+                const uint64_t payloadSizeBytes = 32;
+
+                boost::uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, primary, size, payloadSizeBytes);
                 if (totalSegmentsRequired == 0) break;
                 totalSegmentsStoredOnDisk += totalSegmentsRequired;
                 totalBytesWrittenThisTest += size;
@@ -178,11 +181,11 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
             boost::uint64_t totalBytesReadThisTest = 0;
             boost::timer::cpu_timer timer;
             BundleStorageManagerSession_ReadFromDisk sessionRead; //reuse (heap allocated)
-            while (g_running) {
+            while (g_running.load(std::memory_order_acquire)) {
 
                 
                 boost::uint64_t bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks);
-                std::vector<boost::uint8_t> dataReadBack(bytesToReadFromDisk);
+                padded_vector_uint8_t dataReadBack(bytesToReadFromDisk);
                 TestFile & originalFile = *fileMap[bytesToReadFromDisk];
 
                 const std::size_t numSegmentsToRead = sessionRead.catalogEntryPtr->segmentIdChainVec.size();
@@ -214,7 +217,7 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
         }
     }
 
-    if (g_running) {
+    if (g_running.load(std::memory_order_acquire)) {
         LOG_DEBUG(subprocess) << "Read avg GBits/sec=" << gigaBitsPerSecReadDoubleAvg / NUM_TESTS;
         LOG_DEBUG(subprocess) << "Write avg GBits/sec=" << gigaBitsPerSecWriteDoubleAvg / NUM_TESTS;
     }

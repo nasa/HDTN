@@ -48,3 +48,5 @@ add_executable(hdtn-router
 install(TARGETS hdtn-router DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_link_libraries(hdtn-router router_lib)
 
+install(DIRECTORY contact_plans DESTINATION ${CMAKE_INSTALL_DATADIR})
+

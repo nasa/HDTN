@@ -36,6 +36,7 @@
 #include <string>
 #include <cstdio>
 #include <memory>
+#include <atomic>
 #include <boost/thread.hpp>
 #include <boost/bimap.hpp>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
@@ -45,6 +46,7 @@
 #include "StorageConfig.h"
 #include "codec/bpv6.h"
 #include "BundleStorageCatalog.h"
+#include "PaddedVectorUint8.h"
 
 
 
@@ -63,8 +65,9 @@ struct BundleStorageManagerSession_ReadFromDisk {
     uint32_t cacheReadIndex;
     uint32_t cacheWriteIndex;
 
-    std::unique_ptr<volatile uint8_t[]> readCache;// [READ_CACHE_NUM_SEGMENTS_PER_SESSION * SEGMENT_SIZE]; //may overflow stack, create on heap
-    volatile bool readCacheIsSegmentReady[READ_CACHE_NUM_SEGMENTS_PER_SESSION];
+    //std::unique_ptr<volatile uint8_t[]> readCache;
+    std::unique_ptr<uint8_t[]> readCache;// [READ_CACHE_NUM_SEGMENTS_PER_SESSION * SEGMENT_SIZE]; //may overflow stack, create on heap
+    std::atomic<bool> readCacheIsSegmentReady[READ_CACHE_NUM_SEGMENTS_PER_SESSION];
 
     STORAGE_LIB_EXPORT BundleStorageManagerSession_ReadFromDisk();
     STORAGE_LIB_EXPORT ~BundleStorageManagerSession_ReadFromDisk();
@@ -82,7 +85,7 @@ public:
 
     //write
     STORAGE_LIB_EXPORT uint64_t Push(BundleStorageManagerSession_WriteToDisk & session,
-        const PrimaryBlock & bundlePrimaryBlock, const uint64_t bundleSizeBytes); //return totalSegmentsRequired
+        const PrimaryBlock & bundlePrimaryBlock, const uint64_t bundleSizeBytes, const uint64_t payloadSizeBytes, cbhe_eid_t *bundleEidMaskPtr = NULL); //return totalSegmentsRequired
     STORAGE_LIB_EXPORT int PushSegment(BundleStorageManagerSession_WriteToDisk & session,
         const PrimaryBlock & bundlePrimaryBlock, const uint64_t custodyId,
         const uint8_t * buf, std::size_t size);
@@ -99,8 +102,9 @@ public:
     STORAGE_LIB_EXPORT catalog_entry_t * GetCatalogEntryPtrFromCustodyId(const uint64_t custodyId); //for deletion of custody timer
     STORAGE_LIB_EXPORT std::size_t TopSegment(BundleStorageManagerSession_ReadFromDisk & session, void * buf);
     STORAGE_LIB_EXPORT bool ReadFirstSegment(BundleStorageManagerSession_ReadFromDisk & session, catalog_entry_t * enty, std::vector<uint8_t> & buf);
-    STORAGE_LIB_EXPORT bool ReadAllSegments(BundleStorageManagerSession_ReadFromDisk & session, std::vector<uint8_t> & buf);
+    STORAGE_LIB_EXPORT bool ReadAllSegments(BundleStorageManagerSession_ReadFromDisk & session, padded_vector_uint8_t& buf);
     STORAGE_LIB_EXPORT bool RemoveBundleFromDisk(const catalog_entry_t * catalogEntryPtr,const uint64_t custodyId);
+    STORAGE_LIB_EXPORT bool RemoveBundleFromDisk(const uint64_t custodyId);
     STORAGE_LIB_EXPORT bool RemoveReadBundleFromDisk(const uint64_t custodyId);
     STORAGE_LIB_EXPORT bool RemoveReadBundleFromDisk(BundleStorageManagerSession_ReadFromDisk & sessionRead);
     STORAGE_LIB_EXPORT bool RemoveReadBundleFromDisk(const catalog_entry_t * catalogEntryPtr, const uint64_t custodyId);
@@ -137,15 +141,16 @@ protected:
     boost::mutex m_mutexMainThread;
     boost::condition_variable m_conditionVariableMainThread;
     std::vector<boost::filesystem::path> m_filePathsVec;
+    std::vector<unsigned int> m_tmpInitializerOfCircularIndexBuffersVec;
     std::vector<CircularIndexBufferSingleProducerSingleConsumerConfigurable> m_circularIndexBuffersVec;
 
     uint8_t * m_circularBufferBlockDataPtr;
     segment_id_t * m_circularBufferSegmentIdsPtr;
     //volatile bool * volatile m_circularBufferIsReadCompletedPointers[CIRCULAR_INDEX_BUFFER_SIZE * NUM_STORAGE_THREADS];
-    //volatile boost::uint8_t * volatile m_circularBufferReadFromStoragePointers[CIRCULAR_INDEX_BUFFER_SIZE * NUM_STORAGE_THREADS];
-    volatile bool * volatile m_circularBufferIsReadCompletedPointers[CIRCULAR_INDEX_BUFFER_SIZE * MAX_NUM_STORAGE_THREADS];
-    volatile uint8_t * volatile m_circularBufferReadFromStoragePointers[CIRCULAR_INDEX_BUFFER_SIZE * MAX_NUM_STORAGE_THREADS];
-    volatile bool m_autoDeleteFilesOnExit;
+    //volatile uint8_t * volatile m_circularBufferReadFromStoragePointers[CIRCULAR_INDEX_BUFFER_SIZE * NUM_STORAGE_THREADS];
+    std::atomic<std::atomic<bool>* > m_circularBufferIsReadCompletedPointers[CIRCULAR_INDEX_BUFFER_SIZE * MAX_NUM_STORAGE_THREADS];
+    std::atomic<uint8_t*> m_circularBufferReadFromStoragePointers[CIRCULAR_INDEX_BUFFER_SIZE * MAX_NUM_STORAGE_THREADS];
+    std::atomic<bool> m_autoDeleteFilesOnExit;
     
 public:
     bool m_successfullyRestoredFromDisk;

@@ -45,7 +45,7 @@ UdpDelaySimRunner::UdpDelaySimRunner() : m_runningFromSigHandler(false) {}
 UdpDelaySimRunner::~UdpDelaySimRunner() {}
 
 
-bool UdpDelaySimRunner::Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler) {
+bool UdpDelaySimRunner::Run(int argc, const char* const argv[], std::atomic<bool>& running, bool useSignalHandler) {
     //scope to ensure clean exit before return 0
     {
         running = true;

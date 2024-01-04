@@ -2,7 +2,7 @@
  * @file TestBundleViewV6.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -42,7 +42,7 @@ static void AppendCanonicalBlockAndRender(BundleViewV6 & bv, BPV6_BLOCK_TYPE_COD
     block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET; //don't worry about block.flags as last block because Render will take care of that automatically
     block.m_blockTypeSpecificDataLength = newBlockBody.length();
     block.m_blockTypeSpecificDataPtr = (uint8_t*)newBlockBody.data(); //blockBodyAsVecUint8 must remain in scope until after render
-    bv.AppendMoveCanonicalBlock(blockPtr);
+    bv.AppendMoveCanonicalBlock(std::move(blockPtr));
     uint64_t expectedRenderSize;
     BOOST_REQUIRE(bv.GetSerializationSize(expectedRenderSize));
     BOOST_REQUIRE(bv.Render(5000));
@@ -59,7 +59,7 @@ static void PrependCanonicalBlockAndRender(BundleViewV6 & bv, BPV6_BLOCK_TYPE_CO
     block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET; //don't worry about block.flags as last block because Render will take care of that automatically
     block.m_blockTypeSpecificDataLength = newBlockBody.length();
     block.m_blockTypeSpecificDataPtr = (uint8_t*)newBlockBody.data(); //blockBodyAsVecUint8 must remain in scope until after render
-    bv.PrependMoveCanonicalBlock(blockPtr);
+    bv.PrependMoveCanonicalBlock(std::move(blockPtr));
     uint64_t expectedRenderSize;
     BOOST_REQUIRE(bv.GetSerializationSize(expectedRenderSize));
     BOOST_REQUIRE(bv.Render(5000));
@@ -76,7 +76,7 @@ static void PrependCanonicalBlockAndRender_AllocateOnly(BundleViewV6 & bv, BPV6_
     block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET; //don't worry about block.flags as last block because Render will take care of that automatically
     block.m_blockTypeSpecificDataLength = dataLengthToAllocate;
     block.m_blockTypeSpecificDataPtr = NULL;
-    bv.PrependMoveCanonicalBlock(blockPtr);
+    bv.PrependMoveCanonicalBlock(std::move(blockPtr));
     uint64_t expectedRenderSize;
     BOOST_REQUIRE(bv.GetSerializationSize(expectedRenderSize));
     BOOST_REQUIRE(bv.Render(5000));
@@ -136,7 +136,7 @@ static void GenerateBundle(const std::vector<BPV6_BLOCK_TYPE_CODE> & canonicalTy
         block.m_blockTypeSpecificDataPtr = (uint8_t*)blockBody.data(); //blockBody must remain in scope until after render
 
         BOOST_REQUIRE(blockPtr);
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
         BOOST_REQUIRE(!blockPtr);
     }
 
@@ -156,11 +156,11 @@ BOOST_AUTO_TEST_CASE(BundleViewV6TestCase)
         const std::vector<std::string> canonicalBodyStringsVec = { "The ", "quick ", " brown", " fox" };
         BundleViewV6 bv;
         GenerateBundle(canonicalTypesVec, canonicalBodyStringsVec, bv);
-        std::vector<uint8_t> bundleSerializedOriginal(bv.m_frontBuffer);
+        padded_vector_uint8_t bundleSerializedOriginal(bv.m_frontBuffer);
 
 
         BOOST_REQUIRE_GT(bundleSerializedOriginal.size(), 0);
-        std::vector<uint8_t> bundleSerializedCopy(bundleSerializedOriginal); //the copy can get modified by bundle view on first load
+        padded_vector_uint8_t bundleSerializedCopy(bundleSerializedOriginal); //the copy can get modified by bundle view on first load
         BOOST_REQUIRE(bundleSerializedOriginal == bundleSerializedCopy);
         bv.Reset();
         //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
@@ -357,6 +357,34 @@ BOOST_AUTO_TEST_CASE(BundleViewV6TestCase)
             BOOST_REQUIRE(bv.m_frontBuffer != bundleSerializedCopy);
             BOOST_REQUIRE(bv.m_frontBuffer == bundleSerializedOriginal);
         }
+
+        //reload bundle many times to test BundleViewV6 block recycler (using same BundleViewV6 obj)
+        {
+            BundleViewV6 bvRecycled;
+            BOOST_REQUIRE_EQUAL(bvRecycled.m_listCanonicalBlockView.size(), 0);
+            std::vector<Bpv6CanonicalBlock*> lastBlockPtrs;
+            for (unsigned int i = 0; i < 4; ++i) {
+                padded_vector_uint8_t toSwapIn(bundleSerializedOriginal);
+                BOOST_REQUIRE(bvRecycled.SwapInAndLoadBundle(toSwapIn, false)); //load resets the bundleview
+                BOOST_REQUIRE_EQUAL(bvRecycled.m_listCanonicalBlockView.size(), 4);
+                if (i) {
+                    //make sure blocks were recycled
+                    std::vector<Bpv6CanonicalBlock*> nowBlockPtrs;
+                    for (BundleViewV6::canonical_block_view_list_t::const_iterator it = bvRecycled.m_listCanonicalBlockView.cbegin();
+                        it != bvRecycled.m_listCanonicalBlockView.cend(); ++it)
+                    {
+                        nowBlockPtrs.push_back(it->headerPtr.get());
+                    }
+                    BOOST_REQUIRE(lastBlockPtrs == nowBlockPtrs);
+                }
+                lastBlockPtrs.clear();
+                for (BundleViewV6::canonical_block_view_list_t::const_iterator it = bvRecycled.m_listCanonicalBlockView.cbegin();
+                    it != bvRecycled.m_listCanonicalBlockView.cend(); ++it)
+                {
+                    lastBlockPtrs.push_back(it->headerPtr.get());
+                }
+            }
+        }
     }
 }
 
@@ -394,7 +422,7 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
         block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
         block.m_custodyId = 150; //size 2 sdnv
         block.m_ctebCreatorCustodianEidString = "ipn:2.3";
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
     }
 
     //add previous hop insertion
@@ -405,7 +433,7 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
 
         //block.m_blockProcessingControlFlags = DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED set by Bpv6PreviousHopInsertionCanonicalBlock constructor
         block.m_previousNode.Set(550, 60000);
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
     }
 
     uint64_t metaUriListSerializationSize = 0;
@@ -426,7 +454,7 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
 
         metaUriListSerializationSize = meta.GetSerializationSize();
 
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
     }
 
     uint64_t metaGenericSerializationSize = 0;
@@ -444,7 +472,7 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
 
         metaGenericSerializationSize = meta.GetSerializationSize();
 
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
     }
 
     //add bundle age
@@ -455,7 +483,7 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
 
         //block.m_blockProcessingControlFlags = MUST_BE_REPLICATED_IN_EVERY_FRAGMENT set by Bpv6BundleAgeCanonicalBlock constructor
         block.m_bundleAgeMicroseconds = 1000000;
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
     }
 
     //add payload block
@@ -469,17 +497,17 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
         block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
         block.m_blockTypeSpecificDataLength = payloadString.size();
         block.m_blockTypeSpecificDataPtr = (uint8_t*)payloadString.data(); //payloadString must remain in scope until after render
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
 
     }
 
     BOOST_REQUIRE(bv.Render(5000));
 
-    std::vector<uint8_t> bundleSerializedOriginal(bv.m_frontBuffer);
+    padded_vector_uint8_t bundleSerializedOriginal(bv.m_frontBuffer);
     //std::cout << "renderedsize: " << bv.m_frontBuffer.size() << "\n";
 
     BOOST_REQUIRE_GT(bundleSerializedOriginal.size(), 0);
-    std::vector<uint8_t> bundleSerializedCopy(bundleSerializedOriginal); //the copy can get modified by bundle view on first load
+    padded_vector_uint8_t bundleSerializedCopy(bundleSerializedOriginal); //the copy can get modified by bundle view on first load
     BOOST_REQUIRE(bundleSerializedOriginal == bundleSerializedCopy);
     bv.Reset();
     //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
@@ -735,17 +763,17 @@ BOOST_AUTO_TEST_CASE(Bpv6BundleStatusReportTestCase)
 
                 bsrSerializationSize = bsr.GetSerializationSize();
 
-                bv.AppendMoveCanonicalBlock(blockPtr);
+                bv.AppendMoveCanonicalBlock(std::move(blockPtr));
             }
 
 
             BOOST_REQUIRE(bv.Render(5000));
 
-            std::vector<uint8_t> bundleSerializedOriginal(bv.m_frontBuffer);
+            padded_vector_uint8_t bundleSerializedOriginal(bv.m_frontBuffer);
             //std::cout << "renderedsize: " << bv.m_frontBuffer.size() << "\n";
 
             BOOST_REQUIRE_GT(bundleSerializedOriginal.size(), 0);
-            std::vector<uint8_t> bundleSerializedCopy(bundleSerializedOriginal); //the copy can get modified by bundle view on first load
+            padded_vector_uint8_t bundleSerializedCopy(bundleSerializedOriginal); //the copy can get modified by bundle view on first load
             BOOST_REQUIRE(bundleSerializedOriginal == bundleSerializedCopy);
             bv.Reset();
             //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
@@ -927,10 +955,10 @@ BOOST_AUTO_TEST_CASE(BundleViewV6ReadDtnMeRawDataTestCase)
 {
     { //an rfc5050 admin record with previous hop and an unspecified block type 19
         static const std::string hexAsString = "0681121882814900828000000000000082dce9d45084ad1d85a3000005100c69706e0033323736382e300013010208ff010819200382dce9d4500082dce9d26c82790969706e3a31312e3634";
-        std::vector<uint8_t> bundleRawData;
+        padded_vector_uint8_t bundleRawData;
         BOOST_REQUIRE(BinaryConversions::HexStringToBytes(hexAsString, bundleRawData));
         
-        std::vector<uint8_t> bundleRawDataCopy(bundleRawData);
+        padded_vector_uint8_t bundleRawDataCopy(bundleRawData);
         BundleViewV6 bv;
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(bundleRawDataCopy));
         
@@ -981,10 +1009,10 @@ BOOST_AUTO_TEST_CASE(BundleViewV6ReadDtnMeRawDataTestCase)
 
     { //an acs bundle
         static const std::string hexAsString = "0681121882814900828000000000000082dce9e74688aa2085a3000005100c69706e0033323736382e300013010208ff01080b4080000101817f82018116";
-        std::vector<uint8_t> bundleRawData;
+        padded_vector_uint8_t bundleRawData;
         BOOST_REQUIRE(BinaryConversions::HexStringToBytes(hexAsString, bundleRawData));
 
-        std::vector<uint8_t> bundleRawDataCopy(bundleRawData);
+        padded_vector_uint8_t bundleRawDataCopy(bundleRawData);
         BundleViewV6 bv;
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(bundleRawDataCopy));
 
@@ -1041,4 +1069,13 @@ BOOST_AUTO_TEST_CASE(BundleViewV6ReadDtnMeRawDataTestCase)
         BOOST_REQUIRE(bv.m_frontBuffer == bundleRawData);
         BOOST_REQUIRE(bv.m_backBuffer == bundleRawData);
     }
+}
+
+BOOST_AUTO_TEST_CASE(BundleView6SourceEidTestCase) {
+    Bpv6CbhePrimaryBlock primary;
+    primary.m_sourceNodeId.nodeId = 1;
+    primary.m_sourceNodeId.serviceId = 1;
+    cbhe_eid_t sourceId = primary.GetSourceEid();
+    BOOST_REQUIRE_EQUAL(sourceId.nodeId, 1);
+    BOOST_REQUIRE_EQUAL(sourceId.serviceId, 1);
 }

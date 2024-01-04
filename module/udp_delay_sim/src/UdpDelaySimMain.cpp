@@ -23,7 +23,7 @@ int main(int argc, const char* argv[]) {
     hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::udpdelaysim);
     ThreadNamer::SetThisThreadName("UdpDelaySimMain");
     UdpDelaySimRunner runner;
-    volatile bool running;
+    std::atomic<bool> running;
     runner.Run(argc, argv, running, true);
     
 

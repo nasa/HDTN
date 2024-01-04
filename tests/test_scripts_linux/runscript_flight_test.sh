@@ -19,11 +19,6 @@ sleep 3
 egress_PID=$!
 sleep 3
 
-#Scheduler
-./build/module/scheduler/hdtn-scheduler --ping-test --dest-addr=127.0.0.1 --dest-uri-eid=ipn:2.1 --hdtn-config-file=$hdtn_config --hdtn-distributed-config-file=$hdtn_distributed_config &
-scheduler_PID=$!
-sleep 1
-
 #Ingress
 ./build/module/ingress/hdtn-ingress --hdtn-config-file=$hdtn_config --hdtn-distributed-config-file=$hdtn_distributed_config  &
 ingress_PID=$!
@@ -46,8 +41,6 @@ sleep 2
 echo "\nkilling HDTN storage..." && kill -2 $storage_PID
 sleep 2
 echo "\nkilling HDTN ingress..." && kill -2 $ingress_PID
-sleep 2
-echo "\nkilling scheduler..." && kill -9 $scheduler_PID
 sleep 2
 echo "\nkilling egress..." && kill -2 $egress_PID
 sleep 2

@@ -91,7 +91,8 @@ bool BundleStorageCatalog::Remove(custids_flist_queue_t& custodyIdFlistQueue, co
 bool BundleStorageCatalog::CatalogIncomingBundleForStore(catalog_entry_t & catalogEntryToTake, const PrimaryBlock & primary, const uint64_t custodyId, const DUPLICATE_EXPIRY_ORDER order) {
     if (primary.HasCustodyFlagSet()) {
         if (primary.HasFragmentationFlagSet()) {
-            const uuid_to_custid_hashmap_t::key_value_pair_t * p = m_uuidToCustodyIdHashMap.Insert(primary.GetCbheBundleUuidFromPrimary(), custodyId);
+            uint64_t payloadSizeBytes = catalogEntryToTake.payloadSizeBytes;
+            const uuid_to_custid_hashmap_t::key_value_pair_t * p = m_uuidToCustodyIdHashMap.Insert(primary.GetCbheBundleUuidFragmentFromPrimary(payloadSizeBytes), custodyId);
             if (p == NULL) {
                 return false;
             }

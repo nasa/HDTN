@@ -60,6 +60,14 @@
             "boundPort": 4559,
             "numRxCircularBufferElements": 1000,
             "keepAliveIntervalSeconds": 17
+        },
+        {
+            "name": "i6",
+            "convergenceLayer": "slip_over_uart",
+            "numRxCircularBufferElements": 5,
+            "comPort": "COM1",
+            "baudRate": 115200,
+            "uartRemoteNodeId": 11
         }
     ]
 }

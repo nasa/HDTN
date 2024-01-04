@@ -12,10 +12,10 @@ namespace hdtn{
 
 std::unique_ptr<StatsLogger> StatsLogger::StatsLogger_; //initialized to "null"
 boost::mutex StatsLogger::mutexSingletonInstance_;
-volatile bool StatsLogger::StatsLoggerSingletonFullyInitialized_ = false;
+std::atomic<bool> StatsLogger::StatsLoggerSingletonFullyInitialized_(false);
 StatsLogger::file_name_attr_t StatsLogger::file_name_attr("");
 boost::log::sources::logger_mt StatsLogger::m_logger;
-std::map<std::string, bool> StatsLogger::m_initializedFiles;
+std::map<std::string, boost::shared_ptr<StatsLogger::sink_t>> StatsLogger::m_initializedFiles;
 
 static constexpr uint8_t maxFilesPerMetric = 2;
 
@@ -67,6 +67,17 @@ void StatsLogger::Log(
     BOOST_LOG(hdtn::StatsLogger::m_logger) << ss.str();
 }
 
+void StatsLogger::Reset()
+{
+    boost::mutex::scoped_lock theLock(mutexSingletonInstance_);
+   
+    std::map<std::string, boost::shared_ptr<StatsLogger::sink_t>>::iterator it;
+    for (it = m_initializedFiles.begin(); it != m_initializedFiles.end(); it++) {
+        boost::log::core::get()->remove_sink(it->second);
+    }
+    m_initializedFiles.clear();
+}
+
 void StatsLogger::ensureInitialized(
     const std::string& fileName,
     const std::vector<StatsLogger::metric_t>& metrics
@@ -78,8 +89,8 @@ void StatsLogger::ensureInitialized(
         StatsLoggerSingletonFullyInitialized_ = true;
     }
     if (m_initializedFiles.find(fileName) == m_initializedFiles.end()) {
-        StatsLogger_->createFileSink(fileName, metrics);
-        m_initializedFiles[fileName] = true;
+        boost::shared_ptr< StatsLogger::sink_t > sink = StatsLogger_->createFileSink(fileName, metrics);
+        m_initializedFiles[fileName] = sink;
     }
 }
 
@@ -93,7 +104,7 @@ int64_t StatsLogger::timestampMs_t::operator()(boost::log::value_ref<boost::posi
     return (date.get() - start).total_milliseconds();
 }
 
-void StatsLogger::createFileSink(
+ boost::shared_ptr< StatsLogger::sink_t > StatsLogger::createFileSink(
     const std::string& fileName,
     const std::vector<StatsLogger::metric_t>& metrics
 )
@@ -108,10 +119,10 @@ void StatsLogger::createFileSink(
         boost::log::keywords::target = "stats/" + fileName
     ));
 
-    typedef boost::log::sinks::synchronous_sink< boost::log::sinks::text_file_backend > sink_t;
     boost::shared_ptr< sink_t > sink = boost::make_shared<sink_t>(backend);
     sink->set_filter(boost::log::expressions::attr<std::string>("fileName") == fileName);
     sink->locked_backend()->scan_for_files();
+    sink->locked_backend()->auto_flush(true);
     boost::log::core::get()->add_sink(sink);
     StatsLogger::writeHeader(fileName, metrics);
 
@@ -121,6 +132,7 @@ void StatsLogger::createFileSink(
             << m_timestampMsFormatter(boost::log::expressions::attr<boost::posix_time::ptime>("TimeStamp"))
             << "," << boost::log::expressions::smessage
     );
+    return sink;
 }
 
 void StatsLogger::writeHeader(

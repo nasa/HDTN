@@ -2,7 +2,7 @@
  * @file Bpv7CbhePrimaryBlock.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -500,13 +500,13 @@ bool Bpv7CbhePrimaryBlock::HasFragmentationFlagSet() const {
     return isFragment;
 }
 
-cbhe_bundle_uuid_t Bpv7CbhePrimaryBlock::GetCbheBundleUuidFromPrimary() const {
+cbhe_bundle_uuid_t Bpv7CbhePrimaryBlock::GetCbheBundleUuidFragmentFromPrimary(uint64_t payloadSizeBytes) const {
     cbhe_bundle_uuid_t uuid;
     uuid.creationSeconds = m_creationTimestamp.millisecondsSinceStartOfYear2000;
     uuid.sequence = m_creationTimestamp.sequenceNumber;
     uuid.srcEid = m_sourceNodeId;
     uuid.fragmentOffset = m_fragmentOffset;
-    uuid.dataLength = m_totalApplicationDataUnitLength;
+    uuid.dataLength = payloadSizeBytes;
     return uuid;
 }
 cbhe_bundle_uuid_nofragment_t Bpv7CbhePrimaryBlock::GetCbheBundleUuidNoFragmentFromPrimary() const {
@@ -519,6 +519,9 @@ cbhe_bundle_uuid_nofragment_t Bpv7CbhePrimaryBlock::GetCbheBundleUuidNoFragmentF
 
 cbhe_eid_t Bpv7CbhePrimaryBlock::GetFinalDestinationEid() const {
     return m_destinationEid;
+}
+cbhe_eid_t Bpv7CbhePrimaryBlock::GetSourceEid() const {
+    return m_sourceNodeId;
 }
 uint8_t Bpv7CbhePrimaryBlock::GetPriority() const {
     return 2; //priority not supported so keep it high by default

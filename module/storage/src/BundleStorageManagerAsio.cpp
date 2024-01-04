@@ -80,7 +80,7 @@ void BundleStorageManagerAsio::Start() {
             const boost::filesystem::path& filePath = m_filePathsVec[diskId];
             const boost::filesystem::path::value_type* filePathCstr = filePath.c_str();
             LOG_INFO(subprocess) << ((m_successfullyRestoredFromDisk) ? "reopening " : "creating ") << filePath;
-#ifdef _WIN32
+#if defined(_WIN32)
             //
             //https://docs.microsoft.com/en-us/windows/win32/fileio/synchronous-and-asynchronous-i-o
             //In synchronous file I/O, a thread starts an I/O operation and immediately enters a wait state until the I/O request has completed.
@@ -105,7 +105,14 @@ void BundleStorageManagerAsio::Start() {
             //
             //FILE * fileHandle = (m_successfullyRestoredFromDisk) ? fopen(filePath, "r+bR") : fopen(filePath, "w+bR");
             m_asioHandlePtrsVec[diskId] = boost::make_unique<boost::asio::windows::random_access_handle>(m_ioService, hFile);
-#else
+#elif defined(__APPLE__)
+            int file_desc = open(filePathCstr, (m_successfullyRestoredFromDisk) ? (O_RDWR) : (O_CREAT|O_RDWR|O_TRUNC), DEFFILEMODE);
+            if(file_desc < 0) {
+                LOG_ERROR(subprocess) << "error opening " << filePath;
+                return;
+            }
+            m_asioHandlePtrsVec[diskId] = boost::make_unique<boost::asio::posix::stream_descriptor>(m_ioService, file_desc);
+#else // Linux (not WIN32 or APPLE)
             int file_desc = open(filePathCstr, (m_successfullyRestoredFromDisk) ? (O_RDWR|O_LARGEFILE) : (O_CREAT|O_RDWR|O_TRUNC|O_LARGEFILE), DEFFILEMODE);
             if(file_desc < 0) {
                 LOG_ERROR(subprocess) << "error opening " << filePath;
@@ -131,7 +138,7 @@ void BundleStorageManagerAsio::TryDiskOperation_Consume_NotThreadSafe(const unsi
             segment_id_t * const circularBufferSegmentIdsPtr = &m_circularBufferSegmentIdsPtr[diskId * CIRCULAR_INDEX_BUFFER_SIZE];
 
             const segment_id_t segmentId = circularBufferSegmentIdsPtr[consumeIndex];
-            volatile boost::uint8_t * const readFromStorageDestPointer = m_circularBufferReadFromStoragePointers[diskId * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex];
+            uint8_t * const readFromStorageDestPointer = m_circularBufferReadFromStoragePointers[diskId * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex].load(std::memory_order_acquire);
 
             const bool isWriteToDisk = (readFromStorageDestPointer == NULL);
             if (segmentId == SEGMENT_ID_LAST) {
@@ -141,9 +148,10 @@ void BundleStorageManagerAsio::TryDiskOperation_Consume_NotThreadSafe(const unsi
 
             const boost::uint64_t offsetBytes = static_cast<boost::uint64_t>(segmentId / M_NUM_STORAGE_DISKS) * SEGMENT_SIZE;
 
-#ifdef _WIN32
-
-#else
+#if defined(_WIN32)
+#elif defined(__APPLE__)
+            lseek(m_asioHandlePtrsVec[diskId]->native_handle(), offsetBytes, SEEK_SET);
+#else // Linux (not WIN32 or APPLE)
             lseek64(m_asioHandlePtrsVec[diskId]->native_handle(), offsetBytes, SEEK_SET);
 #endif
 
@@ -195,12 +203,12 @@ void BundleStorageManagerAsio::HandleDiskOperationCompleted(const boost::system:
         LOG_ERROR(subprocess) << "error in BundleStorageManagerMT::HandleDiskOperationCompleted: bytes_transferred(" << bytes_transferred << ") != SEGMENT_SIZE(" << SEGMENT_SIZE << ")";
     }
     else {
-        volatile bool junk;
-        volatile bool * const isReadCompletedPointer = (wasReadOperation) ?
-            m_circularBufferIsReadCompletedPointers[diskId * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex] : &junk;
+        std::atomic<bool> junk;
+        std::atomic<bool>& isReadCompletedRef = (wasReadOperation) ?
+            *m_circularBufferIsReadCompletedPointers[diskId * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex].load(std::memory_order_acquire) : junk;
         CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[diskId];
         m_mutexMainThread.lock();
-        *isReadCompletedPointer = true;
+        isReadCompletedRef.store(true, std::memory_order_release);
         cb.CommitRead();
         m_mutexMainThread.unlock();
         m_conditionVariableMainThread.notify_one();

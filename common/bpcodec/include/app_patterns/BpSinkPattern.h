@@ -2,7 +2,7 @@
  * @file BpSinkPattern.h
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -39,10 +39,12 @@
 #include "OutductManager.h"
 #include "codec/bpv6.h"
 #include "codec/CustodyTransferManager.h"
+#include "codec/Bpv6FragmentManager.h"
 #include <boost/asio.hpp>
 #include "TcpclInduct.h"
 #include <queue>
 #include <unordered_set>
+#include <atomic>
 
 class CLASS_VISIBILITY_BP_APP_PATTERNS_LIB BpSinkPattern {
 public:
@@ -50,7 +52,10 @@ public:
     BP_APP_PATTERNS_LIB_EXPORT void Stop();
     BP_APP_PATTERNS_LIB_EXPORT virtual ~BpSinkPattern();
     BP_APP_PATTERNS_LIB_EXPORT bool Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_ptr & outductsConfigPtr,
+        const boost::filesystem::path& bpSecConfigFilePath,
         bool isAcsAware, const cbhe_eid_t & myEid, uint32_t processingLagMs, const uint64_t maxBundleSizeBytes, const uint64_t myBpEchoServiceId = 2047);
+    BP_APP_PATTERNS_LIB_EXPORT void LogStats(PrimaryBlock& primaryBlock,
+        bool isBpVersion6);
 protected:
     virtual bool ProcessPayload(const uint8_t * data, const uint64_t size) = 0;
 private:
@@ -61,9 +66,9 @@ private:
     BP_APP_PATTERNS_LIB_NO_EXPORT void SendAcsFromTimerThread();
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtr);
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtrAboutToBeDeleted);
-    BP_APP_PATTERNS_LIB_NO_EXPORT bool Forward_ThreadSafe(const cbhe_eid_t & destEid, std::vector<uint8_t> & bundleToMoveAndSend);
+    BP_APP_PATTERNS_LIB_NO_EXPORT bool Forward_ThreadSafe(const cbhe_eid_t & destEid, padded_vector_uint8_t& bundleToMoveAndSend);
     BP_APP_PATTERNS_LIB_NO_EXPORT void SenderReaderThreadFunc();
-    BP_APP_PATTERNS_LIB_NO_EXPORT void OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid);
+    BP_APP_PATTERNS_LIB_NO_EXPORT void OnFailedBundleVecSendCallback(padded_vector_uint8_t& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid);
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData, uint64_t outductUuid);
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid);
 public:
@@ -100,21 +105,26 @@ private:
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     std::unique_ptr<boost::thread> m_threadSenderReaderPtr;
     boost::condition_variable m_conditionVariableSenderReader;
-    typedef std::pair<cbhe_eid_t, std::vector<uint8_t> > desteid_bundle_pair_t;
+    typedef std::pair<cbhe_eid_t, padded_vector_uint8_t> desteid_bundle_pair_t;
     std::queue<desteid_bundle_pair_t> m_bundleToSendQueue;
     boost::mutex m_mutexCurrentlySendingBundleIdSet;
     std::unordered_set<uint64_t> m_currentlySendingBundleIdSet;
     boost::condition_variable m_cvCurrentlySendingBundleIdSet;
     boost::mutex m_mutexQueueBundlesThatFailedToSend;
     typedef std::pair<uint64_t, cbhe_eid_t> bundleid_finaldesteid_pair_t;
-    typedef std::pair<std::vector<uint8_t>, bundleid_finaldesteid_pair_t> bundle_userdata_pair_t;
+    typedef std::pair<padded_vector_uint8_t, bundleid_finaldesteid_pair_t> bundle_userdata_pair_t;
     std::queue<bundle_userdata_pair_t> m_queueBundlesThatFailedToSend;
-    volatile bool m_linkIsDown;
-    volatile bool m_runningSenderThread;
+    std::atomic<bool> m_linkIsDown;
+    std::atomic<bool> m_runningSenderThread;
     boost::mutex m_mutexCtm;
     boost::mutex m_mutexSendBundleQueue;
     uint64_t m_tcpclOpportunisticRemoteNodeId;
     Induct * m_tcpclInductPtr;
+
+    struct BpSecImpl;
+    std::unique_ptr<BpSecImpl> m_bpsecPimpl; // Pointer to the internal implementation
+
+    Bpv6FragmentManager m_fragmentManager;
 };
 
 

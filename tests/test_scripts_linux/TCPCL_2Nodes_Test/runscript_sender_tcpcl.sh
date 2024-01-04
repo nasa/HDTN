@@ -3,7 +3,7 @@
 # path variables
 config_files=$HDTN_SOURCE_ROOT/config_files
 hdtn_config=$config_files/hdtn/hdtn_Node1_tcpcl.json
-gen_config=$config_files/outducts/bpgen_one_stcp_port4556_2NodesTest.json
+gen_config=$config_files/outducts/bpgen_one_tcpclv4_port4556_custody.json
 
 cd $HDTN_SOURCE_ROOT
 

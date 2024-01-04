@@ -1,6 +1,7 @@
 add_executable(integrated-tests
 	src/it_test_main.cpp
         src/integrated_tests.cpp
+        src/bp_sink_pattern.cpp
         ../../common/bpcodec/apps/bpgen/src/BpGenAsync.cpp
         ../../common/bpcodec/apps/bpgen/src/BpGenAsyncRunner.cpp
         ../../common/bpcodec/apps/bpsink/BpSinkAsyncRunner.cpp
@@ -30,7 +31,7 @@ target_link_libraries(integrated-tests
 	hdtn_one_process_lib
 	egress_async_lib
 	ingress_async_lib
-	scheduler_lib
+	router_lib
 	induct_manager_lib
 	outduct_manager_lib
 	bpcodec

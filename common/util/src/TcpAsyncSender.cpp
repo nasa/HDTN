@@ -43,15 +43,15 @@ TcpAsyncSender::~TcpAsyncSender() {
 
 void TcpAsyncSender::AsyncSend_NotThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted) {
     std::unique_ptr<TcpAsyncSenderElement> elUniquePtr(senderElementNeedingDeleted);
-    if (m_sendErrorOccurred) {
+    if (m_sendErrorOccurred.load(std::memory_order_acquire)) {
         //prevent bundle from being queued
         DoFailedBundleCallback(elUniquePtr);
     }
     else {
         m_queueTcpAsyncSenderElements.push(std::move(elUniquePtr));
-        if (!m_writeInProgress) {
-            m_writeInProgress = true;
-            boost::asio::async_write(*m_tcpSocketPtr, senderElementNeedingDeleted->m_constBufferVec,
+        if (!m_writeInProgress.exchange(true)) {
+            boost::asio::async_write(*m_tcpSocketPtr,
+                m_queueTcpAsyncSenderElements.front()->m_constBufferVec, //same as senderElementNeedingDeleted since m_writeInProgress is false
                 boost::bind(&TcpAsyncSender::HandleTcpSend, this,
                     boost::asio::placeholders::error,
                     boost::asio::placeholders::bytes_transferred));
@@ -79,10 +79,11 @@ void TcpAsyncSender::HandleTcpSend(const boost::system::error_code& error, std::
         }
     }
     else if (m_queueTcpAsyncSenderElements.empty()) {
-        m_writeInProgress = false;
+        m_writeInProgress.store(false, std::memory_order_release);
     }
     else {
-        boost::asio::async_write(*m_tcpSocketPtr, m_queueTcpAsyncSenderElements.front()->m_constBufferVec,
+        boost::asio::async_write(*m_tcpSocketPtr,
+            m_queueTcpAsyncSenderElements.front()->m_constBufferVec,
             boost::bind(&TcpAsyncSender::HandleTcpSend, this,
                 boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
@@ -123,15 +124,15 @@ TcpAsyncSenderSsl::~TcpAsyncSenderSsl() {
 
 void TcpAsyncSenderSsl::AsyncSendSecure_NotThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted) {
     std::unique_ptr<TcpAsyncSenderElement> elUniquePtr(senderElementNeedingDeleted);
-    if (m_sendErrorOccurred) {
+    if (m_sendErrorOccurred.load(std::memory_order_acquire)) {
         //prevent bundle from being queued
         DoFailedBundleCallback(elUniquePtr);
     }
     else {
         m_queueTcpAsyncSenderElements.push(std::move(elUniquePtr));
-        if (!m_writeInProgress) {
-            m_writeInProgress = true;
-            boost::asio::async_write(*m_sslStreamSharedPtr, senderElementNeedingDeleted->m_constBufferVec,
+        if (!m_writeInProgress.exchange(true)) {
+            boost::asio::async_write(*m_sslStreamSharedPtr,
+                m_queueTcpAsyncSenderElements.front()->m_constBufferVec, //same as senderElementNeedingDeleted since m_writeInProgress is false
                 boost::bind(&TcpAsyncSenderSsl::HandleTcpSendSecure, this,
                     boost::asio::placeholders::error,
                     boost::asio::placeholders::bytes_transferred));
@@ -159,10 +160,11 @@ void TcpAsyncSenderSsl::HandleTcpSendSecure(const boost::system::error_code& err
         }
     }
     else if (m_queueTcpAsyncSenderElements.empty()) {
-        m_writeInProgress = false;
+        m_writeInProgress.store(false, std::memory_order_release);
     }
     else {
-        boost::asio::async_write(*m_sslStreamSharedPtr, m_queueTcpAsyncSenderElements.front()->m_constBufferVec,
+        boost::asio::async_write(*m_sslStreamSharedPtr,
+            m_queueTcpAsyncSenderElements.front()->m_constBufferVec,
             boost::bind(&TcpAsyncSenderSsl::HandleTcpSendSecure, this,
                 boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
@@ -171,16 +173,16 @@ void TcpAsyncSenderSsl::HandleTcpSendSecure(const boost::system::error_code& err
 
 void TcpAsyncSenderSsl::AsyncSendUnsecure_NotThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted) {
     std::unique_ptr<TcpAsyncSenderElement> elUniquePtr(senderElementNeedingDeleted);
-    if (m_sendErrorOccurred) {
+    if (m_sendErrorOccurred.load(std::memory_order_acquire)) {
         //prevent bundle from being queued
         DoFailedBundleCallback(elUniquePtr);
     }
     else {
         m_queueTcpAsyncSenderElements.push(std::move(elUniquePtr));
-        if (!m_writeInProgress) {
-            m_writeInProgress = true;
+        if (!m_writeInProgress.exchange(true)) {
             //lowest_layer does not compile https://stackoverflow.com/a/32584870
-            boost::asio::async_write(m_sslStreamSharedPtr->next_layer(), senderElementNeedingDeleted->m_constBufferVec, //https://stackoverflow.com/a/4726475
+            boost::asio::async_write(m_sslStreamSharedPtr->next_layer(), //https://stackoverflow.com/a/4726475
+                m_queueTcpAsyncSenderElements.front()->m_constBufferVec, //same as senderElementNeedingDeleted since m_writeInProgress is false
                 boost::bind(&TcpAsyncSenderSsl::HandleTcpSendUnsecure, this,
                     boost::asio::placeholders::error,
                     boost::asio::placeholders::bytes_transferred));
@@ -208,10 +210,11 @@ void TcpAsyncSenderSsl::HandleTcpSendUnsecure(const boost::system::error_code& e
         }
     }
     else if (m_queueTcpAsyncSenderElements.empty()) {
-        m_writeInProgress = false;
+        m_writeInProgress.store(false, std::memory_order_release);
     }
     else {
-        boost::asio::async_write(m_sslStreamSharedPtr->next_layer(), m_queueTcpAsyncSenderElements.front()->m_constBufferVec,
+        boost::asio::async_write(m_sslStreamSharedPtr->next_layer(),
+            m_queueTcpAsyncSenderElements.front()->m_constBufferVec,
             boost::bind(&TcpAsyncSenderSsl::HandleTcpSendUnsecure, this,
                 boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));

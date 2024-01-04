@@ -33,7 +33,7 @@ BOOST_AUTO_TEST_CASE(TestBpsecDefaultSecurityContextsSimpleIntegrityTestCase)
 
    This appendix is informative.
 
-   This appendix presents a series of examples of constructing BPSec
+   This appendix presents a series of examples of constructing BpSec
    security blocks (using the security contexts defined in this
    document) and adding those blocks to a sample bundle.
 
@@ -48,7 +48,7 @@ BOOST_AUTO_TEST_CASE(TestBpsecDefaultSecurityContextsSimpleIntegrityTestCase)
    NOTES:
 
    *  The bundle diagrams in this appendix are patterned after the
-      bundle diagrams used in Section 3.11 ("BPSec Block Examples") of
+      bundle diagrams used in Section 3.11 ("BpSec Block Examples") of
       [RFC9172].
 
    *  Figures in this appendix identified as "(CBOR Diagnostic
@@ -57,7 +57,7 @@ BOOST_AUTO_TEST_CASE(TestBpsecDefaultSecurityContextsSimpleIntegrityTestCase)
       structures in a manner that enables visual inspection.  The
       bundles, security blocks, and security context contents in these
       figures are represented using CBOR structures.  In cases where BP
-      blocks (to include BPSec security blocks) are comprised of a
+      blocks (to include BpSec security blocks) are comprised of a
       sequence of CBOR objects, these objects are represented as a CBOR
       sequence as defined in [RFC8742].
 
@@ -199,7 +199,7 @@ A.1.1.1.  Primary Block
 
         block.m_dataLength = payloadString.size();
         block.m_dataPtr = (uint8_t*)payloadString.data(); //payloadString must remain in scope until after render
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
         BOOST_REQUIRE(bv.Render(500));
     }
     //get payload and verify
@@ -213,7 +213,7 @@ A.1.1.1.  Primary Block
         BOOST_REQUIRE_EQUAL(s, payloadString);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::PAYLOAD);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockNumber, 1);
-        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize());
+        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize(false));
 
         //verify from example
         std::vector<uint8_t> expectedSerializedPayloadBlock;
@@ -246,7 +246,7 @@ A.1.1.1.  Primary Block
    6c6f6164ff
     */
     {
-        std::vector<uint8_t> expectedSerializedBundle;
+        padded_vector_uint8_t expectedSerializedBundle;
         static const std::string expectedSerializedBundleString(
           //"9f88070000820282010282028202018202820201820018281a000f42408501010000582052656164792047656e657261746520612033322062797465207061796c6f6164ff" //last draft rfc
             "9f88070000820282010282028202018202820201820018281a000f424085010100005823526561647920746f2067656e657261746520612033322d62797465207061796c6f6164ff"
@@ -366,7 +366,7 @@ A.1.3.2.  Abstract Security Block
         bib.SetSecurityContextParametersPresent();
         bib.m_securitySource.Set(2, 1);
         BOOST_REQUIRE(bib.AddOrUpdateSecurityParameterShaVariant(COSE_ALGORITHMS::HMAC_512_512));
-        BOOST_REQUIRE(bib.AddSecurityParameterIntegrityScope(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE));
+        BOOST_REQUIRE(bib.AddSecurityParameterIntegrityScope(BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE));
         
         BOOST_REQUIRE(BinaryConversions::HexStringToBytes(expectedSecurityResultString, expectedSecurityResult));
         std::vector<uint8_t> * result1Ptr = bib.AppendAndGetExpectedHmacPtr();
@@ -375,7 +375,7 @@ A.1.3.2.  Abstract Security Block
 
         
         
-        bv.PrependMoveCanonicalBlock(blockPtr);
+        bv.PrependMoveCanonicalBlock(std::move(blockPtr));
         BOOST_REQUIRE(bv.Render(5000));
     }
     //get bib and verify
@@ -459,7 +459,7 @@ A.1.3.2.  Abstract Security Block
    746f2067656e657261746520612033322d62797465207061796c6f6164ff*/
 
     {
-        std::vector<uint8_t> expectedSerializedBundle;
+        padded_vector_uint8_t expectedSerializedBundle;
         static const std::string expectedSerializedBundleString(
             
             //last draft rfc
@@ -492,7 +492,7 @@ A.1.3.2.  Abstract Security Block
         //load bundle to test deserialize
         {
             BundleViewV7 bv2;
-            std::vector<uint8_t> toSwapIn(expectedSerializedBundle);
+            padded_vector_uint8_t toSwapIn(expectedSerializedBundle);
             BOOST_REQUIRE(bv2.SwapInAndLoadBundle(toSwapIn)); //swap in a copy
             //get bib and verify
             {
@@ -609,7 +609,7 @@ A.2.1.1.  Primary Block
 
         block.m_dataLength = payloadString.size();
         block.m_dataPtr = (uint8_t*)payloadString.data(); //payloadString must remain in scope until after render
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
         BOOST_REQUIRE(bv.Render(500));
     }
     //get payload and verify
@@ -623,7 +623,7 @@ A.2.1.1.  Primary Block
         BOOST_REQUIRE_EQUAL(s, payloadString);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::PAYLOAD);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockNumber, 1);
-        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize());
+        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize(false));
 
         //verify from example
         std::vector<uint8_t> expectedSerializedPayloadBlock;
@@ -656,7 +656,7 @@ A.2.1.1.  Primary Block
    6c6f6164ff
     */
     {
-        std::vector<uint8_t> expectedSerializedBundle;
+        padded_vector_uint8_t expectedSerializedBundle;
         static const std::string expectedSerializedBundleString(
             //last draft rfc
             /*
@@ -817,7 +817,7 @@ A.2.3.2.  Abstract Security Block
 
 
 
-        bv.PrependMoveCanonicalBlock(blockPtr);
+        bv.PrependMoveCanonicalBlock(std::move(blockPtr));
         BOOST_REQUIRE(bv.Render(5000));
     }
     //get bcb and verify
@@ -928,7 +928,7 @@ A.2.3.2.  Abstract Security Block
         BOOST_REQUIRE(bv.Render(5000));
 
         //verify from example
-        std::vector<uint8_t> expectedSerializedBundle;
+        padded_vector_uint8_t expectedSerializedBundle;
         static const std::string expectedSerializedBundleString(
             //last draft rfc
             /*
@@ -958,7 +958,7 @@ A.2.3.2.  Abstract Security Block
         //load bundle to test deserialize
         {
             BundleViewV7 bv2;
-            std::vector<uint8_t> toSwapIn(expectedSerializedBundle);
+            padded_vector_uint8_t toSwapIn(expectedSerializedBundle);
             BOOST_REQUIRE(bv2.SwapInAndLoadBundle(toSwapIn)); //swap in a copy
             //get bib and verify
             {
@@ -1092,7 +1092,7 @@ A.3.1.1.  Primary Block
         block.m_crcType = BPV7_CRC_TYPE::NONE;
         block.m_bundleAgeMilliseconds = 300;
 
-        bv.PrependMoveCanonicalBlock(blockPtr);
+        bv.PrependMoveCanonicalBlock(std::move(blockPtr));
     }
 
     /*
@@ -1122,7 +1122,7 @@ A.3.1.1.  Primary Block
 
         block.m_dataLength = payloadString.size();
         block.m_dataPtr = (uint8_t*)payloadString.data(); //payloadString must remain in scope until after render
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
         BOOST_REQUIRE(bv.Render(500));
     }
     //get bundle age and verify
@@ -1157,7 +1157,7 @@ A.3.1.1.  Primary Block
         BOOST_REQUIRE_EQUAL(s, payloadString);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::PAYLOAD);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockNumber, 1);
-        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize());
+        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize(false));
 
         //verify from example
         std::vector<uint8_t> expectedSerializedPayloadBlock;
@@ -1195,7 +1195,7 @@ A.3.1.1.  Primary Block
    2d62797465207061796c6f6164ff
     */
     {
-        std::vector<uint8_t> expectedSerializedBundle;
+        padded_vector_uint8_t expectedSerializedBundle;
         static const std::string expectedSerializedBundleString(
             //last draft rfc
             /*
@@ -1348,7 +1348,7 @@ A.3.3.2.  Abstract Security Block
         bib.SetSecurityContextParametersPresent();
         bib.m_securitySource.Set(3, 0);
         BOOST_REQUIRE(bib.AddOrUpdateSecurityParameterShaVariant(COSE_ALGORITHMS::HMAC_256_256));
-        BOOST_REQUIRE(bib.AddSecurityParameterIntegrityScope(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE));
+        BOOST_REQUIRE(bib.AddSecurityParameterIntegrityScope(BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE));
 
         
         std::vector<uint8_t> * result1Ptr = bib.AppendAndGetExpectedHmacPtr();
@@ -1361,7 +1361,7 @@ A.3.3.2.  Abstract Security Block
 
         BOOST_REQUIRE_EQUAL(bib.GetAllExpectedHmacPtrs().size(), 2);
 
-        bv.PrependMoveCanonicalBlock(blockPtr);
+        bv.PrependMoveCanonicalBlock(std::move(blockPtr));
         BOOST_REQUIRE(bv.Render(5000));
     }
     //get bib and verify
@@ -1548,7 +1548,7 @@ A.3.4.2.  Abstract Security Block
 
 
 
-        bv.InsertMoveCanonicalBlockAfterBlockNumber(blockPtr, 3); //insert after first bib which is block number 3 to match example
+        bv.InsertMoveCanonicalBlockAfterBlockNumber(std::move(blockPtr), 3); //insert after first bib which is block number 3 to match example
         BOOST_REQUIRE(bv.Render(5000));
     }
     //get bcb and verify
@@ -1656,7 +1656,7 @@ A.3.4.2.  Abstract Security Block
         BOOST_REQUIRE(bv.Render(5000));
 
         //verify from example
-        std::vector<uint8_t> expectedSerializedBundle;
+        padded_vector_uint8_t expectedSerializedBundle;
         static const std::string expectedSerializedBundleString(
             //last draft rfc
             /*
@@ -1690,7 +1690,7 @@ A.3.4.2.  Abstract Security Block
         //load bundle to test deserialize
         {
             BundleViewV7 bv2;
-            std::vector<uint8_t> toSwapIn(expectedSerializedBundle);
+            padded_vector_uint8_t toSwapIn(expectedSerializedBundle);
             BOOST_REQUIRE(bv2.SwapInAndLoadBundle(toSwapIn)); //swap in a copy
             //get bcb and verify
             {
@@ -1830,7 +1830,7 @@ A.4.1.1.  Primary Block
 
         block.m_dataLength = payloadString.size();
         block.m_dataPtr = (uint8_t*)payloadString.data(); //payloadString must remain in scope until after render
-        bv.AppendMoveCanonicalBlock(blockPtr);
+        bv.AppendMoveCanonicalBlock(std::move(blockPtr));
         BOOST_REQUIRE(bv.Render(500));
     }
     //get payload and verify
@@ -1844,7 +1844,7 @@ A.4.1.1.  Primary Block
         BOOST_REQUIRE_EQUAL(s, payloadString);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::PAYLOAD);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockNumber, 1);
-        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize());
+        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize(false));
 
         //verify from example
         std::vector<uint8_t> expectedSerializedPayloadBlock;
@@ -1877,7 +1877,7 @@ A.4.1.1.  Primary Block
    6c6f6164ff
     */
     {
-        std::vector<uint8_t> expectedSerializedBundle;
+        padded_vector_uint8_t expectedSerializedBundle;
         static const std::string expectedSerializedBundleString(
             //last draft rfc
             /*
@@ -2027,9 +2027,9 @@ A.4.3.2.  Abstract Security Block
         bib.m_securitySource.Set(2, 1);
         BOOST_REQUIRE(bib.AddOrUpdateSecurityParameterShaVariant(COSE_ALGORITHMS::HMAC_384_384));
         BOOST_REQUIRE(bib.AddSecurityParameterIntegrityScope(
-            BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_PRIMARY_BLOCK |
-            BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_SECURITY_HEADER |
-            BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_TARGET_HEADER
+            BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_PRIMARY_BLOCK |
+            BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_SECURITY_HEADER |
+            BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_TARGET_HEADER
         ));
 
         
@@ -2039,7 +2039,7 @@ A.4.3.2.  Abstract Security Block
 
 
 
-        bv.PrependMoveCanonicalBlock(blockPtr);
+        bv.PrependMoveCanonicalBlock(std::move(blockPtr));
         BOOST_REQUIRE(bv.Render(5000));
     }
     //get bib and verify
@@ -2121,6 +2121,13 @@ A.4.3.2.  Abstract Security Block
         boost::to_lower(actualHex);
         BOOST_REQUIRE_EQUAL(actualHex, expectedSerializedBibBlockString);
 
+    }
+
+    if (false) { //dump the payload, bib, and primary as a full bundle for "encryption+add_bcb" unit test 
+        std::string actualHex;
+        BinaryConversions::BytesToHexString(bv.m_renderedBundle, actualHex);
+        boost::to_lower(actualHex);
+        std::cout << "primary+bib+payload bundle: " << actualHex << "\n";
     }
 
     /*
@@ -2267,7 +2274,7 @@ A.4.4.2.  Abstract Security Block
 
 
 
-        bv.InsertMoveCanonicalBlockAfterBlockNumber(blockPtr, 3); //insert after first bib which is block number 3 to match example
+        bv.InsertMoveCanonicalBlockAfterBlockNumber(std::move(blockPtr), 3); //insert after first bib which is block number 3 to match example
         BOOST_REQUIRE(bv.Render(5000));
     }
     //get bcb and verify
@@ -2410,7 +2417,7 @@ A.4.4.2.  Abstract Security Block
         BOOST_REQUIRE(bv.Render(5000));
 
         //verify from example
-        std::vector<uint8_t> expectedSerializedBundle;
+        padded_vector_uint8_t expectedSerializedBundle;
         static const std::string expectedSerializedBundleString(
             //last draft rfc
             /*
@@ -2444,7 +2451,7 @@ A.4.4.2.  Abstract Security Block
         //load bundle to test deserialize
         {
             BundleViewV7 bv2;
-            std::vector<uint8_t> toSwapIn(expectedSerializedBundle);
+            padded_vector_uint8_t toSwapIn(expectedSerializedBundle);
             BOOST_REQUIRE(bv2.SwapInAndLoadBundle(toSwapIn)); //swap in a copy
             //get bcb and verify
             {

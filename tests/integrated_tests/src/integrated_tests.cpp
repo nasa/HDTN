@@ -49,7 +49,6 @@
 #include "EgressAsyncRunner.h"
 #include "StorageRunner.h"
 #include "SignalHandler.h"
-#include "SchedulerRunner.h"
 
 #define DELAY_THREAD 3
 #define DELAY_TEST 3
@@ -57,15 +56,17 @@
 #define MAX_RATE_DIV_3 "--stcp-rate-bits-per-sec=10000"
 #define MAX_RATE_DIV_6 "--stcp-rate-bits-per-sec=5000"
 
+#define ARGS_SZ(a) ((int) ((sizeof((a)) / sizeof(*(a))) - 1))
+
 // Prototypes
 static void GetSha1(const uint8_t * data, const std::size_t size, std::string & sha1Str);
-int RunBpgenAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount, OutductFinalStats * ptrFinalStats);
-int RunBpsinkAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount, FinalStatsBpSink * ptrFinalStatsBpSink);
-int RunBpSendFile(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
-int RunBpReceiveFile(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
-int RunHdtnOneProcess(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCountStorage,
+static int RunBpgenAsync(const char * argv[], int argc, std::atomic<bool>& running, uint64_t* ptrBundleCount, OutductFinalStats * ptrFinalStats);
+static int RunBpsinkAsync(const char * argv[], int argc, std::atomic<bool>& running, uint64_t* ptrBundleCount, FinalStatsBpSink * ptrFinalStatsBpSink);
+static int RunBpSendFile(const char * argv[], int argc, std::atomic<bool>& running, uint64_t* ptrBundleCount);
+static int RunBpReceiveFile(const char * argv[], int argc, std::atomic<bool>& running, uint64_t* ptrBundleCount);
+static int RunHdtnOneProcess(const char * argv[], int argc, std::atomic<bool>& running, uint64_t* ptrBundleCountStorage,
                       uint64_t* ptrBundleCountEgress, uint64_t* ptrBundleCountIngress);
-void Delay(uint64_t seconds);
+static void Delay(uint64_t seconds);
 
 // Global Test Fixture.  Used to setup Python Registration server.
 class BoostIntegratedTestsFixture {
@@ -88,7 +89,7 @@ void BoostIntegratedTestsFixture::MonitorExitKeypressThreadFunction() {
     std::cout << "Keyboard Interrupt.. exiting " << std::endl << std::flush;
 }
 
-void Delay(uint64_t seconds) {
+static void Delay(uint64_t seconds) {
     boost::this_thread::sleep(boost::posix_time::seconds(seconds));
 }
 
@@ -109,7 +110,7 @@ static void GetSha1(const uint8_t * data, const std::size_t size, std::string & 
 }
 
 
-int RunBpgenAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount,
+static int RunBpgenAsync(const char * argv[], int argc, std::atomic<bool>& running, uint64_t* ptrBundleCount,
     OutductFinalStats * ptrFinalStats) {
     {
         BpGenAsyncRunner runner;
@@ -120,7 +121,7 @@ int RunBpgenAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBu
     return 0;
 }
 
-int RunBpsinkAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount, 
+static int RunBpsinkAsync(const char * argv[], int argc, std::atomic<bool>& running, uint64_t* ptrBundleCount,
 		FinalStatsBpSink * ptrFinalStatsBpSink) {
     {
         BpSinkAsyncRunner runner;
@@ -131,7 +132,7 @@ int RunBpsinkAsync(const char * argv[], int argc, bool & running, uint64_t* ptrB
     return 0;
 }
 
-int RunBpSendFile(const char * argv[], int argc, bool & running,  uint64_t* ptrBundleCount) {
+static int RunBpSendFile(const char * argv[], int argc, std::atomic<bool>& running,  uint64_t* ptrBundleCount) {
     {
         BpSendFileRunner runner;
         runner.Run(argc, argv, running, false);
@@ -140,7 +141,7 @@ int RunBpSendFile(const char * argv[], int argc, bool & running,  uint64_t* ptrB
     return 0;
 }
 
-int RunBpReceiveFile(const char * argv[], int argc, bool & running,  uint64_t* ptrBundleCount) {
+static int RunBpReceiveFile(const char * argv[], int argc, std::atomic<bool>& running,  uint64_t* ptrBundleCount) {
     {
         BpReceiveFileRunner runner;
         runner.Run(argc, argv, running, false);
@@ -150,7 +151,7 @@ int RunBpReceiveFile(const char * argv[], int argc, bool & running,  uint64_t* p
 }
 
 
-int RunHdtnOneProcess(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCountStorage, 
+static int RunHdtnOneProcess(const char * argv[], int argc, std::atomic<bool>& running, uint64_t* ptrBundleCountStorage,
 		      uint64_t* ptrBundleCountEgress, uint64_t* ptrBundleCountIngress) {
     {
         HdtnOneProcessRunner runner;
@@ -168,9 +169,9 @@ bool TestHDTNCutThroughModeLTP() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpgen = true;
-    bool runningBpsink = true;
-    bool runningHdtnOneProcess = true; 
+    std::atomic<bool> runningBpgen(true);
+    std::atomic<bool> runningBpsink(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
@@ -186,7 +187,7 @@ bool TestHDTNCutThroughModeLTP() {
     //bpsink
     static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_ltp_port4558.json").string();
     static const char * argsBpsink[] = { "bpsink",  "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
-    std::thread threadBpsink(RunBpsinkAsync, argsBpsink, 3, std::ref(runningBpsink), &bundlesReceivedBpsink[0],
+    std::thread threadBpsink(RunBpsinkAsync, argsBpsink, ARGS_SZ(argsBpsink), std::ref(runningBpsink), &bundlesReceivedBpsink[0],
         &finalStatsBpSink[0]);
 
     Delay(DELAY_THREAD);
@@ -194,11 +195,11 @@ bool TestHDTNCutThroughModeLTP() {
     //HDTN One Process
     //HdtnOneProcessRunner hdtn;
     static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "hdtn" / "hdtn_ingress1ltp_port4556_egress1ltp_port4558flowid2.json").string();
-    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode.json";
+    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode_unlimitedRate.json";
     const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
     const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
     //std::thread threadHdtn(&HdtnOneProcessRunner::Run, &hdtn, 3,  argsHdtnOneProcess, std::ref(runningHdtnOneProcess), true);
-    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, 3, std::ref(runningHdtnOneProcess), &bundleCountStorage,
+    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, ARGS_SZ(argsHdtnOneProcess), std::ref(runningHdtnOneProcess), &bundleCountStorage,
 		             &bundleCountEgress, &bundleCountIngress);
 
     Delay(10);
@@ -207,7 +208,7 @@ bool TestHDTNCutThroughModeLTP() {
     static const std::string bpgenConfigArg = 
 	"--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_ltp_port4556_thisengineid200.json").string();
     static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1","--duration=40", bpgenConfigArg.c_str(), NULL };
-    std::thread threadBpgen(RunBpgenAsync,argsBpgen, 6, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
+    std::thread threadBpgen(RunBpgenAsync, argsBpgen, ARGS_SZ(argsBpgen), std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
 
     // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(8));
@@ -216,8 +217,12 @@ bool TestHDTNCutThroughModeLTP() {
     runningBpgen = false;
     threadBpgen.join();
 
+    Delay(1);
+
     runningHdtnOneProcess = false;
     threadHdtn.join();
+
+    Delay(1);
 
     runningBpsink = false;
     threadBpsink.join();
@@ -264,9 +269,9 @@ bool TestHDTNCutThroughModeLTPv7() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpgen = true;
-    bool runningBpsink = true;
-    bool runningHdtnOneProcess = true; 
+    std::atomic<bool> runningBpgen(true);
+    std::atomic<bool> runningBpsink(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
@@ -282,7 +287,7 @@ bool TestHDTNCutThroughModeLTPv7() {
     //bpsink
     static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_ltp_port4558.json").string();
     static const char * argsBpsink[] = { "bpsink",  "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
-    std::thread threadBpsink(RunBpsinkAsync, argsBpsink, 3, std::ref(runningBpsink), &bundlesReceivedBpsink[0],
+    std::thread threadBpsink(RunBpsinkAsync, argsBpsink, ARGS_SZ(argsBpsink), std::ref(runningBpsink), &bundlesReceivedBpsink[0],
         &finalStatsBpSink[0]);
 
     Delay(DELAY_THREAD);
@@ -290,11 +295,11 @@ bool TestHDTNCutThroughModeLTPv7() {
     //HDTN One Process
     //HdtnOneProcessRunner hdtn;
     static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "hdtn" / "hdtn_ingress1ltp_port4556_egress1ltp_port4558flowid2.json").string();
-    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode.json";
+    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode_unlimitedRate.json";
     const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
     const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
     //std::thread threadHdtn(&HdtnOneProcessRunner::Run, &hdtn, 3,  argsHdtnOneProcess, std::ref(runningHdtnOneProcess), true);
-    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, 3, std::ref(runningHdtnOneProcess), &bundleCountStorage,
+    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, ARGS_SZ(argsHdtnOneProcess), std::ref(runningHdtnOneProcess), &bundleCountStorage,
 		             &bundleCountEgress, &bundleCountIngress);
 
     Delay(10);
@@ -303,7 +308,7 @@ bool TestHDTNCutThroughModeLTPv7() {
     static const std::string bpgenConfigArg = 
 	"--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_ltp_port4556_thisengineid200.json").string();
     static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1","--duration=40", "--use-bp-version-7", bpgenConfigArg.c_str(), NULL};
-    std::thread threadBpgen(RunBpgenAsync,argsBpgen, 7, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
+    std::thread threadBpgen(RunBpgenAsync, argsBpgen, ARGS_SZ(argsBpgen), std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
 
     // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(8));
@@ -312,8 +317,12 @@ bool TestHDTNCutThroughModeLTPv7() {
     runningBpgen = false;
     threadBpgen.join();
 
+    Delay(1);
+
     runningHdtnOneProcess = false;
     threadHdtn.join();
+
+    Delay(1);
 
     runningBpsink = false;
     threadBpsink.join();
@@ -360,9 +369,9 @@ bool TestHDTNStorageModeLTP() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpgen = true;
-    bool runningBpsink = true;
-    bool runningHdtnOneProcess = true;
+    std::atomic<bool> runningBpgen(true);
+    std::atomic<bool> runningBpsink(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
@@ -378,7 +387,7 @@ bool TestHDTNStorageModeLTP() {
     //bpsink
     static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_ltp_port4558.json").string();
     static const char * argsBpsink[] = { "bpsink",  "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
-    std::thread threadBpsink(RunBpsinkAsync, argsBpsink, 3, std::ref(runningBpsink), &bundlesReceivedBpsink[0],
+    std::thread threadBpsink(RunBpsinkAsync, argsBpsink, ARGS_SZ(argsBpsink), std::ref(runningBpsink), &bundlesReceivedBpsink[0],
         &finalStatsBpSink[0]);
 
     Delay(DELAY_THREAD);
@@ -388,7 +397,7 @@ bool TestHDTNStorageModeLTP() {
     const boost::filesystem::path contactsFile = "contactPlanStorageMode.json";
     const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
     const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
-    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, 3, std::ref(runningHdtnOneProcess), &bundleCountStorage,
+    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, ARGS_SZ(argsHdtnOneProcess), std::ref(runningHdtnOneProcess), &bundleCountStorage,
                            &bundleCountEgress, &bundleCountIngress);
 
     Delay(10);
@@ -397,7 +406,7 @@ bool TestHDTNStorageModeLTP() {
     static const std::string bpgenConfigArg =
         "--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_ltp_port4556_thisengineid200.json").string();
     static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1","--duration=40", bpgenConfigArg.c_str(), NULL };
-    std::thread threadBpgen(RunBpgenAsync,argsBpgen, 6, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
+    std::thread threadBpgen(RunBpgenAsync, argsBpgen, ARGS_SZ(argsBpgen), std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
 
     // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(8));
@@ -406,8 +415,12 @@ bool TestHDTNStorageModeLTP() {
     runningBpgen = false;
     threadBpgen.join();
 
+    Delay(1);
+
     runningHdtnOneProcess = false;
     threadHdtn.join();
+
+    Delay(1);
 
     runningBpsink = false;
     threadBpsink.join();
@@ -458,9 +471,9 @@ bool TestHDTNStorageModeLTPv7() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpgen = true;
-    bool runningBpsink = true;
-    bool runningHdtnOneProcess = true;
+    std::atomic<bool> runningBpgen(true);
+    std::atomic<bool> runningBpsink(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
@@ -476,7 +489,7 @@ bool TestHDTNStorageModeLTPv7() {
     //bpsink
     static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_ltp_port4558.json").string();
     static const char * argsBpsink[] = { "bpsink",  "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
-    std::thread threadBpsink(RunBpsinkAsync, argsBpsink, 3, std::ref(runningBpsink), &bundlesReceivedBpsink[0],
+    std::thread threadBpsink(RunBpsinkAsync, argsBpsink, ARGS_SZ(argsBpsink), std::ref(runningBpsink), &bundlesReceivedBpsink[0],
         &finalStatsBpSink[0]);
 
     Delay(DELAY_THREAD);
@@ -486,7 +499,7 @@ bool TestHDTNStorageModeLTPv7() {
     const boost::filesystem::path contactsFile = "contactPlanStorageMode.json";
     const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
     const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
-    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, 3, std::ref(runningHdtnOneProcess), &bundleCountStorage,
+    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, ARGS_SZ(argsHdtnOneProcess), std::ref(runningHdtnOneProcess), &bundleCountStorage,
                            &bundleCountEgress, &bundleCountIngress);
 
     Delay(10);
@@ -495,7 +508,7 @@ bool TestHDTNStorageModeLTPv7() {
     static const std::string bpgenConfigArg =
         "--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_ltp_port4556_thisengineid200.json").string();
     static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1","--duration=40","--use-bp-version-7", bpgenConfigArg.c_str(), NULL};
-    std::thread threadBpgen(RunBpgenAsync,argsBpgen, 7, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
+    std::thread threadBpgen(RunBpgenAsync, argsBpgen, ARGS_SZ(argsBpgen), std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
 
     // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(8));
@@ -504,8 +517,12 @@ bool TestHDTNStorageModeLTPv7() {
     runningBpgen = false;
     threadBpgen.join();
 
+    Delay(1);
+
     runningHdtnOneProcess = false;
     threadHdtn.join();
+
+    Delay(1);
 
     runningBpsink = false;
     threadBpsink.join();
@@ -556,9 +573,9 @@ bool TestHDTNFileTransferLTP() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpsend = true;
-    bool runningBpreceive = true;
-    bool runningHdtnOneProcess = true; 
+    std::atomic<bool> runningBpsend(true);
+    std::atomic<bool> runningBpreceive(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpsend[1] = {0};
     //OutductFinalStats finalStats[1];
@@ -575,16 +592,16 @@ bool TestHDTNFileTransferLTP() {
     static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_ltp_port4558.json").string();
     static const std::string bpsinkSaveDir = "--save-directory=" + (Environment::GetPathHdtnSourceRoot() / "build" / "tests" / "integrated_tests" / "received").string();
     static const char * argsBpReceiveFile[] = { "bpreceivefile",  bpsinkSaveDir.c_str(), "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
-    std::thread threadBpReceiveFile(RunBpReceiveFile, argsBpReceiveFile, 4, std::ref(runningBpreceive), &bundlesReceivedBpreceive[0] );
+    std::thread threadBpReceiveFile(RunBpReceiveFile, argsBpReceiveFile, ARGS_SZ(argsBpReceiveFile), std::ref(runningBpreceive), &bundlesReceivedBpreceive[0] );
 
     Delay(DELAY_THREAD);
 
     //HDTN One Process
     static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "hdtn" / "hdtn_ingress1ltp_port4556_egress1ltp_port4558flowid2.json").string();
-    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode.json";
+    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode_unlimitedRate.json";
     const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
     const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
-    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, 3, std::ref(runningHdtnOneProcess), &bundleCountStorage,
+    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, ARGS_SZ(argsHdtnOneProcess), std::ref(runningHdtnOneProcess), &bundleCountStorage,
 		             &bundleCountEgress, &bundleCountIngress);
 
     Delay(10);
@@ -596,7 +613,7 @@ bool TestHDTNFileTransferLTP() {
 	"--file-or-folder-path=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "integrated_tests" / "src" / "test.txt" ).string();
    
     static const char * argsBpSendFile[] = { "bpsendfile",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", testFile.c_str(), bpgenConfigArg.c_str(), NULL };
-    std::thread threadBpSendFile(RunBpSendFile,argsBpSendFile, 6, std::ref(runningBpsend), &bundlesSentBpsend[0] );
+    std::thread threadBpSendFile(RunBpSendFile, argsBpSendFile, ARGS_SZ(argsBpSendFile), std::ref(runningBpsend), &bundlesSentBpsend[0] );
 
     // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(8));
@@ -688,9 +705,9 @@ bool TestHDTNFileTransferLTPv7() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpsend = true;
-    bool runningBpreceive = true;
-    bool runningHdtnOneProcess = true; 
+    std::atomic<bool> runningBpsend(true);
+    std::atomic<bool> runningBpreceive(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpsend[1] = {0};
     uint64_t bundlesReceivedBpreceive[1]= {0};
@@ -705,17 +722,17 @@ bool TestHDTNFileTransferLTPv7() {
     static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_ltp_port4558.json").string();
     static const std::string bpsinkSaveDir = "--save-directory=" + (Environment::GetPathHdtnSourceRoot() / "build" / "tests" / "integrated_tests"/"received").string();
     static const char * argsBpReceiveFile[] = { "bpreceivefile",  bpsinkSaveDir.c_str(), "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
-    std::thread threadBpReceiveFile(RunBpReceiveFile, argsBpReceiveFile, 4, std::ref(runningBpreceive), &bundlesReceivedBpreceive[0] );
+    std::thread threadBpReceiveFile(RunBpReceiveFile, argsBpReceiveFile, ARGS_SZ(argsBpReceiveFile), std::ref(runningBpreceive), &bundlesReceivedBpreceive[0] );
 
 
     Delay(DELAY_THREAD);
 
     //HDTN One Process
     static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "hdtn" / "hdtn_ingress1ltp_port4556_egress1ltp_port4558flowid2.json").string();
-    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode.json";
+    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode_unlimitedRate.json";
     const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
     const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
-    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, 3, std::ref(runningHdtnOneProcess), &bundleCountStorage,
+    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, ARGS_SZ(argsHdtnOneProcess), std::ref(runningHdtnOneProcess), &bundleCountStorage,
 		             &bundleCountEgress, &bundleCountIngress);
 
     Delay(10);
@@ -727,7 +744,7 @@ bool TestHDTNFileTransferLTPv7() {
 	"--file-or-folder-path=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "integrated_tests" / "src" / "test.txt" ).string();
    
     static const char * argsBpSendFile[] = { "bpsendfile",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", testFile.c_str(),  "--use-bp-version-7", bpgenConfigArg.c_str(), NULL };
-    std::thread threadBpSendFile(RunBpSendFile,argsBpSendFile, 7, std::ref(runningBpsend), &bundlesSentBpsend[0] );
+    std::thread threadBpSendFile(RunBpSendFile, argsBpSendFile, ARGS_SZ(argsBpSendFile), std::ref(runningBpsend), &bundlesSentBpsend[0] );
 
     // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(8));
@@ -818,9 +835,9 @@ bool TestHDTNFileTransferTCPCL() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpsend = true;
-    bool runningBpreceive = true;
-    bool runningHdtnOneProcess = true; 
+    std::atomic<bool> runningBpsend(true);
+    std::atomic<bool> runningBpreceive(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpsend[1] = {0};
     uint64_t bundlesReceivedBpreceive[1]= {0};
@@ -836,16 +853,16 @@ bool TestHDTNFileTransferTCPCL() {
     static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_tcpclv4_port4558.json").string();
     static const std::string bpsinkSaveDir = "--save-directory=" + (Environment::GetPathHdtnSourceRoot() / "build" / "tests" / "integrated_tests"/"received").string();
     static const char * argsBpReceiveFile[] = { "bpreceivefile",  bpsinkSaveDir.c_str(), "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
-    std::thread threadBpReceiveFile(RunBpReceiveFile, argsBpReceiveFile, 4, std::ref(runningBpreceive), &bundlesReceivedBpreceive[0] );
+    std::thread threadBpReceiveFile(RunBpReceiveFile, argsBpReceiveFile, ARGS_SZ(argsBpReceiveFile), std::ref(runningBpreceive), &bundlesReceivedBpreceive[0] );
 
     Delay(DELAY_THREAD);
 
     //HDTN One Process
     static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "hdtn" / "hdtn_ingress1ltp_port4556_egress1ltp_port4558flowid2.json").string();
-    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode.json";
+    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode_unlimitedRate.json";
     const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
     const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
-    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, 3, std::ref(runningHdtnOneProcess), &bundleCountStorage,
+    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, ARGS_SZ(argsHdtnOneProcess), std::ref(runningHdtnOneProcess), &bundleCountStorage,
 		             &bundleCountEgress, &bundleCountIngress);
 
     Delay(10);
@@ -857,7 +874,7 @@ bool TestHDTNFileTransferTCPCL() {
 	"--file-or-folder-path=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "integrated_tests" / "src" / "test.txt" ).string();
    
     static const char * argsBpSendFile[] = { "bpsendfile",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", testFile.c_str(), bpgenConfigArg.c_str(), NULL };
-    std::thread threadBpSendFile(RunBpSendFile,argsBpSendFile, 6, std::ref(runningBpsend), &bundlesSentBpsend[0] );
+    std::thread threadBpSendFile(RunBpSendFile, argsBpSendFile, ARGS_SZ(argsBpSendFile), std::ref(runningBpsend), &bundlesSentBpsend[0] );
 
     // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(8));
@@ -949,9 +966,9 @@ bool TestHDTNCutThroughModeTCPCL() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpgen = true;
-    bool runningBpsink = true;
-    bool runningHdtnOneProcess = true; 
+    std::atomic<bool> runningBpgen(true);
+    std::atomic<bool> runningBpsink(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
@@ -968,17 +985,17 @@ bool TestHDTNCutThroughModeTCPCL() {
     //bpsink
     static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_tcpclv4_port4558.json").string();
     static const char * argsBpsink[] = { "bpsink",  "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
-    std::thread threadBpsink(RunBpsinkAsync, argsBpsink, 3, std::ref(runningBpsink), &bundlesReceivedBpsink[0],
+    std::thread threadBpsink(RunBpsinkAsync, argsBpsink, ARGS_SZ(argsBpsink), std::ref(runningBpsink), &bundlesReceivedBpsink[0],
         &finalStatsBpSink[0]);
 
     Delay(DELAY_THREAD);
 
     //HDTN One Process
     static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "hdtn" / "hdtn_ingress1tcpclv4_port4556_egress1tcpclv4_port4558flowid2.json").string();
-    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode.json";
+    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode_unlimitedRate.json";
     const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
     const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
-    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, 3, std::ref(runningHdtnOneProcess), &bundleCountStorage,
+    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, ARGS_SZ(argsHdtnOneProcess), std::ref(runningHdtnOneProcess), &bundleCountStorage,
 		             &bundleCountEgress, &bundleCountIngress);
 
     Delay(10);
@@ -987,7 +1004,7 @@ bool TestHDTNCutThroughModeTCPCL() {
     static const std::string bpgenConfigArg = 
 	"--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_tcpclv4_port4556.json").string();
     static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1","--duration=40", bpgenConfigArg.c_str(), NULL };
-    std::thread threadBpgen(RunBpgenAsync,argsBpgen, 6, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
+    std::thread threadBpgen(RunBpgenAsync, argsBpgen, ARGS_SZ(argsBpgen), std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
 
     // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(8));
@@ -996,8 +1013,12 @@ bool TestHDTNCutThroughModeTCPCL() {
     runningBpgen = false;
     threadBpgen.join();
 
+    Delay(1);
+
     runningHdtnOneProcess = false;
     threadHdtn.join();
+
+    Delay(1);
 
     runningBpsink = false;
     threadBpsink.join();
@@ -1044,9 +1065,9 @@ bool TestHDTNCutThroughModeUDP() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpgen = true;
-    bool runningBpsink = true;
-    bool runningHdtnOneProcess = true;
+    std::atomic<bool> runningBpgen(true);
+    std::atomic<bool> runningBpsink(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
@@ -1062,7 +1083,7 @@ bool TestHDTNCutThroughModeUDP() {
     //bpsink
     static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_udp_port4558.json").string();
     static const char * argsBpsink[] = { "bpsink",  "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
-    std::thread threadBpsink(RunBpsinkAsync, argsBpsink, 3, std::ref(runningBpsink), &bundlesReceivedBpsink[0],
+    std::thread threadBpsink(RunBpsinkAsync, argsBpsink, ARGS_SZ(argsBpsink), std::ref(runningBpsink), &bundlesReceivedBpsink[0],
         &finalStatsBpSink[0]);
 
     Delay(DELAY_THREAD);
@@ -1070,11 +1091,11 @@ bool TestHDTNCutThroughModeUDP() {
     //HDTN One Process
     //HdtnOneProcessRunner hdtn;
     static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "hdtn" / "hdtn_ingress1udp_port4556_egress1udp_port4558flowid2_0.8Mbps.json").string();
-    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode.json";
+    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode_0.8Mbps.json";
     const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
     const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
     //std::thread threadHdtn(&HdtnOneProcessRunner::Run, &hdtn, 3,  argsHdtnOneProcess, std::ref(runningHdtnOneProcess), true);
-    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, 3, std::ref(runningHdtnOneProcess), &bundleCountStorage,
+    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, ARGS_SZ(argsHdtnOneProcess), std::ref(runningHdtnOneProcess), &bundleCountStorage,
                            &bundleCountEgress, &bundleCountIngress);
 
     Delay(10);
@@ -1083,8 +1104,8 @@ bool TestHDTNCutThroughModeUDP() {
     static const std::string bpgenConfigArg = 
 	"--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_udp_port4556_0.05Mbps.json").string();
 
-    static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1","--duration=40", bpgenConfigArg.c_str(), NULL };
-    std::thread threadBpgen(RunBpgenAsync,argsBpgen, 6, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
+    static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1","--duration=40", "--cla-rate=50000", bpgenConfigArg.c_str(), NULL };
+    std::thread threadBpgen(RunBpgenAsync,argsBpgen, ARGS_SZ(argsBpgen), std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
 
     // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(8));
@@ -1093,8 +1114,12 @@ bool TestHDTNCutThroughModeUDP() {
     runningBpgen = false;
     threadBpgen.join();
 
+    Delay(1);
+
     runningHdtnOneProcess = false;
     threadHdtn.join();
+
+    Delay(1);
 
     runningBpsink = false;
     threadBpsink.join();
@@ -1145,9 +1170,9 @@ bool TestHDTNStorageModeUDP() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpgen = true;
-    bool runningBpsink = true;
-    bool runningHdtnOneProcess = true;
+    std::atomic<bool> runningBpgen(true);
+    std::atomic<bool> runningBpsink(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
@@ -1163,7 +1188,7 @@ bool TestHDTNStorageModeUDP() {
     //bpsink
     static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_udp_port4558.json").string();
     static const char * argsBpsink[] = { "bpsink",  "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
-    std::thread threadBpsink(RunBpsinkAsync, argsBpsink, 3, std::ref(runningBpsink), &bundlesReceivedBpsink[0],
+    std::thread threadBpsink(RunBpsinkAsync, argsBpsink, ARGS_SZ(argsBpsink), std::ref(runningBpsink), &bundlesReceivedBpsink[0],
         &finalStatsBpSink[0]);
 
     Delay(DELAY_THREAD);
@@ -1171,11 +1196,11 @@ bool TestHDTNStorageModeUDP() {
     //HDTN One Process
     //HdtnOneProcessRunner hdtn;
     static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "hdtn" / "hdtn_ingress1udp_port4556_egress1udp_port4558flowid2_0.8Mbps.json").string();
-    const boost::filesystem::path contactsFile = "contactPlanStorageMode.json";
+    const boost::filesystem::path contactsFile = "contactPlanStorageMode_0.8Mbps.json";
     const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
     const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
     //std::thread threadHdtn(&HdtnOneProcessRunner::Run, &hdtn, 3,  argsHdtnOneProcess, std::ref(runningHdtnOneProcess), true);
-    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, 3, std::ref(runningHdtnOneProcess), &bundleCountStorage,
+    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, ARGS_SZ(argsHdtnOneProcess), std::ref(runningHdtnOneProcess), &bundleCountStorage,
                            &bundleCountEgress, &bundleCountIngress);
 
     Delay(10);
@@ -1184,8 +1209,8 @@ bool TestHDTNStorageModeUDP() {
     static const std::string bpgenConfigArg = 
 	"--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_udp_port4556_0.05Mbps.json").string();
 
-    static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1","--duration=40", bpgenConfigArg.c_str(), NULL };
-    std::thread threadBpgen(RunBpgenAsync,argsBpgen, 6, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
+    static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1","--duration=40", "--cla-rate=50000", bpgenConfigArg.c_str(), NULL };
+    std::thread threadBpgen(RunBpgenAsync,argsBpgen, ARGS_SZ(argsBpgen), std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
 
     // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(8));
@@ -1194,8 +1219,12 @@ bool TestHDTNStorageModeUDP() {
     runningBpgen = false;
     threadBpgen.join();
 
+    Delay(1);
+
     runningHdtnOneProcess = false;
     threadHdtn.join();
+
+    Delay(1);
 
     runningBpsink = false;
     threadBpsink.join();
@@ -1246,9 +1275,9 @@ bool TestHDTNFileTransferUDP() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpsend = true;
-    bool runningBpreceive = true;
-    bool runningHdtnOneProcess = true; 
+    std::atomic<bool> runningBpsend(true);
+    std::atomic<bool> runningBpreceive(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpsend[1] = {0};
     //OutductFinalStats finalStats[1];
@@ -1265,16 +1294,16 @@ bool TestHDTNFileTransferUDP() {
     static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_udp_port4558.json").string();
     static const std::string bpsinkSaveDir = "--save-directory=" + (Environment::GetPathHdtnSourceRoot() / "build" / "tests" / "integrated_tests" / "received").string();
     static const char * argsBpReceiveFile[] = { "bpreceivefile",  bpsinkSaveDir.c_str(), "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
-    std::thread threadBpReceiveFile(RunBpReceiveFile, argsBpReceiveFile, 4, std::ref(runningBpreceive), &bundlesReceivedBpreceive[0] );
+    std::thread threadBpReceiveFile(RunBpReceiveFile, argsBpReceiveFile, ARGS_SZ(argsBpReceiveFile), std::ref(runningBpreceive), &bundlesReceivedBpreceive[0] );
 
     Delay(DELAY_THREAD);
 
     //HDTN One Process
     static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "hdtn" / "hdtn_ingress1udp_port4556_egress1udp_port4558flowid2_0.8Mbps.json").string();
-    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode.json";
+    const boost::filesystem::path contactsFile = "contactPlanCutThroughMode_0.8Mbps.json";
     const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
     const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
-    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, 3, std::ref(runningHdtnOneProcess), &bundleCountStorage,
+    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, ARGS_SZ(argsHdtnOneProcess), std::ref(runningHdtnOneProcess), &bundleCountStorage,
 		             &bundleCountEgress, &bundleCountIngress);
 
     Delay(10);
@@ -1285,8 +1314,8 @@ bool TestHDTNFileTransferUDP() {
     static const std::string testFile = 
 	"--file-or-folder-path=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "integrated_tests" / "src" / "test.txt" ).string();
    
-    static const char * argsBpSendFile[] = { "bpsendfile",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", testFile.c_str(), bpgenConfigArg.c_str(), NULL };
-    std::thread threadBpSendFile(RunBpSendFile,argsBpSendFile, 6, std::ref(runningBpsend), &bundlesSentBpsend[0] );
+    static const char * argsBpSendFile[] = { "bpsendfile",  "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1", "--max-bundle-size-bytes=4000000", "--cla-rate=50000", testFile.c_str(), bpgenConfigArg.c_str(), NULL };
+    std::thread threadBpSendFile(RunBpSendFile,argsBpSendFile, ARGS_SZ(argsBpSendFile), std::ref(runningBpsend), &bundlesSentBpsend[0] );
 
     // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(8));
@@ -1378,9 +1407,9 @@ bool TestHDTNStorageModeTCPCL() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpgen = true;
-    bool runningBpsink = true;
-    bool runningHdtnOneProcess = true;
+    std::atomic<bool> runningBpgen(true);
+    std::atomic<bool> runningBpsink(true);
+    std::atomic<bool> runningHdtnOneProcess(true);
 
     uint64_t bundlesSentBpgen[1] = {0};
     OutductFinalStats finalStats[1];
@@ -1396,7 +1425,7 @@ bool TestHDTNStorageModeTCPCL() {
     //bpsink
     static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_tcpclv4_port4558.json").string();
     static const char * argsBpsink[] = { "bpsink",  "--my-uri-eid=ipn:2.1", bpsinkConfigArg.c_str(), NULL };
-    std::thread threadBpsink(RunBpsinkAsync, argsBpsink, 3, std::ref(runningBpsink), &bundlesReceivedBpsink[0],
+    std::thread threadBpsink(RunBpsinkAsync, argsBpsink, ARGS_SZ(argsBpsink), std::ref(runningBpsink), &bundlesReceivedBpsink[0],
         &finalStatsBpSink[0]);
 
     Delay(DELAY_THREAD);
@@ -1407,7 +1436,7 @@ bool TestHDTNStorageModeTCPCL() {
     const boost::filesystem::path contactsFile = "contactPlanStorageMode.json";
     const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
     const char * argsHdtnOneProcess[] = { "HdtnOneProcess", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
-    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, 3, std::ref(runningHdtnOneProcess), &bundleCountStorage,
+    std::thread threadHdtn(RunHdtnOneProcess, argsHdtnOneProcess, ARGS_SZ(argsHdtnOneProcess), std::ref(runningHdtnOneProcess), &bundleCountStorage,
                            &bundleCountEgress, &bundleCountIngress);
 
     Delay(10);
@@ -1416,7 +1445,7 @@ bool TestHDTNStorageModeTCPCL() {
     static const std::string bpgenConfigArg =
         "--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_tcpclv4_port4556.json").string();
     static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1","--duration=40", bpgenConfigArg.c_str(), NULL };
-    std::thread threadBpgen(RunBpgenAsync,argsBpgen, 6, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
+    std::thread threadBpgen(RunBpgenAsync, argsBpgen, ARGS_SZ(argsBpgen), std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
 
     // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(8));
@@ -1425,8 +1454,12 @@ bool TestHDTNStorageModeTCPCL() {
     runningBpgen = false;
     threadBpgen.join();
 
+    Delay(1);
+
     runningHdtnOneProcess = false;
     threadHdtn.join();
+
+    Delay(1);
 
     runningBpsink = false;
     threadBpsink.join();

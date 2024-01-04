@@ -2,7 +2,7 @@
  * @file OutductsConfig.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -24,7 +24,11 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_over_udp", "ltp_over_ipc", "udp", "stcp", "tcpcl_v3", "tcpcl_v4" };
+static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = {
+    "ltp_over_udp", "ltp_over_ipc", "udp", "stcp", "tcpcl_v3", "tcpcl_v4", "slip_over_uart"
+};
+
+static const uint64_t DEFAULT_RATE_LIMIT_PRECISION = 100000;
 
 outduct_element_config_t::outduct_element_config_t() :
     name(""),
@@ -34,7 +38,6 @@ outduct_element_config_t::outduct_element_config_t() :
     remotePort(0),
     maxNumberOfBundlesInPipeline(0),
     maxSumOfBundleBytesInPipeline(0),
-    finalDestinationEidUris(),
     
     thisLtpEngineId(0),
     remoteLtpEngineId(0),
@@ -47,15 +50,16 @@ outduct_element_config_t::outduct_element_config_t() :
     ltpCheckpointEveryNthDataSegment(0),
     ltpRandomNumberSizeBits(0),
     ltpSenderBoundPort(0),
-    ltpMaxSendRateBitsPerSecOrZeroToDisable(0),
     ltpMaxUdpPacketsToSendPerSystemCall(0),
     ltpSenderPingSecondsOrZeroToDisable(0),
     delaySendingOfDataSegmentsTimeMsOrZeroToDisable(20),
     keepActiveSessionDataOnDisk(false),
     activeSessionDataOnDiskNewFileDurationMs(2000),
     activeSessionDataOnDiskDirectory("./"),
+    rateLimitPrecisionMicroSec(DEFAULT_RATE_LIMIT_PRECISION),
 
-    udpRateBps(0),
+    comPort(""),
+    baudRate(115200),
 
     keepAliveIntervalSeconds(0),
     tcpclV3MyMaxTxSegmentSizeBytes(0),
@@ -81,7 +85,6 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     remotePort(o.remotePort),
     maxNumberOfBundlesInPipeline(o.maxNumberOfBundlesInPipeline),
     maxSumOfBundleBytesInPipeline(o.maxSumOfBundleBytesInPipeline),
-    finalDestinationEidUris(o.finalDestinationEidUris),
     
     thisLtpEngineId(o.thisLtpEngineId),
     remoteLtpEngineId(o.remoteLtpEngineId),
@@ -94,15 +97,16 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     ltpCheckpointEveryNthDataSegment(o.ltpCheckpointEveryNthDataSegment),
     ltpRandomNumberSizeBits(o.ltpRandomNumberSizeBits),
     ltpSenderBoundPort(o.ltpSenderBoundPort),
-    ltpMaxSendRateBitsPerSecOrZeroToDisable(o.ltpMaxSendRateBitsPerSecOrZeroToDisable),
     ltpMaxUdpPacketsToSendPerSystemCall(o.ltpMaxUdpPacketsToSendPerSystemCall),
     ltpSenderPingSecondsOrZeroToDisable(o.ltpSenderPingSecondsOrZeroToDisable),
     delaySendingOfDataSegmentsTimeMsOrZeroToDisable(o.delaySendingOfDataSegmentsTimeMsOrZeroToDisable),
     keepActiveSessionDataOnDisk(o.keepActiveSessionDataOnDisk),
     activeSessionDataOnDiskNewFileDurationMs(o.activeSessionDataOnDiskNewFileDurationMs),
     activeSessionDataOnDiskDirectory(o.activeSessionDataOnDiskDirectory),
+    rateLimitPrecisionMicroSec(o.rateLimitPrecisionMicroSec),
 
-    udpRateBps(o.udpRateBps),
+    comPort(o.comPort),
+    baudRate(o.baudRate),
 
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
     tcpclV3MyMaxTxSegmentSizeBytes(o.tcpclV3MyMaxTxSegmentSizeBytes),
@@ -125,7 +129,6 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     remotePort(o.remotePort),
     maxNumberOfBundlesInPipeline(o.maxNumberOfBundlesInPipeline),
     maxSumOfBundleBytesInPipeline(o.maxSumOfBundleBytesInPipeline),
-    finalDestinationEidUris(std::move(o.finalDestinationEidUris)),
     
     thisLtpEngineId(o.thisLtpEngineId),
     remoteLtpEngineId(o.remoteLtpEngineId),
@@ -138,15 +141,16 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     ltpCheckpointEveryNthDataSegment(o.ltpCheckpointEveryNthDataSegment),
     ltpRandomNumberSizeBits(o.ltpRandomNumberSizeBits),
     ltpSenderBoundPort(o.ltpSenderBoundPort),
-    ltpMaxSendRateBitsPerSecOrZeroToDisable(o.ltpMaxSendRateBitsPerSecOrZeroToDisable),
     ltpMaxUdpPacketsToSendPerSystemCall(o.ltpMaxUdpPacketsToSendPerSystemCall),
     ltpSenderPingSecondsOrZeroToDisable(o.ltpSenderPingSecondsOrZeroToDisable),
     delaySendingOfDataSegmentsTimeMsOrZeroToDisable(o.delaySendingOfDataSegmentsTimeMsOrZeroToDisable),
     keepActiveSessionDataOnDisk(o.keepActiveSessionDataOnDisk),
     activeSessionDataOnDiskNewFileDurationMs(o.activeSessionDataOnDiskNewFileDurationMs),
     activeSessionDataOnDiskDirectory(std::move(o.activeSessionDataOnDiskDirectory)),
+    rateLimitPrecisionMicroSec(o.rateLimitPrecisionMicroSec),
 
-    udpRateBps(o.udpRateBps),
+    comPort(std::move(o.comPort)),
+    baudRate(o.baudRate),
 
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
     tcpclV3MyMaxTxSegmentSizeBytes(o.tcpclV3MyMaxTxSegmentSizeBytes),
@@ -169,7 +173,6 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
     remotePort = o.remotePort;
     maxNumberOfBundlesInPipeline = o.maxNumberOfBundlesInPipeline;
     maxSumOfBundleBytesInPipeline = o.maxSumOfBundleBytesInPipeline;
-    finalDestinationEidUris = o.finalDestinationEidUris;
     
     thisLtpEngineId = o.thisLtpEngineId;
     remoteLtpEngineId = o.remoteLtpEngineId;
@@ -182,15 +185,16 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
     ltpCheckpointEveryNthDataSegment = o.ltpCheckpointEveryNthDataSegment;
     ltpRandomNumberSizeBits = o.ltpRandomNumberSizeBits;
     ltpSenderBoundPort = o.ltpSenderBoundPort;
-    ltpMaxSendRateBitsPerSecOrZeroToDisable = o.ltpMaxSendRateBitsPerSecOrZeroToDisable;
     ltpMaxUdpPacketsToSendPerSystemCall = o.ltpMaxUdpPacketsToSendPerSystemCall;
     ltpSenderPingSecondsOrZeroToDisable = o.ltpSenderPingSecondsOrZeroToDisable;
     delaySendingOfDataSegmentsTimeMsOrZeroToDisable = o.delaySendingOfDataSegmentsTimeMsOrZeroToDisable;
     keepActiveSessionDataOnDisk = o.keepActiveSessionDataOnDisk;
     activeSessionDataOnDiskNewFileDurationMs = o.activeSessionDataOnDiskNewFileDurationMs;
     activeSessionDataOnDiskDirectory = o.activeSessionDataOnDiskDirectory;
+    rateLimitPrecisionMicroSec = o.rateLimitPrecisionMicroSec;
 
-    udpRateBps = o.udpRateBps;
+    comPort = o.comPort;
+    baudRate = o.baudRate;
 
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
 
@@ -216,7 +220,6 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
     remotePort = o.remotePort;
     maxNumberOfBundlesInPipeline = o.maxNumberOfBundlesInPipeline;
     maxSumOfBundleBytesInPipeline = o.maxSumOfBundleBytesInPipeline;
-    finalDestinationEidUris = std::move(o.finalDestinationEidUris);
 
     thisLtpEngineId = o.thisLtpEngineId;
     remoteLtpEngineId = o.remoteLtpEngineId;
@@ -229,15 +232,16 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
     ltpCheckpointEveryNthDataSegment = o.ltpCheckpointEveryNthDataSegment;
     ltpRandomNumberSizeBits = o.ltpRandomNumberSizeBits;
     ltpSenderBoundPort = o.ltpSenderBoundPort;
-    ltpMaxSendRateBitsPerSecOrZeroToDisable = o.ltpMaxSendRateBitsPerSecOrZeroToDisable;
     ltpMaxUdpPacketsToSendPerSystemCall = o.ltpMaxUdpPacketsToSendPerSystemCall;
     ltpSenderPingSecondsOrZeroToDisable = o.ltpSenderPingSecondsOrZeroToDisable;
     delaySendingOfDataSegmentsTimeMsOrZeroToDisable = o.delaySendingOfDataSegmentsTimeMsOrZeroToDisable;
     keepActiveSessionDataOnDisk = o.keepActiveSessionDataOnDisk;
     activeSessionDataOnDiskNewFileDurationMs = o.activeSessionDataOnDiskNewFileDurationMs;
     activeSessionDataOnDiskDirectory = std::move(o.activeSessionDataOnDiskDirectory);
+    rateLimitPrecisionMicroSec = o.rateLimitPrecisionMicroSec;
 
-    udpRateBps = o.udpRateBps;
+    comPort = std::move(o.comPort);
+    baudRate = o.baudRate;
 
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
 
@@ -262,7 +266,6 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
         (remotePort == o.remotePort) &&
         (maxNumberOfBundlesInPipeline == o.maxNumberOfBundlesInPipeline) &&
         (maxSumOfBundleBytesInPipeline == o.maxSumOfBundleBytesInPipeline) &&
-        (finalDestinationEidUris == o.finalDestinationEidUris) &&
         
         (thisLtpEngineId == o.thisLtpEngineId) &&
         (remoteLtpEngineId == o.remoteLtpEngineId) &&
@@ -275,15 +278,16 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
         (ltpCheckpointEveryNthDataSegment == o.ltpCheckpointEveryNthDataSegment) &&
         (ltpRandomNumberSizeBits == o.ltpRandomNumberSizeBits) &&
         (ltpSenderBoundPort == o.ltpSenderBoundPort) &&
-        (ltpMaxSendRateBitsPerSecOrZeroToDisable == o.ltpMaxSendRateBitsPerSecOrZeroToDisable) &&
         (ltpMaxUdpPacketsToSendPerSystemCall == o.ltpMaxUdpPacketsToSendPerSystemCall) &&
         (ltpSenderPingSecondsOrZeroToDisable == o.ltpSenderPingSecondsOrZeroToDisable) &&
         (delaySendingOfDataSegmentsTimeMsOrZeroToDisable == o.delaySendingOfDataSegmentsTimeMsOrZeroToDisable) &&
         (keepActiveSessionDataOnDisk == o.keepActiveSessionDataOnDisk) &&
         (activeSessionDataOnDiskNewFileDurationMs == o.activeSessionDataOnDiskNewFileDurationMs) &&
         (activeSessionDataOnDiskDirectory == o.activeSessionDataOnDiskDirectory) &&
+        (rateLimitPrecisionMicroSec == o.rateLimitPrecisionMicroSec) &&
 
-        (udpRateBps == o.udpRateBps) &&
+        (comPort == o.comPort) &&
+        (baudRate == o.baudRate) &&
 
         (keepAliveIntervalSeconds == o.keepAliveIntervalSeconds) &&
         
@@ -363,33 +367,20 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                     return false;
                 }
             }
-            outductElementConfig.remoteHostname = outductElementConfigPt.second.get<std::string>("remoteHostname");
-            if (outductElementConfig.remoteHostname == "") {
-                LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid outduct remoteHostname, must not be empty";
-                return false;
-            }
-            outductElementConfig.remotePort = outductElementConfigPt.second.get<uint16_t>("remotePort");
-            if (outductElementConfig.remotePort == 0) {
-                LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid remotePort, must be non-zero";
-                return false;
+            if (outductElementConfig.convergenceLayer != "slip_over_uart") { //uses com port only
+                outductElementConfig.remoteHostname = outductElementConfigPt.second.get<std::string>("remoteHostname");
+                if (outductElementConfig.remoteHostname == "") {
+                    LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid outduct remoteHostname, must not be empty";
+                    return false;
+                }
+                outductElementConfig.remotePort = outductElementConfigPt.second.get<uint16_t>("remotePort");
+                if (outductElementConfig.remotePort == 0) {
+                    LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid remotePort, must be non-zero";
+                    return false;
+                }
             }
             outductElementConfig.maxNumberOfBundlesInPipeline = outductElementConfigPt.second.get<uint32_t>("maxNumberOfBundlesInPipeline");
             outductElementConfig.maxSumOfBundleBytesInPipeline = outductElementConfigPt.second.get<uint64_t>("maxSumOfBundleBytesInPipeline");
-            const boost::property_tree::ptree & finalDestinationEidUrisPt = outductElementConfigPt.second.get_child("finalDestinationEidUris", EMPTY_PTREE); //non-throw version
-            outductElementConfig.finalDestinationEidUris.clear();
-            BOOST_FOREACH(const boost::property_tree::ptree::value_type & finalDestinationEidUriValuePt, finalDestinationEidUrisPt) {
-                const std::string uriStr = finalDestinationEidUriValuePt.second.get_value<std::string>();
-                uint64_t node, svc;
-                bool serviceNumberIsWildCard;
-                if (!Uri::ParseIpnUriString(uriStr, node, svc, &serviceNumberIsWildCard)) {
-                    LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid final destination eid uri " << uriStr;
-                    return false;
-                }
-                else if (outductElementConfig.finalDestinationEidUris.insert(uriStr).second == false) { //not inserted
-                    LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "duplicate final destination eid uri " << uriStr;
-                    return false;
-                }
-            }
 
             if ((outductElementConfig.convergenceLayer == "ltp_over_udp") || (outductElementConfig.convergenceLayer == "ltp_over_ipc")) {
                 outductElementConfig.thisLtpEngineId = outductElementConfigPt.second.get<uint64_t>("thisLtpEngineId");
@@ -408,7 +399,6 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                     return false;
                 }
                 outductElementConfig.ltpSenderBoundPort = outductElementConfigPt.second.get<uint16_t>("ltpSenderBoundPort");
-                outductElementConfig.ltpMaxSendRateBitsPerSecOrZeroToDisable = outductElementConfigPt.second.get<uint64_t>("ltpMaxSendRateBitsPerSecOrZeroToDisable");
                 outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall = outductElementConfigPt.second.get<uint64_t>("ltpMaxUdpPacketsToSendPerSystemCall");
                 if (outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall == 0) {
                     LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: ltpMaxUdpPacketsToSendPerSystemCall ("
@@ -442,12 +432,31 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 }
             }
 
-            if (outductElementConfig.convergenceLayer == "udp") {
-                outductElementConfig.udpRateBps = outductElementConfigPt.second.get<uint64_t>("udpRateBps");
-            }
-            else if (outductElementConfigPt.second.count("udpRateBps") != 0) {
+            if (outductElementConfig.convergenceLayer == "ltp_over_udp" || outductElementConfig.convergenceLayer == "udp") {
+                outductElementConfig.rateLimitPrecisionMicroSec = outductElementConfigPt.second.get<uint64_t>("rateLimitPrecisionMicroSec", DEFAULT_RATE_LIMIT_PRECISION);
+                if (outductElementConfig.rateLimitPrecisionMicroSec == 0) {
+                    LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: rateLimitPrecisionMicroSec " <<
+                        "must be greater than 0";
+                        return false;
+                }
+            } else if (outductElementConfigPt.second.count("rateLimitPrecisionMicroSec")) {
                 LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
-                    << " has a udp outduct only configuration parameter of \"udpRateBps\".. please remove";
+                            << " has an ltp/udp outduct only configuration parameter of rateLimitPrecisionMicroSec .. please remove";
+                        return false;
+            }
+
+            if (outductElementConfig.convergenceLayer == "slip_over_uart") {
+                outductElementConfig.comPort = outductElementConfigPt.second.get<std::string>("comPort");
+                outductElementConfig.baudRate = outductElementConfigPt.second.get<uint32_t>("baudRate");
+            }
+            else if (outductElementConfigPt.second.count("comPort") != 0) {
+                LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
+                    << " has a slip_over_uart outduct only configuration parameter of \"comPort\".. please remove";
+                return false;
+            }
+            else if (outductElementConfigPt.second.count("baudRate") != 0) {
+                LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
+                    << " has a slip_over_uart outduct only configuration parameter of \"baudRate\".. please remove";
                 return false;
             }
 
@@ -568,14 +577,12 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
         outductElementConfigPt.put("name", outductElementConfig.name);
         outductElementConfigPt.put("convergenceLayer", outductElementConfig.convergenceLayer);
         outductElementConfigPt.put("nextHopNodeId", outductElementConfig.nextHopNodeId);
-        outductElementConfigPt.put("remoteHostname", outductElementConfig.remoteHostname);
-        outductElementConfigPt.put("remotePort", outductElementConfig.remotePort);
+        if (outductElementConfig.convergenceLayer != "slip_over_uart") { //uses com port only
+            outductElementConfigPt.put("remoteHostname", outductElementConfig.remoteHostname);
+            outductElementConfigPt.put("remotePort", outductElementConfig.remotePort);
+        }
         outductElementConfigPt.put("maxNumberOfBundlesInPipeline", outductElementConfig.maxNumberOfBundlesInPipeline);
         outductElementConfigPt.put("maxSumOfBundleBytesInPipeline", outductElementConfig.maxSumOfBundleBytesInPipeline);
-        boost::property_tree::ptree & finalDestinationEidUrisPt = outductElementConfigPt.put_child("finalDestinationEidUris", outductElementConfig.finalDestinationEidUris.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
-        for (std::set<std::string>::const_iterator finalDestinationEidUriIt = outductElementConfig.finalDestinationEidUris.cbegin(); finalDestinationEidUriIt != outductElementConfig.finalDestinationEidUris.cend(); ++finalDestinationEidUriIt) {
-            finalDestinationEidUrisPt.push_back(std::make_pair("", boost::property_tree::ptree(*finalDestinationEidUriIt))); //using "" as key creates json array
-        }
         
         if ((outductElementConfig.convergenceLayer == "ltp_over_udp") || (outductElementConfig.convergenceLayer == "ltp_over_ipc")) {
             outductElementConfigPt.put("thisLtpEngineId", outductElementConfig.thisLtpEngineId);
@@ -589,7 +596,6 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
             outductElementConfigPt.put("ltpCheckpointEveryNthDataSegment", outductElementConfig.ltpCheckpointEveryNthDataSegment);
             outductElementConfigPt.put("ltpRandomNumberSizeBits", outductElementConfig.ltpRandomNumberSizeBits);
             outductElementConfigPt.put("ltpSenderBoundPort", outductElementConfig.ltpSenderBoundPort);
-            outductElementConfigPt.put("ltpMaxSendRateBitsPerSecOrZeroToDisable", outductElementConfig.ltpMaxSendRateBitsPerSecOrZeroToDisable);
             outductElementConfigPt.put("ltpMaxUdpPacketsToSendPerSystemCall", outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall);
             outductElementConfigPt.put("ltpSenderPingSecondsOrZeroToDisable", outductElementConfig.ltpSenderPingSecondsOrZeroToDisable);
             outductElementConfigPt.put("delaySendingOfDataSegmentsTimeMsOrZeroToDisable", outductElementConfig.delaySendingOfDataSegmentsTimeMsOrZeroToDisable);
@@ -597,8 +603,12 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
             outductElementConfigPt.put("activeSessionDataOnDiskNewFileDurationMs", outductElementConfig.activeSessionDataOnDiskNewFileDurationMs);
             outductElementConfigPt.put("activeSessionDataOnDiskDirectory", outductElementConfig.activeSessionDataOnDiskDirectory.string()); //.string() prevents nested quotes in json file
         }
-        if (outductElementConfig.convergenceLayer == "udp") {
-            outductElementConfigPt.put("udpRateBps", outductElementConfig.udpRateBps);
+        if ((outductElementConfig.convergenceLayer == "ltp_over_udp") || (outductElementConfig.convergenceLayer == "udp")) {
+            outductElementConfigPt.put("rateLimitPrecisionMicroSec", outductElementConfig.rateLimitPrecisionMicroSec);
+        }
+        if (outductElementConfig.convergenceLayer == "slip_over_uart") {
+            outductElementConfigPt.put("comPort", outductElementConfig.comPort);
+            outductElementConfigPt.put("baudRate", outductElementConfig.baudRate);
         }
         if ((outductElementConfig.convergenceLayer == "stcp") || (outductElementConfig.convergenceLayer == "tcpcl_v3") || (outductElementConfig.convergenceLayer == "tcpcl_v4")) {
             outductElementConfigPt.put("keepAliveIntervalSeconds", outductElementConfig.keepAliveIntervalSeconds);

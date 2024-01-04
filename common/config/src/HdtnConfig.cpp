@@ -30,7 +30,7 @@ HdtnConfig::HdtnConfig() :
     m_myBpEchoServiceId(2047), //dtnme default
     m_myCustodialSsp("unused_custodial_ssp"),
     m_myCustodialServiceId(0),
-    m_mySchedulerServiceId(100),
+    m_myRouterServiceId(100),
     m_isAcsAware(true),
     m_acsMaxFillsPerAcsPacket(100),
     m_acsSendPeriodMilliseconds(1000),
@@ -39,7 +39,9 @@ HdtnConfig::HdtnConfig() :
     m_maxIngressBundleWaitOnEgressMilliseconds(2000),
     m_bufferRxToStorageOnLinkUpSaturation(false),
     m_maxLtpReceiveUdpPacketSizeBytes(65536),
-    m_zmqBoundSchedulerPubSubPortPath(10200),
+    m_neighborDepletedStorageDelaySeconds(0),
+    m_fragmentBundlesLargerThanBytes(0),
+    m_zmqBoundRouterPubSubPortPath(10200),
     m_zmqBoundTelemApiPortPath(10305),
     m_inductsConfig(),
     m_outductsConfig(),
@@ -58,7 +60,7 @@ HdtnConfig::HdtnConfig(const HdtnConfig& o) :
     m_myBpEchoServiceId(o.m_myBpEchoServiceId),
     m_myCustodialSsp(o.m_myCustodialSsp),
     m_myCustodialServiceId(o.m_myCustodialServiceId),
-    m_mySchedulerServiceId(o.m_mySchedulerServiceId),
+    m_myRouterServiceId(o.m_myRouterServiceId),
     m_isAcsAware(o.m_isAcsAware),
     m_acsMaxFillsPerAcsPacket(o.m_acsMaxFillsPerAcsPacket),
     m_acsSendPeriodMilliseconds(o.m_acsSendPeriodMilliseconds),
@@ -67,7 +69,9 @@ HdtnConfig::HdtnConfig(const HdtnConfig& o) :
     m_maxIngressBundleWaitOnEgressMilliseconds(o.m_maxIngressBundleWaitOnEgressMilliseconds),
     m_bufferRxToStorageOnLinkUpSaturation(o.m_bufferRxToStorageOnLinkUpSaturation),
     m_maxLtpReceiveUdpPacketSizeBytes(o.m_maxLtpReceiveUdpPacketSizeBytes),
-    m_zmqBoundSchedulerPubSubPortPath(o.m_zmqBoundSchedulerPubSubPortPath),
+    m_neighborDepletedStorageDelaySeconds(o.m_neighborDepletedStorageDelaySeconds),
+    m_fragmentBundlesLargerThanBytes(o.m_fragmentBundlesLargerThanBytes),
+    m_zmqBoundRouterPubSubPortPath(o.m_zmqBoundRouterPubSubPortPath),
     m_zmqBoundTelemApiPortPath(o.m_zmqBoundTelemApiPortPath),
     m_inductsConfig(o.m_inductsConfig),
     m_outductsConfig(o.m_outductsConfig),
@@ -83,7 +87,7 @@ HdtnConfig::HdtnConfig(HdtnConfig&& o) noexcept :
     m_myBpEchoServiceId(o.m_myBpEchoServiceId),
     m_myCustodialSsp(std::move(o.m_myCustodialSsp)),
     m_myCustodialServiceId(o.m_myCustodialServiceId),
-    m_mySchedulerServiceId(o.m_mySchedulerServiceId),
+    m_myRouterServiceId(o.m_myRouterServiceId),
     m_isAcsAware(o.m_isAcsAware),
     m_acsMaxFillsPerAcsPacket(o.m_acsMaxFillsPerAcsPacket),
     m_acsSendPeriodMilliseconds(o.m_acsSendPeriodMilliseconds),
@@ -92,7 +96,9 @@ HdtnConfig::HdtnConfig(HdtnConfig&& o) noexcept :
     m_maxIngressBundleWaitOnEgressMilliseconds(o.m_maxIngressBundleWaitOnEgressMilliseconds),
     m_bufferRxToStorageOnLinkUpSaturation(o.m_bufferRxToStorageOnLinkUpSaturation),
     m_maxLtpReceiveUdpPacketSizeBytes(o.m_maxLtpReceiveUdpPacketSizeBytes),
-    m_zmqBoundSchedulerPubSubPortPath(o.m_zmqBoundSchedulerPubSubPortPath),
+    m_neighborDepletedStorageDelaySeconds(o.m_neighborDepletedStorageDelaySeconds),
+    m_fragmentBundlesLargerThanBytes(o.m_fragmentBundlesLargerThanBytes),
+    m_zmqBoundRouterPubSubPortPath(o.m_zmqBoundRouterPubSubPortPath),
     m_zmqBoundTelemApiPortPath(o.m_zmqBoundTelemApiPortPath),
     m_inductsConfig(std::move(o.m_inductsConfig)),
     m_outductsConfig(std::move(o.m_outductsConfig)),
@@ -108,7 +114,7 @@ HdtnConfig& HdtnConfig::operator=(const HdtnConfig& o) {
     m_myBpEchoServiceId = o.m_myBpEchoServiceId;
     m_myCustodialSsp = o.m_myCustodialSsp;
     m_myCustodialServiceId = o.m_myCustodialServiceId;
-    m_mySchedulerServiceId = o.m_mySchedulerServiceId;
+    m_myRouterServiceId = o.m_myRouterServiceId;
     m_isAcsAware = o.m_isAcsAware;
     m_acsMaxFillsPerAcsPacket = o.m_acsMaxFillsPerAcsPacket;
     m_acsSendPeriodMilliseconds = o.m_acsSendPeriodMilliseconds;
@@ -117,7 +123,9 @@ HdtnConfig& HdtnConfig::operator=(const HdtnConfig& o) {
     m_maxIngressBundleWaitOnEgressMilliseconds = o.m_maxIngressBundleWaitOnEgressMilliseconds;
     m_bufferRxToStorageOnLinkUpSaturation = o.m_bufferRxToStorageOnLinkUpSaturation;
     m_maxLtpReceiveUdpPacketSizeBytes = o.m_maxLtpReceiveUdpPacketSizeBytes;
-    m_zmqBoundSchedulerPubSubPortPath = o.m_zmqBoundSchedulerPubSubPortPath;
+    m_neighborDepletedStorageDelaySeconds = o.m_neighborDepletedStorageDelaySeconds;
+    m_fragmentBundlesLargerThanBytes = o.m_fragmentBundlesLargerThanBytes;
+    m_zmqBoundRouterPubSubPortPath = o.m_zmqBoundRouterPubSubPortPath;
     m_zmqBoundTelemApiPortPath = o.m_zmqBoundTelemApiPortPath;
     m_inductsConfig = o.m_inductsConfig;
     m_outductsConfig = o.m_outductsConfig;
@@ -134,7 +142,7 @@ HdtnConfig& HdtnConfig::operator=(HdtnConfig&& o) noexcept {
     m_myBpEchoServiceId = o.m_myBpEchoServiceId;
     m_myCustodialSsp = std::move(o.m_myCustodialSsp);
     m_myCustodialServiceId = o.m_myCustodialServiceId;
-    m_mySchedulerServiceId = o.m_mySchedulerServiceId;
+    m_myRouterServiceId = o.m_myRouterServiceId;
     m_isAcsAware = o.m_isAcsAware;
     m_acsMaxFillsPerAcsPacket = o.m_acsMaxFillsPerAcsPacket;
     m_acsSendPeriodMilliseconds = o.m_acsSendPeriodMilliseconds;
@@ -143,7 +151,9 @@ HdtnConfig& HdtnConfig::operator=(HdtnConfig&& o) noexcept {
     m_maxIngressBundleWaitOnEgressMilliseconds = o.m_maxIngressBundleWaitOnEgressMilliseconds;
     m_bufferRxToStorageOnLinkUpSaturation = o.m_bufferRxToStorageOnLinkUpSaturation;
     m_maxLtpReceiveUdpPacketSizeBytes = o.m_maxLtpReceiveUdpPacketSizeBytes;
-    m_zmqBoundSchedulerPubSubPortPath = o.m_zmqBoundSchedulerPubSubPortPath;
+    m_neighborDepletedStorageDelaySeconds = o.m_neighborDepletedStorageDelaySeconds;
+    m_fragmentBundlesLargerThanBytes = o.m_fragmentBundlesLargerThanBytes;
+    m_zmqBoundRouterPubSubPortPath = o.m_zmqBoundRouterPubSubPortPath;
     m_zmqBoundTelemApiPortPath = o.m_zmqBoundTelemApiPortPath;
     m_inductsConfig = std::move(o.m_inductsConfig);
     m_outductsConfig = std::move(o.m_outductsConfig);
@@ -159,7 +169,7 @@ bool HdtnConfig::operator==(const HdtnConfig & o) const {
         (m_myBpEchoServiceId == o.m_myBpEchoServiceId) &&
         (m_myCustodialSsp == o.m_myCustodialSsp) &&
         (m_myCustodialServiceId == o.m_myCustodialServiceId) &&
-        (m_mySchedulerServiceId == o.m_mySchedulerServiceId) &&
+        (m_myRouterServiceId == o.m_myRouterServiceId) &&
         (m_isAcsAware == o.m_isAcsAware) &&
         (m_acsMaxFillsPerAcsPacket == o.m_acsMaxFillsPerAcsPacket) &&
         (m_acsSendPeriodMilliseconds == o.m_acsSendPeriodMilliseconds) &&
@@ -168,7 +178,9 @@ bool HdtnConfig::operator==(const HdtnConfig & o) const {
         (m_maxIngressBundleWaitOnEgressMilliseconds == o.m_maxIngressBundleWaitOnEgressMilliseconds) &&
         (m_bufferRxToStorageOnLinkUpSaturation == o.m_bufferRxToStorageOnLinkUpSaturation) &&
         (m_maxLtpReceiveUdpPacketSizeBytes == o.m_maxLtpReceiveUdpPacketSizeBytes) &&
-        (m_zmqBoundSchedulerPubSubPortPath == o.m_zmqBoundSchedulerPubSubPortPath) &&
+        (m_neighborDepletedStorageDelaySeconds == o.m_neighborDepletedStorageDelaySeconds) &&
+        (m_fragmentBundlesLargerThanBytes == o.m_fragmentBundlesLargerThanBytes) &&
+        (m_zmqBoundRouterPubSubPortPath == o.m_zmqBoundRouterPubSubPortPath) &&
         (m_zmqBoundTelemApiPortPath == o.m_zmqBoundTelemApiPortPath) &&
         (m_inductsConfig == o.m_inductsConfig) &&
         (m_outductsConfig == o.m_outductsConfig) &&
@@ -192,7 +204,7 @@ bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & p
         m_myBpEchoServiceId = pt.get<uint64_t>("myBpEchoServiceId");
         m_myCustodialSsp = pt.get<std::string>("myCustodialSsp");
         m_myCustodialServiceId = pt.get<uint64_t>("myCustodialServiceId");
-        m_mySchedulerServiceId = pt.get<uint64_t>("mySchedulerServiceId");
+        m_myRouterServiceId = pt.get<uint64_t>("myRouterServiceId");
         m_isAcsAware = pt.get<bool>("isAcsAware");
         m_acsMaxFillsPerAcsPacket = pt.get<uint64_t>("acsMaxFillsPerAcsPacket");
         m_acsSendPeriodMilliseconds = pt.get<uint64_t>("acsSendPeriodMilliseconds");
@@ -201,8 +213,10 @@ bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & p
         m_maxIngressBundleWaitOnEgressMilliseconds = pt.get<uint64_t>("maxIngressBundleWaitOnEgressMilliseconds");
         m_bufferRxToStorageOnLinkUpSaturation = pt.get<bool>("bufferRxToStorageOnLinkUpSaturation");
         m_maxLtpReceiveUdpPacketSizeBytes = pt.get<uint64_t>("maxLtpReceiveUdpPacketSizeBytes");
+        m_neighborDepletedStorageDelaySeconds = pt.get<uint64_t>("neighborDepletedStorageDelaySeconds");
+        m_fragmentBundlesLargerThanBytes = pt.get<uint64_t>("fragmentBundlesLargerThanBytes");
 
-        m_zmqBoundSchedulerPubSubPortPath = pt.get<uint16_t>("zmqBoundSchedulerPubSubPortPath");
+        m_zmqBoundRouterPubSubPortPath = pt.get<uint16_t>("zmqBoundRouterPubSubPortPath");
         m_zmqBoundTelemApiPortPath = pt.get<uint16_t>("zmqBoundTelemApiPortPath");
     }
     catch (const boost::property_tree::ptree_error & e) {
@@ -289,7 +303,7 @@ boost::property_tree::ptree HdtnConfig::GetNewPropertyTree() const {
     pt.put("myBpEchoServiceId", m_myBpEchoServiceId);
     pt.put("myCustodialSsp", m_myCustodialSsp);
     pt.put("myCustodialServiceId", m_myCustodialServiceId);
-    pt.put("mySchedulerServiceId", m_mySchedulerServiceId);
+    pt.put("myRouterServiceId", m_myRouterServiceId);
     pt.put("isAcsAware", m_isAcsAware);
     pt.put("acsMaxFillsPerAcsPacket", m_acsMaxFillsPerAcsPacket);
     pt.put("acsSendPeriodMilliseconds", m_acsSendPeriodMilliseconds);
@@ -298,8 +312,10 @@ boost::property_tree::ptree HdtnConfig::GetNewPropertyTree() const {
     pt.put("maxIngressBundleWaitOnEgressMilliseconds", m_maxIngressBundleWaitOnEgressMilliseconds);
     pt.put("bufferRxToStorageOnLinkUpSaturation", m_bufferRxToStorageOnLinkUpSaturation);
     pt.put("maxLtpReceiveUdpPacketSizeBytes", m_maxLtpReceiveUdpPacketSizeBytes);
+    pt.put("neighborDepletedStorageDelaySeconds", m_neighborDepletedStorageDelaySeconds);
+    pt.put("fragmentBundlesLargerThanBytes", m_fragmentBundlesLargerThanBytes);
 
-    pt.put("zmqBoundSchedulerPubSubPortPath", m_zmqBoundSchedulerPubSubPortPath);
+    pt.put("zmqBoundRouterPubSubPortPath", m_zmqBoundRouterPubSubPortPath);
     pt.put("zmqBoundTelemApiPortPath", m_zmqBoundTelemApiPortPath);
 
     pt.put_child("inductsConfig", m_inductsConfig.GetNewPropertyTree());

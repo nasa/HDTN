@@ -23,6 +23,7 @@
 #define _TCPCL_BUNDLE_SINK_H 1
 
 #include "TcpclV3BidirectionalLink.h"
+#include <atomic>
 
 class CLASS_VISIBILITY_TCPCL_LIB TcpclBundleSink : public TcpclV3BidirectionalLink {
 private:
@@ -30,7 +31,7 @@ private:
 public:
     typedef boost::function<void(padded_vector_uint8_t & wholeBundleVec)> WholeBundleReadyCallback_t;
     typedef boost::function<void()> NotifyReadyToDeleteCallback_t;
-    typedef boost::function<bool(std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > & bundleDataPair)> TryGetOpportunisticDataFunction_t;
+    typedef boost::function<bool(std::pair<std::unique_ptr<zmq::message_t>, padded_vector_uint8_t>& bundleDataPair)> TryGetOpportunisticDataFunction_t;
     typedef boost::function<void()> NotifyOpportunisticDataAckedCallback_t;
     typedef boost::function<void(TcpclBundleSink * thisTcpclBundleSinkPtr)> OnContactHeaderCallback_t;
 
@@ -88,7 +89,7 @@ private:
     std::unique_ptr<boost::thread> m_threadCbReaderPtr;
     bool m_stateTcpReadActive;
     bool m_printedCbTooSmallNotice;
-    volatile bool m_running;
+    std::atomic<bool> m_running;
     
 
     

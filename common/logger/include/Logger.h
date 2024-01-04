@@ -15,6 +15,7 @@
 #include <ostream>
 #include <string>
 #include <memory>
+#include <atomic>
 #include <boost/core/null_deleter.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/log/attributes.hpp>
@@ -142,7 +143,6 @@ public:
         hdtnoneprocess,
         ingress,
         router,
-        scheduler,
         storage,
         releasemessagesender,
         storagespeedtest,
@@ -159,7 +159,6 @@ public:
         egress,
         ingress,
         router,
-        scheduler,
         storage,
         telem,
         gui,
@@ -264,7 +263,7 @@ private:
 
     static std::unique_ptr<Logger> logger_; //singleton instance
     static boost::mutex mutexSingletonInstance_;
-    static volatile bool loggerSingletonFullyInitialized_;
+    static std::atomic<bool> loggerSingletonFullyInitialized_;
 };
 }
 

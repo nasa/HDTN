@@ -37,8 +37,8 @@
 #define HDTN_MSGTYPE_EGRESS_REMOVE_OPPORTUNISTIC_LINK (0x0007)
 #define HDTN_MSGTYPE_STORAGE_ADD_OPPORTUNISTIC_LINK (0x0008)
 #define HDTN_MSGTYPE_STORAGE_REMOVE_OPPORTUNISTIC_LINK (0x0009)
-#define HDTN_MSGTYPE_BUNDLES_TO_SCHEDULER (0x000A)
-#define HDTN_MSGTYPE_BUNDLES_FROM_SCHEDULER (0x000B)
+#define HDTN_MSGTYPE_BUNDLES_TO_ROUTER (0x000A)
+#define HDTN_MSGTYPE_BUNDLES_FROM_ROUTER (0x000B)
 
 // Egress Messages range is 0xE000 to 0xEAFF
 #define HDTN_MSGTYPE_ENOTIMPL (0xE000)  // convergence layer type not  // implemented
@@ -58,8 +58,8 @@
 #define HDTN_MSGTYPE_IABORT \
     (0xFC01)  // indicates that the worker encountered a critical failure and will // immediately terminate
 #define HDTN_MSGTYPE_ISHUTDOWN (0xFC02)   // tells the worker to shut down
-#define HDTN_MSGTYPE_ILINKUP (0xFC03)     // Link available event from scheduler
-#define HDTN_MSGTYPE_ILINKDOWN (0xFC04)    // Link unavailable event from scheduler
+#define HDTN_MSGTYPE_ILINKUP (0xFC03)     // Link available event from router
+#define HDTN_MSGTYPE_ILINKDOWN (0xFC04)    // Link unavailable event from router
 #define HDTN_MSGTYPE_IPRELOAD (0xFC05)    // preloads data because an event is scheduled to begin soon
 #define HDTN_MSGTYPE_IWORKSTATS (0xFC06)  // update on worker stats sent from worker to parent
 
@@ -74,6 +74,9 @@
 #define HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS (0x5556)
 #define HDTN_MSGTYPE_STORAGE_ACK_TO_INGRESS (0x5557)
 #define HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY (0x5558)
+#define HDTN_MSGTYPE_DEPLETED_STORAGE_REPORT (0x5559)
+
+#define HDTN_NOROUTE (UINT64_MAX) // no route available
 
 namespace hdtn {
 //#pragma pack (push, 1)
@@ -156,16 +159,9 @@ struct CscheduleHdr {
 struct IreleaseChangeHdr {
     uint64_t subscriptionBytes;
     CommonHdr base; //types ILINKDOWN or ILINKUP
-    uint8_t unused1;
-    uint8_t unused2;
-    uint8_t unused3;
-    uint8_t isPhysical; // whether the link status change is due to physical (link disruption) or a contact change
+    uint32_t unused1;
     uint64_t outductArrayIndex; //outductUuid
     uint64_t rateBps; // (start events only)
-    uint64_t duration;  // the duration of the contact (s) (link up events only)
-    uint64_t prevHopNodeId;
-    uint64_t nextHopNodeId;
-    uint64_t time;
 
     //Subscription message is a byte 1 (for subscriptions) or byte 0 (for unsubscriptions) followed by the subscription body.
     //All release messages shall be prefixed by "aaaaaaaa" before the common header
@@ -197,7 +193,6 @@ struct RouteUpdateHdr {
     uint8_t unused4;
     uint64_t nextHopNodeId;
     uint64_t finalDestNodeId;
-    uint64_t route[20]; //optimal route
 };
 
 struct LinkStatusHdr {
@@ -211,6 +206,11 @@ struct ContactPlanReloadHdr {
     CommonHdr base;
     uint8_t unusedPadding[4];
  };
+
+struct DepletedStorageReportHdr {
+    CommonHdr base;
+    uint64_t nodeId;
+};
 
 };  // namespace hdtn
 //#pragma pack (pop)

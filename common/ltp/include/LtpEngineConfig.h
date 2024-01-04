@@ -2,7 +2,7 @@
  * @file LtpEngineConfig.h
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -219,6 +219,12 @@ struct LtpEngineConfig {
      * This path should point to a directory that is mounted on a solid state drive.
      */
     boost::filesystem::path activeSessionDataOnDiskDirectory = "./";
+
+    /**
+     * The window of time for averaging the rate over. This limits the allowed
+     * burst rate. 
+     */
+    uint64_t rateLimitPrecisionMicroSec = 0;
 };
 
     

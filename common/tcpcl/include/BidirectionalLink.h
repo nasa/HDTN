@@ -27,28 +27,81 @@
 #    define CLASS_VISIBILITY_TCPCL_LIB TCPCL_LIB_EXPORT
 #  endif
 #endif
-#include <string>
-#include <boost/thread.hpp>
-#include <boost/asio.hpp>
-#include <map>
-#include <vector>
-#include "Tcpcl.h"
-#include "TcpAsyncSender.h"
-#include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
-#include "PaddedVectorUint8.h"
+#include <cstdint>
+#include <atomic>
+#include <boost/config/detail/suffix.hpp>
 
-typedef boost::function<void(padded_vector_uint8_t & movableBundle)> OutductOpportunisticProcessReceivedBundleCallback_t;
+struct BidirectionalLinkAtomicTelem_t {
+    BidirectionalLinkAtomicTelem_t() :
+        totalFragmentsReceived(0),
+        totalBundlesReceived(0),
+        totalBundleBytesReceived(0),
+        totalFragmentsSent(0),
+        totalFragmentsSentAndAcked(0),
+        totalBundlesSent(0),
+        totalBundlesSentAndAcked(0),
+        totalBundleBytesSent(0),
+        totalBundleBytesSentAndAcked(0),
+        totalBundlesFailedToSend(0),
+        numTcpReconnectAttempts(0),
+        linkIsUpPhysically(false) {}
+
+    //telemetry
+    std::atomic<uint64_t> totalFragmentsReceived;
+    //uint64_t m_totalFragmentsReceivedAndAcked; //don't care about count of acks sent on rx fragments
+
+    std::atomic<uint64_t> totalBundlesReceived;
+    //uint64_t m_totalBundlesReceivedAndAcked; //don't care about count of acks sent on rx bundles
+
+    std::atomic<uint64_t> totalBundleBytesReceived;
+
+    std::atomic<uint64_t> totalFragmentsSent;
+    std::atomic<uint64_t> totalFragmentsSentAndAcked;
+
+    std::atomic<uint64_t> totalBundlesSent;
+    std::atomic<uint64_t> totalBundlesSentAndAcked;
+
+    std::atomic<uint64_t> totalBundleBytesSent;
+    std::atomic<uint64_t> totalBundleBytesSentAndAcked;
+
+    std::atomic<uint64_t> totalBundlesFailedToSend;
+
+    std::atomic<uint64_t> numTcpReconnectAttempts;
+
+    std::atomic<bool> linkIsUpPhysically;
+};
 
 class BidirectionalLink {
 public:
-    virtual std::size_t Virtual_GetTotalBundlesAcked() = 0;
-    virtual std::size_t Virtual_GetTotalBundlesSent() = 0;
-    virtual std::size_t Virtual_GetTotalBundlesUnacked() = 0;
-    virtual std::size_t Virtual_GetTotalBundleBytesAcked() = 0;
-    virtual std::size_t Virtual_GetTotalBundleBytesSent() = 0;
-    virtual std::size_t Virtual_GetTotalBundleBytesUnacked() = 0;
+    TCPCL_LIB_EXPORT BidirectionalLink() : m_base_telem() {}
+
+    BOOST_FORCEINLINE std::size_t BaseClass_GetTotalBundlesAcked() const noexcept {
+        return m_base_telem.totalBundlesSentAndAcked.load(std::memory_order_acquire);
+    }
+
+    BOOST_FORCEINLINE std::size_t BaseClass_GetTotalBundlesSent() const noexcept {
+        return m_base_telem.totalBundlesSent.load(std::memory_order_acquire);
+    }
+
+    BOOST_FORCEINLINE std::size_t BaseClass_GetTotalBundlesUnacked() const noexcept {
+        return m_base_telem.totalBundlesSent.load(std::memory_order_acquire) - m_base_telem.totalBundlesSentAndAcked.load(std::memory_order_acquire);
+    }
+
+    BOOST_FORCEINLINE std::size_t BaseClass_GetTotalBundleBytesAcked() const noexcept {
+        return m_base_telem.totalBundleBytesSentAndAcked.load(std::memory_order_acquire);
+    }
+
+    BOOST_FORCEINLINE std::size_t BaseClass_GetTotalBundleBytesSent() const noexcept {
+        return m_base_telem.totalBundleBytesSent.load(std::memory_order_acquire);
+    }
+
+    BOOST_FORCEINLINE std::size_t BaseClass_GetTotalBundleBytesUnacked() const noexcept {
+        return m_base_telem.totalBundleBytesSent.load(std::memory_order_acquire) - m_base_telem.totalBundleBytesSentAndAcked.load(std::memory_order_acquire);
+    }
 
     virtual unsigned int Virtual_GetMaxTxBundlesInPipeline() = 0;
+
+    BidirectionalLinkAtomicTelem_t m_base_telem;
 };
 
 

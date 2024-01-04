@@ -30,10 +30,10 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT UdpOutduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid);
     OUTDUCT_MANAGER_LIB_EXPORT virtual ~UdpOutduct() override;
     OUTDUCT_MANAGER_LIB_EXPORT virtual void PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& outductTelem) override;
-    OUTDUCT_MANAGER_LIB_EXPORT virtual std::size_t GetTotalDataSegmentsUnacked() override;
+    OUTDUCT_MANAGER_LIB_EXPORT virtual std::size_t GetTotalBundlesUnacked() const noexcept override;
     OUTDUCT_MANAGER_LIB_EXPORT virtual bool Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) override;
     OUTDUCT_MANAGER_LIB_EXPORT virtual bool Forward(zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData) override;
-    OUTDUCT_MANAGER_LIB_EXPORT virtual bool Forward(std::vector<uint8_t> & movableDataVec, std::vector<uint8_t>&& userData) override;
+    OUTDUCT_MANAGER_LIB_EXPORT virtual bool Forward(padded_vector_uint8_t& movableDataVec, std::vector<uint8_t>&& userData) override;
 
     OUTDUCT_MANAGER_LIB_EXPORT virtual void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) override;
     OUTDUCT_MANAGER_LIB_EXPORT virtual void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) override;
@@ -46,7 +46,6 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT virtual bool ReadyToForward() override;
     OUTDUCT_MANAGER_LIB_EXPORT virtual void Stop() override;
     OUTDUCT_MANAGER_LIB_EXPORT virtual void GetOutductFinalStats(OutductFinalStats & finalStats) override;
-    OUTDUCT_MANAGER_LIB_EXPORT virtual uint64_t GetStartingMaxSendRateBitsPerSec() const noexcept override;
 
 private:
     UdpOutduct();

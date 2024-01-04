@@ -2,7 +2,7 @@
  * @file LtpInduct.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -48,7 +48,8 @@ LtpInduct::LtpInduct(const InductProcessBundleCallback_t & inductProcessBundleCa
     m_ltpRxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable = 0; //unused for inducts (must be set to 0)
     m_ltpRxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable = (inductConfig.keepActiveSessionDataOnDisk) ? //for both inducts and outducts
         inductConfig.activeSessionDataOnDiskNewFileDurationMs : 0;
-    m_ltpRxCfg.activeSessionDataOnDiskDirectory = inductConfig.activeSessionDataOnDiskDirectory; //for both inducts and outducts 
+    m_ltpRxCfg.activeSessionDataOnDiskDirectory = inductConfig.activeSessionDataOnDiskDirectory; //for both inducts and outducts
+    m_ltpRxCfg.rateLimitPrecisionMicroSec = 0; //unused for inducts
 
 }
 
@@ -62,8 +63,9 @@ void LtpInduct::PopulateInductTelemetry(InductTelemetry_t& inductTelem) {
     inductTelem.m_convergenceLayer = "ltp_over_udp";
     inductTelem.m_listInductConnections.clear();
     if (m_ltpBundleSinkPtr) {
-        m_ltpBundleSinkPtr->SyncTelemetry();
-        inductTelem.m_listInductConnections.emplace_back(boost::make_unique<LtpInductConnectionTelemetry_t>(m_ltpBundleSinkPtr->m_telemetry));
+        std::unique_ptr<LtpInductConnectionTelemetry_t> t = boost::make_unique<LtpInductConnectionTelemetry_t>();
+        m_ltpBundleSinkPtr->GetTelemetry(*t);
+        inductTelem.m_listInductConnections.emplace_back(std::move(t));
     }
     else {
         std::unique_ptr<LtpInductConnectionTelemetry_t> c = boost::make_unique<LtpInductConnectionTelemetry_t>();

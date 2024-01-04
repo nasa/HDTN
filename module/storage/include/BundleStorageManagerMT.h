@@ -22,6 +22,7 @@
 #define _BUNDLE_STORAGE_MANAGER_MT_H 1
 
 #include "BundleStorageManagerBase.h"
+#include <atomic>
 
 
 class CLASS_VISIBILITY_STORAGE_LIB BundleStorageManagerMT : public BundleStorageManagerBase {
@@ -45,8 +46,8 @@ private:
     std::vector<std::pair<boost::condition_variable, boost::mutex> > m_conditionVariablesPlusMutexesVec;
     std::vector<std::unique_ptr<boost::thread> > m_threadPtrsVec;
 
-    volatile bool m_running;
-    volatile bool m_noFatalErrorsOccurred;
+    std::atomic<bool> m_running;
+    std::atomic<bool> m_noFatalErrorsOccurred;
 };
 
 

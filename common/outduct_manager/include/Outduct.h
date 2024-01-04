@@ -35,13 +35,14 @@
 #include <zmq.hpp>
 #include "BundleCallbackFunctionDefines.h"
 #include "TelemetryDefinitions.h"
+#include "PaddedVectorUint8.h"
 
 struct OutductFinalStats {
     std::string m_convergenceLayer;
-    std::size_t m_totalDataSegmentsOrPacketsSent;
-    std::size_t m_totalDataSegmentsOrPacketsAcked;
+    std::size_t m_totalBundlesSent;
+    std::size_t m_totalBundlesAcked;
 
-    OutductFinalStats() : m_convergenceLayer(""), m_totalDataSegmentsOrPacketsSent(0), m_totalDataSegmentsOrPacketsAcked(0) {}
+    OutductFinalStats() : m_convergenceLayer(""), m_totalBundlesSent(0), m_totalBundlesAcked(0) {}
 };
 
 
@@ -54,10 +55,10 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT Outduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid);
     OUTDUCT_MANAGER_LIB_EXPORT virtual ~Outduct();
     virtual void PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& outductTelem) = 0;
-    virtual std::size_t GetTotalDataSegmentsUnacked() = 0;
+    virtual std::size_t GetTotalBundlesUnacked() const noexcept = 0;
     virtual bool Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t> && userData) = 0;
     virtual bool Forward(zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData) = 0;
-    virtual bool Forward(std::vector<uint8_t> & movableDataVec, std::vector<uint8_t>&& userData) = 0;
+    virtual bool Forward(padded_vector_uint8_t& movableDataVec, std::vector<uint8_t>&& userData) = 0;
     OUTDUCT_MANAGER_LIB_EXPORT virtual void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
     OUTDUCT_MANAGER_LIB_EXPORT virtual void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
     OUTDUCT_MANAGER_LIB_EXPORT virtual void SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback);
@@ -74,12 +75,14 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT virtual uint64_t GetOutductMaxNumberOfBundlesInPipeline() const;
     OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetOutductMaxSumOfBundleBytesInPipeline() const;
     OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetOutductNextHopNodeId() const;
-    OUTDUCT_MANAGER_LIB_EXPORT virtual uint64_t GetStartingMaxSendRateBitsPerSec() const noexcept;
     OUTDUCT_MANAGER_LIB_EXPORT std::string GetConvergenceLayerName() const;
+    OUTDUCT_MANAGER_LIB_EXPORT bool GetAssumedInitiallyDown() const;
 
 protected:
+    OUTDUCT_MANAGER_LIB_EXPORT Outduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid, const bool assumedInitiallyDown);
     const outduct_element_config_t m_outductConfig;
     const uint64_t m_outductUuid;
+    const bool m_assumedInitiallyDown;
 public:
     bool m_linkIsUpPerTimeSchedule;
     bool m_physicalLinkStatusIsKnown;

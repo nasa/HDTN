@@ -111,6 +111,9 @@ bool JsonSerializable::LoadTextFileIntoString(const boost::filesystem::path& fil
 JsonSerializable::JsonSerializable() {
 }
 
+JsonSerializable::~JsonSerializable() {
+}
+
 std::string JsonSerializable::PtToJsonString(const boost::property_tree::ptree& pt, bool pretty) {
     std::ostringstream oss;
     boost::property_tree::write_json(oss, pt, pretty);

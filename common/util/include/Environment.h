@@ -32,6 +32,8 @@ public:
     static std::string GetValue(const std::string & variableName);
     static boost::filesystem::path GetPathHdtnSourceRoot();
     static boost::filesystem::path GetPathHdtnBuildRoot();
+    static boost::filesystem::path GetPathContactPlans();
+    static boost::filesystem::path GetPathGuiDocumentRoot();
 };
 
 #endif /* ENVIRONMENT_H */

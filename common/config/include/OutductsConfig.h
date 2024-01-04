@@ -2,7 +2,7 @@
  * @file OutductsConfig.h
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -41,7 +41,6 @@ struct outduct_element_config_t {
     uint16_t remotePort;
     uint32_t maxNumberOfBundlesInPipeline;
     uint64_t maxSumOfBundleBytesInPipeline;
-    std::set<std::string> finalDestinationEidUris;
     
 
     //specific to ltp
@@ -56,7 +55,6 @@ struct outduct_element_config_t {
     uint32_t ltpCheckpointEveryNthDataSegment;
     uint32_t ltpRandomNumberSizeBits;
     uint16_t ltpSenderBoundPort;
-    uint64_t ltpMaxSendRateBitsPerSecOrZeroToDisable;
     uint64_t ltpMaxUdpPacketsToSendPerSystemCall;
     uint64_t ltpSenderPingSecondsOrZeroToDisable;
     uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable;
@@ -64,8 +62,12 @@ struct outduct_element_config_t {
     uint64_t activeSessionDataOnDiskNewFileDurationMs;
     boost::filesystem::path activeSessionDataOnDiskDirectory;
 
-    //specific to udp
-    uint64_t udpRateBps;
+    //specific to udp and ltp
+    uint64_t rateLimitPrecisionMicroSec;
+
+    //specific to slip over uart
+    std::string comPort;
+    uint32_t baudRate;
 
     //specific to stcp and tcpcl
     uint32_t keepAliveIntervalSeconds;

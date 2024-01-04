@@ -32,8 +32,11 @@ M_THIS_ENGINE_ID(ltpTxCfg.thisEngineId),
 M_REMOTE_LTP_ENGINE_ID(ltpTxCfg.remoteEngineId),
 M_BUNDLE_PIPELINE_LIMIT(ltpTxCfg.maxSimultaneousSessions),
 m_startingCount(0),
-
-m_ltpOutductTelemetry()
+//telemetry
+m_totalBundlesSent(0),
+m_totalBundlesAcked(0),
+m_totalBundlesFailedToSend(0),
+m_totalBundleBytesSent(0)
 {
 }
 
@@ -60,13 +63,13 @@ bool LtpBundleSource::Init() {
 void LtpBundleSource::Stop() {
     try {
         if (m_ltpEnginePtr) {
-            //prevent TcpclBundleSource from exiting before all bundles sent and acked
+            //prevent LtpBundleSource from exiting before all bundles sent and acked
             boost::mutex localMutex;
             boost::mutex::scoped_lock lock(localMutex);
             m_useLocalConditionVariableAckReceived = true;
             std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
             for (unsigned int attempt = 0; attempt < 10; ++attempt) {
-                const std::size_t numUnacked = GetTotalDataSegmentsUnacked();
+                const std::size_t numUnacked = GetTotalBundlesUnacked();
                 if (numUnacked) {
                     LOG_WARNING(subprocess) << "LtpBundleSource destructor waiting on " << numUnacked << " unacked bundles";
 
@@ -80,6 +83,15 @@ void LtpBundleSource::Stop() {
                 }
                 break;
             }
+            //print stats once
+            LOG_INFO(subprocess) << "LTP Outduct / Bundle Source:"
+                << "\n totalBundlesSent " << GetTotalBundlesSent()
+                << "\n totalBundlesAcked " << m_totalBundlesAcked.load(std::memory_order_acquire)
+                << "\n totalBundlesFailedToSend " << m_totalBundlesFailedToSend.load(std::memory_order_acquire)
+                << "\n totalBundleBytesSent " << GetTotalBundleBytesSent()
+                << "\n totalBundleBytesAcked " << m_ltpEnginePtr->m_totalRedDataBytesSuccessfullySent.load(std::memory_order_acquire)
+                << "\n totalBundleBytesFailedToSend " << m_ltpEnginePtr->m_totalRedDataBytesFailedToSend.load(std::memory_order_acquire);
+            m_ltpEnginePtr = NULL;
         }
     }
     catch (const boost::condition_error& e) {
@@ -94,41 +106,29 @@ void LtpBundleSource::Stop() {
     catch (const boost::lock_error& e) {
         LOG_ERROR(subprocess) << "lock_error in LtpBundleSource::Stop: " << e.what();
     }
-
-    //print stats
-    LOG_INFO(subprocess) << "m_ltpOutductTelemetry.totalBundlesSent " << m_ltpOutductTelemetry.m_totalBundlesSent;
-    LOG_INFO(subprocess) << "m_ltpOutductTelemetry.totalBundlesAcked " << m_ltpOutductTelemetry.m_totalBundlesAcked;
-    LOG_INFO(subprocess) << "m_ltpOutductTelemetry.totalBundleBytesSent " << m_ltpOutductTelemetry.m_totalBundleBytesSent;
-    LOG_INFO(subprocess) << "m_ltpOutductTelemetry.totalBundleBytesAcked " << m_ltpOutductTelemetry.m_totalBundleBytesAcked;
-    LOG_INFO(subprocess) << "m_ltpOutductTelemetry.totalBundlesFailedToSend " << m_ltpOutductTelemetry.m_totalBundlesFailedToSend;
-    
 }
 
-std::size_t LtpBundleSource::GetTotalDataSegmentsAcked() {
-    return m_ltpOutductTelemetry.m_totalBundlesAcked + m_ltpOutductTelemetry.m_totalBundlesFailedToSend;
+std::size_t LtpBundleSource::GetTotalBundlesAcked() const noexcept {
+    return m_totalBundlesAcked.load(std::memory_order_acquire) + m_totalBundlesFailedToSend.load(std::memory_order_acquire);
+}
+std::size_t LtpBundleSource::GetTotalBundlesSent() const noexcept {
+    return m_totalBundlesSent.load(std::memory_order_acquire);
+}
+std::size_t LtpBundleSource::GetTotalBundlesUnacked() const noexcept {
+    return GetTotalBundlesSent() - GetTotalBundlesAcked();
+}
+std::size_t LtpBundleSource::GetTotalBundleBytesAcked() const noexcept {
+    return m_ltpEnginePtr->m_totalRedDataBytesSuccessfullySent.load(std::memory_order_acquire)
+        + m_ltpEnginePtr->m_totalRedDataBytesFailedToSend.load(std::memory_order_acquire);
+}
+std::size_t LtpBundleSource::GetTotalBundleBytesSent() const noexcept {
+    return m_totalBundleBytesSent.load(std::memory_order_acquire);
+}
+std::size_t LtpBundleSource::GetTotalBundleBytesUnacked() const noexcept {
+    return GetTotalBundleBytesSent() - GetTotalBundleBytesAcked();
 }
 
-std::size_t LtpBundleSource::GetTotalDataSegmentsSent() {
-    return m_ltpOutductTelemetry.m_totalBundlesSent;
-}
-
-std::size_t LtpBundleSource::GetTotalDataSegmentsUnacked() {
-    return GetTotalDataSegmentsSent() - GetTotalDataSegmentsAcked();
-}
-
-std::size_t LtpBundleSource::GetTotalBundleBytesAcked() {
-    return m_ltpEnginePtr->m_totalRedDataBytesSuccessfullySent;
-}
-
-std::size_t LtpBundleSource::GetTotalBundleBytesSent() {
-    return m_ltpOutductTelemetry.m_totalBundleBytesSent;
-}
-
-//std::size_t LtpBundleSource::GetTotalBundleBytesUnacked() {
-//    return GetTotalBundleBytesSent() - GetTotalBundleBytesAcked();
-//}
-
-bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData) {
+bool LtpBundleSource::Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_t>&& userData) {
 
     if (!ReadyToForward()) { //virtual function call
         return false;
@@ -137,7 +137,7 @@ bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_
     const unsigned int startingCount = m_startingCount.fetch_add(1);
     if ((m_activeSessionNumbersSet.size() + startingCount) > M_BUNDLE_PIPELINE_LIMIT) {
         --m_startingCount;
-        LOG_ERROR(subprocess) << "LtpBundleSource::Forward(std::vector<uint8_t>.. too many unacked sessions (exceeds bundle pipeline limit of " << M_BUNDLE_PIPELINE_LIMIT << ").";
+        LOG_ERROR(subprocess) << "LtpBundleSource::Forward(padded_vector_uint8_t.. too many unacked sessions (exceeds bundle pipeline limit of " << M_BUNDLE_PIPELINE_LIMIT << ").";
         return false;
     }
 
@@ -153,8 +153,8 @@ bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_
 
     m_ltpEnginePtr->TransmissionRequest_ThreadSafe(std::move(tReq));
 
-    ++m_ltpOutductTelemetry.m_totalBundlesSent;
-    m_ltpOutductTelemetry.m_totalBundleBytesSent += bundleBytesToSend;
+    m_totalBundlesSent.fetch_add(1, std::memory_order_relaxed);
+    m_totalBundleBytesSent.fetch_add(bundleBytesToSend, std::memory_order_relaxed);
     
     return true;
 }
@@ -182,14 +182,14 @@ bool LtpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& u
 
     m_ltpEnginePtr->TransmissionRequest_ThreadSafe(std::move(tReq));
 
-    ++m_ltpOutductTelemetry.m_totalBundlesSent;
-    m_ltpOutductTelemetry.m_totalBundleBytesSent += bundleBytesToSend;
+    m_totalBundlesSent.fetch_add(1, std::memory_order_relaxed);
+    m_totalBundleBytesSent.fetch_add(bundleBytesToSend, std::memory_order_relaxed);
    
     return true;
 }
 
 bool LtpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
-    std::vector<uint8_t> vec(bundleData, bundleData + size);
+    padded_vector_uint8_t vec(bundleData, bundleData + size);
     return Forward(vec, std::move(userData));
 }
 
@@ -215,8 +215,8 @@ void LtpBundleSource::TransmissionSessionCompletedCallback(const Ltp::session_id
             << sessionId.sessionOriginatorEngineId << " is not my engine id (" << M_THIS_ENGINE_ID << ")";
     }
     else if (m_activeSessionNumbersSet.erase(sessionId.sessionNumber)) { //found and erased
-        ++m_ltpOutductTelemetry.m_totalBundlesAcked;
-        if (m_useLocalConditionVariableAckReceived) {
+        m_totalBundlesAcked.fetch_add(1, std::memory_order_relaxed);
+        if (m_useLocalConditionVariableAckReceived.load(std::memory_order_acquire)) {
             m_localConditionVariableAckReceived.notify_one();
         }
     }
@@ -233,8 +233,8 @@ void LtpBundleSource::TransmissionSessionCancelledCallback(const Ltp::session_id
             << sessionId.sessionOriginatorEngineId << " is not my engine id (" << M_THIS_ENGINE_ID << ")";
     }
     else if (m_activeSessionNumbersSet.erase(sessionId.sessionNumber)) { //found and erased
-        ++m_ltpOutductTelemetry.m_totalBundlesFailedToSend;
-        if (m_useLocalConditionVariableAckReceived) {
+        m_totalBundlesFailedToSend.fetch_add(1, std::memory_order_relaxed);
+        if (m_useLocalConditionVariableAckReceived.load(std::memory_order_acquire)) {
             m_localConditionVariableAckReceived.notify_one();
         }
     }
@@ -274,26 +274,31 @@ void LtpBundleSource::SetRate(uint64_t maxSendRateBitsPerSecOrZeroToDisable) {
     }
 }
 
-void LtpBundleSource::SyncTelemetry() {
+void LtpBundleSource::GetTelemetry(LtpOutductTelemetry_t& telem) const {
     if (m_ltpEnginePtr) {
-        m_ltpOutductTelemetry.m_numCheckpointsExpired = m_ltpEnginePtr->m_numCheckpointTimerExpiredCallbacksRef;
-        m_ltpOutductTelemetry.m_numDiscretionaryCheckpointsNotResent = m_ltpEnginePtr->m_numDiscretionaryCheckpointsNotResentRef;
-        m_ltpOutductTelemetry.m_numDeletedFullyClaimedPendingReports = m_ltpEnginePtr->m_numDeletedFullyClaimedPendingReportsRef;
+        telem.m_totalBundlesSent = m_totalBundlesSent.load(std::memory_order_acquire);
+        telem.m_totalBundlesAcked = m_totalBundlesAcked.load(std::memory_order_acquire);
+        telem.m_totalBundleBytesSent = m_totalBundleBytesSent.load(std::memory_order_acquire);
+        telem.m_totalBundlesFailedToSend = m_totalBundlesFailedToSend.load(std::memory_order_acquire);
 
-        m_ltpOutductTelemetry.m_totalCancelSegmentsStarted = m_ltpEnginePtr->m_totalCancelSegmentsStarted;
-        m_ltpOutductTelemetry.m_totalCancelSegmentSendRetries = m_ltpEnginePtr->m_totalCancelSegmentSendRetries;
-        m_ltpOutductTelemetry.m_totalCancelSegmentsFailedToSend = m_ltpEnginePtr->m_totalCancelSegmentsFailedToSend;
-        m_ltpOutductTelemetry.m_totalCancelSegmentsAcknowledged = m_ltpEnginePtr->m_totalCancelSegmentsAcknowledged;
-        m_ltpOutductTelemetry.m_totalPingsStarted = m_ltpEnginePtr->m_totalPingsStarted;
-        m_ltpOutductTelemetry.m_totalPingRetries = m_ltpEnginePtr->m_totalPingRetries;
-        m_ltpOutductTelemetry.m_totalPingsFailedToSend = m_ltpEnginePtr->m_totalPingsFailedToSend;
-        m_ltpOutductTelemetry.m_totalPingsAcknowledged = m_ltpEnginePtr->m_totalPingsAcknowledged;
-        m_ltpOutductTelemetry.m_numTxSessionsReturnedToStorage = m_ltpEnginePtr->m_numTxSessionsReturnedToStorage;
-        m_ltpOutductTelemetry.m_numTxSessionsCancelledByReceiver = m_ltpEnginePtr->m_numTxSessionsCancelledByReceiver;
+        telem.m_numCheckpointsExpired = m_ltpEnginePtr->m_numCheckpointTimerExpiredCallbacksRef.load(std::memory_order_acquire);
+        telem.m_numDiscretionaryCheckpointsNotResent = m_ltpEnginePtr->m_numDiscretionaryCheckpointsNotResentRef.load(std::memory_order_acquire);
+        telem.m_numDeletedFullyClaimedPendingReports = m_ltpEnginePtr->m_numDeletedFullyClaimedPendingReportsRef.load(std::memory_order_acquire);
 
-        m_ltpOutductTelemetry.m_countTxUdpPacketsLimitedByRate = m_ltpEnginePtr->m_countAsyncSendsLimitedByRate;
-        m_ltpOutductTelemetry.m_totalBundleBytesAcked = m_ltpEnginePtr->m_totalRedDataBytesSuccessfullySent;
-        //m_ltpOutductTelemetry.m_totalBundleBytesFailedToSend = m_ltpEnginePtr->m_totalRedDataBytesFailedToSend;
-        SyncTransportLayerSpecificTelem(); //virtual function call
+        telem.m_totalCancelSegmentsStarted = m_ltpEnginePtr->m_totalCancelSegmentsStarted.load(std::memory_order_acquire);
+        telem.m_totalCancelSegmentSendRetries = m_ltpEnginePtr->m_totalCancelSegmentSendRetries.load(std::memory_order_acquire);
+        telem.m_totalCancelSegmentsFailedToSend = m_ltpEnginePtr->m_totalCancelSegmentsFailedToSend.load(std::memory_order_acquire);
+        telem.m_totalCancelSegmentsAcknowledged = m_ltpEnginePtr->m_totalCancelSegmentsAcknowledged.load(std::memory_order_acquire);
+        telem.m_totalPingsStarted = m_ltpEnginePtr->m_totalPingsStarted.load(std::memory_order_acquire);
+        telem.m_totalPingRetries = m_ltpEnginePtr->m_totalPingRetries.load(std::memory_order_acquire);
+        telem.m_totalPingsFailedToSend = m_ltpEnginePtr->m_totalPingsFailedToSend.load(std::memory_order_acquire);
+        telem.m_totalPingsAcknowledged = m_ltpEnginePtr->m_totalPingsAcknowledged.load(std::memory_order_acquire);
+        telem.m_numTxSessionsReturnedToStorage = m_ltpEnginePtr->m_numTxSessionsReturnedToStorage.load(std::memory_order_acquire);
+        telem.m_numTxSessionsCancelledByReceiver = m_ltpEnginePtr->m_numTxSessionsCancelledByReceiver.load(std::memory_order_acquire);
+
+        telem.m_countTxUdpPacketsLimitedByRate = m_ltpEnginePtr->m_countAsyncSendsLimitedByRate.load(std::memory_order_acquire);
+        telem.m_totalBundleBytesAcked = m_ltpEnginePtr->m_totalRedDataBytesSuccessfullySent.load(std::memory_order_acquire);
+        //telem.m_totalBundleBytesFailedToSend = m_ltpEnginePtr->m_totalRedDataBytesFailedToSend;
+        GetTransportLayerSpecificTelem(telem); //virtual function call
     }
 }

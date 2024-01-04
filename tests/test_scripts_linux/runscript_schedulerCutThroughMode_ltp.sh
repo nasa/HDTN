@@ -13,7 +13,7 @@ cd $HDTN_SOURCE_ROOT
 sleep 3
 
 # HDTN one process
-./build/module/hdtn_one_process/hdtn-one-process --contact-plan-file=contactPlanCutThroughMode.json --hdtn-config-file=$hdtn_config &
+./build/module/hdtn_one_process/hdtn-one-process --contact-plan-file=contactPlanCutThroughMode_unlimitedRate.json --hdtn-config-file=$hdtn_config &
 sleep 10
 
 #bpgen

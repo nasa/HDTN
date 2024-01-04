@@ -325,38 +325,41 @@ static uint64_t GetRateBpsFromPtree(const boost::property_tree::ptree::value_typ
     return 0;
 }
 
+std::vector<Contact> cp_load(const boost::property_tree::ptree& contactsPt, std::size_t max_contacts) {
+    std::vector<Contact> contactsVector;
+    contactsVector.reserve(contactsPt.size());
+    for (const boost::property_tree::ptree::value_type& eventPt : contactsPt) {
+        // if the rate is 0 ("unlimited") then use a default value
+        // in the calculations
+        uint64_t rateBps = GetRateBpsFromPtree(eventPt);
+        if (rateBps <= 0) {
+            rateBps = DEFAULT_RATE_BPS;
+        }
+        contactsVector.emplace_back( //nodeId_t frm, nodeId_t to, time_t start, time_t end, uint64_t rate, float confidence=1, time_t owlt=1
+            eventPt.second.get<nodeId_t>("source", 0), //nodeId_t frm
+            eventPt.second.get<nodeId_t>("dest", 0), //nodeId_t to
+            eventPt.second.get<time_t>("startTime", 0), //time_t start
+            eventPt.second.get<time_t>("endTime", 0), //time_t end
+            rateBps, //uint64_t rate
+            1.f, //float confidence=1
+            eventPt.second.get<time_t>("owlt", 0)); //time_t owlt=1
+        contactsVector.back().id = eventPt.second.get<uint64_t>("contact", 0);
+        if (contactsVector.size() == max_contacts) {
+            LOG_WARNING(subprocess) << "HIT MAX CONTACTS!!!!!!!!!!!!!!!!!!!";
+            break;
+        }
+    }
+    return contactsVector;
+}
 std::vector<Contact> cp_load(const boost::filesystem::path& filePath, std::size_t max_contacts) {
     std::vector<Contact> contactsVector;
     
     boost::property_tree::ptree pt;
     if (JsonSerializable::GetPropertyTreeFromJsonFilePath(filePath, pt)) { //prints error if can't find
-
         //for non-throw versions of get_child which return a reference to the second parameter
         static const boost::property_tree::ptree EMPTY_PTREE;
-
         const boost::property_tree::ptree& contactsPt = pt.get_child("contacts", EMPTY_PTREE);
-        contactsVector.reserve(contactsPt.size());
-        for (const boost::property_tree::ptree::value_type& eventPt : contactsPt) {
-            // if the rate is 0 ("unlimited") then use a default value
-            // in the calculations
-            uint64_t rateBps = GetRateBpsFromPtree(eventPt);
-            if (rateBps <= 0) {
-                rateBps = DEFAULT_RATE_BPS;
-            }
-            contactsVector.emplace_back( //nodeId_t frm, nodeId_t to, time_t start, time_t end, uint64_t rate, float confidence=1, time_t owlt=1
-                eventPt.second.get<nodeId_t>("source", 0), //nodeId_t frm
-                eventPt.second.get<nodeId_t>("dest", 0), //nodeId_t to
-                eventPt.second.get<time_t>("startTime", 0), //time_t start
-                eventPt.second.get<time_t>("endTime", 0), //time_t end
-                rateBps, //uint64_t rate
-                1.f, //float confidence=1
-                eventPt.second.get<time_t>("owlt", 0)); //time_t owlt=1
-            contactsVector.back().id = eventPt.second.get<uint64_t>("contact", 0);
-            if (contactsVector.size() == max_contacts) {
-                LOG_WARNING(subprocess) << "HIT MAX CONTACTS!!!!!!!!!!!!!!!!!!!";
-                break;
-            }
-        }
+        contactsVector = cp_load(contactsPt, max_contacts);
     }
     return contactsVector;
 }

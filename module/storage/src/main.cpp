@@ -29,7 +29,7 @@ int main(int argc, const char* argv[]) {
     hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::storage);
     ThreadNamer::SetThisThreadName("StorageMain");
     StorageRunner runner;
-    volatile bool running;
+    std::atomic<bool> running;
     runner.Run(argc, argv, running, true);
     LOG_DEBUG(hdtn::Logger::SubProcess::storage) << "totalBundlesErasedFromStorage: " << runner.m_totalBundlesErasedFromStorage;
     LOG_DEBUG(hdtn::Logger::SubProcess::storage) << "totalBundlesSentToEgressFromStorage: " << runner.m_totalBundlesSentToEgressFromStorage;

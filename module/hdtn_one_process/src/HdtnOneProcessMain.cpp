@@ -33,7 +33,7 @@ int main(int argc, const char* argv[]) {
     hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::hdtnoneprocess);
     ThreadNamer::SetThisThreadName("HdtnOneProcessMain");
     HdtnOneProcessRunner runner;
-    volatile bool running;
+    std::atomic<bool> running;
     runner.Run(argc, argv, running, true);
     LOG_INFO(subprocess) << "m_ingressBundleCountStorage: " << runner.m_ingressBundleCountStorage;
     LOG_INFO(subprocess) << "m_ingressBundleCountEgress: " << runner.m_ingressBundleCountEgress;

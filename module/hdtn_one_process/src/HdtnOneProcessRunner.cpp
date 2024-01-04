@@ -15,7 +15,6 @@
 #include "ingress.h"
 #include "ZmqStorageInterface.h"
 #include "EgressAsync.h"
-#include "scheduler.h"
 #include "router.h"
 #include "HdtnOneProcessRunner.h"
 #include "SignalHandler.h"
@@ -63,7 +62,7 @@ HdtnOneProcessRunner::HdtnOneProcessRunner() :
 {}
 HdtnOneProcessRunner::~HdtnOneProcessRunner() {}
 
-bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool &running, bool useSignalHandler)
+bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], std::atomic<bool>& running, bool useSignalHandler)
 {
     //scope to ensure clean exit before return 0
     {
@@ -72,11 +71,14 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         SignalHandler sigHandler(boost::bind(&HdtnOneProcessRunner::MonitorExitKeypressThreadFunction, this));
 
         HdtnConfig_ptr hdtnConfig;
+        boost::filesystem::path bpSecConfigFilePath;
+
         HdtnDistributedConfig unusedHdtnDistributedConfig;
+        
         bool usingUnixTimestamp;
         bool useMgr;
         boost::filesystem::path contactPlanFilePath;
-
+        std::string maskerImpl;
 
 #ifdef RUN_TELEMETRY
         TelemetryRunnerProgramOptions telemetryRunnerOptions;
@@ -87,10 +89,12 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
             desc.add_options()
                 ("help", "Produce help message.")
                 ("hdtn-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
-                ("contact-plan-file", boost::program_options::value<boost::filesystem::path>()->default_value(DEFAULT_CONTACT_FILE), "Contact Plan file that scheduler relies on for link availability.")
+                ("bpsec-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "BpSec Configuration File.")
+                ("contact-plan-file", boost::program_options::value<boost::filesystem::path>()->default_value(DEFAULT_CONTACT_FILE), "Contact Plan file that router relies on for link availability.")
                 ("use-unix-timestamp", "Use unix timestamp in contact plan.")
                 ("use-mgr", "Use Multigraph Routing Algorithm")
-    	        ;
+                ("masker", boost::program_options::value<std::string>()->default_value(""), "Which Masker implementation to use")
+                ;
 #ifdef RUN_TELEMETRY
             TelemetryRunnerProgramOptions::AppendToDesc(desc);
 #endif
@@ -114,6 +118,8 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
                 return false;
             }
 
+            bpSecConfigFilePath = vm["bpsec-config-file"].as<boost::filesystem::path>();
+
             usingUnixTimestamp = (vm.count("use-unix-timestamp") != 0);
 
             useMgr = (vm.count("use-mgr") != 0);
@@ -125,7 +131,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
             }
 
             if (!boost::filesystem::exists(contactPlanFilePath)) { //first see if the user specified an already valid path name not dependent on HDTN's source root
-                contactPlanFilePath = Scheduler::GetFullyQualifiedFilename(contactPlanFilePath);
+                contactPlanFilePath = Router::GetFullyQualifiedFilename(contactPlanFilePath);
                 if (!boost::filesystem::exists(contactPlanFilePath)) {
                     LOG_ERROR(subprocess) << "ContactPlan File not found: " << contactPlanFilePath;
                     return false;
@@ -133,6 +139,8 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
             }
 
             LOG_INFO(subprocess) << "ContactPlan file: " << contactPlanFilePath;
+
+            maskerImpl = vm["masker"].as<std::string>();
         }
         catch (boost::bad_any_cast & e) {
             LOG_ERROR(subprocess) << "invalid data error: " << e.what();
@@ -152,12 +160,6 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         //If your application is using only the inproc transport for messaging you may set this to zero, otherwise set it to at least one.
         std::unique_ptr<zmq::context_t> hdtnOneProcessZmqInprocContextPtr = boost::make_unique<zmq::context_t>(0);// 0 Threads
 
-        LOG_INFO(subprocess) << "starting Scheduler..";
-        std::unique_ptr<Scheduler> schedulerPtr = boost::make_unique<Scheduler>();
-        if (!schedulerPtr->Init(*hdtnConfig, unusedHdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp, hdtnOneProcessZmqInprocContextPtr.get())) {
-            return false;
-        }
-
         LOG_INFO(subprocess) << "starting Router..";
         std::unique_ptr<Router> routerPtr = boost::make_unique<Router>();
         if (!routerPtr->Init(*hdtnConfig, unusedHdtnDistributedConfig, contactPlanFilePath, usingUnixTimestamp, useMgr, hdtnOneProcessZmqInprocContextPtr.get())) {
@@ -174,13 +176,19 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
 
         LOG_INFO(subprocess) << "starting Ingress..";
         std::unique_ptr<hdtn::Ingress> ingressPtr = boost::make_unique<hdtn::Ingress>();
-        if (!ingressPtr->Init(*hdtnConfig, unusedHdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
+        if (!ingressPtr->Init(*hdtnConfig, bpSecConfigFilePath,
+            unusedHdtnDistributedConfig,
+            hdtnOneProcessZmqInprocContextPtr.get(),
+            maskerImpl))
+        {
             return false;
         }
 
         LOG_INFO(subprocess) << "starting Storage..";
         std::unique_ptr<ZmqStorageInterface> storagePtr = boost::make_unique<ZmqStorageInterface>();
-        if (!storagePtr->Init(*hdtnConfig, unusedHdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
+        if (!storagePtr->Init(*hdtnConfig, unusedHdtnDistributedConfig,
+            hdtnOneProcessZmqInprocContextPtr.get()))
+        {
             return false;
         }
 
@@ -215,10 +223,6 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         telemetryRunnerPtr.reset();
 #endif
 
-        LOG_INFO(subprocess) << "Scheduler: stopping..";
-        schedulerPtr->Stop();
-        LOG_INFO(subprocess) << "Scheduler: deleting..";
-        schedulerPtr.reset();
 
         LOG_INFO(subprocess) << "Router: stopping..";
         routerPtr->Stop();
@@ -226,15 +230,15 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], volatile bool
         routerPtr.reset();
 
         boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-        LOG_INFO(subprocess) << "Ingress currentTime  " << timeLocal;
-
+        
+	LOG_INFO(subprocess) << "Ingress currentTime  " << timeLocal;
         LOG_INFO(subprocess) << "Ingress: stopping..";
         ingressPtr->Stop();
         m_ingressBundleCountStorage = ingressPtr->m_bundleCountStorage;
         m_ingressBundleCountEgress = ingressPtr->m_bundleCountEgress;
         m_ingressBundleCount = (ingressPtr->m_bundleCountEgress + ingressPtr->m_bundleCountStorage);
         m_ingressBundleData = (ingressPtr->m_bundleByteCountEgress + ingressPtr->m_bundleByteCountStorage);
-        LOG_INFO(subprocess) << "Ingress Bundle Count (M), Bundle Data (MB)";
+	LOG_INFO(subprocess) << "Ingress Bundle Count (M), Bundle Data (MB)";
         LOG_INFO(subprocess) << m_ingressBundleCount << "," << (m_ingressBundleData / (1024.0 * 1024.0));
         LOG_INFO(subprocess) << "Ingress: deleting..";
         ingressPtr.reset();

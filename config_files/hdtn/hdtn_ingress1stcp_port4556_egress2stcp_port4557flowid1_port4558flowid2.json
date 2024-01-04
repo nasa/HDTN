@@ -6,7 +6,7 @@
     "myBpEchoServiceId": 2047,
     "myCustodialSsp": "unused_custodial_ssp",
     "myCustodialServiceId": 0,
-    "mySchedulerServiceId": 100,
+    "myRouterServiceId": 100,
     "isAcsAware": true,
     "acsMaxFillsPerAcsPacket": 100,
     "acsSendPeriodMilliseconds": 1000,
@@ -15,7 +15,9 @@
     "maxIngressBundleWaitOnEgressMilliseconds": 2000,
     "bufferRxToStorageOnLinkUpSaturation": false,
     "maxLtpReceiveUdpPacketSizeBytes": 65536,
-    "zmqBoundSchedulerPubSubPortPath": 10200,
+    "neighborDepletedStorageDelaySeconds": 0,
+    "fragmentBundlesLargerThanBytes": 0,
+    "zmqBoundRouterPubSubPortPath": 10200,
     "zmqBoundTelemApiPortPath": 10305,
     "inductsConfig": {
         "inductConfigName": "myconfig",
@@ -40,9 +42,6 @@
                 "remotePort": 4557,
                 "maxNumberOfBundlesInPipeline": 50,
                 "maxSumOfBundleBytesInPipeline": 50000000,
-                "finalDestinationEidUris": [
-                    "ipn:1.*"
-                ],
                 "keepAliveIntervalSeconds": 17
             },
             {
@@ -53,9 +52,6 @@
                 "remotePort": 4558,
                 "maxNumberOfBundlesInPipeline": 50,
                 "maxSumOfBundleBytesInPipeline": 50000000,
-                "finalDestinationEidUris": [
-                    "ipn:2.*"
-                ],
                 "keepAliveIntervalSeconds": 17
             }
         ]

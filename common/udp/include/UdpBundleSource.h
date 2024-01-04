@@ -2,7 +2,7 @@
  * @file UdpBundleSource.h
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -40,19 +40,19 @@ class UdpBundleSource {
 private:
     UdpBundleSource();
 public:
-    UDP_LIB_EXPORT UdpBundleSource(const uint64_t rateBps, const unsigned int maxUnacked); //const uint64_t rateBps = 50, const unsigned int maxUnacked = 100
+    UDP_LIB_EXPORT UdpBundleSource(const unsigned int maxUnacked, const uint64_t rateLimitPrecisionMicroSec); //const unsigned int maxUnacked = 100
 
     UDP_LIB_EXPORT ~UdpBundleSource();
     UDP_LIB_EXPORT void Stop();
     UDP_LIB_EXPORT bool Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData);
     UDP_LIB_EXPORT bool Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData);
-    UDP_LIB_EXPORT bool Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData);
-    UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsAcked();
-    UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsSent();
-    UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsUnacked();
-    UDP_LIB_EXPORT std::size_t GetTotalBundleBytesAcked();
-    UDP_LIB_EXPORT std::size_t GetTotalBundleBytesSent();
-    UDP_LIB_EXPORT std::size_t GetTotalBundleBytesUnacked();
+    UDP_LIB_EXPORT bool Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_t>&& userData);
+    UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsAcked() const noexcept;
+    UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsSent() const noexcept;
+    UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsUnacked() const noexcept;
+    UDP_LIB_EXPORT std::size_t GetTotalBundleBytesAcked() const noexcept;
+    UDP_LIB_EXPORT std::size_t GetTotalBundleBytesSent() const noexcept;
+    UDP_LIB_EXPORT std::size_t GetTotalBundleBytesUnacked() const noexcept;
     UDP_LIB_EXPORT void UpdateRate(uint64_t rateBitsPerSec);
     UDP_LIB_EXPORT void Connect(const std::string & hostname, const std::string & port);
     UDP_LIB_EXPORT bool ReadyToForward() const;
@@ -62,12 +62,13 @@ public:
     UDP_LIB_EXPORT void SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback);
     UDP_LIB_EXPORT void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     UDP_LIB_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
+    UDP_LIB_EXPORT void GetTelemetry(UdpOutductTelemetry_t& telem) const;
 private:
     UDP_LIB_NO_EXPORT void OnResolve(const boost::system::error_code & ec, boost::asio::ip::udp::resolver::results_type results);
     UDP_LIB_NO_EXPORT void OnConnect(const boost::system::error_code & ec);
-    UDP_LIB_NO_EXPORT void HandlePostForUdpSendVecMessage(std::shared_ptr<std::vector<boost::uint8_t> > & vecDataToSendPtr);
+    UDP_LIB_NO_EXPORT void HandlePostForUdpSendVecMessage(std::shared_ptr<padded_vector_uint8_t> & vecDataToSendPtr);
     UDP_LIB_NO_EXPORT void HandlePostForUdpSendZmqMessage(std::shared_ptr<zmq::message_t> & zmqDataToSendPtr);
-    UDP_LIB_NO_EXPORT void HandleUdpSendVecMessage(std::shared_ptr<std::vector<boost::uint8_t> > & dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
+    UDP_LIB_NO_EXPORT void HandleUdpSendVecMessage(std::shared_ptr<padded_vector_uint8_t>& dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
     UDP_LIB_NO_EXPORT void HandleUdpSendZmqMessage(std::shared_ptr<zmq::message_t> & dataZmqSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
     UDP_LIB_NO_EXPORT bool ProcessPacketSent(std::size_t bytes_transferred);
 
@@ -88,7 +89,7 @@ private:
     TokenRateLimiter m_tokenRateLimiter;
     boost::asio::deadline_timer m_tokenRefreshTimer;
     boost::posix_time::ptime m_lastTimeTokensWereRefreshed;
-    std::queue<std::shared_ptr<std::vector<boost::uint8_t> > > m_queueVecDataToSendPtrs;
+    std::queue<std::shared_ptr<padded_vector_uint8_t> > m_queueVecDataToSendPtrs;
     std::queue<std::shared_ptr<zmq::message_t> > m_queueZmqDataToSendPtrs;
     boost::asio::ip::udp::socket m_udpSocket;
     boost::asio::ip::udp::endpoint m_udpDestinationEndpoint;
@@ -99,8 +100,8 @@ private:
     std::vector<std::size_t> m_bytesToAckBySentCallbackCbVec;
     std::vector<std::vector<uint8_t> > m_userDataCbVec;
 
-    volatile bool m_readyToForward;
-    volatile bool m_useLocalConditionVariableAckReceived;
+    std::atomic<bool> m_readyToForward;
+    std::atomic<bool> m_useLocalConditionVariableAckReceived;
     bool m_tokenRefreshTimerIsRunning;
 
     OnFailedBundleVecSendCallback_t m_onFailedBundleVecSendCallback;
@@ -109,8 +110,19 @@ private:
     OnOutductLinkStatusChangedCallback_t m_onOutductLinkStatusChangedCallback;
     uint64_t m_userAssignedUuid;
 
-public:
-    UdpOutductTelemetry_t m_udpOutductTelemetry;
+    uint64_t m_rateBpsOrZeroToDisable;
+    // The window of time for averaging the UDP send rate over
+    boost::posix_time::time_duration m_rateLimitPrecisionInterval;
+    // The interval to refresh tokens for the rate limiter
+    boost::posix_time::time_duration m_tokenRefreshInterval;
+
+    //udp stats
+    std::atomic<uint64_t> m_totalPacketsSent;
+    std::atomic<uint64_t> m_totalPacketBytesSent;
+    std::atomic<uint64_t> m_totalPacketsDequeuedForSend;
+    std::atomic<uint64_t> m_totalPacketBytesDequeuedForSend;
+    std::atomic<uint64_t> m_totalPacketsLimitedByRate;
+    std::atomic<bool> m_linkIsUpPhysically;
 };
 
 

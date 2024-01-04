@@ -21,11 +21,6 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-/// Token limit of rateBytesPerSecond / (1000ms/100ms) = rateBytesPerSecond / 10
-static const boost::posix_time::time_duration static_tokenMaxLimitDurationWindow(boost::posix_time::milliseconds(100));
-/// Token refresh timer duration
-static const boost::posix_time::time_duration static_tokenRefreshTimeDurationWindow(boost::posix_time::milliseconds(20));
-
 /// Maximum number of pending SendPackets operations.
 /// assumes (time to complete 5 batch udp send operations or 5 single packet udp send operations) < (margin time).
 static constexpr unsigned int MAX_QUEUED_SEND_SYSTEM_CALLS = 5;
@@ -34,6 +29,10 @@ static constexpr unsigned int MIN_QUEUED_SEND_SYSTEM_CALLS = 1;
 /// Disk pipeline limit.
 /// should be even number to split between ingress and storage cut-through pipeline.
 static constexpr uint64_t diskPipelineLimit = 6;
+
+// The divisor used in setting the token refresh interval based on the rate
+// limit precision window
+static constexpr uint64_t TOKEN_REFRESH_INTERVAL_DIVISOR = 5;
 
 LtpEngine::cancel_segment_timer_info_t::cancel_segment_timer_info_t(const uint8_t* data) {
     memcpy(this, data, sizeof(cancel_segment_timer_info_t));
@@ -56,7 +55,7 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     M_FORCE_32_BIT_RANDOM_NUMBERS(ltpRxOrTxCfg.force32BitRandomNumbers),
     M_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE(ltpRxOrTxCfg.senderPingSecondsOrZeroToDisable),
     M_SENDER_PING_TIME(boost::posix_time::seconds(ltpRxOrTxCfg.senderPingSecondsOrZeroToDisable)),
-    M_NEXT_PING_START_EXPIRY(boost::posix_time::microsec_clock::universal_time() + M_SENDER_PING_TIME),
+    M_NEXT_PING_START_EXPIRY(boost::posix_time::microsec_clock::universal_time()),
     m_transmissionRequestServedAsPing(false),
     M_MAX_SIMULTANEOUS_SESSIONS(ltpRxOrTxCfg.maxSimultaneousSessions),
     M_MAX_SESSIONS_IN_PIPELINE((ltpRxOrTxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable != 0) ?
@@ -79,6 +78,9 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     m_housekeepingTimer(m_ioServiceLtpEngine),
     m_tokenRefreshTimer(m_ioServiceLtpEngine),
     m_maxSendRateBitsPerSecOrZeroToDisable(ltpRxOrTxCfg.maxSendRateBitsPerSecOrZeroToDisable),
+    m_rateLimitPrecisionInterval(boost::posix_time::microsec(ltpRxOrTxCfg.rateLimitPrecisionMicroSec)),
+    // To prevent token exhaustion, the token refresh interval must be shorter than the rate limit precision
+    m_tokenRefreshInterval(boost::posix_time::microsec(ltpRxOrTxCfg.rateLimitPrecisionMicroSec / TOKEN_REFRESH_INTERVAL_DIVISOR)),
     m_tokenRefreshTimerIsRunning(false),
     m_lastTimeTokensWereRefreshed(boost::posix_time::special_values::neg_infin),
     m_ltpSessionSenderRecycler(M_MAX_SIMULTANEOUS_SESSIONS + 1),
@@ -236,23 +238,23 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
 }
 
 LtpEngine::~LtpEngine() {
-    LOG_INFO(subprocess) << "LtpEngine Stats:"; //print before reset
-    LOG_INFO(subprocess) << "numCheckpointTimerExpiredCallbacks: " << m_numCheckpointTimerExpiredCallbacksRef;
-    LOG_INFO(subprocess) << "numDiscretionaryCheckpointsNotResent: " << m_numDiscretionaryCheckpointsNotResentRef;
-    LOG_INFO(subprocess) << "numDeletedFullyClaimedPendingReports: " << m_numDeletedFullyClaimedPendingReportsRef;
-    LOG_INFO(subprocess) << "numReportSegmentTimerExpiredCallbacks: " << m_numReportSegmentTimerExpiredCallbacksRef;
-    LOG_INFO(subprocess) << "numReportSegmentsUnableToBeIssued: " << m_numReportSegmentsUnableToBeIssuedRef;
-    LOG_INFO(subprocess) << "numReportSegmentsTooLargeAndNeedingSplit: " << m_numReportSegmentsTooLargeAndNeedingSplitRef;
-    LOG_INFO(subprocess) << "numReportSegmentsCreatedViaSplit: " << m_numReportSegmentsCreatedViaSplitRef;
-    LOG_INFO(subprocess) << "numGapsFilledByOutOfOrderDataSegments: " << m_numGapsFilledByOutOfOrderDataSegmentsRef;
-    LOG_INFO(subprocess) << "numDelayedFullyClaimedPrimaryReportSegmentsSent: " << m_numDelayedFullyClaimedPrimaryReportSegmentsSentRef;
-    LOG_INFO(subprocess) << "numDelayedFullyClaimedSecondaryReportSegmentsSent: " << m_numDelayedFullyClaimedSecondaryReportSegmentsSentRef;
-    LOG_INFO(subprocess) << "numDelayedPartiallyClaimedPrimaryReportSegmentsSent: " << m_numDelayedPartiallyClaimedPrimaryReportSegmentsSentRef;
-    LOG_INFO(subprocess) << "numDelayedPartiallyClaimedSecondaryReportSegmentsSent: " << m_numDelayedPartiallyClaimedSecondaryReportSegmentsSentRef;
-    LOG_INFO(subprocess) << "countAsyncSendsLimitedByRate " << m_countAsyncSendsLimitedByRate;
-    LOG_INFO(subprocess) << "countPacketsWithOngoingOperations=" << m_countPacketsWithOngoingOperations
-        << " countPacketsThatCompletedOngoingOperations=" << m_countPacketsThatCompletedOngoingOperations
-        << " numEventsTxRequestDiskWritesTooSlow=" << m_numEventsTransmissionRequestDiskWritesTooSlow;
+    LOG_INFO(subprocess) << "LtpEngine Stats:" //print before reset
+        << "\n numCheckpointTimerExpiredCallbacks: " << m_numCheckpointTimerExpiredCallbacksRef
+        << "\n numDiscretionaryCheckpointsNotResent: " << m_numDiscretionaryCheckpointsNotResentRef
+        << "\n numDeletedFullyClaimedPendingReports: " << m_numDeletedFullyClaimedPendingReportsRef
+        << "\n numReportSegmentTimerExpiredCallbacks: " << m_numReportSegmentTimerExpiredCallbacksRef
+        << "\n numReportSegmentsUnableToBeIssued: " << m_numReportSegmentsUnableToBeIssuedRef
+        << "\n numReportSegmentsTooLargeAndNeedingSplit: " << m_numReportSegmentsTooLargeAndNeedingSplitRef
+        << "\n numReportSegmentsCreatedViaSplit: " << m_numReportSegmentsCreatedViaSplitRef
+        << "\n numGapsFilledByOutOfOrderDataSegments: " << m_numGapsFilledByOutOfOrderDataSegmentsRef
+        << "\n numDelayedFullyClaimedPrimaryReportSegmentsSent: " << m_numDelayedFullyClaimedPrimaryReportSegmentsSentRef
+        << "\n numDelayedFullyClaimedSecondaryReportSegmentsSent: " << m_numDelayedFullyClaimedSecondaryReportSegmentsSentRef
+        << "\n numDelayedPartiallyClaimedPrimaryReportSegmentsSent: " << m_numDelayedPartiallyClaimedPrimaryReportSegmentsSentRef
+        << "\n numDelayedPartiallyClaimedSecondaryReportSegmentsSent: " << m_numDelayedPartiallyClaimedSecondaryReportSegmentsSentRef
+        << "\n countAsyncSendsLimitedByRate " << m_countAsyncSendsLimitedByRate
+        << "\n  countPacketsWithOngoingOperations=" << m_countPacketsWithOngoingOperations
+        << "\n  countPacketsThatCompletedOngoingOperations=" << m_countPacketsThatCompletedOngoingOperations
+        << "\n  numEventsTxRequestDiskWritesTooSlow=" << m_numEventsTransmissionRequestDiskWritesTooSlow;
 
     if (m_ioServiceLtpEngineThreadPtr) {
         try {
@@ -425,7 +427,10 @@ void LtpEngine::OnSendPacketsSystemCallCompleted_ThreadSafe() {
     //Meanwhile, the LtpUdpEngine thread can return quickly and go back to doing UDP operations.
     //Try to reduce the number of calls to post() as this is an expensive operation
     // (it should not need to be called for every udp send operation, hence the atomic variable)
-    if(--m_numQueuedSendSystemCallsAtomic <= MIN_QUEUED_SEND_SYSTEM_CALLS) {
+    
+    //if(--m_numQueuedSendSystemCallsAtomic <= MIN_QUEUED_SEND_SYSTEM_CALLS) {
+    //if ((m_numQueuedSendSystemCallsAtomic.fetch_sub(1, std::memory_order_relaxed) - 1) <= MIN_QUEUED_SEND_SYSTEM_CALLS) {
+    if (m_numQueuedSendSystemCallsAtomic.fetch_sub(1, std::memory_order_relaxed) <= (MIN_QUEUED_SEND_SYSTEM_CALLS + 1)) {
         boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::TrySaturateSendPacketPipeline, this));
     }
 }
@@ -450,11 +455,12 @@ static std::size_t GetBytesToSend(const std::vector<boost::asio::const_buffer>& 
 
 bool LtpEngine::TrySendPacketIfAvailable() {
     bool sendOperationQueuedSuccessfully = false;
-    if (m_ioServiceLtpEngineThreadPtr && (m_numQueuedSendSystemCallsAtomic < MAX_QUEUED_SEND_SYSTEM_CALLS)) { //m_ioServiceLtpEngineThreadPtr => if not running inside a unit test
+    if (m_ioServiceLtpEngineThreadPtr && (m_numQueuedSendSystemCallsAtomic.load(std::memory_order_acquire) < MAX_QUEUED_SEND_SYSTEM_CALLS)) { //m_ioServiceLtpEngineThreadPtr => if not running inside a unit test
         //RATE STUFF (the TrySendPacketIfAvailable and OnTokenRefresh_TimerExpired run in the same thread)
         //if rate limiting enabled AND no tokens available for next send, TrySendPacketIfAvailable() will be called at the next m_tokenRefreshTimer expiration
         if (m_maxSendRateBitsPerSecOrZeroToDisable && (!m_tokenRateLimiter.CanTakeTokens())) { 
             TryRestartTokenRefreshTimer(); //make sure this is running so that tokens can be replenished, and don't send anything for now
+            m_countAsyncSendsLimitedByRate.fetch_add(1, std::memory_order_relaxed);
         }
         else if (M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL <= 1) { //single udp send packet function call
             UdpSendPacketInfo& udpSendPacketInfo = *m_reservedUdpSendPacketInfoIterator;
@@ -569,7 +575,7 @@ bool LtpEngine::TrySendPacketIfAvailable() {
     }
     //m_numQueuedSendSystemCallsAtomic += sendOperationQueuedSuccessfully;
     if (sendOperationQueuedSuccessfully) {
-        ++m_numQueuedSendSystemCallsAtomic; //atomic
+        m_numQueuedSendSystemCallsAtomic.fetch_add(1, std::memory_order_relaxed); //atomic
     }
     return sendOperationQueuedSuccessfully;
 }
@@ -900,7 +906,7 @@ void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_
     const uint8_t * clientServiceDataToCopyAndSend, uint64_t length, std::shared_ptr<LtpTransmissionRequestUserData> && userDataPtrToTake, uint64_t lengthOfRedPart)
 {  //only called directly by unit test (not thread safe)
     TransmissionRequest(destinationClientServiceId, destinationLtpEngineId,
-        std::move(std::vector<uint8_t>(clientServiceDataToCopyAndSend, clientServiceDataToCopyAndSend + length)),
+        std::move(padded_vector_uint8_t(clientServiceDataToCopyAndSend, clientServiceDataToCopyAndSend + length)),
         std::move(userDataPtrToTake), lengthOfRedPart
     );
 }
@@ -908,7 +914,7 @@ void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_
     const uint8_t * clientServiceDataToCopyAndSend, uint64_t length, uint64_t lengthOfRedPart)
 {  //only called directly by unit test (not thread safe)
     TransmissionRequest(destinationClientServiceId, destinationLtpEngineId,
-        std::move(std::vector<uint8_t>(clientServiceDataToCopyAndSend, clientServiceDataToCopyAndSend + length)),
+        std::move(padded_vector_uint8_t(clientServiceDataToCopyAndSend, clientServiceDataToCopyAndSend + length)),
         std::move(std::shared_ptr<LtpTransmissionRequestUserData>()), lengthOfRedPart
     );
 }
@@ -974,7 +980,7 @@ bool LtpEngine::CancellationRequest(const Ltp::session_id_t & sessionId) { //onl
             LOG_INFO(subprocess) << "LtpEngine::CancellationRequest deleted session sender session number " << sessionId.sessionNumber;
 
             //send Cancel Segment to receiver (GetNextPacketToSend() will create the packet and start the timer)
-            ++m_totalCancelSegmentsStarted;
+            m_totalCancelSegmentsStarted.fetch_add(1, std::memory_order_relaxed);
             m_queueCancelSegmentTimerInfo.emplace();
             cancel_segment_timer_info_t & info = m_queueCancelSegmentTimerInfo.back();
             info.sessionId = sessionId;
@@ -1010,7 +1016,7 @@ bool LtpEngine::CancellationRequest(const Ltp::session_id_t & sessionId) { //onl
             }
 
             //send Cancel Segment to sender (GetNextPacketToSend() will create the packet and start the timer)
-            ++m_totalCancelSegmentsStarted;
+            m_totalCancelSegmentsStarted.fetch_add(1, std::memory_order_relaxed);
             m_queueCancelSegmentTimerInfo.emplace();
             cancel_segment_timer_info_t & info = m_queueCancelSegmentTimerInfo.back();
             info.sessionId = sessionId;
@@ -1048,13 +1054,12 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
             else {
                 m_queueReceiversNeedingDeletedButUnsafeToDelete.emplace(sessionId); //postpone deletion until safe
             }
-            if (m_numRxSessionsCancelledBySender == 0) {
+            if (m_numRxSessionsCancelledBySender.fetch_add(1, std::memory_order_relaxed) == 0) {
                 LOG_INFO(subprocess) << "First time remote cancelled an Rx session (reason code "
                     << static_cast<unsigned int>(reasonCode) << ", session #" << sessionId.sessionNumber
                     << ((isSafeToDelete) ? " deleted" : " queued for deletion")
                     << ").  Future cancellation messages will now be suppressed.";
             }
-            ++m_numRxSessionsCancelledBySender;
             //Send CAx after outer if-else statement
 
         }
@@ -1079,12 +1084,11 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
             }
             TryReturnTxSessionDataToUser(txSessionIt); //TODO check reason codes
             EraseTxSession(txSessionIt);
-            if (m_numTxSessionsCancelledByReceiver == 0) {
+            if (m_numTxSessionsCancelledByReceiver.fetch_add(1, std::memory_order_relaxed) == 0) {
                 LOG_INFO(subprocess) << "First time remote cancelled a Tx session (reason code "
                     << static_cast<unsigned int>(reasonCode) << ", session #" << sessionId.sessionNumber
                     << ").  Future cancellation messages will now be suppressed.";
             }
-            ++m_numTxSessionsCancelledByReceiver;
             //Send CAx after outer if-else statement
         }
         else { //not found
@@ -1146,9 +1150,9 @@ void LtpEngine::CancelAcknowledgementSegmentReceivedCallback(const Ltp::session_
     }
     else { //a non-redundant cancel ack was received successfully
         const bool isPing = (isToSender && LtpRandomNumberGenerator::IsPingSession(sessionId.sessionNumber, M_FORCE_32_BIT_RANDOM_NUMBERS));
-        m_totalCancelSegmentsAcknowledged += (!isPing);
-        m_totalPingsAcknowledged += isPing;
+        m_totalCancelSegmentsAcknowledged.fetch_add(!isPing, std::memory_order_relaxed);
         if (isPing) {
+            m_totalPingsAcknowledged.fetch_add(1, std::memory_order_relaxed);
             //sender ping is successful
             M_NEXT_PING_START_EXPIRY = boost::posix_time::microsec_clock::universal_time() + M_SENDER_PING_TIME;
             //note: it is up to the user (such as egress) to prevent redundant link up events.. e.g. if (!m_senderLinkIsUpPhysically) {
@@ -1182,8 +1186,8 @@ void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmen
     const bool isPing = (info.isFromSender && LtpRandomNumberGenerator::IsPingSession(info.sessionId.sessionNumber, M_FORCE_32_BIT_RANDOM_NUMBERS));
 
     if (info.retryCount <= m_maxRetriesPerSerialNumber) {
-        m_totalCancelSegmentSendRetries += (!isPing);
-        m_totalPingRetries += isPing;
+        m_totalCancelSegmentSendRetries.fetch_add(!isPing, std::memory_order_relaxed);
+        m_totalPingRetries.fetch_add(isPing, std::memory_order_relaxed);
         //resend Cancel Segment to receiver (GetNextPacketToSend() will create the packet and start the timer)
         ++info.retryCount;
         m_queueCancelSegmentTimerInfo.emplace(info);
@@ -1193,7 +1197,7 @@ void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmen
     else {
         if (isPing) {
             //sender ping failed
-            ++m_totalPingsFailedToSend;
+            m_totalPingsFailedToSend.fetch_add(1, std::memory_order_relaxed);
             M_NEXT_PING_START_EXPIRY = boost::posix_time::microsec_clock::universal_time() + M_SENDER_PING_TIME;
             //note: it is up to the user (such as egress) to prevent redundant link down events.. e.g. if (m_senderLinkIsUpPhysically) {
             //note: it is up to the user (such as egress) to track physical link status (e.g. m_senderLinkIsUpPhysically = false;)
@@ -1202,10 +1206,9 @@ void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmen
             }
         }
         else {
-            if (m_totalCancelSegmentsFailedToSend == 0) {
+            if (m_totalCancelSegmentsFailedToSend.fetch_add(1, std::memory_order_relaxed) == 0) {
                 LOG_INFO(subprocess) << "This is the first cancel segment that failed to send!  This message will now be suppressed.";
             }
-            ++m_totalCancelSegmentsFailedToSend;
         }
     }
     //userData shall be recycled automatically after this callback completes
@@ -1215,7 +1218,7 @@ void LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback(const Ltp::sessio
     map_session_number_to_session_sender_t::iterator txSessionIt = m_mapSessionNumberToSessionSender.find(sessionId.sessionNumber);
     if (wasCancelled) {
         //send Cancel Segment to receiver (GetNextPacketToSend() will create the packet and start the timer)
-        ++m_totalCancelSegmentsStarted;
+        m_totalCancelSegmentsStarted.fetch_add(1, std::memory_order_relaxed);
         m_queueCancelSegmentTimerInfo.emplace();
         cancel_segment_timer_info_t & info = m_queueCancelSegmentTimerInfo.back();
         info.sessionId = sessionId;
@@ -1257,7 +1260,7 @@ void LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback(const Ltp::sess
     bool isSafeToDelete = true;
     if (wasCancelled) {
         //send Cancel Segment to sender (GetNextPacketToSend() will create the packet and start the timer)
-        ++m_totalCancelSegmentsStarted;
+        m_totalCancelSegmentsStarted.fetch_add(1, std::memory_order_relaxed);
         m_queueCancelSegmentTimerInfo.emplace();
         cancel_segment_timer_info_t & info = m_queueCancelSegmentTimerInfo.back();
         info.sessionId = sessionId;
@@ -1393,7 +1396,7 @@ bool LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
     if (dataSegmentMetadata.clientServiceId != m_ltpSessionReceiverCommonData.m_clientServiceId) {
         //send Cancel Segment to sender (GetNextPacketToSend() will create the packet and start the timer)
         if (m_ltpSessionsWithWrongClientServiceId.emplace(sessionId).second) { //only send one per sessionId
-            ++m_totalCancelSegmentsStarted;
+            m_totalCancelSegmentsStarted.fetch_add(1, std::memory_order_relaxed);
             m_queueCancelSegmentTimerInfo.emplace();
             cancel_segment_timer_info_t& info = m_queueCancelSegmentTimerInfo.back();
             info.sessionId = sessionId;
@@ -1507,7 +1510,7 @@ void LtpEngine::UpdateRate(const uint64_t maxSendRateBitsPerSecOrZeroToDisable) 
         m_tokenRateLimiter.SetRate(
             rateBytesPerSecond,
             boost::posix_time::seconds(1),
-            static_tokenMaxLimitDurationWindow //token limit of rateBytesPerSecond / (1000ms/100ms) = rateBytesPerSecond / 10
+            m_rateLimitPrecisionInterval
         );
     }
 }
@@ -1524,7 +1527,7 @@ void LtpEngine::TryRestartTokenRefreshTimer() {
         if (m_lastTimeTokensWereRefreshed.is_neg_infinity()) {
             m_lastTimeTokensWereRefreshed = nowPtime;
         }
-        m_tokenRefreshTimer.expires_at(nowPtime + static_tokenRefreshTimeDurationWindow);
+        m_tokenRefreshTimer.expires_at(nowPtime + m_rateLimitPrecisionInterval);
         m_tokenRefreshTimer.async_wait(boost::bind(&LtpEngine::OnTokenRefresh_TimerExpired, this, boost::asio::placeholders::error));
         m_tokenRefreshTimerIsRunning = true;
     }
@@ -1535,7 +1538,7 @@ void LtpEngine::TryRestartTokenRefreshTimer(const boost::posix_time::ptime & now
         if (m_lastTimeTokensWereRefreshed.is_neg_infinity()) {
             m_lastTimeTokensWereRefreshed = nowPtime;
         }
-        m_tokenRefreshTimer.expires_at(nowPtime + static_tokenRefreshTimeDurationWindow);
+        m_tokenRefreshTimer.expires_at(nowPtime + m_rateLimitPrecisionInterval);
         m_tokenRefreshTimer.async_wait(boost::bind(&LtpEngine::OnTokenRefresh_TimerExpired, this, boost::asio::placeholders::error));
         m_tokenRefreshTimerIsRunning = true;
     }
@@ -1608,14 +1611,13 @@ void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) 
                 else {
                     m_queueReceiversNeedingDeletedButUnsafeToDelete.emplace(sessionId);
                 }
-                if (m_numStagnantRxSessionsDeleted == 0) {
+                if (m_numStagnantRxSessionsDeleted.fetch_add(1, std::memory_order_relaxed) == 0) {
                     LOG_INFO(subprocess) << "First time housekeeping deleted a stagnant Rx session. (session #" << sessionId.sessionNumber
                         << ").  Future messages like this will now be suppressed.";
                 }
-                ++m_numStagnantRxSessionsDeleted;
 
                 //send Cancel Segment to sender (GetNextPacketToSend() will create the packet and start the timer)
-                ++m_totalCancelSegmentsStarted;
+                m_totalCancelSegmentsStarted.fetch_add(1, std::memory_order_relaxed);
                 m_queueCancelSegmentTimerInfo.emplace();
                 cancel_segment_timer_info_t& info = m_queueCancelSegmentTimerInfo.back();
                 info.sessionId = sessionId;
@@ -1649,7 +1651,7 @@ void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) 
             else {
                 M_NEXT_PING_START_EXPIRY = boost::posix_time::special_values::pos_infin; //will be set after ping succeeds or fails
                 //send Cancel Segment to receiver (GetNextPacketToSend() will create the packet and start the timer)
-                ++m_totalPingsStarted;
+                m_totalPingsStarted.fetch_add(1, std::memory_order_relaxed);
                 m_queueCancelSegmentTimerInfo.emplace();
                 cancel_segment_timer_info_t& info = m_queueCancelSegmentTimerInfo.back();
                 info.sessionId.sessionOriginatorEngineId = M_THIS_ENGINE_ID;
@@ -1713,19 +1715,18 @@ void LtpEngine::TryReturnTxSessionDataToUser(map_session_number_to_session_sende
     const bool safeToMove = (csdRef.use_count() == 1); //not also involved in a send operation
     const bool successCallbackAlreadyCalled = (m_memoryInFilesPtr) ? true : false;
     if (m_onFailedBundleVecSendCallback) { //if the user wants the data back
-        std::vector<uint8_t>& vecRef = csdRef->GetVecRef();
+        padded_vector_uint8_t& vecRef = csdRef->GetVecRef();
         if (vecRef.size()) { //this session sender is using vector<uint8_t> client service data
-            if (m_numTxSessionsReturnedToStorage == 0) {
+            if (m_numTxSessionsReturnedToStorage.fetch_add(1, std::memory_order_relaxed) == 0) {
                 LOG_INFO(subprocess) << "First time LTP sender "
                     << ((safeToMove) ? "moving" : "copying")
                     << " a send-failed vector bundle back to the user (back to storage).  Future messages like this will now be suppressed.";
             }
-            ++m_numTxSessionsReturnedToStorage;
             if (safeToMove) {
                 m_onFailedBundleVecSendCallback(vecRef, csdRef->m_userData, m_userAssignedUuid, successCallbackAlreadyCalled);
             }
             else {
-                std::vector<uint8_t> vecCopy(vecRef);
+                padded_vector_uint8_t vecCopy(vecRef);
                 m_onFailedBundleVecSendCallback(vecCopy, csdRef->m_userData, m_userAssignedUuid, successCallbackAlreadyCalled);
             }
         }
@@ -1733,12 +1734,11 @@ void LtpEngine::TryReturnTxSessionDataToUser(map_session_number_to_session_sende
     if (m_onFailedBundleZmqSendCallback) { //if the user wants the data back
         zmq::message_t& zmqRef = csdRef->GetZmqRef();
         if (zmqRef.size()) { //this session sender is using zmq client service data
-            if (m_numTxSessionsReturnedToStorage == 0) {
+            if (m_numTxSessionsReturnedToStorage.fetch_add(1, std::memory_order_relaxed) == 0) {
                 LOG_INFO(subprocess) << "First time LTP sender "
                     << ((safeToMove) ? "moving" : "copying")
                     << " a send-failed zmq bundle back to the user (back to storage).  Future messages like this will now be suppressed.";
             }
-            ++m_numTxSessionsReturnedToStorage;
             if (safeToMove) {
                 m_onFailedBundleZmqSendCallback(zmqRef, csdRef->m_userData, m_userAssignedUuid, successCallbackAlreadyCalled);
             }
@@ -1756,10 +1756,10 @@ void LtpEngine::EraseTxSession(map_session_number_to_session_sender_t::iterator&
         m_memoryBlockIdsPendingDeletionQueue.emplace(txSession.MEMORY_BLOCK_ID);
     }
     if (txSession.m_isFailedSession) {
-        m_totalRedDataBytesFailedToSend += txSession.M_LENGTH_OF_RED_PART;
+        m_totalRedDataBytesFailedToSend.fetch_add(txSession.M_LENGTH_OF_RED_PART, std::memory_order_relaxed);
     }
     else {
-        m_totalRedDataBytesSuccessfullySent += txSession.M_LENGTH_OF_RED_PART;
+        m_totalRedDataBytesSuccessfullySent.fetch_add(txSession.M_LENGTH_OF_RED_PART, std::memory_order_relaxed);
     }
     m_mapSessionNumberToSessionSender.erase(txSessionIt);
     

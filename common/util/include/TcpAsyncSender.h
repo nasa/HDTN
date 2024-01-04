@@ -35,8 +35,10 @@
 #include <boost/thread.hpp>
 #include <boost/asio.hpp>
 #include <vector>
+#include "PaddedVectorUint8.h"
 #include <queue>
 #include <memory>
+#include <atomic>
 #include <boost/function.hpp>
 #include <zmq.hpp>
 #include "BundleCallbackFunctionDefines.h"
@@ -55,7 +57,7 @@ struct TcpAsyncSenderElement {
     std::vector<uint8_t> m_userData;
     std::vector<boost::asio::const_buffer> m_constBufferVec;
     std::vector<std::vector<boost::uint8_t> > m_underlyingDataVecHeaders;
-    std::vector<boost::uint8_t> m_underlyingDataVecBundle;
+    padded_vector_uint8_t m_underlyingDataVecBundle;
     std::unique_ptr<zmq::message_t> m_underlyingDataZmqBundle;
     OnSuccessfulSendCallbackByIoServiceThread_t * m_onSuccessfulSendCallbackByIoServiceThreadPtr;
 };
@@ -86,8 +88,8 @@ private:
     std::queue<std::unique_ptr<TcpAsyncSenderElement> > m_queueTcpAsyncSenderElements;
 
     
-    volatile bool m_writeInProgress;
-    volatile bool m_sendErrorOccurred;
+    std::atomic<bool> m_writeInProgress;
+    std::atomic<bool> m_sendErrorOccurred;
 
     OnFailedBundleVecSendCallback_t m_onFailedBundleVecSendCallback;
     OnFailedBundleZmqSendCallback_t m_onFailedBundleZmqSendCallback;
@@ -126,8 +128,8 @@ private:
     std::queue<std::unique_ptr<TcpAsyncSenderElement> > m_queueTcpAsyncSenderElements;
 
 
-    volatile bool m_writeInProgress;
-    volatile bool m_sendErrorOccurred;
+    std::atomic<bool> m_writeInProgress;
+    std::atomic<bool> m_sendErrorOccurred;
 
     OnFailedBundleVecSendCallback_t m_onFailedBundleVecSendCallback;
     OnFailedBundleZmqSendCallback_t m_onFailedBundleZmqSendCallback;

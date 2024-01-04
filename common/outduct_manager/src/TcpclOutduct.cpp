@@ -28,8 +28,8 @@ TcpclOutduct::TcpclOutduct(const outduct_element_config_t & outductConfig, const
 {}
 TcpclOutduct::~TcpclOutduct() {}
 
-std::size_t TcpclOutduct::GetTotalDataSegmentsUnacked() {
-    return m_tcpclBundleSource.Virtual_GetTotalBundlesUnacked();
+std::size_t TcpclOutduct::GetTotalBundlesUnacked() const noexcept {
+    return m_tcpclBundleSource.BaseClass_GetTotalBundlesUnacked();
 }
 bool TcpclOutduct::Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
     return m_tcpclBundleSource.BaseClass_Forward(bundleData, size, std::move(userData));
@@ -37,7 +37,7 @@ bool TcpclOutduct::Forward(const uint8_t* bundleData, const std::size_t size, st
 bool TcpclOutduct::Forward(zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData) {
     return m_tcpclBundleSource.BaseClass_Forward(movableDataZmq, std::move(userData));
 }
-bool TcpclOutduct::Forward(std::vector<uint8_t> & movableDataVec, std::vector<uint8_t>&& userData) {
+bool TcpclOutduct::Forward(padded_vector_uint8_t& movableDataVec, std::vector<uint8_t>&& userData) {
     return m_tcpclBundleSource.BaseClass_Forward(movableDataVec, std::move(userData));
 }
 
@@ -68,10 +68,12 @@ void TcpclOutduct::Stop() {
 }
 void TcpclOutduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
     finalStats.m_convergenceLayer = m_outductConfig.convergenceLayer;
-    finalStats.m_totalDataSegmentsOrPacketsAcked = m_tcpclBundleSource.Virtual_GetTotalBundlesAcked();
-    finalStats.m_totalDataSegmentsOrPacketsSent = m_tcpclBundleSource.Virtual_GetTotalBundlesSent();
+    finalStats.m_totalBundlesAcked = m_tcpclBundleSource.BaseClass_GetTotalBundlesAcked();
+    finalStats.m_totalBundlesSent = m_tcpclBundleSource.BaseClass_GetTotalBundlesSent();
 }
 void TcpclOutduct::PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& outductTelem) {
-    outductTelem = boost::make_unique<TcpclV3OutductTelemetry_t>(m_tcpclBundleSource.m_base_outductTelemetry);
+    std::unique_ptr<TcpclV3OutductTelemetry_t> t = boost::make_unique<TcpclV3OutductTelemetry_t>();
+    m_tcpclBundleSource.BaseClass_GetTelemetry(*t);
+    outductTelem = std::move(t);
     outductTelem->m_linkIsUpPerTimeSchedule = m_linkIsUpPerTimeSchedule;
 }

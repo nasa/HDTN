@@ -20,6 +20,7 @@
 #include "Uri.h"
 #include <boost/make_unique.hpp>
 #include <boost/foreach.hpp>
+#include <vector>
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -208,12 +209,13 @@ OutductCapabilityTelemetry_t::OutductCapabilityTelemetry_t() :
     outductArrayIndex(0),
     maxBundlesInPipeline(0),
     maxBundleSizeBytesInPipeline(0),
-    nextHopNodeId(0) {}
+    nextHopNodeId(0), assumedInitiallyDown(false) {}
 bool OutductCapabilityTelemetry_t::operator==(const OutductCapabilityTelemetry_t& o) const {
     return (outductArrayIndex == o.outductArrayIndex)
         && (maxBundlesInPipeline == o.maxBundlesInPipeline)
         && (maxBundleSizeBytesInPipeline == o.maxBundleSizeBytesInPipeline)
         && (nextHopNodeId == o.nextHopNodeId)
+        && (assumedInitiallyDown == o.assumedInitiallyDown)
         && (finalDestinationEidList == o.finalDestinationEidList)
         && (finalDestinationNodeIdList == o.finalDestinationNodeIdList);
 }
@@ -225,6 +227,7 @@ OutductCapabilityTelemetry_t::OutductCapabilityTelemetry_t(const OutductCapabili
     maxBundlesInPipeline(o.maxBundlesInPipeline),
     maxBundleSizeBytesInPipeline(o.maxBundleSizeBytesInPipeline),
     nextHopNodeId(o.nextHopNodeId),
+    assumedInitiallyDown(o.assumedInitiallyDown),
     finalDestinationEidList(o.finalDestinationEidList),
     finalDestinationNodeIdList(o.finalDestinationNodeIdList) { } //a copy constructor: X(const X&)
 OutductCapabilityTelemetry_t::OutductCapabilityTelemetry_t(OutductCapabilityTelemetry_t&& o) noexcept :
@@ -232,6 +235,7 @@ OutductCapabilityTelemetry_t::OutductCapabilityTelemetry_t(OutductCapabilityTele
     maxBundlesInPipeline(o.maxBundlesInPipeline),
     maxBundleSizeBytesInPipeline(o.maxBundleSizeBytesInPipeline),
     nextHopNodeId(o.nextHopNodeId),
+    assumedInitiallyDown(o.assumedInitiallyDown),
     finalDestinationEidList(std::move(o.finalDestinationEidList)),
     finalDestinationNodeIdList(std::move(o.finalDestinationNodeIdList)) { } //a move constructor: X(X&&)
 OutductCapabilityTelemetry_t& OutductCapabilityTelemetry_t::operator=(const OutductCapabilityTelemetry_t& o) { //a copy assignment: operator=(const X&)
@@ -239,6 +243,7 @@ OutductCapabilityTelemetry_t& OutductCapabilityTelemetry_t::operator=(const Outd
     maxBundlesInPipeline = o.maxBundlesInPipeline;
     maxBundleSizeBytesInPipeline = o.maxBundleSizeBytesInPipeline;
     nextHopNodeId = o.nextHopNodeId;
+    assumedInitiallyDown = o.assumedInitiallyDown,
     finalDestinationEidList = o.finalDestinationEidList;
     finalDestinationNodeIdList = o.finalDestinationNodeIdList;
     return *this;
@@ -248,6 +253,7 @@ OutductCapabilityTelemetry_t& OutductCapabilityTelemetry_t::operator=(OutductCap
     maxBundlesInPipeline = o.maxBundlesInPipeline;
     maxBundleSizeBytesInPipeline = o.maxBundleSizeBytesInPipeline;
     nextHopNodeId = o.nextHopNodeId;
+    assumedInitiallyDown = o.assumedInitiallyDown,
     finalDestinationEidList = std::move(o.finalDestinationEidList);
     finalDestinationNodeIdList = std::move(o.finalDestinationNodeIdList);
     return *this;
@@ -258,6 +264,7 @@ bool OutductCapabilityTelemetry_t::SetValuesFromPropertyTree(const boost::proper
         maxBundlesInPipeline = pt.get<uint64_t>("maxBundlesInPipeline");
         maxBundleSizeBytesInPipeline = pt.get<uint64_t>("maxBundleSizeBytesInPipeline");
         nextHopNodeId = pt.get<uint64_t>("nextHopNodeId");
+        assumedInitiallyDown = pt.get<bool>("assumedInitiallyDown");
 
         const boost::property_tree::ptree& finalDestinationEidsListPt = pt.get_child("finalDestinationEidsList", EMPTY_PTREE); //non-throw version
         finalDestinationEidList.clear();
@@ -291,6 +298,7 @@ boost::property_tree::ptree OutductCapabilityTelemetry_t::GetNewPropertyTree() c
     pt.put("maxBundlesInPipeline", maxBundlesInPipeline);
     pt.put("maxBundleSizeBytesInPipeline", maxBundleSizeBytesInPipeline);
     pt.put("nextHopNodeId", nextHopNodeId);
+    pt.put("assumedInitiallyDown", assumedInitiallyDown);
     boost::property_tree::ptree& eidListPt = pt.put_child("finalDestinationEidsList",
         (finalDestinationEidList.empty() && finalDestinationNodeIdList.empty()) ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
     for (std::list<cbhe_eid_t>::const_iterator it = finalDestinationEidList.cbegin(); it != finalDestinationEidList.cend(); ++it) {
@@ -584,6 +592,75 @@ boost::property_tree::ptree TcpclV4InductConnectionTelemetry_t::GetNewPropertyTr
     return pt;
 }
 
+SlipOverUartInductConnectionTelemetry_t::SlipOverUartInductConnectionTelemetry_t() :
+    InductConnectionTelemetry_t(),
+    m_totalSlipBytesSent(0),
+    m_totalSlipBytesReceived(0),
+    m_totalReceivedChunks(0),
+    m_largestReceivedBytesPerChunk(0),
+    m_averageReceivedBytesPerChunk(0),
+    m_totalBundlesSentAndAcked(0),
+    m_totalBundleBytesSentAndAcked(0),
+    m_totalBundlesSent(0),
+    m_totalBundleBytesSent(0),
+    m_totalBundlesFailedToSend(0) {}
+SlipOverUartInductConnectionTelemetry_t::~SlipOverUartInductConnectionTelemetry_t() {};
+bool SlipOverUartInductConnectionTelemetry_t::operator==(const InductConnectionTelemetry_t& o) const {
+    if (const SlipOverUartInductConnectionTelemetry_t* oPtr = dynamic_cast<const SlipOverUartInductConnectionTelemetry_t*>(&o)) {
+        return InductConnectionTelemetry_t::operator==(o)
+            && (m_totalSlipBytesSent == oPtr->m_totalSlipBytesSent)
+            && (m_totalSlipBytesReceived == oPtr->m_totalSlipBytesReceived)
+            && (m_totalReceivedChunks == oPtr->m_totalReceivedChunks)
+            && (m_largestReceivedBytesPerChunk == oPtr->m_largestReceivedBytesPerChunk)
+            && (m_averageReceivedBytesPerChunk == oPtr->m_averageReceivedBytesPerChunk)
+            && (m_totalBundlesSentAndAcked == oPtr->m_totalBundlesSentAndAcked)
+            && (m_totalBundleBytesSentAndAcked == oPtr->m_totalBundleBytesSentAndAcked)
+            && (m_totalBundlesSent == oPtr->m_totalBundlesSent)
+            && (m_totalBundleBytesSent == oPtr->m_totalBundleBytesSent)
+            && (m_totalBundlesFailedToSend == oPtr->m_totalBundlesFailedToSend);
+    }
+    return false;
+}
+bool SlipOverUartInductConnectionTelemetry_t::operator!=(const InductConnectionTelemetry_t& o) const {
+    return !(*this == o);
+}
+bool SlipOverUartInductConnectionTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!InductConnectionTelemetry_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
+    try {
+        m_totalSlipBytesSent = pt.get<uint64_t>("totalSlipBytesSent");
+        m_totalSlipBytesReceived = pt.get<uint64_t>("totalSlipBytesReceived");
+        m_totalReceivedChunks = pt.get<uint64_t>("totalReceivedChunks");
+        m_largestReceivedBytesPerChunk = pt.get<uint64_t>("largestReceivedBytesPerChunk");
+        m_averageReceivedBytesPerChunk = pt.get<uint64_t>("averageReceivedBytesPerChunk");
+        m_totalBundlesSentAndAcked = pt.get<uint64_t>("totalBundlesSentAndAcked");
+        m_totalBundleBytesSentAndAcked = pt.get<uint64_t>("totalBundleBytesSentAndAcked");
+        m_totalBundlesSent = pt.get<uint64_t>("totalBundlesSent");
+        m_totalBundleBytesSent = pt.get<uint64_t>("totalBundleBytesSent");
+        m_totalBundlesFailedToSend = pt.get<uint64_t>("totalBundlesFailedToSend");
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON TcpclV4InductConnectionTelemetry_t: " << e.what();
+        return false;
+    }
+    return true;
+}
+boost::property_tree::ptree SlipOverUartInductConnectionTelemetry_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt = InductConnectionTelemetry_t::GetNewPropertyTree();
+    pt.put("totalSlipBytesSent", m_totalSlipBytesSent);
+    pt.put("totalSlipBytesReceived", m_totalSlipBytesReceived);
+    pt.put("totalReceivedChunks", m_totalReceivedChunks);
+    pt.put("largestReceivedBytesPerChunk", m_largestReceivedBytesPerChunk);
+    pt.put("averageReceivedBytesPerChunk", m_averageReceivedBytesPerChunk);
+    pt.put("totalBundlesSentAndAcked", m_totalBundlesSentAndAcked);
+    pt.put("totalBundleBytesSentAndAcked", m_totalBundleBytesSentAndAcked);
+    pt.put("totalBundlesSent", m_totalBundlesSent);
+    pt.put("totalBundleBytesSent", m_totalBundleBytesSent);
+    pt.put("totalBundlesFailedToSend", m_totalBundlesFailedToSend);
+    return pt;
+}
+
 LtpInductConnectionTelemetry_t::LtpInductConnectionTelemetry_t() :
     InductConnectionTelemetry_t(),
     m_numReportSegmentTimerExpiredCallbacks(0),
@@ -708,6 +785,9 @@ bool InductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::pt
         BOOST_FOREACH(const boost::property_tree::ptree::value_type & inductConnectionPt, inductConnectionsPt) {
             if (m_convergenceLayer == "ltp_over_udp") {
                 m_listInductConnections.emplace_back(boost::make_unique<LtpInductConnectionTelemetry_t>());
+            }
+            else if (m_convergenceLayer == "slip_over_uart") {
+                m_listInductConnections.emplace_back(boost::make_unique<SlipOverUartInductConnectionTelemetry_t>());
             }
             else if (m_convergenceLayer == "udp") {
                 m_listInductConnections.emplace_back(boost::make_unique<UdpInductConnectionTelemetry_t>());
@@ -1115,6 +1195,66 @@ boost::property_tree::ptree TcpclV4OutductTelemetry_t::GetNewPropertyTree() cons
     return pt;
 }
 
+SlipOverUartOutductTelemetry_t::SlipOverUartOutductTelemetry_t() :
+    OutductTelemetry_t(),
+    m_totalSlipBytesSent(0),
+    m_totalSlipBytesReceived(0),
+    m_totalReceivedChunks(0),
+    m_largestReceivedBytesPerChunk(0),
+    m_averageReceivedBytesPerChunk(0),
+    m_totalBundlesReceived(0),
+    m_totalBundleBytesReceived(0)
+{
+    m_convergenceLayer = "slip_over_uart";
+}
+SlipOverUartOutductTelemetry_t::~SlipOverUartOutductTelemetry_t() {};
+bool SlipOverUartOutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
+    if (const SlipOverUartOutductTelemetry_t* oPtr = dynamic_cast<const SlipOverUartOutductTelemetry_t*>(&o)) {
+        return OutductTelemetry_t::operator==(o)
+            && (m_totalSlipBytesSent == oPtr->m_totalSlipBytesSent)
+            && (m_totalSlipBytesReceived == oPtr->m_totalSlipBytesReceived)
+            && (m_totalReceivedChunks == oPtr->m_totalReceivedChunks)
+            && (m_largestReceivedBytesPerChunk == oPtr->m_largestReceivedBytesPerChunk)
+            && (m_averageReceivedBytesPerChunk == oPtr->m_averageReceivedBytesPerChunk)
+            && (m_totalBundlesReceived == oPtr->m_totalBundlesReceived)
+            && (m_totalBundleBytesReceived == oPtr->m_totalBundleBytesReceived);
+    }
+    return false;
+}
+bool SlipOverUartOutductTelemetry_t::operator!=(const OutductTelemetry_t& o) const {
+    return !(*this == o);
+}
+bool SlipOverUartOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!OutductTelemetry_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
+    try {
+        m_totalSlipBytesSent = pt.get<uint64_t>("totalSlipBytesSent");
+        m_totalSlipBytesReceived = pt.get<uint64_t>("totalSlipBytesReceived");
+        m_totalReceivedChunks = pt.get<uint64_t>("totalReceivedChunks");
+        m_largestReceivedBytesPerChunk = pt.get<uint64_t>("largestReceivedBytesPerChunk");
+        m_averageReceivedBytesPerChunk = pt.get<uint64_t>("averageReceivedBytesPerChunk");
+        m_totalBundlesReceived = pt.get<uint64_t>("totalBundlesReceived");
+        m_totalBundleBytesReceived = pt.get<uint64_t>("totalBundleBytesReceived");
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON TcpclV4OutductTelemetry_t: " << e.what();
+        return false;
+    }
+    return true;
+}
+boost::property_tree::ptree SlipOverUartOutductTelemetry_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt = OutductTelemetry_t::GetNewPropertyTree();
+    pt.put("totalSlipBytesSent", m_totalSlipBytesSent);
+    pt.put("totalSlipBytesReceived", m_totalSlipBytesReceived);
+    pt.put("totalReceivedChunks", m_totalReceivedChunks);
+    pt.put("largestReceivedBytesPerChunk", m_largestReceivedBytesPerChunk);
+    pt.put("averageReceivedBytesPerChunk", m_averageReceivedBytesPerChunk);
+    pt.put("totalBundlesReceived", m_totalBundlesReceived);
+    pt.put("totalBundleBytesReceived", m_totalBundleBytesReceived);
+    return pt;
+}
+
 
 UdpOutductTelemetry_t::UdpOutductTelemetry_t() :
     OutductTelemetry_t(),
@@ -1215,6 +1355,9 @@ bool AllOutductTelemetry_t::SetValuesFromPropertyTree(const boost::property_tree
             if (convergenceLayer == "ltp_over_udp") {
                 m_listAllOutducts.emplace_back(boost::make_unique<LtpOutductTelemetry_t>());
             }
+            else if (convergenceLayer == "slip_over_uart") {
+                m_listAllOutducts.emplace_back(boost::make_unique<SlipOverUartOutductTelemetry_t>());
+            }
             else if (convergenceLayer == "udp") {
                 m_listAllOutducts.emplace_back(boost::make_unique<UdpOutductTelemetry_t>());
             }
@@ -1265,19 +1408,52 @@ boost::property_tree::ptree AllOutductTelemetry_t::GetNewPropertyTree() const {
 }
 
 /**
+ * ZmqConnectionID_t 
+ */
+
+ZmqConnectionId_t::ZmqConnectionId_t(const uint8_t val) {
+    std::fill(m_id.begin(), m_id.end(), 0);
+    m_id[ZMQ_CONNECTION_ID_LEN - 1] = val;
+}
+
+zmq::message_t ZmqConnectionId_t::Msg() {
+    return zmq::message_t(m_id.data(), m_id.size());
+}
+
+bool ZmqConnectionId_t::operator==(const ZmqConnectionId_t& other) const {
+    return m_id == other.m_id;
+}
+
+bool ZmqConnectionId_t::operator==(const zmq::message_t& msg) const {
+    if (msg.size() != m_id.size()) {
+        return false;
+    }
+    return memcmp(msg.data(), m_id.data(), m_id.size()) == 0;
+}
+
+ZmqConnectionId_t::ZmqConnectionId_t() {}
+
+/**
+ * API Command Names
+*/
+const std::string GetStorageApiCommand_t::name = "get_storage";
+const std::string GetInductsApiCommand_t::name = "get_inducts";
+const std::string GetOutductsApiCommand_t::name = "get_outducts";
+const std::string GetOutductCapabilitiesApiCommand_t::name = "get_outduct_capabilities";
+const std::string PingApiCommand_t::name = "ping";
+const std::string UploadContactPlanApiCommand_t::name = "upload_contact_plan";
+const std::string GetExpiringStorageApiCommand_t::name = "get_expiring_storage";
+const std::string UpdateBpSecApiCommand_t::name = "update_bpsec_config";
+const std::string GetBpSecApiCommand_t::name = "get_bpsec_config";
+const std::string SetMaxSendRateApiCommand_t::name = "set_max_send_rate";
+const std::string GetHdtnConfigApiCommand_t::name = "get_hdtn_config";
+
+/**
  * ApiCommand_t 
  */
 
 ApiCommand_t::ApiCommand_t() : m_apiCall("") {}
-
-std::string ApiCommand_t::GetApiCallFromJson(const std::string& jsonStr) {
-    ApiCommand_t apiCmd;
-    if (!apiCmd.SetValuesFromJson(jsonStr)) {
-        return "";
-    }
-
-    return apiCmd.m_apiCall;
-}
+ApiCommand_t::~ApiCommand_t() {}
 
 bool ApiCommand_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt){
     try {
@@ -1308,6 +1484,101 @@ boost::property_tree::ptree ApiCommand_t::GetNewPropertyTree() const {
     return pt;
 }
 
+std::shared_ptr<ApiCommand_t> ApiCommand_t::CreateFromJson(const std::string& jsonStr) {
+    std::shared_ptr<ApiCommand_t> apiCommandPtr;
+    boost::property_tree::ptree pt;
+    if (!JsonSerializable::GetPropertyTreeFromJsonString(jsonStr, pt)) {
+        LOG_ERROR(subprocess) << "error parsing JSON Api command";
+        return apiCommandPtr; //null
+    }
+    std::string apiCall;
+    try {
+        apiCall = pt.get<std::string>("apiCall");
+    }
+    catch (const boost::property_tree::ptree_error&) {
+        LOG_ERROR(subprocess) << "error getting apiCall from JSON Api command";
+        return apiCommandPtr; //null
+    }
+    if (apiCall == PingApiCommand_t::name) {
+        apiCommandPtr = std::make_shared<PingApiCommand_t>();
+    }
+    else if (apiCall == UploadContactPlanApiCommand_t::name) {
+        apiCommandPtr = std::make_shared<UploadContactPlanApiCommand_t>();
+    }
+    else if (apiCall == GetExpiringStorageApiCommand_t::name) {
+        apiCommandPtr = std::make_shared<GetExpiringStorageApiCommand_t>();
+    }
+    else if (apiCall == UpdateBpSecApiCommand_t::name) {
+        apiCommandPtr = std::make_shared<UpdateBpSecApiCommand_t>();
+    }
+    else if (apiCall == GetBpSecApiCommand_t::name) {
+        apiCommandPtr = std::make_shared<GetBpSecApiCommand_t>();
+    }
+    else if (apiCall == SetMaxSendRateApiCommand_t::name) {
+        apiCommandPtr = std::make_shared<SetMaxSendRateApiCommand_t>();
+    }
+    else if (apiCall == GetInductsApiCommand_t::name) {
+        apiCommandPtr = std::make_shared<GetInductsApiCommand_t>();
+    }
+    else if (apiCall == GetOutductsApiCommand_t::name) {
+        apiCommandPtr = std::make_shared<GetOutductsApiCommand_t>();
+    }
+    else if (apiCall == GetOutductCapabilitiesApiCommand_t::name) {
+        apiCommandPtr = std::make_shared<GetOutductCapabilitiesApiCommand_t>();
+    }
+    else if (apiCall == GetStorageApiCommand_t::name) {
+        apiCommandPtr = std::make_shared<GetStorageApiCommand_t>();
+    }
+    else { //generic api command
+        apiCommandPtr = std::make_shared<ApiCommand_t>();
+    }
+
+    if (!apiCommandPtr->SetValuesFromPropertyTree(pt)) {
+        return std::shared_ptr<ApiCommand_t>(); //NULL
+    }
+    return apiCommandPtr;
+}
+
+/**
+ * GetStorageApiCommand_t
+ */
+GetStorageApiCommand_t::GetStorageApiCommand_t()
+{
+    ApiCommand_t::m_apiCall = GetStorageApiCommand_t::name;
+}
+
+GetStorageApiCommand_t::~GetStorageApiCommand_t() {}
+
+/**
+ * GetInductsApiCommand_t
+ */
+GetInductsApiCommand_t::GetInductsApiCommand_t()
+{
+    ApiCommand_t::m_apiCall = GetInductsApiCommand_t::name;
+}
+
+GetInductsApiCommand_t::~GetInductsApiCommand_t() {}
+
+/**
+ * GetOutductsApiCommand_t
+ */
+GetOutductsApiCommand_t::GetOutductsApiCommand_t()
+{
+    ApiCommand_t::m_apiCall = GetOutductsApiCommand_t::name;
+}
+
+GetOutductsApiCommand_t::~GetOutductsApiCommand_t() {}
+
+/**
+ * GetOutductCapabilitiesApiCommand_t
+ */
+GetOutductCapabilitiesApiCommand_t::GetOutductCapabilitiesApiCommand_t()
+{
+    ApiCommand_t::m_apiCall = GetOutductCapabilitiesApiCommand_t::name;
+}
+
+GetOutductCapabilitiesApiCommand_t::~GetOutductCapabilitiesApiCommand_t() {}
+
 /**
  * PingApiCommand_t 
  */
@@ -1315,8 +1586,9 @@ boost::property_tree::ptree ApiCommand_t::GetNewPropertyTree() const {
 PingApiCommand_t::PingApiCommand_t()
     : ApiCommand_t(), m_nodeId(0), m_pingServiceNumber(0), m_bpVersion(0)
 {
-    ApiCommand_t::m_apiCall = "ping";
+    ApiCommand_t::m_apiCall = PingApiCommand_t::name;
 }
+PingApiCommand_t::~PingApiCommand_t() {}
 
 bool PingApiCommand_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
     if (!ApiCommand_t::SetValuesFromPropertyTree(pt)) {
@@ -1367,8 +1639,9 @@ bool PingApiCommand_t::operator!=(const ApiCommand_t& o) const {
 UploadContactPlanApiCommand_t::UploadContactPlanApiCommand_t()
     : ApiCommand_t(), m_contactPlanJson("{}")
 {
-    ApiCommand_t::m_apiCall = "upload_contact_plan";
+    ApiCommand_t::m_apiCall = UploadContactPlanApiCommand_t::name;
 }
+UploadContactPlanApiCommand_t::~UploadContactPlanApiCommand_t() {}
 
 bool UploadContactPlanApiCommand_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
     if (!ApiCommand_t::SetValuesFromPropertyTree(pt)) {
@@ -1390,7 +1663,6 @@ bool UploadContactPlanApiCommand_t::SetValuesFromPropertyTree(const boost::prope
 
 boost::property_tree::ptree UploadContactPlanApiCommand_t::GetNewPropertyTree() const {
     boost::property_tree::ptree pt = ApiCommand_t::GetNewPropertyTree();
-    pt.put("apiCall", "upload_contact_plan");
     pt.put("contactPlanJson", m_contactPlanJson);
     return pt;
 }
@@ -1414,8 +1686,9 @@ bool UploadContactPlanApiCommand_t::operator!=(const ApiCommand_t& o) const {
 GetExpiringStorageApiCommand_t::GetExpiringStorageApiCommand_t()
     : ApiCommand_t(), m_priority(0), m_thresholdSecondsFromNow(0)
 {
-    ApiCommand_t::m_apiCall = "get_expiring_storage";
+    ApiCommand_t::m_apiCall = GetExpiringStorageApiCommand_t::name;
 }
+GetExpiringStorageApiCommand_t::~GetExpiringStorageApiCommand_t() {}
 
 bool GetExpiringStorageApiCommand_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
     if (!ApiCommand_t::SetValuesFromPropertyTree(pt)) {
@@ -1438,7 +1711,6 @@ bool GetExpiringStorageApiCommand_t::SetValuesFromPropertyTree(const boost::prop
 
 boost::property_tree::ptree GetExpiringStorageApiCommand_t::GetNewPropertyTree() const {
     boost::property_tree::ptree pt = ApiCommand_t::GetNewPropertyTree();
-    pt.put("apiCall", "get_expiring_storage");
     pt.put("priority", m_priority);
     pt.put("thresholdSecondsFromNow", m_thresholdSecondsFromNow);
     return pt;
@@ -1455,4 +1727,140 @@ bool GetExpiringStorageApiCommand_t::operator==(const ApiCommand_t& o) const {
 
 bool GetExpiringStorageApiCommand_t::operator!=(const ApiCommand_t& o) const {
     return !(*this == o);
+}
+
+/**
+ * UpdateBpSecApiCommand_t
+ */
+
+UpdateBpSecApiCommand_t::UpdateBpSecApiCommand_t()
+    : ApiCommand_t(), m_bpSecJson("{}")
+{
+    ApiCommand_t::m_apiCall = UpdateBpSecApiCommand_t::name;
+}
+UpdateBpSecApiCommand_t::~UpdateBpSecApiCommand_t() {}
+
+bool UpdateBpSecApiCommand_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!ApiCommand_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
+    try {
+        m_bpSecJson = pt.get<std::string>("newBPSec");
+    }
+    catch (const boost::bad_lexical_cast& e) {
+        LOG_ERROR(subprocess) << "parsing JSON UpdateBpSecApiCommand_t: " << e.what();
+        return false;
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON UpdateBpSecApiCommand_t: " << e.what();
+        return false;
+    }
+    return true;
+}
+
+boost::property_tree::ptree UpdateBpSecApiCommand_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt = ApiCommand_t::GetNewPropertyTree();
+    pt.put("newBPSec", m_bpSecJson);
+    return pt;
+}
+
+bool UpdateBpSecApiCommand_t::operator==(const ApiCommand_t& o) const {
+    if (const UpdateBpSecApiCommand_t* oPtr = dynamic_cast<const UpdateBpSecApiCommand_t*>(&o)) {
+        return ApiCommand_t::operator==(o)
+            && (m_bpSecJson == oPtr->m_bpSecJson);
+    }
+    return false;
+}
+
+bool UpdateBpSecApiCommand_t::operator!=(const ApiCommand_t& o) const {
+    return !(*this == o);
+}
+
+/**
+ * GetBpSecApiCommand_t
+ */
+
+GetBpSecApiCommand_t::GetBpSecApiCommand_t()
+    : ApiCommand_t()
+{
+    ApiCommand_t::m_apiCall = GetBpSecApiCommand_t::name;
+}
+GetBpSecApiCommand_t::~GetBpSecApiCommand_t() {}
+
+
+/**
+ * SetMaxSendRateApiCommand_t
+ */
+
+SetMaxSendRateApiCommand_t::SetMaxSendRateApiCommand_t()
+    : ApiCommand_t(), m_rateBitsPerSec(0), m_outduct(0)
+{
+    ApiCommand_t::m_apiCall = SetMaxSendRateApiCommand_t::name;
+}
+
+bool SetMaxSendRateApiCommand_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!ApiCommand_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
+    try {
+        m_rateBitsPerSec = pt.get<uint64_t>("rateBitsPerSec");
+        m_outduct = pt.get<uint64_t>("outduct");
+    }
+    catch (const boost::bad_lexical_cast& e) {
+        LOG_ERROR(subprocess) << "parsing JSON SetMaxSendRateApiCommand_t: " << e.what();
+        return false;
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON SetMaxSendRateApiCommand_t: " << e.what();
+        return false;
+    }
+    return true;
+}
+
+boost::property_tree::ptree SetMaxSendRateApiCommand_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt = ApiCommand_t::GetNewPropertyTree();
+    pt.put("rateBitsPerSec", m_rateBitsPerSec);
+    pt.put("outduct", m_outduct);
+    return pt;
+}
+
+bool SetMaxSendRateApiCommand_t::operator==(const ApiCommand_t& o) const {
+    if (const SetMaxSendRateApiCommand_t* oPtr = dynamic_cast<const SetMaxSendRateApiCommand_t*>(&o)) {
+        return ApiCommand_t::operator==(o)
+            && (m_rateBitsPerSec == oPtr->m_rateBitsPerSec) &&
+            (m_outduct == oPtr->m_outduct);
+    }
+    return true;
+}
+
+bool SetMaxSendRateApiCommand_t::operator!=(const ApiCommand_t& o) const {
+    return !(*this == o);
+}
+
+/**
+ * ApiResp_t
+*/
+
+ApiResp_t::ApiResp_t() : m_success(false), m_message("") {}
+ApiResp_t::~ApiResp_t() {}
+
+bool ApiResp_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt){
+    try {
+        m_success = pt.get<bool>("success");
+        m_message = pt.get<std::string>("message");
+    }
+    catch (const boost::bad_lexical_cast&) {
+        return false;
+    }
+    catch (const boost::property_tree::ptree_error&) {
+        return false;
+    }
+    return true;
+}
+
+boost::property_tree::ptree ApiResp_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt;
+    pt.put("success", m_success);
+    pt.put("message", m_message);
+    return pt;
 }

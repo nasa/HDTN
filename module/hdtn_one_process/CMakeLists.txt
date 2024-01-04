@@ -29,7 +29,6 @@ target_link_libraries(hdtn_one_process_lib
 		storage_lib
 		egress_async_lib
 		$<TARGET_NAME_IF_EXISTS:telem_lib>
-		scheduler_lib
 		router_lib
 		bpcodec
 		Boost::program_options

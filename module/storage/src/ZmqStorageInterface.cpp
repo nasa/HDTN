@@ -27,6 +27,7 @@
 #include "TelemetryDefinitions.h"
 #include <boost/core/noncopyable.hpp>
 #include <set>
+#include <unordered_set>
 #include <unordered_map>
 #include <boost/lexical_cast.hpp>
 #include <boost/make_unique.hpp>
@@ -36,6 +37,9 @@
 #include "CustodyTimers.h"
 #include "codec/BundleViewV7.h"
 #include "ThreadNamer.h"
+#include "TelemetryServer.h"
+#include <atomic>
+#include "codec/Bpv6Fragment.h"
 
 typedef std::pair<cbhe_eid_t, bool> eid_plus_isanyserviceid_pair_t;
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
@@ -107,12 +111,17 @@ struct ZmqStorageInterface::Impl : private boost::noncopyable {
     std::size_t GetCurrentNumberOfBundlesDeletedFromStorage();
 
 private:
-    bool WriteAcsBundle(const Bpv6CbhePrimaryBlock& primary, const std::vector<uint8_t>& acsBundleSerialized);
+    bool WriteAcsBundle(BundleViewV6 &bv);
     bool Write(zmq::message_t* message,
         cbhe_eid_t& finalDestEidReturned, bool dontWriteIfCustodyFlagSet,
-        bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord);
+        bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord, cbhe_eid_t *bundleEidMaskPtr = NULL);
+    bool ProcessBundleCustody(BundleViewV6 &bv, size_t size, cbhe_eid_t *bundleEidMaskPtr);
+    void ReportDepletedStorage(cbhe_eid_t &eid);
+    bool ProcessAdminRecord(BundleViewV6 &bv);
+    bool WriteBundle(BundleViewV6 &bv, const uint64_t newCustodyId, cbhe_eid_t *bundleEidMaskPtr = NULL);
+    bool WriteBundle(BundleViewV7 &bv, const uint64_t newCustodyId, cbhe_eid_t *bundleEidMaskPtr = NULL);
     bool WriteBundle(const PrimaryBlock& bundlePrimaryBlock,
-        const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize);
+        const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize, uint64_t payloadSizeBytes, cbhe_eid_t *bundleEidMaskPtr = NULL);
     uint64_t PeekOne(const std::vector<eid_plus_isanyserviceid_pair_t>& availableDestLinks);
     bool ReleaseOne_NoBlock(const OutductInfo_t& info, const uint64_t maxBundleSizeToRead, uint64_t& returnedBundleSize);
     void RepopulateUpLinksVec();
@@ -137,13 +146,15 @@ private:
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundEgressToConnectingStoragePtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingStorageToBoundIngressPtr;
 
+    std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingStorageToBoundRouterPtr;
     std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingTelemToFromBoundStoragePtr;
 
     HdtnConfig m_hdtnConfig;
 
     zmq::context_t* m_hdtnOneProcessZmqInprocContextPtr;
     std::unique_ptr<boost::thread> m_threadPtr;
-    volatile bool m_running;
+    std::atomic<bool> m_running;
+    bool m_isOutOfStorageSpace;
 
     //variables initialized and used only by ThreadFunc()
     std::unique_ptr<BundleStorageManagerBase> m_bsmPtr;
@@ -157,7 +168,7 @@ private:
     std::vector<OutductInfo_t*> m_vectorUpLinksOutductInfoPtrs; //outductIndex to info
 
     //for blocking until worker-thread startup
-    volatile bool m_workerThreadStartupInProgress;
+    std::atomic<bool> m_workerThreadStartupInProgress;
     boost::mutex m_workerThreadStartupMutex;
     boost::condition_variable m_workerThreadStartupConditionVariable;
 
@@ -166,10 +177,20 @@ private:
     enum class DeletionPolicy { never, onExpiration, onStorageFull };
     DeletionPolicy m_deletionPolicy;
     BundleViewV6 m_bundleDeletionStatusReport;
+
+    // Used to track which custody bundles have been sent from egress.
+    // We only want to start the timer when a bundle has been sent. Furthermore,
+    // we may receive a custody signal before we hear from egress that a bundle
+    // has been sent. Use this data structure to track "pending egress send"
+    // so that we know whether to start the timer for a given bundle
+    std::unordered_set<uint64_t> m_custodyIdsWaitingTimerStart;
+
+    TelemetryServer m_telemServer;
 };
 
 ZmqStorageInterface::Impl::Impl() :
     m_running(false),
+    m_isOutOfStorageSpace(false),
     m_workerThreadStartupInProgress(false),
     m_hdtnOneProcessZmqInprocContextPtr(nullptr),
     m_deletionPolicy(DeletionPolicy::never) {}
@@ -241,12 +262,14 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDi
         m_zmqPullSock_boundEgressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         m_zmqPushSock_connectingStorageToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         m_zmqPullSock_boundIngressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+        m_zmqPushSock_connectingStorageToBoundRouterPtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         m_zmqRepSock_connectingTelemToFromBoundStoragePtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         try {
             m_zmqPushSock_connectingStorageToBoundEgressPtr->connect(std::string("inproc://connecting_storage_to_bound_egress")); // egress should bind
             m_zmqPullSock_boundEgressToConnectingStoragePtr->connect(std::string("inproc://bound_egress_to_connecting_storage")); // egress should bind
             m_zmqPushSock_connectingStorageToBoundIngressPtr->connect(std::string("inproc://connecting_storage_to_bound_ingress"));
             m_zmqPullSock_boundIngressToConnectingStoragePtr->connect(std::string("inproc://bound_ingress_to_connecting_storage"));
+            m_zmqPushSock_connectingStorageToBoundRouterPtr->connect(std::string("inproc://connecting_storage_to_bound_router"));
             m_zmqRepSock_connectingTelemToFromBoundStoragePtr->bind(std::string("inproc://connecting_telem_to_from_bound_storage"));
         }
         catch (const zmq::error_t & ex) {
@@ -283,6 +306,12 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDi
             std::string(":") +
             boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqBoundIngressToConnectingStoragePortPath));
 
+        m_zmqPushSock_connectingStorageToBoundRouterPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::push);
+        const std::string connect_connectingStorageToBoundRouterPath(
+                std::string("tcp://") +
+                hdtnDistributedConfig.m_zmqRouterAddress +
+                std::string(":") +
+                boost::lexical_cast<std::string>(hdtnDistributedConfig.m_zmqConnectingStorageToBoundRouterPortPath));
         //from telemetry socket
         m_zmqRepSock_connectingTelemToFromBoundStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::rep);
         const std::string bind_connectingTelemToFromBoundStoragePath(
@@ -293,6 +322,7 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDi
             m_zmqPullSock_boundEgressToConnectingStoragePtr->connect(connect_boundEgressToConnectingStoragePath); // egress should bind
             m_zmqPushSock_connectingStorageToBoundIngressPtr->connect(connect_connectingStorageToBoundIngressPath);
             m_zmqPullSock_boundIngressToConnectingStoragePtr->connect(connect_boundIngressToConnectingStoragePath);
+            m_zmqPushSock_connectingStorageToBoundRouterPtr->connect(connect_connectingStorageToBoundRouterPath);
             m_zmqRepSock_connectingTelemToFromBoundStoragePtr->bind(bind_connectingTelemToFromBoundStoragePath);
         }
         catch (const zmq::error_t & ex) {
@@ -302,31 +332,31 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDi
     }
 
     m_zmqSubSock_boundReleaseToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::sub);
-    const std::string connect_boundSchedulerPubSubPath(
+    const std::string connect_boundRouterPubSubPath(
         std::string("tcp://") +
-        ((hdtnOneProcessZmqInprocContextPtr == NULL) ? hdtnDistributedConfig.m_zmqSchedulerAddress : std::string("localhost")) +
+        ((hdtnOneProcessZmqInprocContextPtr == NULL) ? hdtnDistributedConfig.m_zmqRouterAddress : std::string("localhost")) +
         std::string(":") +
-        boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
+        boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundRouterPubSubPortPath));
     try {
-        m_zmqSubSock_boundReleaseToConnectingStoragePtr->connect(connect_boundSchedulerPubSubPath);
+        m_zmqSubSock_boundReleaseToConnectingStoragePtr->connect(connect_boundRouterPubSubPath);
         m_zmqSubSock_boundReleaseToConnectingStoragePtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
-        LOG_INFO(subprocess) << "Connected to scheduler at " << connect_boundSchedulerPubSubPath << " , subscribing...";
+        LOG_INFO(subprocess) << "Connected to router at " << connect_boundRouterPubSubPath << " , subscribing...";
     }
     catch (const zmq::error_t& ex) {
-        LOG_ERROR(subprocess) << "Cannot connect to scheduler socket at " << connect_boundSchedulerPubSubPath << " : " << ex.what();
+        LOG_ERROR(subprocess) << "Cannot connect to router socket at " << connect_boundRouterPubSubPath << " : " << ex.what();
         return false;
     }
     try {
-        //Sends one-byte 0x1 message to scheduler XPub socket plus strlen of subscription
+        //Sends one-byte 0x1 message to router XPub socket plus strlen of subscription
         //All release messages shall be prefixed by "aaaaaaaa" before the common header
         //Router unique subscription shall be "a" (gets all messages that start with "a") (e.g "aaa", "ab", etc.)
         //Ingress unique subscription shall be "aa"
         //Storage unique subscription shall be "aaa"
         m_zmqSubSock_boundReleaseToConnectingStoragePtr->set(zmq::sockopt::subscribe, "aaa"); 
-            LOG_INFO(subprocess) << "Subscribed to all events from scheduler";
+            LOG_INFO(subprocess) << "Subscribed to all events from router";
     }
     catch (const zmq::error_t& ex) {
-        LOG_ERROR(subprocess) << "Cannot subscribe to all events from scheduler: " << ex.what();
+        LOG_ERROR(subprocess) << "Cannot subscribe to all events from router: " << ex.what();
         return false;
     }
 
@@ -369,47 +399,355 @@ bool ZmqStorageInterface::Impl::Init(const HdtnConfig & hdtnConfig, const HdtnDi
     return true;
 }
 
-bool ZmqStorageInterface::Impl::WriteAcsBundle(const Bpv6CbhePrimaryBlock & primary, const std::vector<uint8_t> & acsBundleSerialized)
+bool ZmqStorageInterface::Impl::WriteAcsBundle(BundleViewV6 &bv)
 {
+    Bpv6CbhePrimaryBlock &primary = bv.m_primaryBlockView.header;
     const cbhe_eid_t & hdtnSrcEid = primary.m_sourceNodeId;
     const uint64_t newCustodyIdForAcsCustodySignal = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(hdtnSrcEid);
 
+    uint64_t payloadSizeBytes = 0;
+    if(!bv.GetPayloadSize(payloadSizeBytes)) {
+        LOG_ERROR(subprocess) << "Could not get payload size";
+        return false;
+    }
+
+    uint8_t *data = bv.m_frontBuffer.data();
+    uint64_t size = bv.m_frontBuffer.size();
+
     //write custody signal to disk
     BundleStorageManagerSession_WriteToDisk sessionWrite;
-    const uint64_t totalSegmentsRequired = m_bsmPtr->Push(sessionWrite, primary, acsBundleSerialized.size());
+    const uint64_t totalSegmentsRequired = m_bsmPtr->Push(sessionWrite, primary, size, payloadSizeBytes);
     if (totalSegmentsRequired == 0) {
         LOG_ERROR(subprocess) << "out of space for acs custody signal";
         return false;
     }
 
     const uint64_t totalBytesPushed = m_bsmPtr->PushAllSegments(sessionWrite, primary,
-        newCustodyIdForAcsCustodySignal, acsBundleSerialized.data(), acsBundleSerialized.size());
-    if (totalBytesPushed != acsBundleSerialized.size()) {
+        newCustodyIdForAcsCustodySignal, data, size);
+    if (totalBytesPushed != size) {
         LOG_ERROR(subprocess) << "totalBytesPushed != acsBundleSerialized.size";
         return false;
     }
     return true;
 }
 
+void ZmqStorageInterface::Impl::ReportDepletedStorage(cbhe_eid_t &eid)
+{
+    if(!m_hdtnConfig.m_neighborDepletedStorageDelaySeconds) {
+        return;
+    }
+    uint64_t nodeId = eid.nodeId;
+
+    LOG_INFO(subprocess) << "Node " << nodeId << " storage is depleted; sending message to router";
+
+    hdtn::DepletedStorageReportHdr report;
+    memset(&report, 0, sizeof(report));
+    report.base.type = HDTN_MSGTYPE_DEPLETED_STORAGE_REPORT;
+    report.base.flags = 0;
+    report.nodeId = nodeId;
+
+    if (!m_zmqPushSock_connectingStorageToBoundRouterPtr->send(
+        zmq::const_buffer(&report, sizeof(report)), zmq::send_flags::dontwait))
+    {
+        LOG_ERROR(subprocess) << "Failed to send depleted storage report to router";
+    }
+}
+
+bool ZmqStorageInterface::Impl::ProcessAdminRecord(BundleViewV6 &bv)
+{
+
+    std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+    bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+    if (blocks.size() != 1) {
+        LOG_ERROR(subprocess) << "error admin record has " << blocks.size() << " payload block(s), but expected 1";
+        return false;
+    }
+    Bpv6AdministrativeRecord* adminRecordBlockPtr = dynamic_cast<Bpv6AdministrativeRecord*>(blocks[0]->headerPtr.get());
+    if (adminRecordBlockPtr == NULL) {
+        LOG_ERROR(subprocess) << "error null Bpv6AdministrativeRecord";
+        return false;
+    }
+    const BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE adminRecordType = adminRecordBlockPtr->m_adminRecordTypeCode;
+
+    if (adminRecordType == BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::AGGREGATE_CUSTODY_SIGNAL) {
+        ++m_telem.m_numAcsPacketsReceived;
+        //check acs
+        Bpv6AdministrativeRecordContentAggregateCustodySignal* acsPtr = dynamic_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
+        if (acsPtr == NULL) {
+            LOG_ERROR(subprocess) << "error null AggregateCustodySignal";
+            return false;
+        }
+        Bpv6AdministrativeRecordContentAggregateCustodySignal& acs = *(reinterpret_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(acsPtr));
+        if (!acs.DidCustodyTransferSucceed()) {
+            if (acs.GetReasonCode() == BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::DEPLETED_STORAGE) {
+                ReportDepletedStorage(bv.m_primaryBlockView.header.m_sourceNodeId);
+            }
+            //a failure with a reason code of redundant reception means that
+            // the receiver already has that bundle in custody so it can be
+            // released even though it is a "failure".
+            if (acs.GetReasonCode() != BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::REDUNDANT_RECEPTION) {
+                LOG_ERROR(subprocess) << "acs custody transfer failed with reason code " << acs.GetReasonCode();
+                return false;
+            }
+        }
+
+        //todo figure out what to do with failed custody from next hop
+        for (FragmentSet::data_fragment_set_t::const_iterator it = acs.m_custodyIdFills.cbegin(); it != acs.m_custodyIdFills.cend(); ++it) {
+            m_telem.m_numAcsCustodyTransfers += (it->endIndex + 1) - it->beginIndex;
+            m_custodyIdAllocatorPtr->FreeCustodyIdRange(it->beginIndex, it->endIndex);
+            for (uint64_t currentCustodyId = it->beginIndex; currentCustodyId <= it->endIndex; ++currentCustodyId) {
+                catalog_entry_t* catalogEntryPtr = m_bsmPtr->GetCatalogEntryPtrFromCustodyId(currentCustodyId);
+                if (catalogEntryPtr == NULL) {
+                    LOG_ERROR(subprocess) << "error finding catalog entry for bundle identified by acs custody signal";
+                    continue;
+                }
+                if(!m_custodyIdsWaitingTimerStart.count(currentCustodyId)) {
+                    if (!m_custodyTimersPtr->CancelCustodyTransferTimer(catalogEntryPtr->destEid, currentCustodyId)) {
+                        LOG_WARNING(subprocess) << "can't find custody timer associated with bundle identified by acs custody signal";
+                    }
+                } else {
+                    m_custodyIdsWaitingTimerStart.erase(currentCustodyId);
+                }
+                if (!m_bsmPtr->RemoveBundleFromDisk(catalogEntryPtr, currentCustodyId)) {
+                    LOG_ERROR(subprocess) << "error freeing bundle identified by acs custody signal from disk";
+                    continue;
+                }
+                ++m_telem.m_totalBundlesErasedFromStorageWithCustodyTransfer;
+            }
+        }
+    }
+    else if (adminRecordType == BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::CUSTODY_SIGNAL) { //rfc5050 style custody transfer
+        //check acs
+        Bpv6AdministrativeRecordContentCustodySignal* csPtr = dynamic_cast<Bpv6AdministrativeRecordContentCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
+        if (csPtr == NULL) {
+            LOG_ERROR(subprocess) << "error null CustodySignal";
+            return false;
+        }
+        Bpv6AdministrativeRecordContentCustodySignal& cs = *(reinterpret_cast<Bpv6AdministrativeRecordContentCustodySignal*>(csPtr));
+        if (!cs.DidCustodyTransferSucceed()) {
+            if (cs.GetReasonCode() == BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::DEPLETED_STORAGE) {
+                ReportDepletedStorage(bv.m_primaryBlockView.header.m_sourceNodeId);
+            }
+            //a failure with a reason code of redundant reception means that
+            // the receiver already has that bundle in custody so it can be
+            // released even though it is a "failure".
+            if (cs.GetReasonCode() != BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::REDUNDANT_RECEPTION) {
+                LOG_ERROR(subprocess) << "custody transfer failed with reason code " << cs.GetReasonCode();
+                return false;
+            }
+        }
+        uint64_t* custodyIdPtr;
+        if (cs.m_isFragment) {
+            cbhe_bundle_uuid_t uuid;
+            if (!Uri::ParseIpnUriString(cs.m_bundleSourceEid, uuid.srcEid.nodeId, uuid.srcEid.serviceId)) {
+                LOG_ERROR(subprocess) << "error custody signal with bad ipn string";
+                return false;
+            }
+            uuid.creationSeconds = cs.m_copyOfBundleCreationTimestamp.secondsSinceStartOfYear2000;
+            uuid.sequence = cs.m_copyOfBundleCreationTimestamp.sequenceNumber;
+            uuid.fragmentOffset = cs.m_fragmentOffsetIfPresent;
+            uuid.dataLength = cs.m_fragmentLengthIfPresent;
+            custodyIdPtr = m_bsmPtr->GetCustodyIdFromUuid(uuid);
+        }
+        else {
+            cbhe_bundle_uuid_nofragment_t uuid;
+            if (!Uri::ParseIpnUriString(cs.m_bundleSourceEid, uuid.srcEid.nodeId, uuid.srcEid.serviceId)) {
+                LOG_ERROR(subprocess) << "error custody signal with bad ipn string";
+                return false;
+            }
+            uuid.creationSeconds = cs.m_copyOfBundleCreationTimestamp.secondsSinceStartOfYear2000;
+            uuid.sequence = cs.m_copyOfBundleCreationTimestamp.sequenceNumber;
+            custodyIdPtr = m_bsmPtr->GetCustodyIdFromUuid(uuid);
+        }
+        if (custodyIdPtr == NULL) {
+            LOG_ERROR(subprocess) << "error custody signal does not match a bundle in the storage database";
+            return false;
+        }
+        const uint64_t custodyIdFromRfc5050 = *custodyIdPtr;
+        m_custodyIdAllocatorPtr->FreeCustodyId(custodyIdFromRfc5050);
+        catalog_entry_t* catalogEntryPtr = m_bsmPtr->GetCatalogEntryPtrFromCustodyId(custodyIdFromRfc5050);
+        if (catalogEntryPtr == NULL) {
+            LOG_ERROR(subprocess) << "error finding catalog entry for bundle identified by rfc5050 custody signal";
+            return false;
+        }
+        if(!m_custodyIdsWaitingTimerStart.count(custodyIdFromRfc5050)) {
+            if (!m_custodyTimersPtr->CancelCustodyTransferTimer(catalogEntryPtr->destEid, custodyIdFromRfc5050)) {
+                LOG_WARNING(subprocess) << "notice: can't find custody timer associated with bundle identified by rfc5050 custody signal";
+            }
+        } else {
+            m_custodyIdsWaitingTimerStart.erase(custodyIdFromRfc5050);
+        }
+        if (!m_bsmPtr->RemoveBundleFromDisk(catalogEntryPtr, custodyIdFromRfc5050)) {
+            LOG_ERROR(subprocess) << "error freeing bundle identified by rfc5050 custody signal from disk";
+            return false;
+        }
+        ++m_telem.m_totalBundlesErasedFromStorageWithCustodyTransfer;
+        ++m_telem.m_numRfc5050CustodyTransfers;
+    }
+    else {
+        LOG_ERROR(subprocess) << "error unknown admin record type";
+        return false;
+    }
+    return true; //do not proceed past this point so that the signal is not written to disk
+}
+
+enum class BpVersion {
+    BPV6,
+    BPV7,
+    UNKNOWN
+};
+
+static BpVersion GetBpVersion(const uint8_t *bundle)
+{
+    const uint8_t firstByte = bundle[0];
+    if(firstByte == 6) {
+        return BpVersion::BPV6;
+    }
+    //CBOR major type 4, additional information 31 (Indefinite-Length Array)
+    if((firstByte == ((4U << 5) | 31U))) {
+        return BpVersion::BPV7;
+    }
+    return BpVersion::UNKNOWN;
+}
+
+bool ZmqStorageInterface::Impl::ProcessBundleCustody(BundleViewV6 &bv, size_t size, cbhe_eid_t *bundleEidMaskPtr)
+{
+    // Update bundle -> Try to write to disk
+    // If either fails, send a failed custody signal; otherwise, send success custody signal
+
+    CustodyTransferManager::CustodyTransferContext prev;
+
+    BPV6_ACS_STATUS_REASON_INDICES reason = BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION;
+    bool acceptedCustody = true;
+
+    if(!m_ctmPtr->GetCustodyInfo(bv, prev)) {
+        LOG_ERROR(subprocess) << "Unable to update bundle custody fields";
+        acceptedCustody = false;
+        reason = BPV6_ACS_STATUS_REASON_INDICES::FAIL__BLOCK_UNINTELLIGIBLE;
+    }
+
+    // We're either writing the original bundle (but modified) or fragments
+    // Select which here (Use pointers because BundleViews cannot be moved (or copied))
+    static thread_local std::vector<BundleViewV6*> bundles;
+    bundles.resize(0);
+    uint64_t payloadSizeBytes = 0;
+    bv.GetPayloadSize(payloadSizeBytes); // okay if this fails
+    std::list<BundleViewV6> fragments;
+    bool needsFragmenting = (m_hdtnConfig.m_fragmentBundlesLargerThanBytes &&
+            (!bv.m_primaryBlockView.header.HasFlagSet(BPV6_BUNDLEFLAG::NOFRAGMENT)) &&
+            (payloadSizeBytes > m_hdtnConfig.m_fragmentBundlesLargerThanBytes));
+    if(needsFragmenting) {
+        if(!Bpv6Fragmenter::Fragment(bv, m_hdtnConfig.m_fragmentBundlesLargerThanBytes, fragments)) {
+            LOG_ERROR(subprocess) << "Failed to fragment bundle with custody";
+            acceptedCustody = false;
+            reason = BPV6_ACS_STATUS_REASON_INDICES::FAIL__BLOCK_UNINTELLIGIBLE;
+        } else {
+            for(std::list<BundleViewV6>::iterator it = fragments.begin(); it != fragments.end(); it++) {
+                BundleViewV6 &b = *it;
+                bundles.push_back(&b);
+            }
+        }
+    } else {
+        bundles.push_back(&bv);
+    }
+
+    std::vector<uint64_t> writtenBundles;
+    // Write either the whole bundle or fragments
+    for(std::vector<BundleViewV6*>::iterator it = bundles.begin(); it != bundles.end(); it++) {
+        if(!acceptedCustody) { // Exit early if we errored
+            break;
+        }
+
+        BundleViewV6 & b = *(*it);
+        Bpv6CbhePrimaryBlock &primary = b.m_primaryBlockView.header;
+        const uint64_t newCustodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
+
+        if (!m_ctmPtr->UpdateBundleCustodyFields(b, acceptedCustody, newCustodyId)) { //hdtn modifies bundle for next hop
+            LOG_ERROR(subprocess) << "Failed to update bundle custody fields";
+            acceptedCustody = false;
+            reason = BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE; // TODO not best code?
+            break;
+        }
+
+        if (!b.Render(size + 200)) { //hdtn modifies bundle for next hop
+            LOG_ERROR(subprocess) << "error unable to render new bundle";
+            acceptedCustody = false;
+            reason = BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE; // TODO not best code?
+            break;
+        }
+
+        bool wroteBundle = WriteBundle(b, newCustodyId, bundleEidMaskPtr);
+        if(!wroteBundle) {
+            LOG_ERROR(subprocess) << "Failed to write bundle with custody to disk";
+            acceptedCustody = false;
+            reason = BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE;
+            break;
+        }
+        writtenBundles.push_back(newCustodyId);
+    }
+
+    if (!m_ctmPtr->GenerateCustodySignal(prev, acceptedCustody, reason,
+        m_custodySignalRfc5050RenderedBundleView)) {
+        LOG_ERROR(subprocess) << "error unable to generate custody signal";
+        return false;
+    }
+
+    // This will only be non-zero if NOT usign ACS
+    if(m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()) {
+        const cbhe_eid_t& hdtnSrcEid = m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header.m_sourceNodeId;
+        const uint64_t newCustodyIdFor5050CustodySignal = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(hdtnSrcEid);
+
+        bool wroteCustody = WriteBundle(
+                m_custodySignalRfc5050RenderedBundleView,
+                newCustodyIdFor5050CustodySignal);
+
+        if(!wroteCustody) {
+            LOG_ERROR(subprocess) << "Failed to write custody signal to disk; deleting bundle(s)";
+            for(uint64_t id : writtenBundles) {
+                m_custodyIdAllocatorPtr->FreeCustodyId(id);
+                if(!m_bsmPtr->RemoveBundleFromDisk(id)) {
+                    LOG_ERROR(subprocess) << "Failed to remove bundle from disk " << id << " after failed custody signal write";
+                }
+            }
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool IsAdminForThisNode(const Bpv6CbhePrimaryBlock &primary, cbhe_eid_t thisEid)
+{
+    static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForAdminRecord =
+        BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::ADMINRECORD;
+    return ((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForAdminRecord) ==
+            requiredPrimaryFlagsForAdminRecord) &&
+           (primary.m_destinationEid == thisEid);
+}
+
 bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
     cbhe_eid_t & finalDestEidReturned, bool dontWriteIfCustodyFlagSet,
-    bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord)
+    bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord, cbhe_eid_t *bundleEidMaskPtr)
 {
+    BpVersion version = GetBpVersion((const uint8_t*)message->data());
     
-    
-    const uint8_t firstByte = ((const uint8_t*)message->data())[0];
-    const bool isBpVersion6 = (firstByte == 6);
-    const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
-    if (isBpVersion6) {
+    if (version == BpVersion::BPV6) {
         BundleViewV6 bv;
+        // This also captures whether or not we might fragment the bundle
         const bool loadPrimaryBlockOnly = isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord;
         if (!bv.LoadBundle((uint8_t *)message->data(), message->size(), loadPrimaryBlockOnly)) { //invalid bundle
             LOG_ERROR(subprocess) << "malformed bundle";
             return false;
         }
         const Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
-        finalDestEidReturned = primary.m_destinationEid;
-        const uint64_t newCustodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
+        finalDestEidReturned = (bundleEidMaskPtr == NULL) ? primary.m_destinationEid : *bundleEidMaskPtr;
+
+        // Full bundle must be loaded if it's a fragment to get payload size for ID later
+        if(m_hdtnConfig.m_fragmentBundlesLargerThanBytes || primary.HasFragmentationFlagSet()) {
+            if (!bv.LoadBundle((uint8_t *)message->data(), message->size(), false)) {
+                LOG_ERROR(subprocess) << "malformed bundle (full fragment load)";
+                return false;
+            }
+        }
 
         if (!loadPrimaryBlockOnly) {
             static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
@@ -419,182 +757,64 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
                 return true;
             }
 
-            //admin records pertaining to this hdtn node do not get written to disk.. they signal a deletion from disk
-            static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::ADMINRECORD;
-            if (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEidReturned == M_HDTN_EID_CUSTODY)) {
-                std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
-                bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
-                if (blocks.size() != 1) {
-                    LOG_ERROR(subprocess) << "error admin record does not have a payload block";
+            if (IsAdminForThisNode(primary, M_HDTN_EID_CUSTODY)) {
+                if(primary.HasFragmentationFlagSet()) {
+                    LOG_ERROR(subprocess) << "Fragmented administrative records not supported";
                     return false;
                 }
-                Bpv6AdministrativeRecord* adminRecordBlockPtr = dynamic_cast<Bpv6AdministrativeRecord*>(blocks[0]->headerPtr.get());
-                if (adminRecordBlockPtr == NULL) {
-                    LOG_ERROR(subprocess) << "error null Bpv6AdministrativeRecord";
-                    return false;
-                }
-                const BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE adminRecordType = adminRecordBlockPtr->m_adminRecordTypeCode;
-
-                if (adminRecordType == BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::AGGREGATE_CUSTODY_SIGNAL) {
-                    ++m_telem.m_numAcsPacketsReceived;
-                    //check acs
-                    Bpv6AdministrativeRecordContentAggregateCustodySignal* acsPtr = dynamic_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
-                    if (acsPtr == NULL) {
-                        LOG_ERROR(subprocess) << "error null AggregateCustodySignal";
-                        return false;
-                    }
-                    Bpv6AdministrativeRecordContentAggregateCustodySignal& acs = *(reinterpret_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(acsPtr));
-                    if (!acs.DidCustodyTransferSucceed()) {
-                        //a failure with a reason code of redundant reception means that
-                        // the receiver already has that bundle in custody so it can be
-                        // released even though it is a "failure".
-                        if (acs.GetReasonCode() != BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::REDUNDANT_RECEPTION) {
-                            LOG_ERROR(subprocess) << "acs custody transfer failed with reason code " << acs.GetReasonCode();
-                            return false;
-                        }
-                    }
-
-                    //todo figure out what to do with failed custody from next hop
-                    for (FragmentSet::data_fragment_set_t::const_iterator it = acs.m_custodyIdFills.cbegin(); it != acs.m_custodyIdFills.cend(); ++it) {
-                        m_telem.m_numAcsCustodyTransfers += (it->endIndex + 1) - it->beginIndex;
-                        m_custodyIdAllocatorPtr->FreeCustodyIdRange(it->beginIndex, it->endIndex);
-                        for (uint64_t currentCustodyId = it->beginIndex; currentCustodyId <= it->endIndex; ++currentCustodyId) {
-                            catalog_entry_t* catalogEntryPtr = m_bsmPtr->GetCatalogEntryPtrFromCustodyId(currentCustodyId);
-                            if (catalogEntryPtr == NULL) {
-                                LOG_ERROR(subprocess) << "error finding catalog entry for bundle identified by acs custody signal";
-                                continue;
-                            }
-                            if (!m_custodyTimersPtr->CancelCustodyTransferTimer(catalogEntryPtr->destEid, currentCustodyId)) {
-                                LOG_WARNING(subprocess) << "can't find custody timer associated with bundle identified by acs custody signal";
-                            }
-                            if (!m_bsmPtr->RemoveReadBundleFromDisk(catalogEntryPtr, currentCustodyId)) {
-                                LOG_ERROR(subprocess) << "error freeing bundle identified by acs custody signal from disk";
-                                continue;
-                            }
-                            ++m_telem.m_totalBundlesErasedFromStorageWithCustodyTransfer;
-                        }
-                    }
-                }
-                else if (adminRecordType == BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::CUSTODY_SIGNAL) { //rfc5050 style custody transfer
-                    //check acs
-                    Bpv6AdministrativeRecordContentCustodySignal* csPtr = dynamic_cast<Bpv6AdministrativeRecordContentCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
-                    if (csPtr == NULL) {
-                        LOG_ERROR(subprocess) << "error null CustodySignal";
-                        return false;
-                    }
-                    Bpv6AdministrativeRecordContentCustodySignal& cs = *(reinterpret_cast<Bpv6AdministrativeRecordContentCustodySignal*>(csPtr));
-                    if (!cs.DidCustodyTransferSucceed()) {
-                        //a failure with a reason code of redundant reception means that
-                        // the receiver already has that bundle in custody so it can be
-                        // released even though it is a "failure".
-                        if (cs.GetReasonCode() != BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::REDUNDANT_RECEPTION) {
-                            LOG_ERROR(subprocess) << "custody transfer failed with reason code " << cs.GetReasonCode();
-                            return false;
-                        }
-                    }
-                    uint64_t* custodyIdPtr;
-                    if (cs.m_isFragment) {
-                        cbhe_bundle_uuid_t uuid;
-                        if (!Uri::ParseIpnUriString(cs.m_bundleSourceEid, uuid.srcEid.nodeId, uuid.srcEid.serviceId)) {
-                            LOG_ERROR(subprocess) << "error custody signal with bad ipn string";
-                            return false;
-                        }
-                        uuid.creationSeconds = cs.m_copyOfBundleCreationTimestamp.secondsSinceStartOfYear2000;
-                        uuid.sequence = cs.m_copyOfBundleCreationTimestamp.sequenceNumber;
-                        uuid.fragmentOffset = cs.m_fragmentOffsetIfPresent;
-                        uuid.dataLength = cs.m_fragmentLengthIfPresent;
-                        custodyIdPtr = m_bsmPtr->GetCustodyIdFromUuid(uuid);
-                    }
-                    else {
-                        cbhe_bundle_uuid_nofragment_t uuid;
-                        if (!Uri::ParseIpnUriString(cs.m_bundleSourceEid, uuid.srcEid.nodeId, uuid.srcEid.serviceId)) {
-                            LOG_ERROR(subprocess) << "error custody signal with bad ipn string";
-                            return false;
-                        }
-                        uuid.creationSeconds = cs.m_copyOfBundleCreationTimestamp.secondsSinceStartOfYear2000;
-                        uuid.sequence = cs.m_copyOfBundleCreationTimestamp.sequenceNumber;
-                        custodyIdPtr = m_bsmPtr->GetCustodyIdFromUuid(uuid);
-                    }
-                    if (custodyIdPtr == NULL) {
-                        LOG_ERROR(subprocess) << "error custody signal does not match a bundle in the storage database";
-                        return false;
-                    }
-                    const uint64_t custodyIdFromRfc5050 = *custodyIdPtr;
-                    m_custodyIdAllocatorPtr->FreeCustodyId(custodyIdFromRfc5050);
-                    catalog_entry_t* catalogEntryPtr = m_bsmPtr->GetCatalogEntryPtrFromCustodyId(custodyIdFromRfc5050);
-                    if (catalogEntryPtr == NULL) {
-                        LOG_ERROR(subprocess) << "error finding catalog entry for bundle identified by rfc5050 custody signal";
-                        return false;
-                    }
-                    if (!m_custodyTimersPtr->CancelCustodyTransferTimer(catalogEntryPtr->destEid, custodyIdFromRfc5050)) {
-                        LOG_WARNING(subprocess) << "notice: can't find custody timer associated with bundle identified by rfc5050 custody signal";
-                    }
-                    if (!m_bsmPtr->RemoveReadBundleFromDisk(catalogEntryPtr, custodyIdFromRfc5050)) {
-                        LOG_ERROR(subprocess) << "error freeing bundle identified by rfc5050 custody signal from disk";
-                        return false;
-                    }
-                    ++m_telem.m_totalBundlesErasedFromStorageWithCustodyTransfer;
-                    ++m_telem.m_numRfc5050CustodyTransfers;
-                }
-                else {
-                    LOG_ERROR(subprocess) << "error unknown admin record type";
-                    return false;
-                }
-                return true; //do not proceed past this point so that the signal is not written to disk
+                return ProcessAdminRecord(bv);
             }
 
             //write non admin records to disk (unless newly generated below)
             if (bpv6CustodyIsRequested) {
-                if (!m_ctmPtr->ProcessCustodyOfBundle(bv, true, newCustodyId, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION,
-                    m_custodySignalRfc5050RenderedBundleView)) {
-                    LOG_ERROR(subprocess) << "error unable to process custody";
-                }
-                else if (!bv.Render(message->size() + 200)) { //hdtn modifies bundle for next hop
-                    LOG_ERROR(subprocess) << "error unable to render new bundle";
-                }
-                else {
-                    if (m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()) {
-                        const cbhe_eid_t& hdtnSrcEid = m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header.m_sourceNodeId;
-                        const uint64_t newCustodyIdFor5050CustodySignal = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(hdtnSrcEid);
+                // return here because this writes bundle to disk
+                return ProcessBundleCustody(bv, message->size(), bundleEidMaskPtr);
+            }
 
-                        //write custody signal to disk
-                        BundleStorageManagerSession_WriteToDisk sessionWrite;
-                        const uint64_t totalSegmentsRequired = m_bsmPtr->Push(sessionWrite,
-                            m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header,
-                            m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size());
-                        if (totalSegmentsRequired == 0) {
-                            LOG_ERROR(subprocess) << "out of space for custody signal";
-                            return false;
-                        }
+            uint64_t payloadSizeBytes = 0;
+            if(!bv.GetPayloadSize(payloadSizeBytes)) {
+                LOG_ERROR(subprocess) << "Failed to get payload size for bundle";
+                return false;
+            }
 
-                        const uint64_t totalBytesPushed = m_bsmPtr->PushAllSegments(sessionWrite, m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header,
-                            newCustodyIdFor5050CustodySignal, (const uint8_t*)m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.data(),
-                            m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size());
-                        if (totalBytesPushed != m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()) {
-                            LOG_ERROR(subprocess) << "totalBytesPushed != custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()";
-                            return false;
-                        }
-                    }
+            // Fragment if requested
+            bool needsFragmenting = (m_hdtnConfig.m_fragmentBundlesLargerThanBytes &&
+                    (!bv.m_primaryBlockView.header.HasFlagSet(BPV6_BUNDLEFLAG::NOFRAGMENT)) &&
+                    (payloadSizeBytes > m_hdtnConfig.m_fragmentBundlesLargerThanBytes));
+            if(needsFragmenting) {
+                std::list<BundleViewV6> fragments;
+                if(!Bpv6Fragmenter::Fragment(bv, m_hdtnConfig.m_fragmentBundlesLargerThanBytes, fragments)) {
+                    LOG_ERROR(subprocess) << "Failed to fragment bundle";
+                    return false;
                 }
+                const uint64_t newCustodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
+                bool ret = true;
+                for(std::list<BundleViewV6>::iterator it = fragments.begin(); it != fragments.end(); it++) {
+                    BundleViewV6 &b = *it;
+                    const Bpv6CbhePrimaryBlock & p = b.m_primaryBlockView.header;
+                    const uint64_t id = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(p.m_sourceNodeId);
+                    ret &= WriteBundle(b, id);
+                }
+                return ret;
             }
         }
 
-        //write bundle (modified by hdtn if custody requested) to disk
-        return WriteBundle(primary, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size());
+        const uint64_t newCustodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
+        return WriteBundle(bv, newCustodyId, bundleEidMaskPtr);
     }
-    else if (isBpVersion7) {
+    else if (version == BpVersion::BPV7) {
         BundleViewV7 bv;
         if (!bv.LoadBundle((uint8_t *)message->data(), message->size(), true, true)) { //invalid bundle
             LOG_ERROR(subprocess) << "malformed bundle";
             return false;
         }
         const Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
-        finalDestEidReturned = primary.m_destinationEid;
+        finalDestEidReturned = (bundleEidMaskPtr == NULL) ? primary.m_destinationEid : *bundleEidMaskPtr;
 
         const uint64_t newCustodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
 
         //write bundle
-        return WriteBundle(primary, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size());
+        return WriteBundle(bv, newCustodyId, bundleEidMaskPtr);
     }
     else {
         LOG_ERROR(subprocess) << "error in ZmqStorageInterface Write: unsupported bundle version detected";
@@ -603,16 +823,42 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
     
 }
 
+bool ZmqStorageInterface::Impl::WriteBundle(BundleViewV6 &bv, const uint64_t newCustodyId, cbhe_eid_t *bundleEidMaskPtr)
+{
+    uint64_t payloadSize = 0;
+    if(bv.m_primaryBlockView.header.HasFragmentationFlagSet() && !bv.GetPayloadSize(payloadSize)) {
+        LOG_ERROR(subprocess) << "WriteBundleV6: unable to get payload size";
+        return false;
+    }
+    return WriteBundle(bv.m_primaryBlockView.header, newCustodyId, static_cast<const uint8_t*>(bv.m_renderedBundle.data()), bv.m_renderedBundle.size(), payloadSize, bundleEidMaskPtr);
+}
+
+bool ZmqStorageInterface::Impl::WriteBundle(BundleViewV7 &bv, const uint64_t newCustodyId, cbhe_eid_t *bundleEidMaskPtr)
+{
+    // BPv7 fragmentation not supported; if we get here, we know that it's not
+    // a fragment, so we can set payloadSize to zero
+    uint64_t payloadSize = 0;
+    return WriteBundle(bv.m_primaryBlockView.header, newCustodyId, static_cast<const uint8_t*>(bv.m_renderedBundle.data()), bv.m_renderedBundle.size(), payloadSize, bundleEidMaskPtr);
+}
+
 bool ZmqStorageInterface::Impl::WriteBundle(const PrimaryBlock& bundlePrimaryBlock,
-    const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize)
+    const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize, uint64_t payloadSizeBytes, cbhe_eid_t *bundleEidMaskPtr)
 {
     //write bundle
     BundleStorageManagerSession_WriteToDisk sessionWrite;
-    uint64_t totalSegmentsRequired = m_bsmPtr->Push(sessionWrite, bundlePrimaryBlock, allDataSize);
+    uint64_t totalSegmentsRequired = m_bsmPtr->Push(sessionWrite, bundlePrimaryBlock, allDataSize, payloadSizeBytes, bundleEidMaskPtr);
     if (totalSegmentsRequired == 0) {
-        LOG_ERROR(subprocess) << "out of space";
+        if (!m_isOutOfStorageSpace) {
+            LOG_ERROR(subprocess) << "out of storage space";
+            m_isOutOfStorageSpace = true;
+        }
         return false;
     }
+    else if (m_isOutOfStorageSpace) {
+        LOG_INFO(subprocess) << "no longer out of storage space";
+        m_isOutOfStorageSpace = false;
+    }
+    
     //totalSegmentsStoredOnDisk += totalSegmentsRequired;
     //totalBytesWrittenThisTest += size;
     const uint64_t totalBytesPushed = m_bsmPtr->PushAllSegments(sessionWrite, bundlePrimaryBlock, newCustodyId, allData, allDataSize);
@@ -642,8 +888,8 @@ static void CustomCleanupToEgressHdr(void *data, void *hint) {
 static void CustomCleanupStorageAckHdr(void *data, void *hint) {
     delete static_cast<hdtn::StorageAckHdr*>(hint);
 }
-static void CustomCleanupStdVecUint8(void *data, void *hint) {
-    delete static_cast<std::vector<uint8_t>*>(hint);
+static void CustomCleanupPaddedVecUint8(void* data, void* hint) {
+    delete static_cast<padded_vector_uint8_t*>(hint);
 }
 static void CustomCleanupStdString(void* data, void* hint) {
     delete static_cast<std::string*>(hint);
@@ -667,9 +913,9 @@ bool ZmqStorageInterface::Impl::ReleaseOne_NoBlock(const OutductInfo_t& info, co
         //bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks); //get it back
     }
         
-    std::vector<uint8_t> * vecUint8BundleDataRawPointer = new std::vector<uint8_t>();
+    padded_vector_uint8_t* vecUint8BundleDataRawPointer = new padded_vector_uint8_t();
     const bool successReadAllSegments = m_bsmPtr->ReadAllSegments(m_sessionRead, *vecUint8BundleDataRawPointer);
-    zmq::message_t zmqBundleDataMessageWithDataStolen(vecUint8BundleDataRawPointer->data(), vecUint8BundleDataRawPointer->size(), CustomCleanupStdVecUint8, vecUint8BundleDataRawPointer);
+    zmq::message_t zmqBundleDataMessageWithDataStolen(vecUint8BundleDataRawPointer->data(), vecUint8BundleDataRawPointer->size(), CustomCleanupPaddedVecUint8, vecUint8BundleDataRawPointer);
         
     if (!successReadAllSegments) {
         LOG_ERROR(subprocess) << "unable to read all segments from disk";
@@ -701,16 +947,7 @@ bool ZmqStorageInterface::Impl::ReleaseOne_NoBlock(const OutductInfo_t& info, co
         m_bsmPtr->ReturnTop(m_sessionRead);
         return false;
     }
-    /*
-    //if you're happy with the bundle data you read back, then officially remove it from the disk
-    if (deleteFromDiskNow) {
-        bool successRemoveBundle = bsm.RemoveReadBundleFromDisk(sessionRead);
-        if (!successRemoveBundle) {
-            return false;
-        }
-    }
-        */
-        
+
     returnedBundleSize = bytesToReadFromDisk;
     return true;
 
@@ -814,7 +1051,7 @@ bool ZmqStorageInterface::Impl::SendDeletionStatusReport(catalog_entry_t * entry
     Bpv6CbhePrimaryBlock & origPrimary = bundleToDelete.m_primaryBlockView.header;
 
     // Create report
-    bool success = m_ctmPtr->GenerateBundleDeletionStatusReport(origPrimary, m_bundleDeletionStatusReport);
+    bool success = m_ctmPtr->GenerateBundleDeletionStatusReport(origPrimary, entry->payloadSizeBytes, m_bundleDeletionStatusReport);
     if(!success) {
         LOG_ERROR(subprocess) << "Failed to generate bundle deletion status report";
         return false;
@@ -824,11 +1061,18 @@ bool ZmqStorageInterface::Impl::SendDeletionStatusReport(catalog_entry_t * entry
     const cbhe_eid_t& src = m_bundleDeletionStatusReport.m_primaryBlockView.header.m_sourceNodeId;
     const uint64_t custodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(src);
 
+    uint64_t payloadSize;
+    if(!m_bundleDeletionStatusReport.GetPayloadSize(payloadSize)) {
+        LOG_ERROR(subprocess) << "Failed to get size of payload of bundle deletion status report";
+        return false;
+    }
+
     BundleStorageManagerSession_WriteToDisk session;
     const uint64_t numSegments = m_bsmPtr->Push(
         session,
         m_bundleDeletionStatusReport.m_primaryBlockView.header,
-        m_bundleDeletionStatusReport.m_renderedBundle.size());
+        m_bundleDeletionStatusReport.m_renderedBundle.size(),
+        payloadSize);
     if(numSegments == 0) {
         LOG_ERROR(subprocess) << "Failed to allocate space for bundle deletion status report";
         return false;
@@ -855,17 +1099,18 @@ bool ZmqStorageInterface::Impl::SendDeletionStatusReport(catalog_entry_t * entry
  */
 void ZmqStorageInterface::Impl::DeleteBundleById(const uint64_t custodyId) {
     catalog_entry_t *entry = m_bsmPtr->GetCatalogEntryPtrFromCustodyId(custodyId);
-    if(!entry) {
+    if (!entry) {
         LOG_ERROR(subprocess) << "Failed to get catalog entry for " << custodyId << " while deleting for expiry";
         return;
     }
 
-    if(entry->HasCustody()) {
+    if (entry->HasCustody()) {
         // Bundle may not have a custody transfer timer, so it's fine if this fails
         m_custodyTimersPtr->CancelCustodyTransferTimer(entry->destEid, custodyId);
+        m_custodyIdsWaitingTimerStart.erase(custodyId);
 
         bool sent = SendDeletionStatusReport(entry);
-        if(!sent) {
+        if (!sent) {
             LOG_ERROR(subprocess) << "Failed to send bundle deletion status report for bundle with custody ID " << custodyId;
         }
     }
@@ -873,7 +1118,7 @@ void ZmqStorageInterface::Impl::DeleteBundleById(const uint64_t custodyId) {
     m_custodyIdAllocatorPtr->FreeCustodyId(custodyId);
 
     bool success = m_bsmPtr->RemoveBundleFromDisk(entry, custodyId);
-    if(!success) {
+    if (!success) {
         LOG_ERROR(subprocess) << "Failed to remove bundle from disk " << custodyId << " while deleting for expiry";
     }
 }
@@ -959,7 +1204,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
 
     
 
-    std::map<uint64_t, bool> mapOuductArrayIndexToPendingLinkChangeEvent; //in case scheduler sends events before egress fully initialized
+    std::map<uint64_t, bool> mapOuductArrayIndexToPendingLinkChangeEvent; //in case router sends events before egress fully initialized
     bool egressFullyInitialized = false;
 
 
@@ -980,7 +1225,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
     m_workerThreadStartupMutex.unlock();
     m_workerThreadStartupConditionVariable.notify_one();
 
-    while (m_running) {
+    while (m_running.load(std::memory_order_acquire)) {
         int rc = 0;
         try {
             rc = zmq::poll(pollItems, 4, timeoutPoll);
@@ -1029,8 +1274,8 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                     if (egressAckHdr.error) {
                                         //A bundle that was forwarded without store from storage to egress gets an ack back from egress with the
                                         //error flag set because egress could not send the bundle.
-                                        //This will allow storage to trigger a link down event more quickly than waiting for scheduler.
-                                        //Since ingress NO LONGER holds the bundle, the error flag will let ingress set a link down event more quickly than scheduler.
+                                        //This will allow storage to trigger a link down event more quickly than waiting for router.
+                                        //Since ingress NO LONGER holds the bundle, the error flag will let ingress set a link down event more quickly than router.
                                         //Since isResponseToStorageCutThrough is set, then storage needs the bundle back in a multipart message because storage has not yet written this cut-through bundle to disk.
                                         static thread_local bool printedMsg = false;
                                         if (!printedMsg) {
@@ -1069,7 +1314,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                 if (it != mapCustodyIdToSize.end()) {
                                     if (egressAckHdr.error) {
                                         //A bundle that was sent from storage to egress gets an ack back from egress with the error flag set because egress could not send the bundle.
-                                        //This will allow storage to trigger a link down event more quickly than waiting for scheduler.
+                                        //This will allow storage to trigger a link down event more quickly than waiting for router.
                                         //Since storage already has the bundle, the error flag will prevent deletion and move the bundle back to the "awaiting send" state,
                                         //but the bundle won't be immediately released again from storage because of the immediate link down event.
                                         static thread_local bool printedMsg = false;
@@ -1096,6 +1341,16 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                         else {
                                             ++m_telem.m_totalBundlesErasedFromStorageNoCustodyTransfer;
                                         }
+                                    } else {
+                                        // bundle has custody; start timer if we haven't seen custody signal already
+                                        if(m_custodyIdsWaitingTimerStart.count(egressAckHdr.custodyId)) {
+                                            catalog_entry_t * entry = m_bsmPtr->GetCatalogEntryPtrFromCustodyId(egressAckHdr.custodyId);
+                                            if(!entry) {
+                                                LOG_ERROR(subprocess) << "Unable to find catalog id for egress ack " << egressAckHdr.custodyId;
+                                            } else {
+                                                m_custodyTimersPtr->StartCustodyTransferTimer(entry->destEid, egressAckHdr.custodyId);
+                                            }
+                                        } /* else: we've already received custody signal and deleted bundle; nothing to do */
                                     }
                                     info.bytesInPipeline -= it->second;
                                     mapCustodyIdToSize.erase(it);
@@ -1115,6 +1370,9 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                         printedMsg = true;
                                     }
                                 }
+                                // We've either started the timer, or returned bundle to awaiting send state,
+                                // so we're not longer waiting to start the timer
+                                m_custodyIdsWaitingTimerStart.erase(egressAckHdr.custodyId);
                             }
                         }
                     }
@@ -1202,7 +1460,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                             }
                             
 
-                            //in case scheduler sent release messages first
+                            //in case router sent release messages first
                             for (std::map<uint64_t, bool>::const_iterator it = mapOuductArrayIndexToPendingLinkChangeEvent.cbegin();
                                 it != mapOuductArrayIndexToPendingLinkChangeEvent.cend(); ++it)
                             {
@@ -1316,7 +1574,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
 
                             cbhe_eid_t finalDestEidReturnedFromWrite;
                             const bool isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord = (toStorageHeader.isCustodyOrAdminRecord == 0);
-                            Write(&zmqBundleDataReceived, finalDestEidReturnedFromWrite, false, isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord);
+                            Write(&zmqBundleDataReceived, finalDestEidReturnedFromWrite, false, isCertainThatThisBundleHasNoCustodyOrIsNotAdminRecord, &toStorageHeader.finalDestEid);
 
                             //storageAckHdr->finalDestEid = finalDestEidReturnedFromWrite; //no longer needed as ingress decodes that
 
@@ -1357,8 +1615,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     }
                     else {
                         mapOuductArrayIndexToPendingLinkChangeEvent[releaseChangeHdr.outductArrayIndex] = true;
-                        LOG_INFO(subprocess) << "nextHopNodeId: " << releaseChangeHdr.nextHopNodeId
-                            << " outductArrayIndex=" << releaseChangeHdr.outductArrayIndex
+                        LOG_INFO(subprocess) << " outductArrayIndex=" << releaseChangeHdr.outductArrayIndex
                             << ") will be released from storage once egress is fully initialized";
                     }
                 }
@@ -1374,8 +1631,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     }
                     else {
                         mapOuductArrayIndexToPendingLinkChangeEvent[releaseChangeHdr.outductArrayIndex] = true;
-                        LOG_INFO(subprocess) << "nextHopNodeId: " << releaseChangeHdr.nextHopNodeId
-                            << " outductArrayIndex=" << releaseChangeHdr.outductArrayIndex
+                        LOG_INFO(subprocess) << " outductArrayIndex=" << releaseChangeHdr.outductArrayIndex
                             << ") will STOP BEING released from storage once egress is fully initialized";
                     }
                 }
@@ -1394,7 +1650,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
             std::list<BundleViewV6> newAcsRenderedBundleViewList;
             if (m_ctmPtr->GenerateAllAcsBundlesAndClear(newAcsRenderedBundleViewList)) {
                 for(std::list<BundleViewV6>::iterator it = newAcsRenderedBundleViewList.begin(); it != newAcsRenderedBundleViewList.end(); ++it) {
-                    WriteAcsBundle(it->m_primaryBlockView.header, it->m_frontBuffer);
+                    WriteAcsBundle(*it);
                 }
             }
             acsSendNowExpiry = nowPtime + ACS_SEND_PERIOD;
@@ -1486,8 +1742,12 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                 }
                 else if (ReleaseOne_NoBlock(info, maxBundleSizeToRead, returnedBundleSizeReadFromDisk)) { //true => (successfully sent to egress)
                     if (info.mapOpenCustodyIdToBundleSizeBytes.emplace(m_sessionRead.custodyId, returnedBundleSizeReadFromDisk).second) {
+
                         if (m_sessionRead.catalogEntryPtr->HasCustody()) {
-                            m_custodyTimersPtr->StartCustodyTransferTimer(m_sessionRead.catalogEntryPtr->destEid, m_sessionRead.custodyId);
+                            // Start custody timer when we receive ack from egress that bundle has been sent
+                            if (!m_custodyIdsWaitingTimerStart.insert(m_sessionRead.custodyId).second) {
+                                LOG_WARNING(subprocess) << "Could not insert into m_custodyIdsWaitingTimerStart";
+                            }
                         }
                         info.bytesInPipeline += returnedBundleSizeReadFromDisk;
                         timeoutPoll = 0; //no timeout as we need to keep feeding to egress
@@ -1529,74 +1789,36 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
 }
 
 void ZmqStorageInterface::Impl::TelemEventsHandler() {
-    bool doSendExpiring = false;
-    GetExpiringStorageApiCommand_t getExpiringStorageApiCommand;
-    uint8_t telemMsgByte;
-    const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingTelemToFromBoundStoragePtr->recv(zmq::mutable_buffer(&telemMsgByte, sizeof(telemMsgByte)), zmq::recv_flags::dontwait);
-    if (!res) {
-        LOG_ERROR(subprocess) << "error in ZmqStorageInterface::ThreadFunc: cannot read telemMsgByte";
-        return;
-    }
-    else if ((res->truncated()) || (res->size != sizeof(telemMsgByte))) {
-        LOG_ERROR(subprocess) << "telemMsgByte message mismatch: untruncated = " << res->untruncated_size
-            << " truncated = " << res->size << " expected = " << sizeof(telemMsgByte);
-        return;
-    }
-
-    bool hasApiCalls = telemMsgByte > TELEM_REQ_MSG;
-    if (hasApiCalls) {
-        zmq::message_t apiMsg;
-        do {
-            if (!m_zmqRepSock_connectingTelemToFromBoundStoragePtr->recv(apiMsg, zmq::recv_flags::dontwait)) {
-                LOG_ERROR(subprocess) << "error receiving api message";
-                return;
-            }
-            std::string apiCall = ApiCommand_t::GetApiCallFromJson(apiMsg.to_string());
-            LOG_INFO(subprocess) << "got api call " << apiCall;
-            if (apiCall == "get_expiring_storage") {
-                if (!getExpiringStorageApiCommand.SetValuesFromJson(apiMsg.to_string())) {
-                    return;
-                };
-                doSendExpiring = true;
-            }
-        } while(apiMsg.more());
-    }
-
-    //send normal storage telemetry
+    // Prepare telemetry
     SyncTelemetry();
     m_telem.m_timestampMilliseconds = TimestampUtil::GetMillisecondsSinceEpochRfc5050();
 
-    std::string* storageTelemJsonStringPtr = new std::string(m_telem.ToJson());
-    std::string& strRef = *storageTelemJsonStringPtr;
-    zmq::message_t zmqJsonMessage(&strRef[0], storageTelemJsonStringPtr->size(), CustomCleanupStdString, storageTelemJsonStringPtr);
-
-    const zmq::send_flags additionalFlags = (doSendExpiring) ? zmq::send_flags::sndmore : zmq::send_flags::none;
-    if (!m_zmqRepSock_connectingTelemToFromBoundStoragePtr->send(std::move(zmqJsonMessage), zmq::send_flags::dontwait | additionalFlags)) {
-        LOG_ERROR(subprocess) << "can't send json telemetry to telem";
-    }
-
-    if (!doSendExpiring) {
-        return;
-    }
-
-    //send storage expiring telemetry
-    StorageExpiringBeforeThresholdTelemetry_t expiringTelem;
-    expiringTelem.priority = getExpiringStorageApiCommand.m_priority;
-    expiringTelem.thresholdSecondsSinceStartOfYear2000 = TimestampUtil::GetSecondsSinceEpochRfc5050(
-        boost::posix_time::microsec_clock::universal_time() + boost::posix_time::seconds(getExpiringStorageApiCommand.m_thresholdSecondsFromNow));
-    if (!m_bsmPtr->GetStorageExpiringBeforeThresholdTelemetry(expiringTelem)) {
-        LOG_ERROR(subprocess) << "storage can't get StorageExpiringBeforeThresholdTelemetry";
-    }
-    else {
-        std::string* expiringTelemJsonStringPtr = new std::string(expiringTelem.ToJson());
-        std::string& strRefExpiring = *expiringTelemJsonStringPtr;
-        zmq::message_t zmqExpiringTelemJsonMessage(&strRefExpiring[0],
-            expiringTelemJsonStringPtr->size(), CustomCleanupStdString, expiringTelemJsonStringPtr);
-
-        if (!m_zmqRepSock_connectingTelemToFromBoundStoragePtr->send(std::move(zmqExpiringTelemJsonMessage), zmq::send_flags::dontwait)) {
-            LOG_ERROR(subprocess) << "storage can't send json StorageExpiringBeforeThresholdTelemetry_t to telem";
+    bool more = false;
+    do {
+        TelemetryRequest request = m_telemServer.ReadRequest(m_zmqRepSock_connectingTelemToFromBoundStoragePtr);
+        if (request.Error()) {
+            continue;
         }
-    }
+        if (request.Command()->m_apiCall == GetStorageApiCommand_t::name) {
+            std::string resp = m_telem.ToJson();
+            request.SendResponse(resp, m_zmqRepSock_connectingTelemToFromBoundStoragePtr);
+        } else if (GetExpiringStorageApiCommand_t* getExpiringStorageApiCommandPtr = dynamic_cast<GetExpiringStorageApiCommand_t*>(request.Command().get())) {
+            StorageExpiringBeforeThresholdTelemetry_t expiringTelem;
+            expiringTelem.priority = getExpiringStorageApiCommandPtr->m_priority;
+            expiringTelem.thresholdSecondsSinceStartOfYear2000 = TimestampUtil::GetSecondsSinceEpochRfc5050(
+                boost::posix_time::microsec_clock::universal_time() + boost::posix_time::seconds(getExpiringStorageApiCommandPtr->m_thresholdSecondsFromNow));
+            if (!m_bsmPtr->GetStorageExpiringBeforeThresholdTelemetry(expiringTelem)) {
+                LOG_ERROR(subprocess) << "storage can't get StorageExpiringBeforeThresholdTelemetry";
+                const std::string error = "Failed to get expiring storage";
+                request.SendResponseError(error, m_zmqRepSock_connectingTelemToFromBoundStoragePtr);
+            }
+            else {
+                const std::string resp = expiringTelem.ToJson();
+                request.SendResponse(resp, m_zmqRepSock_connectingTelemToFromBoundStoragePtr);
+            }
+        }
+        more = request.More();
+    } while (more);
 }
 
 std::size_t ZmqStorageInterface::Impl::GetCurrentNumberOfBundlesDeletedFromStorage() {

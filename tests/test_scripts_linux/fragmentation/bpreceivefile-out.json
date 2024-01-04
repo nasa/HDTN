@@ -1,0 +1,31 @@
+{
+    "outductConfigName": "myconfig",
+    "outductVector": [
+        {
+                "name": "2 to 11 for custody",
+                "convergenceLayer": "ltp_over_udp",
+                "nextHopNodeId": 11,
+                "remoteHostname": "localhost",
+                "remotePort": 4508,
+                "maxSumOfBundleBytesInPipeline":20000000,
+                "maxNumberOfBundlesInPipeline": 167,
+                "thisLtpEngineId": 107,
+                "remoteLtpEngineId": 108,
+                "ltpDataSegmentMtu": 700,
+                "oneWayLightTimeMs": 300,
+                "oneWayMarginTimeMs": 100,
+                "clientServiceId": 1,
+                "numRxCircularBufferElements": 1000,
+                "ltpMaxRetriesPerSerialNumber": 2,
+                "ltpCheckpointEveryNthDataSegment": 0,
+                "ltpRandomNumberSizeBits": 32,
+                "ltpSenderBoundPort": 4507,
+                "ltpMaxUdpPacketsToSendPerSystemCall":1,
+                "ltpSenderPingSecondsOrZeroToDisable": 5,
+                "delaySendingOfDataSegmentsTimeMsOrZeroToDisable": 20,
+                "keepActiveSessionDataOnDisk": false,
+                "activeSessionDataOnDiskNewFileDurationMs": 2000,
+                "activeSessionDataOnDiskDirectory": ".\/"
+        }
+    ]
+}

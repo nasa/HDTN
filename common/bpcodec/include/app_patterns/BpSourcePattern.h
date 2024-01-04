@@ -46,16 +46,21 @@
 #include "codec/CustodyTransferManager.h"
 #include <queue>
 #include <unordered_set>
+#include "PaddedVectorUint8.h"
+#include <atomic>
 
 class CLASS_VISIBILITY_BP_APP_PATTERNS_LIB BpSourcePattern {
 public:
     BP_APP_PATTERNS_LIB_EXPORT BpSourcePattern();
     BP_APP_PATTERNS_LIB_EXPORT virtual ~BpSourcePattern();
     BP_APP_PATTERNS_LIB_EXPORT void Stop();
-    BP_APP_PATTERNS_LIB_EXPORT void Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfig_ptr & inductsConfigPtr, bool custodyTransferUseAcs,
-        const cbhe_eid_t & myEid, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId,
+    BP_APP_PATTERNS_LIB_EXPORT void Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfig_ptr & inductsConfigPtr,
+        const boost::filesystem::path& bpSecConfigFilePath,
+        bool custodyTransferUseAcs,
+        const cbhe_eid_t & myEid, double bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId,
         const unsigned int bundleSendTimeoutSeconds, const uint64_t bundleLifetimeMilliseconds, const uint64_t bundlePriority,
-        const bool requireRxBundleBeforeNextTx = false, const bool forceDisableCustody = false, const bool useBpVersion7 = false);
+        const bool requireRxBundleBeforeNextTx = false, const bool forceDisableCustody = false, const bool useBpVersion7 = false,
+        const uint64_t claRate = 0);
 
     uint64_t m_bundleCount;
     uint64_t m_numRfc5050CustodyTransfers;
@@ -78,22 +83,23 @@ protected:
     virtual bool CopyPayload_Step2(uint8_t * destinationBuffer) = 0;
     BP_APP_PATTERNS_LIB_EXPORT virtual bool ProcessNonAdminRecordBundlePayload(const uint8_t * data, const uint64_t size);
 private:
-    BP_APP_PATTERNS_LIB_NO_EXPORT void BpSourcePatternThreadFunc(uint32_t bundleRate);
+    BP_APP_PATTERNS_LIB_NO_EXPORT void BpSourcePatternThreadFunc(double bundleRate, const boost::filesystem::path& bpSecConfigFilePath);
     BP_APP_PATTERNS_LIB_NO_EXPORT void WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtr);
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtrAboutToBeDeleted);
-    BP_APP_PATTERNS_LIB_NO_EXPORT void OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled);
+    BP_APP_PATTERNS_LIB_NO_EXPORT void OnFailedBundleVecSendCallback(padded_vector_uint8_t& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled);
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData, uint64_t outductUuid);
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid);
 
     OutductManager m_outductManager;
     InductManager m_inductManager;
     std::unique_ptr<boost::thread> m_bpSourcePatternThreadPtr;
-    volatile bool m_running;
+    std::atomic<bool> m_running;
     bool m_useCustodyTransfer;
     bool m_custodyTransferUseAcs;
     bool m_useInductForSendingBundles;
     bool m_useBpVersion7;
+    uint64_t m_claRate;
     unsigned int m_bundleSendTimeoutSeconds;
     boost::posix_time::time_duration m_bundleSendTimeoutTimeDuration;
     uint64_t m_bundleLifetimeMilliseconds;
@@ -109,11 +115,11 @@ private:
     std::set<cbhe_bundle_uuid_nofragment_t> m_cbheBundleUuidSet;
     bool m_detectedNextCustodianSupportsCteb;
     bool m_requireRxBundleBeforeNextTx;
-    volatile bool m_isWaitingForRxBundleBeforeNextTx;
-    volatile bool m_linkIsDown;
+    std::atomic<bool> m_isWaitingForRxBundleBeforeNextTx;
+    std::atomic<bool> m_linkIsDown;
     boost::mutex m_mutexQueueBundlesThatFailedToSend;
     typedef std::pair<uint64_t, uint64_t> bundleid_payloadsize_pair_t;
-    typedef std::pair<std::vector<uint8_t>, bundleid_payloadsize_pair_t> bundle_userdata_pair_t;
+    typedef std::pair<padded_vector_uint8_t, bundleid_payloadsize_pair_t> bundle_userdata_pair_t;
     std::queue<bundle_userdata_pair_t> m_queueBundlesThatFailedToSend;
     uint64_t m_nextBundleId;
     boost::mutex m_mutexCurrentlySendingBundleIdSet;
@@ -127,7 +133,7 @@ private:
     cbhe_eid_t m_lastPreviousNode;
     std::vector<uint64_t> m_hopCounts;
 public:
-    volatile bool m_allOutductsReady;
+    std::atomic<bool> m_allOutductsReady;
 };
 
 

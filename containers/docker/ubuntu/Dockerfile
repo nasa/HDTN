@@ -1,6 +1,6 @@
 FROM ubuntu:latest
 
-LABEL Maintainer="Blake LaFuente, NASA GRC"
+LABEL Maintainer="Nadia Kortas, nadia.kortas@nasa.gov"
 LABEL Description="HDTN built using Ubuntu"
 
 RUN apt-get update && apt-get -y install cmake build-essential libzmq3-dev libboost-dev libboost-all-dev openssl libssl-dev git

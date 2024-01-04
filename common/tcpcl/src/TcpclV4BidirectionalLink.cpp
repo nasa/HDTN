@@ -38,6 +38,7 @@ TcpclV4BidirectionalLink::TcpclV4BidirectionalLink(
     const bool tryUseTls,
     const bool tlsIsRequired
 ) :
+    BidirectionalLink(),
     M_BASE_IMPLEMENTATION_STRING_FOR_COUT(implementationStringForCout),
     M_BASE_SHUTDOWN_MESSAGE_RECONNECTION_DELAY_SECONDS_TO_SEND(reconnectionDelaySecondsIfNotZero),
     M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS(desiredKeepAliveIntervalSeconds),
@@ -134,12 +135,12 @@ void TcpclV4BidirectionalLink::BaseClass_TryToWaitForAllBundlesToFinishSending()
         m_base_useLocalConditionVariableAckReceived = true;
         std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
         for (unsigned int attempt = 0; attempt < 10; ++attempt) {
-            const std::size_t numUnacked = Virtual_GetTotalBundlesUnacked();
+            const std::size_t numUnacked = BaseClass_GetTotalBundlesUnacked();
             if (numUnacked) {
                 LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": destructor waiting on " << numUnacked << " unacked bundles";
 
-                LOG_INFO(subprocess) << "   acked: " << m_base_outductTelemetry.m_totalBundlesAcked;
-                LOG_INFO(subprocess) << "   total sent: " << m_base_outductTelemetry.m_totalBundlesSent;
+                LOG_INFO(subprocess) << "   acked: " << m_base_telem.totalBundlesSentAndAcked;
+                LOG_INFO(subprocess) << "   total sent: " << m_base_telem.totalBundlesSent;
 
                 if (previousUnacked > numUnacked) {
                     previousUnacked = numUnacked;
@@ -165,30 +166,6 @@ void TcpclV4BidirectionalLink::BaseClass_TryToWaitForAllBundlesToFinishSending()
     catch (const boost::lock_error& e) {
         LOG_ERROR(subprocess) << "lock_error in TcpclV4BidirectionalLink::BaseClass_TryToWaitForAllBundlesToFinishSending: " << e.what();
     }
-}
-
-std::size_t TcpclV4BidirectionalLink::Virtual_GetTotalBundlesAcked() {
-    return m_base_outductTelemetry.m_totalBundlesAcked;
-}
-
-std::size_t TcpclV4BidirectionalLink::Virtual_GetTotalBundlesSent() {
-    return m_base_outductTelemetry.m_totalBundlesSent;
-}
-
-std::size_t TcpclV4BidirectionalLink::Virtual_GetTotalBundlesUnacked() {
-    return m_base_outductTelemetry.m_totalBundlesSent - m_base_outductTelemetry.m_totalBundlesAcked;
-}
-
-std::size_t TcpclV4BidirectionalLink::Virtual_GetTotalBundleBytesAcked() {
-    return m_base_outductTelemetry.m_totalBundleBytesAcked;
-}
-
-std::size_t TcpclV4BidirectionalLink::Virtual_GetTotalBundleBytesSent() {
-    return m_base_outductTelemetry.m_totalBundleBytesSent;
-}
-
-std::size_t TcpclV4BidirectionalLink::Virtual_GetTotalBundleBytesUnacked() {
-    return m_base_outductTelemetry.m_totalBundleBytesSent - m_base_outductTelemetry.m_totalBundleBytesAcked;
 }
 
 unsigned int TcpclV4BidirectionalLink::Virtual_GetMaxTxBundlesInPipeline() {
@@ -269,13 +246,12 @@ void TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8
     uint64_t bytesToAck = 0;
     if (isStartFlag && isEndFlag) { //optimization for whole (non-fragmented) data
         bytesToAck = dataSegmentDataVec.size(); //grab the size now in case vector gets stolen in m_wholeBundleReadyCallback
-        ++(m_base_inductConnectionTelemetry.m_totalBundlesReceived);
-        m_base_inductConnectionTelemetry.m_totalBundleBytesReceived += bytesToAck;
-        m_base_outductTelemetry.m_totalBundlesReceived = m_base_inductConnectionTelemetry.m_totalBundlesReceived;
-        m_base_outductTelemetry.m_totalBundleBytesReceived = m_base_inductConnectionTelemetry.m_totalBundleBytesReceived;
+        m_base_telem.totalBundlesReceived.fetch_add(1, std::memory_order_relaxed);
+        m_base_telem.totalBundleBytesReceived.fetch_add(bytesToAck, std::memory_order_relaxed);
         Virtual_WholeBundleReady(dataSegmentDataVec);
     }
     else {
+        m_base_telem.totalFragmentsReceived.fetch_add(1, std::memory_order_relaxed);
         if (isStartFlag) {
             m_base_fragmentedBundleRxConcat.resize(0);
             //(!isEndFlag) is assumed from if else
@@ -289,10 +265,8 @@ void TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8
         m_base_fragmentedBundleRxConcat.insert(m_base_fragmentedBundleRxConcat.end(), dataSegmentDataVec.begin(), dataSegmentDataVec.end()); //concatenate
         bytesToAck = m_base_fragmentedBundleRxConcat.size();
         if (isEndFlag) { //fragmentation complete
-            ++(m_base_inductConnectionTelemetry.m_totalBundlesReceived);
-            m_base_inductConnectionTelemetry.m_totalBundleBytesReceived += bytesToAck;
-            m_base_outductTelemetry.m_totalBundlesReceived = m_base_inductConnectionTelemetry.m_totalBundlesReceived;
-            m_base_outductTelemetry.m_totalBundleBytesReceived = m_base_inductConnectionTelemetry.m_totalBundleBytesReceived;
+            m_base_telem.totalBundlesReceived.fetch_add(1, std::memory_order_relaxed);
+            m_base_telem.totalBundleBytesReceived.fetch_add(bytesToAck, std::memory_order_relaxed);
             Virtual_WholeBundleReady(m_base_fragmentedBundleRxConcat);
         }
     }
@@ -318,7 +292,7 @@ void TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8
         TcpclV4::GenerateAckSegment(el->m_underlyingDataVecHeaders[0], TcpclV4::tcpclv4_ack_t(isStartFlag, isEndFlag, transferId, bytesToAck));
         el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingDataVecHeaders[0])); //only one element so resize not needed
         el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
-        m_base_dataSentServedAsKeepaliveSent = true; //sending acks can also be used in lieu of keepalives
+        m_base_dataSentServedAsKeepaliveSent.store(true, std::memory_order_release); //sending acks can also be used in lieu of keepalives
 #ifdef OPENSSL_SUPPORT_ENABLED
         if (m_base_usingTls) {
             m_base_tcpAsyncSenderSslPtr->AsyncSendSecure_ThreadSafe(el);
@@ -344,18 +318,17 @@ void TcpclV4BidirectionalLink::BaseClass_AckCallback(const TcpclV4::tcpclv4_ack_
     std::vector<uint8_t> & userData = m_base_userDataCbVec[readIndex];
     if (toAckFromQueue == ack) {
         const bool isFragment = !(ack.isStartSegment && ack.isEndSegment);
-        m_base_outductTelemetry.m_totalFragmentsAcked += isFragment;
-        m_base_inductConnectionTelemetry.m_totalIncomingFragmentsAcked = m_base_outductTelemetry.m_totalFragmentsAcked;
+        if (isFragment) {
+            m_base_telem.totalFragmentsSentAndAcked.fetch_add(1, std::memory_order_relaxed);
+        }
         if (ack.isEndSegment) { //entire bundle
-            ++m_base_outductTelemetry.m_totalBundlesAcked;
-            m_base_outductTelemetry.m_totalBundleBytesAcked += ack.totalBytesAcknowledged;
-            m_base_inductConnectionTelemetry.m_totalBundlesSentAndAcked = m_base_outductTelemetry.m_totalBundlesAcked;
-            m_base_inductConnectionTelemetry.m_totalBundleBytesSentAndAcked = m_base_outductTelemetry.m_totalBundleBytesAcked;
+            m_base_telem.totalBundlesSentAndAcked.fetch_add(1, std::memory_order_relaxed);
+            m_base_telem.totalBundleBytesSentAndAcked.fetch_add(ack.totalBytesAcknowledged, std::memory_order_relaxed);
             if (m_base_onSuccessfulBundleSendCallback) {
                 m_base_onSuccessfulBundleSendCallback(userData, m_base_userAssignedUuid);
             }
             Virtual_OnSuccessfulWholeBundleAcknowledged();
-            if (m_base_useLocalConditionVariableAckReceived) {
+            if (m_base_useLocalConditionVariableAckReceived.load(std::memory_order_acquire)) {
                 m_base_localConditionVariableAckReceived.notify_one();
             }
         }
@@ -375,7 +348,7 @@ void TcpclV4BidirectionalLink::BaseClass_RestartNoKeepaliveReceivedTimer() {
     //Table 2) and by closing the TCP connection.
     m_base_noKeepAlivePacketReceivedTimer.expires_from_now(boost::posix_time::milliseconds(m_base_keepAliveIntervalSeconds * 2500)); //cancels active timer with cancel flag in callback
     m_base_noKeepAlivePacketReceivedTimer.async_wait(boost::bind(&TcpclV4BidirectionalLink::BaseClass_OnNoKeepAlivePacketReceived_TimerExpired, this, boost::asio::placeholders::error));
-    m_base_dataReceivedServedAsKeepaliveReceived = false;
+    m_base_dataReceivedServedAsKeepaliveReceived.store(false, std::memory_order_release);
 }
 
 void TcpclV4BidirectionalLink::BaseClass_KeepAliveCallback() {
@@ -386,7 +359,7 @@ void TcpclV4BidirectionalLink::BaseClass_KeepAliveCallback() {
 void TcpclV4BidirectionalLink::BaseClass_OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        if (m_base_dataReceivedServedAsKeepaliveReceived) {
+        if (m_base_dataReceivedServedAsKeepaliveReceived.load(std::memory_order_acquire)) {
             LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": data received served as keepalive";
             BaseClass_RestartNoKeepaliveReceivedTimer();
         }
@@ -402,12 +375,12 @@ void TcpclV4BidirectionalLink::BaseClass_RestartNeedToSendKeepAliveMessageTimer(
     //if our keep alive interval is 10 seconds, but we are omitting sending a keepalive due to a Forward() function call,
     //then evaluate if sending a keepalive is necessary 5 seconds from now.
     //But if there is no data being sent from us, do not omit keepalives every 10 seconds. 
-    const unsigned int shift = static_cast<unsigned int>(m_base_dataSentServedAsKeepaliveSent);
+    const bool wasDataSentServedAsKeepaliveSent = m_base_dataSentServedAsKeepaliveSent.exchange(false);
+    const unsigned int shift = static_cast<unsigned int>(wasDataSentServedAsKeepaliveSent);
     const unsigned int millisecondMultiplier = 1000u >> shift;
     const boost::posix_time::time_duration expiresFromNowDuration = boost::posix_time::milliseconds(m_base_keepAliveIntervalSeconds * millisecondMultiplier);
     m_base_needToSendKeepAliveMessageTimer.expires_from_now(expiresFromNowDuration);
     m_base_needToSendKeepAliveMessageTimer.async_wait(boost::bind(&TcpclV4BidirectionalLink::BaseClass_OnNeedToSendKeepAliveMessage_TimerExpired, this, boost::asio::placeholders::error));
-    m_base_dataSentServedAsKeepaliveSent = false;
 }
 
 void TcpclV4BidirectionalLink::BaseClass_OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e) {
@@ -419,7 +392,7 @@ void TcpclV4BidirectionalLink::BaseClass_OnNeedToSendKeepAliveMessage_TimerExpir
 #else
         if (m_base_tcpSocketPtr) {
 #endif
-            if (!m_base_dataSentServedAsKeepaliveSent) {
+            if (!m_base_dataSentServedAsKeepaliveSent.load(std::memory_order_acquire)) {
                 TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
                 el->m_underlyingDataVecHeaders.resize(1);
                 TcpclV4::GenerateKeepAliveMessage(el->m_underlyingDataVecHeaders[0]);
@@ -475,7 +448,7 @@ void TcpclV4BidirectionalLink::BaseClass_DoHandleSocketShutdown(bool doCleanShut
         // Timer was cancelled as expected.  This method keeps socket shutdown within io_service thread.
 
         m_base_readyToForward = false;
-        m_base_outductTelemetry.m_linkIsUpPhysically = false;
+        m_base_telem.linkIsUpPhysically = false;
         if (m_base_onOutductLinkStatusChangedCallback) { //let user know of link down event
             m_base_onOutductLinkStatusChangedCallback(true, m_base_userAssignedUuid);
         }
@@ -650,15 +623,15 @@ void TcpclV4BidirectionalLink::BaseClass_CloseAndDeleteSockets() {
 }
 
 bool TcpclV4BidirectionalLink::BaseClass_Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
-    std::vector<uint8_t> vec(bundleData, bundleData + size);
+    padded_vector_uint8_t vec(bundleData, bundleData + size);
     return BaseClass_Forward(vec, std::move(userData));
 }
-bool TcpclV4BidirectionalLink::BaseClass_Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData) {
+bool TcpclV4BidirectionalLink::BaseClass_Forward(padded_vector_uint8_t& dataVec, std::vector<uint8_t>&& userData) {
     static std::unique_ptr<zmq::message_t> nullZmqMessagePtr;
     return BaseClass_Forward(nullZmqMessagePtr, dataVec, false, std::move(userData));
 }
 bool TcpclV4BidirectionalLink::BaseClass_Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData) {
-    static std::vector<uint8_t> unusedVecMessage;
+    static padded_vector_uint8_t unusedVecMessage;
     std::unique_ptr<zmq::message_t> zmqMessageUniquePtr = boost::make_unique<zmq::message_t>(std::move(dataZmq));
     const bool success = BaseClass_Forward(zmqMessageUniquePtr, unusedVecMessage, true, std::move(userData));
     if (!success) { //if failure
@@ -669,9 +642,9 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(zmq::message_t & dataZmq, std::
     }
     return success;
 }
-bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t> & zmqMessageUniquePtr, std::vector<uint8_t> & vecMessage, const bool usingZmqData, std::vector<uint8_t>&& userData) {
+bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t> & zmqMessageUniquePtr, padded_vector_uint8_t& vecMessage, const bool usingZmqData, std::vector<uint8_t>&& userData) {
     
-    if (!m_base_readyToForward) {
+    if (!m_base_readyToForward.load(std::memory_order_acquire)) {
         LOG_ERROR(subprocess) << "link not ready to forward yet";
         return false;
     }
@@ -688,11 +661,8 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
     }
 
         
-
-    ++m_base_outductTelemetry.m_totalBundlesSent;
-    m_base_outductTelemetry.m_totalBundleBytesSent += dataSize;
-    m_base_inductConnectionTelemetry.m_totalBundlesSent = m_base_outductTelemetry.m_totalBundlesSent;
-    m_base_inductConnectionTelemetry.m_totalBundleBytesSent = m_base_outductTelemetry.m_totalBundleBytesSent;
+    m_base_telem.totalBundlesSent.fetch_add(1, std::memory_order_relaxed);
+    m_base_telem.totalBundleBytesSent.fetch_add(dataSize, std::memory_order_relaxed);
 
         
     std::vector<TcpAsyncSenderElement*> elements;
@@ -734,8 +704,8 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
     unpredictable Transfer IDs within a session.*/
     const uint64_t transferId = m_base_myNextTransferId++;
 
-
-    if (m_base_remoteMaxRxSegmentSizeBytes && (dataSize > m_base_remoteMaxRxSegmentSizeBytes)) {
+    const bool doFragment = (m_base_remoteMaxRxSegmentSizeBytes && (dataSize > m_base_remoteMaxRxSegmentSizeBytes));
+    if (doFragment) {
         //fragmenting a bundle into multiple tcpcl segments
         elements.reserve((dataSize / m_base_remoteMaxRxSegmentSizeBytes) + 2);
         uint64_t dataIndex = 0;
@@ -797,12 +767,11 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
             }
         }
     }
-    m_base_dataSentServedAsKeepaliveSent = true;
+    m_base_dataSentServedAsKeepaliveSent.store(true, std::memory_order_release);
         
 
-    if (elements.size()) { //is fragmented
-        m_base_outductTelemetry.m_totalFragmentsSent += elements.size();
-        m_base_inductConnectionTelemetry.m_totalOutgoingFragmentsSent = m_base_outductTelemetry.m_totalFragmentsSent;
+    if (doFragment) { //is fragmented //elements.size() will be at least 1
+        m_base_telem.totalFragmentsSent.fetch_add(elements.size(), std::memory_order_relaxed);
         for (std::size_t i = 0; i < elements.size(); ++i) {
 #ifdef OPENSSL_SUPPORT_ENABLED
             if (m_base_usingTls) {
@@ -817,6 +786,11 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
         }
     }
     else {
+        const unsigned int writeIndex = m_base_segmentsToAckCbPtr->GetIndexForWrite(); //don't put this in tcp async write callback
+        if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) { //push check
+            LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": Base_Forward.. cannot get cb write index";
+            return false;
+        }
         TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
         el->m_underlyingDataVecHeaders.resize(1);
         if (usingZmqData) {
@@ -831,11 +805,7 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
         el->m_constBufferVec[1] = boost::asio::buffer(dataToSendPtr, dataSize);
         el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
 
-        const unsigned int writeIndex = m_base_segmentsToAckCbPtr->GetIndexForWrite(); //don't put this in tcp async write callback
-        if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) { //push check
-            LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": Base_Forward.. cannot get cb write index";
-            return false;
-        }
+        
         m_base_segmentsToAckCbVec[writeIndex] = TcpclV4::tcpclv4_ack_t(true, true, transferId, dataSize);
         m_base_userDataCbVec[writeIndex] = std::move(userData);
         m_base_segmentsToAckCbPtr->CommitWrite(); //pushed
@@ -1017,7 +987,7 @@ void TcpclV4BidirectionalLink::BaseClass_SessionInitCallback(uint16_t keepAliveI
         return;
     }
 
-    m_base_inductConnectionTelemetry.m_connectionName += ((m_base_didSuccessfulSslHandshake) ? std::string(" TLS ") : std::string(" ")) + remoteNodeEidUri; //append after remote ip:port
+    m_base_inductConnectionName += ((m_base_didSuccessfulSslHandshake) ? std::string(" TLS ") : std::string(" ")) + remoteNodeEidUri; //append after remote ip:port
     m_base_tcpclRemoteEidString = remoteNodeEidUri;
     m_base_tcpclRemoteNodeId = remoteNodeId;
     LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " received valid SessionInit from remote with EID " << m_base_tcpclRemoteEidString;
@@ -1108,7 +1078,7 @@ void TcpclV4BidirectionalLink::BaseClass_SessionInitCallback(uint16_t keepAliveI
 
     m_base_readyToForward = true;
     Virtual_OnSessionInitReceivedAndProcessedSuccessfully();
-    m_base_outductTelemetry.m_linkIsUpPhysically = true;
+    m_base_telem.linkIsUpPhysically = true;
     if (m_base_onOutductLinkStatusChangedCallback) { //let user know of link up event
         m_base_onOutductLinkStatusChangedCallback(false, m_base_userAssignedUuid);
     }
@@ -1130,4 +1100,39 @@ void TcpclV4BidirectionalLink::BaseClass_SetOnOutductLinkStatusChangedCallback(c
 }
 void TcpclV4BidirectionalLink::BaseClass_SetUserAssignedUuid(uint64_t userAssignedUuid) {
     m_base_userAssignedUuid = userAssignedUuid;
+}
+
+void TcpclV4BidirectionalLink::BaseClass_GetTelemetry(TcpclV4InductConnectionTelemetry_t& telem) const {
+    telem.m_totalIncomingFragmentsAcked = m_base_telem.totalFragmentsSentAndAcked.load(std::memory_order_acquire);
+    telem.m_totalOutgoingFragmentsSent = m_base_telem.totalFragmentsSent.load(std::memory_order_acquire);
+    telem.m_totalBundlesReceived = m_base_telem.totalBundlesReceived.load(std::memory_order_acquire);
+    telem.m_totalBundleBytesReceived = m_base_telem.totalBundleBytesReceived.load(std::memory_order_acquire);
+    telem.m_totalBundlesSentAndAcked = m_base_telem.totalBundlesSentAndAcked.load(std::memory_order_acquire);
+    telem.m_totalBundleBytesSentAndAcked = m_base_telem.totalBundleBytesSentAndAcked.load(std::memory_order_acquire);
+    telem.m_totalBundlesSent = m_base_telem.totalBundlesSent.load(std::memory_order_acquire);
+    telem.m_totalBundleBytesSent = m_base_telem.totalBundleBytesSent.load(std::memory_order_acquire);
+    if (m_base_readyToForward.load(std::memory_order_acquire)) {
+        //m_base_inductConnectionName valid after m_base_readyToForward = true;
+        telem.m_connectionName = m_base_inductConnectionName;
+    }
+    telem.m_inputName = m_base_inductInputName; //set once at ctor
+    //uint64_t m_totalBundlesFailedToSend;
+}
+void TcpclV4BidirectionalLink::BaseClass_GetTelemetry(TcpclV4OutductTelemetry_t& telem) const {
+    telem.m_totalFragmentsAcked = m_base_telem.totalFragmentsSentAndAcked.load(std::memory_order_acquire);
+    telem.m_totalFragmentsSent = m_base_telem.totalFragmentsSent.load(std::memory_order_acquire);
+    telem.m_totalBundlesReceived = m_base_telem.totalBundlesReceived.load(std::memory_order_acquire);
+    telem.m_totalBundleBytesReceived = m_base_telem.totalBundleBytesReceived.load(std::memory_order_acquire);
+    telem.m_totalBundlesAcked = m_base_telem.totalBundlesSentAndAcked.load(std::memory_order_acquire);
+    telem.m_totalBundleBytesAcked = m_base_telem.totalBundleBytesSentAndAcked.load(std::memory_order_acquire);
+    telem.m_totalBundlesSent = m_base_telem.totalBundlesSent.load(std::memory_order_acquire);
+    telem.m_totalBundleBytesSent = m_base_telem.totalBundleBytesSent.load(std::memory_order_acquire);
+    telem.m_linkIsUpPhysically = m_base_telem.linkIsUpPhysically.load(std::memory_order_acquire);
+    telem.m_numTcpReconnectAttempts = m_base_telem.numTcpReconnectAttempts.load(std::memory_order_acquire);
+
+    //uint64_t m_totalBundlesFailedToSend;
+
+    //m_base_telem.totalFragmentsReceived.fetch_add(1, std::memory_order_relaxed);
+
+
 }

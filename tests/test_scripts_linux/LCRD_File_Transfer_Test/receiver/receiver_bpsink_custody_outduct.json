@@ -1,0 +1,15 @@
+{
+    "outductConfigName": "myconfig",
+    "outductVector": [
+        {
+            "name": "to hdtn localhost custody",
+            "convergenceLayer": "stcp",
+            "nextHopNodeId": 20,
+            "remoteHostname": "localhost",
+            "remotePort": 4558,
+            "maxNumberOfBundlesInPipeline": 5,
+            "maxSumOfBundleBytesInPipeline": 50000000,
+            "keepAliveIntervalSeconds": 17
+        }
+    ]
+}

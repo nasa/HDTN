@@ -1,0 +1,59 @@
+{
+    "contacts": [
+       {
+            "contact": 0,
+            "source": 1,
+            "dest": 10,
+            "startTime": 0,
+            "endTime": 100000,
+            "rateBitsPerSec": 1000000000,
+            "owlt":  1
+        },
+        {
+            "contact": 1,
+            "source": 10,
+            "dest": 20,
+            "startTime": 0,
+            "endTime": 100000,
+            "rateBitsPerSec": 1000000000,
+            "owlt":  1
+        },
+        {
+            "contact": 2,
+            "source": 20,
+            "dest": 2,
+            "startTime": 0,
+            "endTime": 100000,
+            "rateBitsPerSec": 1000000000,
+            "owlt":  1
+        }, 
+	{
+            "contact": 3,
+            "source": 2,
+            "dest": 20,
+            "startTime": 0,
+            "endTime": 100000,
+            "rateBitsPerSec": 1000000000,
+            "owlt":  1
+        },
+        {
+            "contact": 4,
+            "source": 20,
+            "dest": 10,
+            "startTime": 0,
+            "endTime": 100000,
+            "rateBitsPerSec": 1000000000,
+            "owlt":  1
+        },
+        {
+            "contact": 5,
+            "source": 10,
+            "dest": 1,
+            "startTime": 0,
+            "endTime": 100000,
+            "rateBitsPerSec": 1000000000,
+            "owlt":  1
+        }
+    ]
+}
+

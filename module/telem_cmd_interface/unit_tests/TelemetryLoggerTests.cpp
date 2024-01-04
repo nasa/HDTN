@@ -5,6 +5,7 @@
 #include <boost/thread.hpp>
 
 #include "TelemetryLogger.h"
+#include "StatsLogger.h"
 
    
 /**
@@ -33,7 +34,10 @@ static const std::string header_regex = "^timestamp\\(ms\\),value\n";
 #ifdef DO_STATS_LOGGING
 BOOST_AUTO_TEST_CASE(TelemetryLoggerLogTelemetryTestCase) 
 {
-    boost::filesystem::remove_all("stats/all_sampled_stats");
+    hdtn::StatsLogger::Reset();
+    if (boost::filesystem::exists("stats/all_sampled_stats")) {
+        boost::filesystem::remove_all("stats/all_sampled_stats");
+    }
 
     TelemetryLogger logger;
     AllInductTelemetry_t inductTelem;
