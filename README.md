@@ -193,7 +193,7 @@ Bundle Protocol Security (BPSec)
 ================================
 BPSec library module interacts with Ingress and Egress modules and HDTN utility applications such as BPGen/BPSendFile and BPSink/BPReceiveFile to apply and process integrity and confidentiality security services based on the security role. BPSec is enabled by default with Bundle Protocol Version 7 and it requires OpenSSL FIPS module. It can be disabled by setting the CMakeCache.txt variable `ENABLE_BPSEC:BOOL` to `OFF`.
 
-Examples of tests with BPSec enabled using intergity and confidentiality services were added under $HDTN_SOURCE_ROOT/test_scripts_linux/BPSec_Tests
+Examples of tests with BPSec enabled using intergity and confidentiality services were added under $HDTN_SOURCE_ROOT/test_scripts_linux/BPSec_Tests. 
 BPSec configuration files which include security policy rules and the security operation failure events handling are located under $HDTN_SOURCE_ROOT/config_files/bpsec.   
 
 
