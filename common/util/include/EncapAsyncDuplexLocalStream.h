@@ -69,7 +69,8 @@ public:
         m_isStreamCreator(false),
         m_readyToSend(false),
         m_readStarted(false),
-        m_shutdownComplete(true)
+        m_shutdownComplete(true),
+        m_doAutoReconnectAfterShutdown(true)
     {
         m_receivedFullEncapPacket_swappable.resize(maxEncapRxPacketSizeBytes);
     }
@@ -86,6 +87,7 @@ public:
      * @post The object is ready to be reused after the next successful call to Init().
      */
     void Stop() {
+        m_doAutoReconnectAfterShutdown.store(false, std::memory_order_release); //Stop called publicly, prevent auto reconnect after shutdown
         if (m_workPtr) {
             if (!m_shutdownComplete.load(std::memory_order_acquire)) {
                 boost::asio::post(m_ioServiceRef, boost::bind(&EncapAsyncDuplexLocalStream::HandleShutdown, this));
@@ -115,11 +117,15 @@ public:
         if (m_workPtr) {
             return false;
         }
+        m_doAutoReconnectAfterShutdown.store(true, std::memory_order_release);
         m_socketOrPipePath = socketOrPipePath;
         m_isStreamCreator = isStreamCreator;
-
+        return InitStreams();
+    }
+private:
+    bool InitStreams() {
 #ifdef STREAM_USE_WINDOWS_NAMED_PIPE
-        if (isStreamCreator) { //binding
+        if (m_isStreamCreator) { //binding
             const DWORD bufferSize = 4096 * 2;
             //LPTSTR lpszPipename = TEXT("\\\\.\\pipe\\mynamedpipe");
             //https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-server-using-overlapped-i-o
@@ -142,11 +148,18 @@ public:
                 std::cout << "CreateNamedPipe " << m_socketOrPipePath << " failed with " << GetLastError() << ".\n";
                 return false;
             }
-            m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioServiceRef);
+            else {
+                std::cout << "Successfully created named pipe " << m_socketOrPipePath << " .. listening for a remote connection\n";
+            }
+            if (!m_workPtr) {
+                m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioServiceRef);
+            }
             AsyncWaitForConnection(hPipeInst);
         }
         else { //connecting
-            m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioServiceRef);
+            if (!m_workPtr) {
+                m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioServiceRef);
+            }
             boost::asio::post(m_ioServiceRef, boost::bind(&EncapAsyncDuplexLocalStream::TryToOpenExistingPipe_NotThreadSafe, this));
         }
 #else //unix sockets
@@ -162,21 +175,36 @@ public:
                 m_ioServiceRef, streamProtocolEndpoint);
             m_streamAcceptorPtr->async_accept(m_streamHandle,
                 boost::bind(&EncapAsyncDuplexLocalStream::OnSocketAccept, this, boost::asio::placeholders::error));
-            m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioServiceRef);
+            if (!m_workPtr) {
+                m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioServiceRef);
+            }
         }
         else { //connecting
             m_streamHandle.async_connect(streamProtocolEndpoint,
                 boost::bind(&EncapAsyncDuplexLocalStream::OnSocketConnect, this, boost::asio::placeholders::error));
-            m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioServiceRef);
+            if (!m_workPtr) {
+                m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioServiceRef);
+            }
         }
 #endif //STREAM_USE_WINDOWS_NAMED_PIPE
         return true;
     }
-private:
+
     
 #ifdef STREAM_USE_WINDOWS_NAMED_PIPE
     void OnPipeConnected(const boost::system::error_code& e, HANDLE hPipeInst) {
-        CloseHandle(m_overlappedWaitForConnection.hEvent); //hEventWaitForConnection
+
+        //CloseHandle(m_overlappedWaitForConnection.hEvent); //hEventWaitForConnection
+        if (m_windowsObjectHandleWaitForConnection.is_open()) {
+            try {
+                m_windowsObjectHandleWaitForConnection.close();
+            }
+            catch (const boost::system::system_error& e) {
+                std::cerr << "ConnectNamedPipe for " << m_socketOrPipePath
+                    << " failed to close already open m_windowsObjectHandleWaitForConnection: " << e.what() << ".\n";
+            }
+        }
+
         if (e != boost::asio::error::operation_aborted) {
             // Not cancelled, take necessary action.
             //https://github.com/boostorg/process/issues/83
@@ -218,12 +246,15 @@ private:
             return;
         }
 
+        
+        //https://theboostcpplibraries.com/boost.asio-platform-specific-io-objects
         try {
             m_windowsObjectHandleWaitForConnection.assign(m_overlappedWaitForConnection.hEvent);
         }
         catch (const boost::system::system_error& e) {
             std::cerr << "ConnectNamedPipe for " << m_socketOrPipePath 
                 << " failed to assign to m_windowsObjectHandleWaitForConnection: " << e.what() << ".\n";
+            return;
         }
         // Wait for a client to connect, or for a read or write 
         // operation to be completed, which causes a completion 
@@ -487,6 +518,11 @@ private:
         }
 #endif
         m_shutdownComplete.store(true, std::memory_order_release);
+
+        if (m_doAutoReconnectAfterShutdown.load(std::memory_order_acquire)) {
+            std::cout << "Auto reconnecting local streams..\n";
+            InitStreams();
+        }
     }
 
     
@@ -519,6 +555,7 @@ private:
     std::atomic<bool> m_readyToSend;
     std::atomic<bool> m_readStarted;
     std::atomic<bool> m_shutdownComplete;
+    std::atomic<bool> m_doAutoReconnectAfterShutdown;
 
 public:
     stream_handle_t& GetStreamHandleRef() noexcept {
