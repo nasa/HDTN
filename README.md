@@ -86,22 +86,22 @@ brew install openssl gnutls
 * Some processors may not support hardware acceleration or the RDSEED instruction, both ON by default in the cmake file
 
 ## Notes on C++ Standard Version ##
-HDTN build environment sets by default the CMake cache variable `HDTN_TRY_USE_CPP17` to `On`.
-* If set to `On`, CMake will test if the compiler supports C++17.  If the test fails, CMake will fall back to C++11 and compile HDTN with C++11.  If the test passes, CMake will compile HDTN with C++17.
+HDTN build environment sets by default the CMake cache variable `HDTN_TRY_USE_CPP17` to `ON`.
+* If set to `ON`, CMake will test if the compiler supports C++17.  If the test fails, CMake will fall back to C++11 and compile HDTN with C++11.  If the test passes, CMake will compile HDTN with C++17.
 * If set to `Off`, CMake will compile HDTN with C++11.
 * With Visual Studio 2017 version 15.7 and later versions, if C++17 is enabled, CMake will set the compile option `/Zc:__cplusplus` to make the `__cplusplus` preprocessor macro accurate for Visual Studio.  (Otherwise, without this compile option, by default, Visual Studio always returns the value `199711L` for the `__cplusplus` preprocessor macro.)
 * Throughout the HDTN codebase, C++17 optimizations exist, usually within a `#if(__cplusplus >= 201703L)` block.
 
 ## Optional X86 Hardware Acceleration ## 
-HDTN build environment sets by default two CMake cache variables to `On`: `USE_X86_HARDWARE_ACCELERATION` and `LTP_RNG_USE_RDSEED`.
+HDTN build environment sets by default two CMake cache variables to `ON`: `USE_X86_HARDWARE_ACCELERATION` and `LTP_RNG_USE_RDSEED`.
 * If you are building natively (i.e. not cross-compiling) then the HDTN CMake build environment will check the processor's CPU instruction set
 as well as the compiler to determine which HDTN hardware accelerated functions will both build and run on the native host.  CMake will automatically set various
 compiler defines to enable any supported HDTN hardware accelerated features.
 * If you are cross-compiling then the HDTN CMake build environment will check the compiler only to determine if the HDTN hardware accelerated functions will build.
 It is up to the user to determine if the target processor will support/run those instructons. CMake will automatically set various
 compiler defines to enable any supported HDTN hardware accelerated features if and only if they compile.
-* Hardware accelerated functions can be turned off by setting `USE_X86_HARDWARE_ACCELERATION` and/or `LTP_RNG_USE_RDSEED` to `Off` in the `CMakeCache.txt`.
-* If you are building for ARM or any non X86-64 platform, `USE_X86_HARDWARE_ACCELERATION` and `LTP_RNG_USE_RDSEED` must be set to `Off`.
+* Hardware accelerated functions can be turned off by setting `USE_X86_HARDWARE_ACCELERATION` and/or `LTP_RNG_USE_RDSEED` to `OFF` in the `CMakeCache.txt`.
+* If you are building for ARM or any non X86-64 platform, `USE_X86_HARDWARE_ACCELERATION` and `LTP_RNG_USE_RDSEED` must be set to `OFF`.
 
 If `USE_X86_HARDWARE_ACCELERATION` is turned on, then some or all of the following various features will be enabled if CMake finds support for these CPU instructions:
 * Fast SDNV encode/decode (BPv6, TCPCLv3, and LTP) requires SSE, SSE2, SSE3, SSSE3, SSE4.1, POPCNT, BMI1, and BMI2.
@@ -149,8 +149,8 @@ To build HDTN in Release mode (which is now the default if -DCMAKE_BUILD_TYPE is
 * make install
 
 Note: By Default, BUILD_SHARED_LIBS is OFF and hdtn is built as static
-To use shared libs, edit CMakeCache.txt, set BUILD_SHARED_LIBS:BOOL=ON and add fPIC to the Cmakecache variable:
-CMAKE_CXX_FLAGS_RELEASE:STRING=-03 -DNDEBUG -fPIC
+To use shared libs, edit CMakeCache.txt, set `BUILD_SHARED_LIBS:BOOL` to `ON` and add fPIC to the Cmakecache variable:
+`CMAKE_CXX_FLAGS_RELEASE:STRING=-03 -DNDEBUG -fPIC`
 
 #### ARM Platforms
 HDTN has been tested on various ARM platforms such as Raspberry Pi, Nvidia Jetson Nano and an Ampere Altra Q64-30 based server. To build HDTN in a native ARM environment add the `-DCMAKE_SYSTEM_PROCESSOR` flag to the cmake command. This flag removes x86 optimizations and the x86 unit test. Shared libraries are disabled for ARM builds by default.
@@ -191,14 +191,15 @@ An example of Routing scenario test with 4 HDTN nodes was added under $HDTN_SOUR
 
 Bundle Protocol Security (BPSec)
 ================================
-BPSec library module interacts with Ingress and Egress modules and HDTN utility applications such as BPGen/BPSendFile and BPSink/BPReceiveFile to apply and process integrity and confidentiality security services based on the security role. BPSec is enabled by default with Bundle Protocol Version 7 and it requires OpenSSL FIPS module.
+BPSec library module interacts with Ingress and Egress modules and HDTN utility applications such as BPGen/BPSendFile and BPSink/BPReceiveFile to apply and process integrity and confidentiality security services based on the security role. BPSec is enabled by default with Bundle Protocol Version 7 and it requires OpenSSL FIPS module. It can be disabled by setting the CMakeCache.txt variable `ENABLE_BPSEC:BOOL` to `OFF`.
 
 Examples of tests with BPSec enabled using intergity and confidentiality services were added under $HDTN_SOURCE_ROOT/test_scripts_linux/BPSec_Tests
 BPSec configuration files which include security policy rules and the security operation failure events handling are located under $HDTN_SOURCE_ROOT/config_files/bpsec.   
 
+
 TLS Support for TCPCL Version 4
 =======
-TLS Versions 1.2 and 1.3 are supported for the TCPCL Version 4 convergence layer.  The X.509 certificates must be version 3 in order to validate IPN URIs using the X.509 "Subject Alternative Name" field.  HDTN must be compiled with ENABLE_OPENSSL_SUPPORT turned on in CMake.
+TLS Versions 1.2 and 1.3 are supported for the TCPCL Version 4 convergence layer.  The X.509 certificates must be version 3 in order to validate IPN URIs using the X.509 "Subject Alternative Name" field.  HDTN must be compiled with `ENABLE_OPENSSL_SUPPORT` turned on in CMake.
 To generate (using a single command) a certificate (which is installed on both an outduct and an induct) and a private key (which is installed on an induct only), such that the induct has a Node Id of 10, use the following command:
 * openssl req -x509 -newkey rsa:4096 -nodes -keyout privatekey.pem -out cert.pem -sha256 -days 365 -extensions v3_req -extensions v3_ca -subj "/C=US/ST=Ohio/L=Cleveland/O=NASA/OU=HDTN/CN=localhost" -addext "subjectAltName = otherName:1.3.6.1.5.5.7.8.11;IA5:ipn:10.0" -config /path/to/openssl.cnf
 
