@@ -48,6 +48,13 @@ public:
         m_ioService.stop();
     }
 
+    //used by signal handler which shares the same io_service (and its thread) as the streams
+    void Stop_CalledFromWithinIoServiceThread() {
+        for (uint8_t i = 0; i < 2; ++i) {
+            m_streamInfos[i].encapAsyncDuplexLocalStream->Stop_CalledFromWithinIoServiceThread();
+        }
+    }
+
     void RunForever(const std::string& socketOrPipePath0, bool isStreamCreator0,
         const std::string& socketOrPipePath1, bool isStreamCreator1,
         ENCAP_PACKET_TYPE encapPacketType, uint32_t queueSize)
@@ -75,7 +82,7 @@ public:
         if (!m_streamInfos[1].encapAsyncDuplexLocalStream->Init(socketOrPipePath1, isStreamCreator1)) {
             return;
         }
-        m_signals.async_wait(boost::bind(&EncapRepeater::Stop, this));
+        m_signals.async_wait(boost::bind(&EncapRepeater::Stop_CalledFromWithinIoServiceThread, this));
         m_ioService.run();
     }
 

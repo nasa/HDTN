@@ -80,7 +80,8 @@ public:
         Stop();
     }
     
-    /** Perform graceful shutdown.
+    /** Perform graceful shutdown, called by an external thread not running the io_service.
+     * Warning, if Stop() is called from within the thread running the io_service, the function will hang.
      *
      * If no previous successful call to Init(), returns immediately.
      * Else, tries to perform graceful shutdown on the socket, then releases all underlying I/O resources.
@@ -88,23 +89,34 @@ public:
      */
     void Stop() {
         m_doAutoReconnectAfterShutdown.store(false, std::memory_order_release); //Stop called publicly, prevent auto reconnect after shutdown
-        if (m_workPtr) {
-            if (!m_shutdownComplete.load(std::memory_order_acquire)) {
-                boost::asio::post(m_ioServiceRef, boost::bind(&EncapAsyncDuplexLocalStream::HandleShutdown, this));
-                while (!m_shutdownComplete.load(std::memory_order_acquire)) {
-                    try {
-                        boost::this_thread::sleep(boost::posix_time::milliseconds(250));
-                    }
-                    catch (const boost::thread_resource_error&) {}
-                    catch (const boost::thread_interrupted&) {}
-                    catch (const boost::condition_error&) {}
-                    catch (const boost::lock_error&) {}
+        if (!m_shutdownComplete.load(std::memory_order_acquire)) {
+            boost::asio::post(m_ioServiceRef, boost::bind(&EncapAsyncDuplexLocalStream::HandleShutdown, this));
+            while (!m_shutdownComplete.load(std::memory_order_acquire)) {
+                try {
+                    boost::this_thread::sleep(boost::posix_time::milliseconds(250));
                 }
+                catch (const boost::thread_resource_error&) {}
+                catch (const boost::thread_interrupted&) {}
+                catch (const boost::condition_error&) {}
+                catch (const boost::lock_error&) {}
             }
-
-            m_workPtr.reset();
-            m_reconnectAfterOnConnectErrorTimer.cancel();
         }
+        StopAllAsyncs();
+    }
+
+    /** Perform a graceful shutdown from within the io_service thread,
+     * perhaps called by a signal handler that uses the io_service..
+     *
+     * If no previous successful call to Init(), returns immediately.
+     * Else, tries to perform graceful shutdown on the socket, then releases all underlying I/O resources.
+     * @post The object is ready to be reused after the next successful call to Init().
+     */
+    void Stop_CalledFromWithinIoServiceThread() {
+        m_doAutoReconnectAfterShutdown.store(false, std::memory_order_release); //prevent auto reconnect after shutdown
+        if (!m_shutdownComplete.load(std::memory_order_acquire)) {
+            HandleShutdown();
+        }
+        StopAllAsyncs();
     }
     
     /** Initialize the underlying I/O and connect to given host at given port.
@@ -114,7 +126,7 @@ public:
      * @return True if the connection could be established, or False if connection failed or the object has already been initialized.
      */
     bool Init(const std::string& socketOrPipePath, bool isStreamCreator) {
-        if (m_workPtr) {
+        if (!m_shutdownComplete.load(std::memory_order_acquire)) {
             return false;
         }
         m_doAutoReconnectAfterShutdown.store(true, std::memory_order_release);
@@ -123,6 +135,24 @@ public:
         return InitStreams();
     }
 private:
+    void CloseWaitForConnectionAsync() {
+#ifdef STREAM_USE_WINDOWS_NAMED_PIPE
+        //CloseHandle(m_overlappedWaitForConnection.hEvent); //hEventWaitForConnection
+        if (m_windowsObjectHandleWaitForConnection.is_open()) {
+            try {
+                m_windowsObjectHandleWaitForConnection.close();
+            }
+            catch (const boost::system::system_error& e) {
+                std::cerr << "CloseWaitForConnectionAsync for " << m_socketOrPipePath
+                    << " failed to close already open m_windowsObjectHandleWaitForConnection: " << e.what() << ".\n";
+            }
+        }
+#endif
+    }
+    void StopAllAsyncs() {
+        CloseWaitForConnectionAsync();
+        m_reconnectAfterOnConnectErrorTimer.cancel();
+    }
     bool InitStreams() {
 #ifdef STREAM_USE_WINDOWS_NAMED_PIPE
         if (m_isStreamCreator) { //binding
@@ -151,15 +181,9 @@ private:
             else {
                 std::cout << "Successfully created named pipe " << m_socketOrPipePath << " .. listening for a remote connection\n";
             }
-            if (!m_workPtr) {
-                m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioServiceRef);
-            }
             AsyncWaitForConnection(hPipeInst);
         }
         else { //connecting
-            if (!m_workPtr) {
-                m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioServiceRef);
-            }
             boost::asio::post(m_ioServiceRef, boost::bind(&EncapAsyncDuplexLocalStream::TryToOpenExistingPipe_NotThreadSafe, this));
         }
 #else //unix sockets
@@ -175,18 +199,13 @@ private:
                 m_ioServiceRef, streamProtocolEndpoint);
             m_streamAcceptorPtr->async_accept(m_streamHandle,
                 boost::bind(&EncapAsyncDuplexLocalStream::OnSocketAccept, this, boost::asio::placeholders::error));
-            if (!m_workPtr) {
-                m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioServiceRef);
-            }
         }
         else { //connecting
             m_streamHandle.async_connect(streamProtocolEndpoint,
                 boost::bind(&EncapAsyncDuplexLocalStream::OnSocketConnect, this, boost::asio::placeholders::error));
-            if (!m_workPtr) {
-                m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioServiceRef);
-            }
         }
 #endif //STREAM_USE_WINDOWS_NAMED_PIPE
+        m_shutdownComplete.store(false, std::memory_order_release);
         return true;
     }
 
@@ -194,16 +213,7 @@ private:
 #ifdef STREAM_USE_WINDOWS_NAMED_PIPE
     void OnPipeConnected(const boost::system::error_code& e, HANDLE hPipeInst) {
 
-        //CloseHandle(m_overlappedWaitForConnection.hEvent); //hEventWaitForConnection
-        if (m_windowsObjectHandleWaitForConnection.is_open()) {
-            try {
-                m_windowsObjectHandleWaitForConnection.close();
-            }
-            catch (const boost::system::system_error& e) {
-                std::cerr << "ConnectNamedPipe for " << m_socketOrPipePath
-                    << " failed to close already open m_windowsObjectHandleWaitForConnection: " << e.what() << ".\n";
-            }
-        }
+        CloseWaitForConnectionAsync();
 
         if (!e) {
             // Not cancelled, take necessary action.
@@ -361,7 +371,6 @@ private:
 #endif //STREAM_USE_WINDOWS_NAMED_PIPE
     void OnConnectionCompleted_NotThreadSafe() {
         StartReadFirstEncapHeaderByte_NotThreadSafe();
-        m_shutdownComplete = false;
         m_readyToSend = true;
         if (m_onLocalStreamConnectionStatusChangedCallback) {
             m_onLocalStreamConnectionStatusChangedCallback(m_readyToSend);
@@ -530,8 +539,6 @@ private:
     const uint64_t M_MAX_ENCAP_RX_PACKET_SIZE_BYTES;
     /// I/O execution context
     boost::asio::io_service& m_ioServiceRef;
-    /// Explicit work controller for m_ioService, allows for graceful shutdown of running tasks
-    std::unique_ptr<boost::asio::io_service::work> m_workPtr;
     const OnFullEncapPacketReceivedCallback_t m_onFullEncapPacketReceivedCallback;
     const OnLocalStreamConnectionStatusChangedCallback_t m_onLocalStreamConnectionStatusChangedCallback;
     std::string m_socketOrPipePath;
