@@ -58,6 +58,7 @@ public:
         m_onFullEncapPacketReceivedCallback(onFullEncapPacketReceivedCallback),
         m_onLocalStreamConnectionStatusChangedCallback(onLocalStreamConnectionStatusChangedCallback),
 #ifdef STREAM_USE_WINDOWS_NAMED_PIPE
+        m_overlappedWaitForConnection{}, //zero initialize
         m_windowsObjectHandleWaitForConnection(ioService),
 #endif
         m_reconnectAfterOnConnectErrorTimer(ioService),

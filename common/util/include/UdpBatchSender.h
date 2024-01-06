@@ -26,6 +26,8 @@
 #include <string>
 #include <boost/thread.hpp>
 #include <boost/asio.hpp>
+#include <atomic>
+#include <queue>
 #include "hdtn_util_export.h"
 #include "LtpClientServiceDataToSend.h"
 #include <memory>
@@ -166,6 +168,11 @@ private:
 # ifdef UDP_BATCH_SENDER_USE_OVERLAPPED
     /// Overlapped I/O object, always configured to auto-reset
     WSAOVERLAPPED m_sendOverlappedAutoReset;
+    boost::asio::windows::object_handle m_windowsObjectHandleWaitForSend;
+    std::queue<std::pair<std::shared_ptr<std::vector<UdpSendPacketInfo> >, std::size_t > > m_udpSendPacketInfoQueue;
+    std::atomic<bool> m_sendInProgress;
+    HDTN_UTIL_NO_EXPORT void TrySendQueued();
+    HDTN_UTIL_NO_EXPORT void OnOverlappedSendCompleted(const boost::system::error_code& e);
 # endif
     /// Vector of packets to send
     std::vector<TRANSMIT_PACKETS_ELEMENT> m_transmitPacketsElementVec;
