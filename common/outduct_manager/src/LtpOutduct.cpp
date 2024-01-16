@@ -96,6 +96,12 @@ void LtpOutduct::SetUserAssignedUuid(uint64_t userAssignedUuid) {
 void LtpOutduct::SetRate(uint64_t maxSendRateBitsPerSecOrZeroToDisable) {
     m_ltpBundleSourcePtr->SetRate(maxSendRateBitsPerSecOrZeroToDisable);
 }
+void LtpOutduct::SetPing(uint64_t maxSendRateBitsPerSecOrZeroToDisable) {
+    m_ltpBundleSourcePtr->SetPing(maxSendRateBitsPerSecOrZeroToDisable);
+}
+void LtpOutduct::SetPingToDefaultConfig() {
+    m_ltpBundleSourcePtr->SetPingToDefaultConfig();
+}
 uint64_t LtpOutduct::GetOutductMaxNumberOfBundlesInPipeline() const {
     return m_ltpBundleSourcePtr->GetOutductMaxNumberOfBundlesInPipeline();
 }

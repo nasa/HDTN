@@ -61,6 +61,8 @@ public:
     LTP_LIB_EXPORT void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     LTP_LIB_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
     LTP_LIB_EXPORT void SetRate(uint64_t maxSendRateBitsPerSecOrZeroToDisable);
+    LTP_LIB_EXPORT void SetPing(uint64_t senderPingSecondsOrZeroToDisable);
+    LTP_LIB_EXPORT void SetPingToDefaultConfig();
     LTP_LIB_EXPORT void GetTelemetry(LtpOutductTelemetry_t& telem) const;
     LTP_LIB_EXPORT uint64_t GetOutductMaxNumberOfBundlesInPipeline() const;
     

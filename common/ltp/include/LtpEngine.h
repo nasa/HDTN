@@ -461,21 +461,24 @@ public:
      * @return M_MAX_SESSIONS_IN_PIPELINE.
      */
     LTP_LIB_EXPORT uint64_t GetMaxNumberOfSessionsInPipeline() const;
-
-    /** Set the maximum bit rate.
-     *
-     * Calls TokenRateLimiter::SetRate().
-     * (see docs for LtpEngineConfig::maxSendRateBitsPerSecOrZeroToDisable).
-     * @param maxSendRateBitsPerSecOrZeroToDisable The maximum bit rate to set.
-     */
-    LTP_LIB_EXPORT void UpdateRate(const uint64_t maxSendRateBitsPerSecOrZeroToDisable);
     
     /** Initiate a request to set the maximum bit rate (thread-safe).
      *
-     * Initiates an asynchronous request to LtpEngine::UpdateRate().
+     * Initiates an asynchronous request to LtpEngine::SetRate().
      * @param maxSendRateBitsPerSecOrZeroToDisable The maximum bit rate to set.
      */
-    LTP_LIB_EXPORT void UpdateRate_ThreadSafe(const uint64_t maxSendRateBitsPerSecOrZeroToDisable);
+    LTP_LIB_EXPORT void SetRate_ThreadSafe(const uint64_t maxSendRateBitsPerSecOrZeroToDisable);
+
+    /** Initiate a request to set the sender ping (thread-safe).
+     *
+     * Initiates an asynchronous request to LtpEngine::SetPing().
+     * @param senderPingSecondsOrZeroToDisable The number of seconds between ltp session sender pings during times of zero data segment activity.
+     */
+    LTP_LIB_EXPORT void SetPing_ThreadSafe(const uint64_t senderPingSecondsOrZeroToDisable);
+
+    /** Calls SetPing_ThreadSafe with param senderPingSecondsOrZeroToDisable set to the original config file value.
+     */
+    LTP_LIB_EXPORT void SetPingToDefaultConfig_ThreadSafe();
     
     /** Initiate a request to set the RTT time reference across all senders/receivers (thread-safe).
      *
@@ -508,6 +511,24 @@ public:
      */
     LTP_LIB_EXPORT void SetMtuDataSegment_ThreadSafe(uint64_t mtuDataSegment);
 protected:
+    /** Set the maximum bit rate.
+     *
+     * Calls TokenRateLimiter::SetRate().
+     * (see docs for LtpEngineConfig::maxSendRateBitsPerSecOrZeroToDisable).
+     * @param maxSendRateBitsPerSecOrZeroToDisable The maximum bit rate to set.
+     */
+    LTP_LIB_EXPORT void SetRate(const uint64_t maxSendRateBitsPerSecOrZeroToDisable);
+
+    /** Set or disable the sender ping.
+     *
+     * @param senderPingSecondsOrZeroToDisable The number of seconds between ltp session sender pings during times of zero data segment activity.
+     */
+    LTP_LIB_EXPORT void SetPing(const uint64_t senderPingSecondsOrZeroToDisable);
+
+    /** Calls SetPing with param senderPingSecondsOrZeroToDisable set to the original config file value.
+     */
+    LTP_LIB_EXPORT void SetPingToDefaultConfig();
+
     /** Set the RTT time reference across all senders/receivers.
      *
      * Recalculates all time references affected by a change in RTT.
@@ -926,12 +947,15 @@ private:
     boost::posix_time::time_duration m_stagnantRxSessionTime;
     /// Whether the engine is generating 32-bit random numbers (see docs for LtpEngineConfig::force32BitRandomNumbers for standard compliance and bandwidth details)
     const bool M_FORCE_32_BIT_RANDOM_NUMBERS;
+    /// Default config file value for the number of seconds between ltp session sender pings during times of zero data segment activity,
+    /// used for restoring the M_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE when re-enabling ping from a zero/disabled state
+    const uint64_t M_DEFAULT_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE;
     /// Number of seconds between ltp session sender pings during times of zero data segment activity, if 0 this feature is disabled
-    const uint64_t M_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE;
+    uint64_t m_senderPingSecondsOrZeroToDisable;
     /// Ping interval duration, will be zero-length if pinging is disabled
-    const boost::posix_time::time_duration M_SENDER_PING_TIME;
-    /// Next ping time point, if pings are enabled and (now() >= M_NEXT_PING_START_EXPIRY) indicates the next ping should be sent
-    boost::posix_time::ptime M_NEXT_PING_START_EXPIRY;
+    boost::posix_time::time_duration m_senderPingTimeDuration;
+    /// Next ping time point, if pings are enabled and (now() >= m_nextPingStartExpiry) indicates the next ping should be sent
+    boost::posix_time::ptime m_nextPingStartExpiry;
     /// Whether the previous transmission request should count as a ping (toggle), when True the next queued ping should be skipped and the toggle disabled
     bool m_transmissionRequestServedAsPing;
     /// Maximum number of concurrent active sessions
