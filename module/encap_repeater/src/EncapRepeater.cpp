@@ -10,6 +10,29 @@
  * @section LICENSE
  * Released under the NASA Open Source Agreement (NOSA)
  * See LICENSE.md in the source root directory for more information.
+ * 
+ * @section DESCRIPTION
+ *
+ * This EncapRepeater application serves as an example for writing code to intercept/extract
+ * CCSDS Encap packets from HDTN.
+ * This example is single threaded, asynchronous, and cross platform.
+ * It relies on only three stand-alone header files from the HDTN code base:
+ *   - /common/util/include/EncapAsyncDuplexLocalStream.h
+ *   - /common/util/include/CcsdsEncap.h
+ *   - /common/util/include/PaddedVectorUint8.h
+ * This application has a demo in the tests/test_scripts_[linux,windows] folder
+ * named test_stcp_to_bpencap_repeater_fast_cutthrough.[sh,bat].
+ * This application sits in the middle of two nodes and repeats BP_encap or LTP_encap packets
+ * as shown in the following diagram:
+ *                                                                                                                 
+ *               duplex stream 0                          duplex stream 1
+ *           (e.g. /tmp/local_sock_0)                  (e.g. /tmp/local_sock_1) (Posix AF_UNIX socket)
+ *           (e.g. \\.\pipe\local_pipe_0)              (e.g. \\.\pipe\local_pipe_1) (Windows named pipe)
+ *   +------+                       +----------++-------+                   +-------+   
+ *   |      |---------------------->| encap    |tx queue|------------------>|       |   
+ *   |node0 |              +--------+ repeater +--------+                   | node1 |   
+ *   |      |<-------------|tx queue|          |<---------------------------|       |   
+ *   +------+              +-------++----------+                            +-------+ 
  */
 
 #include <iostream>
@@ -111,7 +134,7 @@ private:
         StreamInfo& otherTxStreamInfo = m_streamInfos[thisRxStreamInfo.otherStreamIndex];
 
         
-        //m_inductProcessBundleCallback(receivedFullEncapPacket); //receivedFullEncapPacket is just the bundle (encap header discarded)
+        //receivedFullEncapPacket is [encap header + encap payload]
         otherTxStreamInfo.toSendQueue.push(std::move(receivedFullEncapPacket));
         TrySendQueued(otherTxStreamInfo);
         
