@@ -189,7 +189,7 @@ private:
         }
 #else //unix sockets
         const boost::asio::local::stream_protocol::endpoint streamProtocolEndpoint(m_socketOrPipePath);
-        if (isStreamCreator) { //binding
+        if (m_isStreamCreator) { //binding
             {
                 boost::system::error_code ec;
                 if (boost::filesystem::remove(m_socketOrPipePath, ec)) {

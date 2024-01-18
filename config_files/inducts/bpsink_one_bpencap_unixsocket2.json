@@ -1,0 +1,11 @@
+{
+    "inductConfigName": "myconfig",
+    "inductVector": [
+        {
+            "name": "i1",
+            "convergenceLayer": "bp_over_encap_local_stream",
+            "bpEncapLocalSocketOrPipePath": "/tmp/bp_local_encap_socket2",
+            "remoteNodeId": 10
+        }
+    ]
+}
