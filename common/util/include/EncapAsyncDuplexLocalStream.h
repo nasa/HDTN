@@ -148,6 +148,8 @@ private:
                     << " failed to close already open m_windowsObjectHandleWaitForConnection: " << e.what() << ".\n";
             }
         }
+#else
+        m_streamAcceptorPtr.reset();
 #endif
     }
     void StopAllAsyncs() {
@@ -155,6 +157,7 @@ private:
         m_reconnectAfterOnConnectErrorTimer.cancel();
     }
     bool InitStreams() {
+        m_numReconnectAttempts = 0;
 #ifdef STREAM_USE_WINDOWS_NAMED_PIPE
         if (m_isStreamCreator) { //binding
             const DWORD bufferSize = 4096 * 2;
@@ -319,21 +322,12 @@ private:
             return;
         }
     }
-    void OnReconnectAfterOnConnectError_TimerExpired(const boost::system::error_code& e) {
-        if (e != boost::asio::error::operation_aborted) {
-            // Timer was not cancelled, take necessary action.
-
-            if (m_numReconnectAttempts++ == 0) {
-                std::cout << "Trying to reconnect...\n";
-            }
-            TryToOpenExistingPipe_NotThreadSafe();
-        }
-    }
-    
 #else //unix sockets
     void OnSocketAccept(const boost::system::error_code& error) {
         if (error) {
-            std::cout << "Error OnSocketAccept: " << error.message() << "\n";
+            if (error != boost::asio::error::operation_aborted) {
+                std::cout << "Error OnSocketAccept: " << error.message() << "\n";
+            }
         }
         else {
             std::cout << "remote client connected to this local unix socket " << m_socketOrPipePath << "\n";
@@ -343,10 +337,7 @@ private:
     void OnSocketConnect(const boost::system::error_code& error) {
         if (error) {
             if (error != boost::asio::error::operation_aborted) {
-                if (m_numReconnectAttempts <= 1) {
-                    std::cout << "OnConnect: " << error.message()
-                        << "\n Will continue to try to reconnect every 2 seconds\n";
-                }
+                std::cout << "Open existing unix socket for " << m_socketOrPipePath << " failed with " << error.message() << ".. retrying in 2 seconds\n";
                 m_reconnectAfterOnConnectErrorTimer.expires_from_now(boost::posix_time::seconds(2));
                 m_reconnectAfterOnConnectErrorTimer.async_wait(
                     boost::bind(&EncapAsyncDuplexLocalStream::OnReconnectAfterOnConnectError_TimerExpired, this, boost::asio::placeholders::error));
@@ -357,6 +348,7 @@ private:
             OnConnectionCompleted_NotThreadSafe();
         }
     }
+#endif //STREAM_USE_WINDOWS_NAMED_PIPE
     void OnReconnectAfterOnConnectError_TimerExpired(const boost::system::error_code& e) {
         if (e != boost::asio::error::operation_aborted) {
             // Timer was not cancelled, take necessary action.
@@ -364,12 +356,15 @@ private:
             if (m_numReconnectAttempts++ == 0) {
                 std::cout << "Trying to reconnect...\n";
             }
+#ifdef STREAM_USE_WINDOWS_NAMED_PIPE
+            TryToOpenExistingPipe_NotThreadSafe();
+#else
             const boost::asio::local::stream_protocol::endpoint streamProtocolEndpoint(m_socketOrPipePath);
             m_streamHandle.async_connect(streamProtocolEndpoint,
                 boost::bind(&EncapAsyncDuplexLocalStream::OnSocketConnect, this, boost::asio::placeholders::error));
+#endif
         }
     }
-#endif //STREAM_USE_WINDOWS_NAMED_PIPE
     void OnConnectionCompleted_NotThreadSafe() {
         StartReadFirstEncapHeaderByte_NotThreadSafe();
         m_readyToSend = true;

@@ -9,7 +9,8 @@ gen_config=$config_files/outducts/bpgen_one_stcp_port4556.json
 cd $HDTN_SOURCE_ROOT
 
 #encap repeater
-./build/module/encap_repeater/encap-repeater --stream-name-0=/tmp/bp_local_encap_socket --stream-init-0=create --stream-name-1=/tmp/bp_local_encap_socket2 --stream-init-1=open --queue-size=5 --encap-packet-type=bp
+./build/module/encap_repeater/encap-repeater --stream-name-0=/tmp/bp_local_encap_socket --stream-init-0=create --stream-name-1=/tmp/bp_local_encap_socket2 --stream-init-1=open --queue-size=5 --encap-packet-type=bp &
+sleep 3
 
 #Bpsink
 ./build/common/bpcodec/apps/bpsink-async --my-uri-eid=ipn:2.1 --inducts-config-file=$sink_config &
