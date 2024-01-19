@@ -144,7 +144,9 @@ void LtpEncapLocalStreamEngine::OnFullEncapPacketReceived(padded_vector_uint8_t&
 {
     const uint8_t* const ltpPacketPtr = receivedFullEncapPacket.data() + decodedEncapHeaderSize;
     if (VerifyLtpPacketReceive(ltpPacketPtr, decodedEncapPayloadSize)) {
-        PacketIn(true, ltpPacketPtr, decodedEncapPayloadSize); //Not thread safe, immediately puts into ltp rx state machine and calls PacketInFullyProcessedCallback
+        if (!PacketIn(true, ltpPacketPtr, decodedEncapPayloadSize)) { //Not thread safe, immediately puts into ltp rx state machine and calls PacketInFullyProcessedCallback
+            LOG_ERROR(subprocess) << "LtpEncapLocalStreamEngine: bad packet received";
+        }
     }
     m_encapAsyncDuplexLocalStream.StartReadFirstEncapHeaderByte_NotThreadSafe();
 }
