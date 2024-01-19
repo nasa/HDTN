@@ -144,7 +144,7 @@ private:
                 m_windowsObjectHandleWaitForConnection.close();
             }
             catch (const boost::system::system_error& e) {
-                std::cerr << "CloseWaitForConnectionAsync for " << m_socketOrPipePath
+                std::cerr << "EncapAsyncDuplexLocalStream::CloseWaitForConnectionAsync for " << m_socketOrPipePath
                     << " failed to close already open m_windowsObjectHandleWaitForConnection: " << e.what() << ".\n";
             }
         }
@@ -154,7 +154,13 @@ private:
     }
     void StopAllAsyncs() {
         CloseWaitForConnectionAsync();
-        m_reconnectAfterOnConnectErrorTimer.cancel();
+        try {
+            m_reconnectAfterOnConnectErrorTimer.cancel();
+        }
+        catch (const boost::system::system_error& e) {
+            std::cerr << "EncapAsyncDuplexLocalStream::StopAllAsyncs for " << m_socketOrPipePath
+                << " failed to cancel timer m_reconnectAfterOnConnectErrorTimer: " << e.what() << ".\n";
+        }
     }
     bool InitStreams() {
         m_numReconnectAttempts = 0;
