@@ -43,6 +43,7 @@ LtpEncapLocalStreamEngine::LtpEncapLocalStreamEngine(const uint64_t maxEncapRxPa
     //M_NUM_CIRCULAR_BUFFER_VECTORS(ltpRxOrTxCfg.numUdpRxCircularBufferVectors),
     
     m_isInduct(ltpRxOrTxCfg.isInduct),
+    m_resetInProgress(false),
     m_countAsyncSendCalls(0),
     m_countAsyncSendCallbackCalls(0),
     m_countBatchSendCalls(0),
