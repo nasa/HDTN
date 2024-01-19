@@ -24,11 +24,22 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 SignalHandler::SignalHandler(boost::function<void () > handleSignalFunction) :
 m_ioService(), m_signals(m_ioService), m_handleSignalFunction(handleSignalFunction) {
 
-	m_signals.add(SIGINT);
-	m_signals.add(SIGTERM);
+	static const std::pair<int, const char*> signalsToAdd[] = {
+			{SIGINT, "SIGINT"}
+			,{SIGTERM, "SIGTERM"}
 #if defined(SIGQUIT)
-	m_signals.add(SIGQUIT);
-#endif // defined(SIGQUIT)
+			,{SIGQUIT, "SIGQUIT"}
+#endif
+	};
+	static constexpr std::size_t numSignalsToAdd = sizeof(signalsToAdd) / sizeof(*signalsToAdd);
+	for (std::size_t i = 0; i < numSignalsToAdd; ++i) {
+		try {
+			m_signals.add(signalsToAdd[i].first);
+		}
+		catch (const boost::system::system_error&) {
+			LOG_ERROR(subprocess) << "Signal handler will be unable to catch " << signalsToAdd[i].second;
+		}
+	}
 
 
 }

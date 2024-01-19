@@ -54,11 +54,22 @@ public:
 
     EncapRepeater()  : m_signals(m_ioService), m_queueSize(0)
     {
-        m_signals.add(SIGINT);
-        m_signals.add(SIGTERM);
+        static const std::pair<int, const char*> signalsToAdd[] = {
+            {SIGINT, "SIGINT"}
+            ,{SIGTERM, "SIGTERM"}
 #if defined(SIGQUIT)
-        m_signals.add(SIGQUIT);
+            ,{SIGQUIT, "SIGQUIT"}
 #endif
+        };
+        static constexpr std::size_t numSignalsToAdd = sizeof(signalsToAdd) / sizeof(*signalsToAdd);
+        for (std::size_t i = 0; i < numSignalsToAdd; ++i) {
+            try {
+                m_signals.add(signalsToAdd[i].first);
+            }
+            catch (const boost::system::system_error&) {
+                std::cerr << "Signal handler will be unable to catch " << signalsToAdd[i].second << "\n";
+            }
+        }
     }
     ~EncapRepeater() {
         Stop();
@@ -171,7 +182,7 @@ private:
 
         if (error) {
             txStreamInfo.sendErrorOccurred = true; //prevents sending from queue
-            std::cout << "EncapRepeater::HandleSend: " << error.message();
+            std::cout << "EncapRepeater::HandleSend: " << error.message() << "\n";
         }
 
         TrySendQueued(txStreamInfo);
