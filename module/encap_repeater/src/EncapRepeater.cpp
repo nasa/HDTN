@@ -278,7 +278,13 @@ int main(int argc, const char* argv[]) {
         return 1;
     }
 
-    EncapRepeater r;
-    r.RunForever(streamNames[0], isStreamCreators[0], streamNames[1], isStreamCreators[1], encapPacketType, queueSize);
+    try {
+        EncapRepeater r;
+        r.RunForever(streamNames[0], isStreamCreators[0], streamNames[1], isStreamCreators[1], encapPacketType, queueSize);
+    }
+    catch (std::exception& e) {
+        std::cerr << e.what() << "\n";
+        return 1;
+    }
     return 0;
 }
