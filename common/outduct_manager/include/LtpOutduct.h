@@ -49,6 +49,10 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT virtual bool ReadyToForward() override;
     OUTDUCT_MANAGER_LIB_EXPORT virtual void Stop() override;
     OUTDUCT_MANAGER_LIB_EXPORT virtual void GetOutductFinalStats(OutductFinalStats & finalStats) override;
+
+    //ltp specific
+    OUTDUCT_MANAGER_LIB_EXPORT void SetPing(uint64_t senderPingSecondsOrZeroToDisable);
+    OUTDUCT_MANAGER_LIB_EXPORT void SetPingToDefaultConfig();
 protected:
     OUTDUCT_MANAGER_LIB_EXPORT virtual bool SetLtpBundleSourcePtr() = 0;
 

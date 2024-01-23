@@ -44,7 +44,7 @@ BOOST_AUTO_TEST_CASE(OutductsConfigRatePrecisionMicroSecTestCase)
   const boost::filesystem::path jsonFileName = jsonRootDir / "outducts.json";
   OutductsConfig_ptr oc1 = OutductsConfig::CreateFromJsonFilePath(jsonFileName);
   BOOST_REQUIRE(oc1);
-  BOOST_REQUIRE_EQUAL(oc1->m_outductElementConfigVector.size(), 6);
+  BOOST_REQUIRE_EQUAL(oc1->m_outductElementConfigVector.size(), 8);
 
   // Verify a value is parsed when the field exists
   BOOST_REQUIRE_EQUAL(oc1->m_outductElementConfigVector[0].rateLimitPrecisionMicroSec, 500);

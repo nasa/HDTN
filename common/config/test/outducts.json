@@ -4,7 +4,7 @@
         {
             "name": "o1",
             "convergenceLayer": "ltp_over_udp",
-            "nextHopNodeId": 50,
+            "nextHopNodeId": 51,
             "remoteHostname": "localhost",
             "remotePort": 1113,
             "maxNumberOfBundlesInPipeline": 5,
@@ -31,7 +31,7 @@
         {
             "name": "o2",
             "convergenceLayer": "udp",
-            "nextHopNodeId": 51,
+            "nextHopNodeId": 52,
             "remoteHostname": "localhost",
             "remotePort": 4557,
             "maxNumberOfBundlesInPipeline": 5,
@@ -41,7 +41,7 @@
         {
             "name": "o3",
             "convergenceLayer": "tcpcl_v3",
-            "nextHopNodeId": 52,
+            "nextHopNodeId": 53,
             "remoteHostname": "localhost",
             "remotePort": 4558,
             "maxNumberOfBundlesInPipeline": 5,
@@ -53,7 +53,7 @@
         {
             "name": "o4",
             "convergenceLayer": "tcpcl_v4",
-            "nextHopNodeId": 1,
+            "nextHopNodeId": 54,
             "remoteHostname": "localhost",
             "remotePort": 4560,
             "maxNumberOfBundlesInPipeline": 50,
@@ -69,9 +69,9 @@
             "certificationAuthorityPemFileForVerification": "C:\/hdtn_ssl_certificates\/cert.pem"
         },
         {
-            "name": "o4",
+            "name": "o5",
             "convergenceLayer": "stcp",
-            "nextHopNodeId": 53,
+            "nextHopNodeId": 55,
             "remoteHostname": "localhost",
             "remotePort": 4559,
             "maxNumberOfBundlesInPipeline": 5,
@@ -79,13 +79,44 @@
             "keepAliveIntervalSeconds": 17
         },
         {
-            "name": "o5",
+            "name": "o6",
             "convergenceLayer": "slip_over_uart",
-            "nextHopNodeId": 53,
+            "nextHopNodeId": 56,
             "maxNumberOfBundlesInPipeline": 5,
             "maxSumOfBundleBytesInPipeline": 50000000,
             "comPort": "COM1",
             "baudRate": 115200
+        },
+        {
+            "name": "o7",
+            "convergenceLayer": "ltp_over_encap_local_stream",
+            "nextHopNodeId": 57,
+            "maxNumberOfBundlesInPipeline": 5,
+            "maxSumOfBundleBytesInPipeline": 50000000,
+            "thisLtpEngineId": 102,
+            "remoteLtpEngineId": 103,
+            "ltpDataSegmentMtu": 1003,
+            "oneWayLightTimeMs": 1004,
+            "oneWayMarginTimeMs": 205,
+            "clientServiceId": 1,
+            "ltpMaxRetriesPerSerialNumber": 5,
+            "ltpCheckpointEveryNthDataSegment": 0,
+            "ltpRandomNumberSizeBits": 32,
+            "ltpEncapLocalSocketOrPipePath": "\\\\.\\pipe\\ltp_local_pipe",
+            "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+            "ltpSenderPingSecondsOrZeroToDisable": 15,
+            "delaySendingOfDataSegmentsTimeMsOrZeroToDisable": 20,
+            "keepActiveSessionDataOnDisk": false,
+            "activeSessionDataOnDiskNewFileDurationMs": 2000,
+            "activeSessionDataOnDiskDirectory": ".\/"
+        },
+        {
+            "name": "o8",
+            "convergenceLayer": "bp_over_encap_local_stream",
+            "nextHopNodeId": 58,
+            "maxNumberOfBundlesInPipeline": 5,
+            "maxSumOfBundleBytesInPipeline": 50000000,
+            "bpEncapLocalSocketOrPipePath": "\\\\.\\pipe\\bp_local_pipe"
         }
     ]
 }

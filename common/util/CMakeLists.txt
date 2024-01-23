@@ -58,10 +58,12 @@ set(MY_PUBLIC_HEADERS
     include/BinaryConversions.h
 	include/BundleCallbackFunctionDefines.h
 	include/CborUint.h
+	include/CcsdsEncap.h
 	include/CircularIndexBufferSingleProducerSingleConsumerConfigurable.h
 	include/CpuFlagDetection.h
 	include/DeadlineTimer.h
 	include/DirectoryScanner.h
+	include/EncapAsyncDuplexLocalStream.h
 	include/EnumAsFlagsMacro.h
     include/Environment.h
 	include/ForwardListQueue.h

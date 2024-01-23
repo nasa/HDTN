@@ -5,6 +5,21 @@ All notable changes to HDTN will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+### Added
+
+* Added "bp_over_encap_local_stream" and "ltp_over_encap_local_stream" convergence layers, allowing HDTN to generate CCSDS encap packets over a cross-platform local stream.  On Windows, this is acomplished using a full-duplex named pipe.  On Linux/POSIX, this is accomplished using a local `AF_UNIX` duplex socket.
+* Added EncapRepeater.cpp demo application to serve as an example for writing code to intercept/extract CCSDS Encap packets from HDTN.
+
+### Changed
+
+* Egress now disables LTP ping during times when the contact plan DOES NOT allow transmission.  Likewise, Egress will reenable LTP ping (back to its config file value) during times when the contact plan allows transmission.
+
+### Removed
+
 ## [1.1.0] - 2023-12-14
 
 ### Fixed

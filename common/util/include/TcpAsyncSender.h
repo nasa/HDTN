@@ -53,6 +53,7 @@ struct TcpAsyncSenderElement {
     HDTN_UTIL_EXPORT ~TcpAsyncSenderElement();
     
     HDTN_UTIL_EXPORT void DoCallback(const boost::system::error_code& error, std::size_t bytes_transferred);
+    HDTN_UTIL_EXPORT void DeallocateBundleMemory();
 
     std::vector<uint8_t> m_userData;
     std::vector<boost::asio::const_buffer> m_constBufferVec;

@@ -53,9 +53,10 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     m_nowTimeRef(boost::posix_time::microsec_clock::universal_time()),
     m_stagnantRxSessionTime((m_transmissionToAckReceivedTime* static_cast<int>(ltpRxOrTxCfg.maxRetriesPerSerialNumber + 1)) + (M_HOUSEKEEPING_INTERVAL * 2)),
     M_FORCE_32_BIT_RANDOM_NUMBERS(ltpRxOrTxCfg.force32BitRandomNumbers),
-    M_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE(ltpRxOrTxCfg.senderPingSecondsOrZeroToDisable),
-    M_SENDER_PING_TIME(boost::posix_time::seconds(ltpRxOrTxCfg.senderPingSecondsOrZeroToDisable)),
-    M_NEXT_PING_START_EXPIRY(boost::posix_time::microsec_clock::universal_time()),
+    M_DEFAULT_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE(ltpRxOrTxCfg.senderPingSecondsOrZeroToDisable),
+    m_senderPingSecondsOrZeroToDisable(ltpRxOrTxCfg.senderPingSecondsOrZeroToDisable),
+    m_senderPingTimeDuration(boost::posix_time::seconds(ltpRxOrTxCfg.senderPingSecondsOrZeroToDisable)),
+    m_nextPingStartExpiry(boost::posix_time::special_values::neg_infin), //start immediately
     m_transmissionRequestServedAsPing(false),
     M_MAX_SIMULTANEOUS_SESSIONS(ltpRxOrTxCfg.maxSimultaneousSessions),
     M_MAX_SESSIONS_IN_PIPELINE((ltpRxOrTxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable != 0) ?
@@ -208,7 +209,7 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     m_rng.SetEngineIndex(engineIndexForEncodingIntoRandomSessionNumber);
     SetMtuReportSegment(ltpRxOrTxCfg.mtuReportSegment);
 
-    UpdateRate(m_maxSendRateBitsPerSecOrZeroToDisable);
+    SetRate(m_maxSendRateBitsPerSecOrZeroToDisable);
     if (m_maxSendRateBitsPerSecOrZeroToDisable) {
         const uint64_t tokenLimit = m_tokenRateLimiter.GetRemainingTokens();
         LOG_INFO(subprocess) << "LtpEngine: rate bitsPerSec = " << m_maxSendRateBitsPerSecOrZeroToDisable << "  token limit = " << tokenLimit;
@@ -1154,7 +1155,7 @@ void LtpEngine::CancelAcknowledgementSegmentReceivedCallback(const Ltp::session_
         if (isPing) {
             m_totalPingsAcknowledged.fetch_add(1, std::memory_order_relaxed);
             //sender ping is successful
-            M_NEXT_PING_START_EXPIRY = boost::posix_time::microsec_clock::universal_time() + M_SENDER_PING_TIME;
+            m_nextPingStartExpiry = boost::posix_time::microsec_clock::universal_time() + m_senderPingTimeDuration;
             //note: it is up to the user (such as egress) to prevent redundant link up events.. e.g. if (!m_senderLinkIsUpPhysically) {
             //note: it is up to the user (such as egress) to track physical link status (e.g. m_senderLinkIsUpPhysically = true;)
             if (m_onOutductLinkStatusChangedCallback) { //let user know of link up event
@@ -1198,7 +1199,7 @@ void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmen
         if (isPing) {
             //sender ping failed
             m_totalPingsFailedToSend.fetch_add(1, std::memory_order_relaxed);
-            M_NEXT_PING_START_EXPIRY = boost::posix_time::microsec_clock::universal_time() + M_SENDER_PING_TIME;
+            m_nextPingStartExpiry = boost::posix_time::microsec_clock::universal_time() + m_senderPingTimeDuration;
             //note: it is up to the user (such as egress) to prevent redundant link down events.. e.g. if (m_senderLinkIsUpPhysically) {
             //note: it is up to the user (such as egress) to track physical link status (e.g. m_senderLinkIsUpPhysically = false;)
             if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
@@ -1503,7 +1504,7 @@ uint64_t LtpEngine::GetMaxNumberOfSessionsInPipeline() const {
     return M_MAX_SESSIONS_IN_PIPELINE;
 }
 
-void LtpEngine::UpdateRate(const uint64_t maxSendRateBitsPerSecOrZeroToDisable) {
+void LtpEngine::SetRate(const uint64_t maxSendRateBitsPerSecOrZeroToDisable) {
     m_maxSendRateBitsPerSecOrZeroToDisable = maxSendRateBitsPerSecOrZeroToDisable;
     if (maxSendRateBitsPerSecOrZeroToDisable) {
         const uint64_t rateBytesPerSecond = m_maxSendRateBitsPerSecOrZeroToDisable >> 3;
@@ -1515,10 +1516,30 @@ void LtpEngine::UpdateRate(const uint64_t maxSendRateBitsPerSecOrZeroToDisable) 
     }
 }
 
-void LtpEngine::UpdateRate_ThreadSafe(const uint64_t maxSendRateBitsPerSecOrZeroToDisable) {
-    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::UpdateRate, this, maxSendRateBitsPerSecOrZeroToDisable));
+void LtpEngine::SetRate_ThreadSafe(const uint64_t maxSendRateBitsPerSecOrZeroToDisable) {
+    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::SetRate, this, maxSendRateBitsPerSecOrZeroToDisable));
 }
 
+void LtpEngine::SetPing(const uint64_t senderPingSecondsOrZeroToDisable) {
+    m_senderPingSecondsOrZeroToDisable = senderPingSecondsOrZeroToDisable;
+    m_senderPingTimeDuration = boost::posix_time::seconds(senderPingSecondsOrZeroToDisable);
+    if (m_nextPingStartExpiry != boost::posix_time::special_values::pos_infin) { //if no ongoing ping in progress
+        m_nextPingStartExpiry = boost::posix_time::special_values::neg_infin; //start ping (if enabled) immediately at next housekeeping interval
+    }
+    m_transmissionRequestServedAsPing = false;
+}
+
+void LtpEngine::SetPing_ThreadSafe(const uint64_t senderPingSecondsOrZeroToDisable) {
+    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::SetPing, this, senderPingSecondsOrZeroToDisable));
+}
+
+void LtpEngine::SetPingToDefaultConfig() {
+    SetPing(M_DEFAULT_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE);
+}
+
+void LtpEngine::SetPingToDefaultConfig_ThreadSafe() {
+    SetPing_ThreadSafe(M_DEFAULT_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE);
+}
 
 //restarts the token refresh timer if it is not running from now
 void LtpEngine::TryRestartTokenRefreshTimer() {
@@ -1643,13 +1664,13 @@ void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) 
         // in which the receiver shall respond with a cancel ack in order to determine if the link is active.
         // A link down callback will be called if a cancel ack is not received after (RTT * maxRetriesPerSerialNumber).
         // This parameter should be set to zero for a receiver as there is currently no use case for a receiver to detect link-up.
-        if (M_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE && (m_nowTimeRef >= M_NEXT_PING_START_EXPIRY)) {
+        if (m_senderPingSecondsOrZeroToDisable && (m_nowTimeRef >= m_nextPingStartExpiry)) {
             if (m_transmissionRequestServedAsPing) { //skip this ping
-                M_NEXT_PING_START_EXPIRY = m_nowTimeRef + M_SENDER_PING_TIME;
+                m_nextPingStartExpiry = m_nowTimeRef + m_senderPingTimeDuration;
                 m_transmissionRequestServedAsPing = false;
             }
-            else {
-                M_NEXT_PING_START_EXPIRY = boost::posix_time::special_values::pos_infin; //will be set after ping succeeds or fails
+            else { //send ping
+                m_nextPingStartExpiry = boost::posix_time::special_values::pos_infin; //will be set after ping succeeds or fails
                 //send Cancel Segment to receiver (GetNextPacketToSend() will create the packet and start the timer)
                 m_totalPingsStarted.fetch_add(1, std::memory_order_relaxed);
                 m_queueCancelSegmentTimerInfo.emplace();

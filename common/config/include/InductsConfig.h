@@ -40,6 +40,9 @@ struct induct_element_config_t {
     uint32_t numRxCircularBufferElements;
     uint32_t numRxCircularBufferBytesPerElement;
 
+    //specific to bp over encap
+    std::string bpEncapLocalSocketOrPipePath;
+
     //specific to ltp
     uint64_t thisLtpEngineId;
     uint64_t remoteLtpEngineId;
@@ -50,6 +53,7 @@ struct induct_element_config_t {
     uint64_t preallocatedRedDataBytes;
     uint32_t ltpMaxRetriesPerSerialNumber;
     uint32_t ltpRandomNumberSizeBits;
+    std::string ltpEncapLocalSocketOrPipePath;
     std::string ltpRemoteUdpHostname;
     uint16_t ltpRemoteUdpPort;
     uint64_t ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;
@@ -63,7 +67,10 @@ struct induct_element_config_t {
     //specific to slip over uart
     std::string comPort;
     uint32_t baudRate;
-    uint64_t uartRemoteNodeId;
+
+    //specific to bidirectional links that don't broadcast their node id
+    // (i.e. slip over uart, bp over encap)
+    uint64_t remoteNodeId;
 
     //specific to stcp and tcpcl
     uint32_t keepAliveIntervalSeconds;

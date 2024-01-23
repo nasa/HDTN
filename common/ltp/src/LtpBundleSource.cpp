@@ -270,7 +270,17 @@ void LtpBundleSource::SetUserAssignedUuid(uint64_t userAssignedUuid) {
 }
 void LtpBundleSource::SetRate(uint64_t maxSendRateBitsPerSecOrZeroToDisable) {
     if (m_ltpEnginePtr) {
-        m_ltpEnginePtr->UpdateRate_ThreadSafe(maxSendRateBitsPerSecOrZeroToDisable);
+        m_ltpEnginePtr->SetRate_ThreadSafe(maxSendRateBitsPerSecOrZeroToDisable);
+    }
+}
+void LtpBundleSource::SetPing(uint64_t senderPingSecondsOrZeroToDisable) {
+    if (m_ltpEnginePtr) {
+        m_ltpEnginePtr->SetPing_ThreadSafe(senderPingSecondsOrZeroToDisable);
+    }
+}
+void LtpBundleSource::SetPingToDefaultConfig() {
+    if (m_ltpEnginePtr) {
+        m_ltpEnginePtr->SetPingToDefaultConfig_ThreadSafe();
     }
 }
 

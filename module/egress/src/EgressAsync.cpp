@@ -25,6 +25,7 @@
 #include <boost/make_unique.hpp>
 #include <boost/date_time.hpp>
 #include "OutductManager.h"
+#include "LtpOutduct.h"
 #include "Logger.h"
 #include "Uri.h"
 #include "TimestampUtil.h"
@@ -917,8 +918,9 @@ void Egress::Impl::OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint
     }
 }
 
+//ONLY the Egress module gets this contact plan (time based only, not physical) message
 void Egress::Impl::RouterEventHandler(hdtn::IreleaseChangeHdr& releaseChangeHdr) {
-    if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKUP) {
+    if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKUP) { //contact plan says link is up (time based only, not physical) 
         Outduct* outduct = m_outductManager.GetOutductByOutductUuid(releaseChangeHdr.outductArrayIndex);
         if (!outduct) {
             LOG_ERROR(subprocess) << "could not find outduct from router link up event; not adjusting rate";
@@ -927,14 +929,27 @@ void Egress::Impl::RouterEventHandler(hdtn::IreleaseChangeHdr& releaseChangeHdr)
         outduct->m_linkIsUpPerTimeSchedule = true;
         LOG_INFO(subprocess) << "setting rate to " << releaseChangeHdr.rateBps << " bps for new contact";
         outduct->SetRate(releaseChangeHdr.rateBps);
+        //Since the link is up (per contact plan), it is safe to enable ltp pinging
+        if (LtpOutduct* ltpOutduct = dynamic_cast<LtpOutduct*>(outduct)) {
+            ltpOutduct->SetPingToDefaultConfig();
+            LOG_INFO(subprocess) << "LTP ping for outduct " << releaseChangeHdr.outductArrayIndex
+                << " restored to config file defaults.";
+        }
     }
-    else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKDOWN) {
+    else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKDOWN) { //contact plan says link is down (time based only, not physical) 
         Outduct* outduct = m_outductManager.GetOutductByOutductUuid(releaseChangeHdr.outductArrayIndex);
         if (!outduct) {
             LOG_ERROR(subprocess) << "could not find outduct from router link down event";
             return;
         }
         outduct->m_linkIsUpPerTimeSchedule = false;
+        //Since the link is down (per contact plan),
+        //ltp pinging should be disabled to eliminate all network traffic and go completely silent
+        if (LtpOutduct* ltpOutduct = dynamic_cast<LtpOutduct*>(outduct)) {
+            ltpOutduct->SetPing(0); //zero disables ltp ping
+            LOG_INFO(subprocess) << "LTP ping for outduct " << releaseChangeHdr.outductArrayIndex
+                << " disabled.";
+        }
     }
 }
 

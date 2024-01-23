@@ -25,7 +25,8 @@
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = {
-    "ltp_over_udp", "ltp_over_ipc", "udp", "stcp", "tcpcl_v3", "tcpcl_v4", "slip_over_uart"
+    "ltp_over_udp", "ltp_over_ipc", "ltp_over_encap_local_stream", "bp_over_encap_local_stream",
+    "udp", "stcp", "tcpcl_v3", "tcpcl_v4", "slip_over_uart"
 };
 
 static const uint64_t DEFAULT_RATE_LIMIT_PRECISION = 100000;
@@ -38,6 +39,8 @@ outduct_element_config_t::outduct_element_config_t() :
     remotePort(0),
     maxNumberOfBundlesInPipeline(0),
     maxSumOfBundleBytesInPipeline(0),
+
+    bpEncapLocalSocketOrPipePath(""),
     
     thisLtpEngineId(0),
     remoteLtpEngineId(0),
@@ -49,6 +52,7 @@ outduct_element_config_t::outduct_element_config_t() :
     ltpMaxRetriesPerSerialNumber(0),
     ltpCheckpointEveryNthDataSegment(0),
     ltpRandomNumberSizeBits(0),
+    ltpEncapLocalSocketOrPipePath(""),
     ltpSenderBoundPort(0),
     ltpMaxUdpPacketsToSendPerSystemCall(0),
     ltpSenderPingSecondsOrZeroToDisable(0),
@@ -85,6 +89,8 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     remotePort(o.remotePort),
     maxNumberOfBundlesInPipeline(o.maxNumberOfBundlesInPipeline),
     maxSumOfBundleBytesInPipeline(o.maxSumOfBundleBytesInPipeline),
+
+    bpEncapLocalSocketOrPipePath(o.bpEncapLocalSocketOrPipePath),
     
     thisLtpEngineId(o.thisLtpEngineId),
     remoteLtpEngineId(o.remoteLtpEngineId),
@@ -96,6 +102,7 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     ltpMaxRetriesPerSerialNumber(o.ltpMaxRetriesPerSerialNumber),
     ltpCheckpointEveryNthDataSegment(o.ltpCheckpointEveryNthDataSegment),
     ltpRandomNumberSizeBits(o.ltpRandomNumberSizeBits),
+    ltpEncapLocalSocketOrPipePath(o.ltpEncapLocalSocketOrPipePath),
     ltpSenderBoundPort(o.ltpSenderBoundPort),
     ltpMaxUdpPacketsToSendPerSystemCall(o.ltpMaxUdpPacketsToSendPerSystemCall),
     ltpSenderPingSecondsOrZeroToDisable(o.ltpSenderPingSecondsOrZeroToDisable),
@@ -129,6 +136,8 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     remotePort(o.remotePort),
     maxNumberOfBundlesInPipeline(o.maxNumberOfBundlesInPipeline),
     maxSumOfBundleBytesInPipeline(o.maxSumOfBundleBytesInPipeline),
+
+    bpEncapLocalSocketOrPipePath(std::move(o.bpEncapLocalSocketOrPipePath)),
     
     thisLtpEngineId(o.thisLtpEngineId),
     remoteLtpEngineId(o.remoteLtpEngineId),
@@ -140,6 +149,7 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     ltpMaxRetriesPerSerialNumber(o.ltpMaxRetriesPerSerialNumber),
     ltpCheckpointEveryNthDataSegment(o.ltpCheckpointEveryNthDataSegment),
     ltpRandomNumberSizeBits(o.ltpRandomNumberSizeBits),
+    ltpEncapLocalSocketOrPipePath(std::move(o.ltpEncapLocalSocketOrPipePath)),
     ltpSenderBoundPort(o.ltpSenderBoundPort),
     ltpMaxUdpPacketsToSendPerSystemCall(o.ltpMaxUdpPacketsToSendPerSystemCall),
     ltpSenderPingSecondsOrZeroToDisable(o.ltpSenderPingSecondsOrZeroToDisable),
@@ -173,6 +183,8 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
     remotePort = o.remotePort;
     maxNumberOfBundlesInPipeline = o.maxNumberOfBundlesInPipeline;
     maxSumOfBundleBytesInPipeline = o.maxSumOfBundleBytesInPipeline;
+
+    bpEncapLocalSocketOrPipePath = o.bpEncapLocalSocketOrPipePath;
     
     thisLtpEngineId = o.thisLtpEngineId;
     remoteLtpEngineId = o.remoteLtpEngineId;
@@ -184,6 +196,7 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
     ltpMaxRetriesPerSerialNumber = o.ltpMaxRetriesPerSerialNumber;
     ltpCheckpointEveryNthDataSegment = o.ltpCheckpointEveryNthDataSegment;
     ltpRandomNumberSizeBits = o.ltpRandomNumberSizeBits;
+    ltpEncapLocalSocketOrPipePath = o.ltpEncapLocalSocketOrPipePath;
     ltpSenderBoundPort = o.ltpSenderBoundPort;
     ltpMaxUdpPacketsToSendPerSystemCall = o.ltpMaxUdpPacketsToSendPerSystemCall;
     ltpSenderPingSecondsOrZeroToDisable = o.ltpSenderPingSecondsOrZeroToDisable;
@@ -221,6 +234,8 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
     maxNumberOfBundlesInPipeline = o.maxNumberOfBundlesInPipeline;
     maxSumOfBundleBytesInPipeline = o.maxSumOfBundleBytesInPipeline;
 
+    bpEncapLocalSocketOrPipePath = std::move(o.bpEncapLocalSocketOrPipePath);
+
     thisLtpEngineId = o.thisLtpEngineId;
     remoteLtpEngineId = o.remoteLtpEngineId;
     ltpDataSegmentMtu = o.ltpDataSegmentMtu;
@@ -231,6 +246,7 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
     ltpMaxRetriesPerSerialNumber = o.ltpMaxRetriesPerSerialNumber;
     ltpCheckpointEveryNthDataSegment = o.ltpCheckpointEveryNthDataSegment;
     ltpRandomNumberSizeBits = o.ltpRandomNumberSizeBits;
+    ltpEncapLocalSocketOrPipePath = std::move(o.ltpEncapLocalSocketOrPipePath);
     ltpSenderBoundPort = o.ltpSenderBoundPort;
     ltpMaxUdpPacketsToSendPerSystemCall = o.ltpMaxUdpPacketsToSendPerSystemCall;
     ltpSenderPingSecondsOrZeroToDisable = o.ltpSenderPingSecondsOrZeroToDisable;
@@ -266,6 +282,8 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
         (remotePort == o.remotePort) &&
         (maxNumberOfBundlesInPipeline == o.maxNumberOfBundlesInPipeline) &&
         (maxSumOfBundleBytesInPipeline == o.maxSumOfBundleBytesInPipeline) &&
+
+        (bpEncapLocalSocketOrPipePath == o.bpEncapLocalSocketOrPipePath) &&
         
         (thisLtpEngineId == o.thisLtpEngineId) &&
         (remoteLtpEngineId == o.remoteLtpEngineId) &&
@@ -277,6 +295,7 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
         (ltpMaxRetriesPerSerialNumber == o.ltpMaxRetriesPerSerialNumber) &&
         (ltpCheckpointEveryNthDataSegment == o.ltpCheckpointEveryNthDataSegment) &&
         (ltpRandomNumberSizeBits == o.ltpRandomNumberSizeBits) &&
+        (ltpEncapLocalSocketOrPipePath == o.ltpEncapLocalSocketOrPipePath) &&
         (ltpSenderBoundPort == o.ltpSenderBoundPort) &&
         (ltpMaxUdpPacketsToSendPerSystemCall == o.ltpMaxUdpPacketsToSendPerSystemCall) &&
         (ltpSenderPingSecondsOrZeroToDisable == o.ltpSenderPingSecondsOrZeroToDisable) &&
@@ -367,7 +386,10 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                     return false;
                 }
             }
-            if (outductElementConfig.convergenceLayer != "slip_over_uart") { //uses com port only
+            if ((outductElementConfig.convergenceLayer != "ltp_over_encap_local_stream")
+                && (outductElementConfig.convergenceLayer != "bp_over_encap_local_stream")
+                && (outductElementConfig.convergenceLayer != "slip_over_uart")) //uses com port only
+            {
                 outductElementConfig.remoteHostname = outductElementConfigPt.second.get<std::string>("remoteHostname");
                 if (outductElementConfig.remoteHostname == "") {
                     LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid outduct remoteHostname, must not be empty";
@@ -382,14 +404,19 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
             outductElementConfig.maxNumberOfBundlesInPipeline = outductElementConfigPt.second.get<uint32_t>("maxNumberOfBundlesInPipeline");
             outductElementConfig.maxSumOfBundleBytesInPipeline = outductElementConfigPt.second.get<uint64_t>("maxSumOfBundleBytesInPipeline");
 
-            if ((outductElementConfig.convergenceLayer == "ltp_over_udp") || (outductElementConfig.convergenceLayer == "ltp_over_ipc")) {
+            if ((outductElementConfig.convergenceLayer == "ltp_over_udp")
+                || (outductElementConfig.convergenceLayer == "ltp_over_ipc")
+                || (outductElementConfig.convergenceLayer == "ltp_over_encap_local_stream"))
+            {
                 outductElementConfig.thisLtpEngineId = outductElementConfigPt.second.get<uint64_t>("thisLtpEngineId");
                 outductElementConfig.remoteLtpEngineId = outductElementConfigPt.second.get<uint64_t>("remoteLtpEngineId");
                 outductElementConfig.ltpDataSegmentMtu = outductElementConfigPt.second.get<uint32_t>("ltpDataSegmentMtu");
                 outductElementConfig.oneWayLightTimeMs = outductElementConfigPt.second.get<uint64_t>("oneWayLightTimeMs");
                 outductElementConfig.oneWayMarginTimeMs = outductElementConfigPt.second.get<uint64_t>("oneWayMarginTimeMs");
                 outductElementConfig.clientServiceId = outductElementConfigPt.second.get<uint64_t>("clientServiceId");
-                outductElementConfig.numRxCircularBufferElements = outductElementConfigPt.second.get<uint32_t>("numRxCircularBufferElements");
+                if (outductElementConfig.convergenceLayer != "ltp_over_encap_local_stream") {
+                    outductElementConfig.numRxCircularBufferElements = outductElementConfigPt.second.get<uint32_t>("numRxCircularBufferElements");
+                }
                 outductElementConfig.ltpMaxRetriesPerSerialNumber = outductElementConfigPt.second.get<uint32_t>("ltpMaxRetriesPerSerialNumber");
                 outductElementConfig.ltpCheckpointEveryNthDataSegment = outductElementConfigPt.second.get<uint32_t>("ltpCheckpointEveryNthDataSegment");
                 outductElementConfig.ltpRandomNumberSizeBits = outductElementConfigPt.second.get<uint32_t>("ltpRandomNumberSizeBits");
@@ -398,7 +425,12 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                         << outductElementConfig.ltpRandomNumberSizeBits << ") must be either 32 or 64";
                     return false;
                 }
-                outductElementConfig.ltpSenderBoundPort = outductElementConfigPt.second.get<uint16_t>("ltpSenderBoundPort");
+                if (outductElementConfig.convergenceLayer == "ltp_over_encap_local_stream") {
+                    outductElementConfig.ltpEncapLocalSocketOrPipePath = outductElementConfigPt.second.get<std::string>("ltpEncapLocalSocketOrPipePath");
+                }
+                else {
+                    outductElementConfig.ltpSenderBoundPort = outductElementConfigPt.second.get<uint16_t>("ltpSenderBoundPort");
+                }
                 outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall = outductElementConfigPt.second.get<uint64_t>("ltpMaxUdpPacketsToSendPerSystemCall");
                 if (outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall == 0) {
                     LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: ltpMaxUdpPacketsToSendPerSystemCall ("
@@ -439,10 +471,15 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                         "must be greater than 0";
                         return false;
                 }
-            } else if (outductElementConfigPt.second.count("rateLimitPrecisionMicroSec")) {
+            }
+            else if (outductElementConfigPt.second.count("rateLimitPrecisionMicroSec")) {
                 LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
-                            << " has an ltp/udp outduct only configuration parameter of rateLimitPrecisionMicroSec .. please remove";
-                        return false;
+                    << " has an ltp/udp outduct only configuration parameter of rateLimitPrecisionMicroSec .. please remove";
+                return false;
+            }
+
+            if (outductElementConfig.convergenceLayer == "bp_over_encap_local_stream") {
+                outductElementConfig.bpEncapLocalSocketOrPipePath = outductElementConfigPt.second.get<std::string>("bpEncapLocalSocketOrPipePath");
             }
 
             if (outductElementConfig.convergenceLayer == "slip_over_uart") {
@@ -577,25 +614,38 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
         outductElementConfigPt.put("name", outductElementConfig.name);
         outductElementConfigPt.put("convergenceLayer", outductElementConfig.convergenceLayer);
         outductElementConfigPt.put("nextHopNodeId", outductElementConfig.nextHopNodeId);
-        if (outductElementConfig.convergenceLayer != "slip_over_uart") { //uses com port only
+        if ((outductElementConfig.convergenceLayer != "ltp_over_encap_local_stream")
+            && (outductElementConfig.convergenceLayer != "bp_over_encap_local_stream")
+            && (outductElementConfig.convergenceLayer != "slip_over_uart")) //uses com port only
+        {
             outductElementConfigPt.put("remoteHostname", outductElementConfig.remoteHostname);
             outductElementConfigPt.put("remotePort", outductElementConfig.remotePort);
         }
         outductElementConfigPt.put("maxNumberOfBundlesInPipeline", outductElementConfig.maxNumberOfBundlesInPipeline);
         outductElementConfigPt.put("maxSumOfBundleBytesInPipeline", outductElementConfig.maxSumOfBundleBytesInPipeline);
         
-        if ((outductElementConfig.convergenceLayer == "ltp_over_udp") || (outductElementConfig.convergenceLayer == "ltp_over_ipc")) {
+        if ((outductElementConfig.convergenceLayer == "ltp_over_udp")
+            || (outductElementConfig.convergenceLayer == "ltp_over_ipc")
+            || (outductElementConfig.convergenceLayer == "ltp_over_encap_local_stream"))
+        {
             outductElementConfigPt.put("thisLtpEngineId", outductElementConfig.thisLtpEngineId);
             outductElementConfigPt.put("remoteLtpEngineId", outductElementConfig.remoteLtpEngineId);
             outductElementConfigPt.put("ltpDataSegmentMtu", outductElementConfig.ltpDataSegmentMtu);
             outductElementConfigPt.put("oneWayLightTimeMs", outductElementConfig.oneWayLightTimeMs);
             outductElementConfigPt.put("oneWayMarginTimeMs", outductElementConfig.oneWayMarginTimeMs);
             outductElementConfigPt.put("clientServiceId", outductElementConfig.clientServiceId);
-            outductElementConfigPt.put("numRxCircularBufferElements", outductElementConfig.numRxCircularBufferElements);
+            if (outductElementConfig.convergenceLayer != "ltp_over_encap_local_stream") {
+                outductElementConfigPt.put("numRxCircularBufferElements", outductElementConfig.numRxCircularBufferElements);
+            }
             outductElementConfigPt.put("ltpMaxRetriesPerSerialNumber", outductElementConfig.ltpMaxRetriesPerSerialNumber);
             outductElementConfigPt.put("ltpCheckpointEveryNthDataSegment", outductElementConfig.ltpCheckpointEveryNthDataSegment);
             outductElementConfigPt.put("ltpRandomNumberSizeBits", outductElementConfig.ltpRandomNumberSizeBits);
-            outductElementConfigPt.put("ltpSenderBoundPort", outductElementConfig.ltpSenderBoundPort);
+            if (outductElementConfig.convergenceLayer == "ltp_over_encap_local_stream") {
+                outductElementConfigPt.put("ltpEncapLocalSocketOrPipePath", outductElementConfig.ltpEncapLocalSocketOrPipePath);
+            }
+            else {
+                outductElementConfigPt.put("ltpSenderBoundPort", outductElementConfig.ltpSenderBoundPort);
+            }
             outductElementConfigPt.put("ltpMaxUdpPacketsToSendPerSystemCall", outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall);
             outductElementConfigPt.put("ltpSenderPingSecondsOrZeroToDisable", outductElementConfig.ltpSenderPingSecondsOrZeroToDisable);
             outductElementConfigPt.put("delaySendingOfDataSegmentsTimeMsOrZeroToDisable", outductElementConfig.delaySendingOfDataSegmentsTimeMsOrZeroToDisable);
@@ -605,6 +655,9 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
         }
         if ((outductElementConfig.convergenceLayer == "ltp_over_udp") || (outductElementConfig.convergenceLayer == "udp")) {
             outductElementConfigPt.put("rateLimitPrecisionMicroSec", outductElementConfig.rateLimitPrecisionMicroSec);
+        }
+        if (outductElementConfig.convergenceLayer == "bp_over_encap_local_stream") {
+            outductElementConfigPt.put("bpEncapLocalSocketOrPipePath", outductElementConfig.bpEncapLocalSocketOrPipePath);
         }
         if (outductElementConfig.convergenceLayer == "slip_over_uart") {
             outductElementConfigPt.put("comPort", outductElementConfig.comPort);

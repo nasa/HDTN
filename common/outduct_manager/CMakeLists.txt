@@ -5,9 +5,11 @@ add_library(outduct_manager_lib
 	src/StcpOutduct.cpp
     src/UdpOutduct.cpp
 	src/LtpOutduct.cpp
+	src/LtpOverEncapLocalStreamOutduct.cpp
 	src/LtpOverIpcOutduct.cpp
 	src/LtpOverUdpOutduct.cpp
 	src/SlipOverUartOutduct.cpp
+	src/BpOverEncapLocalStreamOutduct.cpp
 	src/OutductManager.cpp
 )
 GENERATE_EXPORT_HEADER(outduct_manager_lib)
@@ -17,6 +19,7 @@ if (target_type STREQUAL SHARED_LIBRARY)
 	set_property(TARGET outduct_manager_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
 endif()
 set(MY_PUBLIC_HEADERS
+	include/LtpOverEncapLocalStreamOutduct.h
 	include/LtpOverIpcOutduct.h
     include/LtpOverUdpOutduct.h
 	include/LtpOutduct.h
@@ -27,6 +30,7 @@ set(MY_PUBLIC_HEADERS
 	include/TcpclV4Outduct.h
 	include/UdpOutduct.h
 	include/SlipOverUartOutduct.h
+	include/BpOverEncapLocalStreamOutduct.h
 	${CMAKE_CURRENT_BINARY_DIR}/outduct_manager_lib_export.h
 )
 set_target_properties(outduct_manager_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list

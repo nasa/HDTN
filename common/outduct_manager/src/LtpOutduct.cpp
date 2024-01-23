@@ -39,6 +39,7 @@ LtpOutduct::LtpOutduct(const outduct_element_config_t& outductConfig, const uint
     m_ltpTxCfg.remoteHostname = m_outductConfig.remoteHostname;
     m_ltpTxCfg.remotePort = m_outductConfig.remotePort;
     m_ltpTxCfg.myBoundUdpPort = outductConfig.ltpSenderBoundPort;
+    m_ltpTxCfg.encapLocalSocketOrPipePath = outductConfig.ltpEncapLocalSocketOrPipePath;
     m_ltpTxCfg.numUdpRxCircularBufferVectors = outductConfig.numRxCircularBufferElements;
     m_ltpTxCfg.estimatedBytesToReceivePerSession = 0; //unused for outducts
     m_ltpTxCfg.maxRedRxBytesPerSession = 0; //unused for outducts
@@ -95,6 +96,12 @@ void LtpOutduct::SetUserAssignedUuid(uint64_t userAssignedUuid) {
 void LtpOutduct::SetRate(uint64_t maxSendRateBitsPerSecOrZeroToDisable) {
     m_ltpBundleSourcePtr->SetRate(maxSendRateBitsPerSecOrZeroToDisable);
 }
+void LtpOutduct::SetPing(uint64_t maxSendRateBitsPerSecOrZeroToDisable) {
+    m_ltpBundleSourcePtr->SetPing(maxSendRateBitsPerSecOrZeroToDisable);
+}
+void LtpOutduct::SetPingToDefaultConfig() {
+    m_ltpBundleSourcePtr->SetPingToDefaultConfig();
+}
 uint64_t LtpOutduct::GetOutductMaxNumberOfBundlesInPipeline() const {
     return m_ltpBundleSourcePtr->GetOutductMaxNumberOfBundlesInPipeline();
 }
@@ -117,6 +124,7 @@ void LtpOutduct::PopulateOutductTelemetry(std::unique_ptr<OutductTelemetry_t>& o
     std::unique_ptr<LtpOutductTelemetry_t> t = boost::make_unique<LtpOutductTelemetry_t>();
     m_ltpBundleSourcePtr->GetTelemetry(*t);
     outductTelem = std::move(t);
+    outductTelem->m_convergenceLayer = m_outductConfig.convergenceLayer;
     outductTelem->m_linkIsUpPerTimeSchedule = m_linkIsUpPerTimeSchedule;
     outductTelem->m_linkIsUpPhysically = m_linkIsUpPhysically;
 }

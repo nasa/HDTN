@@ -28,7 +28,7 @@
                 "numRxCircularBufferElements": 5,
                 "comPort": "COM6",
                 "baudRate": 115200,
-                "uartRemoteNodeId": 1
+                "remoteNodeId": 1
             }
         ]
     },

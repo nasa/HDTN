@@ -27,6 +27,12 @@ void TcpAsyncSenderElement::DoCallback(const boost::system::error_code& error, s
     }
 }
 
+void TcpAsyncSenderElement::DeallocateBundleMemory() {
+    m_underlyingDataVecBundle.resize(0);
+    m_underlyingDataVecBundle.shrink_to_fit();
+    m_underlyingDataZmqBundle.reset();
+}
+
 
 TcpAsyncSender::TcpAsyncSender(std::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr, boost::asio::io_service & ioServiceRef) :
     m_ioServiceRef(ioServiceRef),

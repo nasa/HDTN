@@ -7,15 +7,18 @@ add_library(ltp_lib
 	src/LtpSessionSender.cpp
 	src/LtpEngine.cpp
 	src/LtpTimerManager.cpp
+	src/LtpEncapLocalStreamEngine.cpp
 	src/LtpIpcEngine.cpp
 	src/LtpUdpEngine.cpp
 	src/LtpUdpEngineManager.cpp
 	src/LtpBundleSink.cpp
 	src/LtpOverUdpBundleSink.cpp
 	src/LtpOverIpcBundleSink.cpp
+	src/LtpOverEncapLocalStreamBundleSink.cpp
 	src/LtpBundleSource.cpp
 	src/LtpOverUdpBundleSource.cpp
 	src/LtpOverIpcBundleSource.cpp
+	src/LtpOverEncapLocalStreamBundleSource.cpp
 )
 
 set_property(
@@ -60,8 +63,11 @@ set(MY_PUBLIC_HEADERS
 	include/LtpEngine.h
 	include/LtpEngineConfig.h
 	include/LtpFragmentSet.h
+	include/LtpEncapLocalStreamEngine.h
 	include/LtpIpcEngine.h
 	include/LtpNoticesToClientService.h
+	include/LtpOverEncapLocalStreamBundleSink.h
+	include/LtpOverEncapLocalStreamBundleSource.h
 	include/LtpOverIpcBundleSink.h
 	include/LtpOverIpcBundleSource.h
 	include/LtpOverUdpBundleSink.h

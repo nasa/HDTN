@@ -1,10 +1,12 @@
 add_library(induct_manager_lib
+	src/BpOverEncapLocalStreamInduct.cpp
 	src/Induct.cpp
 	src/TcpclInduct.cpp
 	src/TcpclV4Induct.cpp
 	src/StcpInduct.cpp
     src/UdpInduct.cpp
 	src/LtpInduct.cpp
+	src/LtpOverEncapLocalStreamInduct.cpp
 	src/LtpOverIpcInduct.cpp
 	src/LtpOverUdpInduct.cpp
 	src/SlipOverUartInduct.cpp
@@ -17,9 +19,11 @@ if (target_type STREQUAL SHARED_LIBRARY)
 	set_property(TARGET induct_manager_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
 endif()
 set(MY_PUBLIC_HEADERS
+	include/BpOverEncapLocalStreamInduct.h
     include/Induct.h
 	include/InductManager.h
 	include/LtpInduct.h
+	include/LtpOverEncapLocalStreamInduct.h
 	include/LtpOverIpcInduct.h
 	include/LtpOverUdpInduct.h
 	include/SlipOverUartInduct.h

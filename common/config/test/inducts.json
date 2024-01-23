@@ -67,7 +67,34 @@
             "numRxCircularBufferElements": 5,
             "comPort": "COM1",
             "baudRate": 115200,
-            "uartRemoteNodeId": 11
+            "remoteNodeId": 11
+        },
+        {
+            "name": "i7",
+            "convergenceLayer": "ltp_over_encap_local_stream",
+            "thisLtpEngineId": 102,
+            "remoteLtpEngineId": 103,
+            "ltpReportSegmentMtu": 1003,
+            "oneWayLightTimeMs": 1004,
+            "oneWayMarginTimeMs": 205,
+            "clientServiceId": 1,
+            "preallocatedRedDataBytes": 200006,
+            "ltpMaxRetriesPerSerialNumber": 5,
+            "ltpRandomNumberSizeBits": 32,
+            "ltpEncapLocalSocketOrPipePath": "\\\\.\\pipe\\ltp_local_pipe",
+            "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
+            "ltpMaxExpectedSimultaneousSessions": 500,
+            "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+            "delaySendingOfReportSegmentsTimeMsOrZeroToDisable": 20,
+            "keepActiveSessionDataOnDisk": false,
+            "activeSessionDataOnDiskNewFileDurationMs": 2000,
+            "activeSessionDataOnDiskDirectory": ".\/"
+        },
+        {
+            "name": "i8",
+            "convergenceLayer": "bp_over_encap_local_stream",
+            "bpEncapLocalSocketOrPipePath": "\\\\.\\pipe\\bp_local_pipe",
+            "remoteNodeId": 12
         }
     ]
 }

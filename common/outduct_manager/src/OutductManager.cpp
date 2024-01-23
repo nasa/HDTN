@@ -22,6 +22,8 @@
 #include "UdpOutduct.h"
 #include "LtpOverUdpOutduct.h"
 #include "LtpOverIpcOutduct.h"
+#include "LtpOverEncapLocalStreamOutduct.h"
+#include "BpOverEncapLocalStreamOutduct.h"
 #include "SlipOverUartOutduct.h"
 #include "Uri.h"
 #include "message.hpp"
@@ -95,6 +97,9 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
         else if (thisOutductConfig.convergenceLayer == "slip_over_uart") {
             outductSharedPtr = std::make_shared<SlipOverUartOutduct>(thisOutductConfig, uuidIndex, outductOpportunisticProcessReceivedBundleCallback);
         }
+        else if (thisOutductConfig.convergenceLayer == "bp_over_encap_local_stream") {
+            outductSharedPtr = std::make_shared<BpOverEncapLocalStreamOutduct>(thisOutductConfig, uuidIndex, outductOpportunisticProcessReceivedBundleCallback);
+        }
         else if (thisOutductConfig.convergenceLayer == "stcp") {
             outductSharedPtr = std::make_shared<StcpOutduct>(thisOutductConfig, uuidIndex);
         }
@@ -106,6 +111,9 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
         }
         else if (thisOutductConfig.convergenceLayer == "ltp_over_ipc") {
             outductSharedPtr = std::make_shared<LtpOverIpcOutduct>(thisOutductConfig, uuidIndex);
+        }
+        else if (thisOutductConfig.convergenceLayer == "ltp_over_encap_local_stream") {
+            outductSharedPtr = std::make_shared<LtpOverEncapLocalStreamOutduct>(thisOutductConfig, uuidIndex);
         }
 
         if (outductSharedPtr) {
