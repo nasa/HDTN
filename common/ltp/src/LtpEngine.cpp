@@ -56,7 +56,7 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     M_DEFAULT_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE(ltpRxOrTxCfg.senderPingSecondsOrZeroToDisable),
     m_senderPingSecondsOrZeroToDisable(ltpRxOrTxCfg.senderPingSecondsOrZeroToDisable),
     m_senderPingTimeDuration(boost::posix_time::seconds(ltpRxOrTxCfg.senderPingSecondsOrZeroToDisable)),
-    m_nextPingStartExpiry(boost::posix_time::microsec_clock::universal_time()),
+    m_nextPingStartExpiry(boost::posix_time::special_values::neg_infin), //start immediately
     m_transmissionRequestServedAsPing(false),
     M_MAX_SIMULTANEOUS_SESSIONS(ltpRxOrTxCfg.maxSimultaneousSessions),
     M_MAX_SESSIONS_IN_PIPELINE((ltpRxOrTxCfg.activeSessionDataOnDiskNewFileDurationMsOrZeroToDisable != 0) ?
@@ -1523,7 +1523,9 @@ void LtpEngine::SetRate_ThreadSafe(const uint64_t maxSendRateBitsPerSecOrZeroToD
 void LtpEngine::SetPing(const uint64_t senderPingSecondsOrZeroToDisable) {
     m_senderPingSecondsOrZeroToDisable = senderPingSecondsOrZeroToDisable;
     m_senderPingTimeDuration = boost::posix_time::seconds(senderPingSecondsOrZeroToDisable);
-    m_nextPingStartExpiry = boost::posix_time::microsec_clock::universal_time() + m_senderPingTimeDuration;
+    if (m_nextPingStartExpiry != boost::posix_time::special_values::pos_infin) { //if no ongoing ping in progress
+        m_nextPingStartExpiry = boost::posix_time::special_values::neg_infin; //start ping (if enabled) immediately at next housekeeping interval
+    }
     m_transmissionRequestServedAsPing = false;
 }
 
@@ -1667,7 +1669,7 @@ void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) 
                 m_nextPingStartExpiry = m_nowTimeRef + m_senderPingTimeDuration;
                 m_transmissionRequestServedAsPing = false;
             }
-            else {
+            else { //send ping
                 m_nextPingStartExpiry = boost::posix_time::special_values::pos_infin; //will be set after ping succeeds or fails
                 //send Cancel Segment to receiver (GetNextPacketToSend() will create the packet and start the timer)
                 m_totalPingsStarted.fetch_add(1, std::memory_order_relaxed);
