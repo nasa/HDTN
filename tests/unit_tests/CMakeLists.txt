@@ -69,6 +69,7 @@ add_executable(unit-tests
 	$<$<BOOL:${RUN_TELEMETRY}>:../../module/telem_cmd_interface/unit_tests/TelemetryLoggerTests.cpp>
 	$<$<BOOL:${RUN_TELEMETRY}>:../../module/telem_cmd_interface/unit_tests/TelemetryRunnerProgramOptionsTests.cpp>
     ../../module/router/unit_tests/RouterTests.cpp
+	../../module/cli/test/TestHdtnCliRunner.cpp
 )
 
 install(TARGETS unit-tests DESTINATION ${CMAKE_INSTALL_BINDIR})
@@ -91,6 +92,7 @@ target_link_libraries(unit-tests
 	router_lib
 	outduct_manager_lib
 	bp_app_patterns_lib
+	hdtn_cli_lib
 	Boost::unit_test_framework
 	Boost::timer
 )

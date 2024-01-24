@@ -163,6 +163,7 @@ public:
         telem,
         gui,
         unittest,
+        cli,
         none
     };
 

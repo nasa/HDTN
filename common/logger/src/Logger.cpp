@@ -72,6 +72,7 @@ static const std::string subprocess_strings[static_cast<unsigned int>(hdtn::Logg
     "telem",
     "gui",
     "unittest",
+    "cli"
     ""
 };
 
