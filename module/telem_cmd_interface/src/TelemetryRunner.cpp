@@ -91,6 +91,7 @@ class TelemetryRunner::Impl : private boost::noncopyable {
         DeadlineTimer m_deadlineTimer;
         HdtnConfig m_hdtnConfig;
         std::shared_ptr<std::string> m_hdtnConfigJsonPtr;
+        std::shared_ptr<std::string> m_hdtnConfigWithVersionJsonPtr;
 
         boost::mutex m_lastSerializedAllOutductCapabilitiesMutex;
         std::shared_ptr<std::string> m_lastJsonSerializedAllOutductCapabilitiesPtr;
@@ -162,8 +163,9 @@ bool TelemetryRunner::Impl::Init(const HdtnConfig &hdtnConfig, zmq::context_t *i
     m_hdtnConfig = hdtnConfig;
     { // add hdtn version to config, and preserialize it to json once for all connecting web GUIs
         boost::property_tree::ptree pt = hdtnConfig.GetNewPropertyTree();
-        pt.put("hdtnVersionString", hdtn::Logger::GetHdtnVersionAsString());
         m_hdtnConfigJsonPtr = std::make_shared<std::string>(JsonSerializable::PtToJsonString(pt));
+        pt.put("hdtnVersionString", hdtn::Logger::GetHdtnVersionAsString());
+        m_hdtnConfigWithVersionJsonPtr = std::make_shared<std::string>(JsonSerializable::PtToJsonString(pt));
     }
 
 #ifdef USE_WEB_INTERFACE
@@ -209,7 +211,7 @@ bool TelemetryRunner::Impl::Init(const HdtnConfig &hdtnConfig, zmq::context_t *i
 
 void TelemetryRunner::Impl::OnNewWebsocketConnectionCallback(WebsocketSessionPublicBase &conn) {
     // std::cout << "newconn\n";
-    conn.AsyncSendTextData(std::shared_ptr<std::string>(m_hdtnConfigJsonPtr));
+    conn.AsyncSendTextData(std::shared_ptr<std::string>(m_hdtnConfigWithVersionJsonPtr));
     {
         boost::mutex::scoped_lock lock(m_lastSerializedAllOutductCapabilitiesMutex);
         if (m_lastJsonSerializedAllOutductCapabilitiesPtr && m_lastJsonSerializedAllOutductCapabilitiesPtr->size()) {

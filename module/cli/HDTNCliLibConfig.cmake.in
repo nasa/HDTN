@@ -1,0 +1,12 @@
+get_filename_component(HDTN_CLI_LIB_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+include(CMakeFindDependencyMacro)
+
+find_dependency(TelemetryDefinitions REQUIRED)
+find_dependency(LoggerLib REQUIRED)
+find_dependency(HDTNConfigLib REQUIRED)
+
+if(NOT TARGET HDTN::HdtnCliLib)
+    include("${HDTN_CLI_LIB_CMAKE_DIR}/HDTNCliLibConfig.cmake")
+endif()
+
+set(HDTN_CLI_LIB_LIBRARIES HDTN::HdtnCliLib)

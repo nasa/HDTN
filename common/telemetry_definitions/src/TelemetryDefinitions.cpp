@@ -1681,6 +1681,16 @@ std::shared_ptr<ApiCommand_t> ApiCommand_t::CreateFromJson(const std::string& js
     return apiCommandPtr;
 }
 
+
+/**
+ * GetHdtnConfigApiCommand_t
+ */
+GetHdtnConfigApiCommand_t::GetHdtnConfigApiCommand_t()
+{
+    ApiCommand_t::m_apiCall = GetHdtnConfigApiCommand_t::name;
+}
+
+
 /**
  * GetStorageApiCommand_t
  */

@@ -231,6 +231,7 @@ add_subdirectory(module/router)
 add_subdirectory(module/hdtn_one_process)
 add_subdirectory(module/encap_repeater)
 add_subdirectory(module/udp_delay_sim)
+add_subdirectory(module/cli)
 add_subdirectory(tests/unit_tests)
 add_subdirectory(tests/integrated_tests)
 
