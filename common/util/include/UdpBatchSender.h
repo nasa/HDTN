@@ -131,11 +131,10 @@ private:
      * @param underlyingCsDataToDeleteOnSentCallbackVec The vector of underlying client service data to send shared pointers.
      * @post The arguments to constBufferVecs, underlyingDataToDeleteOnSentCallbackVec and underlyingCsDataToDeleteOnSentCallbackVec are left in a moved-from state.
      */
-    HDTN_UTIL_NO_EXPORT void PerformSendPacketsOperation(std::shared_ptr<std::vector<UdpSendPacketInfo> >& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend);
+    HDTN_UTIL_NO_EXPORT void QueueAndTryPerformSendPacketsOperation_NotThreadSafe(std::shared_ptr<std::vector<UdpSendPacketInfo> >& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend);
 
     HDTN_UTIL_NO_EXPORT void AppendConstBufferVecToTransmissionElements(std::vector<boost::asio::const_buffer>& currentPacketConstBuffers);
 
-    HDTN_UTIL_NO_EXPORT bool SendTransmissionElements();
     
     /** Initiate request for socket shutdown.
      *
@@ -149,6 +148,10 @@ private:
      * @post The underlying socket mechanism is ready to be reused after a successful call to UdpBatchSender::SetEndpointAndReconnect().
      */
     HDTN_UTIL_NO_EXPORT void DoHandleSocketShutdown();
+
+    HDTN_UTIL_NO_EXPORT void TrySendQueued();
+
+    HDTN_UTIL_NO_EXPORT void OnAsyncSendCompleted(const boost::system::error_code& e, const std::size_t numPacketsSent);
 private:
 
     /// I/O execution context
@@ -162,18 +165,16 @@ private:
     /// Thread that invokes m_ioService.run()
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
 #if defined(_WIN32)
-//# define UDP_BATCH_SENDER_USE_OVERLAPPED 1
     /// WINAPI TransmitPackets function pointer
     LPFN_TRANSMITPACKETS m_transmitPacketsFunctionPointer;
-# ifdef UDP_BATCH_SENDER_USE_OVERLAPPED
+
+    //stuff needed for async operations
     /// Overlapped I/O object, always configured to auto-reset
     WSAOVERLAPPED m_sendOverlappedAutoReset;
     boost::asio::windows::object_handle m_windowsObjectHandleWaitForSend;
-    std::queue<std::pair<std::shared_ptr<std::vector<UdpSendPacketInfo> >, std::size_t > > m_udpSendPacketInfoQueue;
-    std::atomic<bool> m_sendInProgress;
-    HDTN_UTIL_NO_EXPORT void TrySendQueued();
-    HDTN_UTIL_NO_EXPORT void OnOverlappedSendCompleted(const boost::system::error_code& e);
-# endif
+    
+    
+
     /// Vector of packets to send
     std::vector<TRANSMIT_PACKETS_ELEMENT> m_transmitPacketsElementVec;
 #elif defined(__APPLE__)
@@ -183,6 +184,8 @@ private:
     /// Vector of packets to send
     std::vector<struct mmsghdr> m_transmitPacketsElementVec;
 #endif
+    std::queue<std::pair<std::shared_ptr<std::vector<UdpSendPacketInfo> >, std::size_t > > m_udpSendPacketInfoQueue;
+    std::atomic<bool> m_sendInProgress;
     
     /// Callback to invoke after a packet batch send operation
     OnSentPacketsCallback_t m_onSentPacketsCallback;
