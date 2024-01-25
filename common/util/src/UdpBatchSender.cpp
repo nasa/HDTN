@@ -513,8 +513,7 @@ void UdpBatchSender::Impl::TrySendQueued() {
                 AppendConstBufferVecToTransmissionElements(udpSendPacketInfoVec[i].constBufferVec);
             }
 
-            bool successfulSend = true;
-
+            
             if (m_transmitPacketsElementVec.size()) { //there is data to send.. however if there is nothing to send then succeed with callback function and don't call OS routine
 #ifdef _WIN32
                 // Send the first burst of packets
@@ -531,6 +530,7 @@ void UdpBatchSender::Impl::TrySendQueued() {
                 // Long TransmitPackets requests are defined as requests that require more than a single read from the file or a cache;
                 // the long request definition therefore depends on the size of the file and the specified length of the send packet.
 
+                bool successfulSend = true;
                 if (!result) {
                     DWORD lastError = WSAGetLastError();
                     if (lastError != ERROR_IO_PENDING) {
@@ -545,6 +545,12 @@ void UdpBatchSender::Impl::TrySendQueued() {
                     m_windowsObjectHandleWaitForSend.async_wait(boost::bind(&UdpBatchSender::Impl::OnAsyncSendCompleted,
                         this, boost::asio::placeholders::error, numPacketsToSend));
                 }
+                else { //fail
+                    if (m_onSentPacketsCallback) {
+                        m_onSentPacketsCallback(successfulSend, m_udpSendPacketInfoQueue.front().first, numPacketsToSend);
+                    }
+                    m_udpSendPacketInfoQueue.pop();
+                }
 
 
 #else //not #ifdef _WIN32
@@ -552,13 +558,6 @@ void UdpBatchSender::Impl::TrySendQueued() {
                     this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)); //bytes_transferred is num packets sent
 
 #endif //#ifdef _WIN32
-            }
-
-            if (!successfulSend) { //fail
-                if (m_onSentPacketsCallback) {
-                    m_onSentPacketsCallback(successfulSend, m_udpSendPacketInfoQueue.front().first, numPacketsToSend);
-                }
-                m_udpSendPacketInfoQueue.pop();
             }
         }
     }

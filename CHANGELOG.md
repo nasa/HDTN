@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* `UdpBatchSender` now works on Apple using a `syscall` to `sendmsg_x` (the `sendmmsg` equivalent).
+
 ### Added
 
 * Added "bp_over_encap_local_stream" and "ltp_over_encap_local_stream" convergence layers, allowing HDTN to generate CCSDS encap packets over a cross-platform local stream.  On Windows, this is acomplished using a full-duplex named pipe.  On Linux/POSIX, this is accomplished using a local `AF_UNIX` duplex socket.
@@ -17,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 * Egress now disables LTP ping during times when the contact plan DOES NOT allow transmission.  Likewise, Egress will reenable LTP ping (back to its config file value) during times when the contact plan allows transmission.
+* `UdpBatchSender` no longer has its own thread and `io_service` due to now being completely asynchronous on all platforms; user provides an `io_service` to its constructor.  The `LtpEngine` `io_service` is what runs the `UdpBatchSender` when using LTP over UDP when `ltpMaxUdpPacketsToSendPerSystemCall` config variable is greater than 1.
 
 ### Removed
 
