@@ -29,7 +29,6 @@
 #include <array>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "LtpEngine.h"
-#include "UdpBatchSender.h"
 #include "LtpEngineConfig.h"
 #include <atomic>
 #include "EncapAsyncDuplexLocalStream.h"

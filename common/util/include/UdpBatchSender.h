@@ -18,6 +18,7 @@
  * This UdpBatchSender class encapsulates the appropriate UDP functionality
  * to send multiple UDP packets in one system call in order to increase UDP throughput.
  * It also benefits in performance because the UDP socket must be "connected".
+ * Calls to io_service::run must be single threaded!
  */
 
 #ifndef _UDP_BATCH_SENDER_H
@@ -40,7 +41,7 @@ public:
         const std::size_t numPacketsSent)> OnSentPacketsCallback_t;
     
     /// Bind socket to io_service, does not open the socket
-    HDTN_UTIL_EXPORT UdpBatchSender();
+    HDTN_UTIL_EXPORT UdpBatchSender(boost::asio::io_service& ioServiceSingleThreadedRef);
     
     /// Call UdpBatchSender::Stop() to release managed resources
     HDTN_UTIL_EXPORT ~UdpBatchSender();
@@ -52,6 +53,15 @@ public:
      * @post The object is ready to be reused after the next successful call to UdpBatchSender::Init().
      */
     HDTN_UTIL_EXPORT void Stop();
+
+    /** Perform a graceful shutdown from within the io_service thread,
+     * perhaps called by a signal handler that uses the io_service..
+     *
+     * If no previous successful call to Init(), returns immediately.
+     * Else, tries to perform graceful shutdown on the socket, then releases all underlying I/O resources.
+     * @post The object is ready to be reused after the next successful call to Init().
+     */
+    HDTN_UTIL_EXPORT void Stop_CalledFromWithinIoServiceThread();
     
     /** Initialize the underlying I/O and connect to given host at given port.
      *
@@ -81,7 +91,18 @@ public:
      * @param underlyingDataToDeleteOnSentCallbackVec (internal) Vector of LtpClientServiceDataToSend::underlyingDataToDeleteOnSentCallback.
      * @param underlyingCsDataToDeleteOnSentCallbackVec (internal) Vector of LtpClientServiceDataToSend::underlyingCsDataToDeleteOnSentCallback.
      */
-    HDTN_UTIL_EXPORT void QueueSendPacketsOperation_ThreadSafe(std::shared_ptr<std::vector<UdpSendPacketInfo> >&& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend);
+    HDTN_UTIL_EXPORT void QueueSendPacketsOperation_ThreadSafe(
+        std::shared_ptr<std::vector<UdpSendPacketInfo> >&& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend);
+
+    /** Initiate a packet batch send operation, called ONLY from within the same io_service::run thread (not thread-safe).
+     *
+     * Initiates an asynchronous request to UdpBatchSender::PerformSendPacketsOperation().
+     * @param constBufferVecs The packets to send.
+     * @param underlyingDataToDeleteOnSentCallbackVec (internal) Vector of LtpClientServiceDataToSend::underlyingDataToDeleteOnSentCallback.
+     * @param underlyingCsDataToDeleteOnSentCallbackVec (internal) Vector of LtpClientServiceDataToSend::underlyingCsDataToDeleteOnSentCallback.
+     */
+    HDTN_UTIL_EXPORT void QueueSendPacketsOperation_CalledFromWithinIoServiceThread(
+        std::shared_ptr<std::vector<UdpSendPacketInfo> >&& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend);
     
     /** Set the onSentPackets callback.
      *

@@ -26,6 +26,7 @@ LtpUdpEngine::LtpUdpEngine(boost::asio::io_service& ioServiceUdpRef,
     const uint64_t maxUdpRxPacketSizeBytes,
     const LtpEngineConfig& ltpRxOrTxCfg) :
     LtpEngine(ltpRxOrTxCfg, engineIndexForEncodingIntoRandomSessionNumber, true),
+    m_udpBatchSenderConnected(m_ioServiceLtpEngine), //use ltp engine io service thread (which will itself use the m_udpBatchSenderConnected) in order to use faster non thread safe functions
     m_ioServiceUdpRef(ioServiceUdpRef),
     m_udpSocketRef(udpSocketRef),
     m_remoteEndpoint(remoteEndpoint),
@@ -132,7 +133,9 @@ void LtpUdpEngine::SendPackets(std::shared_ptr<std::vector<UdpSendPacketInfo> >&
 {
     //called by LtpEngine Thread
     m_countBatchSendCalls.fetch_add(1, std::memory_order_relaxed);
-    m_udpBatchSenderConnected.QueueSendPacketsOperation_ThreadSafe(std::move(udpSendPacketInfoVecSharedPtr), numPacketsToSend); //data gets stolen
+    
+    //using the non-thread-safe function call because it's the same io_service and thread calling this function
+    m_udpBatchSenderConnected.QueueSendPacketsOperation_CalledFromWithinIoServiceThread(std::move(udpSendPacketInfoVecSharedPtr), numPacketsToSend); //data gets stolen
     //LtpUdpEngine::OnSentPacketsCallback will be called next
 }
 
