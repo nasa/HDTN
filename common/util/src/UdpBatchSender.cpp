@@ -20,7 +20,15 @@
 #include <boost/thread.hpp>
 #include <atomic>
 #include <queue>
-#include "ThreadNamer.h"
+
+#ifdef __APPLE__
+#include <sys/syscall.h>
+#include <unistd.h>
+struct mmsghdr { //msghdr_x
+    struct msghdr msg_hdr;
+    size_t msg_datalen; /* byte length of buffer in msg_iov */
+};
+#endif
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -53,11 +61,14 @@ struct sendmmsg_op {
                 //sent.  A nonblocking call (WHICH THIS IS) sends as many messages as possible (up
                 //to the limit specified by vlen) and returns immediately.
                 const unsigned int vlen = (static_cast<unsigned int>(m_mmsghdrVecRef.size())) - m_totalPacketsTransferred;
+                const int n =
 #ifdef __APPLE__
-                const int n = sendmsg(m_socketRef.native_handle(), m_mmsghdrVecRef.data() + m_totalPacketsTransferred, vlen);
+                    syscall(SYS_sendmsg_x,
 #else
-                const int n = sendmmsg(m_socketRef.native_handle(), m_mmsghdrVecRef.data() + m_totalPacketsTransferred, vlen, 0);
+                    sendmmsg(
 #endif
+                        m_socketRef.native_handle(), m_mmsghdrVecRef.data() + m_totalPacketsTransferred, vlen, 0);
+
                 //On success, sendmmsg() returns the number of messages sent from
                 //msgvec; if this is less than vlen, the caller can retry with a
                 //further sendmmsg() call to send the remaining messages.
@@ -191,10 +202,7 @@ private:
 
     /// Vector of packets to send
     std::vector<TRANSMIT_PACKETS_ELEMENT> m_transmitPacketsElementVec;
-#elif defined(__APPLE__)
-    /// Vector of packets to send
-    std::vector<struct msghdr> m_transmitPacketsElementVec;
-#else // Linux (not WIN32 or APPLE)
+#else // Linux or APPLE
     /// Vector of packets to send
     std::vector<struct mmsghdr> m_transmitPacketsElementVec;
 #endif
@@ -458,11 +466,7 @@ void UdpBatchSender::Impl::AppendConstBufferVecToTransmissionElements(std::vecto
         };
         */
         m_transmitPacketsElementVec.emplace_back();
-#ifdef __APPLE__
-        struct msghdr& msgHeader = m_transmitPacketsElementVec.back();
-#else
         struct mmsghdr& msgHeader = m_transmitPacketsElementVec.back();
-#endif
         /*
         struct msghdr {
             void    *   msg_name;   // Socket name
@@ -482,15 +486,9 @@ void UdpBatchSender::Impl::AppendConstBufferVecToTransmissionElements(std::vecto
                                    //return value from a single sendmsg(2) call).
         };
         */
-#ifdef __APPLE__
-        memset(&msgHeader, 0, sizeof(struct msghdr));
-        msgHeader.msg_iov = reinterpret_cast<struct iovec*>(currentPacketConstBuffers.data());
-        msgHeader.msg_iovlen = currentPacketConstBuffersSize;
-#else
         memset(&msgHeader, 0, sizeof(struct mmsghdr));
         msgHeader.msg_hdr.msg_iov = reinterpret_cast<struct iovec*>(currentPacketConstBuffers.data());
-        msgHeader.msg_hdr.msg_iovlen = currentPacketConstBuffersSize;
-#endif     
+        msgHeader.msg_hdr.msg_iovlen = currentPacketConstBuffersSize;    
 #endif //#ifdef _WIN32
     }
     else {}
