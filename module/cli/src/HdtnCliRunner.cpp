@@ -14,7 +14,7 @@
 
 #include <boost/program_options.hpp>
 #include <boost/make_unique.hpp>
-
+#include <boost/filesystem/fstream.hpp>
 #include <zmq.hpp>
 
 #include "HdtnCliRunner.h"
