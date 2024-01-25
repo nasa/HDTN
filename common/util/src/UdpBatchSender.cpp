@@ -12,46 +12,246 @@
  * See LICENSE.md in the source root directory for more information.
  */
 
-#include <string>
 #include "UdpBatchSender.h"
 #include "Logger.h"
 #include <boost/lexical_cast.hpp>
 #include <memory>
 #include <boost/make_unique.hpp>
-#include <boost/endian/conversion.hpp>
-#include "ThreadNamer.h"
+#include <boost/thread.hpp>
+#include <atomic>
+#include <queue>
+
+#ifdef __APPLE__
+#include <sys/syscall.h>
+#include <unistd.h>
+struct mmsghdr { //msghdr_x
+    struct msghdr msg_hdr;
+    size_t msg_datalen; /* byte length of buffer in msg_iov */
+};
+#endif
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-UdpBatchSender::UdpBatchSender() : m_udpSocketConnectedSenderOnly(m_ioService)
-#if defined(_WIN32)
-,m_transmitPacketsFunctionPointer(NULL)
-# ifdef UDP_BATCH_SENDER_USE_OVERLAPPED
-, m_sendOverlappedAutoReset{} //zero initialize
-, m_windowsObjectHandleWaitForSend(m_ioService)
-, m_sendInProgress(false)
-# endif
+#ifndef _WIN32
+//https://live.boost.org/doc/libs/1_84_0/doc/html/boost_asio/reference/basic_stream_socket/native_non_blocking/overload2.html
+typedef std::vector<struct mmsghdr> mmsghdr_vec_t;
+template <typename Handler>
+struct sendmmsg_op {
+
+    boost::asio::ip::udp::socket& m_socketRef;
+    mmsghdr_vec_t& m_mmsghdrVecRef;
+    Handler m_handler;
+    unsigned int m_totalPacketsTransferred;
+
+    // Function call operator meeting WriteHandler requirements.
+    // Used as the handler for the async_write_some operation.
+    void operator()(boost::system::error_code ec/*, std::size_t*/) {
+        // Put the underlying socket into non-blocking mode.
+        if (!ec) {
+            if (!m_socketRef.native_non_blocking()) {
+                m_socketRef.native_non_blocking(true, ec);
+            }
+        }
+
+        if (!ec) {
+            for (;;) {
+                // Try the system call.
+                errno = 0;
+                //A blocking sendmmsg() call blocks until vlen messages have been
+                //sent.  A nonblocking call (WHICH THIS IS) sends as many messages as possible (up
+                //to the limit specified by vlen) and returns immediately.
+                const unsigned int vlen = (static_cast<unsigned int>(m_mmsghdrVecRef.size())) - m_totalPacketsTransferred;
+                const int n =
+#ifdef __APPLE__
+                    syscall(SYS_sendmsg_x,
+#else
+                    sendmmsg(
 #endif
+                        m_socketRef.native_handle(), m_mmsghdrVecRef.data() + m_totalPacketsTransferred, vlen, 0);
+
+                //On success, sendmmsg() returns the number of messages sent from
+                //msgvec; if this is less than vlen, the caller can retry with a
+                //further sendmmsg() call to send the remaining messages.
+                //On error, -1 is returned, and errno is set to indicate the error.
+                ec = boost::system::error_code(n < 0 ? errno : 0,
+                    boost::asio::error::get_system_category());
+                m_totalPacketsTransferred += ec ? 0 : n;
+
+                // Retry operation immediately if interrupted by signal.
+                if (ec == boost::asio::error::interrupted) {
+                    continue;
+                }
+
+                // Check if we need to run the operation again.
+                if (ec == boost::asio::error::would_block
+                    || ec == boost::asio::error::try_again)
+                {
+                    // We have to wait for the socket to become ready again.
+                    m_socketRef.async_wait(boost::asio::ip::udp::socket::wait_write, *this);
+                    return;
+                }
+
+                if (ec || (m_totalPacketsTransferred == m_mmsghdrVecRef.size())) {
+                    // An error occurred, or we have finished sending all packets.
+                    // Either way we must exit the loop so we can call the handler.
+                    break;
+                }
+
+                // Loop around to try calling sendfile again.
+            }
+        }
+
+        // Pass result back to user's handler.
+        m_handler(ec, m_totalPacketsTransferred);
+    }
+};
+
+template <typename Handler>
+void async_sendmmsg(boost::asio::ip::udp::socket& sock, mmsghdr_vec_t& mmsghdrVec, Handler h)
+{
+    sendmmsg_op<Handler> op = { sock, mmsghdrVec, h, 0 };
+    sock.async_wait(boost::asio::ip::udp::socket::wait_write, op);
+}
+#endif
+
+
+class UdpBatchSender::Impl {
+    Impl() = delete;
+public:
+    Impl(boost::asio::io_service& ioServiceRef);
+    ~Impl();
+    void Stop();
+    void Stop_CalledFromWithinIoServiceThread();
+    bool Init(const std::string& remoteHostname, const uint16_t remotePort);
+    bool Init(const boost::asio::ip::udp::endpoint& udpDestinationEndpoint);
+    boost::asio::ip::udp::endpoint GetCurrentUdpEndpoint() const;
+    void QueueSendPacketsOperation_ThreadSafe(std::shared_ptr<std::vector<UdpSendPacketInfo> >&& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend);
+    void SetOnSentPacketsCallback(const OnSentPacketsCallback_t& callback);
+    void SetEndpointAndReconnect_ThreadSafe(const boost::asio::ip::udp::endpoint& remoteEndpoint);
+    void SetEndpointAndReconnect_ThreadSafe(const std::string& remoteHostname, const uint16_t remotePort);
+
+    /** Perform socket shutdown.
+     *
+     * If a connection is not open, returns immediately.
+     * @post The underlying socket mechanism is ready to be reused after a successful call to UdpBatchSender::SetEndpointAndReconnect().
+     */
+    void DoHandleSocketShutdown();
+
+    /** Perform a packet batch send operation.
+     *
+     * Performs a single synchronous batch send operation.
+     * After it finishes (successfully or otherwise), the callback stored in m_onSentPacketsCallback (if any) is invoked.
+     * @param constBufferVecs The vector of data buffers to send.
+     * @param underlyingDataToDeleteOnSentCallbackVec The vector of underlying data buffers shared pointer.
+     * @param underlyingCsDataToDeleteOnSentCallbackVec The vector of underlying client service data to send shared pointers.
+     * @post The arguments to constBufferVecs, underlyingDataToDeleteOnSentCallbackVec and underlyingCsDataToDeleteOnSentCallbackVec are left in a moved-from state.
+     */
+    void QueueAndTryPerformSendPacketsOperation_NotThreadSafe(std::shared_ptr<std::vector<UdpSendPacketInfo> >& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend);
+private:
+    /** Connect to given UDP endpoint.
+     *
+     * @param remoteEndpoint The remote UDP endpoint to connect to.
+     * @return True if the connection could be established, or False otherwise.
+     */
+    bool SetEndpointAndReconnect(const boost::asio::ip::udp::endpoint& remoteEndpoint);
+
+    /** Connect to given host at given port.
+     *
+     * @param remoteHostname The remote host to connect to.
+     * @param remotePort The remote port to connect to.
+     * @return True if the connection could be established, or False otherwise.
+     */
+    bool SetEndpointAndReconnect(const std::string& remoteHostname, const uint16_t remotePort);
+
+    
+
+    void AppendConstBufferVecToTransmissionElements(std::vector<boost::asio::const_buffer>& currentPacketConstBuffers);
+
+
+    /** Initiate request for socket shutdown.
+     *
+     * Initiates an asynchronous request to UdpBatchSender::DoHandleSocketShutdown().
+     */
+    void DoUdpShutdown();
+
+    
+
+    void TrySendQueued();
+
+    void OnAsyncSendCompleted(const boost::system::error_code& e, const std::size_t numPacketsSent);
+
+    
+private:
+
+    /// I/O execution context
+    boost::asio::io_service& m_ioServiceRef;
+    /// UDP socket to connect to destination endpoint
+    boost::asio::ip::udp::socket m_udpSocketConnectedSenderOnly;
+    /// UDP destination endpoint
+    boost::asio::ip::udp::endpoint m_udpDestinationEndpoint;
+#if defined(_WIN32)
+    /// WINAPI TransmitPackets function pointer
+    LPFN_TRANSMITPACKETS m_transmitPacketsFunctionPointer;
+
+    //stuff needed for async operations
+    /// Overlapped I/O object, always configured to auto-reset
+    WSAOVERLAPPED m_sendOverlappedAutoReset;
+    boost::asio::windows::object_handle m_windowsObjectHandleWaitForSend;
+
+
+
+    /// Vector of packets to send
+    std::vector<TRANSMIT_PACKETS_ELEMENT> m_transmitPacketsElementVec;
+#else // Linux or APPLE
+    /// Vector of packets to send
+    std::vector<struct mmsghdr> m_transmitPacketsElementVec;
+#endif
+    std::queue<std::pair<std::shared_ptr<std::vector<UdpSendPacketInfo> >, std::size_t > > m_udpSendPacketInfoQueue;
+    std::atomic<bool> m_sendInProgress;
+    std::atomic<bool> m_shutdownComplete;
+
+    /// Callback to invoke after a packet batch send operation
+    OnSentPacketsCallback_t m_onSentPacketsCallback;
+};
+
+UdpBatchSender::UdpBatchSender(boost::asio::io_service& ioServiceSingleThreadedRef) :
+    m_pimpl(boost::make_unique<UdpBatchSender::Impl>(ioServiceSingleThreadedRef)) {}
+UdpBatchSender::Impl::Impl(boost::asio::io_service& ioServiceRef) :
+    m_ioServiceRef(ioServiceRef),
+    m_udpSocketConnectedSenderOnly(ioServiceRef)
+#if defined(_WIN32)
+    ,m_transmitPacketsFunctionPointer(NULL)
+    //overlapped objects
+    ,m_sendOverlappedAutoReset{} //zero initialize
+    ,m_windowsObjectHandleWaitForSend(ioServiceRef)
+#endif
+    ,m_sendInProgress(false)
+    ,m_shutdownComplete(true)
 {}
 
 UdpBatchSender::~UdpBatchSender() {
     Stop();
 }
+UdpBatchSender::Impl::~Impl() {
+    Stop();
+}
 
 bool UdpBatchSender::Init(const std::string& remoteHostname, const uint16_t remotePort) {
+    return m_pimpl->Init(remoteHostname, remotePort);
+}
+bool UdpBatchSender::Impl::Init(const std::string& remoteHostname, const uint16_t remotePort) {
 
-    if (m_ioServiceThreadPtr) {
+    if (!m_shutdownComplete.load(std::memory_order_acquire)) {
         LOG_ERROR(subprocess) << "UdpBatchSender::Init: already initialized";
         return false;
     }
-    m_ioService.reset();
 
     static const boost::asio::ip::resolver_query_base::flags UDP_RESOLVER_FLAGS = boost::asio::ip::resolver_query_base::canonical_name; //boost resolver flags
     LOG_INFO(subprocess) << "UdpBatchSender resolving " << remoteHostname << ":" << remotePort;
     
     boost::asio::ip::udp::endpoint udpDestinationEndpoint;
     {
-        boost::asio::ip::udp::resolver resolver(m_ioService);
+        boost::asio::ip::udp::resolver resolver(m_ioServiceRef);
         try {
             udpDestinationEndpoint = *resolver.resolve(boost::asio::ip::udp::resolver::query(boost::asio::ip::udp::v4(), remoteHostname, boost::lexical_cast<std::string>(remotePort), UDP_RESOLVER_FLAGS));
         }
@@ -63,6 +263,9 @@ bool UdpBatchSender::Init(const std::string& remoteHostname, const uint16_t remo
     return Init(udpDestinationEndpoint);
 }
 bool UdpBatchSender::Init(const boost::asio::ip::udp::endpoint& udpDestinationEndpoint) {
+    return m_pimpl->Init(udpDestinationEndpoint);
+}
+bool UdpBatchSender::Impl::Init(const boost::asio::ip::udp::endpoint& udpDestinationEndpoint) {
 #ifndef _WIN32
     if (sizeof(boost::asio::const_buffer) != sizeof(struct iovec)) {
         LOG_ERROR(subprocess) << "UdpBatchSender::Init: sizeof(boost::asio::const_buffer) != sizeof(struct iovec)";
@@ -70,11 +273,10 @@ bool UdpBatchSender::Init(const boost::asio::ip::udp::endpoint& udpDestinationEn
     }
 #endif
 
-    if (m_ioServiceThreadPtr) {
+    if (!m_shutdownComplete.load(std::memory_order_acquire)) {
         LOG_ERROR(subprocess) << "UdpBatchSender::Init: already initialized";
         return false;
     }
-    m_ioService.reset();
 
     m_udpDestinationEndpoint = udpDestinationEndpoint;
     try {
@@ -82,8 +284,7 @@ bool UdpBatchSender::Init(const boost::asio::ip::udp::endpoint& udpDestinationEn
         m_udpSocketConnectedSenderOnly.bind(boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 0)); //if udpPort is 0 then bind to random ephemeral port
     }
     catch (const boost::system::system_error& e) {
-        LOG_ERROR(subprocess) << "Could not bind on random ephemeral UDP port";
-        LOG_ERROR(subprocess) << "  Error: " << e.what();
+        LOG_ERROR(subprocess) << "Could not bind on random ephemeral UDP port: " << e.what();
         return false;
     }
 
@@ -114,7 +315,7 @@ bool UdpBatchSender::Init(const boost::asio::ip::udp::endpoint& udpDestinationEn
         LOG_ERROR(subprocess) << __FILE__ << ":" << __LINE__ << " - WSAIoctl failed " << WSAGetLastError();
         return false;
     }
-# ifdef UDP_BATCH_SENDER_USE_OVERLAPPED
+
     // Overlapped operation used for TransmitPackets
     ZeroMemory(&m_sendOverlappedAutoReset, sizeof(m_sendOverlappedAutoReset));
     m_sendOverlappedAutoReset.hEvent = CreateEvent(NULL, FALSE, FALSE, NULL); //auto-reset event object
@@ -131,7 +332,7 @@ bool UdpBatchSender::Init(const boost::asio::ip::udp::endpoint& udpDestinationEn
             << " - m_windowsObjectHandleWaitForSend.assign failed " << e.what();
         return false;
     }
-# endif
+
     m_transmitPacketsElementVec.reserve(100);
 #else
     m_transmitPacketsElementVec.reserve(50);
@@ -139,18 +340,16 @@ bool UdpBatchSender::Init(const boost::asio::ip::udp::endpoint& udpDestinationEn
     // github comment https://github.com/nasa/HDTN/pull/36#issuecomment-1373562636: The m_transmitPacketsElementVec vector gets more pushes for windows
     // (one push per piece of a udp packet) than it does on linux (one push per udp packet, recommended to reserve 50 for linux and 100 for windows.
     
-    
-    m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioService);
-    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
-    ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceUdpBatchSender");
-
+    m_shutdownComplete.store(false, std::memory_order_release);
     return true;
 }
-
 void UdpBatchSender::Stop() {
-    if (m_ioServiceThreadPtr) {
+    m_pimpl->Stop();
+}
+void UdpBatchSender::Impl::Stop() {
+    if (!m_shutdownComplete.load(std::memory_order_acquire)) {
         DoUdpShutdown();
-        while (m_udpSocketConnectedSenderOnly.is_open()) {
+        while (!m_shutdownComplete.load(std::memory_order_acquire)) {
             try {
                 boost::this_thread::sleep(boost::posix_time::milliseconds(250));
             }
@@ -159,33 +358,24 @@ void UdpBatchSender::Stop() {
             catch (const boost::condition_error&) {}
             catch (const boost::lock_error&) {}
         }
-
-        //This function does not block, but instead simply signals the io_service to stop
-        //All invocations of its run() or run_one() member functions should return as soon as possible.
-        //Subsequent calls to run(), run_one(), poll() or poll_one() will return immediately until reset() is called.
-        m_workPtr.reset();
-        if (!m_ioService.stopped()) {
-            m_ioService.stop(); //ioservice requires stopping before join because of the m_work object
-        }
-        if (m_ioServiceThreadPtr) {
-            try {
-                m_ioServiceThreadPtr->join();
-                m_ioServiceThreadPtr.reset(); //delete it
-            }
-            catch (const boost::thread_resource_error&) {
-                LOG_ERROR(subprocess) << "error stopping UdpBatchSender io_service";
-            }
-        }
     }
-
 }
 
-void UdpBatchSender::DoUdpShutdown() {
-    boost::asio::post(m_ioService, boost::bind(&UdpBatchSender::DoHandleSocketShutdown, this));
+void UdpBatchSender::Stop_CalledFromWithinIoServiceThread() {
+    m_pimpl->Stop_CalledFromWithinIoServiceThread();
+}
+void UdpBatchSender::Impl::Stop_CalledFromWithinIoServiceThread() {
+    if (!m_shutdownComplete.load(std::memory_order_acquire)) {
+        DoHandleSocketShutdown();
+    }
 }
 
-void UdpBatchSender::DoHandleSocketShutdown() {
-    //final code to shut down tcp sockets
+void UdpBatchSender::Impl::DoUdpShutdown() {
+    boost::asio::post(m_ioServiceRef, boost::bind(&UdpBatchSender::Impl::DoHandleSocketShutdown, this));
+}
+
+void UdpBatchSender::Impl::DoHandleSocketShutdown() {
+    //final code to shut down udp sockets
     if (m_udpSocketConnectedSenderOnly.is_open()) {
         try {
             LOG_INFO(subprocess) << "shutting down UdpBatchSender UDP socket..";
@@ -202,7 +392,9 @@ void UdpBatchSender::DoHandleSocketShutdown() {
             LOG_ERROR(subprocess) << "UdpBatchSender::DoHandleSocketShutdown: " << e.what();
         }
     }
-#ifdef UDP_BATCH_SENDER_USE_OVERLAPPED
+
+#if defined(_WIN32)
+    //close overlapped
     //CloseHandle(m_sendOverlappedAutoReset.hEvent); //hEventWaitForConnection
     if (m_windowsObjectHandleWaitForSend.is_open()) {
         try {
@@ -213,19 +405,35 @@ void UdpBatchSender::DoHandleSocketShutdown() {
         }
     }
 #endif
+    m_shutdownComplete.store(true, std::memory_order_release);
 }
 
 void UdpBatchSender::SetOnSentPacketsCallback(const OnSentPacketsCallback_t& callback) {
+    m_pimpl->SetOnSentPacketsCallback(callback);
+}
+void UdpBatchSender::Impl::SetOnSentPacketsCallback(const OnSentPacketsCallback_t& callback) {
     m_onSentPacketsCallback = callback;
 }
 
-void UdpBatchSender::QueueSendPacketsOperation_ThreadSafe(std::shared_ptr<std::vector<UdpSendPacketInfo> >&& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend) {
-    boost::asio::post(m_ioService,
-        boost::bind(&UdpBatchSender::PerformSendPacketsOperation, this,
+void UdpBatchSender::QueueSendPacketsOperation_ThreadSafe(
+    std::shared_ptr<std::vector<UdpSendPacketInfo> >&& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend)
+{
+    m_pimpl->QueueSendPacketsOperation_ThreadSafe(std::move(udpSendPacketInfoVecSharedPtr), numPacketsToSend);
+}
+void UdpBatchSender::Impl::QueueSendPacketsOperation_ThreadSafe(std::shared_ptr<std::vector<UdpSendPacketInfo> >&& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend) {
+    boost::asio::post(m_ioServiceRef,
+        boost::bind(&UdpBatchSender::Impl::QueueAndTryPerformSendPacketsOperation_NotThreadSafe, this,
             std::move(udpSendPacketInfoVecSharedPtr), numPacketsToSend));
 }
 
-void UdpBatchSender::AppendConstBufferVecToTransmissionElements(std::vector<boost::asio::const_buffer>& currentPacketConstBuffers) {
+void UdpBatchSender::QueueSendPacketsOperation_CalledFromWithinIoServiceThread(
+    std::shared_ptr<std::vector<UdpSendPacketInfo> >&& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend)
+{
+    //udpSendPacketInfoVecSharedPtr will be moved in the following operation
+    m_pimpl->QueueAndTryPerformSendPacketsOperation_NotThreadSafe(udpSendPacketInfoVecSharedPtr, numPacketsToSend);
+}
+
+void UdpBatchSender::Impl::AppendConstBufferVecToTransmissionElements(std::vector<boost::asio::const_buffer>& currentPacketConstBuffers) {
     const std::size_t currentPacketConstBuffersSize = currentPacketConstBuffers.size();
     if (currentPacketConstBuffersSize) {
 #ifdef _WIN32
@@ -258,11 +466,7 @@ void UdpBatchSender::AppendConstBufferVecToTransmissionElements(std::vector<boos
         };
         */
         m_transmitPacketsElementVec.emplace_back();
-#ifdef __APPLE__
-        struct msghdr& msgHeader = m_transmitPacketsElementVec.back();
-#else
         struct mmsghdr& msgHeader = m_transmitPacketsElementVec.back();
-#endif
         /*
         struct msghdr {
             void    *   msg_name;   // Socket name
@@ -282,131 +486,21 @@ void UdpBatchSender::AppendConstBufferVecToTransmissionElements(std::vector<boos
                                    //return value from a single sendmsg(2) call).
         };
         */
-#ifdef __APPLE__
-        memset(&msgHeader, 0, sizeof(struct msghdr));
-        msgHeader.msg_iov = reinterpret_cast<struct iovec*>(currentPacketConstBuffers.data());
-        msgHeader.msg_iovlen = currentPacketConstBuffersSize;
-#else
         memset(&msgHeader, 0, sizeof(struct mmsghdr));
         msgHeader.msg_hdr.msg_iov = reinterpret_cast<struct iovec*>(currentPacketConstBuffers.data());
-        msgHeader.msg_hdr.msg_iovlen = currentPacketConstBuffersSize;
-#endif     
+        msgHeader.msg_hdr.msg_iovlen = currentPacketConstBuffersSize;    
 #endif //#ifdef _WIN32
     }
     else {}
 }
 
-bool UdpBatchSender::SendTransmissionElements() {
-    bool successfulSend = true;
 
-    if (m_transmitPacketsElementVec.size()) { //there is data to send.. however if there is nothing to send then succeed with callback function and don't call OS routine
-#ifdef _WIN32
-        // Send the first burst of packets
-        SOCKET nativeSocketHandle = m_udpSocketConnectedSenderOnly.native_handle();
-        LPTRANSMIT_PACKETS_ELEMENT lpPacketArray = m_transmitPacketsElementVec.data();
-        bool result = (*m_transmitPacketsFunctionPointer)(nativeSocketHandle,
-            lpPacketArray,
-            (DWORD)m_transmitPacketsElementVec.size(),
-            0xFFFFFFFF, //TODO DETERMINE NUMBER OF F'S (7 OR 8).. Setting nSendSize to 0xFFFFFFF enables the caller to control the size and content of each send request,
-            // achieved by using the TP_ELEMENT_EOP flag in the TRANSMIT_PACKETS_ELEMENT array pointed to in the lpPacketArray parameter.
-# ifdef UDP_BATCH_SENDER_USE_OVERLAPPED
-            & m_sendOverlappedAutoReset,
-# else
-            NULL,
-# endif
-            TF_USE_DEFAULT_WORKER); //TF_USE_KERNEL_APC Directs Winsock to use kernel Asynchronous Procedure Calls (APCs) instead of worker threads to process
-        // long TransmitPackets requests.
-        // Long TransmitPackets requests are defined as requests that require more than a single read from the file or a cache;
-        // the long request definition therefore depends on the size of the file and the specified length of the send packet.
-
-        if (!result) {
-            DWORD lastError = WSAGetLastError();
-            if (lastError != ERROR_IO_PENDING) {
-                LOG_ERROR(subprocess) << __FILE__ << ":" << __LINE__ << " - TransmitPackets failed " << GetLastError();
-                successfulSend = false;
-            }
-        }
-
-# ifdef UDP_BATCH_SENDER_USE_OVERLAPPED
-        return successfulSend;
-        //the blocking code below has been replaced by m_windowsObjectHandleWaitForSend.async_wait
-        /*
-        DWORD waitResult = WaitForSingleObject(m_sendOverlappedAutoReset.hEvent, 2000); //2 second timeout
-        if (waitResult == WAIT_OBJECT_0) { //success
-            //successfulSend = true; //already initialized to true
-        }
-        else if (waitResult == WAIT_TIMEOUT) { //fail
-            successfulSend = false;
-        }
-        else { //unknown error
-            successfulSend = false;
-        }
-        */
-# endif //ifdef UDP_BATCH_SENDER_USE_OVERLAPPED
-
-#else //not #ifdef _WIN32
-        const int sockfd = m_udpSocketConnectedSenderOnly.native_handle();
-        const unsigned int vlen = static_cast<unsigned int>(m_transmitPacketsElementVec.size());
-
-
-        //A blocking sendmmsg() call (WHICH THIS IS) blocks until vlen messages have been
-        //sent.  A nonblocking call sends as many messages as possible (up
-        //to the limit specified by vlen) and returns immediately.
-#ifdef __APPLE__
-        const int retval = sendmsg(sockfd, m_transmitPacketsElementVec.data(), vlen);
-#else
-        const int retval = sendmmsg(sockfd, m_transmitPacketsElementVec.data(), vlen, 0);
-#endif
-
-        //On success, sendmmsg() returns the number of messages sent from
-        //msgvec; if this is less than vlen, the caller can retry with a
-        //further sendmmsg() call to send the remaining messages.
-        //
-        //On error, -1 is returned, and errno is set to indicate the error.
-        if (retval == -1) {
-            successfulSend = false;
-            LOG_ERROR(subprocess) << __FILE__ << ":" << __LINE__ << " - sendmmsg failed with errno " << errno;
-            perror("sendmmsg()");
-        }
-        else if (retval != vlen) {
-            //On return from sendmmsg(), the msg_len fields of successive
-            //elements of msgvec are updated to contain the number of bytes
-            //transmitted from the corresponding msg_hdr.  The return value of
-            //the call indicates the number of elements of msgvec that have
-            //been updated.
-            successfulSend = false;
-            LOG_ERROR(subprocess) << __FILE__ << ":" << __LINE__ << " - sendmmsg failed by only sending " << retval << " out of " << vlen << " packets";
-        }
-
-#endif //#ifdef _WIN32
-    }
-    return successfulSend;
-}
-
-void UdpBatchSender::PerformSendPacketsOperation(std::shared_ptr<std::vector<UdpSendPacketInfo> >& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend) {
-#ifndef UDP_BATCH_SENDER_USE_OVERLAPPED
-    m_transmitPacketsElementVec.resize(0); //space has been reserved in UdpBatchSender::Init()
-
-    std::vector<UdpSendPacketInfo>& udpSendPacketInfoVec = *udpSendPacketInfoVecSharedPtr;
-    //for loop should not compare to udpSendPacketInfoVec.size() because that vector may be resized for preallocation,
-    // and don't want to everudpSendPacketInfoVec.resize() down because that would call destructor on preallocated UdpSendPacketInfo
-    for (std::size_t i = 0; i < numPacketsToSend; ++i) {
-        AppendConstBufferVecToTransmissionElements(udpSendPacketInfoVec[i].constBufferVec);
-    }
-
-    bool successfulSend = SendTransmissionElements();
-
-
-    if (m_onSentPacketsCallback) {
-        m_onSentPacketsCallback(successfulSend, udpSendPacketInfoVecSharedPtr, numPacketsToSend);
-    }
-}
-#else //overlapped
+void UdpBatchSender::Impl::QueueAndTryPerformSendPacketsOperation_NotThreadSafe(std::shared_ptr<std::vector<UdpSendPacketInfo> >& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend) {
     m_udpSendPacketInfoQueue.emplace(std::move(udpSendPacketInfoVecSharedPtr), numPacketsToSend);
     TrySendQueued();
 
 }
-void UdpBatchSender::TrySendQueued() {
+void UdpBatchSender::Impl::TrySendQueued() {
     if (!m_udpSendPacketInfoQueue.empty()) {
         if (!m_sendInProgress.exchange(true)) {
             m_transmitPacketsElementVec.resize(0); //space has been reserved in UdpBatchSender::Init()
@@ -419,51 +513,95 @@ void UdpBatchSender::TrySendQueued() {
                 AppendConstBufferVecToTransmissionElements(udpSendPacketInfoVec[i].constBufferVec);
             }
 
-            bool successfulSend = SendTransmissionElements();
-            if (successfulSend) {
-                // Wait for the send operation to be completed, which causes a completion 
-                // routine to be queued for execution. 
-                m_windowsObjectHandleWaitForSend.async_wait(boost::bind(&UdpBatchSender::OnOverlappedSendCompleted,
-                    this, boost::asio::placeholders::error));
-            }
-            else { //fail
-                if (m_onSentPacketsCallback) {
-                    m_onSentPacketsCallback(successfulSend, m_udpSendPacketInfoQueue.front().first, numPacketsToSend);
+            
+            if (m_transmitPacketsElementVec.size()) { //there is data to send.. however if there is nothing to send then succeed with callback function and don't call OS routine
+#ifdef _WIN32
+                // Send the first burst of packets
+                SOCKET nativeSocketHandle = m_udpSocketConnectedSenderOnly.native_handle();
+                LPTRANSMIT_PACKETS_ELEMENT lpPacketArray = m_transmitPacketsElementVec.data();
+                bool result = (*m_transmitPacketsFunctionPointer)(nativeSocketHandle,
+                    lpPacketArray,
+                    (DWORD)m_transmitPacketsElementVec.size(),
+                    0xFFFFFFFF, //TODO DETERMINE NUMBER OF F'S (7 OR 8).. Setting nSendSize to 0xFFFFFFF enables the caller to control the size and content of each send request,
+                    // achieved by using the TP_ELEMENT_EOP flag in the TRANSMIT_PACKETS_ELEMENT array pointed to in the lpPacketArray parameter.
+                    &m_sendOverlappedAutoReset, // NULL would be used for synchronous waiting
+                    TF_USE_DEFAULT_WORKER); //TF_USE_KERNEL_APC Directs Winsock to use kernel Asynchronous Procedure Calls (APCs) instead of worker threads to process
+                // long TransmitPackets requests.
+                // Long TransmitPackets requests are defined as requests that require more than a single read from the file or a cache;
+                // the long request definition therefore depends on the size of the file and the specified length of the send packet.
+
+                bool successfulSend = true;
+                if (!result) {
+                    DWORD lastError = WSAGetLastError();
+                    if (lastError != ERROR_IO_PENDING) {
+                        LOG_ERROR(subprocess) << __FILE__ << ":" << __LINE__ << " - TransmitPackets failed " << GetLastError();
+                        successfulSend = false;
+                    }
                 }
-                m_udpSendPacketInfoQueue.pop();
+
+                if (successfulSend) {
+                    // Wait for the send operation to be completed, which causes a completion 
+                    // routine to be queued for execution. 
+                    m_windowsObjectHandleWaitForSend.async_wait(boost::bind(&UdpBatchSender::Impl::OnAsyncSendCompleted,
+                        this, boost::asio::placeholders::error, numPacketsToSend));
+                }
+                else { //fail
+                    if (m_onSentPacketsCallback) {
+                        m_onSentPacketsCallback(successfulSend, m_udpSendPacketInfoQueue.front().first, numPacketsToSend);
+                    }
+                    m_udpSendPacketInfoQueue.pop();
+                }
+
+
+#else //not #ifdef _WIN32
+                async_sendmmsg(m_udpSocketConnectedSenderOnly, m_transmitPacketsElementVec, boost::bind(&UdpBatchSender::Impl::OnAsyncSendCompleted,
+                    this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)); //bytes_transferred is num packets sent
+
+#endif //#ifdef _WIN32
             }
         }
     }
 }
-void UdpBatchSender::OnOverlappedSendCompleted(const boost::system::error_code& e) {
+void UdpBatchSender::Impl::OnAsyncSendCompleted(const boost::system::error_code& e, const std::size_t numPacketsSent) {
     
     bool successfulSend = false;
+    const std::size_t numPacketsToSend = m_udpSendPacketInfoQueue.front().second;
     if (!e) {
         // Not cancelled and no errors, take necessary action.
-        successfulSend = true;
+        if (numPacketsSent == numPacketsToSend) {
+            successfulSend = true;
+        }
+        else {
+            LOG_ERROR(subprocess) << "UdpBatchSender::OnAsyncSendCompleted: numPacketsSent("
+                << numPacketsSent << ") != numPacketsToSend(" << numPacketsToSend << ")";
+        }
     }
     else if (e != boost::asio::error::operation_aborted) {
-        std::cerr << "Unknown error occurred in OnPipeConnected " << e.message() << "\n";
-    }
-    else {
+        LOG_ERROR(subprocess) << "UdpBatchSender::OnAsyncSendCompleted: " << e.message();
         //sendErrorOccurred = true; //prevents sending from queue
     }
+
     if (m_onSentPacketsCallback) {
-        m_onSentPacketsCallback(successfulSend, m_udpSendPacketInfoQueue.front().first, m_udpSendPacketInfoQueue.front().second);
+        m_onSentPacketsCallback(successfulSend, m_udpSendPacketInfoQueue.front().first, numPacketsSent);
     }
     m_udpSendPacketInfoQueue.pop();
     m_sendInProgress.store(false, std::memory_order_release);
     TrySendQueued();
 }
-#endif
 
 void UdpBatchSender::SetEndpointAndReconnect_ThreadSafe(const boost::asio::ip::udp::endpoint& remoteEndpoint) {
-    boost::asio::post(m_ioService, boost::bind(&UdpBatchSender::SetEndpointAndReconnect, this, remoteEndpoint));
+    m_pimpl->SetEndpointAndReconnect_ThreadSafe(remoteEndpoint);
+}
+void UdpBatchSender::Impl::SetEndpointAndReconnect_ThreadSafe(const boost::asio::ip::udp::endpoint& remoteEndpoint) {
+    boost::asio::post(m_ioServiceRef, boost::bind(&UdpBatchSender::Impl::SetEndpointAndReconnect, this, remoteEndpoint));
 }
 void UdpBatchSender::SetEndpointAndReconnect_ThreadSafe(const std::string& remoteHostname, const uint16_t remotePort) {
-    boost::asio::post(m_ioService, boost::bind(&UdpBatchSender::SetEndpointAndReconnect, this, remoteHostname, remotePort));
+    m_pimpl->SetEndpointAndReconnect_ThreadSafe(remoteHostname, remotePort);
 }
-bool UdpBatchSender::SetEndpointAndReconnect(const boost::asio::ip::udp::endpoint& remoteEndpoint) {
+void UdpBatchSender::Impl::SetEndpointAndReconnect_ThreadSafe(const std::string& remoteHostname, const uint16_t remotePort) {
+    boost::asio::post(m_ioServiceRef, boost::bind(&UdpBatchSender::Impl::SetEndpointAndReconnect, this, remoteHostname, remotePort));
+}
+bool UdpBatchSender::Impl::SetEndpointAndReconnect(const boost::asio::ip::udp::endpoint& remoteEndpoint) {
     m_udpDestinationEndpoint = remoteEndpoint;
     try {
         m_udpSocketConnectedSenderOnly.connect(m_udpDestinationEndpoint);
@@ -474,13 +612,13 @@ bool UdpBatchSender::SetEndpointAndReconnect(const boost::asio::ip::udp::endpoin
     }
     return true;
 }
-bool UdpBatchSender::SetEndpointAndReconnect(const std::string& remoteHostname, const uint16_t remotePort) {
+bool UdpBatchSender::Impl::SetEndpointAndReconnect(const std::string& remoteHostname, const uint16_t remotePort) {
     static const boost::asio::ip::resolver_query_base::flags UDP_RESOLVER_FLAGS = boost::asio::ip::resolver_query_base::canonical_name; //boost resolver flags
     LOG_INFO(subprocess) << "UdpBatchSender resolving " << remoteHostname << ":" << remotePort;
 
     boost::asio::ip::udp::endpoint udpDestinationEndpoint;
     {
-        boost::asio::ip::udp::resolver resolver(m_ioService);
+        boost::asio::ip::udp::resolver resolver(m_ioServiceRef);
         try {
             udpDestinationEndpoint = *resolver.resolve(boost::asio::ip::udp::resolver::query(boost::asio::ip::udp::v4(), remoteHostname, boost::lexical_cast<std::string>(remotePort), UDP_RESOLVER_FLAGS));
         }
@@ -492,5 +630,8 @@ bool UdpBatchSender::SetEndpointAndReconnect(const std::string& remoteHostname, 
     return SetEndpointAndReconnect(udpDestinationEndpoint);
 }
 boost::asio::ip::udp::endpoint UdpBatchSender::GetCurrentUdpEndpoint() const {
+    return m_pimpl->GetCurrentUdpEndpoint();
+}
+boost::asio::ip::udp::endpoint UdpBatchSender::Impl::GetCurrentUdpEndpoint() const {
     return m_udpDestinationEndpoint;
 }

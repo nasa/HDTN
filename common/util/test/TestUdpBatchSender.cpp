@@ -27,17 +27,12 @@ static boost::asio::deadline_timer* g_deadlineTimerPtr;
 static std::atomic<uint64_t> g_numPacketsSentFromCallback;
 static std::atomic<uint64_t> g_udpSendPacketInfoVecActualSizeFromCallback;
 static std::atomic<bool> g_sentCallbackWasSuccessful;
-static boost::condition_variable g_conditionVariableSentPackets;
-static boost::mutex g_conditionVariableSentPacketsMutex;
 
 static void OnSentPacketsCallback(bool success, std::shared_ptr<std::vector<UdpSendPacketInfo> >& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsSent)
 {
     g_numPacketsSentFromCallback = numPacketsSent;
     g_udpSendPacketInfoVecActualSizeFromCallback = udpSendPacketInfoVecSharedPtr->size();
-    g_conditionVariableSentPacketsMutex.lock();
     g_sentCallbackWasSuccessful = success; //must be last assignment as this is the "done" flag
-    g_conditionVariableSentPacketsMutex.unlock();
-    g_conditionVariableSentPackets.notify_one();
 }
 
 static void StartUdpReceive() {
@@ -103,11 +98,13 @@ BOOST_AUTO_TEST_CASE(UdpBatchSenderTestCase)
             BOOST_ERROR("Could not bind on UDP port 1113 in UdpBatchSenderTestCase");
         }
 
-        UdpBatchSender ubs;
+        UdpBatchSender ubs(ioService);
         ubs.SetOnSentPacketsCallback(boost::bind(&OnSentPacketsCallback,
             boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
         BOOST_REQUIRE(ubs.Init("localhost", 1112)); //intentionally set the wrong port, correct it on the next line
         ubs.SetEndpointAndReconnect_ThreadSafe("localhost", 1113);
+        ioService.run();
+        ioService.reset();
         unsigned int successfulTests = 0;
         
         
@@ -147,14 +144,9 @@ BOOST_AUTO_TEST_CASE(UdpBatchSenderTestCase)
             ubs.QueueSendPacketsOperation_ThreadSafe(std::move(udpSendPacketInfoVecPtr), 3); //data gets stolen
             ioService.run();
             ioService.reset();
-
-            //wait for OnSentPacketsCallback, because it's possible for receiver callback to be called first
-            {
-                boost::mutex::scoped_lock cvLock(g_conditionVariableSentPacketsMutex); //must lock before checking the flag
-                while (!g_sentCallbackWasSuccessful) {
-                    g_conditionVariableSentPackets.wait(cvLock);
-                }
-            }
+            //OnSentPacketsCallback finished after ioService.run(), because it's possible for receiver callback to be called first
+            BOOST_REQUIRE(g_sentCallbackWasSuccessful);
+            
 
             BOOST_REQUIRE(!udpSendPacketInfoVecPtr); //stolen
             BOOST_REQUIRE_EQUAL(g_udpPacketsReceived.size(), 3);
@@ -178,5 +170,6 @@ BOOST_AUTO_TEST_CASE(UdpBatchSenderTestCase)
             ++successfulTests;
         }
         BOOST_REQUIRE_EQUAL(successfulTests, 10);
+        ubs.Stop_CalledFromWithinIoServiceThread(); //prevent default destructor from hanging in the while loop waiting for shutdown
     }
 }

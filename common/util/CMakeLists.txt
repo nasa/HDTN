@@ -21,6 +21,14 @@ add_library(hdtn_util
 	src/ThreadNamer.cpp
 	src/Utf8Paths.cpp)
 
+#Disable the syscall deprecation warning for sendmsg_x (sendmmsg equivalent)
+if(APPLE)
+	set_property(
+		SOURCE src/UdpBatchSender.cpp
+		PROPERTY COMPILE_OPTIONS
+			"-Wno-deprecated-declarations"
+	)
+endif()
 
 target_compile_definitions(hdtn_util PRIVATE
     INSTALL_DATA_DIR=${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR})

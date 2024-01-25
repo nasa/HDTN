@@ -14,7 +14,7 @@
 
 #include <boost/test/unit_test.hpp>
 #include <zmq.hpp>
-
+#include <boost/filesystem/fstream.hpp>
 #include "HdtnCliRunner.h"
 #include "TelemetryDefinitions.h"
 #include "Environment.h"
