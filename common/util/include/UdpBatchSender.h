@@ -24,15 +24,13 @@
 #define _UDP_BATCH_SENDER_H 1
 
 #include <string>
-#include <boost/thread.hpp>
 #include <boost/asio.hpp>
-#include <atomic>
-#include <queue>
 #include "hdtn_util_export.h"
 #include "LtpClientServiceDataToSend.h"
+#include <boost/core/noncopyable.hpp>
 #include <memory>
 
-class UdpBatchSender {
+class UdpBatchSender : private boost::noncopyable {
 public:
     /**
      * @typedef OnSentPacketsCallback_t Type of callback to be invoked after a packet batch send operation
@@ -107,88 +105,12 @@ public:
     HDTN_UTIL_EXPORT void SetEndpointAndReconnect_ThreadSafe(const std::string& remoteHostname, const uint16_t remotePort);
 
 private:
-    /** Connect to given UDP endpoint.
-     *
-     * @param remoteEndpoint The remote UDP endpoint to connect to.
-     * @return True if the connection could be established, or False otherwise.
-     */
-    HDTN_UTIL_NO_EXPORT bool SetEndpointAndReconnect(const boost::asio::ip::udp::endpoint& remoteEndpoint);
     
-    /** Connect to given host at given port.
-     *
-     * @param remoteHostname The remote host to connect to.
-     * @param remotePort The remote port to connect to.
-     * @return True if the connection could be established, or False otherwise.
-     */
-    HDTN_UTIL_NO_EXPORT bool SetEndpointAndReconnect(const std::string& remoteHostname, const uint16_t remotePort);
-    
-    /** Perform a packet batch send operation.
-     *
-     * Performs a single synchronous batch send operation.
-     * After it finishes (successfully or otherwise), the callback stored in m_onSentPacketsCallback (if any) is invoked.
-     * @param constBufferVecs The vector of data buffers to send.
-     * @param underlyingDataToDeleteOnSentCallbackVec The vector of underlying data buffers shared pointer.
-     * @param underlyingCsDataToDeleteOnSentCallbackVec The vector of underlying client service data to send shared pointers.
-     * @post The arguments to constBufferVecs, underlyingDataToDeleteOnSentCallbackVec and underlyingCsDataToDeleteOnSentCallbackVec are left in a moved-from state.
-     */
-    HDTN_UTIL_NO_EXPORT void QueueAndTryPerformSendPacketsOperation_NotThreadSafe(std::shared_ptr<std::vector<UdpSendPacketInfo> >& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend);
+    // Internal implementation class
+    class Impl; //public for ostream operators
+    // Pointer to the internal implementation
+    std::unique_ptr<Impl> m_pimpl;
 
-    HDTN_UTIL_NO_EXPORT void AppendConstBufferVecToTransmissionElements(std::vector<boost::asio::const_buffer>& currentPacketConstBuffers);
-
-    
-    /** Initiate request for socket shutdown.
-     *
-     * Initiates an asynchronous request to UdpBatchSender::DoHandleSocketShutdown().
-     */
-    HDTN_UTIL_NO_EXPORT void DoUdpShutdown();
-    
-    /** Perform socket shutdown.
-     *
-     * If a connection is not open, returns immediately.
-     * @post The underlying socket mechanism is ready to be reused after a successful call to UdpBatchSender::SetEndpointAndReconnect().
-     */
-    HDTN_UTIL_NO_EXPORT void DoHandleSocketShutdown();
-
-    HDTN_UTIL_NO_EXPORT void TrySendQueued();
-
-    HDTN_UTIL_NO_EXPORT void OnAsyncSendCompleted(const boost::system::error_code& e, const std::size_t numPacketsSent);
-private:
-
-    /// I/O execution context
-    boost::asio::io_service m_ioService;
-    /// Explicit work controller for m_ioService, allows for graceful shutdown of running tasks
-    std::unique_ptr<boost::asio::io_service::work> m_workPtr;
-    /// UDP socket to connect to destination endpoint
-    boost::asio::ip::udp::socket m_udpSocketConnectedSenderOnly;
-    /// UDP destination endpoint
-    boost::asio::ip::udp::endpoint m_udpDestinationEndpoint;
-    /// Thread that invokes m_ioService.run()
-    std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
-#if defined(_WIN32)
-    /// WINAPI TransmitPackets function pointer
-    LPFN_TRANSMITPACKETS m_transmitPacketsFunctionPointer;
-
-    //stuff needed for async operations
-    /// Overlapped I/O object, always configured to auto-reset
-    WSAOVERLAPPED m_sendOverlappedAutoReset;
-    boost::asio::windows::object_handle m_windowsObjectHandleWaitForSend;
-    
-    
-
-    /// Vector of packets to send
-    std::vector<TRANSMIT_PACKETS_ELEMENT> m_transmitPacketsElementVec;
-#elif defined(__APPLE__)
-    /// Vector of packets to send
-    std::vector<struct msghdr> m_transmitPacketsElementVec;
-#else // Linux (not WIN32 or APPLE)
-    /// Vector of packets to send
-    std::vector<struct mmsghdr> m_transmitPacketsElementVec;
-#endif
-    std::queue<std::pair<std::shared_ptr<std::vector<UdpSendPacketInfo> >, std::size_t > > m_udpSendPacketInfoQueue;
-    std::atomic<bool> m_sendInProgress;
-    
-    /// Callback to invoke after a packet batch send operation
-    OnSentPacketsCallback_t m_onSentPacketsCallback;
 };
 
 
