@@ -91,7 +91,9 @@ $vcvars64_path = $vc_using_tuple.Item4
 $vcvars64_path_with_quotes = "`"${vcvars64_path}`"" #literal quote needed to make this one .bat parameter
 $cmake_generator_arg = $null
 if($vc_version -eq "2022") {
-    $cmake_generator_arg = " -G `"`"Visual Studio 17 2022`"`" -A x64 " #double double quotes will be replaced within bat file
+    #$cmake_generator_arg = " -G `"`"Visual Studio 17 2022`"`" -A x64 " #double double quotes will be replaced within bat file
+    $cmake_generator_arg = " -G Ninja " #use multi-core ninja instead of single-core MSBuild above
+    #$cmake_generator_arg = " -G `"`"NMake Makefiles JOM`"`" " #did not compile
 }
 elseif($vc_version -eq "2019") {
     $cmake_generator_arg = " -G `"`"Visual Studio 16 2019`"`" -A x64 "
@@ -123,7 +125,7 @@ else { #null
 $build_directory_prefix = "C:\hdtn_build" #appends _x64_release_vs[2017,2019, or 2022] #"${PSScriptRoot}\..\build" #don't install within source, causes cmake issues when building/installing hdtn
 #------openssl-----------------
 $build_openssl_with_jom = $true #parallel build
-$jom_version = "1.1.3"
+$jom_version = "1.1.4"
 $jom_version_underscore_separated = $jom_version.replace('.','_')
 $nasm_version = "2.15.05" #required for compiling openssl
 $openssl_version = "3.1.0"
@@ -147,6 +149,7 @@ $boost_7z_file_name = "${boost_src_directory_name}.7z"
 $boost_install_directory_name = "${boost_src_directory_name}_install"
 $boost_library_install_prefix = "lib64"
 #------hdtn-----------------
+$hdtn_always_rebuild = $true #true for cicd pipeline
 $hdtn_install_directory_name = "hdtn_install"
 $Env:HDTN_SOURCE_ROOT = Convert-Path( Resolve-Path -Path "${PSScriptRoot}\..") #simplify the path to get rid of any ..
 
@@ -176,7 +179,16 @@ push-location ${build_directory}
 $zmq_is_installed = (Test-Path -Path "${build_directory}\${zmq_install_directory_name}\bin")
 $boost_is_installed = (Test-Path -Path "${build_directory}\${boost_install_directory_name}\${boost_library_install_prefix}")
 $openssl_is_installed = (Test-Path -Path "${build_directory}\${openssl_install_directory_name}\bin")
-$hdtn_is_installed = (Test-Path -Path "${build_directory}\${hdtn_install_directory_name}\lib")
+
+#for CICD pipeline, delete hdtn if it is installed
+$hdtn_install_full_directory_name = "${build_directory}\${hdtn_install_directory_name}"
+if($hdtn_always_rebuild) {
+    if(Test-Path -Path ${hdtn_install_full_directory_name}) {
+        Write-Output "hdtn_always_rebuild is true, removing existing ${hdtn_install_full_directory_name}"
+        Remove-Item -Recurse -Force ${hdtn_install_full_directory_name}
+    }
+}
+$hdtn_is_installed = (Test-Path -Path "${hdtn_install_full_directory_name}\lib")
 
 
 #download all files first in case a link fails
