@@ -89,24 +89,28 @@ $vc_version = $vc_using_tuple.Item1
 $vc_edition = $vc_using_tuple.Item2
 $vcvars64_path = $vc_using_tuple.Item4
 $vcvars64_path_with_quotes = "`"${vcvars64_path}`"" #literal quote needed to make this one .bat parameter
-$cmake_generator_arg = $null
+$cmake_generator_arg_zmq = $null
+$cmake_generator_arg_hdtn = $null
 if($vc_version -eq "2022") {
-    #$cmake_generator_arg = " -G `"`"Visual Studio 17 2022`"`" -A x64 " #double double quotes will be replaced within bat file
-    $cmake_generator_arg = " -G Ninja " #use multi-core ninja instead of single-core MSBuild above
-    #$cmake_generator_arg = " -G `"`"NMake Makefiles JOM`"`" " #did not compile
+    $cmake_generator_arg_zmq = " -G `"`"Visual Studio 17 2022`"`" -A x64 " #double double quotes will be replaced within bat file
+    $cmake_generator_arg_hdtn = " -G Ninja " #use multi-core ninja instead of single-core MSBuild above
+    #$cmake_generator_arg_hdtn = " -G `"`"NMake Makefiles JOM`"`" " #did not compile
 }
 elseif($vc_version -eq "2019") {
-    $cmake_generator_arg = " -G `"`"Visual Studio 16 2019`"`" -A x64 "
+    $cmake_generator_arg_zmq = " -G `"`"Visual Studio 16 2019`"`" -A x64 "
+    $cmake_generator_arg_hdtn = $cmake_generator_arg_zmq
 }
 elseif($vc_version -eq "2017") {
-    $cmake_generator_arg = " -G `"`"Visual Studio 15 2017`"`" -A x64 "
+    $cmake_generator_arg_zmq = " -G `"`"Visual Studio 15 2017`"`" -A x64 "
+    $cmake_generator_arg_hdtn = $cmake_generator_arg_zmq
 }
 else {
     throw "error invalid vc_version ${vc_version}."
 }
 Write-Output "Building using the installed Visual Studio ${vc_version} ${vc_edition}."
 Write-Output "Visual Studio vcvars64.bat location: ${vcvars64_path_with_quotes}."
-Write-Output "CMake Generator argument: ${cmake_generator_arg}."
+Write-Output "CMake Generator argument for HDTN: ${cmake_generator_arg_hdtn}."
+Write-Output "CMake Generator argument for ZMQ: ${cmake_generator_arg_zmq}."
 
 #------build machine-----------------
 $num_cpu_cores = (Get-ComputerInfo).CsNumberOfLogicalProcessors
@@ -283,7 +287,7 @@ if(-Not $zmq_is_installed) {
     New-Item -ItemType Directory -Force -Path ".\libzmq-${zmq_version}\mybuild"
     push-location ".\libzmq-${zmq_version}\mybuild"
     $zmq_cmake_build_options = ("`" " + #literal quote needed to make this one .bat parameter
-        "${cmake_generator_arg} " +
+        "${cmake_generator_arg_zmq} " +
         "-DBUILD_SHARED:BOOL=ON " + 
         "-DBUILD_STATIC:BOOL=ON " + 
         "-DBUILD_TESTS:BOOL=OFF " + 
@@ -381,7 +385,7 @@ if(-Not $hdtn_is_installed) {
         $TRY_USE_CPP17 = "OFF" #too many deprecation warnings printed
     }
     $hdtn_cmake_build_options = ("`" " + #literal quote needed to make this one .bat parameter
-        "${cmake_generator_arg} " +
+        "${cmake_generator_arg_hdtn} " +
         "-DBOOST_INCLUDEDIR:PATH=`"`"${build_directory}\${boost_install_directory_name}`"`" " + 
         "-DBOOST_LIBRARYDIR:PATH=`"`"${build_directory}\${boost_install_directory_name}\${boost_library_install_prefix}`"`" " + 
         "-DBOOST_ROOT:PATH=`"`"${build_directory}\${boost_install_directory_name}`"`" " + 
