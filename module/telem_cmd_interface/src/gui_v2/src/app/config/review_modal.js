@@ -8,6 +8,7 @@ import ListItemText from '@mui/material/ListItemText';
 import DialogTitle from '@mui/material/DialogTitle';
 import Dialog from '@mui/material/Dialog';
 import SettingsIcon from '@mui/icons-material/Settings';
+import CallSplitIcon from '@mui/icons-material/CallSplit';
 import SecurityIcon from '@mui/icons-material/Security';
 
 export default function ConfigReviewDialog(props) {
@@ -21,6 +22,10 @@ export default function ConfigReviewDialog(props) {
     <Dialog onClose={handleClose} open={open}>
       <DialogTitle>Copy HDTN Configuration Files</DialogTitle>
       <List sx={{ pt: 0 }}>
+
+        {/* 
+          HDTN 
+        */}
         <ListItem disableGutters key="hdtn">
             <ListItemButton onClick={() => selectOption("HDTN")}>
             <ListItemAvatar>
@@ -31,6 +36,24 @@ export default function ConfigReviewDialog(props) {
             <ListItemText primary="HDTN Configuration" />
               </ListItemButton>
             </ListItem>
+
+            {/*
+              Distributed
+            */}
+            <ListItem disableGutters key="distributed">
+            <ListItemButton onClick={() => selectOption("Distributed")}>
+            <ListItemAvatar>
+              <Avatar>
+                <CallSplitIcon />
+              </Avatar>
+            </ListItemAvatar>
+            <ListItemText primary="Distributed Configuration" />
+              </ListItemButton>
+            </ListItem>
+
+            {/*
+              BPSec
+            */}
             <ListItem disableGutters key="bpsec">
             <ListItemButton onClick={() => selectOption("BPSec")}>
             <ListItemAvatar>

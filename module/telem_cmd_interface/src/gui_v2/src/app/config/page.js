@@ -14,12 +14,14 @@ import SecurityIcon from '@mui/icons-material/Security';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import Link from 'next/link';
 import Snackbar from '@mui/material/Snackbar';
+import CallSplitIcon from '@mui/icons-material/CallSplit';
 import { usePathname, useSearchParams } from 'next/navigation'
 
 import ConfigTabs from './tabs';
 
 import { generateInitialState } from './config_fields/utils';
 import { hdtnConfigFields, inductsConfigFields, outductsConfigFields, storageConfigFields } from './setup/hdtn';
+import { distributedConfigFields } from './setup/distributed';
 import { bpSecConfigFields } from './setup/bpsec';
 import ConfigReviewDialog from './review_modal';
 
@@ -27,6 +29,7 @@ const drawerWidth = 240;
 
 export default function HDTNConfig(props) {
   const [hdtnConfig, setHdtnConfig] = React.useState(generateInitialState(hdtnConfigFields));
+  const [distributedConfig, setDistributedConfig] = React.useState(generateInitialState(distributedConfigFields))
   const [bpSecConfig, setBpSecConfig] = React.useState(generateInitialState(bpSecConfigFields));
   const [reviewModalOpen, setReviewModalOpen] = React.useState(false);
   const [snackbarOpen, setSnackbarOpen] = React.useState(false);
@@ -42,6 +45,11 @@ export default function HDTNConfig(props) {
         { id: "inducts", title: "Inducts", configFields: inductsConfigFields, state: hdtnConfig, setState: setHdtnConfig, target: hdtnConfig.inductsConfig },
         { id: "outducts", title: "Outducts", configFields: outductsConfigFields, state: hdtnConfig, setState: setHdtnConfig, target: hdtnConfig.outductsConfig },
         { id: "storage", title: "Storage", configFields: storageConfigFields, state: hdtnConfig, setState: setHdtnConfig, target: hdtnConfig.storageConfig }
+      ]
+    },
+    {
+      id: "distributed", title: "Distributed", icon: CallSplitIcon, tabs: [
+        { id: "general", title: "General", configFields: distributedConfigFields, state: distributedConfig, setState: setDistributedConfig }
       ]
     },
     {
@@ -80,7 +88,18 @@ export default function HDTNConfig(props) {
   };
 
   const selectReviewModalOption = (value) => {
-    navigator.clipboard.writeText(value === "HDTN" ? JSON.stringify(hdtnConfig) : JSON.stringify(bpSecConfig));
+    let requestedConfig;
+
+    if (value === "HDTN") {
+      console.log("HDTN!")
+      requestedConfig = hdtnConfig;
+    } else if (value === "Distributed") {
+      requestedConfig = distributedConfig;
+    } else if (value === "BPSec") {
+      requestedConfig = bpSecConfig;
+    }
+
+    navigator.clipboard.writeText(JSON.stringify(requestedConfig));
     setSnackbarMessage("Succesfully copied " + value + " to your clipboard!")
     setSnackbarOpen(true);
   }
