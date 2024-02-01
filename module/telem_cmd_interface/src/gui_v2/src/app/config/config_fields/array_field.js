@@ -37,6 +37,8 @@ export default function ConfigArrayField(props) {
 
     const value = target[fieldSetup.name];
 
+    console.log(value)
+
     return (
         <Box>
             <p>{fieldSetup.label}</p>
@@ -56,11 +58,11 @@ export default function ConfigArrayField(props) {
                         >
                             <>
                                     {fieldSetup.arrayObjectType && fieldSetup.arrayObjectType.map((field) => (
-                                        <ConfigField key={field.name} fieldSetup={field} target={item} handleAdd={() => handleArrayAdd(field, curIndex)} handleChange={(e) => handleArrayChange(e, field, curIndex)} handleDelete={(field, index) => handleArrayDelete(field, index, curIndex)} refreshState={refreshState}></ConfigField>
+                                        <ConfigField key={field.name} fieldSetup={field} target={item} targetKey={field.name} handleAdd={() => handleArrayAdd(field, curIndex)} handleChange={(e) => handleArrayChange(e, field, curIndex)} handleDelete={(field, index) => handleArrayDelete(field, index, curIndex)} refreshState={refreshState}></ConfigField>
                                     ))}
                             </>
                             <>
-                             {fieldSetup.dataType === "array" && fieldSetup.arrayType !== "object" && <ConfigField key={fieldSetup.name} fieldSetup={fieldConfigForArrayItem(fieldSetup)} target={item} handleAdd={() => handleArrayAdd(fieldSetup, curIndex)} handleChange={(e) => handleArrayChange(e, null, curIndex)} handleDelete={(fieldSetup, index) => handleArrayDelete(fieldSetup, index, curIndex)} refreshState={refreshState}></ConfigField>}
+                             {fieldSetup.dataType === "array" && fieldSetup.arrayType !== "object" && <ConfigField key={fieldSetup.name} fieldSetup={fieldConfigForArrayItem(fieldSetup)} target={value} targetKey={curIndex} handleAdd={() => handleArrayAdd(fieldSetup, curIndex)} handleChange={(e) => handleArrayChange(e, null, curIndex)} handleDelete={(fieldSetup, index) => handleArrayDelete(fieldSetup, index, curIndex)} refreshState={refreshState}></ConfigField>}
                             </>
                         </Box>
                     </AccordionDetails>

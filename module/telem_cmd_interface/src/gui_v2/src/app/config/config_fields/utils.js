@@ -33,5 +33,6 @@ export function generateInitialState(fieldsSetup) {
 export function fieldConfigForArrayItem(fieldSetup) {
     const arrayField = {...fieldSetup};
     arrayField.dataType = arrayField.arrayType;
+    delete arrayField.arrayType;
     return arrayField;
 }

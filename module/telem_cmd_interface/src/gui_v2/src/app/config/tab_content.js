@@ -47,7 +47,7 @@ export default function ConfigTabContent(props) {
           autoComplete="off"
         >
           {configFields.filter((field) => field.inputType !== InputTypes.Switch).map((field) => (
-            <ConfigField key={field.name} fieldSetup={field} target={target} handleAdd={handleAdd} handleChange={handleChange} handleDelete={handleDelete} refreshState={refreshState} />
+            <ConfigField key={field.name} fieldSetup={field} target={target} targetKey={field.name} handleAdd={handleAdd} handleChange={handleChange} handleDelete={handleDelete} refreshState={refreshState} />
           ))}
 
         </Box>
@@ -61,7 +61,7 @@ export default function ConfigTabContent(props) {
           autoComplete="off"
         >
           {configFields.filter((field) => field.inputType == InputTypes.Switch).map((field) => (
-            <ConfigField key={field.name} fieldSetup={field} target={target} handleChange={handleSwitchChange} />
+            <ConfigField key={field.name} fieldSetup={field} target={target} targetKey={field.name} handleChange={handleSwitchChange} />
           ))}
         </Box>
       </Grid>
