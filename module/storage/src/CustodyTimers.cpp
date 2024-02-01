@@ -59,11 +59,9 @@ bool CustodyTimers::PollOneAndPopAnyExpiredCustodyTimer(uint64_t & custodyId, co
     for (desteid_to_custidexpirylist_map_t::iterator it = m_mapDestEidToCustodyIdExpiryList.begin(); it != m_mapDestEidToCustodyIdExpiryList.end(); ++it) {
         custid_ptime_list_t & custIdPlusPtimeList = it->second;
         if (!custIdPlusPtimeList.empty()) {
-            custid_ptime_pair_t & thisCustodyIdPlusPtimePair = custIdPlusPtimeList.front();
-            boost::posix_time::ptime & thisExpiry = thisCustodyIdPlusPtimePair.second;
+            const custid_ptime_pair_t & thisCustodyIdPlusPtimePair = custIdPlusPtimeList.front();
+            const boost::posix_time::ptime & thisExpiry = thisCustodyIdPlusPtimePair.second;
             if (thisExpiry <= nowPtime) {
-                custid_ptime_list_t & custIdPlusPtimeList = it->second;
-                const custid_ptime_pair_t & thisCustodyIdPlusPtimePair = custIdPlusPtimeList.front();
                 custodyId = thisCustodyIdPlusPtimePair.first;
                 custIdPlusPtimeList.pop_front();
                 if (custIdPlusPtimeList.empty()) {

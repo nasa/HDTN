@@ -397,8 +397,11 @@ bool Ingress::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::path& 
     return m_pimpl->Init(hdtnConfig, bpSecConfigFilePath, hdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr, maskerImpl);
 }
 bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::path& bpSecConfigFilePath,
-		         const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr, const std::string& maskerImpl) {
-
+    const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr, const std::string& maskerImpl)
+{
+#ifndef MASKING_ENABLED
+    (void)maskerImpl; //parameter not used
+#endif
     if (m_running) {
         LOG_ERROR(subprocess) << "Ingress::Init called while Ingress is already running";
         return false;
@@ -607,20 +610,21 @@ bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::
 }
 
 static void CustomCleanupZmqMessage(void *data, void *hint) {
+    (void)data;
     delete static_cast<zmq::message_t*>(hint);
 }
 static void CustomCleanupPaddedVecUint8(void *data, void *hint) {
+    (void)data;
     delete static_cast<padded_vector_uint8_t*>(hint);
-}
-static void CustomCleanupStdString(void* data, void* hint) {
-    delete static_cast<std::string*>(hint);
 }
 
 static void CustomCleanupToEgressHdr(void *data, void *hint) {
+    (void)data;
     delete static_cast<hdtn::ToEgressHdr*>(hint);
 }
 
 static void CustomCleanupToStorageHdr(void *data, void *hint) {
+    (void)data;
     delete static_cast<hdtn::ToStorageHdr*>(hint);
 }
 
@@ -1175,7 +1179,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
         if (needsProcessing) {
             if (finalDestEid == M_HDTN_EID_PING) {
                 //get payload block
-                std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+                static thread_local std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
                 bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
                 if (blocks.size() != 1) {
                     LOG_ERROR(subprocess) << "Received a ping response bundle with no payload block";
@@ -1636,6 +1640,7 @@ void Ingress::Impl::SendOpportunisticLinkMessages(const uint64_t remoteNodeId, b
 }
 
 void Ingress::Impl::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtr) {
+    (void)sinkPtr;
     if (TcpclInduct * tcpclInductPtr = dynamic_cast<TcpclInduct*>(thisInductPtr)) {
         LOG_INFO(subprocess) << "New opportunistic link detected on TcpclV3 induct for ipn:" << remoteNodeId << ".*";
         SendOpportunisticLinkMessages(remoteNodeId, true);

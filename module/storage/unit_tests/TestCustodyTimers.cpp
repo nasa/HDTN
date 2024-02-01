@@ -84,7 +84,7 @@ BOOST_AUTO_TEST_CASE(CustodyTimersTestCase)
             BOOST_REQUIRE_EQUAL(ct.GetNumCustodyTransferTimers(EID3), 0);
         }
         boost::this_thread::sleep(boost::posix_time::milliseconds(1)); //expired now (called after StartCustodyTransferTimer)
-        uint64_t returnedCid;
+        uint64_t returnedCid = 0;
         for (uint64_t cid = 1; cid <= 10; ++cid) {
             BOOST_REQUIRE(ct.PollOneAndPopExpiredCustodyTimer(returnedCid, ALL_EIDS_AVAILABLE_VEC, boost::posix_time::microsec_clock::universal_time()));
             BOOST_REQUIRE_EQUAL(returnedCid, cid); //fifo order
@@ -118,7 +118,7 @@ BOOST_AUTO_TEST_CASE(CustodyTimersTestCase)
         }
         boost::this_thread::sleep(boost::posix_time::milliseconds(1)); //expired now (called after StartCustodyTransferTimer)
         for (uint64_t cid = 1; cid <= 10; ++cid) { //remove just eid 2
-            uint64_t returnedCid;
+            returnedCid = 0;
             BOOST_REQUIRE(ct.PollOneAndPopExpiredCustodyTimer(returnedCid, JUST_EID2_AVAILABLE_VEC, boost::posix_time::microsec_clock::universal_time()));
             BOOST_REQUIRE_EQUAL(returnedCid, cid + 100); //fifo order
             BOOST_REQUIRE_EQUAL(ct.GetNumCustodyTransferTimers(EID1), 10);
@@ -126,7 +126,7 @@ BOOST_AUTO_TEST_CASE(CustodyTimersTestCase)
             BOOST_REQUIRE_EQUAL(ct.GetNumCustodyTransferTimers(EID3), 10);
         }
         for (uint64_t cid = 1; cid <= 10; ++cid) { //remove just eid 1
-            uint64_t returnedCid;
+            returnedCid = 0;
             BOOST_REQUIRE(ct.PollOneAndPopExpiredCustodyTimer(returnedCid, JUST_EID1_AVAILABLE_VEC, boost::posix_time::microsec_clock::universal_time()));
             BOOST_REQUIRE_EQUAL(returnedCid, cid); //fifo order
             BOOST_REQUIRE_EQUAL(ct.GetNumCustodyTransferTimers(EID1), 10 - cid);
@@ -134,7 +134,7 @@ BOOST_AUTO_TEST_CASE(CustodyTimersTestCase)
             BOOST_REQUIRE_EQUAL(ct.GetNumCustodyTransferTimers(EID3), 10);
         }
         for (uint64_t cid = 1; cid <= 10; ++cid) { //remove just eid 3
-            uint64_t returnedCid;
+            returnedCid = 0;
             BOOST_REQUIRE(ct.PollOneAndPopExpiredCustodyTimer(returnedCid, ALL_EIDS_AVAILABLE_VEC, boost::posix_time::microsec_clock::universal_time()));
             BOOST_REQUIRE_EQUAL(returnedCid, cid + 200); //fifo order
             BOOST_REQUIRE_EQUAL(ct.GetNumCustodyTransferTimers(EID1), 0);

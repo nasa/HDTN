@@ -13,6 +13,7 @@
  */
 
 #include "BpOverEncapLocalStreamOutduct.h"
+#include "CcsdsEncapEncode.h"
 #include "Logger.h"
 #include <memory>
 #include <boost/make_unique.hpp>
@@ -423,6 +424,7 @@ void BpOverEncapLocalStreamOutduct::OnLocalStreamConnectionStatusChanged(bool is
 void BpOverEncapLocalStreamOutduct::OnFullEncapPacketReceived(padded_vector_uint8_t& receivedFullEncapPacket,
     uint32_t decodedEncapPayloadSize, uint8_t decodedEncapHeaderSize)
 {
+    (void)decodedEncapPayloadSize;
     //note: decodedEncapHeaderSize still set even though it is omitted from receivedFullEncapPacket
     m_totalBundleBytesReceived.fetch_add(receivedFullEncapPacket.size(), std::memory_order_relaxed);
     m_totalBundlesReceived.fetch_add(1, std::memory_order_relaxed);

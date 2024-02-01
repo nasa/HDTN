@@ -14,8 +14,8 @@
 
 #include <boost/test/unit_test.hpp>
 #include <vector>
-#include "CcsdsEncap.h"
-
+#include "CcsdsEncapDecode.h"
+#include "CcsdsEncapEncode.h"
 
 BOOST_AUTO_TEST_CASE(CcsdsEncapTestCase)
 {

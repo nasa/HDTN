@@ -52,23 +52,6 @@ static void AppendCanonicalBlockAndRender(BundleViewV6 & bv, BPV6_BLOCK_TYPE_COD
     BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), expectedRenderSize);
     
 }
-static void PrependCanonicalBlockAndRender(BundleViewV6 & bv, BPV6_BLOCK_TYPE_CODE newType, const std::string & newBlockBody) {
-    std::unique_ptr<Bpv6CanonicalBlock> blockPtr = boost::make_unique<Bpv6CanonicalBlock>();
-    Bpv6CanonicalBlock & block = *blockPtr;
-    block.m_blockTypeCode = newType;
-    block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET; //don't worry about block.flags as last block because Render will take care of that automatically
-    block.m_blockTypeSpecificDataLength = newBlockBody.length();
-    block.m_blockTypeSpecificDataPtr = (uint8_t*)newBlockBody.data(); //blockBodyAsVecUint8 must remain in scope until after render
-    bv.PrependMoveCanonicalBlock(std::move(blockPtr));
-    uint64_t expectedRenderSize;
-    BOOST_REQUIRE(bv.GetSerializationSize(expectedRenderSize));
-    BOOST_REQUIRE(bv.Render(5000));
-    BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), expectedRenderSize);
-    //check again after render
-    BOOST_REQUIRE(bv.GetSerializationSize(expectedRenderSize));
-    BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), expectedRenderSize);
-
-}
 static void PrependCanonicalBlockAndRender_AllocateOnly(BundleViewV6 & bv, BPV6_BLOCK_TYPE_CODE newType, uint64_t dataLengthToAllocate) {
     std::unique_ptr<Bpv6CanonicalBlock> blockPtr = boost::make_unique<Bpv6CanonicalBlock>();
     Bpv6CanonicalBlock & block = *blockPtr;

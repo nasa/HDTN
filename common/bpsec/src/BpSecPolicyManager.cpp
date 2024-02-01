@@ -288,6 +288,7 @@ static bool RemoveSopByGreatestToLeastIndex(BundleViewV7::Bpv7CanonicalBlockView
 static void RemoveSopTargetBlock(BundleViewV7& bv, BundleViewV7::Bpv7CanonicalBlockView& asbBlockView,
     Bpv7AbstractSecurityBlock* asbPtr, uint64_t canonicalIndex)
 {
+    (void)asbBlockView;
     if (canonicalIndex == UINT64_MAX) { //special value denoting every block targeted by ASB
         for (Bpv7AbstractSecurityBlock::security_targets_t::const_iterator it = asbPtr->m_securityTargets.cbegin();
             it != asbPtr->m_securityTargets.cend(); ++it)

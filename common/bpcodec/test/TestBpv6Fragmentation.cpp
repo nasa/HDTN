@@ -724,7 +724,6 @@ BOOST_AUTO_TEST_CASE(AssembleNotAFragment)
     bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
 
     BOOST_REQUIRE(bv.Render(5000));
-    size_t sz = 5;
 
     BOOST_REQUIRE(notFragments.size() == 1);
 

@@ -51,6 +51,8 @@ class BpSinkPatternMockChild : public BpSinkPattern
 };
 
 bool BpSinkPatternMockChild::ProcessPayload(const uint8_t * data, const uint64_t size) {
+    (void)data;
+    (void)size;
     return true;
 }
 

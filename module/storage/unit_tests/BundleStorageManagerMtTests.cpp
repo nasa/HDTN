@@ -44,7 +44,7 @@ static bool GenerateBundle(padded_vector_uint8_t& bundle, const Bpv6CbhePrimaryB
     uint64_t targetBlockTypeSpecificDataLength = targetBundleSize - (primarySize + 2);
     targetBlockTypeSpecificDataLength -= SdnvGetNumBytesRequiredToEncode(targetBlockTypeSpecificDataLength);
     std::vector<uint8_t> payloadData(targetBlockTypeSpecificDataLength);
-    for (uint64_t i = 0; i < payloadData.size(); ++i) {
+    for (std::size_t i = 0; i < payloadData.size(); ++i) {
         payloadData[i] = startChar++;
     }
     //add payload block
@@ -56,7 +56,6 @@ static bool GenerateBundle(padded_vector_uint8_t& bundle, const Bpv6CbhePrimaryB
         block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
         block.m_blockTypeSpecificDataLength = targetBlockTypeSpecificDataLength;
         block.m_blockTypeSpecificDataPtr = payloadData.data(); //payloadString must remain in scope until after render
-        uint64_t canonicalSize = block.GetSerializationSize();
         bv.AppendMoveCanonicalBlock(std::move(blockPtr));
 
     }
@@ -74,6 +73,9 @@ static bool GenerateBundleV7(padded_vector_uint8_t& bundle, const Bpv7CbhePrimar
     bv.m_primaryBlockView.SetManuallyModified();
 
     std::vector<uint8_t> payloadData(targetBundleSize);
+    for (std::size_t i = 0; i < payloadData.size(); ++i) {
+        payloadData[i] = startChar++;
+    }
     //add payload block
     {
         std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7CanonicalBlock>();
@@ -180,7 +182,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAllTestCase)
             padded_vector_uint8_t data(size);
             padded_vector_uint8_t dataReadBack(size);
             for (std::size_t i = 0; i < size; ++i) {
-                data[i] = distRandomData(gen);
+                data[i] = static_cast<uint8_t>(distRandomData(gen));
                 dataReadBack[i] = data[i] + 1; //ensure cannot be the same
             }
             const unsigned int linkId = distLinkId(gen);

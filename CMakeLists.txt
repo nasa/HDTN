@@ -60,12 +60,23 @@ endif()
 
 set(MIN_BOOST_VERSION 1.66.0)
 find_package(Boost ${MIN_BOOST_VERSION} REQUIRED system date_time filesystem timer thread regex filesystem program_options unit_test_framework iostreams random log log_setup)
-# define _WIN32_WINNT to use Windows 10 for boost
+
 if(WIN32)
+	# define _WIN32_WINNT to use Windows 10 for boost
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
     add_compile_definitions(_WIN32_WINNT=0x0A00)
 	list(APPEND COMPILE_DEFINITIONS_TO_EXPORT _CRT_SECURE_NO_WARNINGS)
 	list(APPEND COMPILE_DEFINITIONS_TO_EXPORT _WIN32_WINNT=0x0A00)
+
+	#remove any existing level 3 warnings
+	string(REGEX REPLACE "/W[01234X]" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+	string(REGEX REPLACE "/W[01234X]" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+	#compile with warning level 4
+	add_compile_options(/W4)
+	#Treats all compiler warnings as errors
+	add_compile_options(/WX)
+	#Treat linker warnings as errors
+	add_link_options(/WX)
 endif()
 
 include(${CMAKE_SOURCE_DIR}/boost_test_link_type.cmake) # Determine whether to compile HDTN with BOOST_ALL_DYN_LINK for logger and unit-tests

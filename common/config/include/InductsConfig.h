@@ -73,7 +73,7 @@ struct induct_element_config_t {
     uint64_t remoteNodeId;
 
     //specific to stcp and tcpcl
-    uint32_t keepAliveIntervalSeconds;
+    uint16_t keepAliveIntervalSeconds;
 
     //specific to tcpcl version 3 (servers)
     uint64_t tcpclV3MyMaxTxSegmentSizeBytes;

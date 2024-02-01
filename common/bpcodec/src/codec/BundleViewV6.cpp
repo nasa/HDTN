@@ -120,12 +120,12 @@ bool BundleViewV6::Render(const std::size_t maxBundleSizeBytes) {
 bool BundleViewV6::Render(uint8_t * serialization, uint64_t & sizeSerialized) {
     uint8_t * const serializationBase = serialization;
     if (m_primaryBlockView.dirty) {
-        const uint64_t sizeSerialized = m_primaryBlockView.header.SerializeBpv6(serialization);
-        if (sizeSerialized == 0) {
+        const uint64_t sizeSerializedPrimary = m_primaryBlockView.header.SerializeBpv6(serialization);
+        if (sizeSerializedPrimary == 0) {
             return false;
         }
-        m_primaryBlockView.actualSerializedPrimaryBlockPtr = boost::asio::buffer(serialization, sizeSerialized);
-        serialization += sizeSerialized;
+        m_primaryBlockView.actualSerializedPrimaryBlockPtr = boost::asio::buffer(serialization, sizeSerializedPrimary);
+        serialization += sizeSerializedPrimary;
         m_primaryBlockView.dirty = false;
     }
     else {
@@ -134,7 +134,7 @@ bool BundleViewV6::Render(uint8_t * serialization, uint64_t & sizeSerialized) {
         m_primaryBlockView.actualSerializedPrimaryBlockPtr = boost::asio::buffer(serialization, size);
         serialization += size;
     }
-    const bool isAdminRecord = ((m_primaryBlockView.header.m_bundleProcessingControlFlags & (BPV6_BUNDLEFLAG::ADMINRECORD)) != BPV6_BUNDLEFLAG::NO_FLAGS_SET);
+    //const bool isAdminRecord = ((m_primaryBlockView.header.m_bundleProcessingControlFlags & (BPV6_BUNDLEFLAG::ADMINRECORD)) != BPV6_BUNDLEFLAG::NO_FLAGS_SET);
     
     m_listCanonicalBlockView.remove_if([&](Bpv6CanonicalBlockView & v) {
         if (v.markedForDeletion && v.headerPtr) {
@@ -193,7 +193,7 @@ bool BundleViewV6::GetSerializationSize(uint64_t & serializationSize) const {
     }
 
     for (canonical_block_view_list_t::const_iterator it = m_listCanonicalBlockView.cbegin(); it != m_listCanonicalBlockView.cend(); ++it) {
-        const bool isLastBlock = (boost::next(it) == m_listCanonicalBlockView.end());
+        //const bool isLastBlock = (boost::next(it) == m_listCanonicalBlockView.end());
         //DON'T NEED TO CHECK IS_LAST_BLOCK FLAG AS IT RESIDES WITHIN THE 1-BYTE SDNV SIZE
         uint64_t currentBlockSizeSerialized;
         if (it->markedForDeletion) {

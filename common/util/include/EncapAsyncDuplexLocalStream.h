@@ -30,7 +30,7 @@
 #include <atomic>
 #include <memory>
 #include "PaddedVectorUint8.h"
-#include "CcsdsEncap.h"
+#include "CcsdsEncapDecode.h"
 #ifdef _WIN32
 # define STREAM_USE_WINDOWS_NAMED_PIPE 1
 #endif // _WIN32

@@ -159,6 +159,8 @@ unsigned int TcpclV3BidirectionalLink::Virtual_GetMaxTxBundlesInPipeline() {
 }
 
 void TcpclV3BidirectionalLink::BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr) {
+    (void)bytes_transferred;
+    (void)elPtr;
     if (error) {
         LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ":BaseClass_HandleTcpSend: " << error.message();
         BaseClass_DoTcpclShutdown(true, false);
@@ -169,6 +171,8 @@ void TcpclV3BidirectionalLink::BaseClass_HandleTcpSend(const boost::system::erro
 }
 
 void TcpclV3BidirectionalLink::BaseClass_HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr) {
+    (void)bytes_transferred;
+    (void)elPtr;
     if (error) {
         LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_HandleTcpSendShutdown: " << error.message();
     }
@@ -586,7 +590,9 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
 }
 
 void TcpclV3BidirectionalLink::BaseClass_BundleRefusalCallback(BUNDLE_REFUSAL_CODES refusalCode) {
-    LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BundleRefusalCallback not implemented yet";
+    LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT 
+        << ": BundleRefusalCallback not implemented yet: got tcpclv3 refusal code "
+        << ((int)refusalCode);
 }
 
 void TcpclV3BidirectionalLink::BaseClass_NextBundleLengthCallback(uint64_t nextBundleLength) {

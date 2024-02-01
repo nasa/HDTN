@@ -298,6 +298,7 @@ void UdpBundleSource::HandlePostForUdpSendZmqMessage(std::shared_ptr<zmq::messag
 
 
 void UdpBundleSource::HandleUdpSendVecMessage(std::shared_ptr<padded_vector_uint8_t>& dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
+    (void)dataSentPtr;
     if (error) {
         LOG_ERROR(subprocess) << "UdpBundleSource::HandleUdpSend: " << error.message();
         DoUdpShutdown();
@@ -308,6 +309,7 @@ void UdpBundleSource::HandleUdpSendVecMessage(std::shared_ptr<padded_vector_uint
 }
 
 void UdpBundleSource::HandleUdpSendZmqMessage(std::shared_ptr<zmq::message_t> & dataZmqSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
+    (void)dataZmqSentPtr;
     if (error) {
         LOG_ERROR(subprocess) << "UdpBundleSource::HandleUdpSendZmqMessage: " << error.message();
         DoUdpShutdown();

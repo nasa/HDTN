@@ -295,13 +295,15 @@ BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
             m_numTransferExtensionsProcessed += transferExtensions.extensionsVec.size();
             BOOST_REQUIRE(isStartFlag);
             BOOST_REQUIRE(isEndFlag);
+            BOOST_REQUIRE_EQUAL(transferId, m_transferId);
             const std::string rxBundleData(dataSegmentDataVec.data(), dataSegmentDataVec.data() + dataSegmentDataVec.size());
             BOOST_REQUIRE_EQUAL(m_bundleDataToSendNoFragment, rxBundleData);
         }
 
         void DataSegmentCallbackWithFragments(padded_vector_uint8_t & dataSegmentDataVec, bool isStartFlag, bool isEndFlag,
-            uint64_t transferId, const TcpclV4::tcpclv4_extensions_t & transferExtensions) {
-
+            uint64_t transferId, const TcpclV4::tcpclv4_extensions_t & transferExtensions)
+        {
+            BOOST_REQUIRE_EQUAL(transferId, m_transferId);
             if (m_numDataSegmentCallbackCountWithFragments == 0) {
                 BOOST_REQUIRE(isStartFlag);
                 BOOST_REQUIRE(!isEndFlag);

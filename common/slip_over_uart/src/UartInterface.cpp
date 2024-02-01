@@ -379,6 +379,7 @@ void UartInterface::TrySendBundleIfAvailable_ThreadSafe() {
 }
 
 void UartInterface::HandleSerialSend(const boost::system::error_code& error, std::size_t bytes_transferred, const unsigned int consumeIndex) {
+    (void)bytes_transferred;
     m_writeInProgress = false;
     SerialSendElement& el = m_txBundlesCbVec[consumeIndex];
     if (error) {

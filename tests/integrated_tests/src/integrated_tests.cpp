@@ -637,8 +637,9 @@ bool TestHDTNFileTransferLTP() {
     boost::filesystem::path ReceiveFilePath = receivedFile.c_str();
     
     int receivedCount = 0;
-        for(auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(ReceiveFilePath), {}))
-            receivedCount += 1;
+    for (const boost::filesystem::directory_entry& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(ReceiveFilePath), {})) {
+        receivedCount += (entry.status().type() == boost::filesystem::file_type::regular_file);
+    }
  
      if (receivedCount != 1) {
         BOOST_ERROR("receivedCount ("+ std::to_string(receivedCount) +") != sendCount");
@@ -768,8 +769,9 @@ bool TestHDTNFileTransferLTPv7() {
     boost::filesystem::path ReceiveFilePath = receivedFile.c_str();
     
     int receivedCount = 0;
-        for(auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(ReceiveFilePath), {}))
-            receivedCount += 1;
+    for (const boost::filesystem::directory_entry& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(ReceiveFilePath), {})) {
+        receivedCount += (entry.status().type() == boost::filesystem::file_type::regular_file);
+    }
  
      if (receivedCount != 1) {
         BOOST_ERROR("receivedCount ("+ std::to_string(receivedCount) +") != sendCount");
@@ -898,8 +900,9 @@ bool TestHDTNFileTransferTCPCL() {
     boost::filesystem::path ReceiveFilePath = receivedFile.c_str();
     
     int receivedCount = 0;
-        for(auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(ReceiveFilePath), {}))
-            receivedCount += 1;
+    for (const boost::filesystem::directory_entry& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(ReceiveFilePath), {})) {
+        receivedCount += (entry.status().type() == boost::filesystem::file_type::regular_file);
+    }
  
      if (receivedCount != 1) {
         BOOST_ERROR("receivedCount ("+ std::to_string(receivedCount) +") != sendCount");
@@ -1339,8 +1342,9 @@ bool TestHDTNFileTransferUDP() {
     boost::filesystem::path ReceiveFilePath = receivedFile.c_str();
     
     int receivedCount = 0;
-        for(auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(ReceiveFilePath), {}))
-            receivedCount += 1;
+    for (const boost::filesystem::directory_entry& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(ReceiveFilePath), {})) {
+        receivedCount += (entry.status().type() == boost::filesystem::file_type::regular_file);
+    }
  
      if (receivedCount != 1) {
         BOOST_ERROR("receivedCount ("+ std::to_string(receivedCount) +") != sendCount");

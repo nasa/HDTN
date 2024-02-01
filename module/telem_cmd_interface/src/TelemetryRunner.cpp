@@ -221,6 +221,7 @@ void TelemetryRunner::Impl::OnNewWebsocketConnectionCallback(WebsocketSessionPub
 }
 
 bool TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback(WebsocketSessionPublicBase &conn, std::string &receivedString) {
+    (void)conn;
     if (!OnApiRequest(std::move(receivedString), std::move(GUI_REQ_CONN_ID.Msg()))) {
         LOG_ERROR(subprocess) << "failed to handle API request from websocket";
     }
@@ -259,7 +260,7 @@ bool TelemetryRunner::Impl::OnApiRequest(std::string &&msgJson, zmq::message_t&&
 }
 
 bool TelemetryRunner::Impl::ProcessHdtnConfigRequest(std::string &movablePayload, zmq::message_t& connectionID) {
-     //moveablePayload parameter (not used)
+    (void)movablePayload; //moveablePayload parameter (not used)
     // Processes external API request by retrieving HDTN config and sending it back to the requester
    
     zmq::message_t blank;

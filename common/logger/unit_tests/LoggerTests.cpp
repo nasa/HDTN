@@ -16,7 +16,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/test/unit_test.hpp>
 #include "Logger.h"
-
+#if (defined(LOG_TO_PROCESS_FILE) || defined(LOG_TO_SUBPROCESS_FILES) || defined(LOG_TO_ERROR_FILE))
 /**
  * Counts the total number of lines in a file 
  */
@@ -49,6 +49,7 @@ static std::string file_contents_to_str(std::string path, uint8_t maxLines)
     }
     return outBuffer.str();
 }
+#endif
 
 /**
  * OutputTester is used for redirecting cout and cerr

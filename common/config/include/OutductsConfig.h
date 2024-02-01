@@ -73,7 +73,7 @@ struct outduct_element_config_t {
     uint32_t baudRate;
 
     //specific to stcp and tcpcl
-    uint32_t keepAliveIntervalSeconds;
+    uint16_t keepAliveIntervalSeconds;
 
     //specific to tcpcl version 3 (clients)
     uint64_t tcpclV3MyMaxTxSegmentSizeBytes;

@@ -94,6 +94,7 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
     m_didRedPartReceptionCallback(false),
     m_didNotifyForDeletion(false),
     m_receivedEobFromGreenOrRed(false),
+    m_receivedEobFromRed(false),
     m_calledCancelledCallback(false)
 {
     m_ltpSessionReceiverCommonDataRef.m_ltpSessionReceiverRecyclerRef.GetRecycledOrCreateNewUserData(m_ltpSessionReceiverRecycledDataUniquePtr);
@@ -182,7 +183,8 @@ void LtpSessionReceiver::LtpDelaySendReportSegmentTimerExpiredCallback(const Ltp
     //  sessionOriginatorEngineId = CHECKPOINT serial number to which RS pertains
     //  sessionNumber = the session number
     //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
-    const uint64_t checkpointSerialNumber = checkpointSerialNumberPlusSessionNumber.sessionOriginatorEngineId;
+    (void)checkpointSerialNumberPlusSessionNumber;
+    //const uint64_t checkpointSerialNumber = checkpointSerialNumberPlusSessionNumber.sessionOriginatorEngineId;
     rs_pending_map_t::iterator* itRsPendingPtr = (rs_pending_map_t::iterator*) userData.data();
     rs_pending_map_t::iterator& it = *itRsPendingPtr;
 
@@ -206,7 +208,8 @@ void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(const Ltp::session
     //  sessionOriginatorEngineId = REPORT serial number
     //  sessionNumber = the session number
     //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
-    const uint64_t reportSerialNumber = reportSerialNumberPlusSessionNumber.sessionOriginatorEngineId;
+    (void)reportSerialNumberPlusSessionNumber;
+    //const uint64_t reportSerialNumber = reportSerialNumberPlusSessionNumber.sessionOriginatorEngineId;
 
     if (userData.size() != sizeof(rsntimer_userdata_t)) {
         LOG_ERROR(subprocess) << "LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback: userData.size() != sizeof(rsntimer_userdata_t)";
@@ -309,6 +312,8 @@ bool LtpSessionReceiver::NextDataToSend(UdpSendPacketInfo& udpSendPacketInfo) {
 void LtpSessionReceiver::ReportAcknowledgementSegmentReceivedCallback(uint64_t reportSerialNumberBeingAcknowledged,
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
 {
+    (void)headerExtensions;
+    (void)trailerExtensions;
     m_lastSegmentReceivedTimestamp = m_ltpSessionReceiverCommonDataRef.m_nowTimeRef;
 
     //6.14.  Stop RS Timer
@@ -360,6 +365,8 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
     Ltp::client_service_raw_data_t& clientServiceRawData, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
 {
+    (void)headerExtensions;
+    (void)trailerExtensions;
     bool operationIsOngoing = false;
     m_lastSegmentReceivedTimestamp = m_ltpSessionReceiverCommonDataRef.m_nowTimeRef;
 
@@ -372,6 +379,7 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
     const bool isEndOfBlock = ((segmentTypeFlags & 3) == 3);
     if (isEndOfBlock) {
         m_receivedEobFromGreenOrRed = true;
+        m_receivedEobFromRed = isRedData;
     }
     if (isRedData) {
         const bool neededResize = (m_currentRedLength < offsetPlusLength);
@@ -436,7 +444,7 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
 
                 if (!m_ltpSessionReceiverCommonDataRef.m_memoryInFilesPtrRef->WriteMemoryAsync(deferredWrite,
                     boost::bind(&LtpSessionReceiver::OnDataSegmentWrittenToDisk, this,
-                        std::move(clientServiceDataReceivedSharedPtr), isEndOfBlock)))
+                        std::move(clientServiceDataReceivedSharedPtr))))
                 {
                     LOG_ERROR(subprocess) << "LtpSessionReceiver::DataSegmentReceivedCallback cannot start async write to disk for memoryBlockId="
                         << deferredWrite.memoryBlockId
@@ -680,7 +688,7 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                 else { //storing session data to memory (call the red part reception callback now)
                     if (m_ltpSessionReceiverCommonDataRef.m_redPartReceptionCallbackRef) {
                         m_ltpSessionReceiverCommonDataRef.m_redPartReceptionCallbackRef(M_SESSION_ID,
-                            m_dataReceivedRed, m_lengthOfRedPart, dataSegmentMetadata.clientServiceId, isEndOfBlock);
+                            m_dataReceivedRed, m_lengthOfRedPart, dataSegmentMetadata.clientServiceId, m_receivedEobFromRed);
                     }
                 }
             }
@@ -715,12 +723,12 @@ bool LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
             if (clientServiceRawData.underlyingMovableDataIfNotNull) {
                 m_ltpSessionReceiverCommonDataRef.m_greenPartSegmentArrivalCallbackRef(M_SESSION_ID,
                     *(clientServiceRawData.underlyingMovableDataIfNotNull),
-                    offsetPlusLength, dataSegmentMetadata.clientServiceId, isEndOfBlock);
+                    dataSegmentMetadata.offset, dataSegmentMetadata.clientServiceId, isEndOfBlock);
             }
             else {
                 std::vector<uint8_t> vecCopy(clientServiceRawData.data, clientServiceRawData.data + dataSegmentMetadata.length);
                 m_ltpSessionReceiverCommonDataRef.m_greenPartSegmentArrivalCallbackRef(M_SESSION_ID, vecCopy,
-                    offsetPlusLength, dataSegmentMetadata.clientServiceId, isEndOfBlock);
+                    dataSegmentMetadata.offset, dataSegmentMetadata.clientServiceId, isEndOfBlock);
             }
         }
         
@@ -815,7 +823,8 @@ void LtpSessionReceiver::HandleGenerateAndSendReportSegment(const uint64_t check
     }
 }
 
-void LtpSessionReceiver::OnDataSegmentWrittenToDisk(std::shared_ptr<std::vector<uint8_t> > & clientServiceDataReceivedSharedPtr, bool isEndOfBlock) {
+void LtpSessionReceiver::OnDataSegmentWrittenToDisk(std::shared_ptr<std::vector<uint8_t> > & clientServiceDataReceivedSharedPtr) {
+    (void)clientServiceDataReceivedSharedPtr;
     --m_numActiveAsyncDiskOperations;
     if ((m_numActiveAsyncDiskOperations == 0) && m_didRedPartReceptionCallback) { //read data back from disk and do deferred m_redPartReceptionCallbackRef
         m_dataReceivedRed.resize(m_currentRedLength);
@@ -825,7 +834,7 @@ void LtpSessionReceiver::OnDataSegmentWrittenToDisk(std::shared_ptr<std::vector<
         deferredRead.offset = 0;
         deferredRead.readToThisLocationPtr = m_dataReceivedRed.data();
         if (!m_ltpSessionReceiverCommonDataRef.m_memoryInFilesPtrRef->ReadMemoryAsync(deferredRead,
-            boost::bind(&LtpSessionReceiver::OnRedDataRecoveredFromDisk, this, boost::placeholders::_1, isEndOfBlock)))
+            boost::bind(&LtpSessionReceiver::OnRedDataRecoveredFromDisk, this, boost::placeholders::_1)))
         {
             LOG_ERROR(subprocess) << "LtpSessionReceiver: cannot start async read from disk for memoryBlockId="
                 << deferredRead.memoryBlockId
@@ -840,14 +849,15 @@ void LtpSessionReceiver::OnDataSegmentWrittenToDisk(std::shared_ptr<std::vector<
     m_ltpSessionReceiverCommonDataRef.m_notifyEngineThatThisReceiverCompletedDeferredOperationFunctionRef();
 }
 
-void LtpSessionReceiver::OnRedDataRecoveredFromDisk(bool success, bool isEndOfBlock) {
+void LtpSessionReceiver::OnRedDataRecoveredFromDisk(bool success) {
+    (void)success;
     --m_numActiveAsyncDiskOperations;
     m_ltpSessionReceiverCommonDataRef.m_memoryInFilesPtrRef->AsyncDeleteMemoryBlock(m_memoryBlockId);
     m_memoryBlockId = 0; //tell the destructor that the memory block was already freed
     //session data read from disk into memory (call the red part reception callback now)
     if (m_ltpSessionReceiverCommonDataRef.m_redPartReceptionCallbackRef) {
         m_ltpSessionReceiverCommonDataRef.m_redPartReceptionCallbackRef(M_SESSION_ID,
-            m_dataReceivedRed, m_lengthOfRedPart, m_ltpSessionReceiverCommonDataRef.m_clientServiceId, isEndOfBlock);
+            m_dataReceivedRed, m_lengthOfRedPart, m_ltpSessionReceiverCommonDataRef.m_clientServiceId, m_receivedEobFromRed);
     }
     m_dataReceivedRed = padded_vector_uint8_t(); //clear the memory if it was not moved by the m_redPartReceptionCallbackRef
 }

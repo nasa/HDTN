@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * `UdpBatchSender` now works on Apple using a `syscall` to `sendmsg_x` (the `sendmmsg` equivalent).
+* Windows now builds with warning level 4 (previously level 3) and treats all compiler warnings as errors; fixed all level 4 warnings.
+* Fix LTP RedPartReceptionCallback where the isEndOfBlock parameter now reports if the EOB came from the red data (correct behavior) instead of whether the last segment received from any part of the red data was the EOB (previous incorrect behavior).
+* Fix LTP GreenPartSegmentArrivalCallback where the offsetStartOfBlock parameter incorrectly had the length of the block added to it.
 
 ### Added
 
@@ -20,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Egress now disables LTP ping during times when the contact plan DOES NOT allow transmission.  Likewise, Egress will reenable LTP ping (back to its config file value) during times when the contact plan allows transmission.
 * `UdpBatchSender` no longer has its own thread and `io_service` due to now being completely asynchronous on all platforms; user provides an `io_service` to its constructor.  The `LtpEngine` `io_service` is what runs the `UdpBatchSender` when using LTP over UDP when `ltpMaxUdpPacketsToSendPerSystemCall` config variable is greater than 1.
+* Windows now builds with warning level 4 (previously level 3) and treats all compiler warnings and linker warnings as errors.
 
 ### Removed
 

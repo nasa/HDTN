@@ -104,14 +104,24 @@ void SlipOverUartInduct::Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread
 void SlipOverUartInduct::OnFailedBundleVecSendCallback(padded_vector_uint8_t& movableBundle,
     std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled)
 {
+    (void)movableBundle;
+    (void)userData;
+    (void)outductUuid;
+    (void)successCallbackCalled;
     BundleSinkNotifyOpportunisticDataAcked_FromIoServiceThread(*m_opportunisticBundleQueuePtr);
 }
 void SlipOverUartInduct::OnFailedBundleZmqSendCallback(zmq::message_t& movableBundle,
     std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled)
 {
+    (void)movableBundle;
+    (void)userData;
+    (void)outductUuid;
+    (void)successCallbackCalled;
     BundleSinkNotifyOpportunisticDataAcked_FromIoServiceThread(*m_opportunisticBundleQueuePtr);
 }
 void SlipOverUartInduct::OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData, uint64_t outductUuid) {
+    (void)userData;
+    (void)outductUuid;
     BundleSinkNotifyOpportunisticDataAcked_FromIoServiceThread(*m_opportunisticBundleQueuePtr);
 }
 

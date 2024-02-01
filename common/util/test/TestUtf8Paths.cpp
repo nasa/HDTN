@@ -28,7 +28,11 @@ BOOST_AUTO_TEST_CASE(Utf8PathsTestCase)
         boost::filesystem::path shalomPath(Utf8Paths::Utf8StringToPath(shalomUtf8Str));
         //std::cout << "sp " << shalomUtf8Str << "\n";
         BOOST_REQUIRE_EQUAL(shalomUtf8Str.size(), 12);
-        if (sizeof(boost::filesystem::path::value_type) == 2) { //windows wchar_t
+        if 
+#if (__cplusplus >= 201703L)
+            constexpr
+#endif
+            (sizeof(boost::filesystem::path::value_type) == 2) { //windows wchar_t
             BOOST_REQUIRE_EQUAL(shalomPath.size(), 8);
         }
         else { //linux char

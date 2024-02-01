@@ -956,7 +956,7 @@ unsigned int SdnvDecodeMultipleU64Fast(const uint8_t * data, uint8_t * numBytes,
         bytesRemainingIn128Buffer -= sdnvSizeBytes;
         --decodedRemaining;
     }
-    *numBytes = static_cast<unsigned int>(sizeof(__m128i)) - bytesRemainingIn128Buffer;
+    *numBytes = static_cast<uint8_t>(static_cast<unsigned int>(sizeof(__m128i)) - bytesRemainingIn128Buffer);
     return decodedStart - decodedRemaining;
 }
 
@@ -1052,7 +1052,7 @@ unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * num
         bytesRemainingIn256Buffer -= sdnvSizeBytes;
         --decodedRemaining;
     }
-    *numBytes = static_cast<unsigned int>(sizeof(__m256i)) - bytesRemainingIn256Buffer;
+    *numBytes = static_cast<uint8_t>(static_cast<unsigned int>(sizeof(__m256i)) - bytesRemainingIn256Buffer);
     return decodedStart - decodedRemaining;
 }
 

@@ -877,7 +877,7 @@ bool TcpclV4::GenerateSessionInitMessage(std::vector<uint8_t> & msg, uint16_t ke
     NativeU32ToUnalignedBigEndian(ptr, sessionExtensionsLengthBytes);
     ptr += sizeof(sessionExtensionsLengthBytes);
     ptr += sessionExtensions.Serialize(ptr);
-    return ((ptr - msg.data()) == msg.size());
+    return ((static_cast<std::size_t>(ptr - msg.data())) == msg.size());
 }
 
 
@@ -904,7 +904,7 @@ bool TcpclV4::GenerateNonFragmentedDataSegment(std::vector<uint8_t> & dataSegmen
     memcpy(ptr, contents, sizeContents);
     ptr += sizeContents;
 
-    return ((ptr - dataSegment.data()) == dataSegment.size());
+    return ((static_cast<std::size_t>(ptr - dataSegment.data())) == dataSegment.size());
 }
 bool TcpclV4::GenerateNonFragmentedDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, uint64_t transferId, uint64_t sizeContents) {
     static constexpr uint8_t startAndEndSegmentFlagsSet = 3U;
@@ -926,7 +926,7 @@ bool TcpclV4::GenerateNonFragmentedDataSegmentHeaderOnly(std::vector<uint8_t> & 
     NativeU64ToUnalignedBigEndian(ptr, sizeContents);
     ptr += sizeof(sizeContents);
 
-    return ((ptr - dataSegmentHeaderDataVec.data()) == dataSegmentHeaderDataVec.size());
+    return ((static_cast<std::size_t>(ptr - dataSegmentHeaderDataVec.data())) == dataSegmentHeaderDataVec.size());
 }
 
 
@@ -957,7 +957,7 @@ bool TcpclV4::GenerateNonFragmentedDataSegment(std::vector<uint8_t> & dataSegmen
     memcpy(ptr, contents, sizeContents);
     ptr += sizeContents;
 
-    return ((ptr - dataSegment.data()) == dataSegment.size());
+    return ((static_cast<std::size_t>(ptr - dataSegment.data())) == dataSegment.size());
 }
 bool TcpclV4::GenerateNonFragmentedDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, uint64_t transferId,
     uint64_t sizeContents, const tcpclv4_extensions_t & transferExtensions)
@@ -984,7 +984,7 @@ bool TcpclV4::GenerateNonFragmentedDataSegmentHeaderOnly(std::vector<uint8_t> & 
     NativeU64ToUnalignedBigEndian(ptr, sizeContents);
     ptr += sizeof(sizeContents);
 
-    return ((ptr - dataSegmentHeaderDataVec.data()) == dataSegmentHeaderDataVec.size());
+    return ((static_cast<std::size_t>(ptr - dataSegmentHeaderDataVec.data())) == dataSegmentHeaderDataVec.size());
 }
 
 
@@ -1015,7 +1015,7 @@ bool TcpclV4::GenerateStartDataSegment(std::vector<uint8_t> & dataSegment, bool 
     memcpy(ptr, contents, sizeContents);
     ptr += sizeContents;
         
-    return ((ptr - dataSegment.data()) == dataSegment.size());
+    return ((static_cast<std::size_t>(ptr - dataSegment.data())) == dataSegment.size());
 }
 bool TcpclV4::GenerateStartDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, bool isEndSegment, uint64_t transferId,
     uint64_t sizeContents, const tcpclv4_extensions_t & transferExtensions)
@@ -1042,7 +1042,7 @@ bool TcpclV4::GenerateStartDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegm
     NativeU64ToUnalignedBigEndian(ptr, sizeContents);
     ptr += sizeof(sizeContents);
 
-    return ((ptr - dataSegmentHeaderDataVec.data()) == dataSegmentHeaderDataVec.size());
+    return ((static_cast<std::size_t>(ptr - dataSegmentHeaderDataVec.data())) == dataSegmentHeaderDataVec.size());
 }
 
 
@@ -1078,7 +1078,7 @@ bool TcpclV4::GenerateFragmentedStartDataSegmentWithLengthExtension(std::vector<
     memcpy(ptr, contents, sizeContents);
     ptr += sizeContents;
 
-    return ((ptr - dataSegment.data()) == dataSegment.size());
+    return ((static_cast<std::size_t>(ptr - dataSegment.data())) == dataSegment.size());
 }
 bool TcpclV4::GenerateFragmentedStartDataSegmentWithLengthExtensionHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, uint64_t transferId,
     uint64_t sizeContents, uint64_t totalBundleLengthToBeSent)
@@ -1110,7 +1110,7 @@ bool TcpclV4::GenerateFragmentedStartDataSegmentWithLengthExtensionHeaderOnly(st
     NativeU64ToUnalignedBigEndian(ptr, sizeContents);
     ptr += sizeof(sizeContents);
     
-    return ((ptr - dataSegmentHeaderDataVec.data()) == dataSegmentHeaderDataVec.size());
+    return ((static_cast<std::size_t>(ptr - dataSegmentHeaderDataVec.data())) == dataSegmentHeaderDataVec.size());
 }
 
 
@@ -1135,7 +1135,7 @@ bool TcpclV4::GenerateNonStartDataSegment(std::vector<uint8_t> & dataSegment, bo
     memcpy(ptr, contents, sizeContents);
     ptr += sizeContents;
 
-    return ((ptr - dataSegment.data()) == dataSegment.size());
+    return ((static_cast<std::size_t>(ptr - dataSegment.data())) == dataSegment.size());
 }
 bool TcpclV4::GenerateNonStartDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, bool isEndSegment, uint64_t transferId, uint64_t sizeContents) {
 
@@ -1154,7 +1154,7 @@ bool TcpclV4::GenerateNonStartDataSegmentHeaderOnly(std::vector<uint8_t> & dataS
     NativeU64ToUnalignedBigEndian(ptr, sizeContents);
     ptr += sizeof(sizeContents);
     
-    return ((ptr - dataSegmentHeaderDataVec.data()) == dataSegmentHeaderDataVec.size());
+    return ((static_cast<std::size_t>(ptr - dataSegmentHeaderDataVec.data())) == dataSegmentHeaderDataVec.size());
 }
 
 bool TcpclV4::GenerateAckSegment(std::vector<uint8_t> & ackSegment, const tcpclv4_ack_t & ack) {
@@ -1170,7 +1170,7 @@ bool TcpclV4::GenerateAckSegment(std::vector<uint8_t> & ackSegment, const tcpclv
     NativeU64ToUnalignedBigEndian(ptr, ack.totalBytesAcknowledged);
     ptr += sizeof(ack.totalBytesAcknowledged);
 
-    return ((ptr - ackSegment.data()) == ackSegment.size());
+    return ((static_cast<std::size_t>(ptr - ackSegment.data())) == ackSegment.size());
 }
 
 bool TcpclV4::GenerateAckSegment(std::vector<uint8_t> & ackSegment, bool isStartSegment, bool isEndSegment, uint64_t transferId, uint64_t totalBytesAcknowledged) {

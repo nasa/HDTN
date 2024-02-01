@@ -221,6 +221,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], std::atomic<
             struct SenderHelper {
                 SenderHelper() : finished(false), cancelled(false) {}
                 void TransmissionSessionCompletedCallback(const Ltp::session_id_t & sessionId) {
+                    (void)sessionId;
                     finishedTime = boost::posix_time::microsec_clock::universal_time();
                     cvMutex.lock();
                     finished = true;
@@ -228,9 +229,11 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], std::atomic<
                     cv.notify_one();
                 }
                 void InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId) {
+                    (void)sessionId;
                     LOG_INFO(subprocess) << "first pass of all data sent";
                 }
                 void TransmissionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode) {
+                    (void)sessionId;
                     cvMutex.lock();
                     cancelled = true;
                     cvMutex.unlock();
@@ -290,7 +293,6 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], std::atomic<
             boost::this_thread::sleep(boost::posix_time::seconds(2));
             boost::posix_time::time_duration diff = senderHelper.finishedTime - startTime;
             const double rateMbps = totalBitsToSend / (diff.total_microseconds());
-            const double rateBps = rateMbps * 1e6;
 
             static const boost::format fmtTemplate("Sent data at %0.4f Mbits/sec");
             boost::format fmt(fmtTemplate);
@@ -304,6 +306,10 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], std::atomic<
             struct ReceiverHelper {
                 ReceiverHelper() : finished(false), cancelled(false) {}
                 void RedPartReceptionCallback(const Ltp::session_id_t & sessionId, padded_vector_uint8_t & movableClientServiceDataVec, uint64_t lengthOfRedPart, uint64_t clientServiceId, bool isEndOfBlock) {
+                    (void)sessionId;
+                    (void)lengthOfRedPart;
+                    (void)clientServiceId;
+                    (void)isEndOfBlock;
                     finishedTime = boost::posix_time::microsec_clock::universal_time();
                     receivedFileContents = std::move(movableClientServiceDataVec);
                     cvMutex.lock();
@@ -312,6 +318,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], std::atomic<
                     cv.notify_one();
                 }
                 void ReceptionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode) {
+                    (void)sessionId;
                     cvMutex.lock();
                     cancelled = true;
                     cvMutex.unlock();

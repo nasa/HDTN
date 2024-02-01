@@ -41,7 +41,7 @@ static void CreatePrimaryV6(Bpv6CbhePrimaryBlock & p, const cbhe_eid_t & srcEid,
     p.m_custodianEid.Set(1, 1);
 }
 
-static void CreatePrimaryV7(Bpv7CbhePrimaryBlock & p, const cbhe_eid_t & srcEid, const cbhe_eid_t & destEid, bool reqCustody, uint64_t creation, uint64_t sequence) {
+static void CreatePrimaryV7(Bpv7CbhePrimaryBlock & p, const cbhe_eid_t & srcEid, const cbhe_eid_t & destEid, uint64_t creation, uint64_t sequence) {
 
     p.m_bundleProcessingControlFlags = BPV7_BUNDLEFLAG::NO_FLAGS_SET;
 
@@ -79,7 +79,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogTestCase)
                 primaries.push_back(&primariesV6[i]);
             }
             else {
-                CreatePrimaryV7(primariesV7[i], cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), true, 1000, i);
+                CreatePrimaryV7(primariesV7[i], cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), 1000, i);
                 primaries.push_back(&primariesV7[i]);
             }
             catalog_entry_t catalogEntryToTake;
@@ -177,7 +177,6 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogExpiredCase)
     const uint64_t bundleSize = 1000;
     const uint64_t payloadSize = 800;
     const uint64_t bundleRequiredSegments = 1;
-    const uint64_t startCustodyId = 1;
     const uint64_t creation = 0;
 
     for(unsigned int whichBundleVersion = 6; whichBundleVersion <= 7; ++whichBundleVersion) {
@@ -191,7 +190,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogExpiredCase)
                 primary = std::move(p);
             } else {
                 std::unique_ptr<Bpv7CbhePrimaryBlock> p(new Bpv7CbhePrimaryBlock());
-                CreatePrimaryV7(*p, cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), true, creation, i);
+                CreatePrimaryV7(*p, cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), creation, i);
                 primary = std::move(p);
             }
 
@@ -236,7 +235,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogNoExpiredTestCase)
             primary = std::move(p);
         } else {
             std::unique_ptr<Bpv7CbhePrimaryBlock> p(new Bpv7CbhePrimaryBlock());
-            CreatePrimaryV7(*p, cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), true, creation, 1);
+            CreatePrimaryV7(*p, cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), creation, 1);
             primary = std::move(p);
         }
 
@@ -266,7 +265,6 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogMaxExpiredCase)
     const uint64_t bundleSize = 1000;
     const uint64_t payloadSize = 800;
     const uint64_t bundleRequiredSegments = 1;
-    const uint64_t startCustodyId = 1;
     const uint64_t creation = 0;
 
     for(unsigned int whichBundleVersion = 6; whichBundleVersion <= 7; ++whichBundleVersion) {
@@ -280,7 +278,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogMaxExpiredCase)
                 primary = std::move(p);
             } else {
                 std::unique_ptr<Bpv7CbhePrimaryBlock> p(new Bpv7CbhePrimaryBlock());
-                CreatePrimaryV7(*p, cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), true, creation, i);
+                CreatePrimaryV7(*p, cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), creation, i);
                 primary = std::move(p);
             }
 

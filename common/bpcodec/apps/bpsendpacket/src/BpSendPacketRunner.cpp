@@ -178,8 +178,6 @@ bool BpSendPacketRunner::Run(int argc, const char* const argv[], std::atomic<boo
             );
 
         LOG_INFO(subprocess) << "running";
-
-        bool startedTimer = false;
         
 
         if (useSignalHandler) {

@@ -787,13 +787,12 @@ bool ZmqStorageInterface::Impl::Write(zmq::message_t *message,
                     LOG_ERROR(subprocess) << "Failed to fragment bundle";
                     return false;
                 }
-                const uint64_t newCustodyId = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
                 bool ret = true;
                 for(std::list<BundleViewV6>::iterator it = fragments.begin(); it != fragments.end(); it++) {
                     BundleViewV6 &b = *it;
                     const Bpv6CbhePrimaryBlock & p = b.m_primaryBlockView.header;
                     const uint64_t id = m_custodyIdAllocatorPtr->GetNextCustodyIdForNextHopCtebToSend(p.m_sourceNodeId);
-                    ret &= WriteBundle(b, id);
+                    ret = (ret && WriteBundle(b, id));
                 }
                 return ret;
             }
@@ -883,16 +882,16 @@ uint64_t ZmqStorageInterface::Impl::PeekOne(const std::vector<eid_plus_isanyserv
 }
 
 static void CustomCleanupToEgressHdr(void *data, void *hint) {
+    (void)data;
     delete static_cast<hdtn::ToEgressHdr*>(hint);
 }
 static void CustomCleanupStorageAckHdr(void *data, void *hint) {
+    (void)data;
     delete static_cast<hdtn::StorageAckHdr*>(hint);
 }
 static void CustomCleanupPaddedVecUint8(void* data, void* hint) {
+    (void)data;
     delete static_cast<padded_vector_uint8_t*>(hint);
-}
-static void CustomCleanupStdString(void* data, void* hint) {
-    delete static_cast<std::string*>(hint);
 }
 
 bool ZmqStorageInterface::Impl::ReleaseOne_NoBlock(const OutductInfo_t& info, const uint64_t maxBundleSizeToRead, uint64_t& returnedBundleSize)

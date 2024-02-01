@@ -302,8 +302,8 @@ void Logger::createStdoutSink() {
         boost::shared_ptr<std::ostream>(&std::cout, boost::null_deleter())
     );
 
-    typedef sinks::synchronous_sink< sinks::text_ostream_backend > sink_t;
-    boost::shared_ptr<sink_t> stdout_sink = boost::make_shared<sink_t>(stdout_sink_backend);
+    typedef sinks::synchronous_sink< sinks::text_ostream_backend > ostream_sink_t;
+    boost::shared_ptr<ostream_sink_t> stdout_sink = boost::make_shared<ostream_sink_t>(stdout_sink_backend);
 
     stdout_sink->set_filter(expr::has_attr<logging::trivial::severity_level>("Severity"));
     stdout_sink->set_formatter(Logger::consoleFormatter());

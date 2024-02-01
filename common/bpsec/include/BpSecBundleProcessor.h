@@ -55,7 +55,6 @@ public:
     };
     struct ReusableElementsInternal {
         std::vector<boost::asio::const_buffer> constBufferVec; //aadParts and ipptParts
-        std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
         std::vector<uint8_t> verifyOnlyDecryptionTemporaryMemory; //will grow to max bundle size received if verify enabled
     };
     enum class BPSEC_ERROR_CODES : uint8_t {

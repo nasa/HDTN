@@ -498,7 +498,7 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
             }
 
             if ((outductElementConfig.convergenceLayer == "stcp") || (outductElementConfig.convergenceLayer == "tcpcl_v3") || (outductElementConfig.convergenceLayer == "tcpcl_v4")) {
-                outductElementConfig.keepAliveIntervalSeconds = outductElementConfigPt.second.get<uint32_t>("keepAliveIntervalSeconds");
+                outductElementConfig.keepAliveIntervalSeconds = outductElementConfigPt.second.get<uint16_t>("keepAliveIntervalSeconds");
             }
             else if (outductElementConfigPt.second.count("keepAliveIntervalSeconds") != 0) {
                 LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer

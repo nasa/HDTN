@@ -16,9 +16,11 @@
  * This EncapRepeater application serves as an example for writing code to intercept/extract
  * CCSDS Encap packets from HDTN.
  * This example is single threaded, asynchronous, and cross platform.
- * It relies on only three stand-alone header files from the HDTN code base:
+ * It relies on only five stand-alone header files from the HDTN code base:
  *   - /common/util/include/EncapAsyncDuplexLocalStream.h
  *   - /common/util/include/CcsdsEncap.h
+ *   - /common/util/include/CcsdsEncapEncode.h
+ *   - /common/util/include/CcsdsEncapDecode.h
  *   - /common/util/include/PaddedVectorUint8.h
  * This application has a demo in the tests/test_scripts_[linux,windows] folder
  * named test_stcp_to_bpencap_repeater_fast_cutthrough.[sh,bat].
@@ -138,6 +140,8 @@ private:
         uint32_t decodedEncapPayloadSize, uint8_t decodedEncapHeaderSize,
         uint8_t thisRxStreamIndex) //thisRxStreamIndex = non-standard parameter value permanently set in constructor by boost::bind
     {
+        (void)decodedEncapPayloadSize;
+        (void)decodedEncapHeaderSize;
         
         //note: decodedEncapHeaderSize always set even if the encap header was discarded
 
@@ -177,6 +181,7 @@ private:
     }
     
     void HandleSend(const boost::system::error_code& error, std::size_t bytes_transferred, StreamInfo& txStreamInfo) {
+        (void)bytes_transferred;
         txStreamInfo.toSendQueue.pop();
         txStreamInfo.writeInProgress.store(false, std::memory_order_release);
 

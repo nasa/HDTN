@@ -565,7 +565,7 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
             cipherTextBytes.data() + cipherTextBytes.size()
         );
         uint64_t decryptedDataOutSize = 0;
-        std::vector<boost::asio::const_buffer> aadParts;
+        aadParts.clear();
         aadParts.emplace_back(boost::asio::buffer(gcmAadBytes));
         //not inplace test (separate in and out buffers)
         BOOST_REQUIRE(BpSecBundleProcessor::AesGcmDecrypt(ctxWrapper,

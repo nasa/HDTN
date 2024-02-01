@@ -173,6 +173,8 @@ unsigned int TcpclV4BidirectionalLink::Virtual_GetMaxTxBundlesInPipeline() {
 }
 
 void TcpclV4BidirectionalLink::BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr) {
+    (void)bytes_transferred;
+    (void)elPtr;
     if (error) {
         LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_HandleTcpSend: " << error.message();
         BaseClass_DoTcpclShutdown(true, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
@@ -183,6 +185,8 @@ void TcpclV4BidirectionalLink::BaseClass_HandleTcpSend(const boost::system::erro
 }
 
 void TcpclV4BidirectionalLink::BaseClass_HandleTcpSendContactHeader(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr) {
+    (void)bytes_transferred;
+    (void)elPtr;
     if (error) {
         LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_HandleTcpSendContactHeader: " << error.message();
         BaseClass_DoTcpclShutdown(true, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
@@ -193,6 +197,8 @@ void TcpclV4BidirectionalLink::BaseClass_HandleTcpSendContactHeader(const boost:
 }
 
 void TcpclV4BidirectionalLink::BaseClass_HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr) {
+    (void)bytes_transferred;
+    (void)elPtr;
     if (error) {
         LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_HandleTcpSendShutdown: " << error.message();
     }
@@ -208,7 +214,7 @@ void TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8
     uint64_t transferId, const TcpclV4::tcpclv4_extensions_t & transferExtensions)
 {
     bool detectedLengthExtension = false;
-    uint64_t bundleLength;
+    uint64_t bundleLength = 0;
     if (transferExtensions.extensionsVec.size()) {
         for (std::size_t i = 0; i < transferExtensions.extensionsVec.size(); ++i) {
             const TcpclV4::tcpclv4_extension_t & ext = transferExtensions.extensionsVec[i];

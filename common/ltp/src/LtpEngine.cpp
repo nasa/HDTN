@@ -581,7 +581,9 @@ bool LtpEngine::TrySendPacketIfAvailable() {
     return sendOperationQueuedSuccessfully;
 }
 
-void LtpEngine::PacketInFullyProcessedCallback(bool success) {}
+void LtpEngine::PacketInFullyProcessedCallback(bool success) {
+    (void)success;
+}
 
 void LtpEngine::OnDeferredReadCompleted(bool success, const std::vector<boost::asio::const_buffer>& constBufferVec,
     std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback)
@@ -606,9 +608,17 @@ void LtpEngine::OnDeferredMultiReadCompleted(bool success, std::shared_ptr<std::
 
 void LtpEngine::SendPacket(const std::vector<boost::asio::const_buffer>& constBufferVec,
     std::shared_ptr<std::vector<std::vector<uint8_t> > >&& underlyingDataToDeleteOnSentCallback,
-    std::shared_ptr<LtpClientServiceDataToSend>&& underlyingCsDataToDeleteOnSentCallback) {}
+    std::shared_ptr<LtpClientServiceDataToSend>&& underlyingCsDataToDeleteOnSentCallback) 
+{
+    (void)constBufferVec;
+    (void)underlyingDataToDeleteOnSentCallback;
+    (void)underlyingCsDataToDeleteOnSentCallback;
+}
 
-void LtpEngine::SendPackets(std::shared_ptr<std::vector<UdpSendPacketInfo> >&& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend) {}
+void LtpEngine::SendPackets(std::shared_ptr<std::vector<UdpSendPacketInfo> >&& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsToSend) {
+    (void)udpSendPacketInfoVecSharedPtr;
+    (void)numPacketsToSend;
+}
 
 bool LtpEngine::GetNextPacketToSend(UdpSendPacketInfo& udpSendPacketInfo) {
     udpSendPacketInfo.deferredRead.memoryBlockId = 0; //MUST BE RESET TO 0 since this is a recycled struct
@@ -869,6 +879,7 @@ void LtpEngine::DoTransmissionRequest(uint64_t destinationClientServiceId, uint6
     LtpClientServiceDataToSend && clientServiceDataToSend, std::shared_ptr<LtpTransmissionRequestUserData> && userDataPtrToTake,
     uint64_t lengthOfRedPart, uint64_t memoryBlockId)
 { //only called directly by unit test (not thread safe)
+    (void)destinationLtpEngineId; //not used
     m_transmissionRequestServedAsPing = true;
     uint64_t randomSessionNumberGeneratedBySender;
     uint64_t randomInitialSenderCheckpointSerialNumber; //incremented by 1 for new
@@ -1038,6 +1049,8 @@ bool LtpEngine::CancellationRequest(const Ltp::session_id_t & sessionId) { //onl
 void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode, bool isFromSender,
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
 {
+    (void)headerExtensions;
+    (void)trailerExtensions;
     if (isFromSender) { //to receiver
         map_session_id_to_session_receiver_t::iterator rxSessionIt = m_mapSessionIdToSessionReceiver.find(sessionId);
         if (rxSessionIt != m_mapSessionIdToSessionReceiver.end()) { //found
@@ -1115,6 +1128,8 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
 void LtpEngine::CancelAcknowledgementSegmentReceivedCallback(const Ltp::session_id_t& sessionId, bool isToSender,
     Ltp::ltp_extensions_t& headerExtensions, Ltp::ltp_extensions_t& trailerExtensions)
 {
+    (void)headerExtensions;
+    (void)trailerExtensions;
     if (isToSender) {
         if (sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID) {
             LOG_ERROR(subprocess) << "CA received to sender: sessionId.sessionOriginatorEngineId (" << sessionId.sessionOriginatorEngineId << ") != M_THIS_ENGINE_ID (" << M_THIS_ENGINE_ID << ")";

@@ -386,6 +386,8 @@ void StcpBundleSource::HandleTcpSend(const boost::system::error_code& error, std
 }
 
 void StcpBundleSource::HandleTcpSendKeepAlive(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr) {
+    (void)elPtr;
+    (void)bytes_transferred;
     if (error) {
         LOG_ERROR(subprocess) << "StcpBundleSource::HandleTcpSendKeepAlive: " << error.message();
         DoStcpShutdown(RECONNECTION_DELAY_AFTER_SHUTDOWN_SECONDS);

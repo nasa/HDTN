@@ -13,6 +13,7 @@
  */
 
 #include "LtpEncapLocalStreamEngine.h"
+#include "CcsdsEncapEncode.h"
 #include "Logger.h"
 #include <boost/make_unique.hpp>
 #include <boost/lexical_cast.hpp>
@@ -188,7 +189,10 @@ void LtpEncapLocalStreamEngine::TrySendOperationIfAvailable_NotThreadSafe() {
         }
     }
 }
-void LtpEncapLocalStreamEngine::HandleSendOperationCompleted(const boost::system::error_code& error, std::size_t bytes_transferred, const unsigned int consumeIndex) {
+void LtpEncapLocalStreamEngine::HandleSendOperationCompleted(const boost::system::error_code& error,
+    std::size_t bytes_transferred, const unsigned int consumeIndex)
+{
+    (void)bytes_transferred;
     m_writeInProgress = false;
     SendElement& el = m_txCbVec[consumeIndex];
     if (error) {
@@ -225,6 +229,7 @@ void LtpEncapLocalStreamEngine::HandleSendOperationCompleted(const boost::system
 
 
 void LtpEncapLocalStreamEngine::PacketInFullyProcessedCallback(bool success) {
+    (void)success;
     //Called by LTP Engine thread
     //no-op, OnFullEncapPacketReceived calls PacketIn which calls this function
 }
@@ -354,7 +359,6 @@ void LtpEncapLocalStreamEngine::SendPackets(std::shared_ptr<std::vector<UdpSendP
     el.constBufferVec.resize(numPacketsToSend << 2); //reserve max of 4 elements/pieces for each ltp packet, first element for encap header
     el.m_encapHeaders.resize(numPacketsToSend);
     boost::asio::const_buffer* elConstBufPtr = &el.constBufferVec[0];
-    boost::asio::const_buffer* const elConstBufPtrBase = elConstBufPtr;
     for (std::size_t packetI = 0; packetI < numPacketsToSend; ++packetI) {
         const std::vector<boost::asio::const_buffer>& thisConstBufferVec = udpSendPacketInfoVec[packetI].constBufferVec;
         //encode

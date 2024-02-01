@@ -307,6 +307,7 @@ void LtpIpcEngine::ReadRemoteTxShmThreadFunc() {
 }
 
 void LtpIpcEngine::PacketInFullyProcessedCallback(bool success) {
+    (void)success;
     //Called by LTP Engine thread
     m_remoteTxIpcControlPtr->m_waitUntilNotFull_postHasFreeSpace_semaphore.post();
 }

@@ -58,10 +58,10 @@ static std::string NativeStringToUtf8String(const std::wstring& wide_string) { /
 static std::string Utf8StringToNativeString(const std::string& doNothingStr) { //Utf8StringToWideString
     return doNothingStr;
 }
-#endif //_WIN32
 static std::string NativeStringToUtf8String(const std::string& doNothingStr) { //overload for non-wide OS
     return doNothingStr;
 }
+#endif //_WIN32
 
 std::string Utf8Paths::PathToUtf8String(const boost::filesystem::path& p) {
     return std::string(NativeStringToUtf8String(p.native()));

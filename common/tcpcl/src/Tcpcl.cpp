@@ -77,7 +77,7 @@ void Tcpcl::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) {
         const TCPCL_MAIN_RX_STATE mainRxState = m_mainRxState; //const for optimization
         if (mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER) {
             const TCPCL_CONTACT_HEADER_RX_STATE contactHeaderRxState = m_contactHeaderRxState; //const for optimization
-            //magic:  A four-byte field that always contains the byte sequence 0x64	0x74 0x6e 0x21,
+            //magic:  A four-byte field that always contains the byte sequence 0x64    0x74 0x6e 0x21,
             //i.e., the text string "dtn!" in US - ASCII.
             if (contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1) {
                 if (rxVal == 0x64) { //'d'

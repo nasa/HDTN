@@ -590,6 +590,7 @@ bool MemoryInFiles::Impl::FileInfo::WriteMemoryAsync(MemoryBlockInfo& memoryBloc
     return m_valid;
 }
 void MemoryInFiles::Impl::FileInfo::HandleDiskWriteCompleted(const boost::system::error_code& error, std::size_t bytes_transferred) {
+    (void)bytes_transferred;
     io_operation_t& op = m_queueIoOperations.front();
     if (error) {
         LOG_ERROR(subprocess) << "HandleDiskWriteCompleted: " << error.message();
@@ -614,6 +615,7 @@ bool MemoryInFiles::Impl::FileInfo::ReadMemoryAsync(MemoryBlockInfo& memoryBlock
     return m_valid;
 }
 void MemoryInFiles::Impl::FileInfo::HandleDiskReadCompleted(const boost::system::error_code& error, std::size_t bytes_transferred) {
+    (void)bytes_transferred;
     io_operation_t& op = m_queueIoOperations.front();
     bool success = true;
     if (error) {

@@ -345,12 +345,11 @@ static void CustomCleanupEgressAckHdrNoHint(void *data, void *hint) {
 }
 
 static void CustomCleanupStdVecUint8(void* data, void* hint) {
+    (void)data;
     delete static_cast<std::vector<uint8_t>*>(hint);
 }
-static void CustomCleanupStdString(void* data, void* hint) {
-    delete static_cast<std::string*>(hint);
-}
 static void CustomCleanupSharedPtrStdString(void* data, void* hint) {
+    (void)data;
     std::shared_ptr<std::string>* serializedRawPtrToSharedPtr = static_cast<std::shared_ptr<std::string>* >(hint);
     //LOG_DEBUG(subprocess) << "cleanup refcnt=" << serializedRawPtrToSharedPtr->use_count();
     delete serializedRawPtrToSharedPtr; //reduce ref count and delete shared_ptr object
@@ -756,6 +755,7 @@ void Egress::Impl::ResendOutductCapabilities() {
 }
 
 static void CustomCleanupPaddedVecUint8(void *data, void *hint) {
+    (void)data;
     delete static_cast<padded_vector_uint8_t*>(hint);
 }
 
@@ -817,10 +817,10 @@ void Egress::Impl::OnFailedBundleZmqSendCallback(zmq::message_t& movableBundle, 
             }
 
             //Send HDTN_MSGTYPE_EGRESS_FAILED_BUNDLE_TO_STORAGE message plus the bundle to storage.
-            hdtn::EgressAckHdr* egressAckPtr = new hdtn::EgressAckHdr();
+            hdtn::EgressAckHdr* newEgressAckPtr = new hdtn::EgressAckHdr();
             //memset 0 not needed because all values set below
-            egressAckPtr->base.type = HDTN_MSGTYPE_EGRESS_FAILED_BUNDLE_TO_STORAGE;
-            zmq::message_t messageFailedHeaderWithDataStolen(egressAckPtr, sizeof(hdtn::EgressAckHdr), CustomCleanupEgressAckHdrNoHint); //storage can be acked right away since bundle transferred
+            newEgressAckPtr->base.type = HDTN_MSGTYPE_EGRESS_FAILED_BUNDLE_TO_STORAGE;
+            zmq::message_t messageFailedHeaderWithDataStolen(newEgressAckPtr, sizeof(hdtn::EgressAckHdr), CustomCleanupEgressAckHdrNoHint); //storage can be acked right away since bundle transferred
             {
                 boost::mutex::scoped_lock lock(m_mutex_zmqPushSock_boundEgressToConnectingStorage);
                 if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(std::move(messageFailedHeaderWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {

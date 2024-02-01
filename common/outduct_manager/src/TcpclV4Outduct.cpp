@@ -144,7 +144,6 @@ static bool VerifySubjectAltNameFromCertificate(X509 *cert, const std::string & 
             }
         }
         else if (currentSubjectAltName->type == GEN_OTHERNAME) {
-            unsigned char *outBuf = NULL;
             //http://oid-info.com/get/1.3.6.1.5.5.7.8.11
             static const int bundleEidNid = OBJ_create("1.3.6.1.5.5.7.8.11", "id-on-bundleEID", "BundleEID (See IETF RFC 9174)");
             int nid = OBJ_obj2nid(currentSubjectAltName->d.otherName->type_id);

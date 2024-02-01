@@ -199,7 +199,6 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], std::atomic<bool>
 
         LOG_INFO(subprocess) << "running";
         
-        bool startedTimer = false;
         
 
         if (useSignalHandler) {

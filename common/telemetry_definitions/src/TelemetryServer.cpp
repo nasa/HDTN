@@ -17,10 +17,12 @@
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 static void CustomCleanupStdString(void* data, void* hint) {
+    (void)data;
     delete static_cast<std::string*>(hint);
 }
 
 static void CustomCleanupSharedPtrStdString(void* data, void* hint) {
+    (void)data;
     std::shared_ptr<std::string>* serializedRawPtrToSharedPtr = static_cast<std::shared_ptr<std::string>* >(hint);
     delete serializedRawPtrToSharedPtr; //reduce ref count and delete shared_ptr object
 }
@@ -125,6 +127,5 @@ TelemetryRequest TelemetryServer::ReadRequest(std::unique_ptr<zmq::socket_t>& so
     }
 
     std::string apiMsgAsJsonStr = apiMsg.to_string();
-    bool more = apiMsg.more();
     return TelemetryRequest(false, apiMsg.more(), apiMsgAsJsonStr, connectionId);
 }

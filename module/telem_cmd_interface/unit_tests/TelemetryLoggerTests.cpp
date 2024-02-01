@@ -7,7 +7,7 @@
 #include "TelemetryLogger.h"
 #include "StatsLogger.h"
 
-   
+#ifdef DO_STATS_LOGGING
 /**
  * Reads a file's contents into a string and returns it
  */
@@ -17,6 +17,7 @@ static std::string file_contents_to_str(std::string path) {
     buffer << in.rdbuf();
     return buffer.str();
 }
+
 
 /**
  * Finds the first entry in a directory and returns its path 
@@ -29,9 +30,7 @@ static std::string findFirstEntry(std::string inputDir) {
 }
 
 static const std::string timestamp_regex = "\\d+";
-static const std::string header_regex = "^timestamp\\(ms\\),value\n";
 
-#ifdef DO_STATS_LOGGING
 BOOST_AUTO_TEST_CASE(TelemetryLoggerLogTelemetryTestCase) 
 {
     hdtn::StatsLogger::Reset();

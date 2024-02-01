@@ -32,25 +32,6 @@ static const uint64_t PRIMARY_TIME = 10000;
 static const uint64_t PRIMARY_LIFETIME = 2000;
 static const uint64_t PRIMARY_SEQ = 1;
 
-static void AppendCanonicalBlockAndRender(BundleViewV7 & bv, BPV7_BLOCK_TYPE_CODE newType, std::string & newBlockBody, uint64_t blockNumber, const BPV7_CRC_TYPE crcTypeToUse) {
-    //LOG_INFO(subprocess) << "append " << (int)newType;
-    std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7CanonicalBlock>();
-    Bpv7CanonicalBlock & block = *blockPtr;
-    block.m_blockTypeCode = newType;
-    block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
-    block.m_dataLength = newBlockBody.size();
-    block.m_dataPtr = (uint8_t*)newBlockBody.data(); //blockBodyAsVecUint8 must remain in scope until after render
-    block.m_crcType = crcTypeToUse;
-    block.m_blockNumber = blockNumber;
-    bv.AppendMoveCanonicalBlock(std::move(blockPtr));
-    uint64_t expectedRenderSize;
-    BOOST_REQUIRE(bv.GetSerializationSize(expectedRenderSize));
-    BOOST_REQUIRE(bv.Render(5000));
-    BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), expectedRenderSize);
-    //check again after render
-    BOOST_REQUIRE(bv.GetSerializationSize(expectedRenderSize));
-    BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), expectedRenderSize);
-}
 static void PrependCanonicalBlockAndRender(BundleViewV7 & bv, BPV7_BLOCK_TYPE_CODE newType, std::string & newBlockBody, uint64_t blockNumber, const BPV7_CRC_TYPE crcTypeToUse) {
     std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7CanonicalBlock>();
     Bpv7CanonicalBlock & block = *blockPtr;

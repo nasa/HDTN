@@ -421,7 +421,10 @@ bool BundleStorageManagerBase::ReadAllSegments(BundleStorageManagerSession_ReadF
 bool BundleStorageManagerBase::RemoveBundleFromDisk(const catalog_entry_t *catalogEntryPtr, const uint64_t custodyId) {
     // "read" the bundle so that we can call RemoveReadBundleFromDisk
     // don't care if this fails, that just means that it wasn't awaiting send
-    bool err = m_bundleStorageCatalog.RemoveEntryFromAwaitingSend(*catalogEntryPtr, custodyId);
+    const bool err = m_bundleStorageCatalog.RemoveEntryFromAwaitingSend(*catalogEntryPtr, custodyId);
+    if (err) {
+        // don't care if this fails, that just means that it wasn't awaiting send
+    }
     return RemoveReadBundleFromDisk(catalogEntryPtr, custodyId);
 }
 bool BundleStorageManagerBase::RemoveBundleFromDisk(const uint64_t custodyId) {
@@ -531,7 +534,7 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
         catalog_entry_t & catalogEntry = session.catalogEntry;
         segment_id_chain_vec_t & segmentIdChainVec = catalogEntry.segmentIdChainVec;
         bool headSegmentFound = false;
-        uint64_t custodyIdHeadSegment;
+        uint64_t custodyIdHeadSegment = 0; //initialization doesn't matter, only used if headSegmentFound
         PrimaryBlock * primaryBasePtr = NULL;
         for (session.nextLogicalSegment = 0; ; ++session.nextLogicalSegment) {
             const unsigned int diskIndex = segmentId % M_NUM_STORAGE_DISKS;

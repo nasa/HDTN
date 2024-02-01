@@ -134,6 +134,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_multiple_events)
 
 static void aborted_async_call_handler(const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
 {
+    (void)ev;
     BOOST_CHECK_EQUAL(ec, boost::asio::error::operation_aborted);
 }
 
@@ -154,6 +155,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_aborted_async_call)
 
 static void blocked_async_call_handler_with_local_ioservice(const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
 {
+    (void)ev;
     BOOST_CHECK_EQUAL(ec, boost::asio::error::operation_aborted);
 }
 
@@ -184,6 +186,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_blocked_async_call)
 
 static void unregister_directory_handler(const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
 {
+    (void)ev;
     BOOST_CHECK_EQUAL(ec, boost::asio::error::operation_aborted);
 }
 
@@ -245,6 +248,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_unregister_directory_as_path)
 
 static void two_dir_monitors_handler(const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
 {
+    (void)ev;
     BOOST_CHECK_EQUAL(ec, boost::asio::error::operation_aborted);
 }
 

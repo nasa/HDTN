@@ -716,7 +716,7 @@ void Router::Impl::EgressEventsHandler() {
                     LOG_ERROR(subprocess) << "malformed bundle";
                     return;
                 }
-                Bpv6CbhePrimaryBlock& primary = bv.m_primaryBlockView.header;
+                //Bpv6CbhePrimaryBlock& primary = bv.m_primaryBlockView.header;
 
                 std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
                 bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
@@ -736,7 +736,7 @@ void Router::Impl::EgressEventsHandler() {
                     LOG_ERROR(subprocess) << "malformed bpv7 bundle";
                     return;
                 }
-                Bpv7CbhePrimaryBlock& primary = bv.m_primaryBlockView.header;
+                //Bpv7CbhePrimaryBlock& primary = bv.m_primaryBlockView.header;
 
                 std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
                 bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
@@ -899,6 +899,7 @@ void Router::Impl::StorageEventsHandler() {
 }
 
 static void CustomCleanupPaddedVecUint8(void* data, void* hint) {
+    (void)data;
     delete static_cast<padded_vector_uint8_t*>(hint);
 }
 
@@ -985,10 +986,6 @@ bool Router::Impl::SendBundle(const uint8_t* payloadData, const uint64_t payload
     return true;
 }
 
-static void CustomCleanupStdString(void* data, void* hint) {
-    delete static_cast<std::string*>(hint);
-}
-
 /** Handle events from telemetry. Receives new contact plan and updates router to use that contact plan */
 void Router::Impl::TelemEventsHandler() {
     bool more = false;
@@ -1027,7 +1024,6 @@ void Router::Impl::ReadZmqAcksThreadFunc() {
         {m_zmqXPubSock_boundRouterToConnectingSubsPtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqPullSock_connectingStorageToBoundRouterPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
-    std::size_t totalAcksFromEgress = 0;
     bool routerFullyInitialized = false;
     bool egressSubscribed = false;
     bool ingressSubscribed = false;
@@ -1631,7 +1627,6 @@ void Router::Impl::ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint
 
     OutductInfo_t &info = it->second;
     const uint64_t origNextHop = info.nextHopNodeId;
-    bool noErrors = true;
 
     std::unordered_set<uint64_t>::iterator destIt = info.finalDestNodeIds.begin();
     while(destIt!= info.finalDestNodeIds.end()) {

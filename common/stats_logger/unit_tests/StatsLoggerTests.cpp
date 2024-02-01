@@ -18,8 +18,9 @@
 #include <boost/regex.hpp>
 #include "StatsLogger.h"
 
+#ifdef DO_STATS_LOGGING
 static const std::string timestamp_regex = "\\d+";
-static const std::string header_regex = "^timestamp\\(ms\\),value\n";
+//static const std::string header_regex = "^timestamp\\(ms\\),value\n";
 
 /**
  * Reads a file's contents into a string and returns it
@@ -41,7 +42,7 @@ static std::string findFirstEntry(std::string inputDir) {
     return "";
 }
 
-#ifdef DO_STATS_LOGGING
+
 BOOST_AUTO_TEST_CASE(StatsLoggerLogMetrics)
 {
     hdtn::StatsLogger::Reset();

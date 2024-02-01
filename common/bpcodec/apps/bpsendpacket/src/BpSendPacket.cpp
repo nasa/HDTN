@@ -21,6 +21,9 @@ bool BpSendPacket::Init(InductsConfig_ptr & inductsConfigPtr, const cbhe_eid_t &
 }
 
 void BpSendPacket::NullCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtr) {
+    (void)remoteNodeId;
+    (void)thisInductPtr;
+    (void)sinkPtr;
     return;
 }
 

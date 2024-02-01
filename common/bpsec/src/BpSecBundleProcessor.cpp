@@ -915,8 +915,6 @@ bool BpSecBundleProcessor::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
     const uint64_t* insertBcbBeforeThisBlockNumberIfNotNull,
     const bool renderInPlaceWhenFinished)
 {
-    std::vector<BundleViewV7::Bpv7CanonicalBlockView*>& blocks = reusableElementsInternal.blocks;
-
     std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7BlockConfidentialityBlock>();
     Bpv7BlockConfidentialityBlock& bcb = *(reinterpret_cast<Bpv7BlockConfidentialityBlock*>(blockPtr.get()));
 
@@ -1444,7 +1442,6 @@ bool BpSecBundleProcessor::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
     }
 
     uint8_t primaryByteStringHeader[10]; //must be at least 9
-    std::vector<BundleViewV7::Bpv7CanonicalBlockView*>& blocks = reusableElementsInternal.blocks;
 
     std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7BlockIntegrityBlock>();
     Bpv7BlockIntegrityBlock& bib = *(reinterpret_cast<Bpv7BlockIntegrityBlock*>(blockPtr.get()));

@@ -67,6 +67,8 @@ set(MY_PUBLIC_HEADERS
 	include/BundleCallbackFunctionDefines.h
 	include/CborUint.h
 	include/CcsdsEncap.h
+	include/CcsdsEncapEncode.h
+	include/CcsdsEncapDecode.h
 	include/CircularIndexBufferSingleProducerSingleConsumerConfigurable.h
 	include/CpuFlagDetection.h
 	include/DeadlineTimer.h
