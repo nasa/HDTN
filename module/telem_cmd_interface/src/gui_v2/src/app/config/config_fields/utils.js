@@ -15,7 +15,7 @@ export function generateInitialState(fieldsSetup) {
             config[field.name] = [];
         }
         else {
-            if (field.default) {
+            if (field.default || field.default == 0) {
                 config[field.name] = field.default;
             } else if (field.dataType === "boolean") {
                 config[field.name] = false;
