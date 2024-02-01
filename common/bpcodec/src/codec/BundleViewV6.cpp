@@ -134,7 +134,6 @@ bool BundleViewV6::Render(uint8_t * serialization, uint64_t & sizeSerialized) {
         m_primaryBlockView.actualSerializedPrimaryBlockPtr = boost::asio::buffer(serialization, size);
         serialization += size;
     }
-    //const bool isAdminRecord = ((m_primaryBlockView.header.m_bundleProcessingControlFlags & (BPV6_BUNDLEFLAG::ADMINRECORD)) != BPV6_BUNDLEFLAG::NO_FLAGS_SET);
     
     m_listCanonicalBlockView.remove_if([&](Bpv6CanonicalBlockView & v) {
         if (v.markedForDeletion && v.headerPtr) {
