@@ -31,6 +31,16 @@ build-default:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
 
+# Build HDTN with Visual Studio 2022
+build-and-run-win:
+  stage: build-stage
+  tags:
+    - win-x86
+  script:
+    - powershell -executionpolicy bypass .\building_on_windows\hdtn_windows_cicd_unit_test.ps1
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+
 # Build HDTN with C++11 only
 build-cpp11:
   stage: build-stage
