@@ -197,6 +197,7 @@ export const securityOperationsEventsConfigFields = [
         name: "eventId", 
         label: "Event ID", 
         inputType: InputTypes.Select, 
+        default: "sopCorruptedAtAcceptor",
         required: true,
         options: [
             {
@@ -230,6 +231,7 @@ export const securityOperationsEventsConfigFields = [
         label: "Actions",
         dataType: "array",
         arrayType: "string",
+        default: "removeSecurityOperationTargetBlock",
         inputType: InputTypes.Select,
         options: [
             {
