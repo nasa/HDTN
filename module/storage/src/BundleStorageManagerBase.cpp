@@ -30,7 +30,6 @@
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
 
 struct StorageSegmentHeader {
-    StorageSegmentHeader();
     void ToLittleEndianInplace();
     void ToNativeEndianInplace();
     uint64_t bundleSizeBytes;
@@ -38,7 +37,10 @@ struct StorageSegmentHeader {
     uint64_t payloadSizeBytes;
     segment_id_t nextSegmentId;
 };
-StorageSegmentHeader::StorageSegmentHeader() {}
+union StorageSegmentHeaderUnion {
+    StorageSegmentHeader hdr;
+    uint8_t rawBytes[SEGMENT_RESERVED_SPACE];
+};
 BOOST_FORCEINLINE void StorageSegmentHeader::ToLittleEndianInplace() {
     boost::endian::native_to_little_inplace(bundleSizeBytes);
     boost::endian::native_to_little_inplace(payloadSizeBytes);
@@ -180,7 +182,9 @@ int BundleStorageManagerBase::PushSegment(BundleStorageManagerSession_WriteToDis
     if (session.nextLogicalSegment >= segmentIdChainVec.size()) {
         return 0;
     }
-    StorageSegmentHeader storageSegmentHeader;
+    StorageSegmentHeaderUnion storageSegmentHeaderUnion;
+    StorageSegmentHeader& storageSegmentHeader = storageSegmentHeaderUnion.hdr;
+    //note: SEGMENT_RESERVED_SPACE is 4 bytes smaller than sizeof(StorageSegmentHeader) if segment_id_t is 32-bit
     storageSegmentHeader.bundleSizeBytes = (session.nextLogicalSegment == 0) ? catalogEntry.bundleSizeBytes : UINT64_MAX;
     storageSegmentHeader.payloadSizeBytes = (session.nextLogicalSegment == 0) ? catalogEntry.payloadSizeBytes : UINT64_MAX;
     const segment_id_t segmentId = segmentIdChainVec[session.nextLogicalSegment++];
@@ -209,7 +213,7 @@ int BundleStorageManagerBase::PushSegment(BundleStorageManagerSession_WriteToDis
     storageSegmentHeader.nextSegmentId = (session.nextLogicalSegment == segmentIdChainVec.size()) ? SEGMENT_ID_LAST : segmentIdChainVec[session.nextLogicalSegment];
     storageSegmentHeader.custodyId = custodyId;
     storageSegmentHeader.ToLittleEndianInplace(); //should optimize out and do nothing
-    memcpy(dataCb, &storageSegmentHeader, SEGMENT_RESERVED_SPACE);
+    memcpy(dataCb, storageSegmentHeaderUnion.rawBytes, SEGMENT_RESERVED_SPACE);
     memcpy(dataCb + SEGMENT_RESERVED_SPACE, buf, size);
 
     CommitWriteAndNotifyDiskOfWorkToDo_ThreadSafe(diskIndex);
@@ -341,8 +345,10 @@ std::size_t BundleStorageManagerBase::TopSegment(BundleStorageManagerSession_Rea
         }
     }
 
-    StorageSegmentHeader storageSegmentHeader;
-    memcpy(&storageSegmentHeader, &session.readCache[session.cacheReadIndex * SEGMENT_SIZE + 0], SEGMENT_RESERVED_SPACE);
+    StorageSegmentHeaderUnion storageSegmentHeaderUnion;
+    StorageSegmentHeader& storageSegmentHeader = storageSegmentHeaderUnion.hdr;
+    //note: SEGMENT_RESERVED_SPACE is 4 bytes smaller than sizeof(StorageSegmentHeader) if segment_id_t is 32-bit
+    memcpy(storageSegmentHeaderUnion.rawBytes, &session.readCache[session.cacheReadIndex * SEGMENT_SIZE + 0], SEGMENT_RESERVED_SPACE);
     storageSegmentHeader.ToNativeEndianInplace(); //should optimize out and do nothing
     if ((session.nextLogicalSegment == 0) && (storageSegmentHeader.bundleSizeBytes != session.catalogEntryPtr->bundleSizeBytes)) {// ? chainInfo.first : UINT64_MAX;
         LOG_ERROR(subprocess) << "Error: read bundle size bytes = " << storageSegmentHeader.bundleSizeBytes <<
@@ -562,8 +568,10 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
                 return false;
             }
 
-            StorageSegmentHeader storageSegmentHeader;
-            memcpy(&storageSegmentHeader, dataReadBuf, SEGMENT_RESERVED_SPACE);
+            StorageSegmentHeaderUnion storageSegmentHeaderUnion;
+            StorageSegmentHeader& storageSegmentHeader = storageSegmentHeaderUnion.hdr;
+            //note: SEGMENT_RESERVED_SPACE is 4 bytes smaller than sizeof(StorageSegmentHeader) if segment_id_t is 32-bit
+            memcpy(storageSegmentHeaderUnion.rawBytes, dataReadBuf, SEGMENT_RESERVED_SPACE);
             storageSegmentHeader.ToNativeEndianInplace(); //should optimize out and do nothing
 
             

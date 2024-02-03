@@ -190,7 +190,7 @@ bool HdtnCliRunner::ParseCliOptions(
             ("contact-plan-json", boost::program_options::value<std::string>(), "Contact plan json string");
 
         // Depending on the convergence layer, add additional options
-        for (int i=0; i < config->m_outductsConfig.m_outductElementConfigVector.size(); ++i) {
+        for (std::size_t i = 0; i < config->m_outductsConfig.m_outductElementConfigVector.size(); ++i) {
             if (config->m_outductsConfig.m_outductElementConfigVector[i].convergenceLayer == "ltp_over_udp" ||
                 config->m_outductsConfig.m_outductElementConfigVector[i].convergenceLayer == "udp") {
                 desc.add_options()

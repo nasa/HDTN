@@ -39,14 +39,14 @@ uint64_t BpSendPacket::GetNextPayloadLength_Step1() {
 }
 
 bool BpSendPacket::CopyPayload_Step2(uint8_t * destinationBuffer) {
-    size_t len = m_queue.front().size();
+    std::size_t len = m_queue.front().size();
     padded_vector_uint8_t data = m_queue.front();
 
     std::copy(data.begin(), data.end(), destinationBuffer);
     m_queue.pop();
     
     std::cout <<"[Send app] ";
-    for (int i = 0; i <  len; i++) {
+    for (std::size_t i = 0; i < len; i++) {
         std::cout << destinationBuffer[i];
     }
     std::cout << " (" << len << " bytes)" << std::endl;

@@ -570,7 +570,7 @@ static bool DoFailureEvent(BundleViewV7& bv, const BpSecPolicy* bpSecPolicyPtr, 
 bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx,
     BpSecBundleProcessor::BpSecErrorFlist& errorList, const uint64_t myNodeId) const
 {
-    bool hadError = false;
+    //ignorning the following flag: bool hadError = false;
     const Bpv7CbhePrimaryBlock& primary = bv.m_primaryBlockView.header;
     const bool bundleIsAtFinalDest = (primary.m_destinationEid.nodeId == myNodeId);
     bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, ctx.m_tmpBlocks);
@@ -646,7 +646,7 @@ bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProc
             ctx.m_bpsecReusableElementsInternal,
             verifyOnly);
         if (!errorList.empty()) {
-            hadError = true;
+            //an error occurred: hadError = true;
             bool dontDropBundle = DoFailureEvent(bv, bpSecPolicyPtr, errorList,
                 bcbBlockView, bcbPtr, !verifyOnly, false);
 
@@ -756,7 +756,7 @@ bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProc
             ctx.m_bpsecReusableElementsInternal,
             markBibForDeletion);
         if (!errorList.empty()) {
-            hadError = true;
+            //an error occurred: hadError = true;
             bool dontDropBundle = DoFailureEvent(bv, bpSecPolicyPtr, errorList, bibBlockView, bibPtr, markBibForDeletion, true);
 
             static thread_local bool printedMsg = false;

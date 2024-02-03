@@ -65,7 +65,6 @@ Contact::Contact(nodeId_t frm, nodeId_t to, time_t start, time_t end, uint64_t r
 Contact::~Contact() {}
 
 Route::Route() :
-    parent(NULL),
     to_node(std::numeric_limits<nodeId_t>::max()),
     next_node(std::numeric_limits<nodeId_t>::max()),
     from_time(0),
@@ -73,6 +72,7 @@ Route::Route() :
     best_delivery_time(0),
     volume(std::numeric_limits<uint64_t>::max()),
     confidence(1),
+    parent(NULL),
     __visited(std::map<nodeId_t, bool>())
 {
 }
@@ -188,7 +188,7 @@ bool Route::eligible(const Contact &contact) {
         Contact last = get_last_contact();
         return (!visited(contact.to) && contact.end > last.start + last.owlt);
     }
-    catch (EmptyContainerError) {
+    catch (const EmptyContainerError&) {
         return true;
     }
 }

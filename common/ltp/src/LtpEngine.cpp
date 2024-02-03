@@ -34,10 +34,6 @@ static constexpr uint64_t diskPipelineLimit = 6;
 // limit precision window
 static constexpr uint64_t TOKEN_REFRESH_INTERVAL_DIVISOR = 5;
 
-LtpEngine::cancel_segment_timer_info_t::cancel_segment_timer_info_t(const uint8_t* data) {
-    memcpy(this, data, sizeof(cancel_segment_timer_info_t));
-}
-
 LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIndexForEncodingIntoRandomSessionNumber, bool startIoServiceThread) :
     M_THIS_ENGINE_ID(ltpRxOrTxCfg.thisEngineId),
     m_numQueuedSendSystemCallsAtomic(0),
@@ -79,11 +75,11 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     m_housekeepingTimer(m_ioServiceLtpEngine),
     m_tokenRefreshTimer(m_ioServiceLtpEngine),
     m_maxSendRateBitsPerSecOrZeroToDisable(ltpRxOrTxCfg.maxSendRateBitsPerSecOrZeroToDisable),
+    m_tokenRefreshTimerIsRunning(false),
+    m_lastTimeTokensWereRefreshed(boost::posix_time::special_values::neg_infin),
     m_rateLimitPrecisionInterval(boost::posix_time::microsec(ltpRxOrTxCfg.rateLimitPrecisionMicroSec)),
     // To prevent token exhaustion, the token refresh interval must be shorter than the rate limit precision
     m_tokenRefreshInterval(boost::posix_time::microsec(ltpRxOrTxCfg.rateLimitPrecisionMicroSec / TOKEN_REFRESH_INTERVAL_DIVISOR)),
-    m_tokenRefreshTimerIsRunning(false),
-    m_lastTimeTokensWereRefreshed(boost::posix_time::special_values::neg_infin),
     m_ltpSessionSenderRecycler(M_MAX_SIMULTANEOUS_SESSIONS + 1),
     m_ltpSessionSenderCommonData(
         ltpRxOrTxCfg.mtuClientServiceData,
@@ -1198,7 +1194,8 @@ void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmen
         LOG_ERROR(subprocess) << "LtpEngine::CancelSegmentTimerExpiredCallback: userData.size() != sizeof(info)";
         return;
     }
-    cancel_segment_timer_info_t info(userData.data());
+    cancel_segment_timer_info_t* infoPtr = reinterpret_cast<cancel_segment_timer_info_t*>(userData.data());
+    cancel_segment_timer_info_t& info = *infoPtr;
     const bool isPing = (info.isFromSender && LtpRandomNumberGenerator::IsPingSession(info.sessionId.sessionNumber, M_FORCE_32_BIT_RANDOM_NUMBERS));
 
     if (info.retryCount <= m_maxRetriesPerSerialNumber) {

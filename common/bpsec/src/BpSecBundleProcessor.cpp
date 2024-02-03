@@ -493,7 +493,7 @@ bool BpSecBundleProcessor::AesWrapKey(EvpCipherCtxWrapper& ctxWrapper,
     wrappedKeyOut += tmpOutLength;
 
     wrappedKeyOutSize = static_cast<unsigned int>(wrappedKeyOut - wrappedKeyOutBase);
-    return wrappedKeyOutSize == (keyEncryptionKeyLength + 8);
+    return wrappedKeyOutSize == (keyEncryptionKeyLength + 8u);
 #else
     (void)ctxWrapper; //parameter not used
     AES_KEY aesKey;
@@ -508,7 +508,7 @@ bool BpSecBundleProcessor::AesWrapKey(EvpCipherCtxWrapper& ctxWrapper,
     //success should return keyEncryptionKeyLength + 8, or -1 if failure
     const int wrappedKeyLength = AES_wrap_key(&aesKey, NULL, wrappedKeyOut, keyToWrap, keyToWrapLength);
     wrappedKeyOutSize = static_cast<unsigned int>(wrappedKeyLength);
-    return wrappedKeyLength == (keyEncryptionKeyLength + 8);
+    return wrappedKeyOutSize == (keyEncryptionKeyLength + 8u);
 #endif
 }
 
@@ -577,7 +577,7 @@ bool BpSecBundleProcessor::AesUnwrapKey(EvpCipherCtxWrapper& ctxWrapper,
     //success should return keyEncryptionKeyLength, or -1 if failure
     const int unwrappedKeyLength = AES_unwrap_key(&aesKey, NULL, unwrappedKeyOut, keyToUnwrap, keyToUnwrapLength);
     unwrappedKeyOutSize = static_cast<unsigned int>(unwrappedKeyLength);
-    return unwrappedKeyLength == keyEncryptionKeyLength;
+    return unwrappedKeyOutSize == keyEncryptionKeyLength;
 #endif
 }
 

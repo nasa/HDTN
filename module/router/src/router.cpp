@@ -346,6 +346,7 @@ bool contactPlan_t::operator<(const contactPlan_t& o) const {
 Router::Impl::Impl() :
     m_running(false),
     m_usingUnixTimestamp(false),
+    m_contactPlanTimer(m_ioService),
     m_contactPlanTimerIsRunning(false),
     m_subtractMeFromUnixTimeSecondsToConvertToRouterTimeSeconds(0),
     m_outductInfoInitialized(false),
@@ -355,9 +356,8 @@ Router::Impl::Impl() :
     m_bundleSequence(0),
     m_usingMGR(false),
     m_latestTime(0),
-    m_contactPlanTimer(m_ioService),
-    m_storageFullTimerIsRunning(false),
-    m_storageFullTimer(m_ioService) {}
+    m_storageFullTimer(m_ioService),
+    m_storageFullTimerIsRunning(false) {}
 
 Router::Impl::~Impl() {
     Stop();
@@ -1506,7 +1506,7 @@ void Router::Impl::HandleBundle() {
  */
 void Router::Impl::FilterContactPlan(uint64_t sourceNode, std::vector<cgr::Contact> & contactPlan) {
 
-    int i = 0;
+    std::size_t i = 0;
     while(i < contactPlan.size()) {
         const cgr::Contact & contact = contactPlan[i];
 

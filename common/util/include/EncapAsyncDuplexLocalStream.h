@@ -440,7 +440,7 @@ private:
                 return;
             }
         }
-        if (bytes_transferred != (decodedEncapHeaderSize - 1)) {
+        if (bytes_transferred != (decodedEncapHeaderSize - 1u)) {
             std::cout << "HandleRemainingEncapHeaderReadCompleted: bytes_transferred != (decodedEncapHeaderSize - 1)\n";
             HandleShutdown();
             return;

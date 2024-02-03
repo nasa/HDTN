@@ -39,11 +39,11 @@ BOOST_AUTO_TEST_CASE(DijkstraRoutingTestCase)
 
 	std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << bestRoute << std::endl;
 
-	int expectedHops = 2;
+	std::size_t expectedHops = 2;
 	std::vector<cgr::Contact> expectedContacts({ contactPlan[1], contactPlan[2]});
 	std::vector<cgr::Contact> hops = bestRoute.get_hops();
 	BOOST_CHECK(hops.size() == expectedHops);
-	for (int i = 0; i < expectedHops; ++i) {
+	for (std::size_t i = 0; i < expectedHops; ++i) {
 		BOOST_CHECK(hops[i] == expectedContacts[i]);
 	};
 }
@@ -365,11 +365,11 @@ BOOST_AUTO_TEST_CASE(DijkstraPyCGRTutorialTestCase)
 
 	std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << bestRoute << std::endl;
 
-	int expectedHops = 3;
+    std::size_t expectedHops = 3;
 	std::vector<cgr::Contact> expectedContacts({ contactPlan[4], contactPlan[6], contactPlan[10]});
 	std::vector<cgr::Contact> hops = bestRoute.get_hops();
 	BOOST_CHECK(hops.size() == expectedHops);
-	for (int i = 0; i < expectedHops; ++i) {
+	for (std::size_t i = 0; i < expectedHops; ++i) {
 		BOOST_CHECK(hops[i] == expectedContacts[i]);
 	};
 }
@@ -406,11 +406,11 @@ BOOST_AUTO_TEST_CASE(CMR_DijkstraRoutingTestCase)
 
 	std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << bestRoute << std::endl;
 
-	int expectedHops = 2;
+    std::size_t expectedHops = 2;
 	std::vector<cgr::Contact> expectedContacts({ contactPlan[1], contactPlan[2] });
 	std::vector<cgr::Contact> hops = bestRoute.get_hops();
 	BOOST_CHECK(hops.size() == expectedHops);
-	for (int i = 0; i < expectedHops; ++i) {
+	for (std::size_t i = 0; i < expectedHops; ++i) {
 		std::cout << "Expected contact " << i << ": " << expectedContacts[i] << std::endl;
 		std::cout << "Actual contact " << i << ": " << hops[i] << std::endl;
 		BOOST_CHECK(hops[i] == expectedContacts[i]);
@@ -447,11 +447,11 @@ BOOST_AUTO_TEST_CASE(CMR_DijkstraPyCGRTutorialTestCase)
 
 	std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << bestRoute << std::endl;
 
-	int expectedHops = 3;
+    std::size_t expectedHops = 3;
 	std::vector<cgr::Contact> expectedContacts({ contactPlan[4], contactPlan[6], contactPlan[10] });
 	std::vector<cgr::Contact> hops = bestRoute.get_hops();
 	BOOST_CHECK(hops.size() == expectedHops);
-	for (int i = 0; i < expectedHops; ++i) {
+	for (std::size_t i = 0; i < expectedHops; ++i) {
 		BOOST_CHECK(hops[i] == expectedContacts[i]);
 	};
 }

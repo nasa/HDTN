@@ -600,9 +600,6 @@ BOOST_AUTO_TEST_CASE(Bpv7PrependExtensionBlockToPaddedBundleTestCase)
 {
     static const uint64_t PREVIOUS_NODE = 12345;
     static const uint64_t PREVIOUS_SVC = 678910;
-    static const uint64_t BUNDLE_AGE_MS = 135791113;
-    static const uint8_t HOP_LIMIT = 250;
-    static const uint8_t HOP_COUNT = 200;
     const std::string payloadString = { "This is the data inside the bpv7 payload block!!!" };
 
     const std::vector<BPV7_CRC_TYPE> crcTypesVec = { BPV7_CRC_TYPE::NONE, BPV7_CRC_TYPE::CRC16_X25, BPV7_CRC_TYPE::CRC32C };

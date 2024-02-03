@@ -86,6 +86,7 @@ void HdtnMock(zmq::context_t& context, std::string& reply, std::vector<std::stri
 
         // Wait for next request from client
         zmq::recv_result_t result = socket.recv(request, zmq::recv_flags::none);
+        BOOST_REQUIRE(result);
         BOOST_REQUIRE_EQUAL(request.to_string(), expectedRequests[0]);
         expectedRequests.erase(expectedRequests.begin());
 

@@ -189,10 +189,10 @@ private:
 };
 
 ZmqStorageInterface::Impl::Impl() :
+    m_hdtnOneProcessZmqInprocContextPtr(nullptr),
     m_running(false),
     m_isOutOfStorageSpace(false),
     m_workerThreadStartupInProgress(false),
-    m_hdtnOneProcessZmqInprocContextPtr(nullptr),
     m_deletionPolicy(DeletionPolicy::never) {}
 
 ZmqStorageInterface::Impl::~Impl() {

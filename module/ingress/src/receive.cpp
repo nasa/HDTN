@@ -920,11 +920,11 @@ void Ingress::Impl::ZmqTelemThreadFunc() {
                         SendPing(pingCmd->m_nodeId, pingCmd->m_pingServiceNumber, pingCmd->m_bpVersion);
                         request.SendResponseSuccess(m_zmqRepSock_connectingTelemToFromBoundIngressPtr);
                     }
-                    else if (GetInductsApiCommand_t* apiCmd = dynamic_cast<GetInductsApiCommand_t*>(request.Command().get())) {
+                    else if (dynamic_cast<GetInductsApiCommand_t*>(request.Command().get())) {
                         const std::string resp = allInductTelem.ToJson();
                         request.SendResponse(resp, m_zmqRepSock_connectingTelemToFromBoundIngressPtr);
                     }
-                    else if (GetBpSecApiCommand_t* bpsecCmd = dynamic_cast<GetBpSecApiCommand_t*>(request.Command().get())) {
+                    else if (dynamic_cast<GetBpSecApiCommand_t*>(request.Command().get())) {
                         // redoing what storage has done for BPsec
                     #ifdef BPSEC_SUPPORT_ENABLED
                         std::string resp = (m_bpSecConfigPtr ? m_bpSecConfigPtr->ToJson() : "{}");
@@ -1653,7 +1653,7 @@ void Ingress::Impl::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, 
         boost::mutex::scoped_lock lock(m_availableDestOpportunisticNodeIdToTcpclInductMapMutex);
         m_availableDestOpportunisticNodeIdToTcpclInductMap[remoteNodeId] = tcpclV4InductPtr;
     }
-    else if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
+    else if (dynamic_cast<StcpInduct*>(thisInductPtr)) {
 
     }
     else if (SlipOverUartInduct* slipOverUartInductPtr = dynamic_cast<SlipOverUartInduct*>(thisInductPtr)) {
@@ -1667,7 +1667,7 @@ void Ingress::Impl::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, 
     }
 }
 void Ingress::Impl::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtrAboutToBeDeleted) {
-    if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
+    if (dynamic_cast<StcpInduct*>(thisInductPtr)) {
 
     }
     else {

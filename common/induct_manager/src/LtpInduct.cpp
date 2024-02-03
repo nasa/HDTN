@@ -40,7 +40,7 @@ LtpInduct::LtpInduct(const InductProcessBundleCallback_t & inductProcessBundleCa
     m_ltpRxCfg.checkpointEveryNthDataPacketSender = 0; //unused for inducts
     m_ltpRxCfg.maxRetriesPerSerialNumber = inductConfig.ltpMaxRetriesPerSerialNumber;
     m_ltpRxCfg.force32BitRandomNumbers = (inductConfig.ltpRandomNumberSizeBits == 32);
-    m_ltpRxCfg.maxSendRateBitsPerSecOrZeroToDisable = 0;
+    m_ltpRxCfg.maxSendRateBitsPerSecOrZeroToDisable = 0; //always disable rate for report segments, etc
     m_ltpRxCfg.maxSimultaneousSessions = inductConfig.ltpMaxExpectedSimultaneousSessions;
     m_ltpRxCfg.rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable = inductConfig.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;
     m_ltpRxCfg.maxUdpPacketsToSendPerSystemCall = inductConfig.ltpMaxUdpPacketsToSendPerSystemCall;

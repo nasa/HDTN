@@ -34,11 +34,11 @@ std::ostream& operator<< (std::ostream& strm, const StatsLogger::metric_t m)
 }
 
 StatsLogger::metric_t::metric_t(std::string name, uint64_t val)
-    : isFloat(false), name(name), floatval(0), intval(val)
+    : name(name), intval(val), floatval(0), isFloat(false)
 {}
 
 StatsLogger::metric_t::metric_t(std::string name, double val)
-    : isFloat(true), name(name), floatval(val), intval(0)
+    : name(name), intval(0), floatval(val), isFloat(true)
 {}
 
 StatsLogger::StatsLogger()
@@ -55,7 +55,7 @@ void StatsLogger::Log(
     hdtn::StatsLogger::ensureInitialized(fileName, metrics);
 
     std::stringstream ss;
-    for (int i = 0; i < metrics.size(); i++) {
+    for (std::size_t i = 0; i < metrics.size(); i++) {
         ss << metrics[i];
         if (i < metrics.size() - 1) {
             ss << ",";
@@ -141,7 +141,7 @@ void StatsLogger::writeHeader(
 )
 {
     std::stringstream ss;
-    for (int i = 0; i < metrics.size(); i++) {
+    for (std::size_t i = 0; i < metrics.size(); i++) {
         ss << metrics[i].name;
         if (i < metrics.size() - 1) {
             ss << ",";

@@ -32,9 +32,9 @@ static void CustomCleanupSharedPtrStdString(void* data, void* hint) {
  * TelemetryRequest 
  */
 
-TelemetryRequest::TelemetryRequest(bool error) : m_error(error), m_more(false) {}
+TelemetryRequest::TelemetryRequest(bool error) : m_more(false), m_error(error) {}
 
-TelemetryRequest::TelemetryRequest(bool error, bool more, std::string& message, zmq::message_t& connectionId) : m_error(error), m_more(more) {
+TelemetryRequest::TelemetryRequest(bool error, bool more, std::string& message, zmq::message_t& connectionId) :  m_more(more), m_error(error) {
     m_connectionId.copy(connectionId);
     m_cmd = ApiCommand_t::CreateFromJson(message);
     if (!m_cmd) {

@@ -278,7 +278,7 @@ logging::formatter Logger::levelFileFormatter()
 std::string Logger::toString(Logger::Process process)
 {
     static constexpr uint32_t num_processes = sizeof(process_strings)/sizeof(*process_strings);
-    int process_val = static_cast<typename std::underlying_type<Logger::Process>::type>(process);
+    const uint32_t process_val = static_cast<typename std::underlying_type<Logger::Process>::type>(process);
     if (process_val >= num_processes) {
         return "";
     }
@@ -288,7 +288,7 @@ std::string Logger::toString(Logger::Process process)
 std::string Logger::toString(Logger::SubProcess subprocess)
 {
     static constexpr uint32_t num_subprocesses = sizeof(subprocess_strings)/sizeof(*subprocess_strings);
-    int subprocess_val = static_cast<typename std::underlying_type<Logger::Process>::type>(subprocess);
+    const uint32_t subprocess_val = static_cast<typename std::underlying_type<Logger::SubProcess>::type>(subprocess);
     if (subprocess_val >= num_subprocesses) {
         return "";
     }

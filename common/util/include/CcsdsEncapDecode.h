@@ -39,7 +39,7 @@ BOOST_FORCEINLINE static uint8_t DecodeCcsdsEncapHeaderSizeFromFirstByte(const E
     const uint8_t lengthOfLength = firstByte & 0x3u;
     const uint8_t headerLength = 1u << lengthOfLength;
     const uint8_t expectedHeaderFirstByte = (static_cast<uint8_t>(type)) | lengthOfLength;
-    const bool valid = (static_cast<bool>(firstByte == expectedHeaderFirstByte)) * (static_cast<bool>(lengthOfLength != 0));
+    const bool valid = (static_cast<bool>(firstByte == expectedHeaderFirstByte)) && (static_cast<bool>(lengthOfLength != 0)); //&& instead of * to prevent warning: ‘*’ in boolean context, suggest ‘&&’ instead
     return valid * headerLength;
 }
 

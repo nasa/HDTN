@@ -636,7 +636,7 @@ void BpSinkPattern::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, 
         m_tcpclOpportunisticRemoteNodeId = remoteNodeId;
         m_opportunisticConvergenceLayerName = "TcpclV4";
     }
-    else if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
+    else if (dynamic_cast<StcpInduct*>(thisInductPtr)) {
 
     }
     else if (SlipOverUartInduct* slipOverUartInductPtr = dynamic_cast<SlipOverUartInduct*>(thisInductPtr)) {
@@ -657,7 +657,7 @@ void BpSinkPattern::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, 
 }
 void BpSinkPattern::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtrAboutToBeDeleted) {
     (void)sinkPtrAboutToBeDeleted;
-    if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
+    if (dynamic_cast<StcpInduct*>(thisInductPtr)) {
 
     }
     else {

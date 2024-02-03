@@ -50,7 +50,42 @@ static bool IsZero(double x) {
     // to 1.0
     return std::fabs(x) <= std::numeric_limits<double>::epsilon();
 }
-BpSourcePattern::BpSourcePattern() : m_running(false), m_bundleCount(0) {}
+BpSourcePattern::BpSourcePattern() :
+    m_bundleCount(0),
+    m_numRfc5050CustodyTransfers(0),
+    m_numAcsCustodyTransfers(0),
+    m_numAcsPacketsReceived(0),
+
+    m_totalNonAdminRecordBpv6PayloadBytesRx(0),
+    m_totalNonAdminRecordBpv6BundleBytesRx(0),
+    m_totalNonAdminRecordBpv6BundlesRx(0),
+
+    m_totalNonAdminRecordBpv7PayloadBytesRx(0),
+    m_totalNonAdminRecordBpv7BundleBytesRx(0),
+    m_totalNonAdminRecordBpv7BundlesRx(0),
+    m_running(false),
+    m_useCustodyTransfer(false),
+    m_custodyTransferUseAcs(false),
+    m_useInductForSendingBundles(false),
+    m_useBpVersion7(false),
+    m_claRate(0),
+    m_bundleSendTimeoutSeconds(0),
+    m_bundleSendTimeoutTimeDuration(boost::posix_time::seconds(0)),
+    m_bundleLifetimeMilliseconds(0),
+    m_bundlePriority(0),
+    m_finalDestinationEid(0, 0),
+    m_myEid(0, 0),
+    m_myCustodianServiceId(0),
+    m_myCustodianEid(0, 0),
+    m_detectedNextCustodianSupportsCteb(false),
+    m_requireRxBundleBeforeNextTx(false),
+    m_isWaitingForRxBundleBeforeNextTx(false),
+    m_linkIsDown(false),
+    m_nextBundleId(0),
+    m_tcpclOpportunisticRemoteNodeId(0),
+    m_tcpclInductPtr(NULL),
+    m_lastPreviousNode(0, 0),
+    m_allOutductsReady(false) {}
 
 BpSourcePattern::~BpSourcePattern() {
     Stop();
@@ -1104,7 +1139,7 @@ void BpSourcePattern::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId
         LOG_INFO(subprocess) << "New opportunistic link detected on TcpclV4 induct for ipn:" << remoteNodeId << ".*";
         m_tcpclOpportunisticRemoteNodeId = remoteNodeId;
     }
-    else if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
+    else if (dynamic_cast<StcpInduct*>(thisInductPtr)) {
 
     }
     else {
@@ -1113,7 +1148,7 @@ void BpSourcePattern::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId
 }
 void BpSourcePattern::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtrAboutToBeDeleted) {
     (void)sinkPtrAboutToBeDeleted;
-    if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
+    if (dynamic_cast<StcpInduct*>(thisInductPtr)) {
 
     }
     else {

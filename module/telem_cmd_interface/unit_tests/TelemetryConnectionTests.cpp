@@ -37,6 +37,7 @@ public:
     {
         uint8_t data = 0;
         const zmq::recv_buffer_result_t res = m_respSocket->recv(zmq::mutable_buffer(&data, sizeof(data)), zmq::recv_flags::dontwait);
+        BOOST_REQUIRE(res);
         return data;
     }
 };

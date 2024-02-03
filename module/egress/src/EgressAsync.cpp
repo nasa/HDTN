@@ -103,11 +103,11 @@ private:
 };
 
 Egress::Impl::Impl() :
-    m_running(false),
-    m_totalCustodyTransfersSentToIngress(0),
     m_totalCustodyTransfersSentToStorage(0),
+    m_totalCustodyTransfersSentToIngress(0),
     m_totalTcpclBundlesReceivedMutexProtected(0),
     m_totalTcpclBundleBytesReceivedMutexProtected(0),
+    m_running(false),
     m_workerThreadStartupInProgress(false) {}
 
 Egress::Egress() :
@@ -405,8 +405,7 @@ void Egress::Impl::ReadZmqThreadFunc() {
 
     std::set<uint64_t> availableDestOpportunisticNodeIdsSet;
 
-    // Use a form of receive that times out so we can terminate cleanly.
-    static const int timeout = 250;  // milliseconds
+
     static constexpr unsigned int NUM_SOCKETS = 6;
 
     //THIS PROBABLY DOESNT WORK SINCE IT HAPPENED AFTER BIND/CONNECT BUT NOT USED ANYWAY BECAUSE OF POLLITEMS
@@ -435,7 +434,8 @@ void Egress::Impl::ReadZmqThreadFunc() {
     //Get initial outduct capabilities and send to ingress and storage
     ResendOutductCapabilities();
 
-    static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
+    // Use a form of receive that times out so we can terminate cleanly.
+    static const long DEFAULT_BIG_TIMEOUT_POLL = 250; // milliseconds
     while (m_running.load(std::memory_order_acquire)) { //keep thread alive if running
         int rc = 0;
         try {

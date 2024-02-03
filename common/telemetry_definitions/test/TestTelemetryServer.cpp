@@ -49,6 +49,7 @@ class SocketMock {
         zmq::message_t Receive() {
             zmq::message_t msg;
             const zmq::recv_result_t res = client->recv(msg, zmq::recv_flags::dontwait);
+            BOOST_REQUIRE(res);
             return msg;
         }
 

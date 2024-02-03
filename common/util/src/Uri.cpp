@@ -39,7 +39,7 @@ std::size_t Uri::WriteIpnUriCstring(const uint64_t eidNodeNumber, const uint64_t
     //snprintf returns The number of characters that would have been written if n had been sufficiently large, not counting the terminating null character.
     int returned = snprintf(buffer, maxBufferSize, "ipn:%" PRIu64 ".%" PRIu64, eidNodeNumber, eidServiceNumber);
     //only when this returned value is non-negative and less than n, the string has been completely written.
-    const bool didError = (static_cast<bool>(returned < 0)) + (static_cast<bool>(returned >= maxBufferSize));
+    const bool didError = (static_cast<bool>(returned < 0)) + (static_cast<bool>((static_cast<std::size_t>(returned)) >= maxBufferSize));
     const bool noError = !didError;
     return static_cast<std::size_t>((returned + 1) * noError); //+1 for the null character
 }

@@ -355,12 +355,17 @@ public:
             // Read a message
             StartAsyncWsRead();
 
+            std::pair<ServerState::active_connections_map_t::iterator, bool> ret;
             { //add the websocket connection only when fully running
                 boost::mutex::scoped_lock lock(m_serverStatePtr->m_activeConnectionsMutex);
-                std::pair<ServerState::active_connections_map_t::iterator, bool> ret =
-                    m_serverStatePtr->m_activeConnections.emplace(m_uniqueId, GetSharedFromThis());
+                ret = m_serverStatePtr->m_activeConnections.emplace(m_uniqueId, GetSharedFromThis());
             }
-            LOG_INFO(subprocess) << "Websocket connection id " << m_uniqueId << " connected.";
+            if (ret.second) {
+                LOG_INFO(subprocess) << "Websocket connection id " << m_uniqueId << " connected.";
+            }
+            else {
+                LOG_ERROR(subprocess) << "Websocket connection id " << m_uniqueId << " already exists.";
+            }
 
             if (m_serverStatePtr->m_onNewWebsocketConnectionCallback) {
                 m_serverStatePtr->m_onNewWebsocketConnectionCallback(*this);
