@@ -933,8 +933,8 @@ void Ingress::Impl::ZmqTelemThreadFunc() {
                     #endif
                         request.SendResponse(resp, m_zmqRepSock_connectingTelemToFromBoundIngressPtr);
                     }
-                    else if (UpdateBpSecApiCommand_t* updateBpsecCmd = dynamic_cast<UpdateBpSecApiCommand_t*>(request.Command().get())) {
                     #ifdef BPSEC_SUPPORT_ENABLED
+                    else if (UpdateBpSecApiCommand_t* updateBpsecCmd = dynamic_cast<UpdateBpSecApiCommand_t*>(request.Command().get())) {
                         m_bpSecConfigPtr = BpSecConfig::CreateFromJson(updateBpsecCmd->m_bpSecJson);
                         if (!m_bpSecConfigPtr) {
                             LOG_FATAL(subprocess) << "Error loading BpSec config file: User Change.  Got:"
@@ -949,6 +949,7 @@ void Ingress::Impl::ZmqTelemThreadFunc() {
                         }
                         request.SendResponseSuccess(m_zmqRepSock_connectingTelemToFromBoundIngressPtr);
                     #else
+                    else if (dynamic_cast<UpdateBpSecApiCommand_t*>(request.Command().get())) {
                         const std::string msg = "BPSec is not enabled";
                         request.SendResponseError(msg, m_zmqRepSock_connectingTelemToFromBoundIngressPtr);
                     #endif

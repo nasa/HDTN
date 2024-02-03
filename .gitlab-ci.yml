@@ -18,7 +18,7 @@ build-default:
   image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
   script:
     - mkdir -p build
-    - cmake -S . -B build
+    - cmake -S . -B build -DCMAKE_CXX_FLAGS="-Werror" -DCMAKE_C_FLAGS="-Werror"
     - make -C build/ -j8
   cache:
     key: build-default-$CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
@@ -50,7 +50,7 @@ build-cpp11:
   image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
   script:
     - mkdir -p build
-    - cmake -S . -B build -DHDTN_TRY_USE_CPP17:BOOL=OFF
+    - cmake -S . -B build -DHDTN_TRY_USE_CPP17:BOOL=OFF -DCMAKE_CXX_FLAGS="-Werror" -DCMAKE_C_FLAGS="-Werror"
     - make -C build/ -j8
   cache:
     key: build-cpp11-$CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
@@ -68,7 +68,7 @@ build-extra-options:
   image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
   script:
     - mkdir -p build
-    - cmake -S . -B build -DUSE_WEB_INTERFACE:BOOL=OFF -DDO_STATS_LOGGING=ON -DENABLE_OPENSSL_SUPPORT=OFF -DENABLE_BPSEC=OFF
+    - cmake -S . -B build -DUSE_WEB_INTERFACE:BOOL=OFF -DDO_STATS_LOGGING=ON -DENABLE_OPENSSL_SUPPORT=OFF -DENABLE_BPSEC=OFF -DCMAKE_CXX_FLAGS="-Werror" -DCMAKE_C_FLAGS="-Werror"
     - make -C build/ -j8
   cache:
     key: build-without-gui-$CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID

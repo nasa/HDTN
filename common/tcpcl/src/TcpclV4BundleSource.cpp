@@ -61,6 +61,9 @@ TcpclV4BundleSource::TcpclV4BundleSource(
     m_outductOpportunisticProcessReceivedBundleCallback(outductOpportunisticProcessReceivedBundleCallback),
     m_tcpReadSomeBufferVec(10000) //todo 10KB rx buffer
 {
+#ifndef OPENSSL_SUPPORT_ENABLED
+    (void)tryUseTls; //parameter not used if OpenSSL is disabled at compile time
+#endif
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_base_ioServiceRef));
     ThreadNamer::SetIoServiceThreadName(m_base_ioServiceRef, "ioServiceTcpclV4BundleSource");
 }

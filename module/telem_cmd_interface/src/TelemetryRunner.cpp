@@ -509,6 +509,9 @@ void TelemetryRunner::Impl::OnNewJsonTelemetry(const char *buffer, uint64_t buff
         std::shared_ptr<std::string> strPtr = std::make_shared<std::string>(buffer, bufferSize);
         m_websocketServerPtr->SendTextDataToActiveWebsockets(strPtr);
     }
+#else
+    (void)buffer;
+    (void)bufferSize;
 #endif
 }
 

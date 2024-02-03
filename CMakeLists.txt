@@ -84,6 +84,8 @@ else()
 	add_compile_options(-Wextra)
 	#Issue all the warnings demanded by strict ISO C and ISO C++
 	add_compile_options(-Wpedantic)
+	#Disable warning for false positive in boost
+	add_compile_options(-Wno-use-after-free)
 endif()
 
 include(${CMAKE_SOURCE_DIR}/boost_test_link_type.cmake) # Determine whether to compile HDTN with BOOST_ALL_DYN_LINK for logger and unit-tests

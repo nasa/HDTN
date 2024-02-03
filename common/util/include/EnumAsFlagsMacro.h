@@ -26,7 +26,7 @@
 #include <boost/config/detail/suffix.hpp>
 #include <ostream>
 
-//note: static_assert(true, "") is to require a semicolon after the macro to eliminate warnings when -Wpedantic is enabled as a compiler warning
+//note: static_assert(true, "") is to require a semicolon after the macro to eliminate warnings when -Wpedantic is enabled as a compiler option
 #define MAKE_ENUM_SUPPORT_FLAG_OPERATORS(ENUMTYPE) \
 BOOST_FORCEINLINE ENUMTYPE operator | (ENUMTYPE a, ENUMTYPE b) { return static_cast<ENUMTYPE>((static_cast<std::underlying_type<ENUMTYPE>::type>(a)) | (static_cast<std::underlying_type<ENUMTYPE>::type>(b))); } \
 BOOST_FORCEINLINE ENUMTYPE &operator |= (ENUMTYPE &a, ENUMTYPE b) { return (ENUMTYPE &)(((std::underlying_type<ENUMTYPE>::type &)(a)) |= (static_cast<std::underlying_type<ENUMTYPE>::type>(b))); } \
