@@ -90,8 +90,8 @@ namespace keywords = boost::log::keywords;
 
 namespace hdtn{
 
-BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", logging::trivial::severity_level);
-BOOST_LOG_ATTRIBUTE_KEYWORD(channel, "Channel", Logger::SubProcess);
+BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", logging::trivial::severity_level) //no ending ";"
+BOOST_LOG_ATTRIBUTE_KEYWORD(channel, "Channel", Logger::SubProcess) //no ending ";"
 
 /**
  * Overloads the stream operator to support the Process enum
@@ -106,7 +106,7 @@ static std::ostream& operator<< (std::ostream& strm, const Logger::Process& proc
  */
 static std::ostream& operator<< (std::ostream& strm, const Logger::SubProcess& subprocess)
 {
-    return strm << Logger::toString(subprocess);;
+    return strm << Logger::toString(subprocess);
 }
 
 Logger::Logger()

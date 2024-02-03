@@ -51,7 +51,7 @@ BOOST_AUTO_TEST_CASE(TelemetryConnectionPollerHasNewMessageTestCase)
     BOOST_REQUIRE_EQUAL(true, poller.HasNewMessage(addedConnection));
 
     // A second connection should also work
-    TelemetryConnection addedConnection2("tcp://localhost:10302", nullptr, zmq::socket_type::req);;
+    TelemetryConnection addedConnection2("tcp://localhost:10302", nullptr, zmq::socket_type::req);
     poller.AddConnection(addedConnection2);
     BOOST_REQUIRE_EQUAL(false, poller.HasNewMessage(addedConnection2));
     poller.m_pollItems[1].revents |= ZMQ_POLLIN;

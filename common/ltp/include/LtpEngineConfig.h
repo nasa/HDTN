@@ -80,7 +80,7 @@ struct LtpEngineConfig {
      * The one way margin (packet processing) time.  Round trip time (retransmission time) is
      * computed by (2 * (oneWayLightTime + oneWayMarginTime)).
      */
-    boost::posix_time::time_duration oneWayMarginTime = boost::posix_time::milliseconds(200);;
+    boost::posix_time::time_duration oneWayMarginTime = boost::posix_time::milliseconds(200);
 
     /**
      * The remote IP address or hostname of the sender or receiver.

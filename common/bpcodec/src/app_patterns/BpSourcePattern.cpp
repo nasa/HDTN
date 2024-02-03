@@ -1107,7 +1107,7 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
         const uint64_t payloadDataLength = payloadBlock.m_dataLength;
         const uint8_t * payloadDataPtr = payloadBlock.m_dataPtr;
         m_totalNonAdminRecordBpv7PayloadBytesRx += payloadDataLength;
-        m_totalNonAdminRecordBpv7BundleBytesRx += bv.m_renderedBundle.size();;
+        m_totalNonAdminRecordBpv7BundleBytesRx += bv.m_renderedBundle.size();
         ++m_totalNonAdminRecordBpv7BundlesRx;
 
         if (!ProcessNonAdminRecordBundlePayload(payloadDataPtr, payloadDataLength)) {

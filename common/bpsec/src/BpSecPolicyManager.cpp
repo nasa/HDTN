@@ -744,7 +744,7 @@ bool BpSecPolicyManager::ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProc
         {
             const FragmentSet::data_fragment_t& df = *it;
             for (uint64_t blockType = df.beginIndex; blockType <= df.endIndex; ++blockType) {
-                irp.expectedTargetBlockTypesMask |= ((uint64_t)(1)) << blockType;;
+                irp.expectedTargetBlockTypesMask |= ((uint64_t)(1)) << blockType;
             }
         }
         //does not rerender in place here, there are more ops to complete after decryption and then a manual render-in-place will be called later

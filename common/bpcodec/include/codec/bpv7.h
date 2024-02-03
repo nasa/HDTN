@@ -672,9 +672,9 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7AdministrativeRecord : public Bpv7CanonicalB
     
     BPCODEC_EXPORT Bpv7AdministrativeRecord(); //a default constructor: X()
     BPCODEC_EXPORT virtual ~Bpv7AdministrativeRecord() override; //a destructor: ~X()
-    BPCODEC_EXPORT Bpv7AdministrativeRecord(const Bpv7AdministrativeRecord& o) = delete;; //a copy constructor: X(const X&)
+    BPCODEC_EXPORT Bpv7AdministrativeRecord(const Bpv7AdministrativeRecord& o) = delete; //a copy constructor: X(const X&)
     BPCODEC_EXPORT Bpv7AdministrativeRecord(Bpv7AdministrativeRecord&& o); //a move constructor: X(X&&)
-    BPCODEC_EXPORT Bpv7AdministrativeRecord& operator=(const Bpv7AdministrativeRecord& o) = delete;; //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT Bpv7AdministrativeRecord& operator=(const Bpv7AdministrativeRecord& o) = delete; //a copy assignment: operator=(const X&)
     BPCODEC_EXPORT Bpv7AdministrativeRecord& operator=(Bpv7AdministrativeRecord&& o); //a move assignment: operator=(X&&)
     BPCODEC_EXPORT bool operator==(const Bpv7AdministrativeRecord & o) const; //operator ==
     BPCODEC_EXPORT bool operator!=(const Bpv7AdministrativeRecord & o) const; //operator !=

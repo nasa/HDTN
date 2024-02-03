@@ -55,7 +55,7 @@ StorageTelemetry_t::StorageTelemetry_t() :
     //from BundleStorageManagerBase's MemoryManager
     m_usedSpaceBytes(0),
     m_freeSpaceBytes(0) {}
-StorageTelemetry_t::~StorageTelemetry_t() {};
+StorageTelemetry_t::~StorageTelemetry_t() {}
 bool StorageTelemetry_t::operator==(const StorageTelemetry_t& o) const {
     return (m_timestampMilliseconds == o.m_timestampMilliseconds)
         && (m_totalBundlesErasedFromStorageNoCustodyTransfer == o.m_totalBundlesErasedFromStorageNoCustodyTransfer)
@@ -412,7 +412,7 @@ boost::property_tree::ptree InductConnectionTelemetry_t::GetNewPropertyTree() co
 StcpInductConnectionTelemetry_t::StcpInductConnectionTelemetry_t() :
     InductConnectionTelemetry_t(),
     m_totalStcpBytesReceived(0) {}
-StcpInductConnectionTelemetry_t::~StcpInductConnectionTelemetry_t() {};
+StcpInductConnectionTelemetry_t::~StcpInductConnectionTelemetry_t() {}
 bool StcpInductConnectionTelemetry_t::operator==(const InductConnectionTelemetry_t& o) const {
     if (const StcpInductConnectionTelemetry_t* oPtr = dynamic_cast<const StcpInductConnectionTelemetry_t*>(&o)) {
         return InductConnectionTelemetry_t::operator==(o)
@@ -446,7 +446,7 @@ boost::property_tree::ptree StcpInductConnectionTelemetry_t::GetNewPropertyTree(
 UdpInductConnectionTelemetry_t::UdpInductConnectionTelemetry_t() :
     InductConnectionTelemetry_t(),
     m_countCircularBufferOverruns(0) {}
-UdpInductConnectionTelemetry_t::~UdpInductConnectionTelemetry_t() {};
+UdpInductConnectionTelemetry_t::~UdpInductConnectionTelemetry_t() {}
 bool UdpInductConnectionTelemetry_t::operator==(const InductConnectionTelemetry_t& o) const {
     if (const UdpInductConnectionTelemetry_t* oPtr = dynamic_cast<const UdpInductConnectionTelemetry_t*>(&o)) {
         return InductConnectionTelemetry_t::operator==(o)
@@ -486,7 +486,7 @@ TcpclV3InductConnectionTelemetry_t::TcpclV3InductConnectionTelemetry_t() :
     m_totalBundlesSent(0),
     m_totalBundleBytesSent(0),
     m_totalBundlesFailedToSend(0) {}
-TcpclV3InductConnectionTelemetry_t::~TcpclV3InductConnectionTelemetry_t() {};
+TcpclV3InductConnectionTelemetry_t::~TcpclV3InductConnectionTelemetry_t() {}
 bool TcpclV3InductConnectionTelemetry_t::operator==(const InductConnectionTelemetry_t& o) const {
     if (const TcpclV3InductConnectionTelemetry_t* oPtr = dynamic_cast<const TcpclV3InductConnectionTelemetry_t*>(&o)) {
         return InductConnectionTelemetry_t::operator==(o)
@@ -544,7 +544,7 @@ TcpclV4InductConnectionTelemetry_t::TcpclV4InductConnectionTelemetry_t() :
     m_totalBundlesSent(0),
     m_totalBundleBytesSent(0),
     m_totalBundlesFailedToSend(0) {}
-TcpclV4InductConnectionTelemetry_t::~TcpclV4InductConnectionTelemetry_t() {};
+TcpclV4InductConnectionTelemetry_t::~TcpclV4InductConnectionTelemetry_t() {}
 bool TcpclV4InductConnectionTelemetry_t::operator==(const InductConnectionTelemetry_t& o) const {
     if (const TcpclV4InductConnectionTelemetry_t* oPtr = dynamic_cast<const TcpclV4InductConnectionTelemetry_t*>(&o)) {
         return InductConnectionTelemetry_t::operator==(o)
@@ -604,7 +604,7 @@ SlipOverUartInductConnectionTelemetry_t::SlipOverUartInductConnectionTelemetry_t
     m_totalBundlesSent(0),
     m_totalBundleBytesSent(0),
     m_totalBundlesFailedToSend(0) {}
-SlipOverUartInductConnectionTelemetry_t::~SlipOverUartInductConnectionTelemetry_t() {};
+SlipOverUartInductConnectionTelemetry_t::~SlipOverUartInductConnectionTelemetry_t() {}
 bool SlipOverUartInductConnectionTelemetry_t::operator==(const InductConnectionTelemetry_t& o) const {
     if (const SlipOverUartInductConnectionTelemetry_t* oPtr = dynamic_cast<const SlipOverUartInductConnectionTelemetry_t*>(&o)) {
         return InductConnectionTelemetry_t::operator==(o)
@@ -673,7 +673,7 @@ BpOverEncapLocalStreamInductConnectionTelemetry_t::BpOverEncapLocalStreamInductC
     m_totalBundlesSent(0),
     m_totalBundleBytesSent(0),
     m_totalBundlesFailedToSend(0) {}
-BpOverEncapLocalStreamInductConnectionTelemetry_t::~BpOverEncapLocalStreamInductConnectionTelemetry_t() {};
+BpOverEncapLocalStreamInductConnectionTelemetry_t::~BpOverEncapLocalStreamInductConnectionTelemetry_t() {}
 bool BpOverEncapLocalStreamInductConnectionTelemetry_t::operator==(const InductConnectionTelemetry_t& o) const {
     if (const BpOverEncapLocalStreamInductConnectionTelemetry_t* oPtr = dynamic_cast<const BpOverEncapLocalStreamInductConnectionTelemetry_t*>(&o)) {
         return InductConnectionTelemetry_t::operator==(o)
@@ -750,7 +750,7 @@ LtpInductConnectionTelemetry_t::LtpInductConnectionTelemetry_t() :
     m_countUdpPacketsSent(0),
     m_countRxUdpCircularBufferOverruns(0),
     m_countTxUdpPacketsLimitedByRate(0) {}
-LtpInductConnectionTelemetry_t::~LtpInductConnectionTelemetry_t() {};
+LtpInductConnectionTelemetry_t::~LtpInductConnectionTelemetry_t() {}
 bool LtpInductConnectionTelemetry_t::operator==(const InductConnectionTelemetry_t& o) const {
     if (const LtpInductConnectionTelemetry_t* oPtr = dynamic_cast<const LtpInductConnectionTelemetry_t*>(&o)) {
         return InductConnectionTelemetry_t::operator==(o)
@@ -976,7 +976,7 @@ OutductTelemetry_t::OutductTelemetry_t() :
     m_linkIsUpPerTimeSchedule(false)
 {
 }
-OutductTelemetry_t::~OutductTelemetry_t() {};
+OutductTelemetry_t::~OutductTelemetry_t() {}
 bool OutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
     return (m_convergenceLayer == o.m_convergenceLayer)
         && (m_totalBundlesAcked == o.m_totalBundlesAcked)
@@ -1034,7 +1034,7 @@ StcpOutductTelemetry_t::StcpOutductTelemetry_t() :
     m_convergenceLayer = "stcp";
 }
 
-StcpOutductTelemetry_t::~StcpOutductTelemetry_t() {};
+StcpOutductTelemetry_t::~StcpOutductTelemetry_t() {}
 bool StcpOutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
     if (const StcpOutductTelemetry_t* oPtr = dynamic_cast<const StcpOutductTelemetry_t*>(&o)) {
         return OutductTelemetry_t::operator==(o)
@@ -1090,7 +1090,7 @@ LtpOutductTelemetry_t::LtpOutductTelemetry_t() :
 {
     m_convergenceLayer = "ltp_over_udp";
 }
-LtpOutductTelemetry_t::~LtpOutductTelemetry_t() {};
+LtpOutductTelemetry_t::~LtpOutductTelemetry_t() {}
 bool LtpOutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
     if (const LtpOutductTelemetry_t* oPtr = dynamic_cast<const LtpOutductTelemetry_t*>(&o)) {
         return OutductTelemetry_t::operator==(o)
@@ -1176,7 +1176,7 @@ TcpclV3OutductTelemetry_t::TcpclV3OutductTelemetry_t() :
 {
     m_convergenceLayer = "tcpcl_v3";
 }
-TcpclV3OutductTelemetry_t::~TcpclV3OutductTelemetry_t() {};
+TcpclV3OutductTelemetry_t::~TcpclV3OutductTelemetry_t() {}
 bool TcpclV3OutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
     if (const TcpclV3OutductTelemetry_t* oPtr = dynamic_cast<const TcpclV3OutductTelemetry_t*>(&o)) {
         return OutductTelemetry_t::operator==(o)
@@ -1228,7 +1228,7 @@ TcpclV4OutductTelemetry_t::TcpclV4OutductTelemetry_t() :
 {
     m_convergenceLayer = "tcpcl_v4";
 }
-TcpclV4OutductTelemetry_t::~TcpclV4OutductTelemetry_t() {};
+TcpclV4OutductTelemetry_t::~TcpclV4OutductTelemetry_t() {}
 bool TcpclV4OutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
     if (const TcpclV4OutductTelemetry_t* oPtr = dynamic_cast<const TcpclV4OutductTelemetry_t*>(&o)) {
         return OutductTelemetry_t::operator==(o)
@@ -1282,7 +1282,7 @@ SlipOverUartOutductTelemetry_t::SlipOverUartOutductTelemetry_t() :
 {
     m_convergenceLayer = "slip_over_uart";
 }
-SlipOverUartOutductTelemetry_t::~SlipOverUartOutductTelemetry_t() {};
+SlipOverUartOutductTelemetry_t::~SlipOverUartOutductTelemetry_t() {}
 bool SlipOverUartOutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
     if (const SlipOverUartOutductTelemetry_t* oPtr = dynamic_cast<const SlipOverUartOutductTelemetry_t*>(&o)) {
         return OutductTelemetry_t::operator==(o)
@@ -1343,7 +1343,7 @@ BpOverEncapLocalStreamOutductTelemetry_t::BpOverEncapLocalStreamOutductTelemetry
 {
     m_convergenceLayer = "bp_over_encap_local_stream";
 }
-BpOverEncapLocalStreamOutductTelemetry_t::~BpOverEncapLocalStreamOutductTelemetry_t() {};
+BpOverEncapLocalStreamOutductTelemetry_t::~BpOverEncapLocalStreamOutductTelemetry_t() {}
 bool BpOverEncapLocalStreamOutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
     if (const BpOverEncapLocalStreamOutductTelemetry_t* oPtr = dynamic_cast<const BpOverEncapLocalStreamOutductTelemetry_t*>(&o)) {
         return OutductTelemetry_t::operator==(o)
@@ -1399,7 +1399,7 @@ UdpOutductTelemetry_t::UdpOutductTelemetry_t() :
 {
     m_convergenceLayer = "udp";
 }
-UdpOutductTelemetry_t::~UdpOutductTelemetry_t() {};
+UdpOutductTelemetry_t::~UdpOutductTelemetry_t() {}
 bool UdpOutductTelemetry_t::operator==(const OutductTelemetry_t& o) const {
     if (const UdpOutductTelemetry_t* oPtr = dynamic_cast<const UdpOutductTelemetry_t*>(&o)) {
         return OutductTelemetry_t::operator==(o)
