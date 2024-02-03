@@ -706,7 +706,7 @@ BpSecBundleProcessor::BpSecErrorFlist BpSecBundleProcessor::TryDecryptBundleByIn
         //unwrap key:
         if (!AesUnwrapKey(ctxWrapperForKeyUnwrap,
             confidentialityReceivedParameters.keyEncryptionKey, confidentialityReceivedParameters.keyEncryptionKeyLength,
-            wrappedKeyPtr->data(), static_cast<const unsigned int>(wrappedKeyPtr->size()),
+            wrappedKeyPtr->data(), static_cast<unsigned int>(wrappedKeyPtr->size()),
             unwrappedKeyBytes, unwrappedKeyOutSize))
         {
             errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, UINT64_MAX, boost::make_unique<std::string>(
@@ -1203,7 +1203,7 @@ BpSecBundleProcessor::BpSecErrorFlist BpSecBundleProcessor::TryVerifyBundleInteg
         //unwrap key:
         if (!AesUnwrapKey(ctxWrapperForKeyUnwrap,
             integrityReceivedParameters.keyEncryptionKey, integrityReceivedParameters.keyEncryptionKeyLength,
-            wrappedKeyPtr->data(), static_cast<const unsigned int>(wrappedKeyPtr->size()),
+            wrappedKeyPtr->data(), static_cast<unsigned int>(wrappedKeyPtr->size()),
             unwrappedKeyBytes, unwrappedKeyOutSize))
         {
             errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, UINT64_MAX, boost::make_unique<std::string>(

@@ -80,6 +80,8 @@ if(WIN32)
 else()
 	#enable all warnings
 	add_compile_options(-Wall)
+	#enable some extra warning flags that are not enabled by -Wall
+	add_compile_options(-Wextra)
 endif()
 
 include(${CMAKE_SOURCE_DIR}/boost_test_link_type.cmake) # Determine whether to compile HDTN with BOOST_ALL_DYN_LINK for logger and unit-tests

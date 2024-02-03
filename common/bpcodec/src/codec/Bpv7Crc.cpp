@@ -33,7 +33,7 @@ uint32_t Bpv7Crc::Crc32C_Unaligned_Hardware(const uint8_t* dataUnaligned, std::s
     }
     //data now aligned on 8-byte boundary
     while (length > 7) { //while length >= 8
-        const uint64_t * const dataAligned64 = reinterpret_cast<const uint64_t * const>(dataUnaligned);
+        const uint64_t * const dataAligned64 = reinterpret_cast<const uint64_t *>(dataUnaligned);
         crc = _mm_crc32_u64(crc, *dataAligned64);
         dataUnaligned += sizeof(uint64_t);
         length -= sizeof(uint64_t);

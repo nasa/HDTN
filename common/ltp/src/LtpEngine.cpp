@@ -1189,7 +1189,7 @@ void LtpEngine::CancelAcknowledgementSegmentReceivedCallback(const Ltp::session_
 }
 
 void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmentTimerSerialNumber, std::vector<uint8_t> & userData) {
-    
+    (void)cancelSegmentTimerSerialNumber;
     if (userData.size() != sizeof(cancel_segment_timer_info_t)) {
         LOG_ERROR(subprocess) << "LtpEngine::CancelSegmentTimerExpiredCallback: userData.size() != sizeof(info)";
         return;
