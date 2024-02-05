@@ -25,7 +25,6 @@
 
 #ifdef DO_STATS_LOGGING
 static const std::string timestamp_regex = "\\d+";
-//static const std::string header_regex = "^timestamp\\(ms\\),value\n";
 
 /**
  * Reads a file's contents into a string and returns it

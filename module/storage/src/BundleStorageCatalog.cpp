@@ -335,7 +335,6 @@ void BundleStorageCatalog::GetExpiredBundleIds(const uint64_t expiry, const uint
 
     for(uint64_t priorityIndex = 0; priorityIndex < NUMBER_OF_PRIORITIES; priorityIndex++) {
         for (dest_eid_to_priorities_map_t::iterator dmIt = m_destEidToPrioritiesMap.begin(); dmIt != m_destEidToPrioritiesMap.end(); ++dmIt) {
-            //const cbhe_eid_t& eid = dmIt->first;
             priorities_to_expirations_array_t & priorityArray = dmIt->second;
             expirations_to_custids_map_t& expirationsMap = priorityArray[priorityIndex];
             for (expirations_to_custids_map_t::iterator expirationsIt = expirationsMap.begin(); expirationsIt != expirationsMap.end(); ++expirationsIt) {
