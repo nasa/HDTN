@@ -24,7 +24,7 @@
 #include <string>
 #include <memory>
 #include <boost/integer.hpp>
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 #include <set>
 #include <vector>
 #include <utility>

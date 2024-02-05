@@ -11,14 +11,16 @@
  * See LICENSE.md in the source root directory for more information.
  */
 
-#include <boost/log/core.hpp>
-#include <boost/test/unit_test.hpp>
-#include <boost/regex.hpp>
 
 #include "app_patterns/BpSinkPattern.h"
 #include "codec/bpv6.h"
 #include "codec/bpv7.h"
 #include "StatsLogger.h"
+
+#include <boost/log/core.hpp>
+#include <boost/test/unit_test.hpp>
+#include <boost/regex.hpp>
+#include <boost/filesystem/operations.hpp>
 
 static const std::string timestamp_regex = "\\d+";
 

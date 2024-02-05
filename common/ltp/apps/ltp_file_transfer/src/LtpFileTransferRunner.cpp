@@ -16,7 +16,7 @@
 #include "Logger.h"
 #include <fstream>
 #include "SignalHandler.h"
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/detail/sha1.hpp>

@@ -22,7 +22,7 @@
 #ifndef _MEMORY_IN_FILES_H
 #define _MEMORY_IN_FILES_H 1
 
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 #include <boost/asio.hpp>
 #include <boost/function.hpp>
 #include <cstdint>

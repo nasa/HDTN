@@ -17,7 +17,6 @@
 #include "BundleStorageManagerAsio.h"
 #include <iostream>
 #include <string>
-#include <boost/filesystem.hpp>
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
 #include <boost/timer/timer.hpp>

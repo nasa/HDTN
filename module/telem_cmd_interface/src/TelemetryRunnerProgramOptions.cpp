@@ -12,12 +12,10 @@
  *
  */
 
-#include <boost/filesystem.hpp>
-
 #include "TelemetryRunnerProgramOptions.h"
 #include "Environment.h"
 #include "Logger.h"
-
+#include <boost/filesystem/operations.hpp>
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::telem;
 static const boost::filesystem::path GUI_HTML_FILE_NAME = "index.html";

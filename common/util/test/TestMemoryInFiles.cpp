@@ -14,9 +14,10 @@
 
 #include <boost/test/unit_test.hpp>
 #include "MemoryInFiles.h"
+#include "Logger.h"
 #include <boost/bind/bind.hpp>
 #include <boost/make_unique.hpp>
-#include "Logger.h"
+#include <boost/filesystem/operations.hpp>
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::unittest;
 

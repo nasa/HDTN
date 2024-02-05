@@ -13,7 +13,7 @@
  */
 
 #include <boost/regex.hpp>
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/operations.hpp>
 #include <boost/test/unit_test.hpp>
 #include "Logger.h"
 #if (defined(LOG_TO_PROCESS_FILE) || defined(LOG_TO_SUBPROCESS_FILES) || defined(LOG_TO_ERROR_FILE))

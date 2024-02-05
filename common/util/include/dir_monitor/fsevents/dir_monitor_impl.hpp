@@ -12,7 +12,8 @@
 //
 #pragma once
 
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem/operations.hpp>
 #include <boost/unordered_set.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/system/system_error.hpp>

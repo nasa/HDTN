@@ -20,7 +20,7 @@
 #include <iostream>
 #include "Logger.h"
 #include "message.hpp"
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/date_time.hpp>

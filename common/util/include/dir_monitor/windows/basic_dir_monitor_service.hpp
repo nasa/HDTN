@@ -10,7 +10,8 @@
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
 #include <boost/bind/bind.hpp> //don't include <boost/bind.hpp> to force using boost::placeholders::_1 instead of just _1
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem/operations.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/system/system_error.hpp>
 #include <boost/make_unique.hpp> //added to make c++11 compliant

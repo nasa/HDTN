@@ -12,11 +12,16 @@
  * See LICENSE.md in the source root directory for more information.
  */
 
+#include "StatsLogger.h"
 #include <fstream>
-#include <boost/filesystem.hpp>
+#include <boost/version.hpp>
+#if (BOOST_VERSION >= 107200)
+#include <boost/filesystem/directory.hpp>
+#endif
+#include <boost/filesystem/operations.hpp>
 #include <boost/test/unit_test.hpp>
 #include <boost/regex.hpp>
-#include "StatsLogger.h"
+
 
 #ifdef DO_STATS_LOGGING
 static const std::string timestamp_regex = "\\d+";

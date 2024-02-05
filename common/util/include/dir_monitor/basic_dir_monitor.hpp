@@ -7,7 +7,7 @@
 #pragma once
 
 #include <boost/asio.hpp>
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 #include <string>
 #include "Utf8Paths.h"
 

@@ -17,6 +17,7 @@
 #include <memory>
 #include "Environment.h"
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem/operations.hpp>
 
 BOOST_AUTO_TEST_CASE(HdtnConfigTestCase)
 {

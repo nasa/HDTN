@@ -1,11 +1,16 @@
+#include "TelemetryLogger.h"
+#include "StatsLogger.h"
+
 #include <boost/test/unit_test.hpp>
 #include <boost/log/core.hpp>
-#include <boost/filesystem.hpp>
+#include <boost/version.hpp>
+#if (BOOST_VERSION >= 107200)
+#include <boost/filesystem/directory.hpp>
+#endif
+#include <boost/filesystem/operations.hpp>
 #include <boost/regex.hpp>
 #include <boost/thread.hpp>
 
-#include "TelemetryLogger.h"
-#include "StatsLogger.h"
 
 #ifdef DO_STATS_LOGGING
 /**

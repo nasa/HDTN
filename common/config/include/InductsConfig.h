@@ -29,7 +29,7 @@
 #include <utility>
 #include <tuple>
 #include "JsonSerializable.h"
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 #include "config_lib_export.h"
 
 struct induct_element_config_t {

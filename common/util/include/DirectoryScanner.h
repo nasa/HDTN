@@ -22,7 +22,7 @@
 #define _DIRECTORY_SCANNER_H 1
 
 #include <string>
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
 #include <memory>

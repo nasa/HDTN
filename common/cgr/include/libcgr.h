@@ -7,7 +7,7 @@
 #include <ostream>
 #include <limits>
 #include <memory>
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include "cgr_lib_export.h"
 

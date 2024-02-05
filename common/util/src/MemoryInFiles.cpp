@@ -29,6 +29,7 @@
 #include "Logger.h"
 #include <boost/make_unique.hpp>
 #include <boost/filesystem/fstream.hpp>
+#include <boost/filesystem/operations.hpp>
 #include <boost/format.hpp>
 #ifdef _WIN32
 #include <windows.h> //must be included after boost

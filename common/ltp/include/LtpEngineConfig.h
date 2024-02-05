@@ -24,7 +24,7 @@
 #include <cstdint>
 #include <string>
 #include <boost/date_time.hpp>
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 
 struct LtpEngineConfig {
 

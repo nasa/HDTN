@@ -34,7 +34,12 @@
 //
 #pragma once
 
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/version.hpp>
+#if (BOOST_VERSION >= 107200)
+#include <boost/filesystem/directory.hpp>
+#endif
+#include <boost/filesystem/operations.hpp>
 #include <boost/ptr_container/ptr_unordered_map.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/system/system_error.hpp>

@@ -15,7 +15,6 @@
 #include <iostream>
 #include <unordered_map>
 
-#include <boost/filesystem.hpp>
 #include <boost/function.hpp>
 #include <boost/make_unique.hpp>
 #include <boost/program_options.hpp>

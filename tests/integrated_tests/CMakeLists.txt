@@ -38,3 +38,12 @@ target_link_libraries(integrated-tests
 	bp_app_patterns_lib
 	Boost::unit_test_framework
 )
+
+#integrated_tests.cpp is causing issues with the following warning
+if(NOT WIN32)
+	set_property(
+		SOURCE src/integrated_tests.cpp
+		PROPERTY COMPILE_OPTIONS
+			"-Wno-use-after-free"
+	)
+endif()

@@ -19,7 +19,6 @@
 #include <boost/asio/detail/event.hpp>
 #include <fstream>
 #include "message.hpp"
-#include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/date_time.hpp>
 #include <boost/make_unique.hpp>

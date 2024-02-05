@@ -35,7 +35,7 @@
 #include <set>
 
 #include <boost/thread.hpp>
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 #include <boost/program_options.hpp>
 #include <boost/function.hpp>
 #include "zmq.hpp"

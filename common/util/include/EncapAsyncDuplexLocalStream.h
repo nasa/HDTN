@@ -24,7 +24,7 @@
 #include <string>
 #include <boost/thread.hpp>
 #include <boost/asio.hpp>
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/operations.hpp>
 #include <boost/make_unique.hpp>
 #include <boost/function.hpp>
 #include <atomic>
