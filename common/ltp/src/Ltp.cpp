@@ -1093,7 +1093,7 @@ bool Ltp::NextStateAfterTrailerExtensions(bool& operationIsOngoing, std::string 
 const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage) {
 
 #if 1 //this is the sdnv array decode (batch operation) version
-    static constexpr unsigned int maxNumSdnvsToDecode =
+    static constexpr uint8_t maxNumSdnvsToDecode =
         1 + //m_dataSegmentMetadata.clientServiceId
         1 + //m_dataSegmentMetadata.offset
         1 + //m_dataSegmentMetadata.length
@@ -1106,7 +1106,7 @@ const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std
         (1U << (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK)));
     const uint16_t mask = (static_cast<uint16_t>(1)) << m_segmentTypeFlags;
     const bool isCheckPoint = ((mask & CHECKPOINT_TYPE_MESSAGES) != 0);
-    static const uint8_t numSdnvsToDecodeByIsCheckpoint[2] = { 3,5 };
+    static const uint8_t numSdnvsToDecodeByIsCheckpoint[2] = { 3, maxNumSdnvsToDecode };
     const unsigned int numSdnvsToDecode = numSdnvsToDecodeByIsCheckpoint[isCheckPoint];
     uint64_t numBytesTakenToDecodeThisSdnvArray;
     bool decodeErrorDetected;

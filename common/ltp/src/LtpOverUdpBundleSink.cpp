@@ -31,7 +31,6 @@ bool LtpOverUdpBundleSink::SetLtpEnginePtr() {
     m_ltpUdpEngineManagerPtr = LtpUdpEngineManager::GetOrCreateInstance(m_ltpRxCfg.myBoundUdpPort, true);
     m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(m_ltpRxCfg.remoteEngineId, true); //sessionOriginatorEngineId is the remote engine id in the case of an induct
     if (m_ltpUdpEnginePtr == NULL) {
-        static constexpr uint64_t maxSendRateBitsPerSecOrZeroToDisable = 0; //always disable rate for report segments, etc
         m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(m_ltpRxCfg); //delaySendingOfDataSegmentsTimeMsOrZeroToDisable must be 0
         m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(m_ltpRxCfg.remoteEngineId, true); //sessionOriginatorEngineId is the remote engine id in the case of an induct
     }

@@ -15,7 +15,7 @@
 #include "BPingRunner.h"
 #include "Logger.h"
 #include "SignalHandler.h"
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include "Uri.h"

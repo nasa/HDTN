@@ -12,11 +12,12 @@
  * See LICENSE.md in the source root directory for more information.
  */
 
+#include "DirectoryScanner.h"
 #include <boost/test/unit_test.hpp>
 #include <boost/thread.hpp>
 #include <iostream>
 #include <boost/filesystem/fstream.hpp>
-#include "DirectoryScanner.h"
+#include <boost/filesystem/operations.hpp>
 
 BOOST_AUTO_TEST_CASE(DirectoryScannerTestCase)
 {

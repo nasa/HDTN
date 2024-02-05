@@ -14,7 +14,7 @@
 
 #include "BundleStorageManagerMT.h"
 #include <string>
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 #include <memory>
 #include <boost/make_unique.hpp>
 #include "ThreadNamer.h"

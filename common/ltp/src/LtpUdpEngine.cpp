@@ -141,6 +141,7 @@ void LtpUdpEngine::SendPackets(std::shared_ptr<std::vector<UdpSendPacketInfo> >&
 
 
 void LtpUdpEngine::PacketInFullyProcessedCallback(bool success) {
+    (void)success;
     //Called by LTP Engine thread
     m_circularIndexBuffer.CommitRead(); //LtpEngine IoService thread will CommitRead
 }
@@ -151,6 +152,9 @@ void LtpUdpEngine::HandleUdpSend(std::shared_ptr<std::vector<std::vector<uint8_t
     std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback,
     const boost::system::error_code& error, std::size_t bytes_transferred)
 {
+    (void)underlyingDataToDeleteOnSentCallback;
+    (void)underlyingCsDataToDeleteOnSentCallback;
+    (void)bytes_transferred;
     //Called by m_ioServiceUdpRef thread
     m_countAsyncSendCallbackCalls.fetch_add(1, std::memory_order_relaxed);
     if (error) {
@@ -183,6 +187,7 @@ void LtpUdpEngine::HandleUdpSend(std::shared_ptr<std::vector<std::vector<uint8_t
 }
 
 void LtpUdpEngine::OnSentPacketsCallback(bool success, std::shared_ptr<std::vector<UdpSendPacketInfo> >& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsSent) {
+    (void)udpSendPacketInfoVecSharedPtr;
     //Called by UdpBatchSender thread
     m_countBatchSendCallbackCalls.fetch_add(1, std::memory_order_relaxed);
     m_countBatchUdpPacketsSent.fetch_add(numPacketsSent, std::memory_order_relaxed);

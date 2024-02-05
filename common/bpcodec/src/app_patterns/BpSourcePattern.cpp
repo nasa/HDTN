@@ -39,6 +39,7 @@
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 static void CustomCleanupPaddedVecUint8(void* data, void* hint) {
+    (void)data;
     delete static_cast<padded_vector_uint8_t*>(hint);
 }
 
@@ -49,7 +50,42 @@ static bool IsZero(double x) {
     // to 1.0
     return std::fabs(x) <= std::numeric_limits<double>::epsilon();
 }
-BpSourcePattern::BpSourcePattern() : m_running(false), m_bundleCount(0) {}
+BpSourcePattern::BpSourcePattern() :
+    m_bundleCount(0),
+    m_numRfc5050CustodyTransfers(0),
+    m_numAcsCustodyTransfers(0),
+    m_numAcsPacketsReceived(0),
+
+    m_totalNonAdminRecordBpv6PayloadBytesRx(0),
+    m_totalNonAdminRecordBpv6BundleBytesRx(0),
+    m_totalNonAdminRecordBpv6BundlesRx(0),
+
+    m_totalNonAdminRecordBpv7PayloadBytesRx(0),
+    m_totalNonAdminRecordBpv7BundleBytesRx(0),
+    m_totalNonAdminRecordBpv7BundlesRx(0),
+    m_running(false),
+    m_useCustodyTransfer(false),
+    m_custodyTransferUseAcs(false),
+    m_useInductForSendingBundles(false),
+    m_useBpVersion7(false),
+    m_claRate(0),
+    m_bundleSendTimeoutSeconds(0),
+    m_bundleSendTimeoutTimeDuration(boost::posix_time::seconds(0)),
+    m_bundleLifetimeMilliseconds(0),
+    m_bundlePriority(0),
+    m_finalDestinationEid(0, 0),
+    m_myEid(0, 0),
+    m_myCustodianServiceId(0),
+    m_myCustodianEid(0, 0),
+    m_detectedNextCustodianSupportsCteb(false),
+    m_requireRxBundleBeforeNextTx(false),
+    m_isWaitingForRxBundleBeforeNextTx(false),
+    m_linkIsDown(false),
+    m_nextBundleId(0),
+    m_tcpclOpportunisticRemoteNodeId(0),
+    m_tcpclInductPtr(NULL),
+    m_lastPreviousNode(0, 0),
+    m_allOutductsReady(false) {}
 
 BpSourcePattern::~BpSourcePattern() {
     Stop();
@@ -797,7 +833,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(double bundleRate, const boost::
         LOG_INFO(subprocess) << "Keeping Tcpcl Induct Opportunistic link open for 4 seconds to finish sending";
         boost::this_thread::sleep(boost::posix_time::seconds(4));
     }
-    else if (Outduct * outduct = m_outductManager.GetOutductByOutductUuid(0)) {
+    else if (outduct) {
         if (outduct->GetConvergenceLayerName() == "ltp_over_udp") {
             LOG_INFO(subprocess) << "Keeping UDP open for 4 seconds to acknowledge report segments";
             boost::this_thread::sleep(boost::posix_time::seconds(4));
@@ -1071,7 +1107,7 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
         const uint64_t payloadDataLength = payloadBlock.m_dataLength;
         const uint8_t * payloadDataPtr = payloadBlock.m_dataPtr;
         m_totalNonAdminRecordBpv7PayloadBytesRx += payloadDataLength;
-        m_totalNonAdminRecordBpv7BundleBytesRx += bv.m_renderedBundle.size();;
+        m_totalNonAdminRecordBpv7BundleBytesRx += bv.m_renderedBundle.size();
         ++m_totalNonAdminRecordBpv7BundlesRx;
 
         if (!ProcessNonAdminRecordBundlePayload(payloadDataPtr, payloadDataLength)) {
@@ -1086,19 +1122,24 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
 }
 
 bool BpSourcePattern::ProcessNonAdminRecordBundlePayload(const uint8_t * data, const uint64_t size) {
+    (void)data;
+    (void)size;
     return true;
 }
 
 void BpSourcePattern::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtr) {
-    if (m_tcpclInductPtr = dynamic_cast<TcpclInduct*>(thisInductPtr)) {
+    (void)sinkPtr;
+    if (TcpclInduct* tcpclV3InductPtr = dynamic_cast<TcpclInduct*>(thisInductPtr)) {
+        m_tcpclInductPtr = tcpclV3InductPtr;
         LOG_INFO(subprocess) << "New opportunistic link detected on Tcpcl induct for ipn:" << remoteNodeId << ".*";
         m_tcpclOpportunisticRemoteNodeId = remoteNodeId;
     }
-    else if (m_tcpclInductPtr = dynamic_cast<TcpclV4Induct*>(thisInductPtr)) {
+    else if (TcpclV4Induct* tcpclV4InductPtr = dynamic_cast<TcpclV4Induct*>(thisInductPtr)) {
+        m_tcpclInductPtr = tcpclV4InductPtr;
         LOG_INFO(subprocess) << "New opportunistic link detected on TcpclV4 induct for ipn:" << remoteNodeId << ".*";
         m_tcpclOpportunisticRemoteNodeId = remoteNodeId;
     }
-    else if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
+    else if (dynamic_cast<StcpInduct*>(thisInductPtr)) {
 
     }
     else {
@@ -1106,7 +1147,8 @@ void BpSourcePattern::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId
     }
 }
 void BpSourcePattern::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtrAboutToBeDeleted) {
-    if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
+    (void)sinkPtrAboutToBeDeleted;
+    if (dynamic_cast<StcpInduct*>(thisInductPtr)) {
 
     }
     else {
@@ -1116,6 +1158,7 @@ void BpSourcePattern::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNo
 }
 
 void BpSourcePattern::OnFailedBundleVecSendCallback(padded_vector_uint8_t& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled) {
+    (void)outductUuid;
     if (successCallbackCalled) { //ltp sender with sessions from disk enabled
         LOG_ERROR(subprocess) << "OnFailedBundleVecSendCallback called, dropping bundle for now";
     }
@@ -1142,6 +1185,7 @@ void BpSourcePattern::OnFailedBundleVecSendCallback(padded_vector_uint8_t& movab
     }
 }
 void BpSourcePattern::OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData, uint64_t outductUuid) {
+    (void)outductUuid;
     bundleid_payloadsize_pair_t* p = (bundleid_payloadsize_pair_t*)userData.data();
     const uint64_t bundleId = p->first;
     
@@ -1171,6 +1215,7 @@ void BpSourcePattern::OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, u
 }
 
 bool BpSourcePattern::TryWaitForDataAvailable(const boost::posix_time::time_duration& timeout) {
+    (void)timeout;
     //default behavior (if not overloaded in child class) is to return true so that
     //GetNextPayloadLength_Step1() will return 0 and close the class,
     //although this parent function should never be called.

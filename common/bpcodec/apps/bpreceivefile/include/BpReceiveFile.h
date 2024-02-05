@@ -28,7 +28,7 @@
 #include <set>
 #include <map>
 #include "FragmentSet.h"
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 #include <boost/filesystem/fstream.hpp>
 class BpReceiveFile : public BpSinkPattern {
 private:

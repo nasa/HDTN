@@ -26,7 +26,7 @@
 #include <boost/config/detail/suffix.hpp>
 #include <ostream>
 
-
+//note: static_assert(true, "") is to require a semicolon after the macro to eliminate warnings when -Wpedantic is enabled as a compiler option
 #define MAKE_ENUM_SUPPORT_FLAG_OPERATORS(ENUMTYPE) \
 BOOST_FORCEINLINE ENUMTYPE operator | (ENUMTYPE a, ENUMTYPE b) { return static_cast<ENUMTYPE>((static_cast<std::underlying_type<ENUMTYPE>::type>(a)) | (static_cast<std::underlying_type<ENUMTYPE>::type>(b))); } \
 BOOST_FORCEINLINE ENUMTYPE &operator |= (ENUMTYPE &a, ENUMTYPE b) { return (ENUMTYPE &)(((std::underlying_type<ENUMTYPE>::type &)(a)) |= (static_cast<std::underlying_type<ENUMTYPE>::type>(b))); } \
@@ -34,10 +34,10 @@ BOOST_FORCEINLINE ENUMTYPE operator & (ENUMTYPE a, ENUMTYPE b) { return static_c
 BOOST_FORCEINLINE ENUMTYPE &operator &= (ENUMTYPE &a, ENUMTYPE b) { return (ENUMTYPE &)(((std::underlying_type<ENUMTYPE>::type &)(a)) &= (static_cast<std::underlying_type<ENUMTYPE>::type>(b))); } \
 BOOST_FORCEINLINE ENUMTYPE operator ~ (ENUMTYPE a) { return static_cast<ENUMTYPE>(~(static_cast<std::underlying_type<ENUMTYPE>::type>(a))); } \
 BOOST_FORCEINLINE ENUMTYPE operator ^ (ENUMTYPE a, ENUMTYPE b) { return static_cast<ENUMTYPE>((static_cast<std::underlying_type<ENUMTYPE>::type>(a)) ^ (static_cast<std::underlying_type<ENUMTYPE>::type>(b))); } \
-BOOST_FORCEINLINE ENUMTYPE &operator ^= (ENUMTYPE &a, ENUMTYPE b) { return (ENUMTYPE &)(((std::underlying_type<ENUMTYPE>::type &)(a)) ^= (static_cast<std::underlying_type<ENUMTYPE>::type>(b))); }
+BOOST_FORCEINLINE ENUMTYPE &operator ^= (ENUMTYPE &a, ENUMTYPE b) { return (ENUMTYPE &)(((std::underlying_type<ENUMTYPE>::type &)(a)) ^= (static_cast<std::underlying_type<ENUMTYPE>::type>(b))); } static_assert(true, "")
 
 #define MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(ENUMTYPE) \
-BOOST_FORCEINLINE std::ostream& operator<<(std::ostream& os, const ENUMTYPE & a) { os << std::hex << "0x" << (static_cast<uint64_t>((std::underlying_type<ENUMTYPE>::type &)(a))) << std::dec; return os; }
+BOOST_FORCEINLINE std::ostream& operator<<(std::ostream& os, const ENUMTYPE & a) { os << std::hex << "0x" << (static_cast<uint64_t>((std::underlying_type<ENUMTYPE>::type &)(a))) << std::dec; return os; } static_assert(true, "")
 
 
 #endif      // _ENUM_AS_FLAGS_MACRO_H 

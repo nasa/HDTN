@@ -30,7 +30,7 @@
 #include "HdtnConfig.h"
 #include "HdtnDistributedConfig.h"
 #include <boost/core/noncopyable.hpp>
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include "router_lib_export.h"
 

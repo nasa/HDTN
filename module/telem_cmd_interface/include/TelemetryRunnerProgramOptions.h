@@ -17,10 +17,10 @@
 #ifndef TELEMETRY_RUNNER_PROGRAM_OPTIONS_H
 #define TELEMETRY_RUNNER_PROGRAM_OPTIONS_H 1
 
-#include <boost/filesystem.hpp>
-#include <boost/program_options.hpp>
 #include "HdtnDistributedConfig.h"
 #include "BeastWebsocketServer.h" //for determining if BEAST_WEBSOCKET_SERVER_SUPPORT_SSL when adding options
+#include <boost/filesystem/path.hpp>
+#include <boost/program_options.hpp>
 #include "telem_lib_export.h"
 
 

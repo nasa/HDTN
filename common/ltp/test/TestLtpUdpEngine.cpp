@@ -19,6 +19,7 @@
 #include <boost/lexical_cast.hpp>
 #include "Logger.h"
 #include <atomic>
+#include <set>
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::unittest;
 
@@ -52,14 +53,17 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         const std::string DESIRED_RED_DATA_TO_SEND;
         const std::string DESIRED_RED_AND_GREEN_DATA_TO_SEND;
         const std::string DESIRED_FULLY_GREEN_DATA_TO_SEND;
+        const std::vector<uint8_t> EXPECTED_BUNDLE_USER_DATA;
         boost::condition_variable cv;
         boost::mutex cvMutex;
         
 
         uint64_t numRedPartReceptionCallbacks;
+        uint64_t numRedPartReceptionsThatWereEndOfBlock;
         uint64_t numSessionStartSenderCallbacks;
         uint64_t numSessionStartReceiverCallbacks;
         uint64_t numGreenPartReceptionCallbacks;
+        std::set<uint64_t> greenPartOffsetsReceivedSet;
         uint64_t numReceptionSessionCancelledCallbacks;
         uint64_t numTransmissionSessionCompletedCallbacks;
         uint64_t numInitialTransmissionCompletedCallbacks;
@@ -81,7 +85,9 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             DESIRED_RED_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!"),
             DESIRED_RED_AND_GREEN_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!GGE"), //G=>green data not EOB, E=>green datat EOB
             DESIRED_FULLY_GREEN_DATA_TO_SEND("GGGGGGGGGGGGGGGGGE"),
+            EXPECTED_BUNDLE_USER_DATA({ 1,2,10 }),
             numRedPartReceptionCallbacks(0),
+            numRedPartReceptionsThatWereEndOfBlock(0),
             numSessionStartSenderCallbacks(0),
             numSessionStartReceiverCallbacks(0),
             numGreenPartReceptionCallbacks(0),
@@ -199,8 +205,11 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             {
                 boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
                 ++numRedPartReceptionCallbacks;
+                numRedPartReceptionsThatWereEndOfBlock += isEndOfBlock;
                 BOOST_REQUIRE_EQUAL(receivedMessage, DESIRED_RED_DATA_TO_SEND);
                 BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
+                BOOST_REQUIRE_EQUAL(lengthOfRedPart, movableClientServiceDataVec.size());
+                BOOST_REQUIRE_EQUAL(clientServiceId, CLIENT_SERVICE_ID_DEST);
             }
             cv.notify_one();
             //std::cout << "receivedMessage: " << receivedMessage << std::endl;
@@ -209,9 +218,10 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             {
                 boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
                 ++numGreenPartReceptionCallbacks;
+                BOOST_REQUIRE(greenPartOffsetsReceivedSet.emplace(offsetStartOfBlock).second);
                 BOOST_REQUIRE_EQUAL(movableClientServiceDataVec.size(), 1);
                 BOOST_REQUIRE_EQUAL(movableClientServiceDataVec[0], (isEndOfBlock) ? 'E' : 'G');
-
+                BOOST_REQUIRE_EQUAL(clientServiceId, CLIENT_SERVICE_ID_DEST);
                 BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
             }
             cv.notify_one();
@@ -270,6 +280,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 ++numOnFailedBundleVecSendCallbacks;
                 BOOST_REQUIRE_EQUAL(failedMessage, DESIRED_RED_DATA_TO_SEND);
                 BOOST_REQUIRE_EQUAL(outductUuid, TX_UUID);
+                BOOST_REQUIRE(!successCallbackCalled); //only true when a disk session fails (but there are no tests for that)
+                BOOST_REQUIRE(userData == EXPECTED_BUNDLE_USER_DATA);
             }
             cv.notify_one();
             
@@ -279,6 +291,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
                 ++numOnSuccessfulBundleSendCallbacks;
                 BOOST_REQUIRE_EQUAL(outductUuid, TX_UUID);
+                BOOST_REQUIRE(userData == EXPECTED_BUNDLE_USER_DATA);
             }
             cv.notify_one();
         }
@@ -295,9 +308,11 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             {
                 boost::mutex::scoped_lock cvLock(cvMutex);
                 numRedPartReceptionCallbacks = 0;
+                numRedPartReceptionsThatWereEndOfBlock = 0;
                 numSessionStartSenderCallbacks = 0;
                 numSessionStartReceiverCallbacks = 0;
                 numGreenPartReceptionCallbacks = 0;
+                greenPartOffsetsReceivedSet.clear();
                 numReceptionSessionCancelledCallbacks = 0;
                 numTransmissionSessionCompletedCallbacks = 0;
                 numInitialTransmissionCompletedCallbacks = 0;
@@ -338,6 +353,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend.m_userData = EXPECTED_BUNDLE_USER_DATA;
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -355,6 +371,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 
             boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionsThatWereEndOfBlock, 1);
             BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
@@ -389,6 +406,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_AND_GREEN_DATA_TO_SEND.data(), DESIRED_RED_AND_GREEN_DATA_TO_SEND.data() + DESIRED_RED_AND_GREEN_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend.m_userData = EXPECTED_BUNDLE_USER_DATA;
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -406,11 +424,17 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 
             boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionsThatWereEndOfBlock, 0); //0 because there's green data after the red part
             BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 3);
+            BOOST_REQUIRE(greenPartOffsetsReceivedSet == std::set<uint64_t>({
+                DESIRED_RED_AND_GREEN_DATA_TO_SEND.length() - 3,
+                DESIRED_RED_AND_GREEN_DATA_TO_SEND.length() - 2,
+                DESIRED_RED_AND_GREEN_DATA_TO_SEND.length() - 1
+            }));
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
@@ -434,6 +458,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_FULLY_GREEN_DATA_TO_SEND.data(), DESIRED_FULLY_GREEN_DATA_TO_SEND.data() + DESIRED_FULLY_GREEN_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend.m_userData = EXPECTED_BUNDLE_USER_DATA;
             tReq->lengthOfRedPart = 0;
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -456,6 +481,12 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, DESIRED_FULLY_GREEN_DATA_TO_SEND.size());
+            std::set<uint64_t> expectedGreenPartOffsetsReceivedSet;
+            for (uint64_t i = 0; i < DESIRED_FULLY_GREEN_DATA_TO_SEND.size(); ++i) {
+                expectedGreenPartOffsetsReceivedSet.emplace(i);
+            }
+            BOOST_REQUIRE_EQUAL(expectedGreenPartOffsetsReceivedSet.size(), DESIRED_FULLY_GREEN_DATA_TO_SEND.size());
+            BOOST_REQUIRE(greenPartOffsetsReceivedSet == expectedGreenPartOffsetsReceivedSet);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
@@ -497,6 +528,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend.m_userData = EXPECTED_BUNDLE_USER_DATA;
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -524,6 +556,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
             
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionsThatWereEndOfBlock, 1);
             BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
@@ -568,6 +601,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend.m_userData = EXPECTED_BUNDLE_USER_DATA;
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -595,6 +629,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
             
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionsThatWereEndOfBlock, 1);
             BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
@@ -637,6 +672,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend.m_userData = EXPECTED_BUNDLE_USER_DATA;
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -676,6 +712,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionsThatWereEndOfBlock, 1);
             BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
@@ -721,6 +758,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend.m_userData = EXPECTED_BUNDLE_USER_DATA;
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -758,6 +796,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionsThatWereEndOfBlock, 1);
             BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
@@ -802,6 +841,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend.m_userData = EXPECTED_BUNDLE_USER_DATA;
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -829,6 +869,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionsThatWereEndOfBlock, 1);
             BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
@@ -876,6 +917,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend.m_userData = EXPECTED_BUNDLE_USER_DATA;
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -904,6 +946,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionsThatWereEndOfBlock, 1);
             BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
@@ -1012,6 +1055,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend.m_userData = EXPECTED_BUNDLE_USER_DATA;
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -1073,6 +1117,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend.m_userData = EXPECTED_BUNDLE_USER_DATA;
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -1099,6 +1144,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionsThatWereEndOfBlock, 1);
             BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1); //session won't be found when CS arrives at sender
             BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0); //session won't be found when CS arrives at sender
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
@@ -1133,6 +1179,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend.m_userData = EXPECTED_BUNDLE_USER_DATA;
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -1186,6 +1233,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST + 1; //+1 to make it invalid
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend.m_userData = EXPECTED_BUNDLE_USER_DATA;
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -1246,6 +1294,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend.m_userData = EXPECTED_BUNDLE_USER_DATA;
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -1320,6 +1369,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend.m_userData = EXPECTED_BUNDLE_USER_DATA;
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -1347,6 +1397,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionsThatWereEndOfBlock, 1);
             BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
@@ -1383,6 +1434,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_FULLY_GREEN_DATA_TO_SEND.data(), DESIRED_FULLY_GREEN_DATA_TO_SEND.data() + DESIRED_FULLY_GREEN_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend.m_userData = EXPECTED_BUNDLE_USER_DATA;
             tReq->lengthOfRedPart = 0;
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -1406,6 +1458,12 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, DESIRED_FULLY_GREEN_DATA_TO_SEND.size() - 1);
+            std::set<uint64_t> expectedGreenPartOffsetsReceivedSet;
+            for (uint64_t i = 0; i < (DESIRED_FULLY_GREEN_DATA_TO_SEND.size() - 1); ++i) {
+                expectedGreenPartOffsetsReceivedSet.emplace(i);
+            }
+            BOOST_REQUIRE_EQUAL(expectedGreenPartOffsetsReceivedSet.size(), DESIRED_FULLY_GREEN_DATA_TO_SEND.size() - 1);
+            BOOST_REQUIRE(greenPartOffsetsReceivedSet == expectedGreenPartOffsetsReceivedSet);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 1);
             BOOST_REQUIRE(lastReasonCode_receptionSessionCancelledCallback == CANCEL_SEGMENT_REASON_CODES::USER_CANCELLED);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
@@ -1435,7 +1493,6 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 bool DoSim(const std::vector<uint8_t>& udpPacketReceived, std::size_t bytesTransferred) {
                     const uint8_t ltpHeaderByte = udpPacketReceived[0];
                     const bool isRedData = (ltpHeaderByte <= 3);
-                    const LTP_SEGMENT_TYPE_FLAGS type = static_cast<LTP_SEGMENT_TYPE_FLAGS>(ltpHeaderByte);
                     if (isRedData) {
                         std::vector<uint8_t> packetCopy(udpPacketReceived);
                         m_packetsToReverse.emplace_front(std::move(packetCopy), bytesTransferred);
@@ -1498,6 +1555,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = padded_vector_uint8_t(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->clientServiceDataToSend.m_userData = EXPECTED_BUNDLE_USER_DATA;
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
             tReq->userDataPtr = myUserData; //keep a copy
@@ -1598,6 +1656,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionsThatWereEndOfBlock, 1);
             BOOST_REQUIRE_EQUAL(numOnSuccessfulBundleSendCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numOnFailedBundleVecSendCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);

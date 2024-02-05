@@ -5,7 +5,6 @@
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
 #include <boost/test/unit_test.hpp>
-#include <boost/filesystem.hpp>
 #include "dir_monitor/dir_monitor.hpp"
 #include "check_paths.hpp"
 #include "directory.hpp"

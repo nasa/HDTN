@@ -493,7 +493,7 @@ bool BpSecBundleProcessor::AesWrapKey(EvpCipherCtxWrapper& ctxWrapper,
     wrappedKeyOut += tmpOutLength;
 
     wrappedKeyOutSize = static_cast<unsigned int>(wrappedKeyOut - wrappedKeyOutBase);
-    return wrappedKeyOutSize == (keyEncryptionKeyLength + 8);
+    return wrappedKeyOutSize == (keyEncryptionKeyLength + 8u);
 #else
     (void)ctxWrapper; //parameter not used
     AES_KEY aesKey;
@@ -508,7 +508,7 @@ bool BpSecBundleProcessor::AesWrapKey(EvpCipherCtxWrapper& ctxWrapper,
     //success should return keyEncryptionKeyLength + 8, or -1 if failure
     const int wrappedKeyLength = AES_wrap_key(&aesKey, NULL, wrappedKeyOut, keyToWrap, keyToWrapLength);
     wrappedKeyOutSize = static_cast<unsigned int>(wrappedKeyLength);
-    return wrappedKeyLength == (keyEncryptionKeyLength + 8);
+    return wrappedKeyOutSize == (keyEncryptionKeyLength + 8u);
 #endif
 }
 
@@ -577,7 +577,7 @@ bool BpSecBundleProcessor::AesUnwrapKey(EvpCipherCtxWrapper& ctxWrapper,
     //success should return keyEncryptionKeyLength, or -1 if failure
     const int unwrappedKeyLength = AES_unwrap_key(&aesKey, NULL, unwrappedKeyOut, keyToUnwrap, keyToUnwrapLength);
     unwrappedKeyOutSize = static_cast<unsigned int>(unwrappedKeyLength);
-    return unwrappedKeyLength == keyEncryptionKeyLength;
+    return unwrappedKeyOutSize == keyEncryptionKeyLength;
 #endif
 }
 
@@ -706,7 +706,7 @@ BpSecBundleProcessor::BpSecErrorFlist BpSecBundleProcessor::TryDecryptBundleByIn
         //unwrap key:
         if (!AesUnwrapKey(ctxWrapperForKeyUnwrap,
             confidentialityReceivedParameters.keyEncryptionKey, confidentialityReceivedParameters.keyEncryptionKeyLength,
-            wrappedKeyPtr->data(), static_cast<const unsigned int>(wrappedKeyPtr->size()),
+            wrappedKeyPtr->data(), static_cast<unsigned int>(wrappedKeyPtr->size()),
             unwrappedKeyBytes, unwrappedKeyOutSize))
         {
             errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, UINT64_MAX, boost::make_unique<std::string>(
@@ -915,8 +915,6 @@ bool BpSecBundleProcessor::TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
     const uint64_t* insertBcbBeforeThisBlockNumberIfNotNull,
     const bool renderInPlaceWhenFinished)
 {
-    std::vector<BundleViewV7::Bpv7CanonicalBlockView*>& blocks = reusableElementsInternal.blocks;
-
     std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7BlockConfidentialityBlock>();
     Bpv7BlockConfidentialityBlock& bcb = *(reinterpret_cast<Bpv7BlockConfidentialityBlock*>(blockPtr.get()));
 
@@ -1205,7 +1203,7 @@ BpSecBundleProcessor::BpSecErrorFlist BpSecBundleProcessor::TryVerifyBundleInteg
         //unwrap key:
         if (!AesUnwrapKey(ctxWrapperForKeyUnwrap,
             integrityReceivedParameters.keyEncryptionKey, integrityReceivedParameters.keyEncryptionKeyLength,
-            wrappedKeyPtr->data(), static_cast<const unsigned int>(wrappedKeyPtr->size()),
+            wrappedKeyPtr->data(), static_cast<unsigned int>(wrappedKeyPtr->size()),
             unwrappedKeyBytes, unwrappedKeyOutSize))
         {
             errorList.emplace_front(BPSEC_ERROR_CODES::CORRUPTED, UINT64_MAX, boost::make_unique<std::string>(
@@ -1444,7 +1442,6 @@ bool BpSecBundleProcessor::TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
     }
 
     uint8_t primaryByteStringHeader[10]; //must be at least 9
-    std::vector<BundleViewV7::Bpv7CanonicalBlockView*>& blocks = reusableElementsInternal.blocks;
 
     std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7BlockIntegrityBlock>();
     Bpv7BlockIntegrityBlock& bib = *(reinterpret_cast<Bpv7BlockIntegrityBlock*>(blockPtr.get()));

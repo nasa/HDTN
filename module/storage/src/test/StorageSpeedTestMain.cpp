@@ -49,7 +49,7 @@ struct TestFile {
         boost::random::mt19937 gen(static_cast<unsigned int>(std::time(0)));
         const boost::random::uniform_int_distribution<> distRandomData(0, 255);
         for (std::size_t i = 0; i < size; ++i) {
-            m_data[i] = distRandomData(gen);
+            m_data[i] = static_cast<uint8_t>(distRandomData(gen));
         }
     }
     padded_vector_uint8_t m_data;
@@ -167,6 +167,10 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
 
                 ++custodyId;
                 const uint64_t totalBytesPushed = bsm.PushAllSegments(sessionWrite, primary, custodyId, data.data(), data.size());
+                if (totalBytesPushed == 0) {
+                    LOG_ERROR(subprocess) << "error pushing all segments";
+                    return false;
+                }
                 
             }
             const boost::uint64_t nanoSecWall = timer.elapsed().wall;

@@ -17,7 +17,8 @@
 #include "Logger.h"
 #include <boost/foreach.hpp>
 #include <boost/make_unique.hpp>
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem/fstream.hpp>
 #include <boost/endian/conversion.hpp>
 #include "ThreadNamer.h"
 #include "Utf8Paths.h"

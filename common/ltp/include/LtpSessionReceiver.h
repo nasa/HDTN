@@ -75,10 +75,9 @@ private:
      * Calls m_notifyEngineThatThisReceiverCompletedDeferredOperationFunctionRef() to notify the associated LtpEngine that a deferred disk operation
      * has been completed.
      * @param clientServiceDataReceivedSharedPtr The client service data.
-     * @param isEndOfBlock Whether the data contain the EOB segment.
      * @post The number of active disk I/O operations is modified (see above for details).
      */
-    LTP_LIB_NO_EXPORT void OnDataSegmentWrittenToDisk(std::shared_ptr<std::vector<uint8_t> >& clientServiceDataReceivedSharedPtr, bool isEndOfBlock);
+    LTP_LIB_NO_EXPORT void OnDataSegmentWrittenToDisk(std::shared_ptr<std::vector<uint8_t> >& clientServiceDataReceivedSharedPtr);
     
     /** Handle deferred red part read completion.
      *
@@ -87,10 +86,9 @@ private:
      * If the red part reception callback is set, calls m_redPartReceptionCallbackRef() to invoke the red part reception callback.
      * Clears the in-memory red data store.
      * @param success Whether the read operation was successful.
-     * @param isEndOfBlock Whether the data contain the EOB segment.
      * @post The number of active disk I/O operations is decremented.
      */
-    LTP_LIB_NO_EXPORT void OnRedDataRecoveredFromDisk(bool success, bool isEndOfBlock);
+    LTP_LIB_NO_EXPORT void OnRedDataRecoveredFromDisk(bool success);
 public:
     /** Handle pending checkpoint delayed report transmission timer expiry.
      *
@@ -431,6 +429,8 @@ private:
     bool m_didNotifyForDeletion;
     /// Whether we have received an EOB segment (either red or green)
     bool m_receivedEobFromGreenOrRed;
+    /// Indication as to whether or not the last byte of the red-part is also the end of the block (for the Red-part Reception Callback).
+    bool m_receivedEobFromRed;
 public:
     /// Whether the cancellation callback has been invoked, used to prevent against multiple executions of the session completion procedure
     bool m_calledCancelledCallback;

@@ -479,7 +479,7 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
             }
 
             if ((inductElementConfig.convergenceLayer == "stcp") || (inductElementConfig.convergenceLayer == "tcpcl_v3") || (inductElementConfig.convergenceLayer == "tcpcl_v4")) {
-                inductElementConfig.keepAliveIntervalSeconds = inductElementConfigPt.second.get<uint32_t>("keepAliveIntervalSeconds");
+                inductElementConfig.keepAliveIntervalSeconds = inductElementConfigPt.second.get<uint16_t>("keepAliveIntervalSeconds");
             }
             else if (inductElementConfigPt.second.count("keepAliveIntervalSeconds") != 0) {
                 LOG_ERROR(subprocess) << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: induct convergence layer  " << inductElementConfig.convergenceLayer

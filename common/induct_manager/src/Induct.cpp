@@ -125,7 +125,9 @@ bool Induct::ForwardOnOpportunisticLink(const uint64_t remoteNodeId, zmq::messag
     return true;
 }
 
-void Induct::Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId) {}
+void Induct::Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId) {
+    (void)remoteNodeId;
+}
 
 bool Induct::BundleSinkTryGetData_FromIoServiceThread(OpportunisticBundleQueue & opportunisticBundleQueue, std::pair<std::unique_ptr<zmq::message_t>, padded_vector_uint8_t> & bundleDataPair) {
     return opportunisticBundleQueue.TryPop_ThreadSafe(bundleDataPair);

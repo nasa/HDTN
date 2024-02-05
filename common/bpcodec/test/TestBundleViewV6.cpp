@@ -52,23 +52,6 @@ static void AppendCanonicalBlockAndRender(BundleViewV6 & bv, BPV6_BLOCK_TYPE_COD
     BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), expectedRenderSize);
     
 }
-static void PrependCanonicalBlockAndRender(BundleViewV6 & bv, BPV6_BLOCK_TYPE_CODE newType, const std::string & newBlockBody) {
-    std::unique_ptr<Bpv6CanonicalBlock> blockPtr = boost::make_unique<Bpv6CanonicalBlock>();
-    Bpv6CanonicalBlock & block = *blockPtr;
-    block.m_blockTypeCode = newType;
-    block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET; //don't worry about block.flags as last block because Render will take care of that automatically
-    block.m_blockTypeSpecificDataLength = newBlockBody.length();
-    block.m_blockTypeSpecificDataPtr = (uint8_t*)newBlockBody.data(); //blockBodyAsVecUint8 must remain in scope until after render
-    bv.PrependMoveCanonicalBlock(std::move(blockPtr));
-    uint64_t expectedRenderSize;
-    BOOST_REQUIRE(bv.GetSerializationSize(expectedRenderSize));
-    BOOST_REQUIRE(bv.Render(5000));
-    BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), expectedRenderSize);
-    //check again after render
-    BOOST_REQUIRE(bv.GetSerializationSize(expectedRenderSize));
-    BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), expectedRenderSize);
-
-}
 static void PrependCanonicalBlockAndRender_AllocateOnly(BundleViewV6 & bv, BPV6_BLOCK_TYPE_CODE newType, uint64_t dataLengthToAllocate) {
     std::unique_ptr<Bpv6CanonicalBlock> blockPtr = boost::make_unique<Bpv6CanonicalBlock>();
     Bpv6CanonicalBlock & block = *blockPtr;
@@ -392,9 +375,7 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
 {
     static const uint64_t PREVIOUS_NODE = 12345;
     static const uint64_t PREVIOUS_SVC = 678910;
-    static const uint64_t BUNDLE_AGE_MS = 135791113;
-    static const uint8_t HOP_LIMIT = 250;
-    static const uint8_t HOP_COUNT = 200;
+    static const uint64_t BUNDLE_AGE_MICROSECONDS = 135791113;
     const std::string payloadString = { "This is the data inside the bpv6 payload block!!!" };
 
 
@@ -432,7 +413,7 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
         //block.SetZero();
 
         //block.m_blockProcessingControlFlags = DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED set by Bpv6PreviousHopInsertionCanonicalBlock constructor
-        block.m_previousNode.Set(550, 60000);
+        block.m_previousNode.Set(PREVIOUS_NODE, PREVIOUS_SVC);
         bv.AppendMoveCanonicalBlock(std::move(blockPtr));
     }
 
@@ -482,7 +463,7 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
         //block.SetZero();
 
         //block.m_blockProcessingControlFlags = MUST_BE_REPLICATED_IN_EVERY_FRAGMENT set by Bpv6BundleAgeCanonicalBlock constructor
-        block.m_bundleAgeMicroseconds = 1000000;
+        block.m_bundleAgeMicroseconds = BUNDLE_AGE_MICROSECONDS;
         bv.AppendMoveCanonicalBlock(std::move(blockPtr));
     }
 
@@ -575,7 +556,7 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
             BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::IS_LAST_BLOCK));
             BOOST_REQUIRE(blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED));
             BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT));
-            BOOST_REQUIRE_EQUAL(phibPtr->m_previousNode, cbhe_eid_t(550, 60000));
+            BOOST_REQUIRE_EQUAL(phibPtr->m_previousNode, cbhe_eid_t(PREVIOUS_NODE, PREVIOUS_SVC));
             BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), phibPtr->GetSerializationSize());
         }
     }
@@ -641,7 +622,7 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
             BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::IS_LAST_BLOCK));
             BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED));
             BOOST_REQUIRE(blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT));
-            BOOST_REQUIRE_EQUAL(agePtr->m_bundleAgeMicroseconds, 1000000);
+            BOOST_REQUIRE_EQUAL(agePtr->m_bundleAgeMicroseconds, BUNDLE_AGE_MICROSECONDS);
             BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), agePtr->GetSerializationSize());
         }
     }

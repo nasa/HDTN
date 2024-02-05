@@ -21,10 +21,12 @@
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::telem;
 
 static void CustomCleanupStdString(void* data, void* hint) {
+    (void)data;
     delete static_cast<std::string*>(hint);
 }
 
 static void CustomCleanupZmqMessage(void *data, void *hint) {
+    (void)data;
     delete static_cast<zmq::message_t*>(hint);
 }
 

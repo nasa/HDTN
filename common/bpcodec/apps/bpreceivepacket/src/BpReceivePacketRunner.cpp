@@ -16,7 +16,7 @@
 #include "BpReceivePacketRunner.h"
 #include "SignalHandler.h"
 #include "Logger.h"
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include "Uri.h"
@@ -44,7 +44,7 @@ bool BpReceivePacketRunner::Run(int argc, const char* const argv[], std::atomic<
         cbhe_eid_t myEid;
         bool isAcsAware;
         uint64_t maxBundleSizeBytes;
-	boost::filesystem::path bpSecConfigFilePath;
+        boost::filesystem::path bpSecConfigFilePath;
 
         boost::program_options::options_description desc("Allowed options");
         try {

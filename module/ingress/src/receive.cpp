@@ -397,8 +397,11 @@ bool Ingress::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::path& 
     return m_pimpl->Init(hdtnConfig, bpSecConfigFilePath, hdtnDistributedConfig, hdtnOneProcessZmqInprocContextPtr, maskerImpl);
 }
 bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::path& bpSecConfigFilePath,
-		         const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr, const std::string& maskerImpl) {
-
+    const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr, const std::string& maskerImpl)
+{
+#ifndef MASKING_ENABLED
+    (void)maskerImpl; //parameter not used
+#endif
     if (m_running) {
         LOG_ERROR(subprocess) << "Ingress::Init called while Ingress is already running";
         return false;
@@ -607,20 +610,21 @@ bool Ingress::Impl::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::
 }
 
 static void CustomCleanupZmqMessage(void *data, void *hint) {
+    (void)data;
     delete static_cast<zmq::message_t*>(hint);
 }
 static void CustomCleanupPaddedVecUint8(void *data, void *hint) {
+    (void)data;
     delete static_cast<padded_vector_uint8_t*>(hint);
-}
-static void CustomCleanupStdString(void* data, void* hint) {
-    delete static_cast<std::string*>(hint);
 }
 
 static void CustomCleanupToEgressHdr(void *data, void *hint) {
+    (void)data;
     delete static_cast<hdtn::ToEgressHdr*>(hint);
 }
 
 static void CustomCleanupToStorageHdr(void *data, void *hint) {
+    (void)data;
     delete static_cast<hdtn::ToStorageHdr*>(hint);
 }
 
@@ -916,11 +920,11 @@ void Ingress::Impl::ZmqTelemThreadFunc() {
                         SendPing(pingCmd->m_nodeId, pingCmd->m_pingServiceNumber, pingCmd->m_bpVersion);
                         request.SendResponseSuccess(m_zmqRepSock_connectingTelemToFromBoundIngressPtr);
                     }
-                    else if (GetInductsApiCommand_t* apiCmd = dynamic_cast<GetInductsApiCommand_t*>(request.Command().get())) {
+                    else if (dynamic_cast<GetInductsApiCommand_t*>(request.Command().get())) {
                         const std::string resp = allInductTelem.ToJson();
                         request.SendResponse(resp, m_zmqRepSock_connectingTelemToFromBoundIngressPtr);
                     }
-                    else if (GetBpSecApiCommand_t* bpsecCmd = dynamic_cast<GetBpSecApiCommand_t*>(request.Command().get())) {
+                    else if (dynamic_cast<GetBpSecApiCommand_t*>(request.Command().get())) {
                         // redoing what storage has done for BPsec
                     #ifdef BPSEC_SUPPORT_ENABLED
                         std::string resp = (m_bpSecConfigPtr ? m_bpSecConfigPtr->ToJson() : "{}");
@@ -929,8 +933,8 @@ void Ingress::Impl::ZmqTelemThreadFunc() {
                     #endif
                         request.SendResponse(resp, m_zmqRepSock_connectingTelemToFromBoundIngressPtr);
                     }
-                    else if (UpdateBpSecApiCommand_t* updateBpsecCmd = dynamic_cast<UpdateBpSecApiCommand_t*>(request.Command().get())) {
                     #ifdef BPSEC_SUPPORT_ENABLED
+                    else if (UpdateBpSecApiCommand_t* updateBpsecCmd = dynamic_cast<UpdateBpSecApiCommand_t*>(request.Command().get())) {
                         m_bpSecConfigPtr = BpSecConfig::CreateFromJson(updateBpsecCmd->m_bpSecJson);
                         if (!m_bpSecConfigPtr) {
                             LOG_FATAL(subprocess) << "Error loading BpSec config file: User Change.  Got:"
@@ -945,6 +949,7 @@ void Ingress::Impl::ZmqTelemThreadFunc() {
                         }
                         request.SendResponseSuccess(m_zmqRepSock_connectingTelemToFromBoundIngressPtr);
                     #else
+                    else if (dynamic_cast<UpdateBpSecApiCommand_t*>(request.Command().get())) {
                         const std::string msg = "BPSec is not enabled";
                         request.SendResponseError(msg, m_zmqRepSock_connectingTelemToFromBoundIngressPtr);
                     #endif
@@ -1175,7 +1180,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
         if (needsProcessing) {
             if (finalDestEid == M_HDTN_EID_PING) {
                 //get payload block
-                std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+                static thread_local std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
                 bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
                 if (blocks.size() != 1) {
                     LOG_ERROR(subprocess) << "Received a ping response bundle with no payload block";
@@ -1636,6 +1641,7 @@ void Ingress::Impl::SendOpportunisticLinkMessages(const uint64_t remoteNodeId, b
 }
 
 void Ingress::Impl::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtr) {
+    (void)sinkPtr;
     if (TcpclInduct * tcpclInductPtr = dynamic_cast<TcpclInduct*>(thisInductPtr)) {
         LOG_INFO(subprocess) << "New opportunistic link detected on TcpclV3 induct for ipn:" << remoteNodeId << ".*";
         SendOpportunisticLinkMessages(remoteNodeId, true);
@@ -1648,7 +1654,7 @@ void Ingress::Impl::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, 
         boost::mutex::scoped_lock lock(m_availableDestOpportunisticNodeIdToTcpclInductMapMutex);
         m_availableDestOpportunisticNodeIdToTcpclInductMap[remoteNodeId] = tcpclV4InductPtr;
     }
-    else if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
+    else if (dynamic_cast<StcpInduct*>(thisInductPtr)) {
 
     }
     else if (SlipOverUartInduct* slipOverUartInductPtr = dynamic_cast<SlipOverUartInduct*>(thisInductPtr)) {
@@ -1662,7 +1668,7 @@ void Ingress::Impl::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, 
     }
 }
 void Ingress::Impl::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct* thisInductPtr, void* sinkPtrAboutToBeDeleted) {
-    if (StcpInduct* stcpInductPtr = dynamic_cast<StcpInduct*>(thisInductPtr)) {
+    if (dynamic_cast<StcpInduct*>(thisInductPtr)) {
 
     }
     else {

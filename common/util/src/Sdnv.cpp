@@ -770,7 +770,7 @@ uint32_t SdnvDecodeU32FastBufSize8(const uint8_t * data, uint8_t * numBytes) {
 #if 0
     const bool valid = (maskIndex < 4) + ((maskIndex == 4) * (data[0] <= 0x8f));
 #else
-    const bool valid = (((((uint16_t)maskIndex) << 8) | data[0]) <= 0x048fU);
+    const bool valid = ( (static_cast<uint16_t>((((uint16_t)maskIndex) << 8) | data[0])) <= 0x048fU);
 #endif
     *numBytes = numBytesToDecode * valid; //sdnvSizeBytes;
     return static_cast<uint32_t>(decoded) * valid; //decoded value shall return DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE (0) on failure
@@ -854,7 +854,7 @@ uint64_t SdnvDecodeU64FastBufSize16(const uint8_t * data, uint8_t * numBytes) {
 #elif 0
     const bool valid = (maskIndex < 9) + ((maskIndex == 9) * (data[0] <= 0x81));
 #elif 1
-    const bool valid = (((((uint16_t)maskIndex) << 8) | data[0]) <= 0x0981U);
+    const bool valid = ( (static_cast<uint16_t>((((uint16_t)maskIndex) << 8) | data[0])) <= 0x0981U);
 #else
     const bool valid = (((((uint16_t)maskIndex) << 8) | ((uint8_t)encoded64)) <= 0x0981U);
 #endif
@@ -897,7 +897,7 @@ unsigned int SdnvDecodeMultipleU64Fast(const uint8_t * data, uint8_t * numBytes,
         }
         
         const uint64_t encoded64 = _mm_cvtsi128_si64(sdnvsEncoded); //SSE2 Copy the lower 64-bit integer in a to dst.
-        const bool valid = (((((uint16_t)maskIndex) << 8) | ((uint8_t)encoded64)) <= 0x0981U);
+        const bool valid = ( (static_cast<uint16_t>((((uint16_t)maskIndex) << 8) | ((uint8_t)encoded64))) <= 0x0981U);
         if (!valid) { //decode error detected
             *numBytes = 0;
             return 0;
@@ -956,7 +956,7 @@ unsigned int SdnvDecodeMultipleU64Fast(const uint8_t * data, uint8_t * numBytes,
         bytesRemainingIn128Buffer -= sdnvSizeBytes;
         --decodedRemaining;
     }
-    *numBytes = static_cast<unsigned int>(sizeof(__m128i)) - bytesRemainingIn128Buffer;
+    *numBytes = static_cast<uint8_t>(static_cast<unsigned int>(sizeof(__m128i)) - bytesRemainingIn128Buffer);
     return decodedStart - decodedRemaining;
 }
 
@@ -995,7 +995,7 @@ unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * num
         }
 
         const uint64_t encoded64 = _mm_cvtsi128_si64(_mm256_castsi256_si128(sdnvsEncoded)); //SSE2 Copy the lower 64-bit integer in a to dst.
-        const bool valid = (((((uint16_t)maskIndex) << 8) | ((uint8_t)encoded64)) <= 0x0981U);
+        const bool valid = ( (static_cast<uint16_t>((((uint16_t)maskIndex) << 8) | ((uint8_t)encoded64))) <= 0x0981U);
         if (!valid) { //decode error detected
             *numBytes = 0;
             return 0;
@@ -1052,7 +1052,7 @@ unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * num
         bytesRemainingIn256Buffer -= sdnvSizeBytes;
         --decodedRemaining;
     }
-    *numBytes = static_cast<unsigned int>(sizeof(__m256i)) - bytesRemainingIn256Buffer;
+    *numBytes = static_cast<uint8_t>(static_cast<unsigned int>(sizeof(__m256i)) - bytesRemainingIn256Buffer);
     return decodedStart - decodedRemaining;
 }
 

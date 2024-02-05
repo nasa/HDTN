@@ -17,10 +17,12 @@
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 static void CustomCleanupStdString(void* data, void* hint) {
+    (void)data;
     delete static_cast<std::string*>(hint);
 }
 
 static void CustomCleanupSharedPtrStdString(void* data, void* hint) {
+    (void)data;
     std::shared_ptr<std::string>* serializedRawPtrToSharedPtr = static_cast<std::shared_ptr<std::string>* >(hint);
     delete serializedRawPtrToSharedPtr; //reduce ref count and delete shared_ptr object
 }
@@ -30,9 +32,9 @@ static void CustomCleanupSharedPtrStdString(void* data, void* hint) {
  * TelemetryRequest 
  */
 
-TelemetryRequest::TelemetryRequest(bool error) : m_error(error), m_more(false) {}
+TelemetryRequest::TelemetryRequest(bool error) : m_more(false), m_error(error) {}
 
-TelemetryRequest::TelemetryRequest(bool error, bool more, std::string& message, zmq::message_t& connectionId) : m_error(error), m_more(more) {
+TelemetryRequest::TelemetryRequest(bool error, bool more, std::string& message, zmq::message_t& connectionId) :  m_more(more), m_error(error) {
     m_connectionId.copy(connectionId);
     m_cmd = ApiCommand_t::CreateFromJson(message);
     if (!m_cmd) {
@@ -125,6 +127,5 @@ TelemetryRequest TelemetryServer::ReadRequest(std::unique_ptr<zmq::socket_t>& so
     }
 
     std::string apiMsgAsJsonStr = apiMsg.to_string();
-    bool more = apiMsg.more();
     return TelemetryRequest(false, apiMsg.more(), apiMsgAsJsonStr, connectionId);
 }

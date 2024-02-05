@@ -225,9 +225,10 @@ void LtpBundleSource::TransmissionSessionCompletedCallback(const Ltp::session_id
     }
 }
 void LtpBundleSource::InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId) {
-
+    (void)sessionId;
 }
 void LtpBundleSource::TransmissionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode) {
+    (void)reasonCode;
     if (sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID) {
         LOG_ERROR(subprocess) << "LtpBundleSource::TransmissionSessionCancelledCallback, sessionOriginatorEngineId "
             << sessionId.sessionOriginatorEngineId << " is not my engine id (" << M_THIS_ENGINE_ID << ")";

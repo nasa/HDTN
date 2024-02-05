@@ -59,15 +59,6 @@ public:
     
     /// Session cancellation segment context data
     struct cancel_segment_timer_info_t {
-        /// Default constructor
-        cancel_segment_timer_info_t() = default;
-        /**
-         * Initialize (this) by memcpy.
-         * Used for queue emplace of user data.
-         * @param data The object data to memcpy.
-         */
-        cancel_segment_timer_info_t(const uint8_t * data);
-
         /// Session ID
         Ltp::session_id_t sessionId;
         /// Reason code

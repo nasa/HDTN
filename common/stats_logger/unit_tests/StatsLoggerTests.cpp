@@ -12,14 +12,19 @@
  * See LICENSE.md in the source root directory for more information.
  */
 
+#include "StatsLogger.h"
 #include <fstream>
-#include <boost/filesystem.hpp>
+#include <boost/version.hpp>
+#if (BOOST_VERSION >= 107200)
+#include <boost/filesystem/directory.hpp>
+#endif
+#include <boost/filesystem/operations.hpp>
 #include <boost/test/unit_test.hpp>
 #include <boost/regex.hpp>
-#include "StatsLogger.h"
 
+
+#ifdef DO_STATS_LOGGING
 static const std::string timestamp_regex = "\\d+";
-static const std::string header_regex = "^timestamp\\(ms\\),value\n";
 
 /**
  * Reads a file's contents into a string and returns it
@@ -41,7 +46,7 @@ static std::string findFirstEntry(std::string inputDir) {
     return "";
 }
 
-#ifdef DO_STATS_LOGGING
+
 BOOST_AUTO_TEST_CASE(StatsLoggerLogMetrics)
 {
     hdtn::StatsLogger::Reset();

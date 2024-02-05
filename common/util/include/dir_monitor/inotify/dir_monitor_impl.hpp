@@ -9,7 +9,12 @@
 #include <boost/asio.hpp>
 #include <boost/bind/bind.hpp> //don't include <boost/bind.hpp> to force using boost::placeholders::_1 instead of just _1
 #include <boost/bimap.hpp>
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/version.hpp>
+#if (BOOST_VERSION >= 107200)
+#include <boost/filesystem/directory.hpp>
+#endif
+#include <boost/filesystem/operations.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/system/system_error.hpp>
 

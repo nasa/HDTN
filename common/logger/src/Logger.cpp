@@ -90,8 +90,8 @@ namespace keywords = boost::log::keywords;
 
 namespace hdtn{
 
-BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", logging::trivial::severity_level);
-BOOST_LOG_ATTRIBUTE_KEYWORD(channel, "Channel", Logger::SubProcess);
+BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", logging::trivial::severity_level) //no ending ";"
+BOOST_LOG_ATTRIBUTE_KEYWORD(channel, "Channel", Logger::SubProcess) //no ending ";"
 
 /**
  * Overloads the stream operator to support the Process enum
@@ -106,7 +106,7 @@ static std::ostream& operator<< (std::ostream& strm, const Logger::Process& proc
  */
 static std::ostream& operator<< (std::ostream& strm, const Logger::SubProcess& subprocess)
 {
-    return strm << Logger::toString(subprocess);;
+    return strm << Logger::toString(subprocess);
 }
 
 Logger::Logger()
@@ -278,7 +278,7 @@ logging::formatter Logger::levelFileFormatter()
 std::string Logger::toString(Logger::Process process)
 {
     static constexpr uint32_t num_processes = sizeof(process_strings)/sizeof(*process_strings);
-    int process_val = static_cast<typename std::underlying_type<Logger::Process>::type>(process);
+    const uint32_t process_val = static_cast<typename std::underlying_type<Logger::Process>::type>(process);
     if (process_val >= num_processes) {
         return "";
     }
@@ -288,7 +288,7 @@ std::string Logger::toString(Logger::Process process)
 std::string Logger::toString(Logger::SubProcess subprocess)
 {
     static constexpr uint32_t num_subprocesses = sizeof(subprocess_strings)/sizeof(*subprocess_strings);
-    int subprocess_val = static_cast<typename std::underlying_type<Logger::Process>::type>(subprocess);
+    const uint32_t subprocess_val = static_cast<typename std::underlying_type<Logger::SubProcess>::type>(subprocess);
     if (subprocess_val >= num_subprocesses) {
         return "";
     }
@@ -302,8 +302,8 @@ void Logger::createStdoutSink() {
         boost::shared_ptr<std::ostream>(&std::cout, boost::null_deleter())
     );
 
-    typedef sinks::synchronous_sink< sinks::text_ostream_backend > sink_t;
-    boost::shared_ptr<sink_t> stdout_sink = boost::make_shared<sink_t>(stdout_sink_backend);
+    typedef sinks::synchronous_sink< sinks::text_ostream_backend > ostream_sink_t;
+    boost::shared_ptr<ostream_sink_t> stdout_sink = boost::make_shared<ostream_sink_t>(stdout_sink_backend);
 
     stdout_sink->set_filter(expr::has_attr<logging::trivial::severity_level>("Severity"));
     stdout_sink->set_formatter(Logger::consoleFormatter());

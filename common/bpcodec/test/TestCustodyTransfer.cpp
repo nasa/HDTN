@@ -759,7 +759,6 @@ BOOST_AUTO_TEST_CASE(DeletionStatusReportTestCase)
         bv.m_frontBuffer.reserve(2000);
         bv.m_backBuffer.reserve(2000);
 
-        const bool isAcsAware = false;
         CustodyTransferManager ctmHdtn(false, PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC);
 
         TimestampUtil::dtn_time_t timeBefore = TimestampUtil::GenerateDtnTimeNow();

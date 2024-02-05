@@ -11,7 +11,7 @@ public:
     std::unique_ptr<zmq::socket_t> m_respSocket;
     zmq::pollitem_t m_pollItems[1];
 
-    MockTelemetryResponder(std::string addr, zmq::context_t *inprocContextPtr, zmq::socket_type sockType, bool bind = true)
+    MockTelemetryResponder(std::string addr, zmq::context_t *inprocContextPtr, bool bind = true)
     {
         m_respSocket = boost::make_unique<zmq::socket_t>(*inprocContextPtr, zmq::socket_type::pair);
         if (bind) {
@@ -37,6 +37,7 @@ public:
     {
         uint8_t data = 0;
         const zmq::recv_buffer_result_t res = m_respSocket->recv(zmq::mutable_buffer(&data, sizeof(data)), zmq::recv_flags::dontwait);
+        BOOST_REQUIRE(res);
         return data;
     }
 };
@@ -63,8 +64,7 @@ BOOST_AUTO_TEST_CASE(TelemetryConnectionReadMessageTestCase)
     std::unique_ptr<zmq::context_t> contextPtr = boost::make_unique<zmq::context_t>(0);
     std::unique_ptr<MockTelemetryResponder> responder = boost::make_unique<MockTelemetryResponder>(
         "inproc://my-connection",
-        contextPtr.get(),
-        zmq::socket_type::pair
+        contextPtr.get()
     );
 
     std::unique_ptr<TelemetryConnection> requester = boost::make_unique<TelemetryConnection>("inproc://my-connection", contextPtr.get(), zmq::socket_type::pair);
@@ -81,8 +81,7 @@ BOOST_AUTO_TEST_CASE(TelemetryConnectionSendMessageTestCase)
     std::unique_ptr<zmq::context_t> contextPtr = boost::make_unique<zmq::context_t>(0);
     std::unique_ptr<MockTelemetryResponder> responder = boost::make_unique<MockTelemetryResponder>(
         "inproc://my-connection",
-        contextPtr.get(),
-        zmq::socket_type::pair
+        contextPtr.get()
     );
 
     std::unique_ptr<TelemetryConnection> requester = boost::make_unique<TelemetryConnection>("inproc://my-connection", contextPtr.get(), zmq::socket_type::pair);
@@ -110,7 +109,6 @@ BOOST_AUTO_TEST_CASE(TelemetryConnectionRouterTestCase)
     std::unique_ptr<MockTelemetryResponder> responder = boost::make_unique<MockTelemetryResponder>(
         "inproc://my-connection",
         contextPtr.get(),
-        zmq::socket_type::req,
         false
     );
     responder->Send(6);

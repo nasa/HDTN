@@ -136,7 +136,8 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t
     //  sessionOriginatorEngineId = CHECKPOINT serial number
     //  sessionNumber = the session number
     //  since this is a sender, the real sessionOriginatorEngineId is constant among all sending sessions and is not needed
-    const uint64_t checkpointSerialNumber = checkpointSerialNumberPlusSessionNumber.sessionOriginatorEngineId;
+    (void)checkpointSerialNumberPlusSessionNumber;
+    //const uint64_t checkpointSerialNumber = checkpointSerialNumberPlusSessionNumber.sessionOriginatorEngineId;
 
     if (userData.size() != sizeof(csntimer_userdata_t)) {
         LOG_ERROR(subprocess) << "LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback: userData.size() != sizeof(rsntimer_userdata_t)";
@@ -193,6 +194,8 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t
 }
 
 void LtpSessionSender::LtpDelaySendDataSegmentsTimerExpiredCallback(const uint64_t& sessionNumber, std::vector<uint8_t>& userData) {
+    (void)sessionNumber;
+    (void)userData;
     // Github issue 24: Defer data retransmission with out-of-order report segments (see detailed description below)
     //...When the retransmission timer expires (i.e. there are still gaps to send) then send data segments to cover the remaining gaps for the session.
     LtpFragmentSet::list_fragment_set_needing_resent_for_each_report_t& listFragmentSetNeedingResentForEachReport = 
@@ -487,6 +490,8 @@ bool LtpSessionSender::NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketI
 void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t & reportSegment,
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
 {
+    (void)headerExtensions;
+    (void)trailerExtensions;
     //6.13.  Retransmit Data
 
     //Response: first, an RA segment with the same report serial number as

@@ -60,12 +60,14 @@ struct PaddedMallocator {
     }
 
     void deallocate(T* p, std::size_t n) noexcept {
+        (void)n;
         std::free(p - PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE);
     }
 
     //force default initialize construction
     template <typename U>
     void construct(U* ptr) noexcept(std::is_nothrow_default_constructible<U>::value) {
+        (void)ptr;
         //::new(static_cast<void*>(ptr)) U; //should be no-op anyway
     }
 };
@@ -107,12 +109,14 @@ struct PaddedMallocatorUnitTest {
     }
 
     void deallocate(T* p, std::size_t n) noexcept {
+        (void)n;
         std::free(p - PaddedMallocatorConstants::PADDING_ELEMENTS_BEFORE);
     }
 
     //force default initialize construction
     template <typename U>
     void construct(U* ptr) noexcept(std::is_nothrow_default_constructible<U>::value) {
+        (void)ptr;
         //::new(static_cast<void*>(ptr)) U; //should be no-op anyway
     }
 };

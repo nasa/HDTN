@@ -26,9 +26,9 @@ class SocketMock {
             GetStorageApiCommand_t cmd;
             std::string cmdStr = cmd.ToJson();
             zmq::message_t msg(cmdStr.data(), cmdStr.size());
-            zmq::message_t connId = id.Msg();
+            zmq::message_t connIdMsg = id.Msg();
 
-            client->send(std::move(connId), zmq::send_flags::sndmore);
+            client->send(std::move(connIdMsg), zmq::send_flags::sndmore);
             client->send(std::move(msg), more ? zmq::send_flags::sndmore : zmq::send_flags::none);
         }
 
@@ -49,6 +49,7 @@ class SocketMock {
         zmq::message_t Receive() {
             zmq::message_t msg;
             const zmq::recv_result_t res = client->recv(msg, zmq::recv_flags::dontwait);
+            BOOST_REQUIRE(res);
             return msg;
         }
 

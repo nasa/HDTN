@@ -16,7 +16,8 @@
 #include "Logger.h"
 #include <boost/make_unique.hpp>
 #include <boost/endian/conversion.hpp>
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/fstream.hpp>
 #include "Utf8Paths.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;

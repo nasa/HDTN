@@ -16,7 +16,7 @@
 #include "StorageRunner.h"
 #include "message.hpp"
 #include "SignalHandler.h"
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/make_unique.hpp>

@@ -17,7 +17,6 @@
 #include "BundleStorageManagerAsio.h"
 #include <iostream>
 #include <string>
-#include <boost/filesystem.hpp>
 #include "Environment.h"
 #include <boost/make_unique.hpp>
 

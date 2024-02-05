@@ -30,7 +30,12 @@
 #include <BpGenAsync.h>
 #include <BpSinkAsync.h>
 #include <EgressAsync.h>
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/version.hpp>
+#if (BOOST_VERSION >= 107200)
+#include <boost/filesystem/directory.hpp>
+#endif
+#include <boost/filesystem/fstream.hpp>
 #include <boost/test/unit_test.hpp>
 #include <boost/test/results_reporter.hpp>
 #include <boost/test/unit_test_parameters.hpp>
@@ -38,7 +43,6 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/detail/sha1.hpp>
 #include <boost/endian/conversion.hpp>
-#include <boost/filesystem/fstream.hpp>
 #include <boost/format.hpp>
 #include "Environment.h"
 #include "BpGenAsyncRunner.h"
@@ -637,8 +641,9 @@ bool TestHDTNFileTransferLTP() {
     boost::filesystem::path ReceiveFilePath = receivedFile.c_str();
     
     int receivedCount = 0;
-        for(auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(ReceiveFilePath), {}))
-            receivedCount += 1;
+    for (const boost::filesystem::directory_entry& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(ReceiveFilePath), {})) {
+        receivedCount += (entry.status().type() == boost::filesystem::file_type::regular_file);
+    }
  
      if (receivedCount != 1) {
         BOOST_ERROR("receivedCount ("+ std::to_string(receivedCount) +") != sendCount");
@@ -768,8 +773,9 @@ bool TestHDTNFileTransferLTPv7() {
     boost::filesystem::path ReceiveFilePath = receivedFile.c_str();
     
     int receivedCount = 0;
-        for(auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(ReceiveFilePath), {}))
-            receivedCount += 1;
+    for (const boost::filesystem::directory_entry& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(ReceiveFilePath), {})) {
+        receivedCount += (entry.status().type() == boost::filesystem::file_type::regular_file);
+    }
  
      if (receivedCount != 1) {
         BOOST_ERROR("receivedCount ("+ std::to_string(receivedCount) +") != sendCount");
@@ -898,8 +904,9 @@ bool TestHDTNFileTransferTCPCL() {
     boost::filesystem::path ReceiveFilePath = receivedFile.c_str();
     
     int receivedCount = 0;
-        for(auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(ReceiveFilePath), {}))
-            receivedCount += 1;
+    for (const boost::filesystem::directory_entry& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(ReceiveFilePath), {})) {
+        receivedCount += (entry.status().type() == boost::filesystem::file_type::regular_file);
+    }
  
      if (receivedCount != 1) {
         BOOST_ERROR("receivedCount ("+ std::to_string(receivedCount) +") != sendCount");
@@ -1339,8 +1346,9 @@ bool TestHDTNFileTransferUDP() {
     boost::filesystem::path ReceiveFilePath = receivedFile.c_str();
     
     int receivedCount = 0;
-        for(auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(ReceiveFilePath), {}))
-            receivedCount += 1;
+    for (const boost::filesystem::directory_entry& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(ReceiveFilePath), {})) {
+        receivedCount += (entry.status().type() == boost::filesystem::file_type::regular_file);
+    }
  
      if (receivedCount != 1) {
         BOOST_ERROR("receivedCount ("+ std::to_string(receivedCount) +") != sendCount");

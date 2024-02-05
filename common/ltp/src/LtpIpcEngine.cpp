@@ -28,8 +28,11 @@ LtpIpcEngine::LtpIpcEngine(
     const uint64_t maxUdpRxPacketSizeBytes,
     const LtpEngineConfig& ltpRxOrTxCfg) :
     LtpEngine(ltpRxOrTxCfg, ENGINE_INDEX, true),
-    M_REMOTE_ENGINE_ID(ltpRxOrTxCfg.remoteEngineId),
     m_myTxSharedMemoryName(myTxSharedMemoryName),
+    M_REMOTE_ENGINE_ID(ltpRxOrTxCfg.remoteEngineId),
+    m_myTxIpcControlPtr(NULL),
+    m_myTxIpcPacketCbArray(NULL),
+    m_myTxIpcDataStart(NULL),
     m_remoteTxIpcControlPtr(NULL),
     m_remoteTxIpcPacketCbArray(NULL),
     m_remoteTxIpcDataStart(NULL),
@@ -307,6 +310,7 @@ void LtpIpcEngine::ReadRemoteTxShmThreadFunc() {
 }
 
 void LtpIpcEngine::PacketInFullyProcessedCallback(bool success) {
+    (void)success;
     //Called by LTP Engine thread
     m_remoteTxIpcControlPtr->m_waitUntilNotFull_postHasFreeSpace_semaphore.post();
 }

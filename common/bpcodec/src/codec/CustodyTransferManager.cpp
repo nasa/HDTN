@@ -266,7 +266,7 @@ bool CustodyTransferManager::UpdateBundleCustodyFields(BundleViewV6 & bv, bool a
 
     if (m_isAcsAware) {
         std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
-        Bpv6CustodyTransferEnhancementBlock* ctebBlockPtr;
+        Bpv6CustodyTransferEnhancementBlock* ctebBlockPtr = NULL;
         bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT, blocks);
         if (blocks.size() > 1) { //D3.3.3 There shall be only one CTEB per bundle.
             return false; //treat as malformed
@@ -308,7 +308,7 @@ bool CustodyTransferManager::UpdateBundleCustodyFields(BundleViewV6 & bv, bool a
         bv.m_primaryBlockView.SetManuallyModified(); //will update after render
 
 
-        if (blocks.size() == 1) { //cteb present
+        if (ctebBlockPtr) { //cteb present (i.e. blocks.size() == 1)
             //update (reuse existing) CTEB with new custodian
             blocks[0]->markedForDeletion = false;
             ctebBlockPtr->m_custodyId = custodyId; //ctebBlockPtr asserted to be non-null from above

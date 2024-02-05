@@ -12,12 +12,10 @@
  *
  */
 
-#include <boost/filesystem.hpp>
-
 #include "TelemetryRunnerProgramOptions.h"
 #include "Environment.h"
 #include "Logger.h"
-
+#include <boost/filesystem/operations.hpp>
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::telem;
 static const boost::filesystem::path GUI_HTML_FILE_NAME = "index.html";
@@ -40,6 +38,8 @@ bool TelemetryRunnerProgramOptions::ParseFromVariableMap(boost::program_options:
 # ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
     GetSslPathsAndValidate(vm, m_sslPaths);
 # endif
+#else
+    (void)vm;
 #endif
     return true;
 }
@@ -57,6 +57,8 @@ void TelemetryRunnerProgramOptions::AppendToDesc(boost::program_options::options
         ("gui-dh-pem-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "GUI Server Diffie Hellman parameters file in PEM format")
 # endif
         ;
+#else
+    (void)desc; //unused parameter
 #endif
 }
 

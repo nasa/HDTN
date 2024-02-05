@@ -22,7 +22,7 @@
 
 #include <string>
 #include <memory>
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 #include <set>
 #include <array>
 #include <vector>

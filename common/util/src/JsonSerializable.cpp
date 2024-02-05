@@ -21,6 +21,7 @@
 //and since BOOST_BIND_GLOBAL_PLACEHOLDERS was introduced in 1.73
 //the following fixes warning:  The practice of declaring the Bind placeholders (_1, _2, ...) in the global namespace is deprecated....
 //this fixes the warning caused by boost/property_tree/json_parser/detail/parser.hpp
+#include <boost/version.hpp>
 #if (BOOST_VERSION < 107600) && (BOOST_VERSION >= 107300) && !defined(BOOST_BIND_GLOBAL_PLACEHOLDERS)
 #define BOOST_BIND_GLOBAL_PLACEHOLDERS
 #endif

@@ -14,9 +14,10 @@
 
 #include <boost/test/unit_test.hpp>
 #include "MemoryInFiles.h"
+#include "Logger.h"
 #include <boost/bind/bind.hpp>
 #include <boost/make_unique.hpp>
-#include "Logger.h"
+#include <boost/filesystem/operations.hpp>
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::unittest;
 
@@ -536,11 +537,13 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesTestCase)
         }
 
         void ReadHandler(bool success, std::shared_ptr<std::string>& dataSharedPtr) {
+            BOOST_REQUIRE(success);
             BOOST_REQUIRE(dataSharedPtr);
             ++readSingleCount;
             lastDataReadBackCallbackSharedPtr = std::move(dataSharedPtr);
         }
         void ReadHandlerMulti(bool success, std::shared_ptr<std::vector<std::string> >& dataSharedPtr) {
+            BOOST_REQUIRE(success);
             ++readMultiCount;
             BOOST_REQUIRE_EQUAL(readMultiCount, 1); //must only get called once
             BOOST_REQUIRE(dataSharedPtr);
@@ -684,6 +687,7 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesSpeedTestCase)
         }
 
         void ReadHandler(bool success, std::shared_ptr<std::vector<uint64_t> >& dataSharedPtr) {
+            BOOST_REQUIRE(success);
             BOOST_REQUIRE_EQUAL(dataSharedPtr.use_count(), expectedUseCountRead);
             if (expectedUseCountRead == 2) {
                 //LOG_DEBUG(subprocess) << "u2";
@@ -842,6 +846,7 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesSpeedTestAllWritesFirstCase)
         }
 
         void ReadHandler(bool success, std::shared_ptr<std::vector<uint64_t> >& dataSharedPtr) {
+            BOOST_REQUIRE(success);
             BOOST_REQUIRE_EQUAL(dataSharedPtr.use_count(), expectedUseCountRead);
             if (expectedUseCountRead == 2) {
                 //LOG_DEBUG(subprocess) << "u2";

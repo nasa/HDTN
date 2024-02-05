@@ -103,11 +103,11 @@ private:
 };
 
 Egress::Impl::Impl() :
-    m_running(false),
-    m_totalCustodyTransfersSentToIngress(0),
     m_totalCustodyTransfersSentToStorage(0),
+    m_totalCustodyTransfersSentToIngress(0),
     m_totalTcpclBundlesReceivedMutexProtected(0),
     m_totalTcpclBundleBytesReceivedMutexProtected(0),
+    m_running(false),
     m_workerThreadStartupInProgress(false) {}
 
 Egress::Egress() :
@@ -345,12 +345,11 @@ static void CustomCleanupEgressAckHdrNoHint(void *data, void *hint) {
 }
 
 static void CustomCleanupStdVecUint8(void* data, void* hint) {
+    (void)data;
     delete static_cast<std::vector<uint8_t>*>(hint);
 }
-static void CustomCleanupStdString(void* data, void* hint) {
-    delete static_cast<std::string*>(hint);
-}
 static void CustomCleanupSharedPtrStdString(void* data, void* hint) {
+    (void)data;
     std::shared_ptr<std::string>* serializedRawPtrToSharedPtr = static_cast<std::shared_ptr<std::string>* >(hint);
     //LOG_DEBUG(subprocess) << "cleanup refcnt=" << serializedRawPtrToSharedPtr->use_count();
     delete serializedRawPtrToSharedPtr; //reduce ref count and delete shared_ptr object
@@ -406,8 +405,7 @@ void Egress::Impl::ReadZmqThreadFunc() {
 
     std::set<uint64_t> availableDestOpportunisticNodeIdsSet;
 
-    // Use a form of receive that times out so we can terminate cleanly.
-    static const int timeout = 250;  // milliseconds
+
     static constexpr unsigned int NUM_SOCKETS = 6;
 
     //THIS PROBABLY DOESNT WORK SINCE IT HAPPENED AFTER BIND/CONNECT BUT NOT USED ANYWAY BECAUSE OF POLLITEMS
@@ -436,7 +434,8 @@ void Egress::Impl::ReadZmqThreadFunc() {
     //Get initial outduct capabilities and send to ingress and storage
     ResendOutductCapabilities();
 
-    static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
+    // Use a form of receive that times out so we can terminate cleanly.
+    static const long DEFAULT_BIG_TIMEOUT_POLL = 250; // milliseconds
     while (m_running.load(std::memory_order_acquire)) { //keep thread alive if running
         int rc = 0;
         try {
@@ -756,6 +755,7 @@ void Egress::Impl::ResendOutductCapabilities() {
 }
 
 static void CustomCleanupPaddedVecUint8(void *data, void *hint) {
+    (void)data;
     delete static_cast<padded_vector_uint8_t*>(hint);
 }
 
@@ -817,10 +817,10 @@ void Egress::Impl::OnFailedBundleZmqSendCallback(zmq::message_t& movableBundle, 
             }
 
             //Send HDTN_MSGTYPE_EGRESS_FAILED_BUNDLE_TO_STORAGE message plus the bundle to storage.
-            hdtn::EgressAckHdr* egressAckPtr = new hdtn::EgressAckHdr();
+            hdtn::EgressAckHdr* newEgressAckPtr = new hdtn::EgressAckHdr();
             //memset 0 not needed because all values set below
-            egressAckPtr->base.type = HDTN_MSGTYPE_EGRESS_FAILED_BUNDLE_TO_STORAGE;
-            zmq::message_t messageFailedHeaderWithDataStolen(egressAckPtr, sizeof(hdtn::EgressAckHdr), CustomCleanupEgressAckHdrNoHint); //storage can be acked right away since bundle transferred
+            newEgressAckPtr->base.type = HDTN_MSGTYPE_EGRESS_FAILED_BUNDLE_TO_STORAGE;
+            zmq::message_t messageFailedHeaderWithDataStolen(newEgressAckPtr, sizeof(hdtn::EgressAckHdr), CustomCleanupEgressAckHdrNoHint); //storage can be acked right away since bundle transferred
             {
                 boost::mutex::scoped_lock lock(m_mutex_zmqPushSock_boundEgressToConnectingStorage);
                 if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(std::move(messageFailedHeaderWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {

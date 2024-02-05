@@ -55,11 +55,7 @@ std::string Outduct::GetConvergenceLayerName() const {
 bool Outduct::GetAssumedInitiallyDown() const {
     return m_assumedInitiallyDown;
 }
-void Outduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {}
-void Outduct::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {}
-void Outduct::SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback) {}
-void Outduct::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {}
-void Outduct::SetUserAssignedUuid(uint64_t userAssignedUuid) {}
+
 void Outduct::SetRate(uint64_t maxSendRateBitsPerSecOrZeroToDisable) {
     if(maxSendRateBitsPerSecOrZeroToDisable) {
         LOG_WARNING(subprocess) <<"outduct " << m_outductUuid << " does not support rate limits";

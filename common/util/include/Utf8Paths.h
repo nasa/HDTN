@@ -22,7 +22,7 @@
 #include <stdint.h>
 #include <vector>
 #include <string>
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 #include "hdtn_util_export.h"
 
 class HDTN_UTIL_EXPORT Utf8Paths {

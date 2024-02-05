@@ -76,27 +76,28 @@ InitializationVectorsForOneThread InitializationVectorsForOneThread::Create() {
     static const boost::posix_time::time_duration maxWait = boost::posix_time::microseconds(MIN_DIFF_MICROSECONDS);
     static boost::mutex staticMutex;
     static uint64_t staticLastTimeMicroseconds = 0;
-    uint64_t currentTimeMicroseconds;
-    try {
-        boost::mutex::scoped_lock lock(staticMutex);
-        while (true) {
-            currentTimeMicroseconds = TimestampUtil::GetMicrosecondsSinceEpochRfc5050();
-            if (currentTimeMicroseconds > staticLastTimeMicroseconds) {
-                const uint64_t diff = currentTimeMicroseconds - staticLastTimeMicroseconds;
-                
-                if (diff >= MIN_DIFF_MICROSECONDS) {
-                    staticLastTimeMicroseconds = currentTimeMicroseconds;
-                    break;
+    while (true) {
+        try {
+            boost::mutex::scoped_lock lock(staticMutex);
+            while (true) {
+                const uint64_t currentTimeMicroseconds = TimestampUtil::GetMicrosecondsSinceEpochRfc5050();
+                if (currentTimeMicroseconds > staticLastTimeMicroseconds) {
+                    const uint64_t diff = currentTimeMicroseconds - staticLastTimeMicroseconds;
+
+                    if (diff >= MIN_DIFF_MICROSECONDS) {
+                        staticLastTimeMicroseconds = currentTimeMicroseconds;
+                        return InitializationVectorsForOneThread(currentTimeMicroseconds);
+                    }
+                    else { //diff < MIN_DIFF_MICROSECONDS
+                        boost::this_thread::sleep(boost::posix_time::microseconds(MIN_DIFF_MICROSECONDS - diff));
+                        continue;
+                    }
                 }
-                else { //diff < MIN_DIFF_MICROSECONDS
-                    boost::this_thread::sleep(boost::posix_time::microseconds(MIN_DIFF_MICROSECONDS - diff));
-                    continue;
-                }
+                boost::this_thread::sleep(maxWait);
             }
-            boost::this_thread::sleep(maxWait);
         }
-    } catch (const boost::lock_error&) {}
-    return InitializationVectorsForOneThread(currentTimeMicroseconds);
+        catch (const boost::lock_error&) {}
+    }
 }
 
 void InitializationVectorsForOneThread::SerializeAndIncrement(const bool use12ByteIv) {

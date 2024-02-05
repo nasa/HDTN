@@ -135,7 +135,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
         irp.keyEncryptionKey = NULL; //NULL if not present (when no wrapped key is present)
         irp.keyEncryptionKeyLength = 0;
         irp.hmacKey = hmacKeyBytes.data(); //NULL if not present (when no wrapped key is present)
-        irp.hmacKeyLength = static_cast<const unsigned int>(hmacKeyBytes.size());
+        irp.hmacKeyLength = static_cast<unsigned int>(hmacKeyBytes.size());
         irp.expectedVariant = COSE_ALGORITHMS::HMAC_512_512;
         irp.expectedScopeMask = BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE;
         irp.expectedTargetBlockTypesMask = (((uint64_t)1) << ((unsigned int)BPV7_BLOCK_TYPE_CODE::PAYLOAD));
@@ -177,7 +177,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleSimpleTestCase)
             cbhe_eid_t(2,1),
             targetBlockNumbers, 1,
             NULL, 0, //NULL if not present (for unwrapping hmac key only)
-            hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
+            hmacKeyBytes.data(), static_cast<unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
             reusableElementsInternal,
             NULL,
             true));
@@ -225,7 +225,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleMultipleSourcesTestCase)
         irp.keyEncryptionKey = NULL; //NULL if not present (when no wrapped key is present)
         irp.keyEncryptionKeyLength = 0;
         irp.hmacKey = hmacKeyBytes.data(); //NULL if not present (when no wrapped key is present)
-        irp.hmacKeyLength = static_cast<const unsigned int>(hmacKeyBytes.size());
+        irp.hmacKeyLength = static_cast<unsigned int>(hmacKeyBytes.size());
         irp.expectedVariant = COSE_ALGORITHMS::HMAC_256_256;
         irp.expectedScopeMask = BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::NO_ADDITIONAL_SCOPE;
         irp.expectedTargetBlockTypesMask = (((uint64_t)1) << ((unsigned int)BPV7_BLOCK_TYPE_CODE::BUNDLE_AGE)) | 1; //age and primary
@@ -267,7 +267,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleMultipleSourcesTestCase)
             cbhe_eid_t(3, 0),
             targetBlockNumbers, 2,
             NULL, 0, //NULL if not present (for unwrapping hmac key only)
-            hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
+            hmacKeyBytes.data(), static_cast<unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
             reusableElementsInternal,
             NULL,
             true));
@@ -308,7 +308,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
     irp.keyEncryptionKey = NULL; //NULL if not present (when no wrapped key is present)
     irp.keyEncryptionKeyLength = 0;
     irp.hmacKey = hmacKeyBytes.data(); //NULL if not present (when no wrapped key is present)
-    irp.hmacKeyLength = static_cast<const unsigned int>(hmacKeyBytes.size());
+    irp.hmacKeyLength = static_cast<unsigned int>(hmacKeyBytes.size());
     irp.expectedVariant = COSE_ALGORITHMS::HMAC_384_384;
     irp.expectedScopeMask = BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS::ALL_FLAGS_SET;
     irp.expectedTargetBlockTypesMask = (((uint64_t)1) << ((unsigned int)BPV7_BLOCK_TYPE_CODE::PAYLOAD));
@@ -398,7 +398,7 @@ BOOST_AUTO_TEST_CASE(HmacShaVerifyBundleFullScopeTestCase)
             cbhe_eid_t(2, 1),
             targetBlockNumbers, 1,
             NULL, 0, //NULL if not present (for unwrapping hmac key only)
-            hmacKeyBytes.data(), static_cast<const unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
+            hmacKeyBytes.data(), static_cast<unsigned int>(hmacKeyBytes.size()), //NULL if not present (when no wrapped key is present)
             reusableElementsInternal,
             NULL,
             true));
@@ -447,8 +447,8 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
     std::vector<uint8_t> aesWrappedKeyBytes(expectedAesWrappedKeyBytes.size() + 100);
     unsigned int wrappedKeyOutSize;
     BOOST_REQUIRE(BpSecBundleProcessor::AesWrapKey(ctxWrapper,
-        keyEncryptionKeyBytes.data(), static_cast<const unsigned int>(keyEncryptionKeyBytes.size()),
-        keyBytes.data(), static_cast<const unsigned int>(keyBytes.size()),
+        keyEncryptionKeyBytes.data(), static_cast<unsigned int>(keyEncryptionKeyBytes.size()),
+        keyBytes.data(), static_cast<unsigned int>(keyBytes.size()),
         aesWrappedKeyBytes.data(), wrappedKeyOutSize));
     BOOST_REQUIRE_EQUAL(wrappedKeyOutSize, expectedAesWrappedKeyBytes.size());
     aesWrappedKeyBytes.resize(wrappedKeyOutSize);
@@ -458,8 +458,8 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
     std::vector<uint8_t> unwrappedKeyBytes(keyBytes.size() + 100);
     unsigned int unwrappedKeyOutSize;
     BOOST_REQUIRE(BpSecBundleProcessor::AesUnwrapKey(ctxWrapper,
-        keyEncryptionKeyBytes.data(), static_cast<const unsigned int>(keyEncryptionKeyBytes.size()),
-        aesWrappedKeyBytes.data(), static_cast<const unsigned int>(aesWrappedKeyBytes.size()),
+        keyEncryptionKeyBytes.data(), static_cast<unsigned int>(keyEncryptionKeyBytes.size()),
+        aesWrappedKeyBytes.data(), static_cast<unsigned int>(aesWrappedKeyBytes.size()),
         unwrappedKeyBytes.data(), unwrappedKeyOutSize));
     BOOST_REQUIRE_EQUAL(unwrappedKeyOutSize, keyBytes.size());
     unwrappedKeyBytes.resize(unwrappedKeyOutSize);
@@ -565,7 +565,7 @@ BOOST_AUTO_TEST_CASE(EncryptDecryptDataTestCase)
             cipherTextBytes.data() + cipherTextBytes.size()
         );
         uint64_t decryptedDataOutSize = 0;
-        std::vector<boost::asio::const_buffer> aadParts;
+        aadParts.clear();
         aadParts.emplace_back(boost::asio::buffer(gcmAadBytes));
         //not inplace test (separate in and out buffers)
         BOOST_REQUIRE(BpSecBundleProcessor::AesGcmDecrypt(ctxWrapper,
@@ -614,7 +614,7 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleWithKeyWrapTestCase)
 
     BpSecBundleProcessor::ConfidentialityReceivedParameters crp;
     crp.keyEncryptionKey = keyEncryptionKeyBytes.data();
-    crp.keyEncryptionKeyLength = static_cast<const unsigned int>(keyEncryptionKeyBytes.size());
+    crp.keyEncryptionKeyLength = static_cast<unsigned int>(keyEncryptionKeyBytes.size());
     crp.dataEncryptionKey = NULL; //no DEK (using KEK instead)
     crp.dataEncryptionKeyLength = 0;
     crp.expectedIvLength = 12;
@@ -743,7 +743,7 @@ BOOST_AUTO_TEST_CASE(DecryptThenEncryptBundleFullScopeTestCase)
     crp.keyEncryptionKey = NULL; //not using KEK
     crp.keyEncryptionKeyLength = 0;
     crp.dataEncryptionKey = dataEncryptionKeyBytes.data();
-    crp.dataEncryptionKeyLength = static_cast<const unsigned int>(dataEncryptionKeyBytes.size());
+    crp.dataEncryptionKeyLength = static_cast<unsigned int>(dataEncryptionKeyBytes.size());
     crp.expectedIvLength = 12;
     crp.expectedVariant = COSE_ALGORITHMS::A256GCM;
     crp.expectedAadScopeMask = BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::ALL_FLAGS_SET;

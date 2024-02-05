@@ -35,27 +35,27 @@
 #include <cpuid.h>  // __get_cpuid
 #endif
 
-static void CpuIdCrossPlatform(int * eaxThrougEdxRegisters, int id) {
+static void CpuIdCrossPlatform(unsigned int * eaxThrougEdxRegisters, unsigned int id) {
 #ifdef _MSC_VER
-    __cpuid(eaxThrougEdxRegisters, id);
+    __cpuid(reinterpret_cast<int*>(eaxThrougEdxRegisters), static_cast<int>(id));
 #else
-    __get_cpuid(static_cast<unsigned int>(id),
-        reinterpret_cast<unsigned int*>(&eaxThrougEdxRegisters[0]),
-        reinterpret_cast<unsigned int*>(&eaxThrougEdxRegisters[1]),
-        reinterpret_cast<unsigned int*>(&eaxThrougEdxRegisters[2]),
-        reinterpret_cast<unsigned int*>(&eaxThrougEdxRegisters[3]));
+    __get_cpuid(id,
+        &eaxThrougEdxRegisters[0],
+        &eaxThrougEdxRegisters[1],
+        &eaxThrougEdxRegisters[2],
+        &eaxThrougEdxRegisters[3]);
 #endif
 }
 
-static void CpuIdExCrossPlatform(int * eaxThrougEdxRegisters, int id, int subId) {
+static void CpuIdExCrossPlatform(unsigned int * eaxThrougEdxRegisters, unsigned int id, unsigned int subId) {
 #ifdef _MSC_VER
-    __cpuidex(eaxThrougEdxRegisters, id, subId);
+    __cpuidex(reinterpret_cast<int*>(eaxThrougEdxRegisters), static_cast<int>(id), static_cast<int>(subId));
 #else
-    __get_cpuid_count(static_cast<unsigned int>(id), static_cast<unsigned int>(subId),
-        reinterpret_cast<unsigned int*>(&eaxThrougEdxRegisters[0]),
-        reinterpret_cast<unsigned int*>(&eaxThrougEdxRegisters[1]),
-        reinterpret_cast<unsigned int*>(&eaxThrougEdxRegisters[2]),
-        reinterpret_cast<unsigned int*>(&eaxThrougEdxRegisters[3]));
+    __get_cpuid_count(id, subId,
+        &eaxThrougEdxRegisters[0],
+        &eaxThrougEdxRegisters[1],
+        &eaxThrougEdxRegisters[2],
+        &eaxThrougEdxRegisters[3]);
 #endif
 }
 
@@ -143,8 +143,8 @@ private:
         InstructionSet_Internal();
             
 
-        int m_numIds;
-        int m_numExtIds;
+        unsigned int m_numIds;
+        unsigned int m_numExtIds;
         std::string m_vendorString;
         std::string m_brandString;
         std::string m_cpuFlagsString;
@@ -156,8 +156,8 @@ private:
         std::bitset<32> m_f_7_ECX;
         std::bitset<32> m_f_81_ECX;
         std::bitset<32> m_f_81_EDX;
-        std::vector<std::array<int, 4>> m_data;
-        std::vector<std::array<int, 4>> m_extData;
+        std::vector<std::array<unsigned int, 4>> m_data;
+        std::vector<std::array<unsigned int, 4>> m_extData;
 
     private:
         void AppendFeature(std::string & toAppend, const std::string & cpuFlag, bool isSupported);
@@ -180,23 +180,23 @@ InstructionSet::InstructionSet_Internal::InstructionSet_Internal() :
     m_f_81_ECX(0),
     m_f_81_EDX(0)
 {
-    std::array<int, 4> cpuInfoArrayInt4;
+    std::array<unsigned int, 4> cpuInfoArrayUInt4;
 
     //https://en.wikipedia.org/wiki/CPUID#EAX=0:_Highest_Function_Parameter_and_Manufacturer_ID
     // Calling __cpuid with 0x0 as the function_id argument
     // gets the number of the highest valid function ID.
     // This returns the CPU's manufacturer ID string  a twelve-character ASCII string stored in EBX, EDX, ECX (in that order)
     // The highest basic calling parameter (largest value that EAX can be set to before calling CPUID) is returned in EAX.
-    CpuIdCrossPlatform(cpuInfoArrayInt4.data(), 0);
-    m_numIds = cpuInfoArrayInt4[0];
+    CpuIdCrossPlatform(cpuInfoArrayUInt4.data(), 0);
+    m_numIds = cpuInfoArrayUInt4[0];
 
-    for (int i = 0; i <= m_numIds; ++i) {
-        CpuIdExCrossPlatform(cpuInfoArrayInt4.data(), i, 0);
-        m_data.push_back(cpuInfoArrayInt4);
+    for (unsigned int i = 0; i <= m_numIds; ++i) {
+        CpuIdExCrossPlatform(cpuInfoArrayUInt4.data(), i, 0);
+        m_data.push_back(cpuInfoArrayUInt4);
     }
 
     // Capture vendor string
-    int32_t vendorAligned4[32 / 4];
+    unsigned int vendorAligned4[32 / 4];
     char * const vendor = (char*)vendorAligned4;
     memset(vendor, 0, sizeof(vendorAligned4));
     vendorAligned4[0] = m_data[0][1];
@@ -226,29 +226,29 @@ InstructionSet::InstructionSet_Internal::InstructionSet_Internal() :
     // Calling __cpuid with 0x80000000 as the function_id argument
     // gets the number of the highest valid extended ID.
     // The highest calling parameter is returned in EAX.
-    CpuIdCrossPlatform(cpuInfoArrayInt4.data(), 0x80000000);
-    m_numExtIds = cpuInfoArrayInt4[0];
+    CpuIdCrossPlatform(cpuInfoArrayUInt4.data(), 0x80000000);
+    m_numExtIds = cpuInfoArrayUInt4[0];
 
     char brand[0x40];
     memset(brand, 0, sizeof(brand));
 
-    for (int i = 0x80000000; i <= m_numExtIds; ++i) {
-        CpuIdExCrossPlatform(cpuInfoArrayInt4.data(), i, 0);
-        m_extData.push_back(cpuInfoArrayInt4);
+    for (unsigned int i = 0x80000000u; i <= m_numExtIds; ++i) {
+        CpuIdExCrossPlatform(cpuInfoArrayUInt4.data(), i, 0);
+        m_extData.push_back(cpuInfoArrayUInt4);
     }
 
     // load bitset with flags for function 0x80000001
-    if (m_numExtIds >= 0x80000001) {
+    if (m_numExtIds >= 0x80000001u) {
         m_f_81_ECX = m_extData[1][2];
         m_f_81_EDX = m_extData[1][3];
     }
 
     //https://en.wikipedia.org/wiki/CPUID#EAX=80000002h,80000003h,80000004h:_Processor_Brand_String
     // Interpret CPU brand string if reported
-    if (m_numExtIds >= 0x80000004) {
-        memcpy(brand, m_extData[2].data(), sizeof(cpuInfoArrayInt4));
-        memcpy(brand + 16, m_extData[3].data(), sizeof(cpuInfoArrayInt4));
-        memcpy(brand + 32, m_extData[4].data(), sizeof(cpuInfoArrayInt4));
+    if (m_numExtIds >= 0x80000004u) {
+        memcpy(brand, m_extData[2].data(), sizeof(cpuInfoArrayUInt4));
+        memcpy(brand + 16, m_extData[3].data(), sizeof(cpuInfoArrayUInt4));
+        memcpy(brand + 32, m_extData[4].data(), sizeof(cpuInfoArrayUInt4));
         m_brandString = brand;
     }
 

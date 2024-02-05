@@ -1,9 +1,5 @@
 #include "BpReceivePacket.h"
 #include "Logger.h"
-#include <boost/make_unique.hpp>
-#include <boost/endian/conversion.hpp>
-#include <boost/filesystem.hpp>
-#include "Utf8Paths.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -34,6 +30,7 @@ bool BpReceivePacket::ProcessPayload(const uint8_t * data, const uint64_t size) 
 }
 
 bool BpReceivePacket::socketInit(OutductsConfig_ptr & outductsConfigPtr, const cbhe_eid_t & myEid, const uint64_t maxBundleSizeBytes) {
+    (void)maxBundleSizeBytes;
     LOG_DEBUG(subprocess) << "[ReceivePacket app] INIT";
     if (!m_packetOutductManager.LoadOutductsFromConfig(*outductsConfigPtr, myEid.nodeId, UINT16_MAX, 10000000))
     {

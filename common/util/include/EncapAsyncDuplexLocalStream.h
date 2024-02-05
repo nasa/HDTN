@@ -24,13 +24,13 @@
 #include <string>
 #include <boost/thread.hpp>
 #include <boost/asio.hpp>
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/operations.hpp>
 #include <boost/make_unique.hpp>
 #include <boost/function.hpp>
 #include <atomic>
 #include <memory>
 #include "PaddedVectorUint8.h"
-#include "CcsdsEncap.h"
+#include "CcsdsEncapDecode.h"
 #ifdef _WIN32
 # define STREAM_USE_WINDOWS_NAMED_PIPE 1
 #endif // _WIN32
@@ -440,7 +440,7 @@ private:
                 return;
             }
         }
-        if (bytes_transferred != (decodedEncapHeaderSize - 1)) {
+        if (bytes_transferred != (decodedEncapHeaderSize - 1u)) {
             std::cout << "HandleRemainingEncapHeaderReadCompleted: bytes_transferred != (decodedEncapHeaderSize - 1)\n";
             HandleShutdown();
             return;

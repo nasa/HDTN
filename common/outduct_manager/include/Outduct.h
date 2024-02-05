@@ -59,11 +59,11 @@ public:
     virtual bool Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t> && userData) = 0;
     virtual bool Forward(zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData) = 0;
     virtual bool Forward(padded_vector_uint8_t& movableDataVec, std::vector<uint8_t>&& userData) = 0;
-    OUTDUCT_MANAGER_LIB_EXPORT virtual void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
-    OUTDUCT_MANAGER_LIB_EXPORT virtual void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
-    OUTDUCT_MANAGER_LIB_EXPORT virtual void SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback);
-    OUTDUCT_MANAGER_LIB_EXPORT virtual void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
-    OUTDUCT_MANAGER_LIB_EXPORT virtual void SetUserAssignedUuid(uint64_t userAssignedUuid);
+    virtual void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) = 0;
+    virtual void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) = 0;
+    virtual void SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback) = 0;
+    virtual void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) = 0;
+    virtual void SetUserAssignedUuid(uint64_t userAssignedUuid) = 0;
     OUTDUCT_MANAGER_LIB_EXPORT virtual void SetRate(uint64_t maxSendRateBitsPerSecOrZeroToDisable);
     OUTDUCT_MANAGER_LIB_EXPORT virtual bool Init(); //optional
     virtual void Connect() = 0;

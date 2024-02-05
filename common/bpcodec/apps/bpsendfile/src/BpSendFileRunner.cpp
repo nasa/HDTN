@@ -15,7 +15,7 @@
 #include "BpSendFileRunner.h"
 #include "Logger.h"
 #include "SignalHandler.h"
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include "Uri.h"
@@ -199,7 +199,6 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], std::atomic<bool>
 
         LOG_INFO(subprocess) << "running";
         
-        bool startedTimer = false;
         
 
         if (useSignalHandler) {

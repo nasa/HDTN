@@ -212,6 +212,6 @@ struct DepletedStorageReportHdr {
     uint64_t nodeId;
 };
 
-};  // namespace hdtn
+}  // namespace hdtn
 //#pragma pack (pop)
 #endif
