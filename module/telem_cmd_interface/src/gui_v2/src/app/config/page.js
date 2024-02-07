@@ -10,6 +10,7 @@ import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import SettingsIcon from '@mui/icons-material/Settings';
+import HubIcon from '@mui/icons-material/Hub';
 import SecurityIcon from '@mui/icons-material/Security';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import Link from 'next/link';
@@ -21,6 +22,7 @@ import ConfigTabs from './tabs';
 
 import { generateInitialState } from './config_fields/utils';
 import { hdtnConfigFields, inductsConfigFields, outductsConfigFields, storageConfigFields } from './setup/hdtn';
+import { contactPlanConfigFields } from './setup/contact_plan';
 import { distributedConfigFields } from './setup/distributed';
 import { bpSecConfigFields } from './setup/bpsec';
 import ConfigReviewDialog from './review_modal';
@@ -29,7 +31,8 @@ const drawerWidth = 240;
 
 export default function HDTNConfig(props) {
   const [hdtnConfig, setHdtnConfig] = React.useState(generateInitialState(hdtnConfigFields));
-  const [distributedConfig, setDistributedConfig] = React.useState(generateInitialState(distributedConfigFields))
+  const [contactPlanConfig, setContactPlanConfig] = React.useState(generateInitialState(contactPlanConfigFields));
+  const [distributedConfig, setDistributedConfig] = React.useState(generateInitialState(distributedConfigFields));
   const [bpSecConfig, setBpSecConfig] = React.useState(generateInitialState(bpSecConfigFields));
   const [reviewModalOpen, setReviewModalOpen] = React.useState(false);
   const [snackbarOpen, setSnackbarOpen] = React.useState(false);
@@ -40,11 +43,16 @@ export default function HDTNConfig(props) {
   */
   const leftNavItems = [
     {
-      id: "hdtn", title: "HDTN", icon: SettingsIcon, tabs: [
+      id: "hdtn", title: "System", icon: SettingsIcon, tabs: [
         { id: "general", title: "General", configFields: hdtnConfigFields, state: hdtnConfig, setState: setHdtnConfig },
         { id: "inducts", title: "Inducts", configFields: inductsConfigFields, state: hdtnConfig, setState: setHdtnConfig, target: hdtnConfig.inductsConfig },
         { id: "outducts", title: "Outducts", configFields: outductsConfigFields, state: hdtnConfig, setState: setHdtnConfig, target: hdtnConfig.outductsConfig },
         { id: "storage", title: "Storage", configFields: storageConfigFields, state: hdtnConfig, setState: setHdtnConfig, target: hdtnConfig.storageConfig }
+      ]
+    },
+    {
+      id: "contact_plan", title: "Contact Plan", icon: HubIcon, tabs: [
+        { id: "contacts", title: "Contacts", configFields: contactPlanConfigFields, state: contactPlanConfig, setState: setContactPlanConfig }
       ]
     },
     {
@@ -93,6 +101,8 @@ export default function HDTNConfig(props) {
     if (value === "HDTN") {
       console.log("HDTN!")
       requestedConfig = hdtnConfig;
+    } else if (value === "Contact Plan") {
+      requestedConfig = contactPlanConfig;
     } else if (value === "Distributed") {
       requestedConfig = distributedConfig;
     } else if (value === "BPSec") {
