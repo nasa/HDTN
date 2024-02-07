@@ -14,9 +14,6 @@
 
 #include "ThreadNamer.h"
 #include <cstdint>
-#include "Logger.h"
-
-static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 #ifdef __APPLE__
 #include <thread>
@@ -24,6 +21,8 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 
 //https://stackoverflow.com/questions/10121560/stdthread-naming-your-thread
 #ifdef _WIN32
+#include "Logger.h" //only windows is currently using the logger within this source file
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 #include <cstdlib>
 #include <windows.h>
 const DWORD MS_VC_EXCEPTION = 0x406D1388;

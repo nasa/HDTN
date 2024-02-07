@@ -524,7 +524,7 @@ std::ostream& operator<<(std::ostream& out, const Contact& obj) {
     uint64_t min_vol = *std::min_element(obj.mav.begin(), obj.mav.end());
     double volume = 100.0 * min_vol / obj.volume;
     fmt% obj.frm% obj.to% obj.start% obj.end% obj.owlt% volume;
-    const std::string message(std::move(fmt.str()));
+    const std::string message(fmt.str());
 
     out << message;
     return out;
@@ -538,7 +538,7 @@ std::ostream& operator<<(std::ostream& out, const Route& obj) {
 
     fmt% obj.to_node% obj.next_node% obj.from_time% obj.to_time% obj.best_delivery_time
         % routeHops.size() % obj.volume% obj.confidence% routeHops;
-    const std::string message(std::move(fmt.str()));
+    const std::string message(fmt.str());
 
     out << message;
     return out;

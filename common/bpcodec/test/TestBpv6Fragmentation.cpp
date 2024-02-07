@@ -77,7 +77,7 @@ BOOST_AUTO_TEST_CASE(FragmentZero)
     bv.m_primaryBlockView.SetManuallyModified();
 
     std::string body = "Bundle contents";
-    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+    bv.AppendMoveCanonicalBlock(buildPrimaryBlock(body));
 
     BOOST_REQUIRE(bv.Render(5000));
 
@@ -95,7 +95,7 @@ BOOST_AUTO_TEST_CASE(FragmentBundleLength)
     bv.m_primaryBlockView.SetManuallyModified();
 
     std::string body = "Bundle contents";
-    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+    bv.AppendMoveCanonicalBlock(buildPrimaryBlock(body));
 
     BOOST_REQUIRE(bv.Render(5000));
     size_t sz = bv.m_renderedBundle.size();
@@ -116,7 +116,7 @@ BOOST_AUTO_TEST_CASE(FragmentFlagNoFrag)
     bv.m_primaryBlockView.SetManuallyModified();
 
     std::string body = "Bundle contents";
-    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+    bv.AppendMoveCanonicalBlock(buildPrimaryBlock(body));
 
     BOOST_REQUIRE(bv.Render(5000));
     size_t sz = bv.m_renderedBundle.size();
@@ -192,7 +192,7 @@ BOOST_DATA_TEST_CASE(
     buildPrimaryBlock(primary);
     bv.m_primaryBlockView.SetManuallyModified();
 
-    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(test.payloadData)));
+    bv.AppendMoveCanonicalBlock(buildPrimaryBlock(test.payloadData));
 
     BOOST_REQUIRE(bv.Render(5000));
 
@@ -229,7 +229,7 @@ BOOST_AUTO_TEST_CASE(FragmentPayloadMultiple)
     bv.m_primaryBlockView.SetManuallyModified();
 
     std::string body = "helloBigworld!";
-    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+    bv.AppendMoveCanonicalBlock(buildPrimaryBlock(body));
 
     BOOST_REQUIRE(bv.Render(5000));
     size_t sz = 6;
@@ -268,7 +268,7 @@ BOOST_AUTO_TEST_CASE(FragmentFragment)
     bv.m_primaryBlockView.SetManuallyModified();
 
     std::string body = "helloBigworld!";
-    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+    bv.AppendMoveCanonicalBlock(buildPrimaryBlock(body));
 
     BOOST_REQUIRE(bv.Render(5000));
     size_t sz = 6;
@@ -313,14 +313,13 @@ BOOST_AUTO_TEST_CASE(FragmentBlockBefore)
 
     std::string beforeBlockBody = "before block";
     bv.AppendMoveCanonicalBlock(
-            std::move(
-                buildCanonicalBlock(
-                    beforeBlockBody,
-                    BPV6_BLOCK_TYPE_CODE::UNUSED_11,
-                    BPV6_BLOCKFLAG::STATUS_REPORT_REQUESTED_IF_BLOCK_CANT_BE_PROCESSED)));
+        buildCanonicalBlock(
+            beforeBlockBody,
+            BPV6_BLOCK_TYPE_CODE::UNUSED_11,
+            BPV6_BLOCKFLAG::STATUS_REPORT_REQUESTED_IF_BLOCK_CANT_BE_PROCESSED));
 
     std::string body = "helloBigworld!";
-    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+    bv.AppendMoveCanonicalBlock(buildPrimaryBlock(body));
 
     BOOST_REQUIRE(bv.Render(5000));
     size_t sz = 6;
@@ -541,15 +540,15 @@ BOOST_DATA_TEST_CASE(
 
     for(std::vector<BlockTestInfo>::iterator it = info.beforeBlocks.begin(); it != info.beforeBlocks.end(); it++) {
         BlockTestInfo &bi = *it;
-        bv.AppendMoveCanonicalBlock(std::move(buildCanonicalBlock(bi.body, bi.type, bi.flags)));
+        bv.AppendMoveCanonicalBlock(buildCanonicalBlock(bi.body, bi.type, bi.flags));
     }
 
     std::string body = "helloBigworld!";
-    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+    bv.AppendMoveCanonicalBlock(buildPrimaryBlock(body));
 
     for(std::vector<BlockTestInfo>::iterator it = info.afterBlocks.begin(); it != info.afterBlocks.end(); it++) {
         BlockTestInfo &bi = *it;
-        bv.AppendMoveCanonicalBlock(std::move(buildCanonicalBlock(bi.body, bi.type, bi.flags)));
+        bv.AppendMoveCanonicalBlock(buildCanonicalBlock(bi.body, bi.type, bi.flags));
     }
 
     BOOST_REQUIRE(bv.Render(5000));
@@ -600,15 +599,15 @@ BOOST_DATA_TEST_CASE(
 
     for(std::vector<BlockTestInfo>::iterator it = info.beforeBlocks.begin(); it != info.beforeBlocks.end(); it++) {
         BlockTestInfo &bi = *it;
-        bv.AppendMoveCanonicalBlock(std::move(buildCanonicalBlock(bi.body, bi.type, bi.flags)));
+        bv.AppendMoveCanonicalBlock(buildCanonicalBlock(bi.body, bi.type, bi.flags));
     }
 
     std::string body = "helloBigworld!";
-    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+    bv.AppendMoveCanonicalBlock(buildPrimaryBlock(body));
 
     for(std::vector<BlockTestInfo>::iterator it = info.afterBlocks.begin(); it != info.afterBlocks.end(); it++) {
         BlockTestInfo &bi = *it;
-        bv.AppendMoveCanonicalBlock(std::move(buildCanonicalBlock(bi.body, bi.type, bi.flags)));
+        bv.AppendMoveCanonicalBlock(buildCanonicalBlock(bi.body, bi.type, bi.flags));
     }
 
     BOOST_REQUIRE(bv.Render(5000));
@@ -642,7 +641,7 @@ BOOST_AUTO_TEST_CASE(AssembleMissing)
     bv.m_primaryBlockView.SetManuallyModified();
 
     std::string body = "hello world!";
-    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+    bv.AppendMoveCanonicalBlock(buildPrimaryBlock(body));
 
     BOOST_REQUIRE(bv.Render(5000));
     size_t sz = 5;
@@ -671,7 +670,7 @@ BOOST_AUTO_TEST_CASE(AssembleDifferent)
         buildPrimaryBlock(primary);
         a.m_primaryBlockView.SetManuallyModified();
 
-        a.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+        a.AppendMoveCanonicalBlock(buildPrimaryBlock(body));
 
         BOOST_REQUIRE(a.Render(5000));
     }
@@ -681,7 +680,7 @@ BOOST_AUTO_TEST_CASE(AssembleDifferent)
         primary.m_creationTimestamp.sequenceNumber++;
         b.m_primaryBlockView.SetManuallyModified();
 
-        b.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+        b.AppendMoveCanonicalBlock(buildPrimaryBlock(body));
 
         BOOST_REQUIRE(b.Render(5000));
     }
@@ -721,7 +720,7 @@ BOOST_AUTO_TEST_CASE(AssembleNotAFragment)
     bv.m_primaryBlockView.SetManuallyModified();
 
     std::string body = "hello world!";
-    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+    bv.AppendMoveCanonicalBlock(buildPrimaryBlock(body));
 
     BOOST_REQUIRE(bv.Render(5000));
 
@@ -769,7 +768,7 @@ BOOST_AUTO_TEST_CASE(FragmentManagerNotAFragment)
     bv.m_primaryBlockView.SetManuallyModified();
 
     std::string body = "Bundle contents";
-    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+    bv.AppendMoveCanonicalBlock(buildPrimaryBlock(body));
 
     BOOST_REQUIRE(bv.Render(5000));
 
@@ -789,7 +788,7 @@ BOOST_AUTO_TEST_CASE(FragmentManager)
     bv.m_primaryBlockView.SetManuallyModified();
 
     std::string body = "Hello World!";
-    bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+    bv.AppendMoveCanonicalBlock(buildPrimaryBlock(body));
 
     BOOST_REQUIRE(bv.Render(5000));
 
@@ -829,7 +828,7 @@ BOOST_AUTO_TEST_CASE(FragmentManagerMulti)
         bv.m_primaryBlockView.SetManuallyModified();
 
         std::string body = "HelloWorld";
-        bv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+        bv.AppendMoveCanonicalBlock(buildPrimaryBlock(body));
 
         BOOST_REQUIRE(bv.Render(5000));
 
@@ -845,7 +844,7 @@ BOOST_AUTO_TEST_CASE(FragmentManagerMulti)
         cv.m_primaryBlockView.SetManuallyModified();
 
         std::string body = "foobar";
-        cv.AppendMoveCanonicalBlock(std::move(buildPrimaryBlock(body)));
+        cv.AppendMoveCanonicalBlock(buildPrimaryBlock(body));
 
         BOOST_REQUIRE(cv.Render(5000));
 

@@ -64,8 +64,6 @@ public:
         boost::interprocess::interprocess_semaphore m_waitUntilNotEmpty_postHasData_semaphore;
         /// Circular index buffer, used to index the circular vector of receive buffers
         CircularIndexBufferSingleProducerSingleConsumerConfigurable m_circularIndexBuffer;
-    private:
-        uint64_t forceEnd64BitBoundary;
     };
 
 

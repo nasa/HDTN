@@ -18,6 +18,7 @@
 #include <boost/make_unique.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/filesystem/operations.hpp>
+#include <boost/version.hpp>
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -31,7 +32,6 @@ DirectoryScanner::DirectoryScanner(const boost::filesystem::path& rootFileOrFold
     m_includeExistingFiles(includeExistingFiles),
     m_includeNewFiles(includeNewFiles),
     m_recurseDirectoriesDepth(recurseDirectoriesDepth),
-    m_ioServiceRef(ioServiceRef),
     m_dirMonitor(ioServiceRef),
     m_timerNewFileComplete(ioServiceRef),
     m_timeDurationToRecheckFileSize(boost::posix_time::milliseconds(recheckFileSizeDurationMilliseconds))
@@ -186,7 +186,11 @@ void DirectoryScanner::IterateDirectories(const boost::filesystem::path& rootDir
         const unsigned int depth = static_cast<unsigned int>(dirIt.depth()) + startingRecursiveDepthIndex;
         if (isDirectory) {
             if (depth >= m_recurseDirectoriesDepth) { //don't iterate files within that will have depth 1 greater than this directory that contains them
-                dirIt.no_push();
+#if (BOOST_VERSION >= 107200)
+                dirIt.disable_recursion_pending(); //identical to no_push()
+#else
+                dirIt.no_push(); //deprecated in versions 1.72 and above
+#endif
             }
             else {
                 if (m_includeNewFiles) {

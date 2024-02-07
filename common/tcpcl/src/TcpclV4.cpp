@@ -106,6 +106,7 @@ static BOOST_FORCEINLINE void ClearFourBytes(uint8_t * const output) {
 #endif
 }
 
+#if 0 //this function is currently not needed within the rx state machine
 static BOOST_FORCEINLINE uint16_t UnalignedBigEndianToNativeU16(const uint8_t * const data) {
 #if 1
     return ((static_cast<uint16_t>(data[0])) << 8) | data[1];
@@ -113,6 +114,7 @@ static BOOST_FORCEINLINE uint16_t UnalignedBigEndianToNativeU16(const uint8_t * 
     return static_cast<uint16_t>(_loadbe_i16(data));
 #endif
 }
+#endif
 
 static BOOST_FORCEINLINE void NativeU16ToUnalignedBigEndian(uint8_t * const output, uint16_t nativeValue) {
     output[0] = (uint8_t)(nativeValue >> 8); //big endian most significant byte first

@@ -155,8 +155,6 @@ bool StorageExpiringBeforeThresholdTelemetry_t::operator!=(const StorageExpiring
     return !(*this == o);
 }
 
-static const uint64_t mapEntrySize = sizeof(uint64_t) +
-    sizeof(StorageExpiringBeforeThresholdTelemetry_t::bundle_count_plus_bundle_bytes_pair_t);
 
 
 

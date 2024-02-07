@@ -76,7 +76,6 @@ private:
     const bool m_includeExistingFiles;
     const bool m_includeNewFiles;
     const unsigned int m_recurseDirectoriesDepth;
-    boost::asio::io_service& m_ioServiceRef;
     boost::asio::dir_monitor m_dirMonitor;
     boost::asio::deadline_timer m_timerNewFileComplete;
     const boost::posix_time::time_duration m_timeDurationToRecheckFileSize;

@@ -1134,7 +1134,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                     return false;
                 }
                 padded_vector_uint8_t * rxBufRawPointer = new padded_vector_uint8_t(std::move(bv.m_frontBuffer));
-                zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupPaddedVecUint8, rxBufRawPointer)));
+                zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupPaddedVecUint8, rxBufRawPointer);
                 bundleCurrentSize = zmqMessageToSendUniquePtr->size();
             }
             else if (finalDestEid == M_HDTN_EID_PING) {
@@ -1759,7 +1759,7 @@ void Ingress::Impl::SendPing(const uint64_t remoteNodeId, const uint64_t remoteP
 
         //move the bundle out of bundleView
         padded_vector_uint8_t* rxBufRawPointer = new padded_vector_uint8_t(std::move(bv.m_frontBuffer));
-        zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupPaddedVecUint8, rxBufRawPointer)));
+        zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupPaddedVecUint8, rxBufRawPointer);
     }
     else { //bp version 6
         BundleViewV6 bv;
@@ -1815,7 +1815,7 @@ void Ingress::Impl::SendPing(const uint64_t remoteNodeId, const uint64_t remoteP
 
         //move the bundle out of bundleView
         padded_vector_uint8_t* rxBufRawPointer = new padded_vector_uint8_t(std::move(bv.m_frontBuffer));
-        zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupPaddedVecUint8, rxBufRawPointer)));
+        zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupPaddedVecUint8, rxBufRawPointer);
     }
     static padded_vector_uint8_t unusedPaddedVecMessage;
     static constexpr bool isSafeToYieldThisThread = false; //not safe to yield since called by the ReadZmqAcksThreadFunc

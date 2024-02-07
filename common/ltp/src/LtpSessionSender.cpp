@@ -66,7 +66,6 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     const uint64_t memoryBlockId, LtpSessionSenderCommonData& ltpSessionSenderCommonDataRef) :
     //
     m_largestEndIndexPendingGeneration(0),
-    m_receptionClaimIndex(0),
     m_nextCheckpointSerialNumber(randomInitialSenderCheckpointSerialNumber),
     m_dataToSendSharedPtr(std::make_shared<LtpClientServiceDataToSend>(std::move(dataToSend))),
     m_userDataPtr(std::move(userDataPtrToTake)),
