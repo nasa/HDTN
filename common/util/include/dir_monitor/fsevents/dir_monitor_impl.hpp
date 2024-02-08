@@ -21,6 +21,7 @@
 #include <deque>
 #include <boost/thread.hpp>
 #include <CoreServices/CoreServices.h>
+#define DIR_MONITOR_USE_DISPATCH_QUEUE 1
 
 namespace boost {
 namespace asio {
@@ -28,20 +29,29 @@ namespace asio {
 class dir_monitor_impl
 {
 public:
-    dir_monitor_impl()
-        : run_(true)
-        , work_thread_(&boost::asio::dir_monitor_impl::work_thread, this)
-        , fsevents_(nullptr)
+    dir_monitor_impl() :
+#ifdef DIR_MONITOR_USE_DISPATCH_QUEUE
+        queue_(dispatch_queue_create("DirectoryMonitor", DISPATCH_QUEUE_SERIAL)),
+#else
+        run_(true),
+        work_thread_(&boost::asio::dir_monitor_impl::work_thread, this),
+#endif
+        fsevents_(nullptr)
     {}
 
     ~dir_monitor_impl()
     {
+#ifdef DIR_MONITOR_USE_DISPATCH_QUEUE
+        stop_fsevents();
+        dispatch_release(queue_);
+#else
         stop_work_thread();
         work_thread_.join();
         stop_fsevents();
+#endif
     }
 
-    void add_directory(boost::filesystem::path dirname)
+    void add_directory(const boost::filesystem::path& dirname)
     {
         boost::unique_lock<boost::mutex> lock(dirs_mutex_);
         dirs_.insert(dirname.native());//@todo Store path in dictionary
@@ -49,7 +59,7 @@ public:
         start_fsevents();
     }
 
-    void remove_directory(boost::filesystem::path dirname)
+    void remove_directory(const boost::filesystem::path& dirname)
     {
         boost::unique_lock<boost::mutex> lock(dirs_mutex_);
         dirs_.erase(dirname.native());
@@ -57,17 +67,30 @@ public:
         start_fsevents();
     }
 
+    bool already_added_directory(const boost::filesystem::path& dirname)
+    {
+        boost::unique_lock<boost::mutex> lock(dirs_mutex_);
+        return (dirs_.count(dirname.native()));
+    }
+
     void destroy()
     {
         boost::unique_lock<boost::mutex> lock(events_mutex_);
+#ifndef DIR_MONITOR_USE_DISPATCH_QUEUE
         run_ = false;
+#endif
         events_cond_.notify_all();
     }
 
     dir_monitor_event popfront_event(boost::system::error_code &ec)
     {
         boost::unique_lock<boost::mutex> lock(events_mutex_);
-        while (run_ && events_.empty()) {
+        while (
+#ifndef DIR_MONITOR_USE_DISPATCH_QUEUE
+            run_ &&
+#endif
+            events_.empty())
+        {
             events_cond_.wait(lock);
         }
         dir_monitor_event ev;
@@ -86,7 +109,9 @@ public:
     void pushback_event(dir_monitor_event ev)
     {
         boost::unique_lock<boost::mutex> lock(events_mutex_);
+#ifndef DIR_MONITOR_USE_DISPATCH_QUEUE
         if (run_)
+#endif
         {
             events_.push_back(ev);
             events_cond_.notify_all();
@@ -94,10 +119,10 @@ public:
     }
 
 private:
-    CFArrayRef make_array(boost::unordered_set<std::string> in)
+    CFArrayRef make_array(const boost::unordered_set<std::string>& in)
     {
         CFMutableArrayRef arr = CFArrayCreateMutable(kCFAllocatorDefault, in.size(), &kCFTypeArrayCallBacks);
-        for (auto str : in) {
+        for (const std::string& str : in) {
             CFStringRef cfstr = CFStringCreateWithCString(kCFAllocatorDefault, str.c_str(), kCFStringEncodingUTF8);
             CFArrayAppendValue(arr, cfstr);
             // @todo CFRelease(cfstr); ??
@@ -120,8 +145,11 @@ private:
                 &context,
                 make_array(dirs_),
                 kFSEventStreamEventIdSinceNow, /* only new modifications */
-                (CFTimeInterval)5.0, /* 5 seconds latency interval */
-                kFSEventStreamCreateFlagFileEvents);
+                //(CFTimeInterval)5.0, /* 5 seconds latency interval */
+                (CFTimeInterval)0.0, //added by BT
+                kFSEventStreamCreateFlagFileEvents
+                | kFSEventStreamCreateFlagNoDefer //added by BT
+            );
         FSEventStreamRetain(fsevents_);
 
         if (!fsevents_)
@@ -136,13 +164,18 @@ private:
             boost::throw_exception(e);
         }
 
+
+#ifdef DIR_MONITOR_USE_DISPATCH_QUEUE
+        FSEventStreamSetDispatchQueue(fsevents_, queue_);
+        FSEventStreamStart(fsevents_);
+#else
         while (!runloop_) {
             boost::this_thread::yield();
         }
-
         FSEventStreamScheduleWithRunLoop(fsevents_, runloop_, kCFRunLoopDefaultMode);
         FSEventStreamStart(fsevents_);
         runloop_cond_.notify_all();
+#endif
         FSEventStreamFlushAsync(fsevents_);
     }
 
@@ -176,7 +209,9 @@ private:
                 impl->pushback_event(dir_monitor_event(dir, dir_monitor_event::recursive_rescan));
             }
             if (eventFlags[i] & kFSEventStreamEventFlagItemCreated) {
-                impl->pushback_event(dir_monitor_event(dir, dir_monitor_event::added));
+                if (!impl->already_added_directory(dir)) { //fix to ignore when creating directory right before adding to the monitor
+                    impl->pushback_event(dir_monitor_event(dir, dir_monitor_event::added));
+                }
             }
             if (eventFlags[i] & kFSEventStreamEventFlagItemRemoved) {
                 impl->pushback_event(dir_monitor_event(dir, dir_monitor_event::removed));
@@ -198,6 +233,7 @@ private:
        }
     }
 
+#ifndef DIR_MONITOR_USE_DISPATCH_QUEUE
     void work_thread()
     {
         runloop_ = CFRunLoopGetCurrent();
@@ -232,6 +268,9 @@ private:
 
     boost::mutex work_thread_mutex_;
     boost::thread work_thread_;
+#else
+    dispatch_queue_t queue_; //added by BT
+#endif
 
     FSEventStreamRef fsevents_;
 
