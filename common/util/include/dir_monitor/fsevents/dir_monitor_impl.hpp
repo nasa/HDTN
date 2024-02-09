@@ -30,10 +30,10 @@ class dir_monitor_impl
 {
 public:
     dir_monitor_impl() :
+        run_(true),
 #ifdef DIR_MONITOR_USE_DISPATCH_QUEUE
         queue_(dispatch_queue_create("DirectoryMonitor", DISPATCH_QUEUE_SERIAL)),
 #else
-        run_(true),
         work_thread_(&boost::asio::dir_monitor_impl::work_thread, this),
 #endif
         fsevents_(nullptr)
@@ -76,20 +76,14 @@ public:
     void destroy()
     {
         boost::unique_lock<boost::mutex> lock(events_mutex_);
-#ifndef DIR_MONITOR_USE_DISPATCH_QUEUE
         run_ = false;
-#endif
         events_cond_.notify_all();
     }
 
     dir_monitor_event popfront_event(boost::system::error_code &ec)
     {
         boost::unique_lock<boost::mutex> lock(events_mutex_);
-        while (
-#ifndef DIR_MONITOR_USE_DISPATCH_QUEUE
-            run_ &&
-#endif
-            events_.empty())
+        while (run_ && events_.empty())
         {
             events_cond_.wait(lock);
         }
@@ -109,9 +103,7 @@ public:
     void pushback_event(dir_monitor_event ev)
     {
         boost::unique_lock<boost::mutex> lock(events_mutex_);
-#ifndef DIR_MONITOR_USE_DISPATCH_QUEUE
         if (run_)
-#endif
         {
             events_.push_back(ev);
             events_cond_.notify_all();
@@ -198,13 +190,15 @@ private:
             const FSEventStreamEventFlags eventFlags[],
             const FSEventStreamEventId eventIds[])
     {
-        size_t i;
+        (void)streamRef;
+        (void)eventIds;
         char **paths = (char**)eventPaths;
         dir_monitor_impl* impl = (dir_monitor_impl*)clientCallBackInfo;
 
-        for (i = 0; i < numEvents; ++i)
+        for (size_t i = 0; i < numEvents; ++i)
         {
             boost::filesystem::path dir(paths[i]);
+            //dir is an absolute file path with all symbolic links resolved
             if (eventFlags[i] & kFSEventStreamEventFlagMustScanSubDirs) {
                 impl->pushback_event(dir_monitor_event(dir, dir_monitor_event::recursive_rescan));
             }
@@ -269,6 +263,7 @@ private:
     boost::mutex work_thread_mutex_;
     boost::thread work_thread_;
 #else
+    bool run_;
     dispatch_queue_t queue_; //added by BT
 #endif
 

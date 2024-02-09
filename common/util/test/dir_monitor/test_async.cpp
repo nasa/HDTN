@@ -8,128 +8,171 @@
 #include "dir_monitor/dir_monitor.hpp"
 #include "check_paths.hpp"
 #include "directory.hpp"
+#include <boost/predef/os.h>
 
 static boost::asio::io_service io_service; //must be declared static
+static boost::system::error_code g_ec;
+static boost::asio::dir_monitor_event g_ev;
 
-static void create_file_handler(const boost::filesystem::path& expected_path, const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
-{
-    BOOST_CHECK_EQUAL(ec, boost::system::error_code());
-    BOOST_CHECK_THE_SAME_PATHS_RELATIVE(ev.path, expected_path);
-    BOOST_CHECK_EQUAL(ev.type, boost::asio::dir_monitor_event::added);
+static void Reset() {
+    g_ec = boost::system::error_code();
+    g_ev = boost::asio::dir_monitor_event();
 }
+static void dir_event_handler(const boost::system::error_code& ec, const boost::asio::dir_monitor_event& ev) {
+    g_ec = ec;
+    g_ev = ev;
+}
+
 
 BOOST_AUTO_TEST_CASE(dir_monitor_async_create_file)
 {
-    directory dir(TEST_DIR1);
-
+    directory dir(TEST_DIR1 "_async_create_file");
     boost::asio::dir_monitor dm(io_service);
-    dm.add_directory(TEST_DIR1);
+    dm.add_directory(TEST_DIR1 "_async_create_file");
 
-    auto test_file1 = dir.create_file(TEST_FILE1);
+    const boost::filesystem::path test_file1 = dir.create_file(TEST_FILE1);
 
-    dm.async_monitor(boost::bind(&create_file_handler, boost::ref(test_file1), boost::placeholders::_1, boost::placeholders::_2));
+    Reset();
+    dm.async_monitor(boost::bind(&dir_event_handler, boost::placeholders::_1, boost::placeholders::_2));
     io_service.run();
     io_service.reset();
+    BOOST_CHECK_EQUAL(g_ec, boost::system::error_code());
+    BOOST_CHECK_THE_SAME_PATHS_RELATIVE(g_ev.path, test_file1);
+    BOOST_CHECK_EQUAL(g_ev.type, boost::asio::dir_monitor_event::added);
+
 }
 
-static void rename_file_handler_old(const boost::filesystem::path& expected_path, const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
-{
-    BOOST_CHECK_EQUAL(ec, boost::system::error_code());
-    BOOST_CHECK_THE_SAME_PATHS_RELATIVE(ev.path, expected_path);
-    BOOST_CHECK_EQUAL(ev.type, boost::asio::dir_monitor_event::renamed_old_name);
-}
-
-static void rename_file_handler_new(const boost::filesystem::path& expected_path, const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
-{
-    BOOST_CHECK_EQUAL(ec, boost::system::error_code());
-    BOOST_CHECK_THE_SAME_PATHS_RELATIVE(ev.path, expected_path);
-    BOOST_CHECK_EQUAL(ev.type, boost::asio::dir_monitor_event::renamed_new_name);
-}
 
 BOOST_AUTO_TEST_CASE(dir_monitor_async_rename_file)
 {
-    directory dir(TEST_DIR1);
-    auto test_file1 = dir.create_file(TEST_FILE1);
+    directory dir(TEST_DIR1 "_async_rename_file");
+    const boost::filesystem::path test_file1 = dir.create_file(TEST_FILE1);
 
     boost::asio::dir_monitor dm(io_service);
-    dm.add_directory(TEST_DIR1);
+    dm.add_directory(TEST_DIR1 "_async_rename_file");
 
-    auto test_file2 = dir.rename_file(TEST_FILE1, TEST_FILE2);
+    const boost::filesystem::path test_file2 = dir.rename_file(TEST_FILE1, TEST_FILE2);
 
-    dm.async_monitor(boost::bind(&rename_file_handler_old, boost::ref(test_file1), boost::placeholders::_1, boost::placeholders::_2));
+    while (true) {
+        Reset();
+
+        dm.async_monitor(boost::bind(&dir_event_handler, boost::placeholders::_1, boost::placeholders::_2));
+        io_service.run();
+        io_service.reset();
+#if BOOST_OS_MACOS //only the file will cause an event, the dm has been fixed to prevent the directory creation event
+        if (g_ev.type == boost::asio::dir_monitor_event::added) {
+            continue;
+        }
+#endif
+        BOOST_CHECK_EQUAL(g_ec, boost::system::error_code());
+        BOOST_CHECK_THE_SAME_PATHS_RELATIVE(g_ev.path, test_file1);
+        BOOST_CHECK_EQUAL(g_ev.type, boost::asio::dir_monitor_event::renamed_old_name);
+        break;
+    }
+
+    
+
+    Reset();
+    dm.async_monitor(boost::bind(&dir_event_handler, boost::placeholders::_1, boost::placeholders::_2));
     io_service.run();
     io_service.reset();
 
-    dm.async_monitor(boost::bind(&rename_file_handler_new, boost::ref(test_file2), boost::placeholders::_1, boost::placeholders::_2));
-    io_service.run();
-    io_service.reset();
+    BOOST_CHECK_EQUAL(g_ec, boost::system::error_code());
+    BOOST_CHECK_THE_SAME_PATHS_RELATIVE(g_ev.path, test_file2);
+    BOOST_CHECK_EQUAL(g_ev.type, boost::asio::dir_monitor_event::renamed_new_name);
 }
 
-static void modify_file_handler(const boost::filesystem::path& expected_path, const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
-{
-    BOOST_CHECK_EQUAL(ec, boost::system::error_code());
-    BOOST_CHECK_THE_SAME_PATHS_RELATIVE(ev.path, expected_path);
-    BOOST_CHECK_EQUAL(ev.type, boost::asio::dir_monitor_event::modified);
-}
 
 BOOST_AUTO_TEST_CASE(dir_monitor_async_modify_file)
 {
-    directory dir(TEST_DIR1);
-    auto test_file2 = dir.create_file(TEST_FILE2);
+    directory dir(TEST_DIR1 "_async_modify_file");
+    const boost::filesystem::path test_file2 = dir.create_file(TEST_FILE2);
 
     boost::asio::dir_monitor dm(io_service);
-    dm.add_directory(TEST_DIR1);
+    dm.add_directory(TEST_DIR1 "_async_modify_file");
 
     dir.write_file(TEST_FILE2, TEST_FILE1);
 
-    dm.async_monitor(boost::bind(&modify_file_handler, boost::ref(test_file2), boost::placeholders::_1, boost::placeholders::_2));
-    io_service.run();
-    io_service.reset();
+    while (true) {
+        Reset();
+
+        dm.async_monitor(boost::bind(&dir_event_handler, boost::placeholders::_1, boost::placeholders::_2));
+        io_service.run();
+        io_service.reset();
+#if BOOST_OS_MACOS //only the file will cause an event, the dm has been fixed to prevent the directory creation event
+        if (g_ev.type == boost::asio::dir_monitor_event::added) {
+            continue;
+        }
+#endif
+        BOOST_CHECK_EQUAL(g_ec, boost::system::error_code());
+        BOOST_CHECK_THE_SAME_PATHS_RELATIVE(g_ev.path, test_file2);
+        BOOST_CHECK_EQUAL(g_ev.type, boost::asio::dir_monitor_event::modified);
+        break;
+    }
 }
 
-static void remove_file_handler(const boost::filesystem::path& expected_path, const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
-{
-    BOOST_CHECK_EQUAL(ec, boost::system::error_code());
-    BOOST_CHECK_THE_SAME_PATHS_RELATIVE(ev.path, expected_path);
-    BOOST_CHECK_EQUAL(ev.type, boost::asio::dir_monitor_event::removed);
-}
 
 BOOST_AUTO_TEST_CASE(dir_monitor_async_remove_file)
 {
-    directory dir(TEST_DIR1);
-    auto test_file1 = dir.create_file(TEST_FILE1);
+    directory dir(TEST_DIR1 "_async_remove_file");
+    const boost::filesystem::path test_file1 = dir.create_file(TEST_FILE1);
 
     boost::asio::dir_monitor dm(io_service);
-    dm.add_directory(TEST_DIR1);
+    dm.add_directory(TEST_DIR1 "_async_remove_file");
 
     dir.remove_file(TEST_FILE1);
 
-    dm.async_monitor(boost::bind(&remove_file_handler, boost::ref(test_file1), boost::placeholders::_1, boost::placeholders::_2));
-    io_service.run();
-    io_service.reset();
+    while (true) {
+        Reset();
+
+        dm.async_monitor(boost::bind(&dir_event_handler, boost::placeholders::_1, boost::placeholders::_2));
+        io_service.run();
+        io_service.reset();
+#if BOOST_OS_MACOS //only the file will cause an event, the dm has been fixed to prevent the directory creation event
+        if (g_ev.type == boost::asio::dir_monitor_event::added) {
+            continue;
+        }
+#endif
+        BOOST_CHECK_EQUAL(g_ec, boost::system::error_code());
+        BOOST_CHECK_THE_SAME_PATHS_RELATIVE(g_ev.path, test_file1);
+        BOOST_CHECK_EQUAL(g_ev.type, boost::asio::dir_monitor_event::removed);
+        break;
+    }
 }
 
 BOOST_AUTO_TEST_CASE(dir_monitor_async_multiple_events)
 {
-    directory dir(TEST_DIR1);
+    directory dir(TEST_DIR1 "_async_multiple_events");
 
     boost::asio::dir_monitor dm(io_service);
-    dm.add_directory(TEST_DIR1);
+    dm.add_directory(TEST_DIR1 "_async_multiple_events");
 
     auto test_file1 = dir.create_file(TEST_FILE1);
     auto test_file2 = dir.rename_file(TEST_FILE1, TEST_FILE2);
 
-    dm.async_monitor(boost::bind(&create_file_handler, boost::ref(test_file1), boost::placeholders::_1, boost::placeholders::_2));
+    Reset();
+    dm.async_monitor(boost::bind(&dir_event_handler, boost::placeholders::_1, boost::placeholders::_2));
     io_service.run();
     io_service.reset();
+    BOOST_CHECK_EQUAL(g_ec, boost::system::error_code());
+    BOOST_CHECK_THE_SAME_PATHS_RELATIVE(g_ev.path, test_file1);
+    BOOST_CHECK_EQUAL(g_ev.type, boost::asio::dir_monitor_event::added);
 
-    dm.async_monitor(boost::bind(&rename_file_handler_old, boost::ref(test_file1), boost::placeholders::_1, boost::placeholders::_2));
+    Reset();
+    dm.async_monitor(boost::bind(&dir_event_handler, boost::placeholders::_1, boost::placeholders::_2));
     io_service.run();
     io_service.reset();
+    BOOST_CHECK_EQUAL(g_ec, boost::system::error_code());
+    BOOST_CHECK_THE_SAME_PATHS_RELATIVE(g_ev.path, test_file1);
+    BOOST_CHECK_EQUAL(g_ev.type, boost::asio::dir_monitor_event::renamed_old_name);
 
-    dm.async_monitor(boost::bind(&rename_file_handler_new, boost::ref(test_file2), boost::placeholders::_1, boost::placeholders::_2));
+    Reset();
+    dm.async_monitor(boost::bind(&dir_event_handler, boost::placeholders::_1, boost::placeholders::_2));
     io_service.run();
     io_service.reset();
+    BOOST_CHECK_EQUAL(g_ec, boost::system::error_code());
+    BOOST_CHECK_THE_SAME_PATHS_RELATIVE(g_ev.path, test_file2);
+    BOOST_CHECK_EQUAL(g_ev.type, boost::asio::dir_monitor_event::renamed_new_name);
 }
 
 static void aborted_async_call_handler(const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
@@ -140,11 +183,11 @@ static void aborted_async_call_handler(const boost::system::error_code &ec, cons
 
 BOOST_AUTO_TEST_CASE(dir_monitor_async_aborted_async_call)
 {
-    directory dir(TEST_DIR1);
+    directory dir(TEST_DIR1 "_async_aborted_async_call");
 
     {
         boost::asio::dir_monitor dm(io_service);
-        dm.add_directory(TEST_DIR1);
+        dm.add_directory(TEST_DIR1 "_async_aborted_async_call");
 
         dm.async_monitor(aborted_async_call_handler);
     }
@@ -161,14 +204,14 @@ static void blocked_async_call_handler_with_local_ioservice(const boost::system:
 
 BOOST_AUTO_TEST_CASE(dir_monitor_async_blocked_async_call)
 {
-    directory dir(TEST_DIR1);
+    directory dir(TEST_DIR1 "_async_blocked_async_call");
     boost::thread t;
 
     {
         boost::asio::io_service local_io_service;
 
         boost::asio::dir_monitor dm(local_io_service);
-        dm.add_directory(TEST_DIR1);
+        dm.add_directory(TEST_DIR1 "_async_blocked_async_call");
 
         dm.async_monitor(blocked_async_call_handler_with_local_ioservice);
 
@@ -176,11 +219,8 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_blocked_async_call)
         // When dm and io_service go out of scope they should be destroyed properly without
         // a thread being blocked.
         t = boost::thread(boost::bind(&boost::asio::io_service::run, boost::ref(local_io_service)));
-        boost::system_time time = boost::get_system_time();
-        time += boost::posix_time::time_duration(0, 0, 1);
-        boost::thread::sleep(time);
+        boost::this_thread::sleep(boost::posix_time::seconds(1));
     }
-
     t.join();
 }
 
@@ -192,13 +232,13 @@ static void unregister_directory_handler(const boost::system::error_code &ec, co
 
 BOOST_AUTO_TEST_CASE(dir_monitor_async_unregister_directory)
 {
-    directory dir(TEST_DIR1);
+    directory dir(TEST_DIR1 "_async_unregister_directory");
     boost::thread t;
 
     {
         boost::asio::dir_monitor dm(io_service);
-        dm.add_directory(TEST_DIR1);
-        dm.remove_directory(TEST_DIR1);
+        dm.add_directory(TEST_DIR1 "_async_unregister_directory");
+        dm.remove_directory(TEST_DIR1 "_async_unregister_directory");
 
         dir.create_file(TEST_FILE1);
 
@@ -208,9 +248,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_unregister_directory)
         // another thread run() would block as the file was created after remove_directory()
         // had been called.
         t = boost::thread(boost::bind(&boost::asio::io_service::run, boost::ref(io_service)));
-        boost::system_time time = boost::get_system_time();
-        time += boost::posix_time::time_duration(0, 0, 1);
-        boost::thread::sleep(time);
+        boost::this_thread::sleep(boost::posix_time::seconds(1));
     }
 
     t.join();
@@ -220,8 +258,8 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_unregister_directory)
 //Added to support UTF-8 Paths
 BOOST_AUTO_TEST_CASE(dir_monitor_async_unregister_directory_as_path)
 {
-    directory dir(TEST_DIR1);
-    boost::filesystem::path testDirAsPath1(TEST_DIR1);
+    directory dir(TEST_DIR1 "_async_unregister_directory_as_path");
+    boost::filesystem::path testDirAsPath1(TEST_DIR1 "_async_unregister_directory_as_path");
     boost::thread t;
 
     {
@@ -237,9 +275,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_unregister_directory_as_path)
         // another thread run() would block as the file was created after remove_directory()
         // had been called.
         t = boost::thread(boost::bind(&boost::asio::io_service::run, boost::ref(io_service)));
-        boost::system_time time = boost::get_system_time();
-        time += boost::posix_time::time_duration(0, 0, 1);
-        boost::thread::sleep(time);
+        boost::this_thread::sleep(boost::posix_time::seconds(1));
     }
 
     t.join();
@@ -254,16 +290,16 @@ static void two_dir_monitors_handler(const boost::system::error_code &ec, const 
 
 BOOST_AUTO_TEST_CASE(dir_monitor_async_two_dir_monitors)
 {
-    directory dir1(TEST_DIR1);
-    directory dir2(TEST_DIR2);
+    directory dir1(TEST_DIR1 "_async_two_dir_monitors1");
+    directory dir2(TEST_DIR2 "_async_two_dir_monitors2");
     boost::thread t;
 
     {
         boost::asio::dir_monitor dm1(io_service);
-        dm1.add_directory(TEST_DIR1);
+        dm1.add_directory(TEST_DIR1 "_async_two_dir_monitors1");
 
         boost::asio::dir_monitor dm2(io_service);
-        dm2.add_directory(TEST_DIR2);
+        dm2.add_directory(TEST_DIR2 "_async_two_dir_monitors2");
 
         dir2.create_file(TEST_FILE1);
 
@@ -273,9 +309,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_two_dir_monitors)
         // another thread run() would block as the directory the file was created in is
         // monitored by dm2 while async_monitor() was called for dm1.
         t = boost::thread(boost::bind(&boost::asio::io_service::run, boost::ref(io_service)));
-        boost::system_time time = boost::get_system_time();
-        time += boost::posix_time::time_duration(0, 0, 1);
-        boost::thread::sleep(time);
+        boost::this_thread::sleep(boost::posix_time::seconds(1));
     }
 
     t.join();
