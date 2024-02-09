@@ -226,7 +226,7 @@ bool LtpUdpEngineManager::AddLtpUdpEngine(const LtpEngineConfig& ltpRxOrTxCfg)
         std::piecewise_construct,
         std::forward_as_tuple(ltpRxOrTxCfg.remoteEngineId),
         std::forward_as_tuple(
-            m_ioServiceUdp, m_udpSocket, engineIndex, remoteEndpoint,
+            m_udpSocket, engineIndex, remoteEndpoint,
             M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES, ltpRxOrTxCfg
         )
     );

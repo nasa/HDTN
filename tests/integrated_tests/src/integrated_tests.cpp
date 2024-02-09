@@ -97,20 +97,18 @@ static void Delay(uint64_t seconds) {
     boost::this_thread::sleep(boost::posix_time::seconds(seconds));
 }
 
-static void GetSha1(const uint8_t * data, const std::size_t size, std::string & sha1Str) {
-
-    sha1Str.resize(40);
-    char * strPtr = &sha1Str[0];
+static void GetSha1(const uint8_t* data, const std::size_t size, std::string& sha1Str) {
 
     boost::uuids::detail::sha1 s;
     s.process_bytes(data, size);
-    boost::uint32_t digest[5];
+    uint32_t digest[5];
     s.get_digest(digest);
-    for (int i = 0; i < 5; ++i) {
-        //const uint32_t digestBe = boost::endian::native_to_big(digest[i]);
-        sprintf(strPtr, "%08x", digest[i]);// digestBe);
-        strPtr += 8;
-    }
+
+    //const uint32_t digestBe = boost::endian::native_to_big(digest[i]);
+    static const boost::format fmtTemplate("%08x%08x%08x%08x%08x");
+    boost::format fmt(fmtTemplate);
+    fmt% digest[0] % digest[1] % digest[2] % digest[3] % digest[4];
+    sha1Str = fmt.str();
 }
 
 

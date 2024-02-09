@@ -39,8 +39,8 @@ target_link_libraries(integrated-tests
 	Boost::unit_test_framework
 )
 
-#integrated_tests.cpp is causing issues with the following warning
-if(NOT WIN32)
+#integrated_tests.cpp is causing issues on gnu compilers with the following warning
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 	set_property(
 		SOURCE src/integrated_tests.cpp
 		PROPERTY COMPILE_OPTIONS
