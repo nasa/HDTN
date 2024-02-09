@@ -18,8 +18,12 @@
 #include <boost/multiprecision/detail/bitscan.hpp>
 #include <boost/endian/conversion.hpp>
 #ifdef USE_SSE_SSE2
+# ifdef HAVE_SSE2NEON_H
+#include "sse2neon.h"
+# else
 #include <immintrin.h>
 #include <emmintrin.h>
+# endif
 #endif
 
 

@@ -20,7 +20,11 @@
 #include <iostream>
 #include "Sdnv.h"
 #ifdef USE_CRC32C_FAST
+# ifdef HAVE_SSE2NEON_H
+#include "sse2neon.h"
+# else
 #include <nmmintrin.h>
+# endif
 #endif
 
  /// The largest possible encoding of a 64-bit value

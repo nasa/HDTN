@@ -145,7 +145,13 @@ endif()
 
 OPTION(USE_X86_HARDWARE_ACCELERATION "Use CPU SSE/SSE2/BMI1/BMI2 instructions" ON)
 OPTION(LTP_RNG_USE_RDSEED "Use CPU RDSEED instruction as a source of randomness for LTP Random Number Generator" ON)
-include(${CMAKE_SOURCE_DIR}/hardware_acceleration.cmake) # Determine if hardware acceleration can be used
+if(APPLE AND (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64") )
+	set(NON_ARM_COMPILATION false)
+	include(${CMAKE_SOURCE_DIR}/hardware_acceleration_neon.cmake) # Determine if hardware acceleration can be used
+else()
+	include(${CMAKE_SOURCE_DIR}/hardware_acceleration.cmake) # Determine if hardware acceleration can be used
+endif()
+
 
 
 if (WIN32)
@@ -153,8 +159,8 @@ if (WIN32)
 	set(libzmq_INCLUDE "C:/libzmq_msvc_x64/include" CACHE PATH "Folder to Libzmq headers")
 	set(libzmq_LIB "C:/libzmq_msvc_x64/lib/libzmq-v141-mt-4_3_4.lib" CACHE FILEPATH "Libzmq library")
 elseif (APPLE)
-	set(libzmq_INCLUDE "/usr/local/libzmq/include")
-	set(libzmq_LIB "/usr/local/libzmq/build/lib/libzmq.dylib")
+	set(libzmq_INCLUDE "" CACHE PATH "Folder to Libzmq headers")
+	set(libzmq_LIB "zmq" CACHE FILEPATH "Libzmq library")
 	find_library(COCOA_LIBRARY Cocoa)
 else()
 	set(libzmq_INCLUDE "")

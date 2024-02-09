@@ -15,7 +15,11 @@
 #include "codec/Bpv7Crc.h"
 #include <boost/crc.hpp>
 #ifdef USE_CRC32C_FAST
+# ifdef HAVE_SSE2NEON_H
+#include "sse2neon.h"
+# else
 #include <nmmintrin.h>
+# endif
 #include <boost/endian/conversion.hpp>
 //#include <iostream>
 

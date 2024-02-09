@@ -25,7 +25,11 @@
 #include <boost/multiprecision/detail/bitscan.hpp>
 #include <boost/endian/conversion.hpp>
 #ifdef USE_CBOR_FAST
+# ifdef HAVE_SSE2NEON_H
+#include "sse2neon.h"
+# else
 #include <immintrin.h>
+# endif
 #endif
 
 /*
