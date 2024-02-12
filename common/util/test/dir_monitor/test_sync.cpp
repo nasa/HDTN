@@ -38,20 +38,29 @@ BOOST_AUTO_TEST_CASE(dir_monitor_sync_rename_file)
     const boost::filesystem::path test_file2 = dir.rename_file(TEST_FILE1, TEST_FILE2);
     while (true) {
         boost::asio::dir_monitor_event ev = dm.monitor();
-#if BOOST_OS_MACOS //only the file will cause an event, the dm has been fixed to prevent the directory creation event
+#if (BOOST_OS_MACOS) //only the file will cause an event, the dm has been fixed to prevent the directory creation event
         if (ev.type == boost::asio::dir_monitor_event::added) {
             continue;
         }
 #endif
-
+#if (BOOST_OS_BSD) //bsd does not have any rename events, only added and removed
+        BOOST_CHECK_THE_SAME_PATHS_RELATIVE(ev.path, test_file2);
+        BOOST_CHECK_EQUAL(ev.type, boost::asio::dir_monitor_event::added);
+#else
         BOOST_CHECK_THE_SAME_PATHS_RELATIVE(ev.path, test_file1);
         BOOST_CHECK_EQUAL(ev.type, boost::asio::dir_monitor_event::renamed_old_name);
+#endif
         break;
     }
     boost::asio::dir_monitor_event ev = dm.monitor();
 
+#if (BOOST_OS_BSD)
+    BOOST_CHECK_THE_SAME_PATHS_RELATIVE(ev.path, test_file1);
+    BOOST_CHECK_EQUAL(ev.type, boost::asio::dir_monitor_event::removed);
+#else
     BOOST_CHECK_THE_SAME_PATHS_RELATIVE(ev.path, test_file2);
     BOOST_CHECK_EQUAL(ev.type, boost::asio::dir_monitor_event::renamed_new_name);
+#endif
 }
 
 BOOST_AUTO_TEST_CASE(dir_monitor_sync_remove_file)
@@ -65,7 +74,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_sync_remove_file)
     dir.remove_file(TEST_FILE1);
     while (true) {
         boost::asio::dir_monitor_event ev = dm.monitor();
-#if BOOST_OS_MACOS //only the file will cause an event, the dm has been fixed to prevent the directory creation event
+#if (BOOST_OS_MACOS) //only the file will cause an event, the dm has been fixed to prevent the directory creation event
         if (ev.type == boost::asio::dir_monitor_event::added) {
             continue;
         }
@@ -76,6 +85,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_sync_remove_file)
     }
 }
 
+#if (!BOOST_OS_BSD) //bsd kqueue implementation only listens for directory change events, and altering the file won't trigger a directory change event 
 BOOST_AUTO_TEST_CASE(dir_monitor_sync_modify_file)
 {
     directory dir(TEST_DIR1 "_sync_modify_file");
@@ -87,7 +97,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_sync_modify_file)
     dir.write_file(TEST_FILE1, TEST_FILE2);
     while (true) {
         boost::asio::dir_monitor_event ev = dm.monitor();
-#if BOOST_OS_MACOS //only the file will cause an event, the dm has been fixed to prevent the directory creation event
+#if (BOOST_OS_MACOS) //only the file will cause an event, the dm has been fixed to prevent the directory creation event
         if (ev.type == boost::asio::dir_monitor_event::added) {
             continue;
         }
@@ -97,6 +107,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_sync_modify_file)
         break;
     }
 }
+#endif
 
 BOOST_AUTO_TEST_CASE(dir_monitor_sync_multiple_events)
 {
@@ -106,6 +117,9 @@ BOOST_AUTO_TEST_CASE(dir_monitor_sync_multiple_events)
     dm.add_directory(TEST_DIR1 "_sync_multiple_events");
 
     const boost::filesystem::path test_file1 = dir.create_file(TEST_FILE1);
+#if (BOOST_OS_BSD)
+    boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+#endif
     const boost::filesystem::path test_file2 = dir.rename_file(TEST_FILE1, TEST_FILE2);
     //dir.remove_file(TEST_FILE2); //does not work here with apple
 
@@ -114,12 +128,22 @@ BOOST_AUTO_TEST_CASE(dir_monitor_sync_multiple_events)
     BOOST_CHECK_EQUAL(ev.type, boost::asio::dir_monitor_event::added);
 
     ev = dm.monitor();
+#if (BOOST_OS_BSD) //bsd does not have any rename events, only added and removed
+    BOOST_CHECK_THE_SAME_PATHS_RELATIVE(ev.path, test_file2);
+    BOOST_CHECK_EQUAL(ev.type, boost::asio::dir_monitor_event::added);
+#else
     BOOST_CHECK_THE_SAME_PATHS_RELATIVE(ev.path, test_file1);
     BOOST_CHECK_EQUAL(ev.type, boost::asio::dir_monitor_event::renamed_old_name);
+#endif
 
     ev = dm.monitor();
+#if (BOOST_OS_BSD)
+    BOOST_CHECK_THE_SAME_PATHS_RELATIVE(ev.path, test_file1);
+    BOOST_CHECK_EQUAL(ev.type, boost::asio::dir_monitor_event::removed);
+#else
     BOOST_CHECK_THE_SAME_PATHS_RELATIVE(ev.path, test_file2);
     BOOST_CHECK_EQUAL(ev.type, boost::asio::dir_monitor_event::renamed_new_name);
+#endif
 
     dir.remove_file(TEST_FILE2); //works here with apple
 

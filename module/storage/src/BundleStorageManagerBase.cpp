@@ -21,6 +21,7 @@
 #include <boost/endian/conversion.hpp>
 #include "codec/BundleViewV6.h"
 #include "codec/BundleViewV7.h"
+#include <boost/predef/os.h>
 
  //#ifdef _MSC_VER //Windows tests
  //static const char * FILE_PATHS[NUM_STORAGE_THREADS] = { "map0.bin", "map1.bin", "map2.bin", "map3.bin" };
@@ -406,11 +407,7 @@ bool BundleStorageManagerBase::ReadFirstSegment(BundleStorageManagerSession_Read
         return false;
     }
 
-#ifdef __APPLE__
-    const uint64_t totalBytesToRead = std::min(session.catalogEntryPtr->bundleSizeBytes, static_cast<unsigned long long>(BUNDLE_STORAGE_PER_SEGMENT_SIZE));
-#else
-    const uint64_t totalBytesToRead = std::min(session.catalogEntryPtr->bundleSizeBytes, BUNDLE_STORAGE_PER_SEGMENT_SIZE);
-#endif
+    const uint64_t totalBytesToRead = std::min(session.catalogEntryPtr->bundleSizeBytes, static_cast<uint64_t>(BUNDLE_STORAGE_PER_SEGMENT_SIZE));
     buf.resize(totalBytesToRead);
     std::size_t totalBytesRead = TopSegment(session, buf.data());
     return (totalBytesRead == totalBytesToRead);
@@ -555,9 +552,9 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
             }
 #ifdef _MSC_VER 
             _fseeki64_nolock(fileHandle, offsetBytes, SEEK_SET);
-#elif defined __APPLE__ 
+#elif (BOOST_OS_MACOS || BOOST_OS_BSD)
             fseeko(fileHandle, offsetBytes, SEEK_SET);
-#else
+#else //Linux or other OS
             fseeko64(fileHandle, offsetBytes, SEEK_SET);
 #endif
 

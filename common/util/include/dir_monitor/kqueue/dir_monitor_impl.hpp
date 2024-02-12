@@ -41,10 +41,13 @@
 #endif
 #include <boost/filesystem/operations.hpp>
 #include <boost/ptr_container/ptr_unordered_map.hpp>
+#include <boost/bimap.hpp>
+#include <boost/make_unique.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/system/system_error.hpp>
 #include <string>
 #include <deque>
+#include <vector>
 
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
@@ -60,60 +63,127 @@ namespace asio {
 
 class dir_monitor_impl
 {
-    class unix_handle
-        : public boost::noncopyable
-    {
-    public:
-        unix_handle(int handle)
-            : handle_(handle)
-        {
-        }
-
-        ~unix_handle()
-        {
-            ::close(handle_);
-        }
-
-        operator int() const { return handle_; }
-
-    private:
-        int handle_;
-    };
 
     typedef std::map<std::string, boost::filesystem::directory_entry> dir_entry_map;
+    typedef boost::bimap<std::string, int> dir_to_handle_bimap_t;
 
 public:
+
+    static void throw_system_error(const char* msg) {
+        //As of Boost v1.66.0, get_system_category was deprecated with language: "Boost.System deprecates the old names, but will provide them when the macro BOOST_SYSTEM_ENABLE_DEPRECATED is defined."
+        //Prior versions <= 1.65.1 it said: "Boost.System deprecates the old names, but continues to provide them unless macro BOOST_SYSTEM_NO_DEPRECATED is defined."
+        boost::system::system_error e(boost::system::error_code(errno,
+#if (BOOST_VERSION < 106600)
+            boost::system::get_system_category()),
+#else
+            boost::system::system_category()),
+#endif
+            msg);
+        boost::throw_exception(e);
+    }
     dir_monitor_impl()
         : kqueue_(init_kqueue())
         , run_(true)
-        , work_thread_(&boost::asio::dir_monitor_impl::work_thread, this)
-    {}
+    {
+        //add a user event (id 0) to allow unblocking of permanently blocking kevent function in the thread loop (without need for timeout)
+        //based on https://opensource.apple.com/source/xnu/xnu-1699.24.23/tools/tests/xnu_quick_test/kqueue_tests.c
+        struct kevent keventChangeIn;
+        EV_SET(&keventChangeIn, 0, EVFILT_USER, EV_ADD, 0, 0, 0);
+        if (kevent(kqueue_, &keventChangeIn, 1, NULL, 0, NULL) == -1) {
+            static const char* const msg = "boost::asio::dir_monitor_impl(): kevent failed to register user event";
+            printf("%s\n", msg);
+            throw_system_error(msg);
+        }
+
+        work_thread_ptr_ = boost::make_unique<boost::thread>(&boost::asio::dir_monitor_impl::work_thread, this);
+    }
 
     ~dir_monitor_impl()
     {
         // The work thread is stopped and joined.
-        stop_work_thread();
-        work_thread_.join();
+
+        destroy();
+
+        if (work_thread_ptr_) {
+            work_thread_ptr_->join();
+            work_thread_ptr_.reset();
+        }
         ::close(kqueue_);
     }
 
     void add_directory(std::string dirname, int wd)
     {
         boost::unique_lock<boost::mutex> lock(dirs_mutex_);
-        dirs_.insert(dirname, new unix_handle(wd));
-        scan(dirname, entries[dirname]);
+        if (!dirs_.insert(dir_to_handle_bimap_t::value_type(dirname, wd)).second) {
+            printf("cannot add directory %s\n", dirname.c_str());
+            return;
+        }
+        {
+            boost::unique_lock<boost::mutex> lock(entries_mutex_);
+            scan(dirname, entries_[dirname]);
+        }
+
+        struct kevent keventChangeIn;
+        static constexpr unsigned eventFilter = NOTE_WRITE | NOTE_DELETE | NOTE_RENAME | NOTE_EXTEND | NOTE_ATTRIB;
+        EV_SET(&keventChangeIn, wd, EVFILT_VNODE, EV_ADD | EV_CLEAR, eventFilter, 0, NULL);
+        if (kevent(kqueue_, &keventChangeIn, 1, NULL, 0, NULL) == -1) {
+            static const char* const msg = "boost::asio::~dir_monitor_impl(): kevent failed to add_directory";
+            printf("%s\n", msg);
+            throw_system_error(msg);
+        }
     }
 
     void remove_directory(const std::string &dirname)
     {
         boost::unique_lock<boost::mutex> lock(dirs_mutex_);
-        dirs_.erase(dirname);
+        if (dirs_.left.erase(dirname) != 1) {
+            printf("cannot remove directory %s\n", dirname.c_str());
+        }
+    }
+
+    void remove_directory(const int descriptor)
+    {
+        boost::unique_lock<boost::mutex> lock(dirs_mutex_);
+        dir_to_handle_bimap_t::right_iterator it = dirs_.right.find(descriptor);
+        if (it != dirs_.right.end()) {
+            dirs_.right.erase(it);
+            //Calling close() on a file  descriptor will remove any kevents that reference the descriptor.
+            ::close(descriptor);
+        }
+        else {
+            printf("cannot remove directory by descriptor\n");
+        }
+    }
+
+    void remove_all_directories()
+    {
+        boost::unique_lock<boost::mutex> lock(dirs_mutex_);
+        for (dir_to_handle_bimap_t::right_iterator it = dirs_.right.begin(); it != dirs_.right.end(); ++it) {
+            const int descriptor = it->first;
+            //Calling close() on a file  descriptor will remove any kevents that reference the descriptor.
+            ::close(descriptor);
+        }
+        dirs_.clear();
     }
 
     void destroy()
     {
-        boost::unique_lock<boost::mutex> lock(events_mutex_);
-        run_ = false;
+        remove_all_directories();
+        {
+            boost::unique_lock<boost::mutex> lock(events_mutex_);
+            if (run_)
+            {
+                run_ = false;
+                // trigger the user 0 event, telling work thread to exit
+                struct kevent keventChangeIn;
+                EV_SET(&keventChangeIn, 0, EVFILT_USER, 0, NOTE_TRIGGER, 0, 0);
+                if (kevent(kqueue_, &keventChangeIn, 1, NULL, 0, NULL) == -1) {
+                    static const char* const msg = "boost::asio::dir_monitor_impl::destroy: kevent failed to trigger user event";
+                    printf("%s\n", msg);
+                    throw_system_error(msg);
+                }
+            }
+        }
         events_cond_.notify_all();
     }
 
@@ -137,12 +207,14 @@ public:
 
     void pushback_event(dir_monitor_event ev)
     {
-        boost::unique_lock<boost::mutex> lock(events_mutex_);
-        if (run_)
         {
-            events_.push_back(ev);
-            events_cond_.notify_all();
+            boost::unique_lock<boost::mutex> lock(events_mutex_);
+            if (run_)
+            {
+                events_.push_back(ev);
+            }
         }
+        events_cond_.notify_all();
     }
 
 private:
@@ -151,35 +223,36 @@ private:
         int fd = kqueue();
         if (fd == -1)
         {
-//As of Boost v1.66.0, get_system_category was deprecated with language: "Boost.System deprecates the old names, but will provide them when the macro BOOST_SYSTEM_ENABLE_DEPRECATED is defined."
-//Prior versions <= 1.65.1 it said: "Boost.System deprecates the old names, but continues to provide them unless macro BOOST_SYSTEM_NO_DEPRECATED is defined."
-#if (BOOST_VERSION < 106600)
-            boost::system::system_error e(boost::system::error_code(errno, boost::system::get_system_category()), "boost::asio::dir_monitor_impl::init_kqueue: kqueue failed");
-#else
-            boost::system::system_error e(boost::system::error_code(errno, boost::system::system_category()), "boost::asio::dir_monitor_impl::init_kqueue: kqueue failed");
-#endif
-            boost::throw_exception(e);
+            static const char* const msg = "boost::asio::dir_monitor_impl::init_kqueue: kqueue failed";
+            printf("%s\n", msg);
+            throw_system_error(msg);
         }
         return fd;
     }
 
-    void scan(std::string const& dir, dir_entry_map& entries)
+    void scan(std::string const& dir, dir_entry_map& entries) const
     {
-        boost::system::error_code ec;
-        boost::filesystem::recursive_directory_iterator it(dir, ec);
-        boost::filesystem::recursive_directory_iterator end;
+        for (unsigned int attempt = 0; attempt < 1000; ++attempt) {
+            boost::system::error_code ec;
+            boost::filesystem::directory_iterator it(dir, ec), end;
 
-        if (ec)
-        {
-            boost::system::system_error e(ec, "boost::asio::dir_monitor_impl::scan: unable to iterate directories");
-            boost::throw_exception(e);
-        }
+            if (ec)
+            {
+                //boost::system::system_error e(ec, "boost::asio::dir_monitor_impl::scan: unable to iterate directories");
+                //printf("boost::asio::dir_monitor_impl::scan: unable to iterate directory %s: %s\n", dir.c_str(), ec.what().c_str());
+                boost::this_thread::yield();
+                //boost::throw_exception(e);
+                continue;
+            }
 
-        while (it != end)
-        {
-            entries[(*it).path().native()] = *it;
-            ++it;
+            while (it != end)
+            {
+                entries[(*it).path().native()] = *it;
+                ++it;
+            }
+            return;
         }
+        printf("boost::asio::dir_monitor_impl::scan: unable to iterate directory %s\n", dir.c_str());
     }
 
     void compare(std::string const& dir, dir_entry_map& old_entries, dir_entry_map& new_entries)
@@ -191,9 +264,9 @@ private:
             dir_entry_map::iterator ito = old_entries.find(itn->first);
             if (ito != old_entries.end())
             {
-                if (!boost::filesystem::equivalent(itn->second.path(), ito->second.path()) or
-                    boost::filesystem::last_write_time(itn->second.path()) != boost::filesystem::last_write_time(ito->second.path()) or
-                    (boost::filesystem::is_regular_file(itn->second.path()) and boost::filesystem::is_regular_file(ito->second.path()) and
+                if (!boost::filesystem::equivalent(itn->second.path(), ito->second.path()) ||
+                    boost::filesystem::last_write_time(itn->second.path()) != boost::filesystem::last_write_time(ito->second.path()) ||
+                    (boost::filesystem::is_regular_file(itn->second.path()) && boost::filesystem::is_regular_file(ito->second.path()) &&
                     boost::filesystem::file_size(itn->second.path()) != boost::filesystem::file_size(ito->second.path())))
                 {
                     pushback_event(dir_monitor_event(boost::filesystem::path(dir) / itn->second.path().filename(), dir_monitor_event::modified));
@@ -212,79 +285,65 @@ private:
     }
 
     void work_thread()
-    {
-        while (running())
+    {   
+        static constexpr unsigned int MAX_EVENTS_OUT = 10;
+        struct kevent keventEventListOut[MAX_EVENTS_OUT];
+        while (true)
         {
-            for (auto dir : dirs_)
+            int nEvents = kevent(kqueue_, NULL, 0, keventEventListOut, (int)MAX_EVENTS_OUT, NULL); //blocks forever until event
+
+            if (nEvents < 0)
             {
-                struct timespec timeout;
-                timeout.tv_sec = 0;
-                timeout.tv_nsec = 200000000;
-                unsigned eventFilter = NOTE_WRITE | NOTE_DELETE | NOTE_RENAME | NOTE_EXTEND | NOTE_ATTRIB;
-                struct kevent event;
-                struct kevent eventData;
-                EV_SET(&event, *dir->second, EVFILT_VNODE, EV_ADD | EV_CLEAR, eventFilter, 0, 0);
-                int nEvents = kevent(kqueue_, &event, 1, &eventData, 1, &timeout);
-
-                if (nEvents < 0 or eventData.flags == EV_ERROR)
-                {
-//As of Boost v1.66.0, get_system_category was deprecated with language: "Boost.System deprecates the old names, but will provide them when the macro BOOST_SYSTEM_ENABLE_DEPRECATED is defined."
-//Prior versions <= 1.65.1 it said: "Boost.System deprecates the old names, but continues to provide them unless macro BOOST_SYSTEM_NO_DEPRECATED is defined."
-#if (BOOST_VERSION < 106600)
-                    boost::system::system_error e(boost::system::error_code(errno, boost::system::get_system_category()), "boost::asio::dir_monitor_impl::work_thread: kevent failed");
-#else
-                    boost::system::system_error e(boost::system::error_code(errno, boost::system::system_category()), "boost::asio::dir_monitor_impl::work_thread: kevent failed");
-#endif
-                    boost::throw_exception(e);
+                printf("boost::asio::dir_monitor_impl::work_thread: kevent failed with nEvents == -1");
+                return;
+            }
+            for (int i = 0; i < nEvents; ++i) {
+                struct kevent& eventDataOut = keventEventListOut[i];
+                if (eventDataOut.flags == EV_ERROR) {
+                    printf("boost::asio::dir_monitor_impl::work_thread: kevent failed with flags set to EV_ERROR");
+                    return;
                 }
-
-                // dir_monitor_event::event_type type = dir_monitor_event::null;
-                // if (eventData.fflags & NOTE_WRITE) {
-                //     type = dir_monitor_event::modified;
-                // }
-                // else if (eventData.fflags & NOTE_DELETE) {
-                //     type = dir_monitor_event::removed;
-                // }
-                // else if (eventData.fflags & NOTE_RENAME) {
-                //     type = dir_monitor_event::renamed_new_name;
-                // case FILE_ACTION_RENAMED_OLD_NAME: type = dir_monitor_event::renamed_old_name; break;
-                // case FILE_ACTION_RENAMED_NEW_NAME: type = dir_monitor_event::renamed_new_name; break;
-                // }
-
-                // Run recursive directory check to find changed files
-                // Similar to Poco's DirectoryWatcher
-                // @todo Use FSEvents API on OSX?
-
-                dir_entry_map new_entries;
-                scan(dir->first, new_entries);
-                compare(dir->first, entries[dir->first], new_entries);
-                std::swap(entries[dir->first], new_entries);
+                else if (eventDataOut.filter == EVFILT_USER) {
+                    if (eventDataOut.ident == 0) {
+                        //user event (id 0) triggered from destructor, time to exit work thread
+                        return;
+                    }
+                }
+                else if (eventDataOut.fflags & NOTE_WRITE) { //directory was modified
+                    boost::unique_lock<boost::mutex> lock(dirs_mutex_);
+                    dir_to_handle_bimap_t::right_iterator it = dirs_.right.find(eventDataOut.ident);
+                    if (it != dirs_.right.end()) {
+                        const std::string& directoryNameThatWasModified = it->second;
+                        dir_entry_map new_entries;
+                        scan(directoryNameThatWasModified, new_entries);
+                        {
+                            boost::unique_lock<boost::mutex> lock(entries_mutex_);
+                            compare(directoryNameThatWasModified, entries_[directoryNameThatWasModified], new_entries);
+                            std::swap(entries_[directoryNameThatWasModified], new_entries);
+                        }
+                    }
+                    else {
+                        printf("cannot find descriptor of directory that was modified\n");
+                    }
+                }
+                else if (eventDataOut.fflags & (NOTE_DELETE | NOTE_RENAME)) {
+                    printf("monitored directory was deleted or renamed\n");
+                    remove_directory(eventDataOut.ident);
+                }
             }
         }
     }
 
-    bool running()
-    {
-        // Access to run_ is sychronized with stop_work_thread().
-        boost::mutex::scoped_lock lock(work_thread_mutex_);
-        return run_;
-    }
-
-    void stop_work_thread()
-    {
-        // Access to run_ is sychronized with running().
-        boost::mutex::scoped_lock lock(work_thread_mutex_);
-        run_ = false;
-    }
 
     int kqueue_;
-    boost::unordered_map<std::string, dir_entry_map> entries;
+    boost::mutex entries_mutex_;
+    boost::unordered_map<std::string, dir_entry_map> entries_;
     bool run_;
-    boost::mutex work_thread_mutex_;
-    boost::thread work_thread_;
+    std::unique_ptr<boost::thread> work_thread_ptr_;
 
     boost::mutex dirs_mutex_;
-    boost::ptr_unordered_map<std::string, unix_handle> dirs_;
+    //boost::ptr_unordered_map<std::string, unix_handle> dirs_;
+    dir_to_handle_bimap_t dirs_;
 
     boost::mutex events_mutex_;
     boost::condition_variable events_cond_;

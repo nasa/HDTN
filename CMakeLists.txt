@@ -158,13 +158,13 @@ if (WIN32)
 	#add_compile_definitions(ZMQ_STATIC)
 	set(libzmq_INCLUDE "C:/libzmq_msvc_x64/include" CACHE PATH "Folder to Libzmq headers")
 	set(libzmq_LIB "C:/libzmq_msvc_x64/lib/libzmq-v141-mt-4_3_4.lib" CACHE FILEPATH "Libzmq library")
-elseif (APPLE)
+else()
 	set(libzmq_INCLUDE "" CACHE PATH "Folder to Libzmq headers")
 	set(libzmq_LIB "zmq" CACHE FILEPATH "Libzmq library")
+endif()
+
+if (APPLE)
 	find_library(COCOA_LIBRARY Cocoa)
-else()
-	set(libzmq_INCLUDE "")
-	set(libzmq_LIB zmq)
 endif()
 
 #Stats option

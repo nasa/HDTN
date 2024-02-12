@@ -20,8 +20,9 @@
 #include <boost/thread.hpp>
 #include <atomic>
 #include <queue>
+#include <boost/predef/os.h>
 
-#ifdef __APPLE__
+#if BOOST_OS_MACOS
 #include <sys/syscall.h>
 #include <unistd.h>
 struct mmsghdr { //msghdr_x
@@ -62,7 +63,7 @@ struct sendmmsg_op {
                 //to the limit specified by vlen) and returns immediately.
                 const unsigned int vlen = (static_cast<unsigned int>(m_mmsghdrVecRef.size())) - m_totalPacketsTransferred;
                 const int n =
-#ifdef __APPLE__
+#if BOOST_OS_MACOS
                     syscall(SYS_sendmsg_x,
 #else
                     sendmmsg(

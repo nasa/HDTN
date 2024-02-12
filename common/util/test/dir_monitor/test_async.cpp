@@ -29,7 +29,6 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_create_file)
     directory dir(TEST_DIR1 "_async_create_file");
     boost::asio::dir_monitor dm(io_service);
     dm.add_directory(TEST_DIR1 "_async_create_file");
-
     const boost::filesystem::path test_file1 = dir.create_file(TEST_FILE1);
 
     Reset();
@@ -59,14 +58,21 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_rename_file)
         dm.async_monitor(boost::bind(&dir_event_handler, boost::placeholders::_1, boost::placeholders::_2));
         io_service.run();
         io_service.reset();
-#if BOOST_OS_MACOS //only the file will cause an event, the dm has been fixed to prevent the directory creation event
+	//std::cout << g_ev.type << " " << g_ev.path << "\n";
+	//continue;
+#if (BOOST_OS_MACOS) //only the file will cause an event, the dm has been fixed to prevent the directory creation event
         if (g_ev.type == boost::asio::dir_monitor_event::added) {
             continue;
         }
 #endif
         BOOST_CHECK_EQUAL(g_ec, boost::system::error_code());
+#if (BOOST_OS_BSD) //bsd does not have any rename events, only added and removed
+        BOOST_CHECK_THE_SAME_PATHS_RELATIVE(g_ev.path, test_file2);
+        BOOST_CHECK_EQUAL(g_ev.type, boost::asio::dir_monitor_event::added);
+#else
         BOOST_CHECK_THE_SAME_PATHS_RELATIVE(g_ev.path, test_file1);
         BOOST_CHECK_EQUAL(g_ev.type, boost::asio::dir_monitor_event::renamed_old_name);
+#endif
         break;
     }
 
@@ -78,11 +84,16 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_rename_file)
     io_service.reset();
 
     BOOST_CHECK_EQUAL(g_ec, boost::system::error_code());
+#if (BOOST_OS_BSD)
+    BOOST_CHECK_THE_SAME_PATHS_RELATIVE(g_ev.path, test_file1);
+    BOOST_CHECK_EQUAL(g_ev.type, boost::asio::dir_monitor_event::removed);
+#else
     BOOST_CHECK_THE_SAME_PATHS_RELATIVE(g_ev.path, test_file2);
     BOOST_CHECK_EQUAL(g_ev.type, boost::asio::dir_monitor_event::renamed_new_name);
+#endif
 }
 
-
+#if (!BOOST_OS_BSD) //bsd kqueue implementation only listens for directory change events, and altering the file won't trigger a directory change event 
 BOOST_AUTO_TEST_CASE(dir_monitor_async_modify_file)
 {
     directory dir(TEST_DIR1 "_async_modify_file");
@@ -99,7 +110,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_modify_file)
         dm.async_monitor(boost::bind(&dir_event_handler, boost::placeholders::_1, boost::placeholders::_2));
         io_service.run();
         io_service.reset();
-#if BOOST_OS_MACOS //only the file will cause an event, the dm has been fixed to prevent the directory creation event
+#if (BOOST_OS_MACOS) //only the file will cause an event, the dm has been fixed to prevent the directory creation event
         if (g_ev.type == boost::asio::dir_monitor_event::added) {
             continue;
         }
@@ -110,6 +121,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_modify_file)
         break;
     }
 }
+#endif
 
 
 BOOST_AUTO_TEST_CASE(dir_monitor_async_remove_file)
@@ -128,7 +140,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_remove_file)
         dm.async_monitor(boost::bind(&dir_event_handler, boost::placeholders::_1, boost::placeholders::_2));
         io_service.run();
         io_service.reset();
-#if BOOST_OS_MACOS //only the file will cause an event, the dm has been fixed to prevent the directory creation event
+#if (BOOST_OS_MACOS) //only the file will cause an event, the dm has been fixed to prevent the directory creation event
         if (g_ev.type == boost::asio::dir_monitor_event::added) {
             continue;
         }
@@ -147,8 +159,11 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_multiple_events)
     boost::asio::dir_monitor dm(io_service);
     dm.add_directory(TEST_DIR1 "_async_multiple_events");
 
-    auto test_file1 = dir.create_file(TEST_FILE1);
-    auto test_file2 = dir.rename_file(TEST_FILE1, TEST_FILE2);
+    const boost::filesystem::path test_file1 = dir.create_file(TEST_FILE1);
+#if (BOOST_OS_BSD)
+    boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+#endif
+    const boost::filesystem::path test_file2 = dir.rename_file(TEST_FILE1, TEST_FILE2);
 
     Reset();
     dm.async_monitor(boost::bind(&dir_event_handler, boost::placeholders::_1, boost::placeholders::_2));
@@ -163,16 +178,26 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_multiple_events)
     io_service.run();
     io_service.reset();
     BOOST_CHECK_EQUAL(g_ec, boost::system::error_code());
+#if (BOOST_OS_BSD) //bsd does not have any rename events, only added and removed
+    BOOST_CHECK_THE_SAME_PATHS_RELATIVE(g_ev.path, test_file2);
+    BOOST_CHECK_EQUAL(g_ev.type, boost::asio::dir_monitor_event::added);
+#else
     BOOST_CHECK_THE_SAME_PATHS_RELATIVE(g_ev.path, test_file1);
     BOOST_CHECK_EQUAL(g_ev.type, boost::asio::dir_monitor_event::renamed_old_name);
+#endif
 
     Reset();
     dm.async_monitor(boost::bind(&dir_event_handler, boost::placeholders::_1, boost::placeholders::_2));
     io_service.run();
     io_service.reset();
     BOOST_CHECK_EQUAL(g_ec, boost::system::error_code());
+#if (BOOST_OS_BSD)
+    BOOST_CHECK_THE_SAME_PATHS_RELATIVE(g_ev.path, test_file1);
+    BOOST_CHECK_EQUAL(g_ev.type, boost::asio::dir_monitor_event::removed);
+#else
     BOOST_CHECK_THE_SAME_PATHS_RELATIVE(g_ev.path, test_file2);
     BOOST_CHECK_EQUAL(g_ev.type, boost::asio::dir_monitor_event::renamed_new_name);
+#endif
 }
 
 static void aborted_async_call_handler(const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
