@@ -2,7 +2,7 @@
  * @file LtpRandomNumberGenerator.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright (c) 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -23,7 +23,6 @@
 #endif
 #include <inttypes.h>
 
-static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 //Motivation: Use a PRNG reseeded with hardware for efficiency.  Reseed the PRNG often enough to prevent predictability.
 //Relative speed tests, higher is slower
@@ -75,7 +74,7 @@ uint64_t LtpRandomNumberGenerator::Rng::GetHardwareRandomSeed() {
     uint64_t random2 = 0;
 #ifdef LTP_RNG_USE_RDSEED
     if (!_rdseed64_step((unsigned long long*)&random2)) {
-        LOG_ERROR(subprocess) << "LtpRandomNumberGenerator::Rng::GetHardwareRandomSeed(): cannot use _rdseed64_step function";
+        LOG_ERROR(hdtn::Logger::SubProcess::none) << "LtpRandomNumberGenerator::Rng::GetHardwareRandomSeed(): cannot use _rdseed64_step function";
     }
 #endif
     uint64_t random3 = (static_cast<uint32_t>(m_randomDevice())); //should already return a 32 bit integer

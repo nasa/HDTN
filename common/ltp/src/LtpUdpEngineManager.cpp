@@ -2,7 +2,7 @@
  * @file LtpUdpEngineManager.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright (c) 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -226,7 +226,7 @@ bool LtpUdpEngineManager::AddLtpUdpEngine(const LtpEngineConfig& ltpRxOrTxCfg)
         std::piecewise_construct,
         std::forward_as_tuple(ltpRxOrTxCfg.remoteEngineId),
         std::forward_as_tuple(
-            m_ioServiceUdp, m_udpSocket, engineIndex, remoteEndpoint,
+            m_udpSocket, engineIndex, remoteEndpoint,
             M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES, ltpRxOrTxCfg
         )
     );

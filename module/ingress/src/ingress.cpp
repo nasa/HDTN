@@ -2,7 +2,7 @@
  * @file ingress.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright (c) 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -24,7 +24,6 @@
 #include "Logger.h"
 #include "ThreadNamer.h"
 
-static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::ingress;
 
 int main(int argc, const char* argv[]) {
 
@@ -34,10 +33,10 @@ int main(int argc, const char* argv[]) {
     IngressAsyncRunner runner;
     std::atomic<bool> running;
     runner.Run(argc, argv, running, true);
-    LOG_DEBUG(subprocess) << "m_bundleCountStorage: " << runner.m_bundleCountStorage;
-    LOG_DEBUG(subprocess) << "m_bundleCountEgress: " << runner.m_bundleCountEgress;
-    LOG_DEBUG(subprocess) << "m_bundleCount: " << runner.m_bundleCount;
-    LOG_DEBUG(subprocess) << "m_bundleData: " << runner.m_bundleData;
+    LOG_DEBUG(hdtn::Logger::SubProcess::ingress) << "m_bundleCountStorage: " << runner.m_bundleCountStorage;
+    LOG_DEBUG(hdtn::Logger::SubProcess::ingress) << "m_bundleCountEgress: " << runner.m_bundleCountEgress;
+    LOG_DEBUG(hdtn::Logger::SubProcess::ingress) << "m_bundleCount: " << runner.m_bundleCount;
+    LOG_DEBUG(hdtn::Logger::SubProcess::ingress) << "m_bundleData: " << runner.m_bundleData;
 
     return 0;
 

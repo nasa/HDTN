@@ -3,7 +3,7 @@
  * @author  Blake LaFuente
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright (c) 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -155,8 +155,6 @@ bool StorageExpiringBeforeThresholdTelemetry_t::operator!=(const StorageExpiring
     return !(*this == o);
 }
 
-static const uint64_t mapEntrySize = sizeof(uint64_t) +
-    sizeof(StorageExpiringBeforeThresholdTelemetry_t::bundle_count_plus_bundle_bytes_pair_t);
 
 
 

@@ -2,7 +2,7 @@
  * @file LtpFileTransferRunner.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright (c) 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -32,19 +32,17 @@
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 static void GetSha1(const uint8_t * data, const std::size_t size, std::string & sha1Str) {
-
-    sha1Str.resize(40);
-    char * strPtr = &sha1Str[0];
-
+        
     boost::uuids::detail::sha1 s;
     s.process_bytes(data, size);
-    boost::uint32_t digest[5];
+    uint32_t digest[5];
     s.get_digest(digest);
-    for (int i = 0; i < 5; ++i) {
-        //const uint32_t digestBe = boost::endian::native_to_big(digest[i]);
-        sprintf(strPtr, "%08x", digest[i]);// digestBe);
-        strPtr += 8;
-    }
+
+    //const uint32_t digestBe = boost::endian::native_to_big(digest[i]);
+    static const boost::format fmtTemplate("%08x%08x%08x%08x%08x");
+    boost::format fmt(fmtTemplate);
+    fmt % digest[0] % digest[1] % digest[2] % digest[3] % digest[4];
+    sha1Str = fmt.str();
 }
 
 

@@ -2,7 +2,7 @@
  * @file HashMap16BitFixedSize.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright (c) 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -14,7 +14,11 @@
 
 #include "HashMap16BitFixedSize.h"
 #ifdef USE_CRC32C_FAST
+# ifdef HAVE_SSE2NEON_H
+#include "sse2neon.h"
+# else
 #include <nmmintrin.h>
+# endif
 #endif
 #include <boost/make_unique.hpp>
 #include "CatalogEntry.h"

@@ -2,7 +2,7 @@
  * @file BundleStorageManagerAsio.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright (c) 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -24,6 +24,7 @@
 #include <memory>
 #include <boost/make_unique.hpp>
 #include "ThreadNamer.h"
+#include <boost/predef/os.h>
 #ifdef _WIN32
 #include <windows.h> //must be included after boost
 #endif
@@ -80,7 +81,7 @@ void BundleStorageManagerAsio::Start() {
             const boost::filesystem::path& filePath = m_filePathsVec[diskId];
             const boost::filesystem::path::value_type* filePathCstr = filePath.c_str();
             LOG_INFO(subprocess) << ((m_successfullyRestoredFromDisk) ? "reopening " : "creating ") << filePath;
-#if defined(_WIN32)
+#if BOOST_OS_WINDOWS
             //
             //https://docs.microsoft.com/en-us/windows/win32/fileio/synchronous-and-asynchronous-i-o
             //In synchronous file I/O, a thread starts an I/O operation and immediately enters a wait state until the I/O request has completed.
@@ -105,7 +106,7 @@ void BundleStorageManagerAsio::Start() {
             //
             //FILE * fileHandle = (m_successfullyRestoredFromDisk) ? fopen(filePath, "r+bR") : fopen(filePath, "w+bR");
             m_asioHandlePtrsVec[diskId] = boost::make_unique<boost::asio::windows::random_access_handle>(m_ioService, hFile);
-#elif defined(__APPLE__)
+#elif (BOOST_OS_MACOS || BOOST_OS_BSD)
             int file_desc = open(filePathCstr, (m_successfullyRestoredFromDisk) ? (O_RDWR) : (O_CREAT|O_RDWR|O_TRUNC), DEFFILEMODE);
             if(file_desc < 0) {
                 LOG_ERROR(subprocess) << "error opening " << filePath;
@@ -148,8 +149,8 @@ void BundleStorageManagerAsio::TryDiskOperation_Consume_NotThreadSafe(const unsi
 
             const boost::uint64_t offsetBytes = static_cast<boost::uint64_t>(segmentId / M_NUM_STORAGE_DISKS) * SEGMENT_SIZE;
 
-#if defined(_WIN32)
-#elif defined(__APPLE__)
+#if BOOST_OS_WINDOWS
+#elif (BOOST_OS_MACOS || BOOST_OS_BSD)
             lseek(m_asioHandlePtrsVec[diskId]->native_handle(), offsetBytes, SEEK_SET);
 #else // Linux (not WIN32 or APPLE)
             lseek64(m_asioHandlePtrsVec[diskId]->native_handle(), offsetBytes, SEEK_SET);
@@ -158,7 +159,7 @@ void BundleStorageManagerAsio::TryDiskOperation_Consume_NotThreadSafe(const unsi
             if (isWriteToDisk) {
                 boost::uint8_t * const circularBufferBlockDataPtr = &m_circularBufferBlockDataPtr[diskId * CIRCULAR_INDEX_BUFFER_SIZE * SEGMENT_SIZE];
                 boost::uint8_t * const data = &circularBufferBlockDataPtr[consumeIndex * SEGMENT_SIZE]; //expected data for testing when reading
-#ifdef _WIN32
+#if BOOST_OS_WINDOWS
                 boost::asio::async_write_at(*m_asioHandlePtrsVec[diskId], offsetBytes,
 #else
                 boost::asio::async_write(*m_asioHandlePtrsVec[diskId],
@@ -171,7 +172,7 @@ void BundleStorageManagerAsio::TryDiskOperation_Consume_NotThreadSafe(const unsi
 
             }
             else { //read from disk
-#ifdef _WIN32
+#if BOOST_OS_WINDOWS
                 boost::asio::async_read_at(*m_asioHandlePtrsVec[diskId], offsetBytes,
 #else
                 boost::asio::async_read(*m_asioHandlePtrsVec[diskId],

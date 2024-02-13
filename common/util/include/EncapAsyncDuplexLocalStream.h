@@ -2,7 +2,7 @@
  * @file EncapAsyncDuplexLocalStream.h
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright (c) 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -73,7 +73,7 @@ public:
         m_shutdownComplete(true),
         m_doAutoReconnectAfterShutdown(true)
     {
-        m_receivedFullEncapPacket_swappable.resize(maxEncapRxPacketSizeBytes);
+        m_receivedFullEncapPacket_swappable.resize(M_MAX_ENCAP_RX_PACKET_SIZE_BYTES);
     }
     
     

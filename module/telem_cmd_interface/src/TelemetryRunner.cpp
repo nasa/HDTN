@@ -1,7 +1,7 @@
 /**
  * @file TelemetryRunner.cpp
  *
- * @copyright Copyright © 2023 United States Government as represented by
+ * @copyright Copyright (c) 2023 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -221,7 +221,7 @@ void TelemetryRunner::Impl::OnNewWebsocketConnectionCallback(WebsocketSessionPub
 
 bool TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback(WebsocketSessionPublicBase &conn, std::string &receivedString) {
     (void)conn;
-    if (!OnApiRequest(std::move(receivedString), std::move(GUI_REQ_CONN_ID.Msg()))) {
+    if (!OnApiRequest(std::move(receivedString), GUI_REQ_CONN_ID.Msg())) {
         LOG_ERROR(subprocess) << "failed to handle API request from websocket";
     }
     return true; // keep open
@@ -388,7 +388,7 @@ void TelemetryRunner::Impl::ThreadFunc(const HdtnDistributedConfig_ptr &hdtnDist
                 zmq::message_t connectionID = m_apiConnection->ReadMessage();
                 m_apiConnection->ReadMessage();
                 zmq::message_t msgJson = m_apiConnection->ReadMessage();
-                OnApiRequest(std::move(msgJson.to_string()), std::move(connectionID));
+                OnApiRequest(msgJson.to_string(), std::move(connectionID));
             }
             ++count;
         } while (success && count < API_NUM_POLL_ATTEMPTS);
@@ -490,16 +490,16 @@ template <typename TelemetryType> void TelemetryRunner::Impl::ProcessConnectionR
 
 void TelemetryRunner::Impl::QueueTelemRequests() {
     std::string request = GetStorageApiCommand_t().ToJson();
-    m_storageConnection->EnqueueApiPayload(std::move(request), std::move(TELEM_REQ_CONN_ID.Msg()));
+    m_storageConnection->EnqueueApiPayload(std::move(request), TELEM_REQ_CONN_ID.Msg());
 
     request = GetOutductCapabilitiesApiCommand_t().ToJson();
-    m_egressConnection->EnqueueApiPayload(std::move(request), std::move(TELEM_REQ_CONN_ID.Msg()));
+    m_egressConnection->EnqueueApiPayload(std::move(request), TELEM_REQ_CONN_ID.Msg());
 
     request = GetOutductsApiCommand_t().ToJson();
-    m_egressConnection->EnqueueApiPayload(std::move(request), std::move(TELEM_REQ_CONN_ID.Msg()));
+    m_egressConnection->EnqueueApiPayload(std::move(request), TELEM_REQ_CONN_ID.Msg());
 
     request = GetInductsApiCommand_t().ToJson();
-    m_ingressConnection->EnqueueApiPayload(std::move(request), std::move(TELEM_REQ_CONN_ID.Msg()));
+    m_ingressConnection->EnqueueApiPayload(std::move(request), TELEM_REQ_CONN_ID.Msg());
 }
 
 void TelemetryRunner::Impl::OnNewJsonTelemetry(const char *buffer, uint64_t bufferSize) {

@@ -3,7 +3,7 @@
  * @author  Brian Tomko <brian.j.tomko@nasa.gov> (Hardware accelerated functions)
  * @author  Gilbert Clark (Classic functions)
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright (c) 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -19,7 +19,11 @@
 #include <boost/multiprecision/detail/bitscan.hpp>
 #include <boost/endian/conversion.hpp>
 #ifdef USE_CBOR_FAST
+# ifdef HAVE_SSE2NEON_H
+#include "sse2neon.h"
+# else
 #include <immintrin.h>
+# endif
 #endif
 
 #define CBOR_UINT8_TYPE   (24)

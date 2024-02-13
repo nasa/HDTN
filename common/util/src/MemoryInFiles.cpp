@@ -2,7 +2,7 @@
  * @file MemoryInFiles.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright (c) 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -31,7 +31,8 @@
 #include <boost/filesystem/fstream.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/format.hpp>
-#ifdef _WIN32
+#include <boost/predef/os.h>
+#if BOOST_OS_WINDOWS
 #include <windows.h> //must be included after boost
 #endif
 
@@ -204,7 +205,7 @@ private:
      */
     bool SetupNextFileIfNeeded();
 
-#ifdef _WIN32
+#if BOOST_OS_WINDOWS
     /// System file handle
     typedef boost::asio::windows::random_access_handle file_handle_t;
 #else
@@ -497,7 +498,7 @@ MemoryInFiles::Impl::FileInfo::FileInfo(const boost::filesystem::path& filePath,
     m_valid(false)
 {
     const boost::filesystem::path::value_type* filePathCstr = m_filePath.c_str();
-#if defined(_WIN32)
+#if BOOST_OS_WINDOWS
     //
     //https://docs.microsoft.com/en-us/windows/win32/fileio/synchronous-and-asynchronous-i-o
     //In synchronous file I/O, a thread starts an I/O operation and immediately enters a wait state until the I/O request has completed.
@@ -519,7 +520,7 @@ MemoryInFiles::Impl::FileInfo::FileInfo(const boost::filesystem::path& filePath,
         LOG_ERROR(subprocess) << "error opening " << m_filePath;
         return;
     } 
-#elif defined(__APPLE__)
+#elif (BOOST_OS_MACOS || BOOST_OS_BSD)
     int hFile = open(filePathCstr, (O_CREAT | O_RDWR | O_TRUNC), DEFFILEMODE);
     if (hFile < 0) {
         LOG_ERROR(subprocess) << "error opening " << m_filePath;
@@ -551,9 +552,9 @@ void MemoryInFiles::Impl::FileInfo::TryStartNextQueuedIoOperation() {
         io_operation_t& op = m_queueIoOperations.front();
         m_diskOperationInProgress = true;
         if (op.m_readToThisLocationPtr) {
-#if defined(_WIN32)
+#if BOOST_OS_WINDOWS
             boost::asio::async_read_at(*m_fileHandlePtr, op.m_offsetWithinFile,
-#elif defined(__APPLE__)
+#elif (BOOST_OS_MACOS || BOOST_OS_BSD)
     lseek(m_fileHandlePtr->native_handle(), op.m_offsetWithinFile, SEEK_SET);
             boost::asio::async_read(*m_fileHandlePtr,
 #else // Linux (not WIN32 or APPLE)
@@ -566,9 +567,9 @@ void MemoryInFiles::Impl::FileInfo::TryStartNextQueuedIoOperation() {
                     boost::asio::placeholders::bytes_transferred));
         }
         else { //write operation
-#if defined(_WIN32)
+#if BOOST_OS_WINDOWS
             boost::asio::async_write_at(*m_fileHandlePtr, op.m_offsetWithinFile,
-#elif defined(__APPLE__)
+#elif (BOOST_OS_MACOS || BOOST_OS_BSD)
             lseek(m_fileHandlePtr->native_handle(), op.m_offsetWithinFile, SEEK_SET);
             boost::asio::async_write(*m_fileHandlePtr,
 #else // Linux (not WIN32 or APPLE)

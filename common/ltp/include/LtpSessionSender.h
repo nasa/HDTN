@@ -2,7 +2,7 @@
  * @file LtpSessionSender.h
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright (c) 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -315,8 +315,6 @@ private:
     /// Upper bound of received report with the largest scope span, used to recalculate gaps in reception claims for data segment retransmission
     uint64_t m_largestEndIndexPendingGeneration;
 
-    /// ...
-    uint64_t m_receptionClaimIndex;
     /// Next checkpoint serial number
     uint64_t m_nextCheckpointSerialNumber;
 public:

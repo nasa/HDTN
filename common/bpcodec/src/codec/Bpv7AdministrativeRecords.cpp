@@ -2,7 +2,7 @@
  * @file Bpv7AdministrativeRecords.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright (c) 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -146,7 +146,7 @@ bool Bpv7AdministrativeRecord::Virtual_DeserializeExtensionBlockDataBpv7() {
     //The first item of the array SHALL be a record type code, which SHALL
     //be represented as a CBOR unsigned integer.
     m_adminRecordTypeCode = static_cast<BPV7_ADMINISTRATIVE_RECORD_TYPE_CODE>(CborDecodeU64(serialization, &cborUintSizeDecoded, bufferSize));
-    if ((cborUintSizeDecoded == 0)) {
+    if (cborUintSizeDecoded == 0) {
         return false; //failure
     }
     serialization += cborUintSizeDecoded;
@@ -495,7 +495,7 @@ bool Bpv7AdministrativeRecordContentBundleStatusReport::DeserializeBpv7(uint8_t 
             //as a DTN time as described in Section 4.2.6. above.
             if (m_reportStatusTimeFlagWasSet) {
                 statusInfoContent.second = CborDecodeU64(serialization, &cborUintSizeDecoded, bufferSize);
-                if ((cborUintSizeDecoded == 0)) {
+                if (cborUintSizeDecoded == 0) {
                     return false; //failure
                 }
                 serialization += cborUintSizeDecoded;
@@ -526,7 +526,7 @@ bool Bpv7AdministrativeRecordContentBundleStatusReport::DeserializeBpv7(uint8_t 
     //bundle status report reason code explaining the value of the status
     //indicator, represented as a CBOR unsigned integer.
     m_statusReportReasonCode = static_cast<BPV7_STATUS_REPORT_REASON_CODE>(CborDecodeU64(serialization, &cborUintSizeDecoded, bufferSize));
-    if ((cborUintSizeDecoded == 0)) {
+    if (cborUintSizeDecoded == 0) {
         return false; //failure
     }
     serialization += cborUintSizeDecoded;
@@ -572,7 +572,7 @@ bool Bpv7AdministrativeRecordContentBundleStatusReport::DeserializeBpv7(uint8_t 
         //fragment offset.  If present, it SHALL be the subject bundle's
         //fragment offset represented as a CBOR unsigned integer item.
         m_optionalSubjectPayloadFragmentOffset = CborDecodeU64(serialization, &cborUintSizeDecoded, bufferSize);
-        if ((cborUintSizeDecoded == 0)) {
+        if (cborUintSizeDecoded == 0) {
             return false; //failure
         }
         serialization += cborUintSizeDecoded;
@@ -583,7 +583,7 @@ bool Bpv7AdministrativeRecordContentBundleStatusReport::DeserializeBpv7(uint8_t 
         //fragment offset.  If present, it SHALL be the length of the subject
         //bundle's payload represented as a CBOR unsigned integer item.
         m_optionalSubjectPayloadFragmentLength = CborDecodeU64(serialization, &cborUintSizeDecoded, bufferSize);
-        if ((cborUintSizeDecoded == 0)) {
+        if (cborUintSizeDecoded == 0) {
             return false; //failure
         }
         serialization += cborUintSizeDecoded;
@@ -767,7 +767,7 @@ bool Bpv7AdministrativeRecordContentBibePduMessage::DeserializeBpv7(uint8_t * se
     //requested SHALL be the current value of the local node's custodial
     //transmission count, plus 1.
     m_transmissionId = CborDecodeU64(serialization, &cborUintSizeDecoded, bufferSize);
-    if ((cborUintSizeDecoded == 0)) {
+    if (cborUintSizeDecoded == 0) {
         return false; //failure
     }
     serialization += cborUintSizeDecoded;
@@ -784,7 +784,7 @@ bool Bpv7AdministrativeRecordContentBibePduMessage::DeserializeBpv7(uint8_t * se
     //scope of this specification and may be dynamically responsive to
     //changes in connectivity.
     m_custodyRetransmissionTime = CborDecodeU64(serialization, &cborUintSizeDecoded, bufferSize);
-    if ((cborUintSizeDecoded == 0)) {
+    if (cborUintSizeDecoded == 0) {
         return false; //failure
     }
     serialization += cborUintSizeDecoded;

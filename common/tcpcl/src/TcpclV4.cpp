@@ -2,7 +2,7 @@
  * @file TcpclV4.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright (c) 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -18,8 +18,12 @@
 #include <boost/multiprecision/detail/bitscan.hpp>
 #include <boost/endian/conversion.hpp>
 #ifdef USE_SSE_SSE2
+# ifdef HAVE_SSE2NEON_H
+#include "sse2neon.h"
+# else
 #include <immintrin.h>
 #include <emmintrin.h>
+# endif
 #endif
 
 
@@ -106,6 +110,7 @@ static BOOST_FORCEINLINE void ClearFourBytes(uint8_t * const output) {
 #endif
 }
 
+#if 0 //this function is currently not needed within the rx state machine
 static BOOST_FORCEINLINE uint16_t UnalignedBigEndianToNativeU16(const uint8_t * const data) {
 #if 1
     return ((static_cast<uint16_t>(data[0])) << 8) | data[1];
@@ -113,6 +118,7 @@ static BOOST_FORCEINLINE uint16_t UnalignedBigEndianToNativeU16(const uint8_t * 
     return static_cast<uint16_t>(_loadbe_i16(data));
 #endif
 }
+#endif
 
 static BOOST_FORCEINLINE void NativeU16ToUnalignedBigEndian(uint8_t * const output, uint16_t nativeValue) {
     output[0] = (uint8_t)(nativeValue >> 8); //big endian most significant byte first

@@ -2,7 +2,7 @@
  * @file TestBundleStorageCatalog.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright � 2021 United States Government as represented by
+ * @copyright Copyright (c) 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -141,6 +141,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogTestCase)
                 catalog_entry_t * entryFromCustodyIdPtr = bsc.GetEntryFromCustodyId(expectedCustodyId);
                 BOOST_REQUIRE(entryFromCustodyIdPtr != NULL);
                 BOOST_REQUIRE(catalogEntryCopiesForVerification[i] == *entryFromCustodyIdPtr);
+                const uint64_t entryFromCustodyId_bundleSizeBytes = entryFromCustodyIdPtr->bundleSizeBytes;
                 //Remove the sent bundle from a custody signal (already removed from the pending send)
                 //In actual storage implementation, the primary must be retrieved from actual storage
                 //return pair<success, numSuccessfulRemovals>
@@ -148,9 +149,10 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogTestCase)
                 BOOST_REQUIRE_EQUAL(bsc.GetNumBundlesInCatalog(), 10 - i);
                 BOOST_REQUIRE_EQUAL(bsc.GetNumBundleBytesInCatalog(), sumBundleBytes);
                 BOOST_REQUIRE(expectedRet == bsc.Remove(expectedCustodyId, false));
+                entryFromCustodyIdPtr = NULL; //entryFromCustodyIdPtr invalid at this point
                 BOOST_REQUIRE_EQUAL(bsc.GetNumBundlesInCatalog(), 10 - (i+1));
-                BOOST_REQUIRE_GE(entryFromCustodyIdPtr->bundleSizeBytes, 1000);
-                sumBundleBytes -= entryFromCustodyIdPtr->bundleSizeBytes;
+                BOOST_REQUIRE_GE(entryFromCustodyId_bundleSizeBytes, 1000);
+                sumBundleBytes -= entryFromCustodyId_bundleSizeBytes;
                 BOOST_REQUIRE_EQUAL(bsc.GetNumBundleBytesInCatalog(), sumBundleBytes);
                 BOOST_REQUIRE_EQUAL(bsc.GetTotalBundleWriteOperationsToCatalog(), 10);
                 BOOST_REQUIRE_EQUAL(bsc.GetTotalBundleByteWriteOperationsToCatalog(), highestSumBundleBytes);

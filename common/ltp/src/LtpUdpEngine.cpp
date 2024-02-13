@@ -2,7 +2,7 @@
  * @file LtpUdpEngine.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright (c) 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -19,7 +19,7 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-LtpUdpEngine::LtpUdpEngine(boost::asio::io_service& ioServiceUdpRef,
+LtpUdpEngine::LtpUdpEngine(
     boost::asio::ip::udp::socket& udpSocketRef,
     const uint8_t engineIndexForEncodingIntoRandomSessionNumber,
     const boost::asio::ip::udp::endpoint& remoteEndpoint,
@@ -27,7 +27,6 @@ LtpUdpEngine::LtpUdpEngine(boost::asio::io_service& ioServiceUdpRef,
     const LtpEngineConfig& ltpRxOrTxCfg) :
     LtpEngine(ltpRxOrTxCfg, engineIndexForEncodingIntoRandomSessionNumber, true),
     m_udpBatchSenderConnected(m_ioServiceLtpEngine), //use ltp engine io service thread (which will itself use the m_udpBatchSenderConnected) in order to use faster non thread safe functions
-    m_ioServiceUdpRef(ioServiceUdpRef),
     m_udpSocketRef(udpSocketRef),
     m_remoteEndpoint(remoteEndpoint),
     M_NUM_CIRCULAR_BUFFER_VECTORS(ltpRxOrTxCfg.numUdpRxCircularBufferVectors),

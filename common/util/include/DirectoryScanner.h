@@ -2,7 +2,7 @@
  * @file DirectoryScanner.h
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright (c) 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -76,7 +76,6 @@ private:
     const bool m_includeExistingFiles;
     const bool m_includeNewFiles;
     const unsigned int m_recurseDirectoriesDepth;
-    boost::asio::io_service& m_ioServiceRef;
     boost::asio::dir_monitor m_dirMonitor;
     boost::asio::deadline_timer m_timerNewFileComplete;
     const boost::posix_time::time_duration m_timeDurationToRecheckFileSize;
