@@ -2,7 +2,7 @@
  * @file TestBpv6Fragmentation.cpp
  * @author  Evan Danish <evan.j.danish@nasa.gov>
  *
- * @copyright Copyright © 2023 United States Government as represented by
+ * @copyright Copyright (c) 2023 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
