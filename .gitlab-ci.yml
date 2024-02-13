@@ -41,6 +41,20 @@ build-and-run-win:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
 
+# Build HDTN with Intel Mac
+build-and-run-mac-intel:
+  stage: build-stage
+  tags:
+    - macos-x86
+  script:
+    - mkdir -p build
+    - cmake -S . -B build
+    - make -C build/ -j8
+    - export HDTN_SOURCE_ROOT=$PWD
+    - ./build/tests/unit_tests/unit-tests
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+
 # Build HDTN with C++11 only
 build-cpp11:
   stage: build-stage
