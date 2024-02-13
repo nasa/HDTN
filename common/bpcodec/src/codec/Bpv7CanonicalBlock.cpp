@@ -493,7 +493,7 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
                 static const boost::format fmtTemplate("Error: Bpv7CanonicalBlock deserialize Crc16_X25 mismatch: block came with crc %04x but Decode just computed %04x");
                 boost::format fmt(fmtTemplate);
                 fmt % canonicalPtr->m_computedCrc16 % computedCrc16;
-                const std::string message(std::move(fmt.str()));
+                const std::string message(fmt.str());
                 LOG_INFO(hdtn::Logger::SubProcess::none) << message;
                 return false;
             }
@@ -519,7 +519,7 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
                 static const boost::format fmtTemplate("Error: Bpv7CanonicalBlock deserialize Crc32C mismatch: block came with crc %08x but Decode just computed %08x");
                 boost::format fmt(fmtTemplate);
                 fmt % canonicalPtr->m_computedCrc32 % computedCrc32;
-                const std::string message(std::move(fmt.str()));
+                const std::string message(fmt.str());
                 LOG_INFO(hdtn::Logger::SubProcess::none) << message;
                 return false;
             }

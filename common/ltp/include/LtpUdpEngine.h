@@ -41,14 +41,13 @@ public:
     /**
      * Preallocate M_NUM_CIRCULAR_BUFFER_VECTORS receive buffers, each with a size of maxUdpRxPacketSizeBytes.
      * If the engine is configured for more than one packet per system call, initialize the batch sender instance passing LtpUdpEngine::OnSentPacketsCallback as the send callback.
-     * @param ioServiceUdpRef I/O execution context reference, typically supplied by the associated LtpUdpEngineManager.
      * @param udpSocketRef Our managed UDP socket, typically supplied by the associated LtpUdpEngineManager.
      * @param engineIndexForEncodingIntoRandomSessionNumber The engine index.
      * @param remoteEndpoint The remote UDP endpoint.
      * @param maxUdpRxPacketSizeBytes The maximum UDP packet size in bytes.
      * @param ltpRxOrTxCfg The engine config.
      */
-    LTP_LIB_EXPORT LtpUdpEngine(boost::asio::io_service & ioServiceUdpRef,
+    LTP_LIB_EXPORT LtpUdpEngine(
         boost::asio::ip::udp::socket & udpSocketRef,
         const uint8_t engineIndexForEncodingIntoRandomSessionNumber, 
         const boost::asio::ip::udp::endpoint & remoteEndpoint,
@@ -175,8 +174,6 @@ private:
     
     /// Batch sender instance
     UdpBatchSender m_udpBatchSenderConnected;
-    /// I/O execution context reference, typically supplied by the associated LtpUdpEngineManager
-    boost::asio::io_service & m_ioServiceUdpRef;
     /// Our managed UDP socket, typically supplied by the associated LtpUdpEngineManager
     boost::asio::ip::udp::socket & m_udpSocketRef;
     /// Remote UDP endpoint

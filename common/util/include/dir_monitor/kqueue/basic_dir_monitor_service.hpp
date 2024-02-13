@@ -78,8 +78,11 @@ public:
 
     void add_directory(implementation_type &impl, const std::string &dirname)
     {
-        if (!boost::filesystem::is_directory(dirname))
-            throw std::invalid_argument("boost::asio::basic_dir_monitor_service::add_directory: " + dirname + " is not a valid directory entry");
+        if (!boost::filesystem::is_directory(dirname)) {
+            const std::string errorStr = "boost::asio::basic_dir_monitor_service::add_directory: " + dirname + " is not a valid directory entry";
+            printf("%s\n", errorStr.c_str());
+            throw std::invalid_argument(errorStr);
+        }
 
         int wd = ::open(dirname.c_str(), O_EVTONLY);
         if (wd == -1)
@@ -91,6 +94,7 @@ public:
 #else
             boost::system::system_error e(boost::system::error_code(errno, boost::system::system_category()), "boost::asio::dir_monitor_impl::add_directory: open failed");
 #endif
+            printf("%s\n", e.what());
             boost::throw_exception(e);
         }
 

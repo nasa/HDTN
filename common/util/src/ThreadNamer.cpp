@@ -14,16 +14,13 @@
 
 #include "ThreadNamer.h"
 #include <cstdint>
-#include "Logger.h"
+#include <boost/predef/os.h>
 
-static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
-
-#ifdef __APPLE__
-#include <thread>
-#endif
 
 //https://stackoverflow.com/questions/10121560/stdthread-naming-your-thread
-#ifdef _WIN32
+#if BOOST_OS_WINDOWS
+#include "Logger.h" //only windows is currently using the logger within this source file
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 #include <cstdlib>
 #include <windows.h>
 const DWORD MS_VC_EXCEPTION = 0x406D1388;
@@ -92,18 +89,24 @@ static void ImplSetThreadName(std::thread& thread, const std::string& threadName
 }
 # endif //THREAD_NAMER_ENABLE_DEPRECATED_FUNCTIONS
 
-#else
-#if defined(_WIN32)
-#elif defined(__APPLE__)
+#else //not windows
+# if BOOST_OS_MACOS
+#include <thread>
 static void ImplSetCurrentThreadName(const std::string& threadName) {
     pthread_setname_np(threadName.c_str());
 }
-#else // Linux (not WIN32 or APPLE)
+# elif BOOST_OS_BSD
+#include <pthread.h>
+#include <pthread_np.h>
+static void ImplSetCurrentThreadName(const std::string& threadName) {
+    pthread_setname_np(pthread_self(), threadName.c_str());
+}
+# else // Linux (not WIN32 or APPLE)
 #include <sys/prctl.h>
 static void ImplSetCurrentThreadName(const std::string& threadName) {
     prctl(PR_SET_NAME, threadName.c_str(), 0, 0, 0);
 }
-#endif
+# endif
 # ifdef THREAD_NAMER_ENABLE_DEPRECATED_FUNCTIONS
 static void ImplSetThreadName(boost::thread& thread, const std::string& threadName) {
     pthread_setname_np(thread.native_handle(), threadName.c_str());

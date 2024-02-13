@@ -315,8 +315,6 @@ private:
     /// Upper bound of received report with the largest scope span, used to recalculate gaps in reception claims for data segment retransmission
     uint64_t m_largestEndIndexPendingGeneration;
 
-    /// ...
-    uint64_t m_receptionClaimIndex;
     /// Next checkpoint serial number
     uint64_t m_nextCheckpointSerialNumber;
 public:

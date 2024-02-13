@@ -18,6 +18,7 @@
 #include <memory>
 #include <boost/make_unique.hpp>
 #include "ThreadNamer.h"
+#include <boost/predef/os.h>
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
 
@@ -136,9 +137,9 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
 #ifdef _MSC_VER 
         //If successful, returns 0. Otherwise, it returns a nonzero value.
         const bool seekSuccess = _fseeki64_nolock(fileHandle, offsetBytes, SEEK_SET) == 0;
-#elif defined __APPLE__ 
+#elif (BOOST_OS_MACOS || BOOST_OS_BSD)
         const bool seekSuccess = fseeko(fileHandle, offsetBytes, SEEK_SET) == 0;
-#else
+#else //Linux or other OS
         //Upon successful completion, the fseek, fseeko and fseeko64 subroutine return a value of 0. Otherwise, it returns a value of -1
         const bool seekSuccess = fseeko64(fileHandle, offsetBytes, SEEK_SET) == 0;
 #endif

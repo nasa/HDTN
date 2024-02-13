@@ -914,7 +914,7 @@ void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_
     const uint8_t * clientServiceDataToCopyAndSend, uint64_t length, std::shared_ptr<LtpTransmissionRequestUserData> && userDataPtrToTake, uint64_t lengthOfRedPart)
 {  //only called directly by unit test (not thread safe)
     TransmissionRequest(destinationClientServiceId, destinationLtpEngineId,
-        std::move(padded_vector_uint8_t(clientServiceDataToCopyAndSend, clientServiceDataToCopyAndSend + length)),
+        padded_vector_uint8_t(clientServiceDataToCopyAndSend, clientServiceDataToCopyAndSend + length),
         std::move(userDataPtrToTake), lengthOfRedPart
     );
 }
@@ -922,8 +922,8 @@ void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_
     const uint8_t * clientServiceDataToCopyAndSend, uint64_t length, uint64_t lengthOfRedPart)
 {  //only called directly by unit test (not thread safe)
     TransmissionRequest(destinationClientServiceId, destinationLtpEngineId,
-        std::move(padded_vector_uint8_t(clientServiceDataToCopyAndSend, clientServiceDataToCopyAndSend + length)),
-        std::move(std::shared_ptr<LtpTransmissionRequestUserData>()), lengthOfRedPart
+        padded_vector_uint8_t(clientServiceDataToCopyAndSend, clientServiceDataToCopyAndSend + length),
+        std::shared_ptr<LtpTransmissionRequestUserData>(), lengthOfRedPart
     );
 }
 void LtpEngine::TransmissionRequest(std::shared_ptr<transmission_request_t> & transmissionRequest) {
@@ -1630,10 +1630,8 @@ void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) 
         //Because this is a housekeeping timeout, it could be considerably larger than the normal round-trip-delay computed timeouts
         //so it wouldn't conflict with having a simple logic that resets any time a segment is received for an RX session.
         //The point is to know when to give up on an RX session and discard unneeded state.
-        uint64_t countStagnantRxSessions = 0;
         for (map_session_id_to_session_receiver_t::iterator rxSessionIt = m_mapSessionIdToSessionReceiver.begin(); rxSessionIt != m_mapSessionIdToSessionReceiver.end(); ++rxSessionIt) {
             if ((rxSessionIt->second.m_lastSegmentReceivedTimestamp <= stagnantRxSessionTimeThreshold) && (rxSessionIt->second.GetNumActiveTimers() == 0)) {
-                ++countStagnantRxSessions;
 
                 //erase session
                 const Ltp::session_id_t & sessionId = rxSessionIt->first;

@@ -25,7 +25,8 @@ BOOST_AUTO_TEST_CASE(DirectoryScannerTestCase)
     static constexpr uint64_t recheckFileSizeDurationMilliseconds = 250;
     {
         namespace fs = boost::filesystem;
-        const boost::filesystem::path rootPath = fs::temp_directory_path() / "DirectoryScannerTest";
+        //use canonical to resolve any symlinks in the temp directory
+        const boost::filesystem::path rootPath = fs::canonical(fs::temp_directory_path()) / "DirectoryScannerTest";
         const boost::filesystem::path& rp = rootPath;
         if (boost::filesystem::is_directory(rootPath)) {
             fs::remove_all(rootPath);

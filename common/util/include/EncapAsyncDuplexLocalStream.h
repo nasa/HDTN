@@ -73,7 +73,7 @@ public:
         m_shutdownComplete(true),
         m_doAutoReconnectAfterShutdown(true)
     {
-        m_receivedFullEncapPacket_swappable.resize(maxEncapRxPacketSizeBytes);
+        m_receivedFullEncapPacket_swappable.resize(M_MAX_ENCAP_RX_PACKET_SIZE_BYTES);
     }
     
     

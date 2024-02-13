@@ -41,6 +41,48 @@ build-and-run-win:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
 
+# Build HDTN with FreeBSD on x86_64
+build-and-run-bsd-intel:
+  stage: build-stage
+  tags:
+    - freebsd-x86
+  script:
+    - mkdir -p build
+    - cmake -S . -B build -DCMAKE_CXX_FLAGS="-Werror" -DCMAKE_C_FLAGS="-Werror" -DUSE_X86_HARDWARE_ACCELERATION:BOOL=ON -DLTP_RNG_USE_RDSEED:BOOL=ON -Dlibzmq_LIB:FILEPATH=/usr/local/lib/libzmq.so
+    - make -C build/ -j8
+    - export HDTN_SOURCE_ROOT=$PWD
+    - ./build/tests/unit_tests/unit-tests
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+
+# Build HDTN with Intel Mac
+build-and-run-mac-intel:
+  stage: build-stage
+  tags:
+    - macos-x86
+  script:
+    - mkdir -p build
+    - cmake -S . -B build -DCMAKE_CXX_FLAGS="-Werror" -DCMAKE_C_FLAGS="-Werror" -DUSE_X86_HARDWARE_ACCELERATION:BOOL=ON -DLTP_RNG_USE_RDSEED:BOOL=ON -Dlibzmq_LIB:FILEPATH=/usr/local/Cellar/zeromq/4.3.5_1/lib/libzmq.dylib -Dlibzmq_INCLUDE:PATH=/usr/local/Cellar/zeromq/4.3.5_1/include
+    - make -C build/ -j8
+    - export HDTN_SOURCE_ROOT=$PWD
+    - ./build/tests/unit_tests/unit-tests
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+
+# Build HDTN with M2 Mac
+build-and-run-mac-m2:
+  stage: build-stage
+  tags:
+    - macos-arm64
+  script:
+    - mkdir -p build
+    - cmake -S . -B build -DCMAKE_CXX_FLAGS="-Werror" -DCMAKE_C_FLAGS="-Werror" -DUSE_X86_HARDWARE_ACCELERATION:BOOL=ON -DLTP_RNG_USE_RDSEED:BOOL=OFF -Dlibzmq_LIB:FILEPATH=/opt/homebrew/lib/libzmq.dylib -Dlibzmq_INCLUDE:PATH=/opt/homebrew/include
+    - make -C build/ -j8
+    - export HDTN_SOURCE_ROOT=$PWD
+    - ./build/tests/unit_tests/unit-tests
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+
 # Build HDTN with C++11 only
 build-cpp11:
   stage: build-stage

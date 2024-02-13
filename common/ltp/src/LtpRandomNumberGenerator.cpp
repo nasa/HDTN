@@ -23,7 +23,6 @@
 #endif
 #include <inttypes.h>
 
-static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 //Motivation: Use a PRNG reseeded with hardware for efficiency.  Reseed the PRNG often enough to prevent predictability.
 //Relative speed tests, higher is slower
@@ -75,7 +74,7 @@ uint64_t LtpRandomNumberGenerator::Rng::GetHardwareRandomSeed() {
     uint64_t random2 = 0;
 #ifdef LTP_RNG_USE_RDSEED
     if (!_rdseed64_step((unsigned long long*)&random2)) {
-        LOG_ERROR(subprocess) << "LtpRandomNumberGenerator::Rng::GetHardwareRandomSeed(): cannot use _rdseed64_step function";
+        LOG_ERROR(hdtn::Logger::SubProcess::none) << "LtpRandomNumberGenerator::Rng::GetHardwareRandomSeed(): cannot use _rdseed64_step function";
     }
 #endif
     uint64_t random3 = (static_cast<uint32_t>(m_randomDevice())); //should already return a 32 bit integer
