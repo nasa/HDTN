@@ -61,7 +61,7 @@ if(USE_X86_HARDWARE_ACCELERATION)
 
 	#message("rf: ${CMAKE_REQUIRED_FLAGS}")
 	if(NOT WIN32)
-        SET(CMAKE_REQUIRED_FLAGS  "-msse -msse2 -mbmi -mbmi2 -msse3 -mssse3 -msse4.1 -msse4.2")
+        SET(CMAKE_REQUIRED_FLAGS  "-msse -msse2")
     endif()
 	#message("rf2: ${CMAKE_REQUIRED_FLAGS}")
 	check_cxx_source_compiles("
@@ -78,8 +78,68 @@ if(USE_X86_HARDWARE_ACCELERATION)
 		int main() {
 			uint8_t data[32];
 			{
+				const uint64_t encoded64 = 5;
+				_mm_stream_si64((int64_t*)(data), encoded64);
+			}
+			return 0;
+		}" SI64_TYPE_IS_INT64)
+
+	if(NOT SI64_TYPE_IS_INT64)
+			check_cxx_source_compiles("
+			#include <immintrin.h>
+			#include <emmintrin.h>
+			#include <smmintrin.h>
+			#ifdef HAVE_INTRIN_H
+			#include <intrin.h>
+			#endif
+			#ifdef HAVE_X86INTRIN_H
+			#include <x86intrin.h>
+			#endif
+			#include <cstdint>
+			int main() {
+				uint8_t data[32];
+				{
+					const uint64_t encoded64 = 5;
+					_mm_stream_si64((long long int*)(data), encoded64);
+				}
+				return 0;
+			}" SI64_TYPE_IS_LONGLONG)
+
+			if(NOT SI64_TYPE_IS_LONGLONG)
+				message(FATAL_ERROR "USE_X86_HARDWARE_ACCELERATION was set but compiler cannot determine parameter type of _mm_stream_si64.. you must unset USE_X86_HARDWARE_ACCELERATION as it won't work on this machine")
+			endif()
+	endif()
+
+	if(SI64_TYPE_IS_LONGLONG)
+		SET(SI64_TYPE_DEF "-DSI64_TYPE_IS_LONGLONG")
+	else()
+		SET(SI64_TYPE_DEF "")
+	endif()
+	if(NOT WIN32)
+        SET(CMAKE_REQUIRED_FLAGS  "-msse -msse2 -mbmi -mbmi2 -msse3 -mssse3 -msse4.1 -msse4.2 ${SI64_TYPE_DEF}")
+    endif()
+
+	check_cxx_source_compiles("
+		#include <immintrin.h>
+		#include <emmintrin.h>
+		#include <smmintrin.h>
+		#ifdef HAVE_INTRIN_H
+		#include <intrin.h>
+		#endif
+		#ifdef HAVE_X86INTRIN_H
+		#include <x86intrin.h>
+		#endif
+		#include <cstdint>
+		#ifdef SI64_TYPE_IS_LONGLONG
+			typedef long long int mm_stream_si64_t;
+		#else
+			typedef int64_t mm_stream_si64_t;
+		#endif
+		int main() {
+			uint8_t data[32];
+			{
 				const uint64_t encoded64 = _pdep_u64(5, 0x7f);
-				_mm_stream_si64((long long int *)(data), encoded64);
+				_mm_stream_si64((mm_stream_si64_t*)(data), encoded64);
 				const uint64_t mask1 = _bzhi_u64(0x7f7f7f7f7f7f7f7f, 16);
 			}
 			{
@@ -142,7 +202,7 @@ if(USE_X86_HARDWARE_ACCELERATION)
 		}" SDNV_SUPPORT_AVX2_FUNCTIONS)
 
 	if(NOT WIN32)
-        SET(CMAKE_REQUIRED_FLAGS  "-msse -msse2")
+        SET(CMAKE_REQUIRED_FLAGS  "-msse -msse2 ${SI64_TYPE_DEF}")
     endif()
 	check_cxx_source_compiles("
 		#include <immintrin.h>
@@ -155,10 +215,15 @@ if(USE_X86_HARDWARE_ACCELERATION)
 		#include <x86intrin.h>
 		#endif
 		#include <cstdint>
+		#ifdef SI64_TYPE_IS_LONGLONG
+			typedef long long int mm_stream_si64_t;
+		#else
+			typedef int64_t mm_stream_si64_t;
+		#endif
 		int main() {
 			uint8_t data[32];
 			_mm_stream_si32((int32_t *)data, 0x123456);
-			_mm_stream_si64((long long int *)data, 0x1234567891011u);
+			_mm_stream_si64((mm_stream_si64_t*)data, 0x1234567891011u);
 			{
 				const __m128i enc = _mm_castps_si128(_mm_load_ss((float const*)data)); //Load a single-precision (32-bit) floating-point element from memory into the lower of dst, and zero the upper 3 elements. mem_addr does not need to be aligned on any particular boundary.
 				const uint32_t result32Be = _mm_cvtsi128_si32(enc); //SSE2 Copy the lower 32-bit integer in a to dst.
@@ -281,6 +346,10 @@ endif() #if(USE_X86_HARDWARE_ACCELERATION OR LTP_RNG_USE_RDSEED) cpu flag detect
 
 #add compile definitions for x86 hardware acceleration
 if(USE_X86_HARDWARE_ACCELERATION)
+	if(SI64_TYPE_IS_LONGLONG)
+		message("adding compile definition: SI64_TYPE_IS_LONGLONG (1st parameter to function _mm_stream_si64 is NOT (int64_t*) but rather (long long int*)")
+		add_compile_definitions(SI64_TYPE_IS_LONGLONG)
+	endif()
 	#//bmi2,sse2,sse,sse41,ssse3 bmi1,popcnt
 	if(USE_SDNV_FAST AND SSE_supported AND SSE2_supported AND SSE3_supported AND SSSE3_supported AND SSE41_supported AND POPCNT_supported AND BMI1_supported AND BMI2_supported)
 		message("adding compile definition: USE_SDNV_FAST (cpu supports SSE, SSE2, SSE3, SSSE3, SSE4.1, POPCNT, BMI1, and BMI2)")
@@ -327,18 +396,36 @@ if(LTP_RNG_USE_RDSEED)
 		#include <x86intrin.h>
 		#endif
 		#include <cstdint>
+		# ifdef RDSEED_TYPE_IS_LONGLONG
+		typedef unsigned long long rdseed_t\;
+		# else
+		typedef uint64_t rdseed_t\;
+		# endif
 		int main() {
 			uint64_t random2 = 0\;
-			if (!_rdseed64_step((unsigned long long *)&random2)) {
+			if (!_rdseed64_step((rdseed_t*)&random2)) {
 				return 1\; //failure
 			}
 			return 0\;
 		}"
 	)
+	SET(CMAKE_REQUIRED_FLAGS "") #clear out any existing flags
+	SET(RDSEED_COMPILES OFF)
 	if(NOT WIN32)
 		SET(CMAKE_REQUIRED_FLAGS  "-mrdseed")
 	endif()
-	check_cxx_source_compiles(${rdseed_test_source_code} RDSEED_COMPILES)
+	check_cxx_source_compiles(${rdseed_test_source_code} RDSEED_COMPILES_UINT64)
+
+	if(RDSEED_COMPILES_UINT64)
+		SET(RDSEED_COMPILES ON)
+	else()
+		SET(CMAKE_REQUIRED_FLAGS  "${CMAKE_REQUIRED_FLAGS} -DRDSEED_TYPE_IS_LONGLONG")
+		check_cxx_source_compiles(${rdseed_test_source_code} RDSEED_COMPILES_LONGLONG)
+		if(RDSEED_COMPILES_LONGLONG)
+			SET(RDSEED_COMPILES ON)
+		endif()
+	endif()
+
 	if(RDSEED_COMPILES)
 		if(NOT CMAKE_CROSSCOMPILING)
 			if(RDSEED_supported)
@@ -347,6 +434,8 @@ if(LTP_RNG_USE_RDSEED)
 					SET(HAS_LTP_RNG_USE_RDSEED TRUE)
 					message("setting HAS_LTP_RNG_USE_RDSEED (cpu supports RDSEED)")
 					list(APPEND NON_WINDOWS_RDSEED_COMPILE_FLAG -mrdseed)
+				else()
+					message(FATAL_ERROR "LTP_RNG_USE_RDSEED was set but the instruction fails to run.. you must unset LTP_RNG_USE_RDSEED as it won't work on this machine")
 				endif()
 			endif() #RDSEED_supported
 		else() #cross compiling (assume cpu supports RDSEED instruction)
@@ -354,6 +443,13 @@ if(LTP_RNG_USE_RDSEED)
 			message("setting HAS_LTP_RNG_USE_RDSEED (cross compiling assumes cpu supports RDSEED)")
 			list(APPEND NON_WINDOWS_RDSEED_COMPILE_FLAG -mrdseed)
 		endif()
+
+		if(RDSEED_COMPILES_LONGLONG)
+			message("adding compile definition: RDSEED_TYPE_IS_LONGLONG for LtpRandomNumberGenerator.cpp (1st parameter to function _rdseed64_step is NOT (uint64_t*) but rather (unsigned long long int*)")
+			SET(RDSEED_TYPE_IS_LONGLONG TRUE) #compile definition added in ltp CMakeLists.txt
+		endif()
+	else()
+		message(FATAL_ERROR "LTP_RNG_USE_RDSEED was set but is unsupported by the compiler.. you must unset LTP_RNG_USE_RDSEED as it won't work on this machine")
 	endif()
 endif() #LTP_RNG_USE_RDSEED
 
@@ -361,3 +457,5 @@ if(WIN32)
 	SET(NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS "")
 	SET(NON_WINDOWS_RDSEED_COMPILE_FLAG "")
 endif()
+
+SET(CMAKE_REQUIRED_FLAGS "") #clear out any existing flags

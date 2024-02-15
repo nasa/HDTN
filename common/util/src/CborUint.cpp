@@ -24,6 +24,11 @@
 # else
 #include <immintrin.h>
 # endif
+# ifdef SI64_TYPE_IS_LONGLONG
+typedef long long int mm_stream_si64_t;
+# else
+typedef int64_t mm_stream_si64_t;
+# endif
 #endif
 
 #define CBOR_UINT8_TYPE   (24)
@@ -419,25 +424,25 @@ unsigned int CborEncodeU64Fast(uint8_t * const outputEncoded, const uint64_t val
             uint64_t valToWrite = boost::endian::native_to_big((uint32_t)valToEncodeU64);
             valToWrite <<= 8;
             valToWrite |= encodingSizeToType[encodingSize];
-            _mm_stream_si64((long long int *)(&outputEncoded[0]), boost::endian::native_to_little(valToWrite));
+            _mm_stream_si64((mm_stream_si64_t*)(&outputEncoded[0]), boost::endian::native_to_little(valToWrite));
             //outputEncoded[0] = encodingSizeToType[encodingSize];
             //_mm_stream_si32((int32_t *)(&outputEncoded[1]), boost::endian::native_to_big((uint32_t)valToEncodeU64));
         }
         else if (encodingSize == 9) {
             _mm_stream_si32((int32_t *)(&outputEncoded[0]), boost::endian::native_to_little((uint32_t)encodingSizeToType[encodingSize])); //outputEncoded[0] = encodingSizeToType[encodingSize];
-            _mm_stream_si64((long long int *)(&outputEncoded[1]), boost::endian::native_to_big(valToEncodeU64));
+            _mm_stream_si64((mm_stream_si64_t*)(&outputEncoded[1]), boost::endian::native_to_big(valToEncodeU64));
         }
 #else
         /*
         if ((bufferSize >= 9) && (encodingSize > 1)) {
             outputEncoded[0] = encodingSizeToType[encodingSize];
-            _mm_stream_si64((long long int *)(&outputEncoded[1]), boost::endian::native_to_big(valToEncodeU64 << encodingSizeToShifts[encodingSize]));
+            _mm_stream_si64((mm_stream_si64_t*)(&outputEncoded[1]), boost::endian::native_to_big(valToEncodeU64 << encodingSizeToShifts[encodingSize]));
             return encodingSize;
         }*/
         const uint8_t firstByte = encodingSizeToType[encodingSize] | ((static_cast<bool>(encodingSize == 1)) * ((uint8_t)valToEncodeU64)); //byte in first location
         _mm_stream_si32((int32_t *)outputEncoded, boost::endian::native_to_little((uint32_t)firstByte)); //outputEncoded[0] = (uint8_t)valToEncodeU64;
-        //_mm_stream_si64((long long int *)outputEncoded, boost::endian::native_to_little((uint64_t)firstByte)); //outputEncoded[0] = (uint8_t)valToEncodeU64;
-        _mm_stream_si64((long long int *)(&outputEncoded[1]), boost::endian::native_to_big(valToEncodeU64 << encodingSizeToShifts[encodingSize]));
+        //_mm_stream_si64((mm_stream_si64_t*)outputEncoded, boost::endian::native_to_little((uint64_t)firstByte)); //outputEncoded[0] = (uint8_t)valToEncodeU64;
+        _mm_stream_si64((mm_stream_si64_t*)(&outputEncoded[1]), boost::endian::native_to_big(valToEncodeU64 << encodingSizeToShifts[encodingSize]));
         /*return encodingSize;
         if (encodingSize == 1) {
             _mm_stream_si32((int32_t *)(&outputEncoded[0]), boost::endian::native_to_little((uint32_t)valToEncodeU64)); //outputEncoded[0] = (uint8_t)valToEncodeU64;
@@ -472,7 +477,7 @@ unsigned int CborEncodeU64Fast(uint8_t * const outputEncoded, const uint64_t val
             _mm_stream_si32((int32_t *)(&outputEncoded[1]), boost::endian::native_to_big((uint32_t)valToEncodeU64));
         }
         else if (encodingSize == 9) {
-            _mm_stream_si64((long long int *)(&outputEncoded[1]), boost::endian::native_to_big(valToEncodeU64));
+            _mm_stream_si64((mm_stream_si64_t*)(&outputEncoded[1]), boost::endian::native_to_big(valToEncodeU64));
         }
     }
     return encodingSize;
@@ -496,9 +501,9 @@ unsigned int CborEncodeU64FastBufSize9(uint8_t * const outputEncoded, const uint
 #if 1
     _mm_stream_si32((int32_t *)outputEncoded, boost::endian::native_to_little((uint32_t)firstByte)); //outputEncoded[0] = (uint8_t)valToEncodeU64;
 #else
-    _mm_stream_si64((long long int *)outputEncoded, boost::endian::native_to_little((uint64_t)firstByte)); //outputEncoded[0] = (uint8_t)valToEncodeU64;
+    _mm_stream_si64((mm_stream_si64_t*)outputEncoded, boost::endian::native_to_little((uint64_t)firstByte)); //outputEncoded[0] = (uint8_t)valToEncodeU64;
 #endif
-    _mm_stream_si64((long long int *)(&outputEncoded[1]), boost::endian::native_to_big(valToEncodeU64 << shift));
+    _mm_stream_si64((mm_stream_si64_t*)(&outputEncoded[1]), boost::endian::native_to_big(valToEncodeU64 << shift));
 #endif
     return encodingSize;
 }

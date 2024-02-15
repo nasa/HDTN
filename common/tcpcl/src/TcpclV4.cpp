@@ -24,6 +24,11 @@
 #include <immintrin.h>
 #include <emmintrin.h>
 # endif
+# ifdef SI64_TYPE_IS_LONGLONG
+typedef long long int mm_stream_si64_t;
+# else
+typedef int64_t mm_stream_si64_t;
+# endif
 #endif
 
 
@@ -64,7 +69,7 @@ static BOOST_FORCEINLINE void NativeU64ToUnalignedBigEndian(uint8_t * const outp
     output[6] = valueBeAs8Ptr[6];
     output[7] = valueBeAs8Ptr[7];
 #else
-    _mm_stream_si64((long long int *)output, valueBe);
+    _mm_stream_si64((mm_stream_si64_t*)output, valueBe);
 #endif
 }
 
@@ -132,14 +137,14 @@ TcpclV4::tcpclv4_extension_t::tcpclv4_extension_t(bool isCriticalFlag, uint16_t 
     flags(isCriticalFlag), type(itemType), valueVec(std::move(valueAsVec)) {}
 TcpclV4::tcpclv4_extension_t::~tcpclv4_extension_t() { } //a destructor: ~X()
 TcpclV4::tcpclv4_extension_t::tcpclv4_extension_t(const tcpclv4_extension_t& o) : flags(o.flags), type(o.type), valueVec(o.valueVec) { } //a copy constructor: X(const X&)
-TcpclV4::tcpclv4_extension_t::tcpclv4_extension_t(tcpclv4_extension_t&& o) : flags(o.flags), type(o.type), valueVec(std::move(o.valueVec)) { } //a move constructor: X(X&&)
+TcpclV4::tcpclv4_extension_t::tcpclv4_extension_t(tcpclv4_extension_t&& o) noexcept : flags(o.flags), type(o.type), valueVec(std::move(o.valueVec)) { } //a move constructor: X(X&&)
 TcpclV4::tcpclv4_extension_t& TcpclV4::tcpclv4_extension_t::operator=(const tcpclv4_extension_t& o) { //a copy assignment: operator=(const X&)
     flags = o.flags;
     type = o.type;
     valueVec = o.valueVec;
     return *this;
 }
-TcpclV4::tcpclv4_extension_t& TcpclV4::tcpclv4_extension_t::operator=(tcpclv4_extension_t && o) { //a move assignment: operator=(X&&)
+TcpclV4::tcpclv4_extension_t& TcpclV4::tcpclv4_extension_t::operator=(tcpclv4_extension_t && o) noexcept { //a move assignment: operator=(X&&)
     flags = o.flags;
     type = o.type;
     valueVec = std::move(o.valueVec);
@@ -202,12 +207,12 @@ uint64_t TcpclV4::tcpclv4_extension_t::SerializeTransferLengthExtension(uint8_t 
 TcpclV4::tcpclv4_extensions_t::tcpclv4_extensions_t() { } //a default constructor: X()
 TcpclV4::tcpclv4_extensions_t::~tcpclv4_extensions_t() { } //a destructor: ~X()
 TcpclV4::tcpclv4_extensions_t::tcpclv4_extensions_t(const tcpclv4_extensions_t& o) : extensionsVec(o.extensionsVec) { } //a copy constructor: X(const X&)
-TcpclV4::tcpclv4_extensions_t::tcpclv4_extensions_t(tcpclv4_extensions_t&& o) : extensionsVec(std::move(o.extensionsVec)) { } //a move constructor: X(X&&)
+TcpclV4::tcpclv4_extensions_t::tcpclv4_extensions_t(tcpclv4_extensions_t&& o) noexcept : extensionsVec(std::move(o.extensionsVec)) { } //a move constructor: X(X&&)
 TcpclV4::tcpclv4_extensions_t& TcpclV4::tcpclv4_extensions_t::operator=(const tcpclv4_extensions_t& o) { //a copy assignment: operator=(const X&)
     extensionsVec = o.extensionsVec;
     return *this;
 }
-TcpclV4::tcpclv4_extensions_t& TcpclV4::tcpclv4_extensions_t::operator=(tcpclv4_extensions_t && o) { //a move assignment: operator=(X&&)
+TcpclV4::tcpclv4_extensions_t& TcpclV4::tcpclv4_extensions_t::operator=(tcpclv4_extensions_t && o) noexcept { //a move assignment: operator=(X&&)
     extensionsVec = std::move(o.extensionsVec);
     return *this;
 }
@@ -244,7 +249,7 @@ TcpclV4::tcpclv4_ack_t::tcpclv4_ack_t(bool paramIsStartSegment, bool paramIsEndS
 TcpclV4::tcpclv4_ack_t::~tcpclv4_ack_t() { } //a destructor: ~X()
 TcpclV4::tcpclv4_ack_t::tcpclv4_ack_t(const tcpclv4_ack_t& o) :
     isStartSegment(o.isStartSegment), isEndSegment(o.isEndSegment), transferId(o.transferId), totalBytesAcknowledged(o.totalBytesAcknowledged) { } //a copy constructor: X(const X&)
-TcpclV4::tcpclv4_ack_t::tcpclv4_ack_t(tcpclv4_ack_t&& o) :
+TcpclV4::tcpclv4_ack_t::tcpclv4_ack_t(tcpclv4_ack_t&& o) noexcept :
     isStartSegment(o.isStartSegment), isEndSegment(o.isEndSegment), transferId(o.transferId), totalBytesAcknowledged(o.totalBytesAcknowledged) { } //a move constructor: X(X&&)
 TcpclV4::tcpclv4_ack_t& TcpclV4::tcpclv4_ack_t::operator=(const tcpclv4_ack_t& o) { //a copy assignment: operator=(const X&)
     isStartSegment = o.isStartSegment;
@@ -253,7 +258,7 @@ TcpclV4::tcpclv4_ack_t& TcpclV4::tcpclv4_ack_t::operator=(const tcpclv4_ack_t& o
     totalBytesAcknowledged = o.totalBytesAcknowledged;
     return *this;
 }
-TcpclV4::tcpclv4_ack_t& TcpclV4::tcpclv4_ack_t::operator=(tcpclv4_ack_t && o) { //a move assignment: operator=(X&&)
+TcpclV4::tcpclv4_ack_t& TcpclV4::tcpclv4_ack_t::operator=(tcpclv4_ack_t && o) noexcept { //a move assignment: operator=(X&&)
     isStartSegment = o.isStartSegment;
     isEndSegment = o.isEndSegment;
     transferId = o.transferId;
@@ -272,7 +277,46 @@ std::ostream& operator<<(std::ostream& os, const TcpclV4::tcpclv4_ack_t & o) {
 }
 
 
-TcpclV4::TcpclV4() : M_MAX_RX_BUNDLE_SIZE_BYTES(10000000) { //default 10MB unless changed by SetMaxReceiveBundleSizeBytes
+TcpclV4::TcpclV4() : 
+    M_MAX_RX_BUNDLE_SIZE_BYTES(10000000), //default 10MB unless changed by SetMaxReceiveBundleSizeBytes
+    //2 below are InitRx();
+    m_mainRxState(TCPCLV4_MAIN_RX_STATE::READ_CONTACT_HEADER),
+    m_contactHeaderRxState(TCPCLV4_CONTACT_HEADER_RX_STATE::READ_SYNC_1),
+    //below are unnecessary initializations
+    m_dataSegmentRxState(TCPCLV4_DATA_SEGMENT_RX_STATE::READ_MESSAGE_FLAGS_BYTE),
+    m_dataAckRxState(TCPCLV4_DATA_ACK_RX_STATE::READ_MESSAGE_FLAGS_BYTE),
+    m_messageRejectRxState(TCPCLV4_MESSAGE_REJECT_RX_STATE::READ_REASON_CODE_BYTE),
+    m_transferRefusalRxState(TCPCLV4_TRANSFER_REFUSAL_RX_STATE::READ_REASON_CODE_BYTE),
+    m_sessionTerminationRxState(TCPCLV4_SESSION_TERMINATION_RX_STATE::READ_MESSAGE_FLAGS_BYTE),
+    m_sessionInitRxState(TCPCLV4_SESSION_INIT_RX_STATE::READ_KEEPALIVE_INTERVAL_U16),
+    m_remoteHasEnabledTlsSecurity(false),
+    m_messageTypeByte(TCPCLV4_MESSAGE_TYPE_BYTE_CODES::RESERVED),
+    m_keepAliveInterval(0),
+    m_segmentMru(0),
+    m_transferMru(0),
+    m_remoteNodeUriLength(0),
+    m_sessionExtensionItemsLengthBytes(0),
+    m_currentCountOfSessionExtensionEncodedBytes(0),
+    m_currentSessionExtensionLength(0),
+    m_readValueByteIndex(0),
+    m_messageFlags(0),
+    m_dataSegmentStartFlag(false),
+    m_dataSegmentEndFlag(false),
+    m_transferId(0),
+    m_transferExtensionItemsLengthBytes(0),
+    m_currentCountOfTransferExtensionEncodedBytes(0),
+    m_currentTransferExtensionLength(0),
+    m_dataSegmentLength(0),
+    m_ackFlags(0),
+    m_messageRejectionReasonCode(0),
+    m_rejectedMessageHeader(0),
+    m_bundleTranferRefusalReasonCode(0),
+    m_bundleTranferRefusalTransferId(0),
+    m_nextBundleLength(0),
+    m_sessionTerminationFlags(0),
+    m_isSessionTerminationAck(false),
+    m_sessionTerminationReasonCode(TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN)
+{ 
     InitRx();
 }
 TcpclV4::~TcpclV4() {

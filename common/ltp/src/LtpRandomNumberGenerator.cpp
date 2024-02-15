@@ -17,9 +17,14 @@
 #include "TimestampUtil.h"
 #ifdef LTP_RNG_USE_RDSEED
 #include <immintrin.h>
-#if defined(__GNUC__)
+# if defined(__GNUC__)
 #include <x86intrin.h> // rdseed for older compilers
-#endif
+# endif
+# ifdef RDSEED_TYPE_IS_LONGLONG
+typedef unsigned long long rdseed_t;
+# else
+typedef uint64_t rdseed_t;
+# endif
 #endif
 #include <inttypes.h>
 
@@ -73,7 +78,7 @@ uint64_t LtpRandomNumberGenerator::Rng::GetHardwareRandomSeed() {
     const uint64_t random1 = TimestampUtil::GetMicrosecondsSinceEpochRfc5050();
     uint64_t random2 = 0;
 #ifdef LTP_RNG_USE_RDSEED
-    if (!_rdseed64_step((unsigned long long*)&random2)) {
+    if (!_rdseed64_step((rdseed_t*)&random2)) {
         LOG_ERROR(hdtn::Logger::SubProcess::none) << "LtpRandomNumberGenerator::Rng::GetHardwareRandomSeed(): cannot use _rdseed64_step function";
     }
 #endif
