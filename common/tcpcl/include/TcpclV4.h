@@ -165,9 +165,9 @@ public:
         TCPCL_LIB_EXPORT tcpclv4_extension_t(bool isCriticalFlag, uint16_t itemType, std::vector<uint8_t> && valueAsVec);
         TCPCL_LIB_EXPORT ~tcpclv4_extension_t(); //a destructor: ~X()
         TCPCL_LIB_EXPORT tcpclv4_extension_t(const tcpclv4_extension_t& o); //a copy constructor: X(const X&)
-        TCPCL_LIB_EXPORT tcpclv4_extension_t(tcpclv4_extension_t&& o); //a move constructor: X(X&&)
+        TCPCL_LIB_EXPORT tcpclv4_extension_t(tcpclv4_extension_t&& o) noexcept; //a move constructor: X(X&&)
         TCPCL_LIB_EXPORT tcpclv4_extension_t& operator=(const tcpclv4_extension_t& o); //a copy assignment: operator=(const X&)
-        TCPCL_LIB_EXPORT tcpclv4_extension_t& operator=(tcpclv4_extension_t&& o); //a move assignment: operator=(X&&)
+        TCPCL_LIB_EXPORT tcpclv4_extension_t& operator=(tcpclv4_extension_t&& o) noexcept; //a move assignment: operator=(X&&)
         TCPCL_LIB_EXPORT bool operator==(const tcpclv4_extension_t & o) const; //operator ==
         TCPCL_LIB_EXPORT bool operator!=(const tcpclv4_extension_t & o) const; //operator !=
         TCPCL_LIB_EXPORT bool IsCritical() const;
@@ -184,9 +184,9 @@ public:
         TCPCL_LIB_EXPORT tcpclv4_extensions_t(); //a default constructor: X()
         TCPCL_LIB_EXPORT ~tcpclv4_extensions_t(); //a destructor: ~X()
         TCPCL_LIB_EXPORT tcpclv4_extensions_t(const tcpclv4_extensions_t& o); //a copy constructor: X(const X&)
-        TCPCL_LIB_EXPORT tcpclv4_extensions_t(tcpclv4_extensions_t&& o); //a move constructor: X(X&&)
+        TCPCL_LIB_EXPORT tcpclv4_extensions_t(tcpclv4_extensions_t&& o) noexcept; //a move constructor: X(X&&)
         TCPCL_LIB_EXPORT tcpclv4_extensions_t& operator=(const tcpclv4_extensions_t& o); //a copy assignment: operator=(const X&)
-        TCPCL_LIB_EXPORT tcpclv4_extensions_t& operator=(tcpclv4_extensions_t&& o); //a move assignment: operator=(X&&)
+        TCPCL_LIB_EXPORT tcpclv4_extensions_t& operator=(tcpclv4_extensions_t&& o) noexcept; //a move assignment: operator=(X&&)
         TCPCL_LIB_EXPORT bool operator==(const tcpclv4_extensions_t & o) const; //operator ==
         TCPCL_LIB_EXPORT bool operator!=(const tcpclv4_extensions_t & o) const; //operator !=
         TCPCL_LIB_EXPORT void AppendSerialize(std::vector<uint8_t> & serialization) const;
@@ -203,9 +203,9 @@ public:
         TCPCL_LIB_EXPORT tcpclv4_ack_t(bool paramIsStartSegment, bool paramIsEndSegment, uint64_t paramTransferId, uint64_t paramTotalBytesAcknowledged);
         TCPCL_LIB_EXPORT ~tcpclv4_ack_t(); //a destructor: ~X()
         TCPCL_LIB_EXPORT tcpclv4_ack_t(const tcpclv4_ack_t& o); //a copy constructor: X(const X&)
-        TCPCL_LIB_EXPORT tcpclv4_ack_t(tcpclv4_ack_t&& o); //a move constructor: X(X&&)
+        TCPCL_LIB_EXPORT tcpclv4_ack_t(tcpclv4_ack_t&& o) noexcept; //a move constructor: X(X&&)
         TCPCL_LIB_EXPORT tcpclv4_ack_t& operator=(const tcpclv4_ack_t& o); //a copy assignment: operator=(const X&)
-        TCPCL_LIB_EXPORT tcpclv4_ack_t& operator=(tcpclv4_ack_t&& o); //a move assignment: operator=(X&&)
+        TCPCL_LIB_EXPORT tcpclv4_ack_t& operator=(tcpclv4_ack_t&& o) noexcept; //a move assignment: operator=(X&&)
         TCPCL_LIB_EXPORT bool operator==(const tcpclv4_ack_t & o) const; //operator ==
         TCPCL_LIB_EXPORT bool operator!=(const tcpclv4_ack_t & o) const; //operator !=
         TCPCL_LIB_EXPORT friend std::ostream& operator<<(std::ostream& os, const tcpclv4_ack_t& o);

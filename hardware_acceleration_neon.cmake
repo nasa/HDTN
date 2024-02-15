@@ -41,7 +41,7 @@ if(USE_X86_HARDWARE_ACCELERATION)
 		int main() {
 			uint8_t data[32];
 			_mm_stream_si32((int32_t *)data, 0x123456);
-			_mm_stream_si64((long long int *)data, 0x1234567891011u);
+			_mm_stream_si64((int64_t*)data, 0x1234567891011u);
 			{
 				const __m128i enc = _mm_castps_si128(_mm_load_ss((float const*)data)); //Load a single-precision (32-bit) floating-point element from memory into the lower of dst, and zero the upper 3 elements. mem_addr does not need to be aligned on any particular boundary.
 				const uint32_t result32Be = _mm_cvtsi128_si32(enc); //SSE2 Copy the lower 32-bit integer in a to dst.
@@ -82,3 +82,5 @@ if(USE_X86_HARDWARE_ACCELERATION)
 	endif()
 	
 endif()
+
+SET(CMAKE_REQUIRED_FLAGS "") #clear out any existing flags

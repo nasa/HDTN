@@ -25,6 +25,7 @@ set_property(
 	SOURCE src/LtpRandomNumberGenerator.cpp
 	PROPERTY COMPILE_DEFINITIONS
 		$<$<BOOL:${HAS_LTP_RNG_USE_RDSEED}>:LTP_RNG_USE_RDSEED> 
+		$<$<BOOL:${RDSEED_TYPE_IS_LONGLONG}>:RDSEED_TYPE_IS_LONGLONG>
 )
 set_property(
 	SOURCE src/LtpRandomNumberGenerator.cpp

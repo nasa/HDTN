@@ -30,6 +30,11 @@
 # else
 #include <immintrin.h>
 # endif
+# ifdef SI64_TYPE_IS_LONGLONG
+typedef long long int mm_stream_si64_t;
+# else
+typedef int64_t mm_stream_si64_t;
+# endif
 #endif
 
 /*
@@ -245,7 +250,7 @@ BOOST_AUTO_TEST_CASE(CborUint64BitNoOverwriteTestCase)
 
         char *s = (char*)alignedData.data();
         char *sOffset = &s[offset];
-        _mm_stream_si64((long long int *)sOffset, s2);
+        _mm_stream_si64((mm_stream_si64_t*)sOffset, s2);
         
         BOOST_REQUIRE_EQUAL(std::string(sOffset, sOffset + 16), std::string("bbbbbbbbaaaaaaaa"));
 

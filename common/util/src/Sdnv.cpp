@@ -21,6 +21,11 @@
 #include <algorithm>
 #ifdef USE_SDNV_FAST
 #include <immintrin.h>
+# ifdef SI64_TYPE_IS_LONGLONG
+typedef long long int mm_stream_si64_t;
+# else
+typedef int64_t mm_stream_si64_t;
+# endif
 #endif
 
 #define ONE_U32 (static_cast<uint32_t>(1U))
@@ -646,7 +651,7 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
     const uint64_t encoded64 = _pdep_u64(valToEncodeU64, maskPdep1) | mask0x80;
     const uint64_t encoded64ForMemcpy = boost::endian::big_to_native(encoded64);
     if (mask0x80IndexIsLessThanOrEqualTo7) {
-        _mm_stream_si64((long long int *)(outputEncoded), encoded64ForMemcpy);
+        _mm_stream_si64((mm_stream_si64_t*)(outputEncoded), encoded64ForMemcpy);
     }
     else {
         //for the large 9 and 10 byte sdnv
@@ -658,10 +663,10 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
 #else
         //outputEncoded[0] = static_cast<uint8_t>(encoded64BigSdnvForMemcpy);
         //outputEncoded[1] = static_cast<uint8_t>(encoded64BigSdnvForMemcpy >> 8);
-        _mm_stream_si64((long long int *)(outputEncoded), encoded64BigSdnvForMemcpy);
+        _mm_stream_si64((mm_stream_si64_t*)(outputEncoded), encoded64BigSdnvForMemcpy);
         //if (valToEncodeU64 > SDNV64_MAX_8_BYTE) { for (unsigned int i = 0; i < 10; ++i) { LOG_INFO(subprocess) << std::hex << (int)outputEncoded[i] << " "; } LOG_INFO(subprocess); }
         const unsigned int memoryOffset = (mask0x80Index - 7) * (mask0x80Index > 7); //memoryOffsets[mask0x80Index]
-        _mm_stream_si64((long long int *)(outputEncoded + memoryOffset), encoded64ForMemcpy);
+        _mm_stream_si64((mm_stream_si64_t*)(outputEncoded + memoryOffset), encoded64ForMemcpy);
         //if (valToEncodeU64 > SDNV64_MAX_8_BYTE) { for (unsigned int i = 0; i < 10; ++i) { LOG_INFO(subprocess) << std::hex << (int)outputEncoded[i] << " "; } LOG_INFO(subprocess); }
 
         //uint8_t numBytes;  LOG_INFO(subprocess) << "valToEncodeU64: " << valToEncodeU64 << "  deoded: " << SdnvDecodeU64Classic(outputEncoded, &numBytes);
@@ -686,7 +691,7 @@ unsigned int SdnvEncodeU32FastBufSize8(uint8_t * outputEncoded, const uint32_t v
     const uint64_t encoded64 = _pdep_u64(valToEncodeU32, masksPdepPext1[mask0x80Index]) | masks0x80[mask0x80Index];
     const uint64_t encoded64ForMemcpy = boost::endian::big_to_native(encoded64);
 
-    _mm_stream_si64((long long int *)(outputEncoded), encoded64ForMemcpy);
+    _mm_stream_si64((mm_stream_si64_t*)(outputEncoded), encoded64ForMemcpy);
     
     return mask0x80Index + 1; //sdnvSizeBytes = mask0x80Index + 1;
 }
@@ -717,7 +722,7 @@ unsigned int SdnvEncodeU64FastBufSize10(uint8_t * outputEncoded, const uint64_t 
 #define ENCODE_USE_BRANCHING 0
 #if ENCODE_USE_BRANCHING
     if (mask0x80Index <= 7) {
-        _mm_stream_si64((long long int *)(outputEncoded), encoded64ForMemcpy);
+        _mm_stream_si64((mm_stream_si64_t*)(outputEncoded), encoded64ForMemcpy);
     }
     else {
 #endif
@@ -725,9 +730,9 @@ unsigned int SdnvEncodeU64FastBufSize10(uint8_t * outputEncoded, const uint64_t 
         const uint64_t encoded64BigSdnv = _pdep_u64(valToEncodeU64 >> 56, masksPdepPext2[mask0x80Index]) | masks0x80_2[mask0x80Index];
         const uint64_t encoded64BigSdnvForMemcpy = boost::endian::big_to_native(encoded64BigSdnv);
 
-        _mm_stream_si64((long long int *)(outputEncoded), encoded64BigSdnvForMemcpy);
+        _mm_stream_si64((mm_stream_si64_t*)(outputEncoded), encoded64BigSdnvForMemcpy);
         //if (valToEncodeU64 > SDNV64_MAX_8_BYTE) { for (unsigned int i = 0; i < 10; ++i) { LOG_INFO(subprocess) << std::hex << (int)outputEncoded[i] << " "; } LOG_INFO(subprocess); }
-        _mm_stream_si64((long long int *)(outputEncoded + memoryOffsets[mask0x80Index]), encoded64ForMemcpy);
+        _mm_stream_si64((mm_stream_si64_t*)(outputEncoded + memoryOffsets[mask0x80Index]), encoded64ForMemcpy);
         //if (valToEncodeU64 > SDNV64_MAX_8_BYTE) { for (unsigned int i = 0; i < 10; ++i) { LOG_INFO(subprocess) << std::hex << (int)outputEncoded[i] << " "; } LOG_INFO(subprocess); }
 
         //uint8_t numBytes;  LOG_INFO(subprocess) << "valToEncodeU64: " << valToEncodeU64 << "  deoded: " << SdnvDecodeU64Classic(outputEncoded, &numBytes);

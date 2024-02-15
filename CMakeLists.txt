@@ -21,6 +21,8 @@ endif()
 # try_compile (check_cxx_source_compiles ) is Debug by default, change to be the build type
 set (CMAKE_TRY_COMPILE_CONFIGURATION ${CMAKE_BUILD_TYPE})
 
+#The CMAKE_SYSTEM_PROCESSOR will be set automatically (if not defined) AFTER setting the project name with PROJECT(...)
+#To use this cross compile logic, this block is run before the line "project(HDTN.."
 if(DEFINED CMAKE_SYSTEM_PROCESSOR)
 	if (${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm") 
 		message("CMAKE_SYSTEM_PROCESSOR = ${CMAKE_SYSTEM_PROCESSOR}")
@@ -143,12 +145,18 @@ else()
 	message(FATAL_ERROR "STORAGE_SEGMENT_SIZE_MULTIPLE_OF_4KB must be set to an integer of at least 1 in CMakeCache.txt")
 endif()
 
-OPTION(USE_X86_HARDWARE_ACCELERATION "Use CPU SSE/SSE2/BMI1/BMI2 instructions" ON)
-OPTION(LTP_RNG_USE_RDSEED "Use CPU RDSEED instruction as a source of randomness for LTP Random Number Generator" ON)
-if(APPLE AND (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64") )
+
+if((CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64") OR (CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")) #apple m2 (arm64) or linux arm64 (aarch64)
+	OPTION(USE_X86_HARDWARE_ACCELERATION "Use ARM CPU NEON instructions (translated from x86 to ARM through CMake-downloaded sse2neon.h header-only library)" ON)
+	OPTION(LTP_RNG_USE_RDSEED "NOT SUPPORTED ON ARM - Use CPU RDSEED instruction as a source of randomness for LTP Random Number Generator" OFF)
+	if(LTP_RNG_USE_RDSEED)
+		message(FATAL_ERROR "LTP_RNG_USE_RDSEED is set to ON in the CMakeCache.txt.  It must be turned off on ARM CPUs")
+	endif()
 	set(NON_ARM_COMPILATION false)
 	include(${CMAKE_SOURCE_DIR}/hardware_acceleration_neon.cmake) # Determine if hardware acceleration can be used
-else()
+else() #amd64
+	OPTION(USE_X86_HARDWARE_ACCELERATION "Use CPU SSE/SSE2/BMI1/BMI2 instructions" ON)
+	OPTION(LTP_RNG_USE_RDSEED "Use CPU RDSEED instruction as a source of randomness for LTP Random Number Generator" ON)
 	include(${CMAKE_SOURCE_DIR}/hardware_acceleration.cmake) # Determine if hardware acceleration can be used
 endif()
 

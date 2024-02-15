@@ -83,6 +83,21 @@ build-and-run-mac-m2:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
 
+# Build HDTN with Linux Arm64 (aarch64)
+build-and-run-linux-arm64:
+  stage: build-stage
+  tags:
+    - linux-arm64
+    - ubuntu-arm64
+  script:
+    - mkdir -p build
+    - cmake -S . -B build -DCMAKE_CXX_FLAGS="-Werror" -DCMAKE_C_FLAGS="-Werror" -DUSE_X86_HARDWARE_ACCELERATION:BOOL=ON -DLTP_RNG_USE_RDSEED:BOOL=OFF
+    - make -C build/ -j8
+    - export HDTN_SOURCE_ROOT=$PWD
+    - ./build/tests/unit_tests/unit-tests
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+
 # Build HDTN with C++11 only
 build-cpp11:
   stage: build-stage

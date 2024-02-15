@@ -87,3 +87,4 @@ else()
 endif()
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+SET(CMAKE_REQUIRED_FLAGS "") #clear out any existing flags
