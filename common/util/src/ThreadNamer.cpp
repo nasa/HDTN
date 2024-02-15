@@ -99,7 +99,7 @@ static void ImplSetCurrentThreadName(const std::string& threadName) {
 #include <pthread.h>
 #include <pthread_np.h>
 static void ImplSetCurrentThreadName(const std::string& threadName) {
-    pthread_setname_np(pthread_self(), threadName.c_str());
+    pthread_set_name_np(pthread_self(), threadName.c_str());
 }
 # else // Linux (not WIN32 or APPLE)
 #include <sys/prctl.h>

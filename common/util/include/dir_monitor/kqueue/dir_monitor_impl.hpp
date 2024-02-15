@@ -85,6 +85,7 @@ public:
         : kqueue_(init_kqueue())
         , run_(true)
     {
+#ifdef EVFILT_USER
         //add a user event (id 0) to allow unblocking of permanently blocking kevent function in the thread loop (without need for timeout)
         //based on https://opensource.apple.com/source/xnu/xnu-1699.24.23/tools/tests/xnu_quick_test/kqueue_tests.c
         struct kevent keventChangeIn;
@@ -94,6 +95,7 @@ public:
             printf("%s\n", msg);
             throw_system_error(msg);
         }
+#endif
 
         work_thread_ptr_ = boost::make_unique<boost::thread>(&boost::asio::dir_monitor_impl::work_thread, this);
     }
@@ -174,6 +176,7 @@ public:
             if (run_)
             {
                 run_ = false;
+#ifdef EVFILT_USER
                 // trigger the user 0 event, telling work thread to exit
                 struct kevent keventChangeIn;
                 EV_SET(&keventChangeIn, 0, EVFILT_USER, 0, NOTE_TRIGGER, 0, 0);
@@ -182,6 +185,7 @@ public:
                     printf("%s\n", msg);
                     throw_system_error(msg);
                 }
+#endif
             }
         }
         events_cond_.notify_all();
@@ -264,11 +268,27 @@ private:
             dir_entry_map::iterator ito = old_entries.find(itn->first);
             if (ito != old_entries.end())
             {
-                if (!boost::filesystem::equivalent(itn->second.path(), ito->second.path()) ||
-                    boost::filesystem::last_write_time(itn->second.path()) != boost::filesystem::last_write_time(ito->second.path()) ||
-                    (boost::filesystem::is_regular_file(itn->second.path()) && boost::filesystem::is_regular_file(ito->second.path()) &&
-                    boost::filesystem::file_size(itn->second.path()) != boost::filesystem::file_size(ito->second.path())))
-                {
+                bool pushBackEvent = false;
+                bool filesystemError = false;
+                for (unsigned int attempt = 0; attempt < 1000; ++attempt) {
+                    try {
+                        pushBackEvent = (!boost::filesystem::equivalent(itn->second.path(), ito->second.path()) ||
+                            boost::filesystem::last_write_time(itn->second.path()) != boost::filesystem::last_write_time(ito->second.path()) ||
+                            (boost::filesystem::is_regular_file(itn->second.path()) && boost::filesystem::is_regular_file(ito->second.path()) &&
+                                boost::filesystem::file_size(itn->second.path()) != boost::filesystem::file_size(ito->second.path())));
+                    }
+                    catch (const boost::filesystem::filesystem_error&) {
+                        filesystemError = true;
+                        boost::this_thread::yield();
+                        continue;
+                    }
+                    filesystemError = false;
+                    break;
+                }
+                if (filesystemError) {
+                    printf("boost::asio::dir_monitor_impl::compare: boost::filesystem::filesystem_error occurred after 1000 attempts calling boost::filesystem::equivalent\n");
+                }
+                if(pushBackEvent) {
                     pushback_event(dir_monitor_event(boost::filesystem::path(dir) / itn->second.path().filename(), dir_monitor_event::modified));
                 }
                 old_entries.erase(ito);
@@ -286,11 +306,30 @@ private:
 
     void work_thread()
     {   
+#ifndef EVFILT_USER
+        struct timespec timeout;
+        timeout.tv_sec = 0;
+        timeout.tv_nsec = 250000000; //250ms timeout
+#endif
+
         static constexpr unsigned int MAX_EVENTS_OUT = 10;
         struct kevent keventEventListOut[MAX_EVENTS_OUT];
         while (true)
         {
-            int nEvents = kevent(kqueue_, NULL, 0, keventEventListOut, (int)MAX_EVENTS_OUT, NULL); //blocks forever until event
+#ifndef EVFILT_USER
+            {
+                boost::unique_lock<boost::mutex> lock(events_mutex_);
+                if (!run_) {
+                    break;
+                }
+            }
+#endif
+            int nEvents = kevent(kqueue_, NULL, 0, keventEventListOut, (int)MAX_EVENTS_OUT,
+#ifndef EVFILT_USER
+                &timeout);
+#else
+                NULL); //blocks forever until event
+#endif
 
             if (nEvents < 0)
             {
@@ -303,12 +342,14 @@ private:
                     printf("boost::asio::dir_monitor_impl::work_thread: kevent failed with flags set to EV_ERROR");
                     return;
                 }
+#ifdef EVFILT_USER
                 else if (eventDataOut.filter == EVFILT_USER) {
                     if (eventDataOut.ident == 0) {
                         //user event (id 0) triggered from destructor, time to exit work thread
                         return;
                     }
                 }
+#endif
                 else if (eventDataOut.fflags & NOTE_WRITE) { //directory was modified
                     boost::unique_lock<boost::mutex> lock(dirs_mutex_);
                     dir_to_handle_bimap_t::right_iterator it = dirs_.right.find(eventDataOut.ident);
