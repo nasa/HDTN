@@ -19,65 +19,93 @@
 #include <iostream>
 #include <string>
 #include <inttypes.h>
+#include <boost/make_unique.hpp>
+#include "Logger.h"
 
 BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayIsSegmentFreeTestCase)
 {
-    MemoryManagerTreeArray t(MAX_MEMORY_MANAGER_SEGMENTS - 100);
-    memmanager_t backup;
-    const segment_id_t segmentId = 7777;
-    BOOST_REQUIRE_EQUAL(t.GetMaxSegments(), MAX_MEMORY_MANAGER_SEGMENTS - 100);
-    BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_ThreadSafe(), 0);
-    BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_NotThreadSafe(), 0);
+    static const uint64_t segmentsToTry[2] = { MAX_MEMORY_MANAGER_SEGMENTS - 100 , (1024000000ULL * 8) / SEGMENT_SIZE + 1 };
+    for (unsigned int segI = 0; segI < 2; ++segI) {
+        std::unique_ptr<MemoryManagerTreeArray> tPtr;
+        try {
+            tPtr = boost::make_unique<MemoryManagerTreeArray>(segmentsToTry[segI]);
+        }
+        catch (const std::bad_alloc& e) {
+            LOG_ERROR(hdtn::Logger::SubProcess::unittest) 
+                << "MemoryManagerTreeArrayIsSegmentFreeTestCase MemoryManagerTreeArray constructor: cannot allocate "
+                << segmentsToTry[segI] << " segments: " << e.what();
+            BOOST_REQUIRE_EQUAL(segI, 0); //only allow first largest segmentsToTry to fail
+            LOG_INFO(hdtn::Logger::SubProcess::unittest) << " ..retrying with less segments";
+            continue;
+        }
+        MemoryManagerTreeArray& t = *tPtr;
+        memmanager_t backup;
+        const segment_id_t segmentId = 7777;
+        BOOST_REQUIRE_EQUAL(t.GetMaxSegments(), segmentsToTry[segI]);
+        BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_ThreadSafe(), 0);
+        BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_NotThreadSafe(), 0);
 
-    BOOST_REQUIRE(t.IsSegmentFree(segmentId - 1));
-    BOOST_REQUIRE(t.IsSegmentFree(segmentId));
-    BOOST_REQUIRE(t.IsSegmentFree(segmentId + 1));
+        BOOST_REQUIRE(t.IsSegmentFree(segmentId - 1));
+        BOOST_REQUIRE(t.IsSegmentFree(segmentId));
+        BOOST_REQUIRE(t.IsSegmentFree(segmentId + 1));
 
-    BOOST_REQUIRE(t.AllocateSegmentId_NotThreadSafe(segmentId));
-    BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_ThreadSafe(), 1);
-    BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_NotThreadSafe(), 1);
+        BOOST_REQUIRE(t.AllocateSegmentId_NotThreadSafe(segmentId));
+        BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_ThreadSafe(), 1);
+        BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_NotThreadSafe(), 1);
 
-    BOOST_REQUIRE(!t.AllocateSegmentId_NotThreadSafe(segmentId)); //cannot allocate again
-    BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_ThreadSafe(), 1);
-    BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_NotThreadSafe(), 1);
+        BOOST_REQUIRE(!t.AllocateSegmentId_NotThreadSafe(segmentId)); //cannot allocate again
+        BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_ThreadSafe(), 1);
+        BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_NotThreadSafe(), 1);
 
-    BOOST_REQUIRE(t.IsSegmentFree(segmentId - 1));
-    BOOST_REQUIRE(!t.IsSegmentFree(segmentId));
-    BOOST_REQUIRE(t.IsSegmentFree(segmentId + 1));
+        BOOST_REQUIRE(t.IsSegmentFree(segmentId - 1));
+        BOOST_REQUIRE(!t.IsSegmentFree(segmentId));
+        BOOST_REQUIRE(t.IsSegmentFree(segmentId + 1));
 
-    t.BackupDataToVector(backup);
-    BOOST_REQUIRE(t.IsBackupEqual(backup));
+        try {
+            t.BackupDataToVector(backup);
+        }
+        catch (const std::bad_alloc& e) {
+            LOG_ERROR(hdtn::Logger::SubProcess::unittest) << "MemoryManagerTreeArrayIsSegmentFreeTestCase t.BackupDataToVector: cannot allocate "
+                << segmentsToTry[segI] << " segments: " << e.what();
+            BOOST_REQUIRE_EQUAL(segI, 0); //only allow first largest segmentsToTry to fail
+            LOG_INFO(hdtn::Logger::SubProcess::unittest) << " ..retrying with less segments";
+            continue;
+        }
+        BOOST_REQUIRE(t.IsBackupEqual(backup));
 
-    BOOST_REQUIRE(t.FreeSegmentId_NotThreadSafe(segmentId));
-    BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_ThreadSafe(), 0);
-    BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_NotThreadSafe(), 0);
+        BOOST_REQUIRE(t.FreeSegmentId_NotThreadSafe(segmentId));
+        BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_ThreadSafe(), 0);
+        BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_NotThreadSafe(), 0);
 
-    BOOST_REQUIRE(!t.FreeSegmentId_NotThreadSafe(segmentId)); //second should fail (already freed)
-    BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_ThreadSafe(), 0);
-    BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_NotThreadSafe(), 0);
+        BOOST_REQUIRE(!t.FreeSegmentId_NotThreadSafe(segmentId)); //second should fail (already freed)
+        BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_ThreadSafe(), 0);
+        BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_NotThreadSafe(), 0);
 
-    BOOST_REQUIRE(!t.IsBackupEqual(backup));
+        BOOST_REQUIRE(!t.IsBackupEqual(backup));
 
-    BOOST_REQUIRE(t.IsSegmentFree(segmentId - 1));
-    BOOST_REQUIRE(t.IsSegmentFree(segmentId));
-    BOOST_REQUIRE(t.IsSegmentFree(segmentId + 1));
+        BOOST_REQUIRE(t.IsSegmentFree(segmentId - 1));
+        BOOST_REQUIRE(t.IsSegmentFree(segmentId));
+        BOOST_REQUIRE(t.IsSegmentFree(segmentId + 1));
 
-    BOOST_REQUIRE(t.AllocateSegmentId_NotThreadSafe(0));
-    BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_ThreadSafe(), 1);
-    BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_NotThreadSafe(), 1);
+        BOOST_REQUIRE(t.AllocateSegmentId_NotThreadSafe(0));
+        BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_ThreadSafe(), 1);
+        BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_NotThreadSafe(), 1);
 
-    BOOST_REQUIRE(!t.AllocateSegmentId_NotThreadSafe(0)); //cannot allocate again
-    BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_ThreadSafe(), 1);
-    BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_NotThreadSafe(), 1);
+        BOOST_REQUIRE(!t.AllocateSegmentId_NotThreadSafe(0)); //cannot allocate again
+        BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_ThreadSafe(), 1);
+        BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_NotThreadSafe(), 1);
 
-    BOOST_REQUIRE_EQUAL(t.GetAndSetFirstFreeSegmentId_NotThreadSafe(), 1);
-    BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_ThreadSafe(), 2);
-    BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_NotThreadSafe(), 2);
+        BOOST_REQUIRE_EQUAL(t.GetAndSetFirstFreeSegmentId_NotThreadSafe(), 1);
+        BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_ThreadSafe(), 2);
+        BOOST_REQUIRE_EQUAL(t.GetNumAllocatedSegments_NotThreadSafe(), 2);
 
-    BOOST_REQUIRE(!t.IsSegmentFree(0));
-    BOOST_REQUIRE(!t.IsSegmentFree(1));
-    BOOST_REQUIRE(t.IsSegmentFree(2));
-    BOOST_REQUIRE(t.IsSegmentFree(3));
+        BOOST_REQUIRE(!t.IsSegmentFree(0));
+        BOOST_REQUIRE(!t.IsSegmentFree(1));
+        BOOST_REQUIRE(t.IsSegmentFree(2));
+        BOOST_REQUIRE(t.IsSegmentFree(3));
+
+        break; //only needs to pass once
+    }
 }
 
 BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayTestCase)
