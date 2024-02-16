@@ -274,6 +274,12 @@ static void HandleHttpRequest(boost::beast::string_view doc_root, http_stringbod
     boost::beast::http::file_body::value_type body;
     body.open(path.c_str(), boost::beast::file_mode::scan, ec);
 
+    // Handle the case where React doesn't add a .html exension to links
+    if (ec == boost::beast::errc::no_such_file_or_directory) {
+        path.append(".html");
+        body.open(path.c_str(), boost::beast::file_mode::scan, ec);
+    }
+
     // Handle the case where the file doesn't exist
     if (ec == boost::beast::errc::no_such_file_or_directory) {
         response.m_stringBodyResponsePtr = Responses::NotFound(keepAlive, version, req.target());

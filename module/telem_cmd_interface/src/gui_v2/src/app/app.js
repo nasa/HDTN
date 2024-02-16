@@ -26,7 +26,9 @@ export default function App(props) {
             <Box sx={{ display: 'flex' }}>
                 <CssBaseline />
                 <Header />
-                {props.children}
+                <React.Suspense>
+                    {props.children}
+                </React.Suspense>
             </Box>
         </ThemeProvider>
     )
