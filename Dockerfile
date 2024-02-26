@@ -7,7 +7,7 @@ ENV GST_PATH=/gstreamer
 
 # Install OS dependencies
 RUN apt-get update -y && apt-get install -y pkg-config \
-    flex bison git python3-pip ninja-build libx264-dev \
+    flex bison git python3-pip ninja-build \
     cmake build-essential libzmq3-dev libboost-dev libboost-all-dev openssl libssl-dev \
     wget
 
