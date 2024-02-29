@@ -5,6 +5,7 @@ include(CMakeFindDependencyMacro)
 #find_dependency(Boost @MIN_BOOST_VERSION@ REQUIRED COMPONENTS filesystem regex date_time thread)
 find_package(Boost @MIN_BOOST_VERSION@ REQUIRED) #header only required, don't need "COMPONENTS boost"
 find_dependency(LoggerLib REQUIRED)
+find_dependency(Bpcodec REQUIRED)
 
 if(NOT TARGET HDTN::TelemetryDefinitions)
     include("${TELEMETRYDEFINITIONS_CMAKE_DIR}/TelemetryDefinitionsTargets.cmake")

@@ -32,22 +32,22 @@
 #include <forward_list>
 #include "codec/BundleViewV7.h"
 #include "codec/bpv7.h"
-#include "bpsec_export.h"
+#include "bpsec_lib_export.h"
 
 class BpSecBundleProcessor {
     BpSecBundleProcessor() = delete;
 public:
     struct EvpCipherCtxWrapper {
-        BPSEC_EXPORT EvpCipherCtxWrapper();
-        BPSEC_EXPORT ~EvpCipherCtxWrapper();
+        BPSEC_LIB_EXPORT EvpCipherCtxWrapper();
+        BPSEC_LIB_EXPORT ~EvpCipherCtxWrapper();
         /// PIMPL idiom
         struct Impl;
         /// Pointer to the internal implementation
         std::unique_ptr<Impl> m_pimpl;
     };
     struct HmacCtxWrapper {
-        BPSEC_EXPORT HmacCtxWrapper();
-        BPSEC_EXPORT ~HmacCtxWrapper();
+        BPSEC_LIB_EXPORT HmacCtxWrapper();
+        BPSEC_LIB_EXPORT ~HmacCtxWrapper();
         /// PIMPL idiom
         struct Impl;
         /// Pointer to the internal implementation
@@ -71,7 +71,7 @@ public:
         std::unique_ptr<std::string> m_errorStringPtr;
     };
     typedef std::forward_list<BpSecError> BpSecErrorFlist;
-    BPSEC_EXPORT static std::string ErrorListToString(const BpSecErrorFlist& errorList);
+    BPSEC_LIB_EXPORT static std::string ErrorListToString(const BpSecErrorFlist& errorList);
     struct IntegrityReceivedParameters {
         ///The key used for unwrapping any wrapped hmac keys included in the BIB blocks. (set to NULL if not present)
         const uint8_t* keyEncryptionKey;
@@ -134,7 +134,7 @@ public:
     * @param messageDigestOutSize The generated size (in bytes) of the hash output of this function.
     * @return true if there were no errors, false otherwise
     */
-    BPSEC_EXPORT static bool HmacSha(HmacCtxWrapper& ctxWrapper,
+    BPSEC_LIB_EXPORT static bool HmacSha(HmacCtxWrapper& ctxWrapper,
         const COSE_ALGORITHMS variant,
         const std::vector<boost::asio::const_buffer>& ipptParts,
         const uint8_t* key, const uint64_t keyLength,
@@ -158,7 +158,7 @@ public:
     *       The bundle must be manually rerendered in-place.
     * @return empty list if there were no errors
     */
-    BPSEC_EXPORT static BpSecErrorFlist TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrapper& ctxWrapper,
+    BPSEC_LIB_EXPORT static BpSecErrorFlist TryVerifyBundleIntegrityByIndividualBib(HmacCtxWrapper& ctxWrapper,
         EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
         BundleViewV7& bv,
         BundleViewV7::Bpv7CanonicalBlockView& bibBlockView,
@@ -190,7 +190,7 @@ public:
     *                                  Set to false to render manually (i.e. if there are other operations needing completed prior to render).
     * @return true if there were no errors, false otherwise
     */
-    BPSEC_EXPORT static bool TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
+    BPSEC_LIB_EXPORT static bool TryAddBundleIntegrity(HmacCtxWrapper& ctxWrapper,
         EvpCipherCtxWrapper& ctxWrapperForKeyWrap,
         BundleViewV7& bv,
         BPSEC_BIB_HMAC_SHA2_INTEGRITY_SCOPE_MASKS integrityScopeMask,
@@ -221,7 +221,7 @@ public:
     * @param cipherTextOutSize The generated size (in bytes) of the ciphertext output of this function (will be equivalent to plaintext length).
     * @return true if there were no errors, false otherwise
     */
-    BPSEC_EXPORT static bool AesGcmEncrypt(EvpCipherCtxWrapper& ctxWrapper,
+    BPSEC_LIB_EXPORT static bool AesGcmEncrypt(EvpCipherCtxWrapper& ctxWrapper,
         const uint8_t* unencryptedData, const uint64_t unencryptedDataLength,
         const uint8_t* key, const uint64_t keyLength,
         const uint8_t* iv, const uint64_t ivLength,
@@ -246,7 +246,7 @@ public:
     * @param decryptedDataOutSize The generated size (in bytes) of the plaintext output of this function (will be equivalent to encryptedDataLength length).
     * @return true if there were no errors, false otherwise
     */
-    BPSEC_EXPORT static bool AesGcmDecrypt(EvpCipherCtxWrapper& ctxWrapper,
+    BPSEC_LIB_EXPORT static bool AesGcmDecrypt(EvpCipherCtxWrapper& ctxWrapper,
         const uint8_t* encryptedData, const uint64_t encryptedDataLength,
         const uint8_t* key, const uint64_t keyLength,
         const uint8_t* iv, const uint64_t ivLength,
@@ -266,7 +266,7 @@ public:
     * @param wrappedKeyOutSize The generated size (in bytes) of the wrapped key (will be equivalent to keyEncryptionKeyLength + 8).
     * @return true if there were no errors, false otherwise
     */
-    BPSEC_EXPORT static bool AesWrapKey(EvpCipherCtxWrapper& ctxWrapper,
+    BPSEC_LIB_EXPORT static bool AesWrapKey(EvpCipherCtxWrapper& ctxWrapper,
         const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
         const uint8_t* keyToWrap, const unsigned int keyToWrapLength,
         uint8_t* wrappedKeyOut, unsigned int& wrappedKeyOutSize);
@@ -283,7 +283,7 @@ public:
     * @param unwrappedKeyOutSize The generated size (in bytes) of the unwrapped key (will be equivalent to keyEncryptionKeyLength).
     * @return true if there were no errors, false otherwise
     */
-    BPSEC_EXPORT static bool AesUnwrapKey(EvpCipherCtxWrapper& ctxWrapper,
+    BPSEC_LIB_EXPORT static bool AesUnwrapKey(EvpCipherCtxWrapper& ctxWrapper,
         const uint8_t* keyEncryptionKey, const unsigned int keyEncryptionKeyLength,
         const uint8_t* keyToUnwrap, const unsigned int keyToUnwrapLength,
         uint8_t* unwrappedKeyOut, unsigned int& unwrappedKeyOutSize);
@@ -304,7 +304,7 @@ public:
     * @post The BCB block is marked for deletion on successful in-place decryption.  The bundle view must be manually rerendered in-place.
     * @return empty list if there were no errors
     */
-    BPSEC_EXPORT static BpSecErrorFlist TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& ctxWrapper,
+    BPSEC_LIB_EXPORT static BpSecErrorFlist TryDecryptBundleByIndividualBcb(EvpCipherCtxWrapper& ctxWrapper,
         EvpCipherCtxWrapper& ctxWrapperForKeyUnwrap,
         BundleViewV7& bv,
         BundleViewV7::Bpv7CanonicalBlockView& bcbBlockView,
@@ -339,7 +339,7 @@ public:
     * @post A new BCB block is added on successful in-place encryption of the BCB's target(s) to the bv (BundleViewV7), and the bundle is rerendered in-place.
     * @return true if there were no errors, false otherwise
     */
-    BPSEC_EXPORT static bool TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
+    BPSEC_LIB_EXPORT static bool TryEncryptBundle(EvpCipherCtxWrapper& ctxWrapper,
         EvpCipherCtxWrapper& ctxWrapperForKeyWrap,
         BundleViewV7& bv,
         BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS aadScopeMask,

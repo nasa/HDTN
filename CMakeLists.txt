@@ -27,7 +27,7 @@ if(DEFINED CMAKE_SYSTEM_PROCESSOR)
 	if (${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm") 
 		message("CMAKE_SYSTEM_PROCESSOR = ${CMAKE_SYSTEM_PROCESSOR}")
 		message("You are compiling for ARM, shared libraries, x86 hardware accleration features and related unit tests have been disabled")
-		set(NON_ARM_COMPILATION false)
+		set(NON_ARM_COMPILATION OFF)
 		option(BUILD_SHARED_LIBS "Build shared libraries" Off)
 		option(LTP_RNG_USE_RDSEED Off)
 		option(USE_X86_HARDWARE_ACCELERATION Off) 
@@ -35,7 +35,7 @@ if(DEFINED CMAKE_SYSTEM_PROCESSOR)
 		set(CMAKE_CXX_FLAGS_RELEASE:STRING=-O3 -DNDEBUG -fPIC)
 	endif()
 else()
-	set(NON_ARM_COMPILATION true) # assume non ARM compilation if not specified
+	set(NON_ARM_COMPILATION ON) # assume non ARM compilation if not specified
 endif()
 
 include(GenerateExportHeader)
@@ -152,7 +152,7 @@ if((CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64") OR (CMAKE_SYSTEM_PROCESSOR STREQUAL
 	if(LTP_RNG_USE_RDSEED)
 		message(FATAL_ERROR "LTP_RNG_USE_RDSEED is set to ON in the CMakeCache.txt.  It must be turned off on ARM CPUs")
 	endif()
-	set(NON_ARM_COMPILATION false)
+	set(NON_ARM_COMPILATION OFF)
 	include(${CMAKE_SOURCE_DIR}/hardware_acceleration_neon.cmake) # Determine if hardware acceleration can be used
 else() #amd64
 	OPTION(USE_X86_HARDWARE_ACCELERATION "Use CPU SSE/SSE2/BMI1/BMI2 instructions" ON)

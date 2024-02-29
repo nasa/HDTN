@@ -7,6 +7,7 @@ find_dependency(TcpclLib REQUIRED)
 find_dependency(StcpLib REQUIRED)
 find_dependency(UdpLib REQUIRED)
 find_dependency(LtpLib REQUIRED)
+find_dependency(SlipOverUartLib REQUIRED)
 find_dependency(Bpcodec REQUIRED)
 find_dependency(LoggerLib REQUIRED)
 

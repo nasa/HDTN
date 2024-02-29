@@ -24,25 +24,25 @@
 
 #include <cstdint>
 #include <vector>
-#include "bpsec_export.h"
+#include "bpsec_lib_export.h"
 
 struct InitializationVector12Byte {
-    BPSEC_EXPORT InitializationVector12Byte();
-    BPSEC_EXPORT InitializationVector12Byte(const uint64_t timePart);
-    BPSEC_EXPORT ~InitializationVector12Byte();
-    BPSEC_EXPORT void Serialize(void* data) const;
-    BPSEC_EXPORT void Increment();
+    BPSEC_LIB_EXPORT InitializationVector12Byte();
+    BPSEC_LIB_EXPORT InitializationVector12Byte(const uint64_t timePart);
+    BPSEC_LIB_EXPORT ~InitializationVector12Byte();
+    BPSEC_LIB_EXPORT void Serialize(void* data) const;
+    BPSEC_LIB_EXPORT void Increment();
     
     uint64_t m_timePart;
     uint32_t m_counterPart;
 };
 
 struct InitializationVector16Byte {
-    BPSEC_EXPORT InitializationVector16Byte();
-    BPSEC_EXPORT InitializationVector16Byte(const uint64_t timePart);
-    BPSEC_EXPORT ~InitializationVector16Byte();
-    BPSEC_EXPORT void Serialize(void* data) const;
-    BPSEC_EXPORT void Increment();
+    BPSEC_LIB_EXPORT InitializationVector16Byte();
+    BPSEC_LIB_EXPORT InitializationVector16Byte(const uint64_t timePart);
+    BPSEC_LIB_EXPORT ~InitializationVector16Byte();
+    BPSEC_LIB_EXPORT void Serialize(void* data) const;
+    BPSEC_LIB_EXPORT void Increment();
 
     uint64_t m_timePart;
     uint64_t m_counterPart;
@@ -59,8 +59,8 @@ public:
     //16-bit iv's always guaranteed unique (100000 * 2^64) bundles before restarting HDTN..
     static constexpr uint64_t MIN_DIFF_MICROSECONDS = 100000;//100ms
 
-    BPSEC_EXPORT static InitializationVectorsForOneThread Create();
-    BPSEC_EXPORT void SerializeAndIncrement(const bool use12ByteIv);
+    BPSEC_LIB_EXPORT static InitializationVectorsForOneThread Create();
+    BPSEC_LIB_EXPORT void SerializeAndIncrement(const bool use12ByteIv);
 
     InitializationVector12Byte m_iv12;
     InitializationVector16Byte m_iv16;

@@ -3,6 +3,7 @@ include(CMakeFindDependencyMacro)
 
 find_dependency(HDTNUtil REQUIRED)
 find_dependency(LoggerLib REQUIRED)
+find_dependency(StatsLoggerLib REQUIRED)
 
 if(NOT TARGET HDTN::Bpcodec)
     include("${BPCODEC_CMAKE_DIR}/BpcodecTargets.cmake")

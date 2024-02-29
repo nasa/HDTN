@@ -4,6 +4,11 @@ include(CMakeFindDependencyMacro)
 find_dependency(HDTNUtil REQUIRED)
 find_dependency(LoggerLib REQUIRED)
 find_dependency(Bpcodec REQUIRED)
+find_dependency(HDTNConfigLib REQUIRED)
+find_dependency(TelemetryDefinitions REQUIRED)
+find_dependency(StatsLoggerLib REQUIRED)
+
+find_package(Boost @MIN_BOOST_VERSION@ REQUIRED COMPONENTS program_options)
 
 if(NOT TARGET HDTN::HdtnTelemLib)
     include("${HDTNTELEMLIB_CMAKE_DIR}/HdtnTelemLibTargets.cmake")

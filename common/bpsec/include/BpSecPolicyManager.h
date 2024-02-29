@@ -33,7 +33,7 @@
 #include <vector>
 #include <array>
 #include "BpSecConfig.h"
-#include "bpsec_export.h"
+#include "bpsec_lib_export.h"
 
 enum class BPSEC_ROLE {
     SOURCE = 0,
@@ -42,8 +42,8 @@ enum class BPSEC_ROLE {
     RESERVED_MAX_ROLE_TYPES
 };
 struct BpSecPolicy {
-    BPSEC_EXPORT BpSecPolicy();
-    BPSEC_EXPORT bool ValidateAndFinalize();
+    BPSEC_LIB_EXPORT BpSecPolicy();
+    BPSEC_LIB_EXPORT bool ValidateAndFinalize();
 
     bool m_doIntegrity;
     bool m_doConfidentiality;
@@ -83,7 +83,7 @@ struct BpSecPolicyFilter {
     BpSecPoliciesByRoleArray m_policiesByRoleArray; //used only by filter leaf node
 };
 struct PolicySearchCache {
-    BPSEC_EXPORT PolicySearchCache();
+    BPSEC_LIB_EXPORT PolicySearchCache();
     cbhe_eid_t securitySourceEid;
     cbhe_eid_t bundleSourceEid;
     cbhe_eid_t bundleFinalDestEid;
@@ -92,7 +92,7 @@ struct PolicySearchCache {
     const BpSecPolicy* foundPolicy;
 };
 struct BpSecPolicyProcessingContext {
-    BPSEC_EXPORT BpSecPolicyProcessingContext();
+    BPSEC_LIB_EXPORT BpSecPolicyProcessingContext();
     InitializationVectorsForOneThread m_ivStruct;
     BpSecBundleProcessor::ReusableElementsInternal m_bpsecReusableElementsInternal;
     BpSecBundleProcessor::HmacCtxWrapper m_hmacCtxWrapper;
@@ -126,7 +126,7 @@ public:
     * @param isNewPolicy On return, this value is set to false if the policy already exists, or true if the policy was newly created
     * @return A pointer of the newly allocated policy that needs modified (does not need deleted, handled internally).  NULL if a URI was invalid.
     */
-    BPSEC_EXPORT BpSecPolicy* CreateOrGetNewPolicy(const std::string& securitySourceEidUri,
+    BPSEC_LIB_EXPORT BpSecPolicy* CreateOrGetNewPolicy(const std::string& securitySourceEidUri,
         const std::string& bundleSourceEidUri, const std::string& bundleFinalDestEidUri,
         const BPSEC_ROLE role, bool& isNewPolicy);
 
@@ -145,31 +145,31 @@ public:
     * @param role The Bpsec role of this policy.
     * @return A pointer of the existing policy, or NULL if no policy could be matched.
     */
-    BPSEC_EXPORT const BpSecPolicy* FindPolicy(const cbhe_eid_t& securitySourceEid,
+    BPSEC_LIB_EXPORT const BpSecPolicy* FindPolicy(const cbhe_eid_t& securitySourceEid,
         const cbhe_eid_t& bundleSourceEid, const cbhe_eid_t& bundleFinalDestEid, const BPSEC_ROLE role) const;
 
-    BPSEC_EXPORT const BpSecPolicy* FindPolicyWithCacheSupport(const cbhe_eid_t& securitySourceEid,
+    BPSEC_LIB_EXPORT const BpSecPolicy* FindPolicyWithCacheSupport(const cbhe_eid_t& securitySourceEid,
         const cbhe_eid_t& bundleSourceEid, const cbhe_eid_t& bundleFinalDestEid, const BPSEC_ROLE role, PolicySearchCache& searchCache) const;
 
-    BPSEC_EXPORT bool ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx,
+    BPSEC_LIB_EXPORT bool ProcessReceivedBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx,
         BpSecBundleProcessor::BpSecErrorFlist& errorList, const uint64_t myNodeId) const;
 
-    BPSEC_EXPORT static bool PopulateTargetArraysForSecuritySource(BundleViewV7& bv,
+    BPSEC_LIB_EXPORT static bool PopulateTargetArraysForSecuritySource(BundleViewV7& bv,
         BpSecPolicyProcessingContext& ctx,
         const BpSecPolicy& policy);
 
-    BPSEC_EXPORT static bool PopulateTargetArraysForSecuritySource(
+    BPSEC_LIB_EXPORT static bool PopulateTargetArraysForSecuritySource(
         const uint8_t* bpv7BlockTypeToManuallyAssignedBlockNumberLut,
         BpSecPolicyProcessingContext& ctx,
         const BpSecPolicy& policy);
 
-    BPSEC_EXPORT static bool ProcessOutgoingBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx,
+    BPSEC_LIB_EXPORT static bool ProcessOutgoingBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx,
         const BpSecPolicy& policy, const cbhe_eid_t& thisSecuritySourceEid);
 
-    BPSEC_EXPORT bool FindPolicyAndProcessOutgoingBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx,
+    BPSEC_LIB_EXPORT bool FindPolicyAndProcessOutgoingBundle(BundleViewV7& bv, BpSecPolicyProcessingContext& ctx,
         const cbhe_eid_t& thisSecuritySourceEid) const;
 
-    BPSEC_EXPORT bool LoadFromConfig(const BpSecConfig& config);
+    BPSEC_LIB_EXPORT bool LoadFromConfig(const BpSecConfig& config);
 private:
     BpSecPolicyFilter m_policyFilterSecuritySource;
 public:

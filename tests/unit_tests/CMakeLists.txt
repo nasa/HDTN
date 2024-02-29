@@ -89,6 +89,8 @@ target_link_libraries(unit-tests
 	log_lib
 	stats_lib
 	$<$<BOOL:${RUN_TELEMETRY}>:telem_lib>
+	$<$<BOOL:${ENABLE_BPSEC}>:bpsec_lib>
+	$<$<BOOL:${ENABLE_MASKING}>:masker_lib>
 	router_lib
 	outduct_manager_lib
 	bp_app_patterns_lib

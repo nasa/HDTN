@@ -17,6 +17,10 @@ endif()
 #because HDTNUtil serves as a dependency for all other HDTN libraries, the following lines set settings needed for all
 set(libzmq_INCLUDE @libzmq_INCLUDE@)
 set(libzmq_LIB @libzmq_LIB@)
+set(NON_ARM_COMPILATION @NON_ARM_COMPILATION@)
+set(ENABLE_BPSEC @ENABLE_BPSEC@)
+set(RUN_TELEMETRY @RUN_TELEMETRY@)
+set(ENABLE_MASKING @ENABLE_MASKING@)
 
 #add compile definitions from hardware_acceleration.cmake used in Sdnv.h, CborUint.h, and Bpv7Crc.h (should be fixed, but for now the package config must export it)
 #also add compile definitions from root cmake such as openssl support 

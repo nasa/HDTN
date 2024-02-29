@@ -1,12 +1,15 @@
-get_filename_component(HDTN_CLI_LIB_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+get_filename_component(HDTNCLILIB_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 include(CMakeFindDependencyMacro)
 
+find_dependency(HDTNUtil REQUIRED)
 find_dependency(TelemetryDefinitions REQUIRED)
 find_dependency(LoggerLib REQUIRED)
 find_dependency(HDTNConfigLib REQUIRED)
 
-if(NOT TARGET HDTN::HdtnCliLib)
-    include("${HDTN_CLI_LIB_CMAKE_DIR}/HDTNCliLibConfig.cmake")
+find_package(Boost @MIN_BOOST_VERSION@ REQUIRED COMPONENTS program_options)
+
+if(NOT TARGET HDTN::HDTNCliLib)
+    include("${HDTNCLILIB_CMAKE_DIR}/HDTNCliLibTargets.cmake")
 endif()
 
-set(HDTN_CLI_LIB_LIBRARIES HDTN::HdtnCliLib)
+set(HDTNCLILIB_LIBRARIES HDTN::HDTNCliLib)
