@@ -189,20 +189,35 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
     {
         m_useCustodyTransfer = true;
         outductOpportunisticProcessReceivedBundleCallback = boost::bind(&BpSourcePattern::WholeRxBundleReadyCallback, this, boost::placeholders::_1);
-        LOG_INFO(subprocess) << "this bpsource pattern detected tcpcl convergence layer which is bidirectional.. supporting custody transfer";
+        LOG_INFO(subprocess) << "this bpsource pattern detected tcpcl convergence layer which is bidirectional.. ";
+        if ((!useBpVersion7) && (!forceDisableCustody)) {
+            LOG_INFO(subprocess) << " requesting bpv6 custody signals";
+        }
+        else if (useBpVersion7) {
+            LOG_INFO(subprocess) << " bpv7 was specified so requesting custody is disabled";
+        }
+        else if (forceDisableCustody) {
+            LOG_INFO(subprocess) << " force-disable-custody was specified so requesting custody is disabled";
+        }
     }
     else if ((outductsConfigPtr) &&
         (
             (outductsConfigPtr->m_outductElementConfigVector[0].convergenceLayer == "slip_over_uart") ||
             (outductsConfigPtr->m_outductElementConfigVector[0].convergenceLayer == "bp_over_encap_local_stream")
-        ) &&
-        (!forceDisableCustody))
+        ))
     {
         m_useCustodyTransfer = true;
         outductOpportunisticProcessReceivedBundleCallback = boost::bind(&BpSourcePattern::WholeRxBundleReadyCallback, this, boost::placeholders::_1);
-        LOG_INFO(subprocess) << 
-            "this bpsource pattern detected SlipOverUart or BpOverEncap convergence layer which is bidirectional.."
-            " supporting custody transfer since force-disable-custody was not specified";
+        LOG_INFO(subprocess) << "this bpsource pattern detected SlipOverUart or BpOverEncap convergence layer which is bidirectional..";
+        if ((!useBpVersion7) && (!forceDisableCustody)) {
+            LOG_INFO(subprocess) << " requesting bpv6 custody signals";
+        }
+        else if (useBpVersion7) {
+            LOG_INFO(subprocess) << " bpv7 was specified so requesting custody is disabled";
+        }
+        else if (forceDisableCustody) {
+            LOG_INFO(subprocess) << " force-disable-custody was specified so requesting custody is disabled";
+        }
     }
     else {
         m_useCustodyTransfer = false;

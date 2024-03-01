@@ -340,7 +340,13 @@ void UartInterface::PopCbThreadFunc() {
         padded_vector_uint8_t& rxBundle = m_bundleRxBuffersCbVec[consumeIndex];
         ++m_totalBundlesReceived;
         m_totalBundleBytesReceived += rxBundle.size();
-        m_wholeBundleReadyCallback(rxBundle);
+        if (m_wholeBundleReadyCallback) {
+            m_wholeBundleReadyCallback(rxBundle);
+        }
+        else {
+            LOG_ERROR(subprocess) << "Uart " << m_comPortName 
+                << " received a bundle but m_wholeBundleReadyCallback was not set.. dropping bundle";
+        }
         rxBundle.resize(0);
         rxBundle.reserve(m_maxRxBundleSizeBytes);
 
