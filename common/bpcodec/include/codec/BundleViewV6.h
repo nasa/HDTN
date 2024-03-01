@@ -126,6 +126,7 @@ public:
 
     static constexpr std::size_t MAX_NUM_BLOCK_TYPE_CODES = static_cast<std::size_t>(BPV6_BLOCK_TYPE_CODE::RESERVED_MAX_BLOCK_TYPES);
     std::unique_ptr<Bpv6CanonicalBlock> m_blockNumberToRecycledCanonicalBlockArray[MAX_NUM_BLOCK_TYPE_CODES];
+    std::unique_ptr<Bpv6CanonicalBlock> m_recycledAdminRecord;
 
     boost::asio::const_buffer m_renderedBundle;
     padded_vector_uint8_t m_frontBuffer;

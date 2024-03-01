@@ -105,7 +105,7 @@ static bool AppendBlock(BundleViewV6::Bpv6CanonicalBlockView & block, BundleView
     uint64_t decodeSize = 0;
     bool isAdminRecord = /*TODO*/ false;
     if(!Bpv6CanonicalBlock::DeserializeBpv6(copy.headerPtr, data, decodeSize,
-            block.actualSerializedBlockPtr.size(), isAdminRecord, bv.m_blockNumberToRecycledCanonicalBlockArray)) {
+            block.actualSerializedBlockPtr.size(), isAdminRecord, bv.m_blockNumberToRecycledCanonicalBlockArray, &bv.m_recycledAdminRecord)) {
         LOG_ERROR(subprocess) << "Failed to deserialize canonical block";
         return false;
     }

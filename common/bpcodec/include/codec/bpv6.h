@@ -202,7 +202,8 @@ struct CLASS_VISIBILITY_BPCODEC Bpv6CanonicalBlock {
     BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
     BPCODEC_EXPORT static bool DeserializeBpv6(std::unique_ptr<Bpv6CanonicalBlock> & canonicalPtr, const uint8_t * serialization,
         uint64_t & numBytesTakenToDecode, uint64_t bufferSize, const bool isAdminRecord,
-        std::unique_ptr<Bpv6CanonicalBlock>* blockNumberToRecycledCanonicalBlockArray);
+        std::unique_ptr<Bpv6CanonicalBlock>* blockNumberToRecycledCanonicalBlockArray,
+        std::unique_ptr<Bpv6CanonicalBlock>* recycledAdminRecord);
     BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv6();
     //virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
     /**

@@ -410,7 +410,8 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7CanonicalBlock {
     BPCODEC_EXPORT void RecomputeCrcAfterDataModification(uint8_t * serializationBase, const uint64_t sizeSerialized);
     BPCODEC_EXPORT static bool DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & canonicalPtr, uint8_t * serialization,
         uint64_t & numBytesTakenToDecode, uint64_t bufferSize, const bool skipCrcVerify, const bool isAdminRecord,
-        std::unique_ptr<Bpv7CanonicalBlock>* blockNumberToRecycledCanonicalBlockArray);
+        std::unique_ptr<Bpv7CanonicalBlock>* blockNumberToRecycledCanonicalBlockArray,
+        std::unique_ptr<Bpv7CanonicalBlock>* recycledAdminRecord);
     BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
 };
 
