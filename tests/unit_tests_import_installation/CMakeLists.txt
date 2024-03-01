@@ -183,3 +183,5 @@ target_link_libraries(unit-tests-from-install
 	Boost::unit_test_framework
 	Boost::timer
 )
+
+install(TARGETS unit-tests-from-install DESTINATION ${CMAKE_INSTALL_BINDIR})

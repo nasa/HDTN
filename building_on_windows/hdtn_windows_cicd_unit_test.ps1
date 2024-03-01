@@ -427,6 +427,48 @@ if(-Not $hdtn_is_installed) {
     Pop-Location
     Remove-Item -Recurse -Force "hdtn-build-tmp"
 }
+
+$hdtn_is_installed = (Test-Path -Path "${hdtn_install_full_directory_name}\lib")
+
+#build unit_tests_import_installation
+if($hdtn_is_installed) {
+    $unit_tests_import_path = "hdtn-build-unit-tests-import-tmp"
+    if(Test-Path -Path ".\${unit_tests_import_path}") {
+        Remove-Item -Recurse -Force "${unit_tests_import_path}"
+    }
+    New-Item -ItemType Directory -Force -Path ".\${unit_tests_import_path}"
+    push-location ".\${unit_tests_import_path}"
+
+    $hdtn_cmake_build_options = ("`" " + #literal quote needed to make this one .bat parameter
+        "${cmake_generator_arg_hdtn} " +
+        "-DBOOST_INCLUDEDIR:PATH=`"`"${build_directory}\${boost_install_directory_name}`"`" " + 
+        "-DBOOST_LIBRARYDIR:PATH=`"`"${build_directory}\${boost_install_directory_name}\${boost_library_install_prefix}`"`" " + 
+        "-DBOOST_ROOT:PATH=`"`"${build_directory}\${boost_install_directory_name}`"`" " + 
+        "-DOPENSSL_ROOT_DIR:PATH=`"`"${build_directory}\${openssl_install_directory_name}`"`" " + 
+        "-DOPENSSL_USE_STATIC_LIBS:BOOL=OFF " + 
+        "-DCMAKE_PREFIX_PATH:PATH=`"`"${build_directory}\${hdtn_install_directory_name}`"`" " + #set find_package search
+        "-DCMAKE_INSTALL_PREFIX:PATH=`"`"${build_directory}\${hdtn_install_directory_name}`"`" " + #myinstall is within the mybuild directory, double double quote for .bat quote escape char
+        "`"`"${Env:HDTN_SOURCE_ROOT}\tests\unit_tests_import_installation`"`"" + 
+        "`"") #ending literal quote needed to make this one .bat parameter
+    cmd.exe /c "$PSScriptRoot\build_generic_cmake_project.bat ${num_cpu_cores} ${hdtn_cmake_build_options} ${vcvars64_path_with_quotes}"
+    if($LastExitCode -ne 0) {
+        Start-Sleep -Seconds 2
+        # Get-ChildItem -Recurse
+        if(Test-Path -Path ".\CMakeFiles\CMakeError.log") {
+            Write-Output "here is the content of .\CMakeFiles\CMakeError.log:"
+            get-content ".\CMakeFiles\CMakeError.log"
+        }
+        if(Test-Path -Path ".\CMakeFiles\CMakeConfigureLog.yaml") {
+            Write-Output "here is the content of .\CMakeFiles\CMakeConfigureLog.yaml:"
+            get-content ".\CMakeFiles\CMakeConfigureLog.yaml"
+        }
+
+        throw 'unit_tests_import_installation failed to build'
+    }
+    Pop-Location
+    Remove-Item -Recurse -Force "${unit_tests_import_path}"
+}
+
 #run hdtn unit tests
 $to_prepend_to_path = ( #add the shared .dll files to the path
     "${build_directory}\${zmq_install_directory_name}\bin" + [IO.Path]::PathSeparator + 
