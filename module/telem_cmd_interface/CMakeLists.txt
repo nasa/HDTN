@@ -56,7 +56,6 @@ target_link_libraries(telem_lib
 		stats_lib
 		telemetry_definitions
 		Boost::program_options
-        ${CMAKE_DL_LIBS}
 )
 target_include_directories(telem_lib
 	PUBLIC

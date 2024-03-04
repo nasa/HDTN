@@ -148,7 +148,8 @@ uint64_t Bpv6CanonicalBlock::GetCanonicalBlockTypeSpecificDataSerializationSize(
 bool Bpv6CanonicalBlock::DeserializeBpv6(std::unique_ptr<Bpv6CanonicalBlock> & canonicalPtr,
     const uint8_t * serialization, uint64_t & numBytesTakenToDecode,
     uint64_t bufferSize, const bool isAdminRecord,
-    std::unique_ptr<Bpv6CanonicalBlock>* blockNumberToRecycledCanonicalBlockArray)
+    std::unique_ptr<Bpv6CanonicalBlock>* blockNumberToRecycledCanonicalBlockArray,
+    std::unique_ptr<Bpv6CanonicalBlock>* recycledAdminRecord)
 {
     static constexpr std::size_t MAX_NUM_BLOCK_TYPE_CODES = static_cast<std::size_t>(BPV6_BLOCK_TYPE_CODE::RESERVED_MAX_BLOCK_TYPES);
     uint8_t sdnvSize;
@@ -169,7 +170,19 @@ bool Bpv6CanonicalBlock::DeserializeBpv6(std::unique_ptr<Bpv6CanonicalBlock> & c
     const BPV6_BLOCK_TYPE_CODE blockTypeCode = static_cast<BPV6_BLOCK_TYPE_CODE>(*serialization++);
     --bufferSize;
     const std::size_t blockTypeCodeAsSizeT = static_cast<std::size_t>(blockTypeCode);
-    if (blockNumberToRecycledCanonicalBlockArray
+    if (isAdminRecord && (blockTypeCode == BPV6_BLOCK_TYPE_CODE::PAYLOAD)) {
+        //Bpv6AdministrativeRecord always go into a payload block.
+        //However it's possible that an admin record bundle may also have non-payload blocks,
+        // in which case those will not be in this if statement
+        
+        if(recycledAdminRecord && (*recycledAdminRecord)) {
+            canonicalPtr = std::move(*recycledAdminRecord);
+        }
+        else {
+            canonicalPtr = boost::make_unique<Bpv6AdministrativeRecord>();
+        }
+    }
+    else if (blockNumberToRecycledCanonicalBlockArray
         && (blockTypeCodeAsSizeT < MAX_NUM_BLOCK_TYPE_CODES)
         && (blockNumberToRecycledCanonicalBlockArray[blockTypeCodeAsSizeT]))
     {
@@ -192,9 +205,6 @@ bool Bpv6CanonicalBlock::DeserializeBpv6(std::unique_ptr<Bpv6CanonicalBlock> & c
                 canonicalPtr = boost::make_unique<Bpv6BundleAgeCanonicalBlock>();
                 break;
             case BPV6_BLOCK_TYPE_CODE::PAYLOAD:
-                //admin records always go into a payload block
-                canonicalPtr = (isAdminRecord) ? boost::make_unique<Bpv6AdministrativeRecord>() : boost::make_unique<Bpv6CanonicalBlock>();
-                break;
             default:
                 canonicalPtr = boost::make_unique<Bpv6CanonicalBlock>();
                 break;

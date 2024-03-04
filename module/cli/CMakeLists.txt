@@ -19,7 +19,14 @@ target_include_directories(hdtn_cli_lib
 	    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # for GENERATE_EXPORT_HEADER
 )
-target_link_libraries(hdtn_cli_lib PUBLIC hdtn_util log_lib telemetry_definitions config_lib Boost::program_options)
+target_link_libraries(hdtn_cli_lib
+	PUBLIC
+		hdtn_util
+		log_lib
+		telemetry_definitions
+		config_lib
+		Boost::program_options
+)
 install(TARGETS hdtn_cli_lib
 	EXPORT hdtn_cli_lib-targets
 	DESTINATION "${CMAKE_INSTALL_LIBDIR}"

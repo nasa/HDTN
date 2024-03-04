@@ -277,7 +277,8 @@ void Bpv7CanonicalBlock::RecomputeCrcAfterDataModification(uint8_t * serializati
 //serialization must be temporarily modifyable to zero crc and restore it
 bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & canonicalPtr, uint8_t * serialization, uint64_t & numBytesTakenToDecode,
     uint64_t bufferSize, const bool skipCrcVerify, const bool isAdminRecord,
-    std::unique_ptr<Bpv7CanonicalBlock>* blockNumberToRecycledCanonicalBlockArray)
+    std::unique_ptr<Bpv7CanonicalBlock>* blockNumberToRecycledCanonicalBlockArray,
+    std::unique_ptr<Bpv7CanonicalBlock>* recycledAdminRecord)
 {
     static constexpr std::size_t MAX_NUM_BLOCK_TYPE_CODES = static_cast<std::size_t>(BPV7_BLOCK_TYPE_CODE::RESERVED_MAX_BLOCK_TYPES);
     uint8_t cborSizeDecoded;
@@ -316,11 +317,17 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
     }
     serialization += cborSizeDecoded;
     bufferSize -= cborSizeDecoded;
-    if (isAdminRecord) {
-        if (blockTypeCode != BPV7_BLOCK_TYPE_CODE::PAYLOAD) { //admin records always go into a payload block
-            return false;
+    if (isAdminRecord && (blockTypeCode == BPV7_BLOCK_TYPE_CODE::PAYLOAD)) {
+        //Bpv7AdministrativeRecord always go into a payload block.
+        //However it's possible that an admin record bundle may also have non-payload blocks,
+        // in which case those will not be in this if statement
+
+        if (recycledAdminRecord && (*recycledAdminRecord)) {
+            canonicalPtr = std::move(*recycledAdminRecord);
         }
-        canonicalPtr = boost::make_unique<Bpv7AdministrativeRecord>();
+        else {
+            canonicalPtr = boost::make_unique<Bpv7AdministrativeRecord>();
+        }
     }
     else if (blockNumberToRecycledCanonicalBlockArray
         && (blockTypeCodeAsSizeT < MAX_NUM_BLOCK_TYPE_CODES)

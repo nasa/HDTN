@@ -345,6 +345,7 @@ BOOST_AUTO_TEST_CASE(BundleViewV6TestCase)
         {
             BundleViewV6 bvRecycled;
             BOOST_REQUIRE_EQUAL(bvRecycled.m_listCanonicalBlockView.size(), 0);
+            BOOST_REQUIRE(!bvRecycled.m_recycledAdminRecord);
             std::vector<Bpv6CanonicalBlock*> lastBlockPtrs;
             for (unsigned int i = 0; i < 4; ++i) {
                 padded_vector_uint8_t toSwapIn(bundleSerializedOriginal);
@@ -366,6 +367,7 @@ BOOST_AUTO_TEST_CASE(BundleViewV6TestCase)
                 {
                     lastBlockPtrs.push_back(it->headerPtr.get());
                 }
+                BOOST_REQUIRE(!bvRecycled.m_recycledAdminRecord);
             }
         }
     }
@@ -693,13 +695,13 @@ BOOST_AUTO_TEST_CASE(Bpv6BundleStatusReportTestCase)
 
                 /*
                 enum class BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS : uint8_t {
-    NO_FLAGS_SET                                 = 0,
-    REPORTING_NODE_RECEIVED_BUNDLE               = (1 << 0),
-    REPORTING_NODE_ACCEPTED_CUSTODY_OF_BUNDLE    = (1 << 1),
-    REPORTING_NODE_FORWARDED_BUNDLE              = (1 << 2),
-    REPORTING_NODE_DELIVERED_BUNDLE              = (1 << 3),
-    REPORTING_NODE_DELETED_BUNDLE                = (1 << 4),
-};*/
+                NO_FLAGS_SET                                 = 0,
+                REPORTING_NODE_RECEIVED_BUNDLE               = (1 << 0),
+                REPORTING_NODE_ACCEPTED_CUSTODY_OF_BUNDLE    = (1 << 1),
+                REPORTING_NODE_FORWARDED_BUNDLE              = (1 << 2),
+                REPORTING_NODE_DELIVERED_BUNDLE              = (1 << 3),
+                REPORTING_NODE_DELETED_BUNDLE                = (1 << 4),
+                };*/
                 //reporting-node-received-bundle
                 if (assert0) {
                     bsr.SetTimeOfReceiptOfBundleAndStatusFlag(t0);
@@ -756,9 +758,12 @@ BOOST_AUTO_TEST_CASE(Bpv6BundleStatusReportTestCase)
             BOOST_REQUIRE_GT(bundleSerializedOriginal.size(), 0);
             padded_vector_uint8_t bundleSerializedCopy(bundleSerializedOriginal); //the copy can get modified by bundle view on first load
             BOOST_REQUIRE(bundleSerializedOriginal == bundleSerializedCopy);
+            BOOST_REQUIRE(!bv.m_recycledAdminRecord);
             bv.Reset();
+            BOOST_REQUIRE(bv.m_recycledAdminRecord);
             //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
             BOOST_REQUIRE(bv.LoadBundle(&bundleSerializedCopy[0], bundleSerializedCopy.size()));
+            BOOST_REQUIRE(!bv.m_recycledAdminRecord);
             BOOST_REQUIRE(bv.m_backBuffer != bundleSerializedCopy);
             BOOST_REQUIRE(bv.m_frontBuffer != bundleSerializedCopy);
 

@@ -322,6 +322,36 @@ BOOST_AUTO_TEST_CASE(BundleViewV7TestCase)
             BOOST_REQUIRE(bv.m_frontBuffer != bundleSerializedCopy);
             BOOST_REQUIRE(bv.m_frontBuffer == bundleSerializedOriginal);
         }
+
+        //reload bundle many times to test BundleViewV7 block recycler (using same BundleViewV7 obj)
+        {
+            BundleViewV7 bvRecycled;
+            BOOST_REQUIRE_EQUAL(bvRecycled.m_listCanonicalBlockView.size(), 0);
+            BOOST_REQUIRE(!bvRecycled.m_recycledAdminRecord);
+            std::vector<Bpv7CanonicalBlock*> lastBlockPtrs;
+            for (unsigned int i = 0; i < 4; ++i) {
+                padded_vector_uint8_t toSwapIn(bundleSerializedOriginal);
+                BOOST_REQUIRE(bvRecycled.SwapInAndLoadBundle(toSwapIn, false)); //load resets the bundleview
+                BOOST_REQUIRE_EQUAL(bvRecycled.m_listCanonicalBlockView.size(), 4);
+                if (i) {
+                    //make sure blocks were recycled
+                    std::vector<Bpv7CanonicalBlock*> nowBlockPtrs;
+                    for (BundleViewV7::canonical_block_view_list_t::const_iterator it = bvRecycled.m_listCanonicalBlockView.cbegin();
+                        it != bvRecycled.m_listCanonicalBlockView.cend(); ++it)
+                    {
+                        nowBlockPtrs.push_back(it->headerPtr.get());
+                    }
+                    BOOST_REQUIRE(lastBlockPtrs == nowBlockPtrs);
+                }
+                lastBlockPtrs.clear();
+                for (BundleViewV7::canonical_block_view_list_t::const_iterator it = bvRecycled.m_listCanonicalBlockView.cbegin();
+                    it != bvRecycled.m_listCanonicalBlockView.cend(); ++it)
+                {
+                    lastBlockPtrs.push_back(it->headerPtr.get());
+                }
+                BOOST_REQUIRE(!bvRecycled.m_recycledAdminRecord);
+            }
+        }
     }
 
 
@@ -831,9 +861,12 @@ BOOST_AUTO_TEST_CASE(Bpv7BundleStatusReportTestCase)
                     BOOST_REQUIRE_GT(bundleSerializedOriginal.size(), 0);
                     padded_vector_uint8_t bundleSerializedCopy(bundleSerializedOriginal); //the copy can get modified by bundle view on first load
                     BOOST_REQUIRE(bundleSerializedOriginal == bundleSerializedCopy);
+                    BOOST_REQUIRE(!bv.m_recycledAdminRecord);
                     bv.Reset();
+                    BOOST_REQUIRE(bv.m_recycledAdminRecord);
                     //LOG_INFO(subprocess) << "sz " << bundleSerializedCopy.size();
                     BOOST_REQUIRE(bv.LoadBundle(&bundleSerializedCopy[0], bundleSerializedCopy.size()));
+                    BOOST_REQUIRE(!bv.m_recycledAdminRecord);
                     BOOST_REQUIRE(bv.m_backBuffer != bundleSerializedCopy);
                     BOOST_REQUIRE(bv.m_frontBuffer != bundleSerializedCopy);
 

@@ -49,7 +49,7 @@ bool BundleViewV6::Bpv6CanonicalBlockView::HasBlockProcessingControlFlagSet(cons
     return ((headerPtr->m_blockProcessingControlFlags & flag) != BPV6_BLOCKFLAG::NO_FLAGS_SET);
 }
 
-BundleViewV6::BundleViewV6() {}
+BundleViewV6::BundleViewV6() : m_applicationDataUnitStartPtr(NULL) {}
 BundleViewV6::~BundleViewV6() {}
 
 bool BundleViewV6::Load(const bool loadPrimaryBlockOnly) {
@@ -57,7 +57,6 @@ bool BundleViewV6::Load(const bool loadPrimaryBlockOnly) {
     uint8_t * serialization = (uint8_t*)m_renderedBundle.data();
     uint64_t bufferSize = m_renderedBundle.size();
     uint64_t decodedBlockSize;
-
     if (!m_primaryBlockView.header.DeserializeBpv6(serialization, decodedBlockSize, bufferSize)) {
         return false;
     }
@@ -81,7 +80,7 @@ bool BundleViewV6::Load(const bool loadPrimaryBlockOnly) {
         cbv.markedForDeletion = false;
         if (!Bpv6CanonicalBlock::DeserializeBpv6(cbv.headerPtr, serialization,
             decodedBlockSize, bufferSize, isAdminRecord,
-            m_blockNumberToRecycledCanonicalBlockArray))
+            m_blockNumberToRecycledCanonicalBlockArray, &m_recycledAdminRecord))
         {
             return false;
         }
@@ -138,7 +137,12 @@ bool BundleViewV6::Render(uint8_t * serialization, uint64_t & sizeSerialized) {
     m_listCanonicalBlockView.remove_if([&](Bpv6CanonicalBlockView & v) {
         if (v.markedForDeletion && v.headerPtr) {
             const std::size_t blockTypeCode = static_cast<std::size_t>(v.headerPtr->m_blockTypeCode);
-            if (blockTypeCode < MAX_NUM_BLOCK_TYPE_CODES) {
+            const bool isAdminRecord = (v.headerPtr->m_blockTypeCode == BPV6_BLOCK_TYPE_CODE::PAYLOAD)
+                && (dynamic_cast<Bpv6AdministrativeRecord*>(v.headerPtr.get()) != NULL);
+            if (isAdminRecord) {
+                m_recycledAdminRecord = std::move(v.headerPtr);
+            }
+            else if (blockTypeCode < MAX_NUM_BLOCK_TYPE_CODES) {
                 m_blockNumberToRecycledCanonicalBlockArray[blockTypeCode] = std::move(v.headerPtr);
             }
         }
@@ -250,7 +254,12 @@ std::size_t BundleViewV6::DeleteAllCanonicalBlocksByType(const BPV6_BLOCK_TYPE_C
         const bool doDelete = (v.headerPtr) && (v.headerPtr->m_blockTypeCode == canonicalBlockTypeCode);
         if (doDelete) {
             const std::size_t blockTypeCode = static_cast<std::size_t>(v.headerPtr->m_blockTypeCode);
-            if (blockTypeCode < MAX_NUM_BLOCK_TYPE_CODES) {
+            const bool isAdminRecord = (v.headerPtr->m_blockTypeCode == BPV6_BLOCK_TYPE_CODE::PAYLOAD)
+                && (dynamic_cast<Bpv6AdministrativeRecord*>(v.headerPtr.get()) != NULL);
+            if (isAdminRecord) {
+                m_recycledAdminRecord = std::move(v.headerPtr);
+            }
+            else if (blockTypeCode < MAX_NUM_BLOCK_TYPE_CODES) {
                 m_blockNumberToRecycledCanonicalBlockArray[blockTypeCode] = std::move(v.headerPtr);
             }
         }
@@ -307,7 +316,12 @@ void BundleViewV6::Reset() {
     m_listCanonicalBlockView.remove_if([&](Bpv6CanonicalBlockView& v) {
         if (v.headerPtr) {
             const std::size_t blockTypeCode = static_cast<std::size_t>(v.headerPtr->m_blockTypeCode);
-            if (blockTypeCode < MAX_NUM_BLOCK_TYPE_CODES) {
+            const bool isAdminRecord = (v.headerPtr->m_blockTypeCode == BPV6_BLOCK_TYPE_CODE::PAYLOAD)
+                && (dynamic_cast<Bpv6AdministrativeRecord*>(v.headerPtr.get()) != NULL);
+            if (isAdminRecord) {
+                m_recycledAdminRecord = std::move(v.headerPtr);
+            }
+            else if (blockTypeCode < MAX_NUM_BLOCK_TYPE_CODES) {
                 m_blockNumberToRecycledCanonicalBlockArray[blockTypeCode] = std::move(v.headerPtr);
             }
         }

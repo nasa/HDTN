@@ -45,6 +45,7 @@ else()
 	if(COMPILER_NEEDS_BOOST_ALL_DYN_LINK)
 		message("Compiler needs BOOST_ALL_DYN_LINK.. adding compile definition BOOST_ALL_DYN_LINK")
 		add_compile_definitions(BOOST_ALL_DYN_LINK)
+		list(APPEND COMPILE_DEFINITIONS_TO_EXPORT BOOST_ALL_DYN_LINK)
 		unset(COMPILER_NEEDS_BOOST_ALL_DYN_LINK CACHE) #remove cache variable so it will always rerun this check
 	else()
 		unset(COMPILER_NEEDS_BOOST_ALL_DYN_LINK CACHE) #remove cache variable so it will always rerun this check
