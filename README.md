@@ -152,6 +152,9 @@ Note: By Default, BUILD_SHARED_LIBS is OFF and hdtn is built as static
 To use shared libs, edit CMakeCache.txt, set `BUILD_SHARED_LIBS:BOOL` to `ON` and add fPIC to the Cmakecache variable:
 `CMAKE_CXX_FLAGS_RELEASE:STRING=-03 -DNDEBUG -fPIC`
 
+Note: If building HDTN from a cloned git repo (with a .git directory in the source root), HDTN's CMake will get the Git SHA-1 hash so that not only will HDTN's logger print the HDTN version, but also it will print HDTN's latest commit hash.  However, if building HDTN from zip, tar, tar.bz2, or tar.gz, HDTN's CMake can detect the commit hash within the archive file's comment header by running `cmake` with the following argument that points to the archive file from where HDTN was extracted from:
+* cmake -DHDTN_ARCHIVE_FILE=/path/to/hdtn.zip ..
+
 #### ARM Platforms
 HDTN has been tested on various ARM platforms such as Raspberry Pi, Nvidia Jetson Nano and an Ampere Altra Q64-30 based server. To build HDTN in a native ARM environment add the `-DCMAKE_SYSTEM_PROCESSOR` flag to the cmake command. This flag removes x86 optimizations and the x86 unit test. Shared libraries are disabled for ARM builds by default.
 

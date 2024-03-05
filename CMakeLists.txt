@@ -48,6 +48,8 @@ option(BUILD_SHARED_LIBS "Build shared libraries" Off)
 set(HDTN_VERSION "1.0")
 project(HDTN VERSION ${HDTN_VERSION})
 
+include(${CMAKE_SOURCE_DIR}/git_hash_detection.cmake)
+
 #set(CMAKE_CXX_STANDARD 11)
 include(${CMAKE_SOURCE_DIR}/cpp_standard_detection.cmake) # Determine whether to compile HDTN with C++11 or C++17
 

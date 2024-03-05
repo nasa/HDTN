@@ -23,6 +23,10 @@
 #include BOOST_PP_ASSIGN_SLOT(3)
 #undef BOOST_PP_VALUE
 
+#ifdef HDTN_COMMIT_SHA
+#define HDTN_COMMIT_SHA_STRING BOOST_PP_STRINGIZE(HDTN_COMMIT_SHA)
+#endif
+
 
 #define HDTN_VERSION_STRING BOOST_PP_STRINGIZE( \
     BOOST_PP_CAT(BOOST_PP_SLOT(1), \
@@ -130,7 +134,10 @@ const std::string& Logger::GetHdtnVersionAsString() {
 void Logger::initializeWithProcess(Logger::Process process) {
     Logger::process_attr = process_attr_t(process);
     ensureInitialized();
-    LOG_INFO(Logger::SubProcess::none) << "This is HDTN version " << GetHdtnVersionAsString();
+    LOG_INFO(Logger::SubProcess::none) << "This is HDTN version " HDTN_VERSION_STRING;
+#ifdef HDTN_COMMIT_SHA_STRING
+    LOG_INFO(Logger::SubProcess::none) << "HDTN Git commit SHA-1 is: " HDTN_COMMIT_SHA_STRING;
+#endif
 }
 
 void Logger::ensureInitialized() noexcept {
