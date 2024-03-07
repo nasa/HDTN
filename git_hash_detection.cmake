@@ -18,7 +18,9 @@
 #    e.g. cmake -DHDTN_ARCHIVE_FILE=/path/to/hdtn.zip ..
 
 #CMAKE regex doesn't support the {n} format
-string(REPEAT "[0-9a-f]" 40 REGEX_SHA1_MATCH)
+#string(REPEAT "[0-9a-f]" 40 REGEX_SHA1_MATCH)
+#however, the string repeat function is only available in cmake 3.15 but the minimum cmake version is 3.12, so:
+set(REGEX_SHA1_MATCH "[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]")
 message("$ENV{path}")
 if(WIN32)
 	set(where_cmd "where")
