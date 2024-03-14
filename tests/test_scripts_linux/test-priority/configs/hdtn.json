@@ -15,8 +15,9 @@
     "maxIngressBundleWaitOnEgressMilliseconds": 2000,
     "bufferRxToStorageOnLinkUpSaturation": true,
     "maxLtpReceiveUdpPacketSizeBytes": 65536,
-    "enforceBundlePriority" : true,
     "neighborDepletedStorageDelaySeconds": 0,
+    "fragmentBundlesLargerThanBytes": 0,
+    "enforceBundlePriority" : true,
     "zmqBoundRouterPubSubPortPath": 10200,
     "zmqBoundTelemApiPortPath": 10305,
     "inductsConfig": {

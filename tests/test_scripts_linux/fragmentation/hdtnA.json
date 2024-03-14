@@ -17,6 +17,7 @@
     "maxLtpReceiveUdpPacketSizeBytes": 65536,
     "neighborDepletedStorageDelaySeconds": 0,
     "fragmentBundlesLargerThanBytes": 500,
+    "enforceBundlePriority": false,
     "zmqBoundRouterPubSubPortPath": 10200,
     "zmqBoundTelemApiPortPath": 10305,
     "inductsConfig": {
