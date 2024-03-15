@@ -21,7 +21,7 @@
 
 #include <zmq.hpp>
 
-#include "CLASS_VISIBILITY_TELEMETRY_DEFINITIONS.h"
+#include "telemetry_definitions_export.h"
 #include "TelemetryDefinitions.h"
 
 /**
