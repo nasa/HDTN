@@ -31,15 +31,22 @@
 #include "codec/Cbhe.h"
 #include "JsonSerializable.h"
 
+#ifndef CLASS_VISIBILITY_TELEMETRY_DEFINITIONS
+#  ifdef _WIN32
+#    define CLASS_VISIBILITY_TELEMETRY_DEFINITIONS
+#  else
+#    define CLASS_VISIBILITY_TELEMETRY_DEFINITIONS TELEMETRY_DEFINITIONS_EXPORT
+#  endif
+#endif
 
-struct TELEMETRY_DEFINITIONS_EXPORT StorageTelemetry_t : public JsonSerializable {
-    TELEMETRY_DEFINITIONS_EXPORT StorageTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT ~StorageTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const StorageTelemetry_t& o) const; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const StorageTelemetry_t& o) const;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS StorageTelemetry_t : public JsonSerializable {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS StorageTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS ~StorageTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator==(const StorageTelemetry_t& o) const; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator!=(const StorageTelemetry_t& o) const;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     uint64_t m_timestampMilliseconds;
 
@@ -70,14 +77,14 @@ struct TELEMETRY_DEFINITIONS_EXPORT StorageTelemetry_t : public JsonSerializable
 };
 
 
-struct TELEMETRY_DEFINITIONS_EXPORT StorageExpiringBeforeThresholdTelemetry_t : public JsonSerializable {
-    TELEMETRY_DEFINITIONS_EXPORT StorageExpiringBeforeThresholdTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT ~StorageExpiringBeforeThresholdTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const StorageExpiringBeforeThresholdTelemetry_t& o) const; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const StorageExpiringBeforeThresholdTelemetry_t& o) const;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS StorageExpiringBeforeThresholdTelemetry_t : public JsonSerializable {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS StorageExpiringBeforeThresholdTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS ~StorageExpiringBeforeThresholdTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator==(const StorageExpiringBeforeThresholdTelemetry_t& o) const; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator!=(const StorageExpiringBeforeThresholdTelemetry_t& o) const;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     uint64_t priority;
     uint64_t thresholdSecondsSinceStartOfYear2000;
@@ -85,8 +92,8 @@ struct TELEMETRY_DEFINITIONS_EXPORT StorageExpiringBeforeThresholdTelemetry_t : 
     std::map<uint64_t, bundle_count_plus_bundle_bytes_pair_t> mapNodeIdToExpiringBeforeThresholdCount;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t : public JsonSerializable {
-    TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t();
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS OutductCapabilityTelemetry_t : public JsonSerializable {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS OutductCapabilityTelemetry_t();
 
     
     uint64_t outductArrayIndex; //outductUuid
@@ -97,42 +104,42 @@ struct TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t : public JsonSe
     std::list<cbhe_eid_t> finalDestinationEidList;
     std::list<uint64_t> finalDestinationNodeIdList;
 
-    TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t(const OutductCapabilityTelemetry_t& o); //a copy constructor: X(const X&)
-    TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t(OutductCapabilityTelemetry_t&& o) noexcept; //a move constructor: X(X&&)
-    TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t& operator=(const OutductCapabilityTelemetry_t& o); //a copy assignment: operator=(const X&)
-    TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t& operator=(OutductCapabilityTelemetry_t&& o) noexcept; //a move assignment: operator=(X&&)
-    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const OutductCapabilityTelemetry_t& o) const; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const OutductCapabilityTelemetry_t& o) const; //operator !=
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS OutductCapabilityTelemetry_t(const OutductCapabilityTelemetry_t& o); //a copy constructor: X(const X&)
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS OutductCapabilityTelemetry_t(OutductCapabilityTelemetry_t&& o) noexcept; //a move constructor: X(X&&)
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS OutductCapabilityTelemetry_t& operator=(const OutductCapabilityTelemetry_t& o); //a copy assignment: operator=(const X&)
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS OutductCapabilityTelemetry_t& operator=(OutductCapabilityTelemetry_t&& o) noexcept; //a move assignment: operator=(X&&)
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator==(const OutductCapabilityTelemetry_t& o) const; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator!=(const OutductCapabilityTelemetry_t& o) const; //operator !=
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t : public JsonSerializable {
-    TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t();
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS AllOutductCapabilitiesTelemetry_t : public JsonSerializable {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS AllOutductCapabilitiesTelemetry_t();
 
     std::list<OutductCapabilityTelemetry_t> outductCapabilityTelemetryList;
 
-    TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t(const AllOutductCapabilitiesTelemetry_t& o); //a copy constructor: X(const X&)
-    TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t(AllOutductCapabilitiesTelemetry_t&& o) noexcept; //a move constructor: X(X&&)
-    TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t& operator=(const AllOutductCapabilitiesTelemetry_t& o); //a copy assignment: operator=(const X&)
-    TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t& operator=(AllOutductCapabilitiesTelemetry_t&& o) noexcept; //a move assignment: operator=(X&&)
-    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const AllOutductCapabilitiesTelemetry_t& o) const; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const AllOutductCapabilitiesTelemetry_t& o) const; //operator !=
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS AllOutductCapabilitiesTelemetry_t(const AllOutductCapabilitiesTelemetry_t& o); //a copy constructor: X(const X&)
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS AllOutductCapabilitiesTelemetry_t(AllOutductCapabilitiesTelemetry_t&& o) noexcept; //a move constructor: X(X&&)
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS AllOutductCapabilitiesTelemetry_t& operator=(const AllOutductCapabilitiesTelemetry_t& o); //a copy assignment: operator=(const X&)
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS AllOutductCapabilitiesTelemetry_t& operator=(AllOutductCapabilitiesTelemetry_t&& o) noexcept; //a move assignment: operator=(X&&)
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator==(const AllOutductCapabilitiesTelemetry_t& o) const; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator!=(const AllOutductCapabilitiesTelemetry_t& o) const; //operator !=
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 };
 
 
-struct TELEMETRY_DEFINITIONS_EXPORT InductConnectionTelemetry_t : public JsonSerializable {
-    TELEMETRY_DEFINITIONS_EXPORT InductConnectionTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~InductConnectionTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const InductConnectionTelemetry_t& o) const; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const InductConnectionTelemetry_t& o) const;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS InductConnectionTelemetry_t : public JsonSerializable {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS InductConnectionTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~InductConnectionTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator==(const InductConnectionTelemetry_t& o) const; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator!=(const InductConnectionTelemetry_t& o) const;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     std::string m_connectionName;
     std::string m_inputName;
@@ -140,57 +147,38 @@ struct TELEMETRY_DEFINITIONS_EXPORT InductConnectionTelemetry_t : public JsonSer
     uint64_t m_totalBundleBytesReceived;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT StcpInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
-    TELEMETRY_DEFINITIONS_EXPORT StcpInductConnectionTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~StcpInductConnectionTelemetry_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const InductConnectionTelemetry_t& o) const override;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS StcpInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS StcpInductConnectionTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~StcpInductConnectionTelemetry_t() override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator!=(const InductConnectionTelemetry_t& o) const override;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     uint64_t m_totalStcpBytesReceived;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT UdpInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
-    TELEMETRY_DEFINITIONS_EXPORT UdpInductConnectionTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~UdpInductConnectionTelemetry_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const InductConnectionTelemetry_t& o) const override;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS UdpInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS UdpInductConnectionTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~UdpInductConnectionTelemetry_t() override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator!=(const InductConnectionTelemetry_t& o) const override;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     uint64_t m_countCircularBufferOverruns;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT TcpclV3InductConnectionTelemetry_t : public InductConnectionTelemetry_t {
-    TELEMETRY_DEFINITIONS_EXPORT TcpclV3InductConnectionTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~TcpclV3InductConnectionTelemetry_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const InductConnectionTelemetry_t& o) const override;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS TcpclV3InductConnectionTelemetry_t : public InductConnectionTelemetry_t {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS TcpclV3InductConnectionTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~TcpclV3InductConnectionTelemetry_t() override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator!=(const InductConnectionTelemetry_t& o) const override;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
-
-    uint64_t m_totalIncomingFragmentsAcked;
-    uint64_t m_totalOutgoingFragmentsSent;
-    //bidirectionality (identical to OutductTelemetry_t)
-    uint64_t m_totalBundlesSentAndAcked;
-    uint64_t m_totalBundleBytesSentAndAcked;
-    uint64_t m_totalBundlesSent;
-    uint64_t m_totalBundleBytesSent;
-    uint64_t m_totalBundlesFailedToSend;
-};
-
-struct TELEMETRY_DEFINITIONS_EXPORT TcpclV4InductConnectionTelemetry_t : public InductConnectionTelemetry_t {
-    TELEMETRY_DEFINITIONS_EXPORT TcpclV4InductConnectionTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~TcpclV4InductConnectionTelemetry_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const InductConnectionTelemetry_t& o) const override;
-
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     uint64_t m_totalIncomingFragmentsAcked;
     uint64_t m_totalOutgoingFragmentsSent;
@@ -202,14 +190,33 @@ struct TELEMETRY_DEFINITIONS_EXPORT TcpclV4InductConnectionTelemetry_t : public 
     uint64_t m_totalBundlesFailedToSend;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT SlipOverUartInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
-    TELEMETRY_DEFINITIONS_EXPORT SlipOverUartInductConnectionTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~SlipOverUartInductConnectionTelemetry_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const InductConnectionTelemetry_t& o) const override;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS TcpclV4InductConnectionTelemetry_t : public InductConnectionTelemetry_t {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS TcpclV4InductConnectionTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~TcpclV4InductConnectionTelemetry_t() override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator!=(const InductConnectionTelemetry_t& o) const override;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+
+    uint64_t m_totalIncomingFragmentsAcked;
+    uint64_t m_totalOutgoingFragmentsSent;
+    //bidirectionality (identical to OutductTelemetry_t)
+    uint64_t m_totalBundlesSentAndAcked;
+    uint64_t m_totalBundleBytesSentAndAcked;
+    uint64_t m_totalBundlesSent;
+    uint64_t m_totalBundleBytesSent;
+    uint64_t m_totalBundlesFailedToSend;
+};
+
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS SlipOverUartInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS SlipOverUartInductConnectionTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~SlipOverUartInductConnectionTelemetry_t() override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator!=(const InductConnectionTelemetry_t& o) const override;
+
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     uint64_t m_totalSlipBytesSent;
     uint64_t m_totalSlipBytesReceived;
@@ -224,14 +231,14 @@ struct TELEMETRY_DEFINITIONS_EXPORT SlipOverUartInductConnectionTelemetry_t : pu
     uint64_t m_totalBundlesFailedToSend;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT BpOverEncapLocalStreamInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
-    TELEMETRY_DEFINITIONS_EXPORT BpOverEncapLocalStreamInductConnectionTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~BpOverEncapLocalStreamInductConnectionTelemetry_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const InductConnectionTelemetry_t& o) const override;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS BpOverEncapLocalStreamInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS BpOverEncapLocalStreamInductConnectionTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~BpOverEncapLocalStreamInductConnectionTelemetry_t() override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator!=(const InductConnectionTelemetry_t& o) const override;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     uint64_t m_totalEncapHeaderBytesSent;
     uint64_t m_totalEncapHeaderBytesReceived;
@@ -246,14 +253,14 @@ struct TELEMETRY_DEFINITIONS_EXPORT BpOverEncapLocalStreamInductConnectionTeleme
     uint64_t m_totalBundlesFailedToSend;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT LtpInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
-    TELEMETRY_DEFINITIONS_EXPORT LtpInductConnectionTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~LtpInductConnectionTelemetry_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const InductConnectionTelemetry_t& o) const override;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS LtpInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS LtpInductConnectionTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~LtpInductConnectionTelemetry_t() override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator!=(const InductConnectionTelemetry_t& o) const override;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     //session receiver stats
     uint64_t m_numReportSegmentTimerExpiredCallbacks;
@@ -279,25 +286,25 @@ struct TELEMETRY_DEFINITIONS_EXPORT LtpInductConnectionTelemetry_t : public Indu
     
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT InductTelemetry_t : public JsonSerializable {
-    TELEMETRY_DEFINITIONS_EXPORT InductTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const InductTelemetry_t& o) const; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const InductTelemetry_t& o) const;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS InductTelemetry_t : public JsonSerializable {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS InductTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator==(const InductTelemetry_t& o) const; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator!=(const InductTelemetry_t& o) const;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     std::string m_convergenceLayer;
     std::list<std::unique_ptr<InductConnectionTelemetry_t> > m_listInductConnections;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT AllInductTelemetry_t : public JsonSerializable {
-    TELEMETRY_DEFINITIONS_EXPORT AllInductTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const AllInductTelemetry_t& o) const; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const AllInductTelemetry_t& o) const;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS AllInductTelemetry_t : public JsonSerializable {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS AllInductTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator==(const AllInductTelemetry_t& o) const; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator!=(const AllInductTelemetry_t& o) const;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
     uint64_t m_timestampMilliseconds;
     //ingress specific
     uint64_t m_bundleCountEgress;
@@ -310,15 +317,15 @@ struct TELEMETRY_DEFINITIONS_EXPORT AllInductTelemetry_t : public JsonSerializab
 
 
 
-struct TELEMETRY_DEFINITIONS_EXPORT OutductTelemetry_t : public JsonSerializable
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS OutductTelemetry_t : public JsonSerializable
 {
-    TELEMETRY_DEFINITIONS_EXPORT OutductTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~OutductTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry_t& o) const;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS OutductTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~OutductTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator==(const OutductTelemetry_t& o) const; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator!=(const OutductTelemetry_t& o) const;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     std::string m_convergenceLayer;
     uint64_t m_totalBundlesAcked;
@@ -329,31 +336,31 @@ struct TELEMETRY_DEFINITIONS_EXPORT OutductTelemetry_t : public JsonSerializable
     bool m_linkIsUpPhysically;
     bool m_linkIsUpPerTimeSchedule;
 
-    TELEMETRY_DEFINITIONS_EXPORT uint64_t GetTotalBundlesQueued() const;
-    TELEMETRY_DEFINITIONS_EXPORT uint64_t GetTotalBundleBytesQueued() const;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS uint64_t GetTotalBundlesQueued() const;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS uint64_t GetTotalBundleBytesQueued() const;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT StcpOutductTelemetry_t : public OutductTelemetry_t {
-    TELEMETRY_DEFINITIONS_EXPORT StcpOutductTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~StcpOutductTelemetry_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry_t& o) const override;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS StcpOutductTelemetry_t : public OutductTelemetry_t {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS StcpOutductTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~StcpOutductTelemetry_t() override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator!=(const OutductTelemetry_t& o) const override;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     uint64_t m_totalStcpBytesSent;
     uint64_t m_numTcpReconnectAttempts;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT LtpOutductTelemetry_t : public OutductTelemetry_t {
-    TELEMETRY_DEFINITIONS_EXPORT LtpOutductTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~LtpOutductTelemetry_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry_t& o) const override;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS LtpOutductTelemetry_t : public OutductTelemetry_t {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS LtpOutductTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~LtpOutductTelemetry_t() override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator!=(const OutductTelemetry_t& o) const override;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     //ltp engine session sender stats
     uint64_t m_numCheckpointsExpired;
@@ -376,31 +383,14 @@ struct TELEMETRY_DEFINITIONS_EXPORT LtpOutductTelemetry_t : public OutductTeleme
     uint64_t m_countTxUdpPacketsLimitedByRate;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT TcpclV3OutductTelemetry_t : public OutductTelemetry_t {
-    TELEMETRY_DEFINITIONS_EXPORT TcpclV3OutductTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~TcpclV3OutductTelemetry_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry_t& o) const override;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS TcpclV3OutductTelemetry_t : public OutductTelemetry_t {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS TcpclV3OutductTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~TcpclV3OutductTelemetry_t() override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator!=(const OutductTelemetry_t& o) const override;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
-
-    uint64_t m_totalFragmentsAcked;
-    uint64_t m_totalFragmentsSent;
-    //bidirectionality (identical to InductConnectionTelemetry_t)
-    uint64_t m_totalBundlesReceived;
-    uint64_t m_totalBundleBytesReceived;
-    uint64_t m_numTcpReconnectAttempts;
-};
-
-struct TELEMETRY_DEFINITIONS_EXPORT TcpclV4OutductTelemetry_t : public OutductTelemetry_t {
-    TELEMETRY_DEFINITIONS_EXPORT TcpclV4OutductTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~TcpclV4OutductTelemetry_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry_t& o) const override;
-
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     uint64_t m_totalFragmentsAcked;
     uint64_t m_totalFragmentsSent;
@@ -410,14 +400,31 @@ struct TELEMETRY_DEFINITIONS_EXPORT TcpclV4OutductTelemetry_t : public OutductTe
     uint64_t m_numTcpReconnectAttempts;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT SlipOverUartOutductTelemetry_t : public OutductTelemetry_t {
-    TELEMETRY_DEFINITIONS_EXPORT SlipOverUartOutductTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~SlipOverUartOutductTelemetry_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry_t& o) const override;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS TcpclV4OutductTelemetry_t : public OutductTelemetry_t {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS TcpclV4OutductTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~TcpclV4OutductTelemetry_t() override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator!=(const OutductTelemetry_t& o) const override;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+
+    uint64_t m_totalFragmentsAcked;
+    uint64_t m_totalFragmentsSent;
+    //bidirectionality (identical to InductConnectionTelemetry_t)
+    uint64_t m_totalBundlesReceived;
+    uint64_t m_totalBundleBytesReceived;
+    uint64_t m_numTcpReconnectAttempts;
+};
+
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS SlipOverUartOutductTelemetry_t : public OutductTelemetry_t {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS SlipOverUartOutductTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~SlipOverUartOutductTelemetry_t() override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator!=(const OutductTelemetry_t& o) const override;
+
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     uint64_t m_totalSlipBytesSent;
     uint64_t m_totalSlipBytesReceived;
@@ -429,14 +436,14 @@ struct TELEMETRY_DEFINITIONS_EXPORT SlipOverUartOutductTelemetry_t : public Outd
     uint64_t m_totalBundleBytesReceived;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT BpOverEncapLocalStreamOutductTelemetry_t : public OutductTelemetry_t {
-    TELEMETRY_DEFINITIONS_EXPORT BpOverEncapLocalStreamOutductTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~BpOverEncapLocalStreamOutductTelemetry_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry_t& o) const override;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS BpOverEncapLocalStreamOutductTelemetry_t : public OutductTelemetry_t {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS BpOverEncapLocalStreamOutductTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~BpOverEncapLocalStreamOutductTelemetry_t() override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator!=(const OutductTelemetry_t& o) const override;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     uint64_t m_totalEncapHeaderBytesSent;
     uint64_t m_totalEncapHeaderBytesReceived;
@@ -448,14 +455,14 @@ struct TELEMETRY_DEFINITIONS_EXPORT BpOverEncapLocalStreamOutductTelemetry_t : p
     uint64_t m_totalBundleBytesReceived;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT UdpOutductTelemetry_t : public OutductTelemetry_t {
-    TELEMETRY_DEFINITIONS_EXPORT UdpOutductTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~UdpOutductTelemetry_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool operator!=(const OutductTelemetry_t& o) const override;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS UdpOutductTelemetry_t : public OutductTelemetry_t {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS UdpOutductTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~UdpOutductTelemetry_t() override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool operator!=(const OutductTelemetry_t& o) const override;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
     uint64_t m_totalPacketsSent;
     uint64_t m_totalPacketBytesSent;
@@ -464,13 +471,13 @@ struct TELEMETRY_DEFINITIONS_EXPORT UdpOutductTelemetry_t : public OutductTeleme
     uint64_t m_totalPacketsLimitedByRate;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT AllOutductTelemetry_t : public JsonSerializable {
-    TELEMETRY_DEFINITIONS_EXPORT AllOutductTelemetry_t();
-    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const AllOutductTelemetry_t& o) const; //operator ==
-    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const AllOutductTelemetry_t& o) const;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS AllOutductTelemetry_t : public JsonSerializable {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS AllOutductTelemetry_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator==(const AllOutductTelemetry_t& o) const; //operator ==
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator!=(const AllOutductTelemetry_t& o) const;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
     uint64_t m_timestampMilliseconds;
     uint64_t m_totalBundlesGivenToOutducts;
     uint64_t m_totalBundleBytesGivenToOutducts;
@@ -483,149 +490,149 @@ struct TELEMETRY_DEFINITIONS_EXPORT AllOutductTelemetry_t : public JsonSerializa
     std::list<std::unique_ptr<OutductTelemetry_t> > m_listAllOutducts;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT ApiCommand_t : public JsonSerializable {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS ApiCommand_t : public JsonSerializable {
     std::string m_apiCall;
 
-    TELEMETRY_DEFINITIONS_EXPORT ApiCommand_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~ApiCommand_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS ApiCommand_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~ApiCommand_t();
 
-    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
-    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator==(const ApiCommand_t& o) const;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator!=(const ApiCommand_t& o) const;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
-    TELEMETRY_DEFINITIONS_EXPORT static std::shared_ptr<ApiCommand_t> CreateFromJson(const std::string& jsonStr);
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS static std::shared_ptr<ApiCommand_t> CreateFromJson(const std::string& jsonStr);
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT GetStorageApiCommand_t : public ApiCommand_t {
-    TELEMETRY_DEFINITIONS_EXPORT GetStorageApiCommand_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~GetStorageApiCommand_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetStorageApiCommand_t : public ApiCommand_t {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetStorageApiCommand_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~GetStorageApiCommand_t() override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS static const std::string name;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT GetOutductsApiCommand_t : public ApiCommand_t {
-    TELEMETRY_DEFINITIONS_EXPORT GetOutductsApiCommand_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~GetOutductsApiCommand_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetOutductsApiCommand_t : public ApiCommand_t {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetOutductsApiCommand_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~GetOutductsApiCommand_t() override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS static const std::string name;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT GetOutductCapabilitiesApiCommand_t : public ApiCommand_t {
-    TELEMETRY_DEFINITIONS_EXPORT GetOutductCapabilitiesApiCommand_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~GetOutductCapabilitiesApiCommand_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetOutductCapabilitiesApiCommand_t : public ApiCommand_t {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetOutductCapabilitiesApiCommand_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~GetOutductCapabilitiesApiCommand_t() override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS static const std::string name;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT GetInductsApiCommand_t : public ApiCommand_t {
-    TELEMETRY_DEFINITIONS_EXPORT GetInductsApiCommand_t();
-    TELEMETRY_DEFINITIONS_EXPORT ~GetInductsApiCommand_t();
-    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetInductsApiCommand_t : public ApiCommand_t {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetInductsApiCommand_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS ~GetInductsApiCommand_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS static const std::string name;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT PingApiCommand_t : public ApiCommand_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS PingApiCommand_t : public ApiCommand_t {
     uint64_t m_nodeId;
     uint64_t m_pingServiceNumber;
     uint64_t m_bpVersion;
 
-    TELEMETRY_DEFINITIONS_EXPORT PingApiCommand_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~PingApiCommand_t() override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS PingApiCommand_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~PingApiCommand_t() override;
 
-    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
-    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator==(const ApiCommand_t& o) const;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator!=(const ApiCommand_t& o) const;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
-    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS static const std::string name;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT UploadContactPlanApiCommand_t : public ApiCommand_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS UploadContactPlanApiCommand_t : public ApiCommand_t {
     std::string m_contactPlanJson;
 
-    TELEMETRY_DEFINITIONS_EXPORT UploadContactPlanApiCommand_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~UploadContactPlanApiCommand_t() override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS UploadContactPlanApiCommand_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~UploadContactPlanApiCommand_t() override;
 
-    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
-    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator==(const ApiCommand_t& o) const;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator!=(const ApiCommand_t& o) const;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
-    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS static const std::string name;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT GetExpiringStorageApiCommand_t : public ApiCommand_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetExpiringStorageApiCommand_t : public ApiCommand_t {
     uint64_t m_priority;
     uint64_t m_thresholdSecondsFromNow;
 
-    TELEMETRY_DEFINITIONS_EXPORT GetExpiringStorageApiCommand_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~GetExpiringStorageApiCommand_t() override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetExpiringStorageApiCommand_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~GetExpiringStorageApiCommand_t() override;
 
-    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
-    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator==(const ApiCommand_t& o) const;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator!=(const ApiCommand_t& o) const;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
-    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS static const std::string name;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT UpdateBpSecApiCommand_t : public ApiCommand_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS UpdateBpSecApiCommand_t : public ApiCommand_t {
     std::string m_bpSecJson;
 
-    TELEMETRY_DEFINITIONS_EXPORT UpdateBpSecApiCommand_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~UpdateBpSecApiCommand_t() override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS UpdateBpSecApiCommand_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~UpdateBpSecApiCommand_t() override;
 
-    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
-    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator==(const ApiCommand_t& o) const;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator!=(const ApiCommand_t& o) const;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
-    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS static const std::string name;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT GetBpSecApiCommand_t : public ApiCommand_t {
-    TELEMETRY_DEFINITIONS_EXPORT GetBpSecApiCommand_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~GetBpSecApiCommand_t() override;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetBpSecApiCommand_t : public ApiCommand_t {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetBpSecApiCommand_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~GetBpSecApiCommand_t() override;
 
-    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS static const std::string name;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT SetMaxSendRateApiCommand_t : public ApiCommand_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS SetMaxSendRateApiCommand_t : public ApiCommand_t {
     uint64_t m_rateBitsPerSec;
     uint64_t m_outduct;
 
-    TELEMETRY_DEFINITIONS_EXPORT SetMaxSendRateApiCommand_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS SetMaxSendRateApiCommand_t();
 
-    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
-    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator==(const ApiCommand_t& o) const;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator!=(const ApiCommand_t& o) const;
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 
-    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS static const std::string name;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT GetHdtnConfigApiCommand_t : public ApiCommand_t {
-    TELEMETRY_DEFINITIONS_EXPORT GetHdtnConfigApiCommand_t();
-    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetHdtnConfigApiCommand_t : public ApiCommand_t {
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetHdtnConfigApiCommand_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS static const std::string name;
 };
 
 struct GetHdtnVersionApiCommand_t : public ApiCommand_t {
-    TELEMETRY_DEFINITIONS_EXPORT GetHdtnVersionApiCommand_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~GetHdtnVersionApiCommand_t() override;
-    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetHdtnVersionApiCommand_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~GetHdtnVersionApiCommand_t() override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS static const std::string name;
 };
 
-struct TELEMETRY_DEFINITIONS_EXPORT ApiResp_t : public JsonSerializable {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS ApiResp_t : public JsonSerializable {
     bool m_success;
     std::string m_message;
 
-    TELEMETRY_DEFINITIONS_EXPORT ApiResp_t();
-    TELEMETRY_DEFINITIONS_EXPORT virtual ~ApiResp_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS ApiResp_t();
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual ~ApiResp_t();
 
-    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
-    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    CLASS_VISIBILITY_TELEMETRY_DEFINITIONS virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 };
 
 /**
@@ -635,22 +642,22 @@ struct TELEMETRY_DEFINITIONS_EXPORT ApiResp_t : public JsonSerializable {
  */
 static constexpr uint8_t ZMQ_CONNECTION_ID_LEN = 5;
 
-class TELEMETRY_DEFINITIONS_EXPORT ZmqConnectionId_t {
+class CLASS_VISIBILITY_TELEMETRY_DEFINITIONS ZmqConnectionId_t {
     public:
-        TELEMETRY_DEFINITIONS_EXPORT ZmqConnectionId_t();
+        CLASS_VISIBILITY_TELEMETRY_DEFINITIONS ZmqConnectionId_t();
 
         // This constructor generates custom ZMQ connection IDs. It accepts a single byte (uint8_t)
         // and assigns it to the last byte of the ID, while prepending all other bytes with 0's.
-        TELEMETRY_DEFINITIONS_EXPORT ZmqConnectionId_t(const uint8_t val);
+        CLASS_VISIBILITY_TELEMETRY_DEFINITIONS ZmqConnectionId_t(const uint8_t val);
 
         // Convert ZmqConnectionId to a zmq::message_t
-        TELEMETRY_DEFINITIONS_EXPORT zmq::message_t Msg();
+        CLASS_VISIBILITY_TELEMETRY_DEFINITIONS zmq::message_t Msg();
 
         // Compare two ZmqConnectionId objects
-        TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ZmqConnectionId_t& other) const;
+        CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator==(const ZmqConnectionId_t& other) const;
 
         // Compare ZmqConnectionId object with a zmq message
-        TELEMETRY_DEFINITIONS_EXPORT bool operator==(const zmq::message_t& msg) const;
+        CLASS_VISIBILITY_TELEMETRY_DEFINITIONS bool operator==(const zmq::message_t& msg) const;
 
     private:
         std::array<uint8_t, ZMQ_CONNECTION_ID_LEN> m_id;
