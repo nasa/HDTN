@@ -611,6 +611,12 @@ struct TELEMETRY_DEFINITIONS_EXPORT GetHdtnConfigApiCommand_t : public ApiComman
     TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
+struct GetHdtnVersionApiCommand_t : public ApiCommand_t {
+    TELEMETRY_DEFINITIONS_EXPORT GetHdtnVersionApiCommand_t();
+    TELEMETRY_DEFINITIONS_EXPORT virtual ~GetHdtnVersionApiCommand_t() override;
+    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
+};
+
 struct TELEMETRY_DEFINITIONS_EXPORT ApiResp_t : public JsonSerializable {
     bool m_success;
     std::string m_message;

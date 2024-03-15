@@ -88,9 +88,15 @@ def ping(version, node, service):
     }
     send(reqdata)
 
-def get_current_config():
+def get_current_hdtn_config():
     reqdata = {
         "apiCall": "get_hdtn_config",
+    }
+    send(reqdata)
+
+def get_current_hdtn_version():
+    reqdata = {
+        "apiCall": "get_hdtn_version",
     }
     send(reqdata)
 
@@ -104,6 +110,7 @@ while True:
     print("7: Set Max Send Rate")
     print("8: Upload Contact Plan")
     print("9: Get Current HDTN Config")
+    print("10: Get Current HDTN Version")
     option = input("API command: ")
 
     if option == "1":
@@ -131,6 +138,8 @@ while True:
             contactPlan = json.load(text_file)
             upload_contact_plan(contactPlan)
     elif option == "9":
-        get_current_config()
+        get_current_hdtn_config()
+    elif option == "10":
+        get_current_hdtn_version()
     else:
         print("Invalid option")

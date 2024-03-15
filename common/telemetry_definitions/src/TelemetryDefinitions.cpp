@@ -1587,6 +1587,7 @@ const std::string UpdateBpSecApiCommand_t::name = "update_bpsec_config";
 const std::string GetBpSecApiCommand_t::name = "get_bpsec_config";
 const std::string SetMaxSendRateApiCommand_t::name = "set_max_send_rate";
 const std::string GetHdtnConfigApiCommand_t::name = "get_hdtn_config";
+const std::string GetHdtnVersionApiCommand_t::name = "get_hdtn_version";
 
 /**
  * ApiCommand_t 
