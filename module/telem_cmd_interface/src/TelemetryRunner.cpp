@@ -21,7 +21,6 @@
 #include <boost/thread.hpp>
 #include <boost/tokenizer.hpp>
 #include <boost/asio.hpp>
-#include <boost/property_tree/json_parser.hpp>
 
 #include "TelemetryRunner.h"
 #include "Logger.h"
@@ -33,6 +32,7 @@
 #include "Environment.h"
 #include "DeadlineTimer.h"
 #include "ThreadNamer.h"
+#include "JsonSerializable.h"
 #include <queue>
 #include <atomic>
 #ifdef USE_WEB_INTERFACE
@@ -262,9 +262,10 @@ bool TelemetryRunner::Impl::OnApiRequest(std::string &&msgJson, zmq::message_t&&
 }
 
 bool TelemetryRunner::Impl::ProcessHdtnConfigRequest(std::string &movablePayload, zmq::message_t& connectionID) {
-    (void)movablePayload; //moveablePayload parameter (not used)
-    // Processes external API request by retrieving HDTN config and sending it back to the requester
-   
+    // Processes API request by retrieving HDTN config and sending it back to the requester
+
+    (void)movablePayload; // parameter not used
+
     zmq::message_t blank;
     zmq::message_t response(m_hdtnConfigJsonPtr->c_str(), m_hdtnConfigJsonPtr->size());
     
@@ -276,18 +277,16 @@ bool TelemetryRunner::Impl::ProcessHdtnConfigRequest(std::string &movablePayload
 }
 
 bool TelemetryRunner::Impl::ProcessHdtnVersionRequest(std::string &movablePayload, zmq::message_t& connectionID) {
-     (void)movablePayload; //moveablePayload parameter (not used)
     // Processes API request by retrieving HDTN version and sending it back to the requester
+
+    (void)movablePayload; // parameter not used
 
     boost::property_tree::ptree jsonObject;
     jsonObject.put("version", hdtn::Logger::GetHdtnVersionAsString());
-
-    std::ostringstream oss;
-    boost::property_tree::write_json(oss, jsonObject);
-    std::string hdtnVersionAsJSONString = oss.str();
+    std::string hdtnVersionAsJsonString = JsonSerializable::PtToJsonString(jsonObject);
 
     zmq::message_t blank;
-    zmq::message_t response(hdtnVersionAsJSONString.c_str(), hdtnVersionAsJSONString.size());
+    zmq::message_t response(hdtnVersionAsJsonString.c_str(), hdtnVersionAsJsonString.size());
     
     m_apiConnection->SendZmqMessage(std::move(connectionID), true);
     m_apiConnection->SendZmqMessage(std::move(blank), true);
