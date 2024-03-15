@@ -44,10 +44,10 @@
 
 - [Describe a proposed fix if applicable]
 
-<details><summary>Additional Info</summary>
-
-### Target Fix Version
+### Target Fix Version (if known)
 - [Specify the target fix version]
+
+<details><summary>Additional Info</summary>
 
 ### Additional Information
 
