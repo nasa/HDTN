@@ -50,7 +50,7 @@ build-and-run-shared-linux-x64:
     - mkdir -p build
     - cmake -S . -B build -DCMAKE_CXX_FLAGS="-Werror" -DCMAKE_C_FLAGS="-Werror" -DBUILD_SHARED_LIBS:BOOL=ON
     - make -C build/ -j8
-    - make install
+    - make -C build/ install
     - export HDTN_SOURCE_ROOT=$PWD
     - ./build/tests/unit_tests/unit-tests
   rules:
