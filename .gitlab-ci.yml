@@ -20,6 +20,7 @@ build-default:
     - mkdir -p build
     - cmake -S . -B build -DCMAKE_CXX_FLAGS="-Werror" -DCMAKE_C_FLAGS="-Werror"
     - make -C build/ -j8
+    - make -C build/ install
   cache:
     key: build-default-$CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
     paths:
@@ -38,6 +39,20 @@ build-and-run-win:
     - win-x86
   script:
     - powershell -executionpolicy bypass .\building_on_windows\hdtn_windows_cicd_unit_test.ps1
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+
+# Build HDTN with Oracle Linux on x86_64 using shared libs
+build-and-run-shared-linux-x64:
+  stage: build-stage
+  tags:
+    - oracle-x86
+  script:
+    - mkdir -p build
+    - cmake -S . -B build -DCMAKE_CXX_FLAGS="-Werror" -DCMAKE_C_FLAGS="-Werror" -DBUILD_SHARED_LIBS:BOOL=ON
+    - make -C build/ -j8
+    - export HDTN_SOURCE_ROOT=$PWD
+    - ./build/tests/unit_tests/unit-tests
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
 

@@ -31,8 +31,15 @@
 #include "codec/Cbhe.h"
 #include "JsonSerializable.h"
 
+#ifndef CLASS_VISIBILITY_TELEMETRY_DEFINITIONS
+#  ifdef _WIN32
+#    define CLASS_VISIBILITY_TELEMETRY_DEFINITIONS
+#  else
+#    define CLASS_VISIBILITY_TELEMETRY_DEFINITIONS TELEMETRY_DEFINITIONS_EXPORT
+#  endif
+#endif
 
-struct StorageTelemetry_t : public JsonSerializable {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS StorageTelemetry_t : public JsonSerializable {
     TELEMETRY_DEFINITIONS_EXPORT StorageTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT ~StorageTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT bool operator==(const StorageTelemetry_t& o) const; //operator ==
@@ -70,7 +77,7 @@ struct StorageTelemetry_t : public JsonSerializable {
 };
 
 
-struct StorageExpiringBeforeThresholdTelemetry_t : public JsonSerializable {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS StorageExpiringBeforeThresholdTelemetry_t : public JsonSerializable {
     TELEMETRY_DEFINITIONS_EXPORT StorageExpiringBeforeThresholdTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT ~StorageExpiringBeforeThresholdTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT bool operator==(const StorageExpiringBeforeThresholdTelemetry_t& o) const; //operator ==
@@ -85,7 +92,7 @@ struct StorageExpiringBeforeThresholdTelemetry_t : public JsonSerializable {
     std::map<uint64_t, bundle_count_plus_bundle_bytes_pair_t> mapNodeIdToExpiringBeforeThresholdCount;
 };
 
-struct OutductCapabilityTelemetry_t : public JsonSerializable {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS OutductCapabilityTelemetry_t : public JsonSerializable {
     TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t();
 
     
@@ -108,7 +115,7 @@ struct OutductCapabilityTelemetry_t : public JsonSerializable {
     TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
 };
 
-struct AllOutductCapabilitiesTelemetry_t : public JsonSerializable {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS AllOutductCapabilitiesTelemetry_t : public JsonSerializable {
     TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t();
 
     std::list<OutductCapabilityTelemetry_t> outductCapabilityTelemetryList;
@@ -125,7 +132,7 @@ struct AllOutductCapabilitiesTelemetry_t : public JsonSerializable {
 };
 
 
-struct InductConnectionTelemetry_t : public JsonSerializable {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS InductConnectionTelemetry_t : public JsonSerializable {
     TELEMETRY_DEFINITIONS_EXPORT InductConnectionTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~InductConnectionTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const InductConnectionTelemetry_t& o) const; //operator ==
@@ -140,7 +147,7 @@ struct InductConnectionTelemetry_t : public JsonSerializable {
     uint64_t m_totalBundleBytesReceived;
 };
 
-struct StcpInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS StcpInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT StcpInductConnectionTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~StcpInductConnectionTelemetry_t() override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
@@ -152,7 +159,7 @@ struct StcpInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
     uint64_t m_totalStcpBytesReceived;
 };
 
-struct UdpInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS UdpInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT UdpInductConnectionTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~UdpInductConnectionTelemetry_t() override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
@@ -164,7 +171,7 @@ struct UdpInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
     uint64_t m_countCircularBufferOverruns;
 };
 
-struct TcpclV3InductConnectionTelemetry_t : public InductConnectionTelemetry_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS TcpclV3InductConnectionTelemetry_t : public InductConnectionTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT TcpclV3InductConnectionTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~TcpclV3InductConnectionTelemetry_t() override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
@@ -183,7 +190,7 @@ struct TcpclV3InductConnectionTelemetry_t : public InductConnectionTelemetry_t {
     uint64_t m_totalBundlesFailedToSend;
 };
 
-struct TcpclV4InductConnectionTelemetry_t : public InductConnectionTelemetry_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS TcpclV4InductConnectionTelemetry_t : public InductConnectionTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT TcpclV4InductConnectionTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~TcpclV4InductConnectionTelemetry_t() override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
@@ -202,7 +209,7 @@ struct TcpclV4InductConnectionTelemetry_t : public InductConnectionTelemetry_t {
     uint64_t m_totalBundlesFailedToSend;
 };
 
-struct SlipOverUartInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS SlipOverUartInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT SlipOverUartInductConnectionTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~SlipOverUartInductConnectionTelemetry_t() override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
@@ -224,7 +231,7 @@ struct SlipOverUartInductConnectionTelemetry_t : public InductConnectionTelemetr
     uint64_t m_totalBundlesFailedToSend;
 };
 
-struct BpOverEncapLocalStreamInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS BpOverEncapLocalStreamInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT BpOverEncapLocalStreamInductConnectionTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~BpOverEncapLocalStreamInductConnectionTelemetry_t() override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
@@ -246,7 +253,7 @@ struct BpOverEncapLocalStreamInductConnectionTelemetry_t : public InductConnecti
     uint64_t m_totalBundlesFailedToSend;
 };
 
-struct LtpInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS LtpInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT LtpInductConnectionTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~LtpInductConnectionTelemetry_t() override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const InductConnectionTelemetry_t& o) const override; //operator ==
@@ -279,7 +286,7 @@ struct LtpInductConnectionTelemetry_t : public InductConnectionTelemetry_t {
     
 };
 
-struct InductTelemetry_t : public JsonSerializable {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS InductTelemetry_t : public JsonSerializable {
     TELEMETRY_DEFINITIONS_EXPORT InductTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT bool operator==(const InductTelemetry_t& o) const; //operator ==
     TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const InductTelemetry_t& o) const;
@@ -291,7 +298,7 @@ struct InductTelemetry_t : public JsonSerializable {
     std::list<std::unique_ptr<InductConnectionTelemetry_t> > m_listInductConnections;
 };
 
-struct AllInductTelemetry_t : public JsonSerializable {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS AllInductTelemetry_t : public JsonSerializable {
     TELEMETRY_DEFINITIONS_EXPORT AllInductTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT bool operator==(const AllInductTelemetry_t& o) const; //operator ==
     TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const AllInductTelemetry_t& o) const;
@@ -310,7 +317,7 @@ struct AllInductTelemetry_t : public JsonSerializable {
 
 
 
-struct OutductTelemetry_t : public JsonSerializable
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS OutductTelemetry_t : public JsonSerializable
 {
     TELEMETRY_DEFINITIONS_EXPORT OutductTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~OutductTelemetry_t();
@@ -333,7 +340,7 @@ struct OutductTelemetry_t : public JsonSerializable
     TELEMETRY_DEFINITIONS_EXPORT uint64_t GetTotalBundleBytesQueued() const;
 };
 
-struct StcpOutductTelemetry_t : public OutductTelemetry_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS StcpOutductTelemetry_t : public OutductTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT StcpOutductTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~StcpOutductTelemetry_t() override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
@@ -346,7 +353,7 @@ struct StcpOutductTelemetry_t : public OutductTelemetry_t {
     uint64_t m_numTcpReconnectAttempts;
 };
 
-struct LtpOutductTelemetry_t : public OutductTelemetry_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS LtpOutductTelemetry_t : public OutductTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT LtpOutductTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~LtpOutductTelemetry_t() override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
@@ -376,7 +383,7 @@ struct LtpOutductTelemetry_t : public OutductTelemetry_t {
     uint64_t m_countTxUdpPacketsLimitedByRate;
 };
 
-struct TcpclV3OutductTelemetry_t : public OutductTelemetry_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS TcpclV3OutductTelemetry_t : public OutductTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT TcpclV3OutductTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~TcpclV3OutductTelemetry_t() override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
@@ -393,7 +400,7 @@ struct TcpclV3OutductTelemetry_t : public OutductTelemetry_t {
     uint64_t m_numTcpReconnectAttempts;
 };
 
-struct TcpclV4OutductTelemetry_t : public OutductTelemetry_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS TcpclV4OutductTelemetry_t : public OutductTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT TcpclV4OutductTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~TcpclV4OutductTelemetry_t() override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
@@ -410,7 +417,7 @@ struct TcpclV4OutductTelemetry_t : public OutductTelemetry_t {
     uint64_t m_numTcpReconnectAttempts;
 };
 
-struct SlipOverUartOutductTelemetry_t : public OutductTelemetry_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS SlipOverUartOutductTelemetry_t : public OutductTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT SlipOverUartOutductTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~SlipOverUartOutductTelemetry_t() override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
@@ -429,7 +436,7 @@ struct SlipOverUartOutductTelemetry_t : public OutductTelemetry_t {
     uint64_t m_totalBundleBytesReceived;
 };
 
-struct BpOverEncapLocalStreamOutductTelemetry_t : public OutductTelemetry_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS BpOverEncapLocalStreamOutductTelemetry_t : public OutductTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT BpOverEncapLocalStreamOutductTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~BpOverEncapLocalStreamOutductTelemetry_t() override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
@@ -448,7 +455,7 @@ struct BpOverEncapLocalStreamOutductTelemetry_t : public OutductTelemetry_t {
     uint64_t m_totalBundleBytesReceived;
 };
 
-struct UdpOutductTelemetry_t : public OutductTelemetry_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS UdpOutductTelemetry_t : public OutductTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT UdpOutductTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~UdpOutductTelemetry_t() override;
     TELEMETRY_DEFINITIONS_EXPORT virtual bool operator==(const OutductTelemetry_t& o) const override; //operator ==
@@ -464,7 +471,7 @@ struct UdpOutductTelemetry_t : public OutductTelemetry_t {
     uint64_t m_totalPacketsLimitedByRate;
 };
 
-struct AllOutductTelemetry_t : public JsonSerializable {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS AllOutductTelemetry_t : public JsonSerializable {
     TELEMETRY_DEFINITIONS_EXPORT AllOutductTelemetry_t();
     TELEMETRY_DEFINITIONS_EXPORT bool operator==(const AllOutductTelemetry_t& o) const; //operator ==
     TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const AllOutductTelemetry_t& o) const;
@@ -483,7 +490,7 @@ struct AllOutductTelemetry_t : public JsonSerializable {
     std::list<std::unique_ptr<OutductTelemetry_t> > m_listAllOutducts;
 };
 
-struct ApiCommand_t : public JsonSerializable {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS ApiCommand_t : public JsonSerializable {
     std::string m_apiCall;
 
     TELEMETRY_DEFINITIONS_EXPORT ApiCommand_t();
@@ -498,31 +505,31 @@ struct ApiCommand_t : public JsonSerializable {
     TELEMETRY_DEFINITIONS_EXPORT static std::shared_ptr<ApiCommand_t> CreateFromJson(const std::string& jsonStr);
 };
 
-struct GetStorageApiCommand_t : public ApiCommand_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetStorageApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT GetStorageApiCommand_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~GetStorageApiCommand_t() override;
     TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
-struct GetOutductsApiCommand_t : public ApiCommand_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetOutductsApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT GetOutductsApiCommand_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~GetOutductsApiCommand_t() override;
     TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
-struct GetOutductCapabilitiesApiCommand_t : public ApiCommand_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetOutductCapabilitiesApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT GetOutductCapabilitiesApiCommand_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~GetOutductCapabilitiesApiCommand_t() override;
     TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
-struct GetInductsApiCommand_t : public ApiCommand_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetInductsApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT GetInductsApiCommand_t();
     TELEMETRY_DEFINITIONS_EXPORT ~GetInductsApiCommand_t();
     TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
-struct PingApiCommand_t : public ApiCommand_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS PingApiCommand_t : public ApiCommand_t {
     uint64_t m_nodeId;
     uint64_t m_pingServiceNumber;
     uint64_t m_bpVersion;
@@ -538,7 +545,7 @@ struct PingApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
-struct UploadContactPlanApiCommand_t : public ApiCommand_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS UploadContactPlanApiCommand_t : public ApiCommand_t {
     std::string m_contactPlanJson;
 
     TELEMETRY_DEFINITIONS_EXPORT UploadContactPlanApiCommand_t();
@@ -553,7 +560,7 @@ struct UploadContactPlanApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
-struct GetExpiringStorageApiCommand_t : public ApiCommand_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetExpiringStorageApiCommand_t : public ApiCommand_t {
     uint64_t m_priority;
     uint64_t m_thresholdSecondsFromNow;
 
@@ -569,7 +576,7 @@ struct GetExpiringStorageApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
-struct UpdateBpSecApiCommand_t : public ApiCommand_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS UpdateBpSecApiCommand_t : public ApiCommand_t {
     std::string m_bpSecJson;
 
     TELEMETRY_DEFINITIONS_EXPORT UpdateBpSecApiCommand_t();
@@ -584,14 +591,14 @@ struct UpdateBpSecApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
-struct GetBpSecApiCommand_t : public ApiCommand_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetBpSecApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT GetBpSecApiCommand_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~GetBpSecApiCommand_t() override;
 
     TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
-struct SetMaxSendRateApiCommand_t : public ApiCommand_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS SetMaxSendRateApiCommand_t : public ApiCommand_t {
     uint64_t m_rateBitsPerSec;
     uint64_t m_outduct;
 
@@ -606,18 +613,18 @@ struct SetMaxSendRateApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
-struct GetHdtnConfigApiCommand_t : public ApiCommand_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetHdtnConfigApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT GetHdtnConfigApiCommand_t();
     TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
-struct GetHdtnVersionApiCommand_t : public ApiCommand_t {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetHdtnVersionApiCommand_t : public ApiCommand_t {
     TELEMETRY_DEFINITIONS_EXPORT GetHdtnVersionApiCommand_t();
     TELEMETRY_DEFINITIONS_EXPORT virtual ~GetHdtnVersionApiCommand_t() override;
     TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
-struct ApiResp_t : public JsonSerializable {
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS ApiResp_t : public JsonSerializable {
     bool m_success;
     std::string m_message;
 
@@ -635,7 +642,7 @@ struct ApiResp_t : public JsonSerializable {
  */
 static constexpr uint8_t ZMQ_CONNECTION_ID_LEN = 5;
 
-class ZmqConnectionId_t {
+class CLASS_VISIBILITY_TELEMETRY_DEFINITIONS ZmqConnectionId_t {
     public:
         TELEMETRY_DEFINITIONS_EXPORT ZmqConnectionId_t();
 
