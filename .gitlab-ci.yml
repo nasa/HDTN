@@ -41,11 +41,11 @@ build-and-run-win:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
 
-# Build HDTN with Linux on x86_64 using shared libs
+# Build HDTN with Oracle Linux on x86_64 using shared libs
 build-and-run-shared-linux-x64:
   stage: build-stage
   tags:
-    - linux-x86
+    - oracle-x86
   script:
     - mkdir -p build
     - cmake -S . -B build -DCMAKE_CXX_FLAGS="-Werror" -DCMAKE_C_FLAGS="-Werror" -DBUILD_SHARED_LIBS:BOOL=ON
