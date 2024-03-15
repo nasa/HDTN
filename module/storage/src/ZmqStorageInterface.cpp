@@ -1818,7 +1818,6 @@ void ZmqStorageInterface::Impl::PrioritySend(OutductInfo_t &info, uint64_t maxBu
         CutThroughQueueData& qd = info.cutThroughQueue.front();
         cbhe_eid_t out;
         Write(&qd.bundleToEgress, out, true, true);
-        hdtn::StorageAckHdr* storageAckHdr = (hdtn::StorageAckHdr*)qd.ackToIngress.data();
         if (!m_zmqPushSock_connectingStorageToBoundIngressPtr->send(std::move(qd.ackToIngress), zmq::send_flags::dontwait)) {
             LOG_ERROR(subprocess) << "zmq could not send ingress an ack from storage";
         }
