@@ -51,7 +51,7 @@ sudo apt-get install cmake build-essential libzmq3-dev libboost-dev libboost-all
 * On RHel
 ```
 sudo dnf install epel-release
-sudo yum install cmake boost-devel zeromq zeromq-devel
+sudo dnf install cmake boost-devel zeromq zeromq-devel gcc-c++ libstdc++-devel
 ```
 
 ## macOS Dependencies ##
