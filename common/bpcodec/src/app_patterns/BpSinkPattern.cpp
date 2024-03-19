@@ -158,10 +158,14 @@ bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_pt
     M_EXTRA_PROCESSING_TIME_MS = processingLagMs;
     if (inductsConfigPtr) {
         m_currentlySendingBundleIdSet.reserve(1024); //todo
-        m_inductManager.LoadInductsFromConfig(boost::bind(&BpSinkPattern::WholeBundleReadyCallback, this, boost::placeholders::_1),
+        if (!m_inductManager.LoadInductsFromConfig(boost::bind(&BpSinkPattern::WholeBundleReadyCallback, this, boost::placeholders::_1),
             *inductsConfigPtr, myEid.nodeId, UINT16_MAX, maxBundleSizeBytes,
             boost::bind(&BpSinkPattern::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
-            boost::bind(&BpSinkPattern::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
+            boost::bind(&BpSinkPattern::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3)))
+        {
+            LOG_FATAL(subprocess) << "BpSinkPattern::Init: Failed to load inducts config";
+            return false;
+        }
     }
 
     if (outductsConfigPtr) {
@@ -176,6 +180,7 @@ bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_pt
             boost::bind(&BpSinkPattern::OnSuccessfulBundleSendCallback, this, boost::placeholders::_1, boost::placeholders::_2),
             boost::bind(&BpSinkPattern::OnOutductLinkStatusChangedCallback, this, boost::placeholders::_1, boost::placeholders::_2)))
         {
+            LOG_FATAL(subprocess) << "BpSinkPattern::Init: Failed to load outducts config";
             return false;
         }
         while (!m_outductManager.AllReadyToForward()) {

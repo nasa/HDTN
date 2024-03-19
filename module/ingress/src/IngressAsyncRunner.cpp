@@ -120,6 +120,10 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], std::atomic<boo
             if (useSignalHandler) {
                 sigHandler.PollOnce();
             }
+            if (ingress.Stopped()) {
+                LOG_FATAL(subprocess) << "Ingress Runner detected a stopped ingress.. terminating";
+                break;
+            }
         }
 
         boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();

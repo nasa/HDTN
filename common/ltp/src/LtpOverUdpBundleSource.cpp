@@ -48,8 +48,15 @@ bool LtpOverUdpBundleSource::SetLtpEnginePtr() {
     m_ltpUdpEngineManagerPtr = LtpUdpEngineManager::GetOrCreateInstance(m_ltpTxCfg.myBoundUdpPort, true);
     m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(m_ltpTxCfg.remoteEngineId, false);
     if (m_ltpUdpEnginePtr == NULL) {
-        m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(m_ltpTxCfg);
+        if (!m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(m_ltpTxCfg)) {
+            LOG_ERROR(subprocess) << "LtpOverUdpBundleSource::SetLtpEnginePtr: cannot AddLtpUdpEngine";
+            return false;
+        }
         m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(m_ltpTxCfg.remoteEngineId, false);
+        if (m_ltpUdpEnginePtr == NULL) {
+            LOG_FATAL(subprocess) << "LtpOverUdpBundleSource::SetLtpEnginePtr: got a NULL ltpUdpEnginePtr";
+            return false;
+        }
     }
     m_ltpEnginePtr = m_ltpUdpEnginePtr;
     return true;

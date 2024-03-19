@@ -38,6 +38,7 @@ public:
     INGRESS_ASYNC_LIB_EXPORT Ingress();  // initialize message buffers
     INGRESS_ASYNC_LIB_EXPORT ~Ingress();
     INGRESS_ASYNC_LIB_EXPORT void Stop();
+    INGRESS_ASYNC_LIB_EXPORT bool Stopped() noexcept;
     INGRESS_ASYNC_LIB_EXPORT bool Init(const HdtnConfig& hdtnConfig,
         const boost::filesystem::path& bpSecConfigFilePath, const HdtnDistributedConfig& hdtnDistributedConfig,
         zmq::context_t* hdtnOneProcessZmqInprocContextPtr = NULL, const std::string& maskerImpl = "");

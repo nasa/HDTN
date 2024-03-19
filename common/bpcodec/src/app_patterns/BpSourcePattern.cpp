@@ -177,10 +177,14 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
     if (inductsConfigPtr) {
         m_currentlySendingBundleIdSet.reserve(1024); //todo
         m_useCustodyTransfer = true;
-        m_inductManager.LoadInductsFromConfig(boost::bind(&BpSourcePattern::WholeRxBundleReadyCallback, this, boost::placeholders::_1),
+        if (!m_inductManager.LoadInductsFromConfig(boost::bind(&BpSourcePattern::WholeRxBundleReadyCallback, this, boost::placeholders::_1),
             *inductsConfigPtr, m_myEid.nodeId, UINT16_MAX, 1000000, //todo 1MB max bundle size on custody signals
             boost::bind(&BpSourcePattern::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
-            boost::bind(&BpSourcePattern::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
+            boost::bind(&BpSourcePattern::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3)))
+        {
+            LOG_FATAL(subprocess) << "BpSourcePattern::Start: Failed to load inducts config";
+            return;
+        }
     }
     else if ((outductsConfigPtr)
         && ((outductsConfigPtr->m_outductElementConfigVector[0].convergenceLayer == "tcpcl_v3") || (outductsConfigPtr->m_outductElementConfigVector[0].convergenceLayer == "tcpcl_v4"))
@@ -239,6 +243,7 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
             boost::bind(&BpSourcePattern::OnSuccessfulBundleSendCallback, this, boost::placeholders::_1, boost::placeholders::_2),
             boost::bind(&BpSourcePattern::OnOutductLinkStatusChangedCallback, this, boost::placeholders::_1, boost::placeholders::_2)))
         {
+            LOG_FATAL(subprocess) << "BpSourcePattern::Start: Failed to load outducts config";
             return;
         }
         Outduct *outduct = m_outductManager.GetOutductByOutductUuid(0);
