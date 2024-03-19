@@ -99,7 +99,12 @@ bool catalog_entry_t::HasCustody() const {
 void catalog_entry_t::Init(const PrimaryBlock & primary, const uint64_t paramBundleSizeBytes, const uint64_t paramPayloadSizeBytes, const uint64_t paramNumSegmentsRequired, void * paramPtrUuidKeyInMap, cbhe_eid_t *bundleEidMaskPtr) {
     bundleSizeBytes = paramBundleSizeBytes;
     payloadSizeBytes = paramPayloadSizeBytes;
-    destEid = (bundleEidMaskPtr == NULL) ? primary.GetFinalDestinationEid() : *bundleEidMaskPtr;
+    if (bundleEidMaskPtr == NULL) { // Replaced ternary operator for coverage purposes
+        destEid = primary.GetFinalDestinationEid();
+    }
+    else {
+        destEid = *bundleEidMaskPtr;
+    }
     encodedAbsExpirationAndCustodyAndPriority = primary.GetPriority() | (primary.GetExpirationSeconds() << 4);
     if (primary.HasCustodyFlagSet()) {
         if (primary.HasFragmentationFlagSet()) {

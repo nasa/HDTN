@@ -16,6 +16,7 @@ add_library(storage_lib
 		src/CatalogEntry.cpp
         src/ZmqStorageInterface.cpp
 		src/StorageRunner.cpp
+        src/StartStorageRunner.cpp
 )
 target_compile_options(storage_lib PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 GENERATE_EXPORT_HEADER(storage_lib)
@@ -35,6 +36,7 @@ set(MY_PUBLIC_HEADERS
 	include/HashMap16BitFixedSize.h
 	include/MemoryManagerTreeArray.h
 	include/StorageRunner.h
+    include/StartStorageRunner.h
 	include/ZmqStorageInterface.h
 	${CMAKE_CURRENT_BINARY_DIR}/storage_lib_export.h
 )

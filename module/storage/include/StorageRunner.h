@@ -45,5 +45,4 @@ private:
     std::atomic<bool> m_runningFromSigHandler;
 };
 
-
 #endif //_STORAGE_RUNNER_H

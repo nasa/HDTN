@@ -342,6 +342,10 @@ static void DoTest() {
         BOOST_REQUIRE(valuePtr != NULL);
         BOOST_REQUIRE_EQUAL(*valuePtr, bundleUuidPlusU64Vec[2].second);
         BOOST_REQUIRE_EQUAL(hm.GetBucketSize(HASH), 3); //verify size 3 still (no deletions)
+
+        //clear and verify size 0
+        hm.Clear();
+        BOOST_REQUIRE_EQUAL(hm.GetBucketSize(HASH), 0); //verify size 0
     }
 }
     

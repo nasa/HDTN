@@ -147,6 +147,7 @@ add_executable(unit-tests-from-install
 	../../module/storage/unit_tests/TestBundleStorageCatalog.cpp
 	../../module/storage/unit_tests/TestBundleUuidToUint64HashMap.cpp
 	../../module/storage/unit_tests/TestCustodyTimers.cpp
+    ../../module/storage/unit_tests/TestStorageRunner.cpp
     #../../module/storage/unit_tests/BundleStorageManagerMtAsFifoTests.cpp
 	$<$<BOOL:${RUN_TELEMETRY}>:../../module/telem_cmd_interface/unit_tests/TelemetryRunnerTests.cpp>
 	$<$<BOOL:${RUN_TELEMETRY}>:../../module/telem_cmd_interface/unit_tests/TelemetryConnectionTests.cpp>
