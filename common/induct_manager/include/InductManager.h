@@ -27,7 +27,7 @@ class InductManager {
 public:
     INDUCT_MANAGER_LIB_EXPORT InductManager();
     INDUCT_MANAGER_LIB_EXPORT ~InductManager();
-    INDUCT_MANAGER_LIB_EXPORT void LoadInductsFromConfig(const InductProcessBundleCallback_t & inductProcessBundleCallback, const InductsConfig & inductsConfig,
+    INDUCT_MANAGER_LIB_EXPORT bool LoadInductsFromConfig(const InductProcessBundleCallback_t & inductProcessBundleCallback, const InductsConfig & inductsConfig,
         const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp, const uint64_t maxBundleSizeBytes,
         const OnNewOpportunisticLinkCallback_t & onNewOpportunisticLinkCallback, const OnDeletedOpportunisticLinkCallback_t & onDeletedOpportunisticLinkCallback);
     INDUCT_MANAGER_LIB_EXPORT void Clear();

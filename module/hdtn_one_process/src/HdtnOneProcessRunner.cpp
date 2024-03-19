@@ -214,6 +214,10 @@ bool HdtnOneProcessRunner::Run(int argc, const char *const argv[], std::atomic<b
             if (useSignalHandler) {
                 sigHandler.PollOnce();
             }
+            if (ingressPtr->Stopped()) {
+                LOG_FATAL(subprocess) << "HdtnOneProcess detected a stopped ingress.. terminating";
+                break;
+            }
         }
 
 

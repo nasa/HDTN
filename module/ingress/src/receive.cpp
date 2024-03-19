@@ -68,6 +68,7 @@ struct Ingress::Impl : private boost::noncopyable {
     Impl();
     ~Impl();
     void Stop();
+    bool Stopped() noexcept;
     bool Init(const HdtnConfig& hdtnConfig, const boost::filesystem::path& bpSecConfigFilePath,
            const HdtnDistributedConfig& hdtnDistributedConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr, const std::string& maskerImpl);
 
@@ -205,6 +206,7 @@ private:
 
     //for preventing telem-thread from accessing inducts until intialized
     std::atomic<bool> m_inductsFullyLoaded;
+    std::atomic<bool> m_inductsFailedToLoad;
     boost::mutex m_inductsFullyLoadedMutex;
     boost::condition_variable m_inductsFullyLoadedConditionVariable;
 
@@ -329,7 +331,8 @@ Ingress::Impl::Impl() :
     m_aoctNeedsProcessing(false),
     m_workerThreadStartupInProgress(false),
     m_telemThreadStartupInProgress(false),
-    m_inductsFullyLoaded(false) {}
+    m_inductsFullyLoaded(false),
+    m_inductsFailedToLoad(false) {}
 
 Ingress::Ingress() :
     m_pimpl(boost::make_unique<Ingress::Impl>()),
@@ -390,6 +393,13 @@ void Ingress::Impl::Stop() {
     LOG_DEBUG(subprocess) << "m_eventsTooManyInStorageCutThroughQueue: " << m_eventsTooManyInStorageCutThroughQueue;
     LOG_DEBUG(subprocess) << "m_eventsTooManyInEgressCutThroughQueue: " << m_eventsTooManyInEgressCutThroughQueue;
     LOG_DEBUG(subprocess) << "m_eventsTooManyInAllCutThroughQueues: " << m_eventsTooManyInAllCutThroughQueues;
+}
+
+bool Ingress::Stopped() noexcept {
+    return m_pimpl->Stopped();
+}
+bool Ingress::Impl::Stopped() noexcept {
+    return !m_running.load(std::memory_order_acquire);
 }
 
 bool Ingress::Init(const HdtnConfig& hdtnConfig, const boost::filesystem::path& bpSecConfigFilePath,
@@ -715,10 +725,19 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                     m_threadTcpclOpportunisticBundlesFromEgressReaderPtr = boost::make_unique<boost::thread>(
                         boost::bind(&Ingress::Impl::ReadTcpclOpportunisticBundlesFromEgressThreadFunc, this)); //create and start the worker thread
 
-                    m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::Impl::WholeBundleReadyCallback, this, boost::placeholders::_1), m_hdtnConfig.m_inductsConfig,
+                    if (!m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::Impl::WholeBundleReadyCallback, this, boost::placeholders::_1), m_hdtnConfig.m_inductsConfig,
                         m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes, m_hdtnConfig.m_maxBundleSizeBytes,
                         boost::bind(&Ingress::Impl::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
-                        boost::bind(&Ingress::Impl::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
+                        boost::bind(&Ingress::Impl::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3)))
+                    {
+                        LOG_FATAL(subprocess) << "Ingress halting due to failure to load inducts config";
+                        m_running = false; //thread stopping criteria
+                        m_inductsFullyLoadedMutex.lock();
+                        m_inductsFailedToLoad = true;
+                        m_inductsFullyLoadedMutex.unlock();
+                        m_inductsFullyLoadedConditionVariable.notify_one();
+                        continue;
+                    }
 
                     egressFullyInitialized = true;
                     m_inductsFullyLoadedMutex.lock();
@@ -873,14 +892,21 @@ void Ingress::Impl::ZmqTelemThreadFunc() {
     {
         boost::mutex::scoped_lock inductsFullyLoadedLock(m_inductsFullyLoadedMutex);
         while (!m_inductsFullyLoaded) { //lock mutex (above) before checking condition
+            if (m_inductsFailedToLoad) { //lock mutex (above) before checking condition
+                break;
+            }
             //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
             if (!m_inductsFullyLoadedConditionVariable.timed_wait(inductsFullyLoadedLock, boost::posix_time::seconds(20))) {
                 LOG_ERROR(subprocess) << "timed out waiting (for 20 seconds) for inducts to be fully loaded";
                 break;
             }
         }
+        if (m_inductsFailedToLoad) {
+            LOG_ERROR(subprocess) << "Inducts failed to load.. Exiting telem thread";
+            return;
+        }
         if (!m_inductsFullyLoaded) {
-            LOG_ERROR(subprocess) << "timed out waiting for inducts to loaded. Existing telem thread";
+            LOG_ERROR(subprocess) << "timed out waiting for inducts to be fully loaded. Exiting telem thread";
             return;
         }
     }

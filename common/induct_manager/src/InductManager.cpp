@@ -31,7 +31,7 @@ InductManager::InductManager() {}
 
 InductManager::~InductManager() {}
 
-void InductManager::LoadInductsFromConfig(const InductProcessBundleCallback_t & inductProcessBundleCallback, const InductsConfig & inductsConfig,
+bool InductManager::LoadInductsFromConfig(const InductProcessBundleCallback_t & inductProcessBundleCallback, const InductsConfig & inductsConfig,
     const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp, const uint64_t maxBundleSizeBytes,
     const OnNewOpportunisticLinkCallback_t & onNewOpportunisticLinkCallback, const OnDeletedOpportunisticLinkCallback_t & onDeletedOpportunisticLinkCallback)
 {
@@ -86,9 +86,10 @@ void InductManager::LoadInductsFromConfig(const InductProcessBundleCallback_t & 
 
         if (!m_inductsList.back()->Init()) {
             LOG_FATAL(hdtn::Logger::SubProcess::none) << "error in InductManager::LoadInductsFromConfig: unable to initialize";
-            return;
+            return false;
         }
     }
+    return true;
 }
 
 void InductManager::Clear() {
