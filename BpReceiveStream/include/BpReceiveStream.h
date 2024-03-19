@@ -1,7 +1,6 @@
 #pragma once
 
 #include "app_patterns/BpSinkPattern.h"
-#include "UdpBatchSender.h"
 
 #include "DtnRtp.h"
 
@@ -29,7 +28,7 @@ public:
 
 protected:
     virtual bool ProcessPayload(const uint8_t * data, const uint64_t size) override;
-    
+
 private:
     void ProcessIncomingBundlesThread(); // worker thread 
 
@@ -41,7 +40,6 @@ private:
     bool TryWaitForSuccessfulSend(const boost::posix_time::time_duration &timeout);
     bool GetSuccessfulSendTimeout(const boost::posix_time::time_duration &timeout);
 
-    void OnSentRtpPacketCallback(bool success, std::shared_ptr<std::vector<UdpSendPacketInfo> >& udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsSent);
     int SendUdpPacket(padded_vector_uint8_t & message);
 
     volatile bool m_running; // exit condition
@@ -57,12 +55,11 @@ private:
     uint16_t m_maxOutgoingRtpPayloadSizeBytes;
 
     // outbound udp outduct
-	boost::asio::io_service io_service;
+	boost::asio::io_service m_ioService;
     boost::asio::ip::udp::socket socket;
     boost::asio::ip::udp::endpoint m_udpEndpoint;
-    std::shared_ptr<UdpBatchSender> m_udpBatchSenderPtr;
     boost::mutex m_sentPacketsMutex;
-    boost::condition_variable m_cvSentPacket; // notify when UdpBatchSender has sent out our RTP frames to network
+    boost::condition_variable m_cvSentPacket;
     volatile bool m_sentPacketsSuccess;
 
     // outbound gstreamer outduct

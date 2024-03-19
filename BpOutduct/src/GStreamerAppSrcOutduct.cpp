@@ -15,7 +15,7 @@ void SetGStreamerAppSrcOutductInstance(GStreamerAppSrcOutduct * gStreamerAppSrcO
 
 
 GStreamerAppSrcOutduct::GStreamerAppSrcOutduct(std::string shmSocketPath, std::string gstCaps) : 
-    m_shmSocketPath(shmSocketPath), m_running(true), m_runDisplayThread(true), m_runFilesinkThread(true), m_gstCaps(gstCaps)
+    m_shmSocketPath(shmSocketPath), m_gstCaps(gstCaps), m_running(true), m_runDisplayThread(true), m_runFilesinkThread(true)
 {
     m_incomingRtpPacketQueue.set_capacity(DEFAULT_NUM_CIRC_BUFFERS);
     m_incomingRtpPacketQueueForDisplay.set_capacity(DEFAULT_NUM_CIRC_BUFFERS);
@@ -306,29 +306,42 @@ void GStreamerAppSrcOutduct::OnBusMessages()
                 break;
             }
             case GST_MESSAGE_EOS:
+            {
                 /* end-of-stream */
                 LOG_INFO(subprocess) << "Got GST_MESSAGE_EOS";
                 m_running = false;
                 // gst_element_set_state (m_pipeline, GST_STATE_NULL);
                 break;
+            }
             case GST_MESSAGE_BUFFERING: 
+            {
                 break;
+            }
             case GST_MESSAGE_TAG:
-                GstTagList *list;
+            {
                 // gst_message_parse_tag(msg, &list);                
                 LOG_INFO(subprocess) << "Got tag message from element " << GST_OBJECT_NAME(msg->src);
                 break;
+            }
             case GST_MESSAGE_ASYNC_DONE:
+            {
                 LOG_INFO(subprocess) << "Got GST_MESSAGE_ASYNC_DONE";
                 break;
+            }
             case GST_MESSAGE_STATE_CHANGED:
+            {
                 LOG_INFO(subprocess) << "Got GST_MESSAGE_STATE_CHANGED";
                 break;
+            }
             case GST_MESSAGE_CLOCK_LOST:
+            {
                 break;
+            }
             default:
+            {
                 /* Unhandled message */
                 break;
+            }
         }
     }
 }

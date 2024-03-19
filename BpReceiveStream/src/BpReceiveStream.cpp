@@ -12,7 +12,7 @@ BpReceiveStream::BpReceiveStream(size_t numCircularBufferVectors, bp_recv_stream
     m_outgoingRtpHostname(params.rtpDestHostname),
     m_outgoingRtpPort(params.rtpDestPort),
     m_maxOutgoingRtpPacketSizeBytes(params.maxOutgoingRtpPacketSizeBytes),
-    socket(io_service),
+    socket(m_ioService),
     m_outductType(params.outductType)
 {
     m_maxOutgoingRtpPayloadSizeBytes = m_maxOutgoingRtpPacketSizeBytes - sizeof(rtp_header);
@@ -21,13 +21,16 @@ BpReceiveStream::BpReceiveStream(size_t numCircularBufferVectors, bp_recv_stream
     m_incomingBundleQueue.set_capacity(m_numCircularBufferVectors);
     
     if (m_outductType == UDP_OUTDUCT)  {
-        m_udpBatchSenderPtr = std::make_shared<UdpBatchSender>();
-        m_udpBatchSenderPtr->SetOnSentPacketsCallback(boost::bind(&BpReceiveStream::OnSentRtpPacketCallback, this, 
-                boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
-        m_udpBatchSenderPtr->Init(m_outgoingRtpHostname, m_outgoingRtpPort);
-        m_udpEndpoint = m_udpBatchSenderPtr->GetCurrentUdpEndpoint();
+        static const boost::asio::ip::resolver_query_base::flags UDP_RESOLVER_FLAGS = boost::asio::ip::resolver_query_base::canonical_name; //boost resolver flags
+        boost::asio::ip::udp::resolver resolver(m_ioService);
+        try {
+            m_udpEndpoint = *resolver.resolve(boost::asio::ip::udp::resolver::query(boost::asio::ip::udp::v4(), m_outgoingRtpHostname, boost::lexical_cast<std::string>(m_outgoingRtpPort), UDP_RESOLVER_FLAGS));
+        }
+        catch (const boost::system::system_error& e) {
+            LOG_ERROR(subprocess) << "Failed to resolve UDP hostname: " << e.what() << "  code=" << e.code();
+            return;
+        }
         socket.open(boost::asio::ip::udp::v4());
-
     } else if (m_outductType == GSTREAMER_APPSRC_OUTDUCT) {
         m_gstreamerAppSrcOutductPtr = boost::make_unique<GStreamerAppSrcOutduct>(params.shmSocketPath, params.gstCaps);
         SetGStreamerAppSrcOutductInstance(m_gstreamerAppSrcOutductPtr.get());
@@ -41,7 +44,6 @@ BpReceiveStream::~BpReceiveStream()
     m_running = false;
     
     m_gstreamerAppSrcOutductPtr.reset();
-    m_udpBatchSenderPtr->Stop();
 
     Stop();
 
@@ -155,22 +157,6 @@ bool BpReceiveStream::GetSuccessfulSendTimeout(const boost::posix_time::time_dur
     }
     
     return true;
-}
-
-
-void BpReceiveStream::OnSentRtpPacketCallback(bool success, std::shared_ptr<std::vector<UdpSendPacketInfo>> &udpSendPacketInfoVecSharedPtr, const std::size_t numPacketsSent)
-{
-    m_sentPacketsSuccess = true;
-    m_cvSentPacket.notify_one();
-
-    if (success) 
-    {
-        m_totalRtpPacketsSent += numPacketsSent;
-        m_totalRtpBytesSent += udpSendPacketInfoVecSharedPtr->size();
-        LOG_DEBUG(subprocess) << "Sent " <<  numPacketsSent << " packets. Sent " << udpSendPacketInfoVecSharedPtr->size() << " bytes";
-    } else {
-        LOG_ERROR(subprocess) << "Failed to send RTP packet";
-    }
 }
 
 int BpReceiveStream::SendUdpPacket(padded_vector_uint8_t& message) 

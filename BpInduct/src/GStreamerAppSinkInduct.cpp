@@ -215,26 +215,40 @@ void GStreamerAppSinkInduct::OnBusMessages()
                 break;
             }
             case GST_MESSAGE_EOS:
+            {
                 /* end-of-stream */
                 LOG_INFO(subprocess) << "Got GST_MESSAGE_EOS";
                 gst_element_set_state (m_pipeline, GST_STATE_NULL);
                 break;
-            case GST_MESSAGE_BUFFERING: 
+            }
+            case GST_MESSAGE_BUFFERING:
+            {
                 break;
+            }
             case GST_MESSAGE_TAG:
+            {
                 LOG_INFO(subprocess) << "Got tag message";
                 break;
+            }
             case GST_MESSAGE_ASYNC_DONE:
+            {
                 LOG_INFO(subprocess) << "Got GST_MESSAGE_ASYNC_DONE";
                 break;
+            }
             case GST_MESSAGE_STATE_CHANGED:
+            {
                 LOG_INFO(subprocess) << "Got GST_MESSAGE_STATE_CHANGED";
                 break;
+            }
             case GST_MESSAGE_CLOCK_LOST:
+            {
                 break;
+            }
             default:
+            {
                 /* Unhandled message */
                 break;
+            }
         }
     }
 }
