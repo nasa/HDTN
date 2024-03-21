@@ -1,6 +1,9 @@
 #include <boost/test/unit_test.hpp>
 #include "TelemetryRunnerProgramOptions.h"
 #include "Environment.h"
+#if defined(WEB_INTERFACE_USE_BEAST)
+#include "BeastWebsocketServer.h" //for determining if BEAST_WEBSOCKET_SERVER_SUPPORT_SSL when adding options
+#endif
 
 #if defined(WEB_INTERFACE_USE_BEAST) || defined(WEB_INTERFACE_USE_CIVETWEB)
 BOOST_AUTO_TEST_CASE(TelemetryRunnerProgramOptionsAppendToDescTestCase)

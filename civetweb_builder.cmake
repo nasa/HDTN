@@ -12,7 +12,7 @@
 #
 # @section DESCRIPTION
 #
-# This script downloads and builds the civetweb library from source
+# This script downloads and builds the civetweb library from source.
 
 
 SET(CIVETWEB_TAG "v1.16")
@@ -24,12 +24,30 @@ if(WEB_INTERFACE_USE_CIVETWEB)
 	if(NOT USE_WEB_INTERFACE)
 		message(FATAL_ERROR "WEB_INTERFACE_USE_CIVETWEB was set to ON, but USE_WEB_INTERFACE was set to OFF instead of ON")
 	endif()
+	find_package(Git)
+	if(Git_FOUND)
+	  message("Git found: ${GIT_EXECUTABLE}")
+	endif()
 	include(ExternalProject)
+	set(CIVETWEB_URL_TYPE "URL")
+	set(CIVETWEB_URL_MD5_TYPE "URL_MD5")
+	set(CIVETWEB_URL_MD5_VALUE "106ca921e4c9e3d3d76e0bcd937ef50c")
+	set(CIVETWEB_GIT_TAG_TYPE "")
+	set(CIVETWEB_GIT_TAG_VALUE "")
 	if(CIVETWEB_PREDOWNLOADED_ZIP_FILE MATCHES ".zip$")
 		SET(CIVETWEB_DOWNLOAD_LINK "${CIVETWEB_PREDOWNLOADED_ZIP_FILE}")
 		message("won't download CivetWeb, using local source archive file: ${CIVETWEB_DOWNLOAD_LINK}")
+	elseif(Git_FOUND)
+		set(CIVETWEB_URL_MD5_TYPE "")
+		set(CIVETWEB_URL_MD5_VALUE "")
+		set(CIVETWEB_GIT_TAG_TYPE "GIT_TAG")
+		set(CIVETWEB_GIT_TAG_VALUE "${CIVETWEB_TAG}")
+		set(CIVETWEB_URL_TYPE "GIT_REPOSITORY")
+		SET(CIVETWEB_DOWNLOAD_LINK "https://github.com/civetweb/civetweb.git")
+		message("will use git to download CivetWeb from: ${CIVETWEB_DOWNLOAD_LINK}")
 	else()
 		SET(CIVETWEB_DOWNLOAD_LINK "https://github.com/civetweb/civetweb/archive/refs/tags/${CIVETWEB_ZIP_FILE}")
+		message("will download CivetWeb from: ${CIVETWEB_DOWNLOAD_LINK}")
 	endif()
 	SET(CIVETWEB_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/third_party_civetweb")
 	SET(CIVETWEB_INSTALL_DIRECTORY "${CIVETWEB_WORKING_DIRECTORY}/install")
@@ -51,8 +69,9 @@ if(WEB_INTERFACE_USE_CIVETWEB)
 	#message("CMAKE_C_FLAGS_CIVETWEB: ${CMAKE_C_FLAGS_CIVETWEB}")
 
 	ExternalProject_Add(civetweb-custom-target
-		URL ${CIVETWEB_DOWNLOAD_LINK}
-		URL_MD5 "106ca921e4c9e3d3d76e0bcd937ef50c"
+		${CIVETWEB_URL_TYPE} ${CIVETWEB_DOWNLOAD_LINK}
+		${CIVETWEB_URL_MD5_TYPE} ${CIVETWEB_URL_MD5_VALUE}
+		${CIVETWEB_GIT_TAG_TYPE} ${CIVETWEB_GIT_TAG_VALUE}
 		PREFIX ${CIVETWEB_WORKING_DIRECTORY}
 		#$<$<VERSION_GREATER_EQUAL:$<CMAKE_VERSION>,3.24>:DOWNLOAD_EXTRACT_TIMESTAMP TRUE>
 		${DOWNLOAD_EXTRACT_TIMESTAMP_PARAM} ${DOWNLOAD_EXTRACT_TIMESTAMP_VAL}
