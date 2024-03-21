@@ -43,6 +43,11 @@ class TelemetryRequest {
          */
         TELEMETRY_DEFINITIONS_EXPORT void SendResponseSuccess(std::unique_ptr<zmq::socket_t>& socket);
 
+        /**
+         * Sends a success response to the provided socket with a custom message
+         */
+        TELEMETRY_DEFINITIONS_EXPORT void SendResponseSuccessWithCustomMsg(const std::string& message, std::unique_ptr<zmq::socket_t>& socket);
+
         /*
         * Sends an error response to the provided socket
         */

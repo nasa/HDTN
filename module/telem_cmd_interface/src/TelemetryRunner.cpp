@@ -155,6 +155,8 @@ TelemetryRunner::Impl::Impl() :
     m_apiCmdMap[GetInductsApiCommand_t::name] = boost::bind(&TelemetryRunner::Impl::HandleIngressCommand, this, boost::placeholders::_1, boost::placeholders::_2);
     m_apiCmdMap[GetHdtnConfigApiCommand_t::name] = boost::bind(&TelemetryRunner::Impl::ProcessHdtnConfigRequest, this, boost::placeholders::_1, boost::placeholders::_2);
     m_apiCmdMap[GetHdtnVersionApiCommand_t::name] = boost::bind(&TelemetryRunner::Impl::ProcessHdtnVersionRequest, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[SetLinkDownApiCommand_t::name] = boost::bind(&TelemetryRunner::Impl::HandleRouterCommand, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_apiCmdMap[SetLinkUpApiCommand_t::name] = boost::bind(&TelemetryRunner::Impl::HandleRouterCommand, this, boost::placeholders::_1, boost::placeholders::_2);
 }
 
 bool TelemetryRunner::Impl::Init(const HdtnConfig &hdtnConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options) {

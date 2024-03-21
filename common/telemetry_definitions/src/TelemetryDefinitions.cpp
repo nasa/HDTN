@@ -1588,6 +1588,8 @@ const std::string GetBpSecApiCommand_t::name = "get_bpsec_config";
 const std::string SetMaxSendRateApiCommand_t::name = "set_max_send_rate";
 const std::string GetHdtnConfigApiCommand_t::name = "get_hdtn_config";
 const std::string GetHdtnVersionApiCommand_t::name = "get_hdtn_version";
+const std::string SetLinkDownApiCommand_t::name = "set_link_down";
+const std::string SetLinkUpApiCommand_t::name = "set_link_up";
 
 /**
  * ApiCommand_t 
@@ -1669,6 +1671,12 @@ std::shared_ptr<ApiCommand_t> ApiCommand_t::CreateFromJson(const std::string& js
     }
     else if (apiCall == GetStorageApiCommand_t::name) {
         apiCommandPtr = std::make_shared<GetStorageApiCommand_t>();
+    }
+    else if (apiCall == SetLinkDownApiCommand_t::name) {
+        apiCommandPtr = std::make_shared<SetLinkDownApiCommand_t>();
+    }
+    else if (apiCall == SetLinkUpApiCommand_t::name) {
+        apiCommandPtr = std::make_shared<SetLinkUpApiCommand_t>();
     }
     else { //generic api command
         apiCommandPtr = std::make_shared<ApiCommand_t>();
@@ -1987,6 +1995,102 @@ bool SetMaxSendRateApiCommand_t::operator==(const ApiCommand_t& o) const {
 bool SetMaxSendRateApiCommand_t::operator!=(const ApiCommand_t& o) const {
     return !(*this == o);
 }
+
+
+
+/**
+ * SetLinkDownApiCommand_t
+ */
+
+SetLinkDownApiCommand_t::SetLinkDownApiCommand_t()
+    : ApiCommand_t(), m_index(0)
+{
+    ApiCommand_t::m_apiCall = SetLinkDownApiCommand_t::name;
+}
+
+bool SetLinkDownApiCommand_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!ApiCommand_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
+    try {
+        m_index = pt.get<uint64_t>("outductIndex");
+    }
+    catch (const boost::bad_lexical_cast& e) {
+        LOG_ERROR(subprocess) << "parsing JSON SetLinkDownApiCommand_t: " << e.what();
+        return false;
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON SetLinkDownApiCommand_t: " << e.what();
+        return false;
+    }
+    return true;
+}
+
+boost::property_tree::ptree SetLinkDownApiCommand_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt = ApiCommand_t::GetNewPropertyTree();
+    pt.put("outductIndex", m_index);
+    return pt;
+}
+
+bool SetLinkDownApiCommand_t::operator==(const ApiCommand_t& o) const {
+    if (const SetLinkDownApiCommand_t* oPtr = dynamic_cast<const SetLinkDownApiCommand_t*>(&o)) {
+        return ApiCommand_t::operator==(o)
+            && (m_index == oPtr->m_index);
+    }
+    return true;
+}
+
+bool SetLinkDownApiCommand_t::operator!=(const ApiCommand_t& o) const {
+    return !(*this == o);
+}
+
+
+/**
+ * SetLinkUpApiCommand_t
+ */
+
+SetLinkUpApiCommand_t::SetLinkUpApiCommand_t()
+    : ApiCommand_t(), m_index(0)
+{
+    ApiCommand_t::m_apiCall = SetLinkDownApiCommand_t::name;
+}
+
+bool SetLinkUpApiCommand_t::SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) {
+    if (!ApiCommand_t::SetValuesFromPropertyTree(pt)) {
+        return false;
+    }
+    try {
+        m_index = pt.get<uint64_t>("outductIndex");
+    }
+    catch (const boost::bad_lexical_cast& e) {
+        LOG_ERROR(subprocess) << "parsing JSON SetLinkUpApiCommand_t: " << e.what();
+        return false;
+    }
+    catch (const boost::property_tree::ptree_error& e) {
+        LOG_ERROR(subprocess) << "parsing JSON SetLinkUpApiCommand_t: " << e.what();
+        return false;
+    }
+    return true;
+}
+
+boost::property_tree::ptree SetLinkUpApiCommand_t::GetNewPropertyTree() const {
+    boost::property_tree::ptree pt = ApiCommand_t::GetNewPropertyTree();
+    pt.put("outductIndex", m_index);
+    return pt;
+}
+
+bool SetLinkUpApiCommand_t::operator==(const ApiCommand_t& o) const {
+    if (const SetLinkUpApiCommand_t* oPtr = dynamic_cast<const SetLinkUpApiCommand_t*>(&o)) {
+        return ApiCommand_t::operator==(o)
+            && (m_index == oPtr->m_index);
+    }
+    return true;
+}
+
+bool SetLinkUpApiCommand_t::operator!=(const ApiCommand_t& o) const {
+    return !(*this == o);
+}
+
 
 /**
  * ApiResp_t

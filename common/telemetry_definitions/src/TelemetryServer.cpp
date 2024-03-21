@@ -85,6 +85,14 @@ void TelemetryRequest::SendResponseSuccess(std::unique_ptr<zmq::socket_t>& socke
     SendResponse(str, socket);
 }
 
+void TelemetryRequest::SendResponseSuccessWithCustomMsg(const std::string& message, std::unique_ptr<zmq::socket_t>& socket) {
+    ApiResp_t response;
+    response.m_success = true;
+    response.m_message = message;
+    const std::string str = response.ToJson();
+    SendResponse(str, socket);
+}
+
 void TelemetryRequest::SendResponseError(const std::string& message, std::unique_ptr<zmq::socket_t>& socket) {
     ApiResp_t response;
     response.m_success = false;

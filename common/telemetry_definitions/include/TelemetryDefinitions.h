@@ -624,6 +624,36 @@ struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS GetHdtnVersionApiCommand_t : publi
     TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
 };
 
+
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS SetLinkDownApiCommand_t : public ApiCommand_t {
+    uint64_t m_index;
+
+    TELEMETRY_DEFINITIONS_EXPORT SetLinkDownApiCommand_t();
+
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+
+    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
+};
+
+
+struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS SetLinkUpApiCommand_t : public ApiCommand_t {
+    uint64_t m_index;
+
+    TELEMETRY_DEFINITIONS_EXPORT SetLinkUpApiCommand_t();
+
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const ApiCommand_t& o) const;
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const ApiCommand_t& o) const;
+
+    TELEMETRY_DEFINITIONS_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const override;
+    TELEMETRY_DEFINITIONS_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree& pt) override;
+
+    TELEMETRY_DEFINITIONS_EXPORT static const std::string name;
+};
+
 struct CLASS_VISIBILITY_TELEMETRY_DEFINITIONS ApiResp_t : public JsonSerializable {
     bool m_success;
     std::string m_message;
