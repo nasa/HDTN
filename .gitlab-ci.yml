@@ -163,6 +163,23 @@ build-extra-options:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
 
+# Build HDTN with CivetWeb instead of Boost Beast
+build-civetweb:
+  stage: build-stage
+  tags:
+    - docker
+    - linux-x86
+  image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
+  script:
+    - mkdir -p build
+    - cmake -S . -B build -DWEB_INTERFACE_USE_CIVETWEB:BOOL=ON -DCMAKE_CXX_FLAGS="-Werror" -DCMAKE_C_FLAGS="-Werror"
+    - make -C build/ -j8
+  cache:
+    key: build-civet-$CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID
+    paths:
+      - build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
 
 build-static-analysis:
   stage: build-stage

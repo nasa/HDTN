@@ -41,7 +41,7 @@ bool ExitHandler::handleGet(CivetServer *server, struct mg_connection *conn) {
     mg_printf(conn, "Bye!\n");
     m_exitNow = true;
     return true;
-};
+}
 
 WebSocketHandler::WebSocketHandler() : CivetWebSocketHandler() {}
 
@@ -149,7 +149,7 @@ bool CivetwebWebsocketServer::Init(const boost::filesystem::path& documentRoot, 
         "document_root", documentRootAsString.c_str(), "listening_ports", portNumberAsString.c_str(), 0};
 
     std::vector<std::string> cpp_options;
-    for (int i = 0; i < (sizeof(options) / sizeof(options[0]) - 1); ++i) {
+    for (std::size_t i = 0; i < (sizeof(options) / sizeof(options[0]) - 1); ++i) {
         cpp_options.push_back(options[i]);
     }
 
