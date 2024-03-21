@@ -1009,6 +1009,9 @@ void Router::Impl::TelemEventsHandler() {
         } else if (SetLinkDownApiCommand_t* setLinkDownApiCmdPtr = dynamic_cast<SetLinkDownApiCommand_t*>(request.Command().get())){
             SendLinkDown(setLinkDownApiCmdPtr->m_index);
             request.SendResponseSuccessWithCustomMsg("Link at outduct index " + std::to_string(setLinkDownApiCmdPtr->m_index) + " has been taken down", m_zmqRepSock_connectingTelemToFromBoundRouterPtr);
+        } else if (SetLinkUpApiCommand_t* setLinkUpApiCmdPtr = dynamic_cast<SetLinkUpApiCommand_t*>(request.Command().get())){
+            SendLinkUp(setLinkUpApiCmdPtr->m_index);
+            request.SendResponseSuccessWithCustomMsg("Link at outduct index " + std::to_string(setLinkUpApiCmdPtr->m_index) + " has been brought up", m_zmqRepSock_connectingTelemToFromBoundRouterPtr);
         }
         more = request.More();
     } while (more);

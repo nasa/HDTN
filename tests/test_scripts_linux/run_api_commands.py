@@ -107,6 +107,13 @@ def take_link_down(outductArrayIndex):
     }
     send(req)
 
+def bring_link_up(outductArrayIndex):
+    req = {
+        "apiCall": "set_link_up",
+        "outductIndex": outductArrayIndex
+    }
+    send(req)
+
 while True:
     print("1: Get Storage")
     print("2: Get Expiring Storage")
@@ -119,6 +126,7 @@ while True:
     print("9: Get Current HDTN Config")
     print("10: Get Current HDTN Version")
     print("11: Take link down")
+    print("12: Bring link up")
     option = input("API command: ")
 
     if option == "1":
@@ -152,5 +160,8 @@ while True:
     elif option == "11":
         outductArrayIndex = int(input("Index of link in outduct: "))
         take_link_down(outductArrayIndex)
+    elif option == "12":
+        outductArrayIndex = int(input("Index of link in outduct: "))
+        bring_link_up(outductArrayIndex)
     else:
         print("Invalid option")
