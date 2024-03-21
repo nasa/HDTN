@@ -218,7 +218,7 @@ Web User Interface
 This repository comes equiped with code to launch a web-based user interface to display statistics for the HDTN engine.
 It relies on a dependency called Boost Beast which is packaged as a header-only library that comes with a standard Boost installation.
 The web interface will use OpenSSL (if found by CMake) since the web interface supports both http as well as https, and hence both ws (WebSocket) and wss (WebSocket Secure).  If OpenSSL is not found, the web interface will only support http/ws.  The web user interface is enabled by default at compile time.  If the web user interface is not desired, it can be turned off by setting the CMakeCache.txt variable `USE_WEB_INTERFACE:BOOL` to `OFF`.
-
+The web interface can be built with CivetWeb (statically linked without SSL support) instead of Boost Beast in order to reduce HDTN binary file size.  The HDTN CMake will automatically download and build CivetWeb and link to it statically.  Simply set CMake cache option `WEB_INTERFACE_USE_CIVETWEB` to `ON` (or run cmake with argument `-DWEB_INTERFACE_USE_CIVETWEB:BOOL=ON`).  If you are building without access to the internet, you can download version 1.16 source zip file of CivetWeb from GitHub and set the CMake cache variable `CIVETWEB_PREDOWNLOADED_ZIP_FILE` to point to the filesystem path of the downloaded zip file.
 
 Now anytime that HDTNOneProcess runs, the web page will be accessible at `http://localhost:8086` and an alternative "system view" gui based on D3.js will be accessible at `http://localhost:8086/hdtn_d3_gui/`
 

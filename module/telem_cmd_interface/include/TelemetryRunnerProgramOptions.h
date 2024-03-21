@@ -18,7 +18,6 @@
 #define TELEMETRY_RUNNER_PROGRAM_OPTIONS_H 1
 
 #include "HdtnDistributedConfig.h"
-#include "BeastWebsocketServer.h" //for determining if BEAST_WEBSOCKET_SERVER_SUPPORT_SSL when adding options
 #include <boost/filesystem/path.hpp>
 #include <boost/program_options.hpp>
 #include "telem_lib_export.h"
@@ -38,7 +37,7 @@ class TelemetryRunnerProgramOptions
          * Parses a variable map and stores the result 
          */
         TELEM_LIB_EXPORT bool ParseFromVariableMap(boost::program_options::variables_map& vm);
-#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
+
         struct SslPaths {
             boost::filesystem::path m_certificatePemFile; //not preferred
             boost::filesystem::path m_certificateChainPemFile; //preferred
@@ -46,21 +45,19 @@ class TelemetryRunnerProgramOptions
             boost::filesystem::path m_diffieHellmanParametersPemFile;
             bool m_valid = false;
         };
-        SslPaths m_sslPaths;
-private:
-        void GetSslPathsAndValidate(boost::program_options::variables_map& vm, SslPaths& sslPaths);
+
 public:
-#endif
         /**
          * Program options
          */
         boost::filesystem::path m_guiDocumentRoot;
         std::string m_guiPortNumber;
         HdtnDistributedConfig_ptr m_hdtnDistributedConfigPtr;
-
+        SslPaths m_sslPaths;
 
 
     private:
+        void GetSslPathsAndValidate(boost::program_options::variables_map& vm, SslPaths& sslPaths);
         boost::filesystem::path GetDocumentRootAndValidate(boost::program_options::variables_map& vm);
         std::string GetPortNumberAsString(boost::program_options::variables_map& vm);
         HdtnDistributedConfig_ptr GetHdtnDistributedConfigPtr(boost::program_options::variables_map& vm);

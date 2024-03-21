@@ -35,8 +35,10 @@
 #include "JsonSerializable.h"
 #include <queue>
 #include <atomic>
-#ifdef USE_WEB_INTERFACE
-#include "BeastWebsocketServer.h"
+#if defined(WEB_INTERFACE_USE_BEAST)
+# include "BeastWebsocketServer.h"
+#elif defined(WEB_INTERFACE_USE_CIVETWEB)
+# include "CivetwebWebsocketServer.h"
 #endif
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::telem;
@@ -69,8 +71,13 @@ class TelemetryRunner::Impl : private boost::noncopyable {
     private:
         void ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDistributedConfigPtr, zmq::context_t * inprocContextPtr);
         void OnNewJsonTelemetry(const char* buffer, uint64_t bufferSize);
+#if defined(WEB_INTERFACE_USE_BEAST)
         void OnNewWebsocketConnectionCallback(WebsocketSessionPublicBase& conn);
         bool OnNewWebsocketDataReceivedCallback(WebsocketSessionPublicBase& conn, std::string& receivedString);
+#elif defined(WEB_INTERFACE_USE_CIVETWEB)
+        void OnNewWebsocketConnectionCallback(struct mg_connection* conn);
+        bool OnNewWebsocketDataReceivedCallback(struct mg_connection* conn, char* data, size_t data_len);
+#endif
         bool OnApiRequest(std::string&& msgJson, zmq::message_t&& connectionID);
         bool HandleIngressCommand(std::string& movablePayload, zmq::message_t& connectionID);
         bool HandleStorageCommand(std::string& movablePayload, zmq::message_t& connectionID);
@@ -85,8 +92,10 @@ class TelemetryRunner::Impl : private boost::noncopyable {
        
         std::atomic<bool> m_running;
         std::unique_ptr<boost::thread> m_threadPtr;
-#ifdef USE_WEB_INTERFACE
+#if defined(WEB_INTERFACE_USE_BEAST)
         std::unique_ptr<BeastWebsocketServer> m_websocketServerPtr;
+#elif defined(WEB_INTERFACE_USE_CIVETWEB)
+        std::unique_ptr<CivetwebWebsocketServer> m_websocketServerPtr;
 #endif
         std::unique_ptr<TelemetryLogger> m_telemetryLoggerPtr;
         DeadlineTimer m_deadlineTimer;
@@ -170,7 +179,15 @@ bool TelemetryRunner::Impl::Init(const HdtnConfig &hdtnConfig, zmq::context_t *i
         m_hdtnConfigWithVersionJsonPtr = std::make_shared<std::string>(JsonSerializable::PtToJsonString(pt));
     }
 
-#ifdef USE_WEB_INTERFACE
+#if defined(WEB_INTERFACE_USE_CIVETWEB)
+    m_websocketServerPtr = boost::make_unique<CivetwebWebsocketServer>();
+    m_websocketServerPtr->Init(options.m_guiDocumentRoot, options.m_guiPortNumber);
+    m_websocketServerPtr->SetOnNewWebsocketConnectionCallback(
+        boost::bind(&TelemetryRunner::Impl::OnNewWebsocketConnectionCallback, this, boost::placeholders::_1));
+    m_websocketServerPtr->SetOnNewWebsocketDataReceivedCallback(
+        boost::bind(&TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback, this,
+            boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
+#elif defined(WEB_INTERFACE_USE_BEAST)
 # ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
     boost::asio::ssl::context sslContext(boost::asio::ssl::context::sslv23_server);
     if (options.m_sslPaths.m_valid) {
@@ -199,7 +216,7 @@ bool TelemetryRunner::Impl::Init(const HdtnConfig &hdtnConfig, zmq::context_t *i
     m_websocketServerPtr->Init(options.m_guiDocumentRoot, options.m_guiPortNumber,
         boost::bind(&TelemetryRunner::Impl::OnNewWebsocketConnectionCallback, this, boost::placeholders::_1),
         boost::bind(&TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback, this, boost::placeholders::_1, boost::placeholders::_2));
-#endif // USE_WEB_INTERFACE
+#endif // defined(WEB_INTERFACE_USE_BEAST)
 
 #ifdef DO_STATS_LOGGING
     m_telemetryLoggerPtr = boost::make_unique<TelemetryLogger>();
@@ -211,7 +228,8 @@ bool TelemetryRunner::Impl::Init(const HdtnConfig &hdtnConfig, zmq::context_t *i
     return true;
 }
 
-void TelemetryRunner::Impl::OnNewWebsocketConnectionCallback(WebsocketSessionPublicBase &conn) {
+#if defined(WEB_INTERFACE_USE_BEAST)
+void TelemetryRunner::Impl::OnNewWebsocketConnectionCallback(WebsocketSessionPublicBase& conn) {
     // std::cout << "newconn\n";
     conn.AsyncSendTextData(std::shared_ptr<std::string>(m_hdtnConfigWithVersionJsonPtr));
     {
@@ -222,13 +240,37 @@ void TelemetryRunner::Impl::OnNewWebsocketConnectionCallback(WebsocketSessionPub
     }
 }
 
-bool TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback(WebsocketSessionPublicBase &conn, std::string &receivedString) {
+bool TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback(WebsocketSessionPublicBase& conn, std::string& receivedString) {
     (void)conn;
     if (!OnApiRequest(std::move(receivedString), GUI_REQ_CONN_ID.Msg())) {
         LOG_ERROR(subprocess) << "failed to handle API request from websocket";
     }
     return true; // keep open
 }
+#elif defined(WEB_INTERFACE_USE_CIVETWEB)
+void TelemetryRunner::Impl::OnNewWebsocketConnectionCallback(struct mg_connection* conn) {
+    // std::cout << "newconn\n";
+
+    mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, &(*m_hdtnConfigWithVersionJsonPtr)[0], m_hdtnConfigWithVersionJsonPtr->size());
+    {
+        boost::mutex::scoped_lock lock(m_lastSerializedAllOutductCapabilitiesMutex);
+        if (m_lastJsonSerializedAllOutductCapabilitiesPtr && m_lastJsonSerializedAllOutductCapabilitiesPtr->size()) {
+            mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT,
+                &(*m_lastJsonSerializedAllOutductCapabilitiesPtr)[0],
+                m_lastJsonSerializedAllOutductCapabilitiesPtr->size());
+        }
+    }
+}
+
+bool TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback(struct mg_connection* conn, char* data, size_t data_len) {
+    (void)conn;
+    if (!OnApiRequest(std::string(data, data + data_len), GUI_REQ_CONN_ID.Msg())) {
+        LOG_ERROR(subprocess) << "failed to handle API request from websocket";
+    }
+    return true; // keep open
+}
+#endif
+
 
 bool TelemetryRunner::Impl::HandleIngressCommand(std::string &movablePayload, zmq::message_t& connectionID) {
     return m_ingressConnection->EnqueueApiPayload(std::move(movablePayload), std::move(connectionID));
@@ -525,10 +567,14 @@ void TelemetryRunner::Impl::QueueTelemRequests() {
 }
 
 void TelemetryRunner::Impl::OnNewJsonTelemetry(const char *buffer, uint64_t bufferSize) {
-#ifdef USE_WEB_INTERFACE
+#if defined(WEB_INTERFACE_USE_BEAST)
     if (m_websocketServerPtr) {
         std::shared_ptr<std::string> strPtr = std::make_shared<std::string>(buffer, bufferSize);
         m_websocketServerPtr->SendTextDataToActiveWebsockets(strPtr);
+    }
+#elif defined(WEB_INTERFACE_USE_CIVETWEB)
+    if (m_websocketServerPtr) {
+        m_websocketServerPtr->SendNewTextData(buffer, bufferSize);
     }
 #else
     (void)buffer;
@@ -549,10 +595,15 @@ void TelemetryRunner::Impl::Stop() {
         }
         m_threadPtr.reset(); // delete it
     }
-#ifdef USE_WEB_INTERFACE
+#if defined(WEB_INTERFACE_USE_BEAST)
     // stop websocket after thread
     if (m_websocketServerPtr) {
         m_websocketServerPtr->Stop();
+        m_websocketServerPtr.reset();
+    }
+#elif defined(WEB_INTERFACE_USE_CIVETWEB)
+    // stop websocket after thread
+    if (m_websocketServerPtr) {
         m_websocketServerPtr.reset();
     }
 #endif

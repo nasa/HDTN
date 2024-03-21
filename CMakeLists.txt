@@ -48,6 +48,9 @@ option(BUILD_SHARED_LIBS "Build shared libraries" Off)
 set(HDTN_VERSION "1.0")
 project(HDTN VERSION ${HDTN_VERSION})
 
+OPTION(USE_WEB_INTERFACE "Use Boost Beast or CivetWeb HDTN Web Interface" ON)
+include(${CMAKE_SOURCE_DIR}/civetweb_builder.cmake) #do this before changing warning level
+
 include(${CMAKE_SOURCE_DIR}/git_hash_detection.cmake)
 
 #set(CMAKE_CXX_STANDARD 11)
@@ -182,7 +185,6 @@ OPTION(DO_STATS_LOGGING "Should stats be logged to files" Off)
 if (DO_STATS_LOGGING)
 	add_compile_definitions(DO_STATS_LOGGING)
 endif()
-OPTION(USE_WEB_INTERFACE "Use Boost Beast HDTN Web Interface" ON)
 #add_compile_definitions(USE_WEB_INTERFACE) #not needed globally, rather this is set specifically to HdtnOneProcessRunner.cpp in the one process CMakeLists.txt
 
 
@@ -215,12 +217,17 @@ else() #CMake 3.14 or older
 	set(BOOST_INTEGER_VERSION_FOR_COMPARISION ${Boost_VERSION})
 endif()
 if(USE_WEB_INTERFACE)
-	if(ENABLE_OPENSSL_SUPPORT AND (${BOOST_INTEGER_VERSION_FOR_COMPARISION} LESS 107000))
-		message(WARNING "USE_WEB_INTERFACE and ENABLE_OPENSSL_SUPPORT are set to ON, but boost version ${BOOST_INTEGER_VERSION_FOR_COMPARISION} is less than 107000 (v1.70).  HTTPS will be disabled for the web interface gui.")
-	elseif(ENABLE_OPENSSL_SUPPORT)
-		message("Building Web Interface (with OpenSSL/HTTPS support)")
+	if(WEB_INTERFACE_USE_CIVETWEB)
+		message("Building lightweight Web Interface using CivetWeb (without OpenSSL/HTTPS support)")
 	else()
-		message("Building Web Interface (without OpenSSL/HTTPS support)")
+		set(WEB_INTERFACE_USE_BEAST ON)
+		if(ENABLE_OPENSSL_SUPPORT AND (${BOOST_INTEGER_VERSION_FOR_COMPARISION} LESS 107000))
+			message(WARNING "USE_WEB_INTERFACE and ENABLE_OPENSSL_SUPPORT are set to ON, but boost version ${BOOST_INTEGER_VERSION_FOR_COMPARISION} is less than 107000 (v1.70).  HTTPS will be disabled for the web interface gui.")
+		elseif(ENABLE_OPENSSL_SUPPORT)
+			message("Building Web Interface (with OpenSSL/HTTPS support)")
+		else()
+			message("Building Web Interface (without OpenSSL/HTTPS support)")
+		endif()
 	endif()
 else()
 	message("NOT Building Web Interface!")

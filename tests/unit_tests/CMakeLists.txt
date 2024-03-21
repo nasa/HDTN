@@ -109,13 +109,8 @@ set_property(
 )
 
 set_property(
-	SOURCE ../../module/telem_cmd_interface/unit_tests/TelemetryRunnerTests.cpp
-	PROPERTY COMPILE_DEFINITIONS
-		$<$<BOOL:${USE_WEB_INTERFACE}>:USE_WEB_INTERFACE> 
-)
-
-set_property(
 	SOURCE ../../module/telem_cmd_interface/unit_tests/TelemetryRunnerProgramOptionsTests.cpp
 	PROPERTY COMPILE_DEFINITIONS
-		$<$<BOOL:${USE_WEB_INTERFACE}>:USE_WEB_INTERFACE> 
+		$<$<BOOL:${WEB_INTERFACE_USE_BEAST}>:WEB_INTERFACE_USE_BEAST> 
+		$<$<BOOL:${WEB_INTERFACE_USE_CIVETWEB}>:WEB_INTERFACE_USE_CIVETWEB> 
 )
