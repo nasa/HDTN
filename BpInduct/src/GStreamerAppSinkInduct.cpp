@@ -209,7 +209,7 @@ void GStreamerAppSinkInduct::OnBusMessages()
                 gchar *debug;
 
                 gst_message_parse_error (msg, &err, &debug);
-                LOG_INFO(subprocess) << "Error:" << err->message;
+                LOG_INFO(subprocess) << "Error:" << err->message << " Debugging info: " << (debug ? debug : "none");
                 g_error_free (err);
                 g_free (debug);
                 break;
@@ -237,7 +237,12 @@ void GStreamerAppSinkInduct::OnBusMessages()
             }
             case GST_MESSAGE_STATE_CHANGED:
             {
+                GstState old_state, new_state;
+                gst_message_parse_state_changed (msg, &old_state, &new_state, NULL);
+
                 LOG_INFO(subprocess) << "Got GST_MESSAGE_STATE_CHANGED";
+                LOG_INFO(subprocess) << "Element " << GST_OBJECT_NAME (msg->src) << " changed state from " << 
+                    gst_element_state_get_name (old_state) << " to " << gst_element_state_get_name (new_state);
                 break;
             }
             case GST_MESSAGE_CLOCK_LOST:
