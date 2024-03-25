@@ -1,0 +1,29 @@
+{
+    "inductConfigName": "myconfig",
+    "inductVector": [
+        {
+                "name": "induct for data from hdtn",
+                "convergenceLayer": "ltp_over_udp",
+                "boundPort": 4559,
+                "numRxCircularBufferElements": 1000,
+                "thisLtpEngineId": 2,
+                "remoteLtpEngineId": 102,
+                "ltpReportSegmentMtu": 700,
+                "oneWayLightTimeMs": 300,
+                "oneWayMarginTimeMs": 100,
+                "clientServiceId": 1,
+                "preallocatedRedDataBytes": 200000,
+                "ltpMaxRetriesPerSerialNumber": 2,
+                "ltpRandomNumberSizeBits": 32,
+                "ltpRemoteUdpHostname": "localhost",
+                "ltpRemoteUdpPort": 4558,
+                "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
+                "ltpMaxExpectedSimultaneousSessions": 10000,
+                "ltpMaxUdpPacketsToSendPerSystemCall":1,
+                "delaySendingOfReportSegmentsTimeMsOrZeroToDisable": 20,
+                "keepActiveSessionDataOnDisk": false,
+                "activeSessionDataOnDiskNewFileDurationMs": 2000,
+                "activeSessionDataOnDiskDirectory": ".\/"
+        }
+    ]
+}

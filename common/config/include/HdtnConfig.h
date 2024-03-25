@@ -84,6 +84,7 @@ public:
 
     uint64_t m_neighborDepletedStorageDelaySeconds;
     uint64_t m_fragmentBundlesLargerThanBytes;
+    bool m_enforceBundlePriority;
 
     //pub-sub from router to all modules (defined in HdtnConfig as the TCP socket is used by hdtn-one-process)
     uint16_t m_zmqBoundRouterPubSubPortPath;

@@ -123,6 +123,7 @@ private:
     bool WriteBundle(const PrimaryBlock& bundlePrimaryBlock,
         const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize, uint64_t payloadSizeBytes, cbhe_eid_t *bundleEidMaskPtr = NULL);
     uint64_t PeekOne(const std::vector<eid_plus_isanyserviceid_pair_t>& availableDestLinks);
+    uint64_t PeekOne(const std::vector<eid_plus_isanyserviceid_pair_t> & availableDestLinks, int &priority);
     bool ReleaseOne_NoBlock(const OutductInfo_t& info, const uint64_t maxBundleSizeToRead, uint64_t& returnedBundleSize);
     void RepopulateUpLinksVec();
     void SetLinkDown(OutductInfo_t & info);
@@ -133,12 +134,20 @@ private:
     void DeleteExpiredBundles(const boost::posix_time::ptime& nowPtime, float storageUsagePercentage);
     void DeleteBundleById(const uint64_t custodyId);
     bool SendDeletionStatusReport(catalog_entry_t * entry);
+    void DoSendBundles(long &timeoutPoll);
+    void SendFromCutThroughQueue(OutductInfo_t &info, long & timeoutPoll);
+    void SendFromStorage(OutductInfo_t &info, uint64_t maxBundleSizeToRead, long &timeoutPoll);
+    void DefaultSend(OutductInfo_t &info, uint64_t maxBundleSizeToRead, long &timeoutPoll);
+    void PrioritySend(OutductInfo_t &info, uint64_t maxBundleSizeToRead, long &timeoutPoll);
+    int GetQueueBundlePriority(CutThroughQueueData& qd);
 
 public:
     StorageTelemetry_t m_telem;
     cbhe_eid_t M_HDTN_EID_CUSTODY;
 
 private:
+    static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
+
     std::unique_ptr<zmq::context_t> m_zmqContextPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingStoragePtr;
     std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundReleaseToConnectingStoragePtr;
@@ -186,6 +195,12 @@ private:
     std::unordered_set<uint64_t> m_custodyIdsWaitingTimerStart;
 
     TelemetryServer m_telemServer;
+
+    std::size_t m_lastIndexToUpLinkVectorOutductInfoRoundRobin;
+
+    // stats
+    std::size_t m_totalEventsNoDataInStorageForAvailableLinks;
+    std::size_t m_totalEventsDataInStorageForCloggedLinks;
 };
 
 ZmqStorageInterface::Impl::Impl() :
@@ -193,7 +208,11 @@ ZmqStorageInterface::Impl::Impl() :
     m_running(false),
     m_isOutOfStorageSpace(false),
     m_workerThreadStartupInProgress(false),
-    m_deletionPolicy(DeletionPolicy::never) {}
+    m_deletionPolicy(DeletionPolicy::never),
+    m_lastIndexToUpLinkVectorOutductInfoRoundRobin(0),
+    m_totalEventsNoDataInStorageForAvailableLinks(0),
+    m_totalEventsDataInStorageForCloggedLinks(0)
+{}
 
 ZmqStorageInterface::Impl::~Impl() {
     Stop();
@@ -868,17 +887,23 @@ bool ZmqStorageInterface::Impl::WriteBundle(const PrimaryBlock& bundlePrimaryBlo
     return true;
 }
 
-
-//return number of bytes to read for specified links
-uint64_t ZmqStorageInterface::Impl::PeekOne(const std::vector<eid_plus_isanyserviceid_pair_t> & availableDestLinks) {
+uint64_t ZmqStorageInterface::Impl::PeekOne(const std::vector<eid_plus_isanyserviceid_pair_t> & availableDestLinks, int &priority) {
     const uint64_t bytesToReadFromDisk = m_bsmPtr->PopTop(m_sessionRead, availableDestLinks);
     if (bytesToReadFromDisk == 0) { //no more of these links to read
         return 0; //no bytes to read
     }
 
+    priority = m_sessionRead.catalogEntryPtr->GetPriorityIndex();
+
     //this link has a bundle in the fifo
     m_bsmPtr->ReturnTop(m_sessionRead);
     return bytesToReadFromDisk;
+}
+
+//return number of bytes to read for specified links
+uint64_t ZmqStorageInterface::Impl::PeekOne(const std::vector<eid_plus_isanyserviceid_pair_t> & availableDestLinks) {
+    int priority = 0;
+    return PeekOne(availableDestLinks, priority);
 }
 
 static void CustomCleanupToEgressHdr(void *data, void *hint) {
@@ -1194,12 +1219,12 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
     
 
     
-    std::size_t totalEventsNoDataInStorageForAvailableLinks = 0;
-    std::size_t totalEventsDataInStorageForCloggedLinks = 0;
+    m_totalEventsNoDataInStorageForAvailableLinks = 0;
+    m_totalEventsDataInStorageForCloggedLinks = 0;
     std::size_t numCustodyTransferTimeouts = 0;
     
     
-    std::size_t lastIndexToUpLinkVectorOutductInfoRoundRobin = 0;
+    m_lastIndexToUpLinkVectorOutductInfoRoundRobin = 0;
 
     
 
@@ -1213,7 +1238,6 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
         {m_zmqSubSock_boundReleaseToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqRepSock_connectingTelemToFromBoundStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
     };
-    static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
     long timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL; //0 => no blocking
     boost::posix_time::ptime acsSendNowExpiry = boost::posix_time::microsec_clock::universal_time() + ACS_SEND_PERIOD;
     boost::posix_time::ptime tryDeleteTime = boost::posix_time::microsec_clock::universal_time();
@@ -1672,6 +1696,23 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
             tryDeleteTime = nowPtime + DELETE_EXPIRED_PERIOD;
         }
 
+        DoSendBundles(timeoutPoll);
+
+    }
+    LOG_DEBUG(subprocess) << "Storage bundles sent: FromDisk=" << m_telem.m_totalBundlesSentToEgressFromStorageReadFromDisk
+        << "  FromCutThroughForward=" << m_telem.m_totalBundlesSentToEgressFromStorageForwardCutThrough;
+    LOG_DEBUG(subprocess) << "totalEventsNoDataInStorageForAvailableLinks: " << m_totalEventsNoDataInStorageForAvailableLinks;
+    LOG_DEBUG(subprocess) << "totalEventsDataInStorageForCloggedLinks: " << m_totalEventsDataInStorageForCloggedLinks;
+    LOG_DEBUG(subprocess) << "m_numRfc5050CustodyTransfers: " << m_telem.m_numRfc5050CustodyTransfers;
+    LOG_DEBUG(subprocess) << "m_numAcsCustodyTransfers: " << m_telem.m_numAcsCustodyTransfers;
+    LOG_DEBUG(subprocess) << "m_numAcsPacketsReceived: " << m_telem.m_numAcsPacketsReceived;
+    LOG_DEBUG(subprocess) << "m_totalBundlesErasedFromStorageNoCustodyTransfer: " << m_telem.m_totalBundlesErasedFromStorageNoCustodyTransfer;
+    LOG_DEBUG(subprocess) << "m_totalBundlesErasedFromStorageWithCustodyTransfer: " << m_telem.m_totalBundlesErasedFromStorageWithCustodyTransfer;
+    LOG_DEBUG(subprocess) << "numCustodyTransferTimeouts: " << numCustodyTransferTimeouts;
+    LOG_DEBUG(subprocess) << "m_totalBundlesRewrittenToStorageFromFailedEgressSend: " << m_telem.m_totalBundlesRewrittenToStorageFromFailedEgressSend;
+}
+
+void ZmqStorageInterface::Impl::DoSendBundles(long & timeoutPoll) {
         //For each outduct or opportunistic induct, send to Egress the bundles read from disk or the
         //bundles forwarded over the cut-through path from ingress, alternating/multiplexing between the two.
         //Maintain up to that outduct's own sending pipeline limit,
@@ -1687,18 +1728,161 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
         timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL;
         static constexpr long shortestTimeoutPoll1Ms = 1;
         for (std::size_t count = 0; count < m_vectorUpLinksOutductInfoPtrs.size(); ++count) {
-            ++lastIndexToUpLinkVectorOutductInfoRoundRobin;
-            if (lastIndexToUpLinkVectorOutductInfoRoundRobin >= m_vectorUpLinksOutductInfoPtrs.size()) {
-                lastIndexToUpLinkVectorOutductInfoRoundRobin = 0;
+            ++m_lastIndexToUpLinkVectorOutductInfoRoundRobin;
+            if (m_lastIndexToUpLinkVectorOutductInfoRoundRobin >= m_vectorUpLinksOutductInfoPtrs.size()) {
+                m_lastIndexToUpLinkVectorOutductInfoRoundRobin = 0;
             }
-            OutductInfo_t& info = *(m_vectorUpLinksOutductInfoPtrs[lastIndexToUpLinkVectorOutductInfoRoundRobin]);
+            OutductInfo_t& info = *(m_vectorUpLinksOutductInfoPtrs[m_lastIndexToUpLinkVectorOutductInfoRoundRobin]);
             const std::size_t totalInPipelineStorageToEgressThisLink = info.mapOpenCustodyIdToBundleSizeBytes.size() + info.mapIngressUniqueIdToIngressAckData.size();
+
             const uint64_t maxBundleSizeToRead = info.halfOfMaxBundleSizeBytesInPipeline_StorageToEgressPath - info.bytesInPipeline;
-            uint64_t returnedBundleSizeReadFromDisk;
+
             if (totalInPipelineStorageToEgressThisLink < info.halfOfMaxBundlesInPipeline_StorageToEgressPath) { //not clogged by bundle count in pipeline
-                if (info.stateTryCutThrough && (!info.cutThroughQueue.empty())
-                    && (info.cutThroughQueue.front().bundleToEgress.size() <= maxBundleSizeToRead))
-                { //not clogged by bundle total bytes in pipeline
+                if(m_hdtnConfig.m_enforceBundlePriority) {
+                    PrioritySend(info, maxBundleSizeToRead, timeoutPoll);
+                }
+                else {
+                    DefaultSend(info, maxBundleSizeToRead, timeoutPoll);
+                }
+            }
+            if (timeoutPoll == 0) {
+                break; //return to zmq loop with zero timeout
+            }
+            else if (timeoutPoll != shortestTimeoutPoll1Ms) { //potentially clogged
+                if (PeekOne(info.eidVec) > 0) { //data available in storage for clogged links
+                    timeoutPoll = shortestTimeoutPoll1Ms; //shortest timeout 1ms as we wait for acks
+                    ++m_totalEventsDataInStorageForCloggedLinks;
+                }
+                else { //no data in storage for any available links
+                    //timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL;
+                    ++m_totalEventsNoDataInStorageForAvailableLinks;
+                }
+            }
+        }
+}
+
+
+void ZmqStorageInterface::Impl::PrioritySend(OutductInfo_t &info, uint64_t maxBundleSizeToRead, long &timeoutPoll) {
+    int storageBundlePriority = -1;
+
+    // If one is empty we don't need to compare priorities
+    if(info.cutThroughQueue.empty()) {
+        SendFromStorage(info, maxBundleSizeToRead, timeoutPoll);
+        return;
+    }
+
+    bool queueBundleSmallEnough = (info.cutThroughQueue.front().bundleToEgress.size() <= maxBundleSizeToRead);
+    if(!PeekOne(info.eidVec, storageBundlePriority)) {
+        if(queueBundleSmallEnough) {
+            SendFromCutThroughQueue(info, timeoutPoll);
+        }
+        return;
+    }
+
+    // We have both storage and queue bundles
+
+    int queuePriority = GetQueueBundlePriority(info.cutThroughQueue.front());
+    if(queuePriority == -1) {
+        LOG_ERROR(subprocess) << "Failed to get the priority of the bundle in the cut-through queue";
+    }
+
+    int storagePriority = storageBundlePriority;
+
+    bool sendFromQueue = false;
+
+    if(queuePriority == storagePriority) {
+        // If priorities are equal, then okay to send from
+        // either store or queue. But, only try the queue
+        // if we know that the bundle in the queue is actually
+        // small enough to be sent. Otherwise give store
+        // a shot. (Still multiplex to not starve store).
+        if(queueBundleSmallEnough) {
+            sendFromQueue = info.stateTryCutThrough;
+            info.stateTryCutThrough = !info.stateTryCutThrough; //alternate/multiplex between disk reads and cut-through forwards to prevent one from getting "starved"
+        }
+    }
+    else {
+        sendFromQueue = (queuePriority > storagePriority);
+    }
+
+    if(sendFromQueue) {
+        if(queueBundleSmallEnough) {
+            SendFromCutThroughQueue(info, timeoutPoll);
+        }
+    } else {
+        SendFromStorage(info, maxBundleSizeToRead, timeoutPoll);
+
+        // Pop from queue, put in storage, and send ack to ingress
+        // If this queue fills up, ingress won't be able to pass
+        // more bundles to storage
+        CutThroughQueueData& qd = info.cutThroughQueue.front();
+        cbhe_eid_t out;
+        Write(&qd.bundleToEgress, out, true, true);
+        if (!m_zmqPushSock_connectingStorageToBoundIngressPtr->send(std::move(qd.ackToIngress), zmq::send_flags::dontwait)) {
+            LOG_ERROR(subprocess) << "zmq could not send ingress an ack from storage";
+        }
+        info.cutThroughQueue.pop();
+    }
+}
+
+int ZmqStorageInterface::Impl::GetQueueBundlePriority(CutThroughQueueData& qd) {
+    const uint8_t firstByte = ((const uint8_t*)qd.bundleToEgress.data())[0];
+    const bool isBpVersion6 = (firstByte == 6);
+    const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));
+
+    if(isBpVersion6) {
+        BundleViewV6 bv;
+        if (!bv.LoadBundle((uint8_t *)qd.bundleToEgress.data(), qd.bundleToEgress.size(), true)) {
+            LOG_ERROR(subprocess) << "malformed bundle";
+            return -1;
+        }
+        return bv.m_primaryBlockView.header.GetPriority();
+    } else if(isBpVersion7) {
+        BundleViewV7 bv;
+        if (!bv.LoadBundle((uint8_t *)qd.bundleToEgress.data(), qd.bundleToEgress.size(), true, true)) {
+            LOG_ERROR(subprocess) << "malformed bundle";
+            return -1;
+        }
+        return bv.m_primaryBlockView.header.GetPriority();
+    }
+    return -1;
+}
+
+void ZmqStorageInterface::Impl::DefaultSend(OutductInfo_t &info, uint64_t maxBundleSizeToRead, long &timeoutPoll) {
+                    if (info.stateTryCutThrough && (!info.cutThroughQueue.empty())
+                        && (info.cutThroughQueue.front().bundleToEgress.size() <= maxBundleSizeToRead))
+                    { //not clogged by bundle total bytes in pipeline
+
+                        SendFromCutThroughQueue(info, timeoutPoll);
+                    }
+                    else {
+                        SendFromStorage(info, maxBundleSizeToRead, timeoutPoll);
+                    }
+                    info.stateTryCutThrough = !info.stateTryCutThrough; //alternate/multiplex between disk reads and cut-through forwards to prevent one from getting "starved"
+}
+
+void ZmqStorageInterface::Impl::SendFromStorage(OutductInfo_t &info, uint64_t maxBundleSizeToRead, long &timeoutPoll) {
+    uint64_t returnedBundleSizeReadFromDisk;
+    if (ReleaseOne_NoBlock(info, maxBundleSizeToRead, returnedBundleSizeReadFromDisk)) { //true => (successfully sent to egress)
+        if (info.mapOpenCustodyIdToBundleSizeBytes.emplace(m_sessionRead.custodyId, returnedBundleSizeReadFromDisk).second) {
+            if (m_sessionRead.catalogEntryPtr->HasCustody()) {
+                // Start custody timer when we receive ack from egress that bundle has been sent
+                if (!m_custodyIdsWaitingTimerStart.insert(m_sessionRead.custodyId).second) {
+                    LOG_WARNING(subprocess) << "Could not insert into m_custodyIdsWaitingTimerStart";
+                }
+            }
+            info.bytesInPipeline += returnedBundleSizeReadFromDisk;
+            timeoutPoll = 0; //no timeout as we need to keep feeding to egress
+            ++m_telem.m_totalBundlesSentToEgressFromStorageReadFromDisk;
+            m_telem.m_totalBundleBytesSentToEgressFromStorageReadFromDisk += returnedBundleSizeReadFromDisk;
+        }
+        else {
+            LOG_ERROR(subprocess) << "could not insert custody id into finalDestNodeIdToOpenCustIdsMap";
+        }
+    }
+}
+
+void ZmqStorageInterface::Impl::SendFromCutThroughQueue(OutductInfo_t &info, long & timeoutPoll) {
                     CutThroughQueueData& qd = info.cutThroughQueue.front();
                     
                     //force natural/64-bit alignment
@@ -1738,53 +1922,6 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                         m_telem.m_totalBundleBytesSentToEgressFromStorageForwardCutThrough += bundleSizeBytes;
                     }
                     info.cutThroughQueue.pop();
-                }
-                else if (ReleaseOne_NoBlock(info, maxBundleSizeToRead, returnedBundleSizeReadFromDisk)) { //true => (successfully sent to egress)
-                    if (info.mapOpenCustodyIdToBundleSizeBytes.emplace(m_sessionRead.custodyId, returnedBundleSizeReadFromDisk).second) {
-
-                        if (m_sessionRead.catalogEntryPtr->HasCustody()) {
-                            // Start custody timer when we receive ack from egress that bundle has been sent
-                            if (!m_custodyIdsWaitingTimerStart.insert(m_sessionRead.custodyId).second) {
-                                LOG_WARNING(subprocess) << "Could not insert into m_custodyIdsWaitingTimerStart";
-                            }
-                        }
-                        info.bytesInPipeline += returnedBundleSizeReadFromDisk;
-                        timeoutPoll = 0; //no timeout as we need to keep feeding to egress
-                        ++m_telem.m_totalBundlesSentToEgressFromStorageReadFromDisk;
-                        m_telem.m_totalBundleBytesSentToEgressFromStorageReadFromDisk += returnedBundleSizeReadFromDisk;
-                    }
-                    else {
-                        LOG_ERROR(subprocess) << "could not insert custody id into finalDestNodeIdToOpenCustIdsMap";
-                    }
-                }
-                info.stateTryCutThrough = !info.stateTryCutThrough; //alternate/multiplex between disk reads and cut-through forwards to prevent one from getting "starved"
-            }
-            if (timeoutPoll == 0) {
-                break; //return to zmq loop with zero timeout
-            }
-            else if (timeoutPoll != shortestTimeoutPoll1Ms) { //potentially clogged
-                if (PeekOne(info.eidVec) > 0) { //data available in storage for clogged links
-                    timeoutPoll = shortestTimeoutPoll1Ms; //shortest timeout 1ms as we wait for acks
-                    ++totalEventsDataInStorageForCloggedLinks;
-                }
-                else { //no data in storage for any available links
-                    //timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL;
-                    ++totalEventsNoDataInStorageForAvailableLinks;
-                }
-            }
-        }
-    }
-    LOG_DEBUG(subprocess) << "Storage bundles sent: FromDisk=" << m_telem.m_totalBundlesSentToEgressFromStorageReadFromDisk
-        << "  FromCutThroughForward=" << m_telem.m_totalBundlesSentToEgressFromStorageForwardCutThrough;
-    LOG_DEBUG(subprocess) << "totalEventsNoDataInStorageForAvailableLinks: " << totalEventsNoDataInStorageForAvailableLinks;
-    LOG_DEBUG(subprocess) << "totalEventsDataInStorageForCloggedLinks: " << totalEventsDataInStorageForCloggedLinks;
-    LOG_DEBUG(subprocess) << "m_numRfc5050CustodyTransfers: " << m_telem.m_numRfc5050CustodyTransfers;
-    LOG_DEBUG(subprocess) << "m_numAcsCustodyTransfers: " << m_telem.m_numAcsCustodyTransfers;
-    LOG_DEBUG(subprocess) << "m_numAcsPacketsReceived: " << m_telem.m_numAcsPacketsReceived;
-    LOG_DEBUG(subprocess) << "m_totalBundlesErasedFromStorageNoCustodyTransfer: " << m_telem.m_totalBundlesErasedFromStorageNoCustodyTransfer;
-    LOG_DEBUG(subprocess) << "m_totalBundlesErasedFromStorageWithCustodyTransfer: " << m_telem.m_totalBundlesErasedFromStorageWithCustodyTransfer;
-    LOG_DEBUG(subprocess) << "numCustodyTransferTimeouts: " << numCustodyTransferTimeouts;
-    LOG_DEBUG(subprocess) << "m_totalBundlesRewrittenToStorageFromFailedEgressSend: " << m_telem.m_totalBundlesRewrittenToStorageFromFailedEgressSend;
 }
 
 void ZmqStorageInterface::Impl::TelemEventsHandler() {
