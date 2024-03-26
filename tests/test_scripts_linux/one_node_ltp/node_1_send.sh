@@ -2,7 +2,7 @@
 
 config_files=$HDTN_RTP_DIR/tests/test_scripts_linux/one_node_ltp/config_files
 video_url=http://images-assets.nasa.gov/video/A1Launch/A1Launch~orig.mp4
-video_file=./nasa_video.mp4
+video_file=/media/nasa_video.mp4
 incoming_rtp_port=30000
 
 # Download video file if it doesn't exist

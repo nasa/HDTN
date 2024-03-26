@@ -4,7 +4,8 @@
 docker build $HDTN_STREAMING_DIR -t hdtn-streaming
 
 # Run the test
-docker run -u root --rm --network host --name hdtn-streaming --entrypoint "tests/test_scripts_linux/one_node_ltp/docker/entrypoint.sh" hdtn-streaming:latest &
+mkdir ./media
+docker run -u root --rm --network host -v ./media:/media --name hdtn-streaming --entrypoint "tests/test_scripts_linux/one_node_ltp/docker/entrypoint.sh" hdtn-streaming:latest &
 
 # Wait for stream to start
 sleep 5
