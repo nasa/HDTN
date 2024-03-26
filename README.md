@@ -6,9 +6,9 @@ This repository contains media streaming plugin applications for the High-Rate D
 
 Once built, the `bpsend_stream` executable can be used to ingest media such as RTP packets and mp4 files, and send them to a Delay Tolerant Network (DTN) as bundles over any supported convergence layer. Similarly, the `bprecv_stream` executable can be used to receive bundles from a DTN and reassemble the media.
 
-## Installation (Debian)
+## Installation using Docker
 
-These applications depend on HDTN and Gstreamer libraries. So far, they have only been tested on Debian-based Linux distrubitions. The easiest way to get started is by building `Dockerfile` in the root directory:
+These applications depend on HDTN and Gstreamer libraries. So far, they have only been tested on Debian-based Linux distributions. The easiest way to get started is by building `Dockerfile` in the root directory:
 
 ```
 docker build -t hdtn-streaming .
@@ -21,9 +21,9 @@ docker run -it -u root --network host --name hdtn-streaming hdtn-streaming:lates
 
 However, if you would like to run `bpsend_stream` and `bprecv_stream` natively, you can follow the instructions below.
 
-### Build Dependencies
+## Installation on native machine and Build Dependencies
 
-#### HDTN
+##### HDTN
 
 1. Build and install HDTN using the instructions located [in GitHub](https://gitlab.grc.nasa.gov/hdtn-v4/hdtn)
 
@@ -32,7 +32,7 @@ git clone https://github.com/nasa/HDTN
 cd HDTN && git checkout development && mkdir build && cd build && cmake .. && make -j6 && make install
 ```
 
-#### Gstreamer
+##### Gstreamer
 
 1. Install OS dependencies
 ```
@@ -52,7 +52,7 @@ meson configure gstreamer/build && meson compile -C gstreamer/build
 ninja -C gstreamer/build install
 ```
 
-### Build Media Streaming
+#### Build Media Streaming
 
 1. Clone this repository, and build using CMake
 
@@ -62,9 +62,9 @@ cd HDTN-Streaming && mkdir build && cd build && \
     cmake .. && make
 ```
 
-## Usage
+## Example usage with Docker
 
-Tests scripts are located at `tests/test_scripts_linux`. Before running any test, set `HDTN_STREAMING_DIR` to
+Tests scripts are located at `tests/test_scripts_linux`. After cloning this repository, and before running any test, set `HDTN_STREAMING_DIR` to
 the root of the repository, e.g.:
 ```
 export HDTN_STREAMING_DIR=/home/user/HDTN-Streaming
