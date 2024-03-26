@@ -4,8 +4,15 @@
 docker build $HDTN_STREAMING_DIR -t hdtn-streaming
 
 # Run the test
-mkdir ./media
-docker run -u root --rm --network host -v ./media:/media --name hdtn-streaming --entrypoint "tests/test_scripts_linux/one_node_ltp/docker/entrypoint.sh" hdtn-streaming:latest &
+mkdir -p ./media
+video_url=http://images-assets.nasa.gov/video/A1Launch/A1Launch~orig.mp4
+video_file=./media/nasa_video.mp4
+
+# Download video file if it doesn't exist
+if [ ! -f $video_file ]; then
+    wget -O $video_file $video_url
+fi
+docker run -u root --rm --network host -v media:/media --name hdtn-streaming --entrypoint "tests/test_scripts_linux/one_node_ltp/docker/entrypoint.sh" hdtn-streaming:latest &
 
 # Wait for stream to start
 sleep 5
