@@ -562,7 +562,7 @@ bool Bpv7AbstractSecurityBlock::DeserializeIdValuePairBpv7(uint8_t * serializati
         }
     }
 
-    numBytesTakenToDecode = static_cast<uint8_t>(serialization - serializationBase);
+    numBytesTakenToDecode = static_cast<uint64_t>(serialization - serializationBase);
     return true;
 }
 bool Bpv7AbstractSecurityBlock::IsEqual(const id_value_pairs_vec_t & pVec1, const id_value_pairs_vec_t & pVec2) {
