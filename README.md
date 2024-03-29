@@ -29,7 +29,7 @@ However, if you would like to run `bpsend_stream` and `bprecv_stream` natively, 
 
 ```
 git clone https://github.com/nasa/HDTN
-cd HDTN && git checkout development && mkdir build && cd build && cmake .. && make -j6 && make install
+cd HDTN && git checkout development && mkdir build && cd build && cmake .. && make -j6 && sudo make install
 ```
 
 ##### Gstreamer
