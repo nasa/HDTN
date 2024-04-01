@@ -36,7 +36,7 @@ cd HDTN && git checkout development && mkdir build && cd build && cmake .. && ma
 
 1. Install OS dependencies
 ```
-apt-get update -y && apt-get install -y pkg-config \
+sudo apt-get update -y && sudo apt-get install -y pkg-config \
     flex bison git python3-pip ninja-build libx264-dev \
     cmake build-essential libzmq3-dev libboost-dev libboost-all-dev openssl libssl-dev
 ```
