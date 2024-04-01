@@ -1,8 +1,11 @@
 #include <boost/test/unit_test.hpp>
 #include "TelemetryRunnerProgramOptions.h"
 #include "Environment.h"
+#if defined(WEB_INTERFACE_USE_BEAST)
+#include "BeastWebsocketServer.h" //for determining if BEAST_WEBSOCKET_SERVER_SUPPORT_SSL when adding options
+#endif
 
-#ifdef USE_WEB_INTERFACE
+#if defined(WEB_INTERFACE_USE_BEAST) || defined(WEB_INTERFACE_USE_CIVETWEB)
 BOOST_AUTO_TEST_CASE(TelemetryRunnerProgramOptionsAppendToDescTestCase)
 {
     boost::program_options::options_description desc;
@@ -18,7 +21,7 @@ BOOST_AUTO_TEST_CASE(TelemetryRunnerProgramOptionsAppendToDescTestCase)
 }
 #endif
 
-#ifdef USE_WEB_INTERFACE
+#if defined(WEB_INTERFACE_USE_BEAST) || defined(WEB_INTERFACE_USE_CIVETWEB)
 BOOST_AUTO_TEST_CASE(TelemetryRunnerProgramOptionsDefaultTestCase)
 {
     boost::program_options::options_description desc("Allowed options");
@@ -39,7 +42,7 @@ BOOST_AUTO_TEST_CASE(TelemetryRunnerProgramOptionsDefaultTestCase)
 }
 #endif
 
-#ifdef USE_WEB_INTERFACE
+#if defined(WEB_INTERFACE_USE_BEAST) || defined(WEB_INTERFACE_USE_CIVETWEB)
 BOOST_AUTO_TEST_CASE(TelemetryRunnerProgramOptionsParseFromVmTestCase)
 {
     boost::program_options::variables_map vm;
@@ -54,7 +57,7 @@ BOOST_AUTO_TEST_CASE(TelemetryRunnerProgramOptionsParseFromVmTestCase)
 }
 #endif
 
-#ifdef USE_WEB_INTERFACE
+#if defined(WEB_INTERFACE_USE_BEAST) || defined(WEB_INTERFACE_USE_CIVETWEB)
 BOOST_AUTO_TEST_CASE(TelemetryRunnerProgramOptionsDocumentRootTestCase)
 {
     boost::program_options::variables_map vm;
@@ -82,7 +85,7 @@ BOOST_AUTO_TEST_CASE(TelemetryRunnerProgramOptionsDocumentRootTestCase)
 }
 #endif
 
-#ifdef USE_WEB_INTERFACE
+#if defined(WEB_INTERFACE_USE_BEAST) || defined(WEB_INTERFACE_USE_CIVETWEB)
 BOOST_AUTO_TEST_CASE(TelemetryRunnerProgramOptionsPortNumberTestCase)
 {
     boost::program_options::variables_map vm;

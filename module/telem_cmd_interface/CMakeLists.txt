@@ -1,5 +1,6 @@
 add_library(telem_lib
-	$<$<BOOL:${USE_WEB_INTERFACE}>:src/BeastWebsocketServer.cpp>
+	$<$<BOOL:${WEB_INTERFACE_USE_BEAST}>:src/BeastWebsocketServer.cpp>
+	$<$<BOOL:${WEB_INTERFACE_USE_CIVETWEB}>:src/CivetwebWebsocketServer.cpp>
 	src/TelemetryRunner.cpp
 	src/Telemetry.cpp
 	src/TelemetryConnection.cpp
@@ -14,7 +15,7 @@ if (target_type STREQUAL SHARED_LIBRARY)
 	set_property(TARGET telem_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
 endif()
 set(MY_PUBLIC_HEADERS
-	#$<$<BOOL:${USE_WEB_INTERFACE}>:include/BeastWebsocketServer.h> #generator does not work here
+	#$<$<BOOL:${WEB_INTERFACE_USE_BEAST}>:include/BeastWebsocketServer.h> #generator does not work here
 	include/TelemetryRunner.h
 	include/Telemetry.h
 	include/TelemetryConnection.h
@@ -23,12 +24,14 @@ set(MY_PUBLIC_HEADERS
 	include/TelemetryRunnerProgramOptions.h
 	${CMAKE_CURRENT_BINARY_DIR}/telem_lib_export.h
 )
-if(USE_WEB_INTERFACE)
+if(WEB_INTERFACE_USE_BEAST)
 	list(APPEND MY_PUBLIC_HEADERS include/BeastWebsocketServer.h)
+elseif(WEB_INTERFACE_USE_CIVETWEB)
+	list(APPEND MY_PUBLIC_HEADERS include/CivetwebWebsocketServer.h)
 endif()
 
 #boost beast creates large object files
-if(USE_WEB_INTERFACE)
+if(WEB_INTERFACE_USE_BEAST)
 	if (MSVC)
 		target_compile_options(telem_lib PRIVATE /bigobj)
 	else()
@@ -36,15 +39,22 @@ if(USE_WEB_INTERFACE)
 	endif()
 endif()
 
+if(WEB_INTERFACE_USE_CIVETWEB)
+	add_dependencies(telem_lib civetweb-custom-target)
+endif()
+
+
 set_property(
 	SOURCE src/TelemetryRunner.cpp
 	PROPERTY COMPILE_DEFINITIONS
-		$<$<BOOL:${USE_WEB_INTERFACE}>:USE_WEB_INTERFACE> 
+		$<$<BOOL:${WEB_INTERFACE_USE_BEAST}>:WEB_INTERFACE_USE_BEAST> 
+		$<$<BOOL:${WEB_INTERFACE_USE_CIVETWEB}>:WEB_INTERFACE_USE_CIVETWEB> 
 )
 set_property(
 	SOURCE src/TelemetryRunnerProgramOptions.cpp
 	PROPERTY COMPILE_DEFINITIONS
-		$<$<BOOL:${USE_WEB_INTERFACE}>:USE_WEB_INTERFACE> 
+		$<$<BOOL:${WEB_INTERFACE_USE_BEAST}>:WEB_INTERFACE_USE_BEAST> 
+		$<$<BOOL:${WEB_INTERFACE_USE_CIVETWEB}>:WEB_INTERFACE_USE_CIVETWEB>
 )
 set_target_properties(telem_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
 target_link_libraries(telem_lib
@@ -56,6 +66,9 @@ target_link_libraries(telem_lib
 		stats_lib
 		telemetry_definitions
 		Boost::program_options
+	PRIVATE
+		$<$<BOOL:${WEB_INTERFACE_USE_CIVETWEB}>:${CIVETWEB_LIB}>
+		$<$<BOOL:${WEB_INTERFACE_USE_CIVETWEB}>:${CIVETWEB_CPP_LIB}> 
 )
 target_include_directories(telem_lib
 	PUBLIC
@@ -63,6 +76,8 @@ target_include_directories(telem_lib
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> #project does not have a /include directory
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # for GENERATE_EXPORT_HEADER
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../common/include> # for HdtnVersion.hpp
+	PRIVATE
+		$<$<BOOL:${WEB_INTERFACE_USE_CIVETWEB}>:${CIVETWEB_INSTALL_INCLUDE_DIRECTORY}>
 )
 install(TARGETS telem_lib
 	EXPORT telem_lib-targets

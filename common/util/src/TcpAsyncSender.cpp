@@ -38,7 +38,8 @@ TcpAsyncSender::TcpAsyncSender(std::shared_ptr<boost::asio::ip::tcp::socket> & t
     m_ioServiceRef(ioServiceRef),
     m_tcpSocketPtr(tcpSocketPtr),
     m_writeInProgress(false),
-    m_sendErrorOccurred(false)
+    m_sendErrorOccurred(false),
+    m_userAssignedUuid(0)
 {
 
 }
@@ -119,7 +120,8 @@ TcpAsyncSenderSsl::TcpAsyncSenderSsl(ssl_stream_sharedptr_t & sslStreamSharedPtr
     m_ioServiceRef(ioServiceRef),
     m_sslStreamSharedPtr(sslStreamSharedPtr),
     m_writeInProgress(false),
-    m_sendErrorOccurred(false)
+    m_sendErrorOccurred(false),
+    m_userAssignedUuid(0)
 {
 
 }

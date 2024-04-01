@@ -16,6 +16,9 @@
 #include "Environment.h"
 #include "Logger.h"
 #include <boost/filesystem/operations.hpp>
+#if defined(WEB_INTERFACE_USE_BEAST)
+#include "BeastWebsocketServer.h" //for determining if BEAST_WEBSOCKET_SERVER_SUPPORT_SSL when adding options
+#endif
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::telem;
 static const boost::filesystem::path GUI_HTML_FILE_NAME = "index.html";
@@ -28,7 +31,7 @@ TelemetryRunnerProgramOptions::TelemetryRunnerProgramOptions()
 
 bool TelemetryRunnerProgramOptions::ParseFromVariableMap(boost::program_options::variables_map& vm)
 {
-#ifdef USE_WEB_INTERFACE
+#if defined(WEB_INTERFACE_USE_BEAST) || defined(WEB_INTERFACE_USE_CIVETWEB)
     m_guiDocumentRoot = GetDocumentRootAndValidate(vm);
     m_guiPortNumber = GetPortNumberAsString(vm);
     m_hdtnDistributedConfigPtr = GetHdtnDistributedConfigPtr(vm); //could be null if not distributed
@@ -46,7 +49,7 @@ bool TelemetryRunnerProgramOptions::ParseFromVariableMap(boost::program_options:
 
 void TelemetryRunnerProgramOptions::AppendToDesc(boost::program_options::options_description& desc)
 {
-#ifdef USE_WEB_INTERFACE
+#if defined(WEB_INTERFACE_USE_BEAST) || defined(WEB_INTERFACE_USE_CIVETWEB)
     desc.add_options()
         ("document-root", boost::program_options::value<boost::filesystem::path>()->default_value(Environment::GetPathGuiDocumentRoot()), "Document Root.")
         ("port-number", boost::program_options::value<uint16_t>()->default_value(8086), "Port number.")
@@ -110,7 +113,6 @@ HdtnDistributedConfig_ptr TelemetryRunnerProgramOptions::GetHdtnDistributedConfi
     return hdtnDistributedConfig;
 }
 
-#ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
 void TelemetryRunnerProgramOptions::GetSslPathsAndValidate(boost::program_options::variables_map& vm, SslPaths& sslPaths) {
     sslPaths.m_valid = false;
     try {
@@ -131,4 +133,3 @@ void TelemetryRunnerProgramOptions::GetSslPathsAndValidate(boost::program_option
         LOG_FATAL(subprocess) << "invalid program option error: " << e.what();
     }
 }
-#endif
