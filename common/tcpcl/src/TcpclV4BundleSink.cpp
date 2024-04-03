@@ -72,7 +72,8 @@ TcpclV4BundleSink::TcpclV4BundleSink(
     m_tcpReceiveBytesTransferredCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_stateTcpReadActive(false),
     m_printedCbTooSmallNotice(false),
-    m_running(false)
+    m_running(false),
+    m_classIsDeletedSharedPtr(std::make_shared<std::atomic<bool> >(false))
 {
 #ifdef OPENSSL_SUPPORT_ENABLED
     m_base_sslStreamSharedPtr = sslStreamSharedPtr;
@@ -107,6 +108,9 @@ TcpclV4BundleSink::TcpclV4BundleSink(
 }
 
 TcpclV4BundleSink::~TcpclV4BundleSink() {
+    //prevent io_service posts from circular buffer thread
+    m_classIsDeletedSharedPtr->store(true, std::memory_order_release);
+
     //prevent TcpclV4BundleSink Opportunistic sending of bundles from exiting before all bundles sent and acked
     BaseClass_TryToWaitForAllBundlesToFinishSending();
 
@@ -178,6 +182,15 @@ void TcpclV4BundleSink::HandleSslHandshake(const boost::system::error_code & err
     }
 }
 
+void TcpclV4BundleSink::TryStartTcpReceiveSecure(std::shared_ptr<std::atomic<bool> >& classIsDeletedSharedPtr) {
+    if (classIsDeletedSharedPtr && (!classIsDeletedSharedPtr->load(std::memory_order_acquire))) {
+        TryStartTcpReceiveSecure();
+    }
+    else {
+        LOG_DEBUG(subprocess) << "TcpclV4BundleSink::TryStartTcpReceiveSecure preventing use after free";
+    }
+}
+
 void TcpclV4BundleSink::TryStartTcpReceiveSecure() { //must run within Io Service Thread
     if ((!m_stateTcpReadActive) && (m_base_sslStreamSharedPtr)) {
         const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
@@ -245,6 +258,14 @@ void TcpclV4BundleSink::TryStartTcpReceiveUnsecure() { //must run within Io Serv
         }
     }
 }
+void TcpclV4BundleSink::TryStartTcpReceiveUnsecure(std::shared_ptr<std::atomic<bool> >& classIsDeletedSharedPtr) {
+    if (classIsDeletedSharedPtr && (!classIsDeletedSharedPtr->load(std::memory_order_acquire))) {
+        TryStartTcpReceiveUnsecure();
+    }
+    else {
+        LOG_DEBUG(subprocess) << "TcpclV4BundleSink::TryStartTcpReceiveUnsecure preventing use after free";
+    }
+}
 void TcpclV4BundleSink::HandleTcpReceiveSomeUnsecure(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex) {
     if (!error) {
         m_tcpReceiveBytesTransferredCbVec[writeIndex] = bytesTransferred;
@@ -267,7 +288,7 @@ void TcpclV4BundleSink::HandleTcpReceiveSomeUnsecure(const boost::system::error_
 void TcpclV4BundleSink::PopCbThreadFunc() {
     ThreadNamer::SetThisThreadName("TcpclV4BundleSinkCbReader");
 
-    boost::function<void()> tryStartTcpReceiveFunction = boost::bind(&TcpclV4BundleSink::TryStartTcpReceiveUnsecure, this);
+    boost::function<void()> tryStartTcpReceiveFunction = boost::bind(&TcpclV4BundleSink::TryStartTcpReceiveUnsecure, this, m_classIsDeletedSharedPtr);
 
     while (true) { //keep thread alive if running or cb not empty, i.e. "while (m_running || (m_circularIndexBuffer.GetIndexForRead() != CIRCULAR_INDEX_BUFFER_EMPTY))"
         unsigned int consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
@@ -292,7 +313,7 @@ void TcpclV4BundleSink::PopCbThreadFunc() {
         if (m_base_doUpgradeSocketToSsl) { //the tcpclv4 rx state machine may have set m_base_doUpgradeSocketToSsl to true after HandleReceivedChars()
             LOG_INFO(subprocess) << "sink going to call handshake";
             m_base_doUpgradeSocketToSsl = false;
-            tryStartTcpReceiveFunction = boost::bind(&TcpclV4BundleSink::TryStartTcpReceiveSecure, this);
+            tryStartTcpReceiveFunction = boost::bind(&TcpclV4BundleSink::TryStartTcpReceiveSecure, this, m_classIsDeletedSharedPtr);
             //boost::asio::post(m_tcpSocketIoServiceRef, boost::bind(&TcpclV4BundleSink::DoSslUpgrade, this)); //keep this a thread safe operation by letting ioService thread run it
         }
 #endif

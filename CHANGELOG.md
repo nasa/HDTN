@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* Stcp, TcpclV3, and TcpclV4 inducts would cause a "use after free" event when deleting a closed connection.
 * `UdpBatchSender` now works on Apple using a `syscall` to `sendmsg_x` (the `sendmmsg` equivalent).
 * Windows now builds with warning level 4 (previously level 3) and treats all compiler warnings as errors; fixed all level 4 warnings.
 * Linux now builds with all warnings (`-Wall`, `-Wextra`, `-Wpedantic`); fixed all warnings.  Only the CI/CD pipeline enables "Treat warnings as Errors" (`-Werror` option).
