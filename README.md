@@ -40,7 +40,7 @@ sudo apt-get update -y && sudo apt-get install -y pkg-config \
     flex bison git python3-pip ninja-build libx264-dev \
     cmake build-essential libzmq3-dev libboost-dev libboost-all-dev openssl libssl-dev
 ```
-2. Install meson
+2. Install meson and the directory where it was installed to PATH 
 ```
 pip3 install meson
 ```
