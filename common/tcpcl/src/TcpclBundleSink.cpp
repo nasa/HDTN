@@ -64,7 +64,8 @@ TcpclBundleSink::TcpclBundleSink(
     m_tcpReceiveBytesTransferredCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_stateTcpReadActive(false),
     m_printedCbTooSmallNotice(false),
-    m_running(false)
+    m_running(false),
+    m_classIsDeletedSharedPtr(std::make_shared<std::atomic<bool> >(false))
 {
     m_base_tcpSocketPtr = tcpSocketPtr;
     m_base_inductConnectionName = tcpSocketPtr->remote_endpoint().address().to_string()
@@ -88,6 +89,9 @@ TcpclBundleSink::TcpclBundleSink(
 }
 
 TcpclBundleSink::~TcpclBundleSink() {
+    //prevent io_service posts from circular buffer thread
+    m_classIsDeletedSharedPtr->store(true, std::memory_order_release);
+
     //prevent TcpclBundleSink Opportunistic sending of bundles from exiting before all bundles sent and acked
     BaseClass_TryToWaitForAllBundlesToFinishSending();
 
@@ -133,7 +137,14 @@ TcpclBundleSink::~TcpclBundleSink() {
 }
 
 
-
+void TcpclBundleSink::TryStartTcpReceive(std::shared_ptr<std::atomic<bool> >& classIsDeletedSharedPtr) {
+    if (classIsDeletedSharedPtr && (!classIsDeletedSharedPtr->load(std::memory_order_acquire))) {
+        TryStartTcpReceive();
+    }
+    else {
+        LOG_DEBUG(subprocess) << "TcpclBundleSink::TryStartTcpReceive preventing use after free";
+    }
+}
 
 void TcpclBundleSink::TryStartTcpReceive() {
     if ((!m_stateTcpReadActive) && (m_base_tcpSocketPtr)) {
@@ -178,7 +189,7 @@ void TcpclBundleSink::PopCbThreadFunc() {
     ThreadNamer::SetThisThreadName("TcpclBundleSinkCbReader");
     while (true) { //keep thread alive if running or cb not empty, i.e. "while (m_running || (m_circularIndexBuffer.GetIndexForRead() != CIRCULAR_INDEX_BUFFER_EMPTY))"
         unsigned int consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
-        boost::asio::post(m_tcpSocketIoServiceRef, boost::bind(&TcpclBundleSink::TryStartTcpReceive, this)); //keep this a thread safe operation by letting ioService thread run it
+        boost::asio::post(m_tcpSocketIoServiceRef, boost::bind(&TcpclBundleSink::TryStartTcpReceive, this, m_classIsDeletedSharedPtr)); //keep this a thread safe operation by letting ioService thread run it
         if (consumeIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //if empty
             //try again, but with the mutex
             boost::mutex::scoped_lock lock(m_mutexCb);

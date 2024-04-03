@@ -57,6 +57,7 @@ public:
     TCPCL_LIB_EXPORT void SetNotifyOpportunisticDataAckedCallback(const NotifyOpportunisticDataAckedCallback_t & notifyOpportunisticDataAckedCallback);
 private:
 
+    TCPCL_LIB_NO_EXPORT void TryStartTcpReceive(std::shared_ptr<std::atomic<bool> >& classIsDeletedSharedPtr);
     TCPCL_LIB_NO_EXPORT void TryStartTcpReceive();
     TCPCL_LIB_NO_EXPORT void HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
     TCPCL_LIB_NO_EXPORT void PopCbThreadFunc();
@@ -90,7 +91,7 @@ private:
     bool m_stateTcpReadActive;
     bool m_printedCbTooSmallNotice;
     std::atomic<bool> m_running;
-    
+    std::shared_ptr<std::atomic<bool> > m_classIsDeletedSharedPtr;
 
     
 };

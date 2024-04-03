@@ -52,6 +52,7 @@ public:
     STCP_LIB_EXPORT void GetTelemetry(StcpInductConnectionTelemetry_t& telem) const;
 private:
 
+    STCP_LIB_NO_EXPORT void TryStartTcpReceive(std::shared_ptr<std::atomic<bool> >& classIsDeletedSharedPtr);
     STCP_LIB_NO_EXPORT void TryStartTcpReceive();
     STCP_LIB_NO_EXPORT void HandleTcpReceiveIncomingBundleSize(const boost::system::error_code & error, std::size_t bytesTransferred, const unsigned int writeIndex);
     STCP_LIB_NO_EXPORT void HandleTcpReceiveBundleData(const boost::system::error_code & error, std::size_t bytesTransferred);
@@ -79,6 +80,7 @@ private:
     bool m_printedCbTooSmallNotice;
     std::atomic<bool> m_running;
     std::atomic<bool> m_safeToDelete;
+    std::shared_ptr<std::atomic<bool> > m_classIsDeletedSharedPtr;
     uint32_t m_incomingBundleSize;
 
     //telemetry

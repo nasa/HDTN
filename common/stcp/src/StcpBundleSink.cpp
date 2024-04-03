@@ -41,6 +41,7 @@ StcpBundleSink::StcpBundleSink(std::shared_ptr<boost::asio::ip::tcp::socket> tcp
     m_printedCbTooSmallNotice(false),
     m_running(false),
     m_safeToDelete(false),
+    m_classIsDeletedSharedPtr(std::make_shared<std::atomic<bool> >(false)),
     m_incomingBundleSize(0),
     //telemetry
     M_CONNECTION_NAME(tcpSocketPtr->remote_endpoint().address().to_string()
@@ -59,6 +60,8 @@ StcpBundleSink::StcpBundleSink(std::shared_ptr<boost::asio::ip::tcp::socket> tcp
 }
 
 StcpBundleSink::~StcpBundleSink() {
+    //prevent io_service posts from circular buffer thread
+    m_classIsDeletedSharedPtr->store(true, std::memory_order_release);
 
     if (!m_safeToDelete) {
         DoStcpShutdown();
@@ -93,6 +96,15 @@ StcpBundleSink::~StcpBundleSink() {
             << "\n totalStcpBytesReceived " << m_totalStcpBytesReceived
             << "\n totalBundleBytesReceived " << m_totalBundleBytesReceived
             << "\n totalBundlesReceived " << m_totalBundlesReceived;
+    }
+}
+
+void StcpBundleSink::TryStartTcpReceive(std::shared_ptr<std::atomic<bool> >& classIsDeletedSharedPtr) {
+    if (classIsDeletedSharedPtr && (!classIsDeletedSharedPtr->load(std::memory_order_acquire))) {
+        TryStartTcpReceive();
+    }
+    else {
+        LOG_DEBUG(subprocess) << "StcpBundleSink::TryStartTcpReceive preventing use after free";
     }
 }
 
@@ -197,7 +209,7 @@ void StcpBundleSink::PopCbThreadFunc() {
 
     while (true) { //keep thread alive if running or cb not empty, i.e. "while (m_running || (m_circularIndexBuffer.GetIndexForRead() != CIRCULAR_INDEX_BUFFER_EMPTY))"
         unsigned int consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
-        boost::asio::post(m_tcpSocketIoServiceRef, boost::bind(&StcpBundleSink::TryStartTcpReceive, this)); //keep this a thread safe operation by letting ioService thread run it
+        boost::asio::post(m_tcpSocketIoServiceRef, boost::bind(&StcpBundleSink::TryStartTcpReceive, this, m_classIsDeletedSharedPtr)); //keep this a thread safe operation by letting ioService thread run it
         if (consumeIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //if empty
             //try again, but with the mutex
             boost::mutex::scoped_lock lock(m_mutexCb);

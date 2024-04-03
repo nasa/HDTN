@@ -67,9 +67,11 @@ private:
 #ifdef OPENSSL_SUPPORT_ENABLED
     TCPCL_LIB_NO_EXPORT void DoSslUpgrade();
     TCPCL_LIB_NO_EXPORT void HandleSslHandshake(const boost::system::error_code & error);
+    TCPCL_LIB_NO_EXPORT void TryStartTcpReceiveSecure(std::shared_ptr<std::atomic<bool> >& classIsDeletedSharedPtr);
     TCPCL_LIB_NO_EXPORT void TryStartTcpReceiveSecure();
     TCPCL_LIB_NO_EXPORT void HandleTcpReceiveSomeSecure(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
 #endif
+    TCPCL_LIB_NO_EXPORT void TryStartTcpReceiveUnsecure(std::shared_ptr<std::atomic<bool> >& classIsDeletedSharedPtr);
     TCPCL_LIB_NO_EXPORT void TryStartTcpReceiveUnsecure();
     TCPCL_LIB_NO_EXPORT void HandleTcpReceiveSomeUnsecure(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
     TCPCL_LIB_NO_EXPORT void PopCbThreadFunc();
@@ -104,7 +106,7 @@ private:
     bool m_stateTcpReadActive;
     bool m_printedCbTooSmallNotice;
     std::atomic<bool> m_running;
-    
+    std::shared_ptr<std::atomic<bool> > m_classIsDeletedSharedPtr;
 
     
 };
