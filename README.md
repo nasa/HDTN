@@ -46,16 +46,13 @@ pip3 install meson
 ```
 3. Clone, build, and install Gstreamer
 ```
-git clone https://github.com/GStreamer/gstreamer.git \
-cd gstreamer && meson setup build \
-meson configure build && meson compile -C build \
-ninja -C build install 
+git clone https://github.com/GStreamer/gstreamer.git 
 ```
 ```
-cd gstreamer && meson setup build \
+cd gstreamer && meson setup build 
 ```
 ```
-meson configure build && meson compile -C build \
+meson configure build && meson compile -C build 
 ```
 ```
 ninja -C build install 
