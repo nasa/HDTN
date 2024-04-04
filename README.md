@@ -51,6 +51,15 @@ cd gstreamer && meson setup build \
 meson configure build && meson compile -C build \
 ninja -C build install 
 ```
+```
+cd gstreamer && meson setup build \
+```
+```
+meson configure build && meson compile -C build \
+```
+```
+ninja -C build install 
+```
 
 #### Build Media Streaming
 
