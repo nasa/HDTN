@@ -9,16 +9,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+### Added
+
+### Changed
+
+### Removed
+
+## [1.2.0] - 2024-04-05
+
+### Fixed
+
+* Fix BpSourcePattern can now receive non-custody-signal bundles for outduct convergence layers SlipOverUart and BpOverEncap.
+* Fix BundleViews v6 and v7 bug when using a mixture of both payload admin records and payload non-admin records.
+* Building HDTN as shared libraries now works on all platforms.
+* HDTN now cleanly exits when an ltp outduct or induct has a bad hostname.
 * Stcp, TcpclV3, and TcpclV4 inducts would cause a "use after free" event when deleting a closed connection.
 * `UdpBatchSender` now works on Apple using a `syscall` to `sendmsg_x` (the `sendmmsg` equivalent).
 * Windows now builds with warning level 4 (previously level 3) and treats all compiler warnings as errors; fixed all level 4 warnings.
 * Linux now builds with all warnings (`-Wall`, `-Wextra`, `-Wpedantic`); fixed all warnings.  Only the CI/CD pipeline enables "Treat warnings as Errors" (`-Werror` option).
 * Fix LTP RedPartReceptionCallback where the isEndOfBlock parameter now reports if the EOB came from the red data (correct behavior) instead of whether the last segment received from any part of the red data was the EOB (previous incorrect behavior).
 * Fix LTP GreenPartSegmentArrivalCallback where the offsetStartOfBlock parameter incorrectly had the length of the block added to it.
+* Fix BPSec decoding mishandles larger parameter and result sizes (caused by the wrong type cast).
 
 ### Added
 
-* Added "bp_over_encap_local_stream" and "ltp_over_encap_local_stream" convergence layers, allowing HDTN to generate CCSDS encap packets over a cross-platform local stream.  On Windows, this is acomplished using a full-duplex named pipe.  On Linux/POSIX, this is accomplished using a local `AF_UNIX` duplex socket.
+* New supported native platforms (g++ or Clang).
+    * macOS Apple Silicon M2 on Ventura (using ARM CPU NEON instructions)
+    * macOS Intel x64 on Ventura
+    * FreeBSD Intel x64
+    * OpenBSD Intel x64
+    * Linux ARM64 (aarch64) (using ARM CPU NEON instructions)
+* HDTN now prints the Git commit hash (from which it was built) to the logs at initialization (in addition to the HDTN version).
+* Added the option to build the web interface with CivetWeb (statically linked without SSL support) instead of Boost Beast (default) in order to reduce HDTN binary file size.  See the README for instructions.
+* Added experimental "bp_over_encap_local_stream" and "ltp_over_encap_local_stream" convergence layers, allowing HDTN to generate CCSDS encap packets over a cross-platform local stream.  On Windows, this is acomplished using a full-duplex named pipe.  On Linux/POSIX, this is accomplished using a local `AF_UNIX` duplex socket.
 * Added EncapRepeater.cpp demo application to serve as an example for writing code to intercept/extract CCSDS Encap packets from HDTN.
 + Add `enforceBundlePriority` config option; setting this enforces strict priority ordering
   of forwarded bundles. When true, HDTN will foward bundles by priority. This will have 
@@ -26,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+* HDTN config now has mandatory boolean field `enforceBundlePriority` (default to false).
 * Egress now disables LTP ping during times when the contact plan DOES NOT allow transmission.  Likewise, Egress will reenable LTP ping (back to its config file value) during times when the contact plan allows transmission.
 * `UdpBatchSender` no longer has its own thread and `io_service` due to now being completely asynchronous on all platforms; user provides an `io_service` to its constructor.  The `LtpEngine` `io_service` is what runs the `UdpBatchSender` when using LTP over UDP when `ltpMaxUdpPacketsToSendPerSystemCall` config variable is greater than 1.
 * Windows now builds with warning level 4 (previously level 3) and treats all compiler warnings and linker warnings as errors.

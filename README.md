@@ -25,10 +25,16 @@ Build Environment
     * Ubuntu 20.04.2 LTS
     * Debian 10
     * RHEL (Red Hat Enterprise Linux) 8
+    * ARM64
 * Windows
     * Windows 10 (64-bit)
     * Windows Server 2022 (64-bit)
     * Windows Server 2019 (64-bit)
+* macOS
+    * Apple Silicon M2 on Ventura
+    * Intel x64 on Ventura
+* FreeBSD Intel x64
+* OpenBSD Intel x64
 * Raspbian
 * ARM on x86
 
@@ -57,6 +63,7 @@ sudo dnf install cmake boost-devel zeromq zeromq-devel gcc-c++ libstdc++-devel
 ## macOS Dependencies ##
 
 * ZeroMQ
+
 On macOS, ZeroMQ needs to be built from source and installed in the /usr/local directory which can be done with:
 ```
 sudo git clone https://github.com/zeromq/libzmq /usr/local/libzmq
@@ -71,6 +78,7 @@ make install
 ```
 
 * OpenSSL and gnutls
+
 First, install Homebrew, which is a package manager for macOS:
 ```
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
