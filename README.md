@@ -80,7 +80,7 @@ To quickly get started using Docker:
 1. Install Docker (https://docs.docker.com/engine/install/ubuntu/)
 2. Download VLC
 ```
-apt-get install vlc
+sudo apt-get install vlc
 ```
 3. Run the `one_node_ltp` test, to stream a video file using `bpsend_stream`, `bprecv_stream`, and HDTN:
 ```
