@@ -60,6 +60,7 @@ public:
     std::size_t m_totalCustodyTransfersSentToStorage;
     std::size_t m_totalCustodyTransfersSentToIngress;
 private:
+    static const uint64_t NO_OUTDUCT;
     uint64_t m_totalTcpclBundlesReceivedMutexProtected;
     uint64_t m_totalTcpclBundleBytesReceivedMutexProtected;
 
@@ -101,6 +102,8 @@ private:
     // its outducts may call callbacks and try to access the above member variables
     OutductManager m_outductManager;
 };
+
+const uint64_t Egress::Impl::NO_OUTDUCT = UINT64_MAX;
 
 Egress::Impl::Impl() :
     m_totalCustodyTransfersSentToStorage(0),
@@ -576,8 +579,24 @@ void Egress::Impl::ReadZmqThreadFunc() {
                     }
                 }
                 else {
-                    LOG_FATAL(subprocess) << "HegrManagerAsync::ProcessZmqMessagesThreadFunc: no outduct for " 
-                        << Uri::GetIpnUriString(finalDestEid.nodeId, finalDestEid.serviceId);
+                    LOG_INFO(subprocess) << "While processing bundle: no outduct for "
+                        << Uri::GetIpnUriString(finalDestEid.nodeId, finalDestEid.serviceId)
+                        << " returning to storage";
+
+                    std::vector<uint8_t> userData(sizeof(hdtn::EgressAckHdr));
+                    hdtn::EgressAckHdr* egressAckPtr = (hdtn::EgressAckHdr*)userData.data();
+                    //memset 0 not needed because all values set below
+                    egressAckPtr->base.type = (isCutThroughFromIngress) ? HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS : HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE;
+                    egressAckPtr->base.flags = 0;
+                    egressAckPtr->nextHopNodeId = toEgressHeader.nextHopNodeId;
+                    egressAckPtr->finalDestEid = finalDestEid;
+                    egressAckPtr->error = 0; // this is updated in OnFailed... below
+                    egressAckPtr->deleteNow = (toEgressHeader.hasCustody == 0); // Doesn't matter, the error flag set in OnFailed will prevent deletion
+                    egressAckPtr->isResponseToStorageCutThrough = toEgressHeader.isCutThroughFromStorage;
+                    egressAckPtr->custodyId = toEgressHeader.custodyId;
+                    egressAckPtr->outductIndex = toEgressHeader.outductIndex;
+
+                    OnFailedBundleZmqSendCallback(zmqMessageBundle, userData, NO_OUTDUCT, false);
                 }
 
             }
@@ -790,7 +809,12 @@ void Egress::Impl::WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleV
 void Egress::Impl::OnFailedBundleZmqSendCallback(zmq::message_t& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid, bool successCallbackCalled) {
 
     static constexpr bool isLinkDownEvent = true;
-    OnOutductLinkStatusChangedCallback(isLinkDownEvent, outductUuid);
+
+    const bool hasOutduct = outductUuid != NO_OUTDUCT;
+
+    if(hasOutduct) {
+        OnOutductLinkStatusChangedCallback(isLinkDownEvent, outductUuid);
+    }
 
     if (successCallbackCalled) { //ltp sender with sessions from disk enabled
         LOG_ERROR(subprocess) << "OnFailedBundleZmqSendCallback called, TODO: send to ingress with needsProcessing set to false, dropping bundle for now";
@@ -799,7 +823,7 @@ void Egress::Impl::OnFailedBundleZmqSendCallback(zmq::message_t& movableBundle, 
         std::vector<uint8_t>* vecUint8RawPointerToUserData = new std::vector<uint8_t>(std::move(userData));
         zmq::message_t zmqUserDataMessageWithDataStolen(vecUint8RawPointerToUserData->data(), vecUint8RawPointerToUserData->size(), CustomCleanupStdVecUint8, vecUint8RawPointerToUserData);
         hdtn::EgressAckHdr* egressAckPtr = (hdtn::EgressAckHdr*)vecUint8RawPointerToUserData->data();
-        egressAckPtr->error = 1;
+        egressAckPtr->error = hasOutduct ? 1 : 2; // 1 for "link down", 2 for "no outduct"
 
         if (egressAckPtr->base.type == HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS) {
             //If the type is HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS, then the bundle came from ingress.  Send the ack to ingress with the error flag set.

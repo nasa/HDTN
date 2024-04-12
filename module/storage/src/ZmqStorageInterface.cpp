@@ -1300,8 +1300,10 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                         //This will allow storage to trigger a link down event more quickly than waiting for router.
                                         //Since ingress NO LONGER holds the bundle, the error flag will let ingress set a link down event more quickly than router.
                                         //Since isResponseToStorageCutThrough is set, then storage needs the bundle back in a multipart message because storage has not yet written this cut-through bundle to disk.
+                                        const bool isLinkDown = (egressAckHdr.error == 1);
+
                                         static thread_local bool printedMsg = false;
-                                        if (!printedMsg) {
+                                        if (!printedMsg && isLinkDown) {
                                             LOG_WARNING(subprocess) << "Got a link down notification from egress on cut-through path for outduct index "
                                                 << egressAckHdr.outductIndex << " for final dest "
                                                 << egressAckHdr.finalDestEid
@@ -1317,7 +1319,9 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                             Write(&zmqBundleDataReceived, finalDestEidReturnedFromWrite, true, true); //last true because if cut through then definitely no custody or not admin record
                                             ++m_telem.m_totalBundlesRewrittenToStorageFromFailedEgressSend;
                                         }
-                                        SetLinkDown(info);
+                                        if(isLinkDown) {
+                                            SetLinkDown(info);
+                                        }
                                         hdtn::StorageAckHdr* storageAckHdr = (hdtn::StorageAckHdr*)it->second.ackToIngress.data();
                                         storageAckHdr->error = 1;
                                     }
@@ -1340,8 +1344,11 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                         //This will allow storage to trigger a link down event more quickly than waiting for router.
                                         //Since storage already has the bundle, the error flag will prevent deletion and move the bundle back to the "awaiting send" state,
                                         //but the bundle won't be immediately released again from storage because of the immediate link down event.
+
+                                        const bool isLinkDown = (egressAckHdr.error == 1);
+
                                         static thread_local bool printedMsg = false;
-                                        if (!printedMsg) {
+                                        if (!printedMsg && isLinkDown) {
                                             LOG_WARNING(subprocess) << "Got a link down notification from egress for outduct index "
                                                 << egressAckHdr.outductIndex << " for final dest "
                                                 << egressAckHdr.finalDestEid
@@ -1349,7 +1356,9 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                             printedMsg = true;
                                         }
 
-                                        SetLinkDown(info);
+                                        if(isLinkDown) {
+                                            SetLinkDown(info);
+                                        }
                                         if (!m_bsmPtr->ReturnCustodyIdToAwaitingSend(egressAckHdr.custodyId)) {
                                             LOG_ERROR(subprocess) << "error returning custody id " << egressAckHdr.custodyId << " to awaiting send";
                                         }

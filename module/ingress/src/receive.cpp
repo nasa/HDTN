@@ -773,7 +773,7 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                 else if (receivedEgressAckHdr.base.type == HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS) {
                     ingress_shared_lock_t lockShared(m_sharedMutexFinalDestsToOutductArrayIndexMaps);
                     BundlePipelineAckingSet& bundlePipelineAckingSetObj = *(m_vectorBundlePipelineAckingSet[receivedEgressAckHdr.outductIndex]);
-                    if (receivedEgressAckHdr.error) {
+                    if (receivedEgressAckHdr.error == 1) {
                         //trigger a link down event in ingress more quickly than waiting for router.
                         //egress shall send the failed bundle to storage.
                         if (bundlePipelineAckingSetObj.m_linkIsUp) {
