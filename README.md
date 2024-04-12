@@ -42,7 +42,7 @@ sudo apt-get update -y && sudo apt-get install -y pkg-config \
 ```
 2. Install meson and the directory where it was installed to PATH 
 ```
-pip3 install meson
+sudo pip3 install meson
 ```
 3. Clone, build, and install Gstreamer
 ```
@@ -65,7 +65,7 @@ ninja -C build install
 ```
 git clone TDB
 cd HDTN-Streaming && mkdir build && cd build && \
-    cmake .. && make
+    sudo cmake .. && sudo make
 ```
 
 ## Example usage with Docker
