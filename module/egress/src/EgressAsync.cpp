@@ -524,7 +524,7 @@ void Egress::Impl::ReadZmqThreadFunc() {
                     egressAckPtr->base.flags = 0;
                     egressAckPtr->nextHopNodeId = toEgressHeader.nextHopNodeId;
                     egressAckPtr->finalDestEid = finalDestEid;
-                    egressAckPtr->error = 0; //can set later before sending this ack if error
+                    egressAckPtr->error = EGRESS_ACK_ERROR_TYPE::NO_ERRORS; //can set later before sending this ack if error
                     egressAckPtr->deleteNow = (toEgressHeader.hasCustody == 0);
                     egressAckPtr->isResponseToStorageCutThrough = toEgressHeader.isCutThroughFromStorage;
                     egressAckPtr->custodyId = toEgressHeader.custodyId;
@@ -562,7 +562,7 @@ void Egress::Impl::ReadZmqThreadFunc() {
                     egressAckPtr->base.flags = 0;
                     egressAckPtr->nextHopNodeId = toEgressHeader.nextHopNodeId;
                     egressAckPtr->finalDestEid = finalDestEid;
-                    egressAckPtr->error = 0; //can set later before sending this ack if error
+                    egressAckPtr->error = EGRESS_ACK_ERROR_TYPE::NO_ERRORS; //can set later before sending this ack if error
                     egressAckPtr->deleteNow = (toEgressHeader.hasCustody == 0);
                     egressAckPtr->isResponseToStorageCutThrough = toEgressHeader.isCutThroughFromStorage;
                     egressAckPtr->custodyId = toEgressHeader.custodyId;
@@ -590,7 +590,7 @@ void Egress::Impl::ReadZmqThreadFunc() {
                     egressAckPtr->base.flags = 0;
                     egressAckPtr->nextHopNodeId = toEgressHeader.nextHopNodeId;
                     egressAckPtr->finalDestEid = finalDestEid;
-                    egressAckPtr->error = 0; // this is updated in OnFailed... below
+                    egressAckPtr->error = EGRESS_ACK_ERROR_TYPE::NO_ERRORS; // this is updated in OnFailed... below
                     egressAckPtr->deleteNow = (toEgressHeader.hasCustody == 0); // Doesn't matter, the error flag set in OnFailed will prevent deletion
                     egressAckPtr->isResponseToStorageCutThrough = toEgressHeader.isCutThroughFromStorage;
                     egressAckPtr->custodyId = toEgressHeader.custodyId;
@@ -823,7 +823,7 @@ void Egress::Impl::OnFailedBundleZmqSendCallback(zmq::message_t& movableBundle, 
         std::vector<uint8_t>* vecUint8RawPointerToUserData = new std::vector<uint8_t>(std::move(userData));
         zmq::message_t zmqUserDataMessageWithDataStolen(vecUint8RawPointerToUserData->data(), vecUint8RawPointerToUserData->size(), CustomCleanupStdVecUint8, vecUint8RawPointerToUserData);
         hdtn::EgressAckHdr* egressAckPtr = (hdtn::EgressAckHdr*)vecUint8RawPointerToUserData->data();
-        egressAckPtr->error = hasOutduct ? 1 : 2; // 1 for "link down", 2 for "no outduct"
+        egressAckPtr->error = hasOutduct ? EGRESS_ACK_ERROR_TYPE::LINK_DOWN : EGRESS_ACK_ERROR_TYPE::NO_OUTDUCT;
 
         if (egressAckPtr->base.type == HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS) {
             //If the type is HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS, then the bundle came from ingress.  Send the ack to ingress with the error flag set.

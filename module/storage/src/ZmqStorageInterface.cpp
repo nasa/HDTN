@@ -1294,13 +1294,13 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                 map_id_to_ackdata_t& mapIdToAckData = info.mapIngressUniqueIdToIngressAckData;
                                 map_id_to_ackdata_t::iterator it = mapIdToAckData.find(egressAckHdr.custodyId);
                                 if (it != mapIdToAckData.end()) {
-                                    if (egressAckHdr.error) {
+                                    if (egressAckHdr.error != hdtn::EGRESS_ACK_ERROR_TYPE::NO_ERRORS) {
                                         //A bundle that was forwarded without store from storage to egress gets an ack back from egress with the
                                         //error flag set because egress could not send the bundle.
                                         //This will allow storage to trigger a link down event more quickly than waiting for router.
                                         //Since ingress NO LONGER holds the bundle, the error flag will let ingress set a link down event more quickly than router.
                                         //Since isResponseToStorageCutThrough is set, then storage needs the bundle back in a multipart message because storage has not yet written this cut-through bundle to disk.
-                                        const bool isLinkDown = (egressAckHdr.error == 1);
+                                        const bool isLinkDown = (egressAckHdr.error == hdtn::EGRESS_ACK_ERROR_TYPE::LINK_DOWN);
 
                                         static thread_local bool printedMsg = false;
                                         if (!printedMsg && isLinkDown) {
@@ -1339,13 +1339,13 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                 custodyid_to_size_map_t& mapCustodyIdToSize = info.mapOpenCustodyIdToBundleSizeBytes;
                                 custodyid_to_size_map_t::iterator it = mapCustodyIdToSize.find(egressAckHdr.custodyId);
                                 if (it != mapCustodyIdToSize.end()) {
-                                    if (egressAckHdr.error) {
+                                    if (egressAckHdr.error != hdtn::EGRESS_ACK_ERROR_TYPE::NO_ERRORS) {
                                         //A bundle that was sent from storage to egress gets an ack back from egress with the error flag set because egress could not send the bundle.
                                         //This will allow storage to trigger a link down event more quickly than waiting for router.
                                         //Since storage already has the bundle, the error flag will prevent deletion and move the bundle back to the "awaiting send" state,
                                         //but the bundle won't be immediately released again from storage because of the immediate link down event.
 
-                                        const bool isLinkDown = (egressAckHdr.error == 1);
+                                        const bool isLinkDown = (egressAckHdr.error == hdtn::EGRESS_ACK_ERROR_TYPE::LINK_DOWN);
 
                                         static thread_local bool printedMsg = false;
                                         if (!printedMsg && isLinkDown) {
