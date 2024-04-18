@@ -79,6 +79,12 @@
 #define HDTN_NOROUTE (UINT64_MAX) // no route available
 
 namespace hdtn {
+enum class EGRESS_ACK_ERROR_TYPE : uint8_t {
+    NO_ERRORS = 0, //NO_ERROR is a Windows reserved define
+    LINK_DOWN = 1,
+    NO_OUTDUCT = 2
+};
+
 //#pragma pack (push, 1)
 struct CommonHdr {
     uint16_t type;
@@ -108,7 +114,7 @@ struct ToEgressHdr {
 
 struct EgressAckHdr {
     CommonHdr base;
-    uint8_t error;
+    EGRESS_ACK_ERROR_TYPE error;
     uint8_t deleteNow; //set if message does not request custody (can be deleted after egress sends it)
     uint8_t isResponseToStorageCutThrough;
     uint8_t unused1;
