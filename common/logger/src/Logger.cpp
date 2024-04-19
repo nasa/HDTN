@@ -183,6 +183,7 @@ void Logger::init()
 
     #ifdef LOG_TO_ERROR_FILE
         createFileSinkForLevel(logging::trivial::severity_level::error);
+        createFileSinkForLevel(logging::trivial::severity_level::fatal);
     #endif
 
     #ifdef LOG_TO_CONSOLE
