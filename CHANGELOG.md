@@ -15,6 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [1.2.1] - 2024-04-26
+
+### Fixed
+
+* Fixed a race condition in egress that caused dropped bundles.  Handle the error where no outduct exists for a bundle in egress.  Egress now returns that bundle to its sender.  This condition is careful not to mark the link down in storage or ingress.
+* Fixed missing function calls in the router to recompute routes when using the link up and link down API calls.
+
+### Changed
+
+* Write fatal level errors to a fatal level log file when CMake cache variable `LOG_TO_ERROR_FILE=ON`
+
 ## [1.2.0] - 2024-04-05
 
 ### Fixed
