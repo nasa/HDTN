@@ -147,10 +147,6 @@ class OutductInfo_t {
         : outductIndex(paramOutductIndex), nextHopNodeId(paramNextHopNodeId), linkIsUpTimeBased(paramLinkIsUpTimeBased),
           linkIsUpPhysical(paramLinkIsUpPhysical), linkIsUpStorage(paramLinkIsUpStorage) {}
 
-    bool IsInFailedState() const {
-        return !linkIsUpPhysical || !linkIsUpStorage;
-    }
-
     bool updateLinkStateTimeBased(bool val) {
         bool previouslyUp = IsUp();
         linkIsUpTimeBased = val;
@@ -177,13 +173,9 @@ class OutductInfo_t {
         return s;
     }
 
-    private:
-
-    bool IsUp() {
+    bool IsUp() const {
         return linkIsUpTimeBased && linkIsUpPhysical && linkIsUpStorage;
     }
-
-    public:
 
     const uint64_t outductIndex;
     const uint64_t nextHopNodeId;
@@ -248,6 +240,7 @@ private:
     void ComputeAllRoutes(uint64_t sourceNode);
     uint64_t ComputeOptimalRoute(uint64_t sourceNode, uint64_t finalDestNodeId);
     void ComputeOptimalRoutesForOutductIndex(uint64_t sourceNode, uint64_t outductIndex);
+    OutductInfo_t* GetOutductInfo(uint64_t outductArrayIndex);
 
 
     // Storage Full
@@ -1007,13 +1000,29 @@ void Router::Impl::TelemEventsHandler() {
             );
             request.SendResponseSuccess(m_zmqRepSock_connectingTelemToFromBoundRouterPtr);
         } else if (SetLinkDownApiCommand_t* setLinkDownApiCmdPtr = dynamic_cast<SetLinkDownApiCommand_t*>(request.Command().get())){
-            SendLinkDown(setLinkDownApiCmdPtr->m_index);
-            RerouteOnLinkDown(m_hdtnConfig.m_myNodeId, setLinkDownApiCmdPtr->m_index);
-            request.SendResponseSuccessWithCustomMsg("Link at outduct index " + std::to_string(setLinkDownApiCmdPtr->m_index) + " has been taken down", m_zmqRepSock_connectingTelemToFromBoundRouterPtr);
+            OutductInfo_t* info = GetOutductInfo(setLinkDownApiCmdPtr->m_index);
+            if (!info) {
+                request.SendResponseError("Link at outduct index " + std::to_string(setLinkDownApiCmdPtr->m_index) + " does not exist", m_zmqRepSock_connectingTelemToFromBoundRouterPtr);
+            } else {
+                bool changed = info->updateLinkStateTimeBased(false);
+                if (changed) {
+                    SendLinkDown(setLinkDownApiCmdPtr->m_index);
+                    RerouteOnLinkDown(m_hdtnConfig.m_myNodeId, setLinkDownApiCmdPtr->m_index);
+                }
+                request.SendResponseSuccessWithCustomMsg("Link at outduct index " + std::to_string(setLinkDownApiCmdPtr->m_index) + " has been taken down", m_zmqRepSock_connectingTelemToFromBoundRouterPtr);
+            }
         } else if (SetLinkUpApiCommand_t* setLinkUpApiCmdPtr = dynamic_cast<SetLinkUpApiCommand_t*>(request.Command().get())){
-            SendLinkUp(setLinkUpApiCmdPtr->m_index);
-            RerouteOnLinkUp(m_hdtnConfig.m_myNodeId);
-            request.SendResponseSuccessWithCustomMsg("Link at outduct index " + std::to_string(setLinkUpApiCmdPtr->m_index) + " has been brought up", m_zmqRepSock_connectingTelemToFromBoundRouterPtr);
+            OutductInfo_t* info = GetOutductInfo(setLinkUpApiCmdPtr->m_index);
+            if (!info) {
+                request.SendResponseError("Link at outduct index " + std::to_string(setLinkUpApiCmdPtr->m_index) + " does not exist", m_zmqRepSock_connectingTelemToFromBoundRouterPtr);
+            } else {
+                bool changed = info->updateLinkStateTimeBased(true);
+                if (changed) {
+                    SendLinkUp(setLinkUpApiCmdPtr->m_index);
+                    RerouteOnLinkUp(m_hdtnConfig.m_myNodeId);
+                }
+                request.SendResponseSuccessWithCustomMsg("Link at outduct index " + std::to_string(setLinkUpApiCmdPtr->m_index) + " has been brought up", m_zmqRepSock_connectingTelemToFromBoundRouterPtr);
+            }
         }
         more = request.More();
     } while (more);
@@ -1538,14 +1547,14 @@ void Router::Impl::FilterContactPlan(uint64_t sourceNode, std::vector<cgr::Conta
         uint64_t outduct_index = m_mapNextHopNodeIdToOutductArrayIndex[contact.to];
         const OutductInfo_t & info = m_mapOutductArrayIndexToOutductInfo[outduct_index];
 
-        // Skip if not "failed"
-        if(!info.IsInFailedState()) {
+        // Skip if up
+        if(info.IsUp()) {
             ++i;
             continue;
         }
 
-        // Otherwise: active contact that's "failed" due to either
-        // physical link down or storage full
+        // Otherwise: active contact that's not up due to either
+        // physical link down, storage full, or API command
         // remove contact from contact plan to re-route around down node
         contactPlan.erase(contactPlan.begin() + i);
     }
@@ -1694,4 +1703,18 @@ uint64_t Router::Impl::ComputeOptimalRoute(uint64_t sourceNode, uint64_t finalDe
    } else {
         return HDTN_NOROUTE;
     }
+}
+
+/**
+ * Gets the OutductInfo_t for the given outduct index
+ * 
+ * @param outductIndex The outduct index
+ * @return The OutductInfo_t or nullptr if not found
+*/
+OutductInfo_t* Router::Impl::GetOutductInfo(uint64_t outductIndex) {
+    std::map<uint64_t, OutductInfo_t>::iterator it = m_mapOutductArrayIndexToOutductInfo.find(outductIndex);
+    if (it == m_mapOutductArrayIndexToOutductInfo.end()) {
+        return nullptr;
+    }
+    return &it->second;
 }
