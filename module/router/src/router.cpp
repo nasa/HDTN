@@ -147,10 +147,6 @@ class OutductInfo_t {
         : outductIndex(paramOutductIndex), nextHopNodeId(paramNextHopNodeId), linkIsUpTimeBased(paramLinkIsUpTimeBased),
           linkIsUpPhysical(paramLinkIsUpPhysical), linkIsUpStorage(paramLinkIsUpStorage) {}
 
-    bool IsInFailedState() const {
-        return !linkIsUpPhysical || !linkIsUpStorage;
-    }
-
     bool updateLinkStateTimeBased(bool val) {
         bool previouslyUp = IsUp();
         linkIsUpTimeBased = val;
@@ -177,13 +173,9 @@ class OutductInfo_t {
         return s;
     }
 
-    private:
-
-    bool IsUp() {
+    bool IsUp() const {
         return linkIsUpTimeBased && linkIsUpPhysical && linkIsUpStorage;
     }
-
-    public:
 
     const uint64_t outductIndex;
     const uint64_t nextHopNodeId;
@@ -1555,14 +1547,14 @@ void Router::Impl::FilterContactPlan(uint64_t sourceNode, std::vector<cgr::Conta
         uint64_t outduct_index = m_mapNextHopNodeIdToOutductArrayIndex[contact.to];
         const OutductInfo_t & info = m_mapOutductArrayIndexToOutductInfo[outduct_index];
 
-        // Skip if not "failed"
-        if(!info.IsInFailedState()) {
+        // Skip if up
+        if(info.IsUp()) {
             ++i;
             continue;
         }
 
-        // Otherwise: active contact that's "failed" due to either
-        // physical link down or storage full
+        // Otherwise: active contact that's not up due to either
+        // physical link down, storage full, or API command
         // remove contact from contact plan to re-route around down node
         contactPlan.erase(contactPlan.begin() + i);
     }
