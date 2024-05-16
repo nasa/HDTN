@@ -60,38 +60,3 @@ install(TARGETS streaming_lib
 add_hdtn_package_export(streaming_lib StreamingLib) #exported target will have the name HDTN::StreamingLib and not streaming_lib.  Also requires install to EXPORT streaming_lib-targets
 
 
-
-
-# BPSendStream
-add_executable(bpsend_stream
-	BpSendStream/src/BpSendStream.cpp
-	BpSendStream/src/BpSendStreamMain.cpp
-	BpSendStream/src/BpSendStreamRunner.cpp
-)
-install(TARGETS bpsend_stream DESTINATION ${CMAKE_INSTALL_BINDIR})
-target_include_directories(bpsend_stream
-	PUBLIC 
-		BpSendStream/include 
-)
-target_link_libraries(bpsend_stream
-	streaming_lib
-	bp_app_patterns_lib
-	Boost::program_options
-) 
-
-# BPReceiveStream
-add_executable(bprecv_stream
-	BpReceiveStream/src/BpReceiveStreamMain.cpp
-	BpReceiveStream/src/BpReceiveStreamRunner.cpp
-	BpReceiveStream/src/BpReceiveStream.cpp
-)
-install(TARGETS bprecv_stream DESTINATION ${CMAKE_INSTALL_BINDIR})
-target_include_directories(bprecv_stream
-	PUBLIC 
-		BpReceiveStream/include 
-)
-target_link_libraries(bprecv_stream
-	streaming_lib
-	bp_app_patterns_lib
-	Boost::program_options
-) 
