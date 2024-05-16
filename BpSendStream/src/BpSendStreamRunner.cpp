@@ -21,7 +21,7 @@ BpSendStreamRunner::BpSendStreamRunner() {}
 BpSendStreamRunner::~BpSendStreamRunner() {}
 
 
-bool BpSendStreamRunner::Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler) {
+bool BpSendStreamRunner::Run(int argc, const char* const argv[], std::atomic<bool>& running, bool useSignalHandler) {
     //scope to ensure clean exit before return 0
     {
         running = true;
@@ -213,7 +213,7 @@ bool BpSendStreamRunner::Run(int argc, const char* const argv[], volatile bool &
         }
 
         LOG_INFO(subprocess) << "Up and running";
-        while (running && m_runningFromSigHandler) {
+        while (running.load(std::memory_order_acquire) && m_runningFromSigHandler.load(std::memory_order_acquire)) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
             if (useSignalHandler) {
                 sigHandler.PollOnce();

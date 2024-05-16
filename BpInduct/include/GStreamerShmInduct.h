@@ -28,7 +28,7 @@ private:
     int StartPlaying();
     
     std::string m_shmSocketPath;
-    volatile bool m_running;
+    std::atomic<bool> m_running;
     
     std::unique_ptr<boost::thread> m_busMonitoringThread;
     void OnBusMessages();

@@ -37,12 +37,10 @@ private:
     bool TryWaitForIncomingDataAvailable(const boost::posix_time::time_duration& timeout);
     bool GetNextIncomingPacketTimeout(const boost::posix_time::time_duration& timeout);
 
-    bool TryWaitForSuccessfulSend(const boost::posix_time::time_duration &timeout);
-    bool GetSuccessfulSendTimeout(const boost::posix_time::time_duration &timeout);
 
     int SendUdpPacket(padded_vector_uint8_t & message);
 
-    volatile bool m_running; // exit condition
+    std::atomic<bool> m_running; // exit condition
     
     // inbound config
     boost::circular_buffer<padded_vector_uint8_t> m_incomingBundleQueue; // incoming rtp frames from HDTN put here
@@ -60,7 +58,6 @@ private:
     boost::asio::ip::udp::endpoint m_udpEndpoint;
     boost::mutex m_sentPacketsMutex;
     boost::condition_variable m_cvSentPacket;
-    volatile bool m_sentPacketsSuccess;
 
     // outbound gstreamer outduct
     uint8_t m_outductType;
@@ -72,8 +69,8 @@ private:
     std::unique_ptr<boost::thread> m_processingThread;
 
     // book keeping
-    uint64_t m_totalRtpPacketsReceived = 0; 
-    uint64_t m_totalRtpPacketsSent = 0; 
-    uint64_t m_totalRtpPacketsFailedToSend = 0;
-    uint64_t m_totalRtpBytesSent = 0;
+    uint64_t m_totalRtpPacketsReceived; 
+    uint64_t m_totalRtpPacketsSent; 
+    uint64_t m_totalRtpPacketsFailedToSend;
+    uint64_t m_totalRtpBytesSent;
 };

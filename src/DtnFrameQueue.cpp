@@ -3,14 +3,14 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-DtnFrameQueue::DtnFrameQueue(size_t queueSize) : m_queueSize(queueSize) 
+DtnFrameQueue::DtnFrameQueue(size_t queueSize) : m_queueSize(queueSize), m_totalBytesInQueue(0)
 {
     LOG_INFO(subprocess) << "Created queue of size" << m_queueSize;
-};
+}
 
 DtnFrameQueue::~DtnFrameQueue()
 {
-};
+}
 
 // get reference to first element in frame queue
 rtp_frame& DtnFrameQueue::GetNextFrame() 

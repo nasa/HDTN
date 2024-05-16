@@ -67,13 +67,11 @@ private:
 
     std::string m_shmSocketPath;
     std::string m_gstCaps;
-    volatile bool m_running;
-    volatile bool m_runDisplayThread;
-    volatile bool m_runFilesinkThread;
+    std::atomic<bool> m_running;
+    std::atomic<bool> m_runDisplayThread;
+    std::atomic<bool> m_runFilesinkThread;
     // gst members
     GstBus *m_bus;
-    GstMessage *m_gstMsg;
-    GstStateChangeReturn m_GstStateChangeReturn;
 
     /* setup functions */
     int CreateElements();
@@ -110,9 +108,9 @@ private:
     GstElement *m_filesinkShmsink;
 
     // stat keeping 
-    uint64_t m_totalIncomingCbOverruns = 0;
-    uint64_t m_totalFilesinkCbOverruns = 0;
-    uint64_t m_totalDisplayCbOverruns = 0;
+    uint64_t m_totalIncomingCbOverruns;
+    uint64_t m_totalFilesinkCbOverruns;
+    uint64_t m_totalDisplayCbOverruns;
 };
 
 

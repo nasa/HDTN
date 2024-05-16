@@ -8,14 +8,20 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 
 BpReceiveStream::BpReceiveStream(size_t numCircularBufferVectors, bp_recv_stream_params_t params) 
     : BpSinkPattern(), 
+    m_running(true),
     m_numCircularBufferVectors(numCircularBufferVectors),
     m_outgoingRtpHostname(params.rtpDestHostname),
     m_outgoingRtpPort(params.rtpDestPort),
     m_maxOutgoingRtpPacketSizeBytes(params.maxOutgoingRtpPacketSizeBytes),
+    m_maxOutgoingRtpPayloadSizeBytes(params.maxOutgoingRtpPacketSizeBytes - sizeof(rtp_header)),
     socket(m_ioService),
-    m_outductType(params.outductType)
+    //m_sentPacketsSuccess(false),
+    m_outductType(params.outductType),
+    m_totalRtpPacketsReceived(0),
+    m_totalRtpPacketsSent(0),
+    m_totalRtpPacketsFailedToSend(0),
+    m_totalRtpBytesSent(0)
 {
-    m_maxOutgoingRtpPayloadSizeBytes = m_maxOutgoingRtpPacketSizeBytes - sizeof(rtp_header);
     m_processingThread = boost::make_unique<boost::thread>(boost::bind(&BpReceiveStream::ProcessIncomingBundlesThread, this)); 
     
     m_incomingBundleQueue.set_capacity(m_numCircularBufferVectors);
@@ -61,14 +67,17 @@ void BpReceiveStream::ProcessIncomingBundlesThread()
     padded_vector_uint8_t rtpFrame;
     rtpFrame.reserve(m_maxOutgoingRtpPacketSizeBytes);
 
-    while (m_running) 
+    while (m_running.load(std::memory_order_acquire)) 
     {
         bool notInWaitForNewPacketState = TryWaitForIncomingDataAvailable(timeout);
         if (notInWaitForNewPacketState) 
         {
-            boost::mutex::scoped_lock lock(m_incomingQueueMutex);
-        
-            padded_vector_uint8_t &incomingBundle = m_incomingBundleQueue.front(); // process front of queue
+            padded_vector_uint8_t incomingBundle;
+            {
+                boost::mutex::scoped_lock lock(m_incomingQueueMutex);
+                incomingBundle = std::move(m_incomingBundleQueue.front()); // process front of queue
+                m_incomingBundleQueue.pop_front();
+            }
             // LOG_DEBUG(subprocess) << "bundle is size " << incomingBundle.size();
 
             size_t offset = 0; 
@@ -101,7 +110,7 @@ void BpReceiveStream::ProcessIncomingBundlesThread()
                 if (offset == incomingBundle.size())
                     break;
             }
-            m_incomingBundleQueue.pop_front();
+            
         }
     }
 }
@@ -140,28 +149,10 @@ bool BpReceiveStream::GetNextIncomingPacketTimeout(const boost::posix_time::time
     return true;
 }
 
-bool BpReceiveStream::TryWaitForSuccessfulSend(const boost::posix_time::time_duration &timeout)
-{
-    if (!m_sentPacketsSuccess) { 
-        return GetSuccessfulSendTimeout(timeout);
-    }
-    return true; 
-}
-
-bool BpReceiveStream::GetSuccessfulSendTimeout(const boost::posix_time::time_duration &timeout)
-{
-    boost::mutex::scoped_lock lock(m_sentPacketsMutex);
-    if (!m_sentPacketsSuccess) {
-        m_cvSentPacket.timed_wait(lock, timeout); //lock mutex (above) before checking condition
-        return false;
-    }
-    
-    return true;
-}
-
 int BpReceiveStream::SendUdpPacket(padded_vector_uint8_t& message) 
 {
     m_totalRtpBytesSent += socket.send_to(boost::asio::buffer(message), m_udpEndpoint);
+    //std::cout << "sent " << m_udpEndpoint.address().to_string() << " port " << m_udpEndpoint.port() << "\n";
     m_totalRtpPacketsSent++;
 	return 0;
 }

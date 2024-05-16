@@ -34,7 +34,7 @@ private:
     int BuildPipeline();
     int StartPlaying();
 
-    volatile bool m_running;
+    std::atomic<bool> m_running;
 
     // members
     GstBus *m_bus;

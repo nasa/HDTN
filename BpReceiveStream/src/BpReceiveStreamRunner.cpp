@@ -21,7 +21,7 @@ void BpReceiveStreamRunner::MonitorExitKeypressThreadFunction() {
     m_runningFromSigHandler = false; //do this first
 }
 
-bool BpReceiveStreamRunner::Run(int argc, const char *const argv[], volatile bool &running, bool useSignalHandler)
+bool BpReceiveStreamRunner::Run(int argc, const char *const argv[], std::atomic<bool>& running, bool useSignalHandler)
 {
     //scope to ensure clean exit before return 0
     {
@@ -167,7 +167,7 @@ bool BpReceiveStreamRunner::Run(int argc, const char *const argv[], volatile boo
             sigHandler.Start(false);
         }
         LOG_INFO(subprocess) << "Up and running";
-        while (running && m_runningFromSigHandler) {
+        while (running.load(std::memory_order_acquire) && m_runningFromSigHandler.load(std::memory_order_acquire)) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
             if (useSignalHandler) {
                 sigHandler.PollOnce();
