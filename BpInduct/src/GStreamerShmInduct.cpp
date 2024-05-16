@@ -21,7 +21,14 @@ void SetShmInductCallbackFunction(const WholeBundleReadyCallback_t& wholeBundleR
 
 
 GStreamerShmInduct::GStreamerShmInduct(std::string shmSocketPath) :
-    m_running(true), m_shmSocketPath(shmSocketPath)
+    m_shmSocketPath(shmSocketPath),
+    m_running(true),
+    m_bus(NULL),
+    m_gstMsg(NULL),
+    m_pipeline(NULL),
+    m_shmsrc(NULL),
+    m_queue(NULL),
+    m_appsink(NULL)
 {
     gst_init(NULL, NULL);     // Initialize gstreamer first
 

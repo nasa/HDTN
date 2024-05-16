@@ -70,7 +70,7 @@ private:
     uint16_t m_incomingRtpStreamPort;
     uint64_t m_maxOutgoingBundleSizeBytes;
 
-    uint64_t m_rtpBytesInQueue = 0;
+    uint64_t m_rtpBytesInQueue;
 
     boost::mutex m_outgoingQueueMutex;   
     boost::mutex m_incomingQueueMutex;     
@@ -88,10 +88,10 @@ private:
     std::string m_fileToStream;
 
     /* stat tracking */
-    uint64_t m_totalRtpPacketsReceived = 0; // counted when received from udp sink
-    uint64_t m_totalRtpPacketsSent = 0; // counted when send to bundler
-    uint64_t m_totalRtpPacketsQueued = 0; // counted when pushed into outgoing queue
-    uint64_t m_totalIncomingCbOverruns = 0;
-    uint64_t m_totalOutgoingCbOverruns = 0;
+    uint64_t m_totalRtpPacketsReceived; // counted when received from udp sink
+    uint64_t m_totalRtpPacketsSent; // counted when send to bundler
+    uint64_t m_totalRtpPacketsQueued; // counted when pushed into outgoing queue
+    uint64_t m_totalIncomingCbOverruns;
+    uint64_t m_totalOutgoingCbOverruns;
 
 };

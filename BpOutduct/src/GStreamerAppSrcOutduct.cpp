@@ -14,7 +14,35 @@ void SetGStreamerAppSrcOutductInstance(GStreamerAppSrcOutduct * gStreamerAppSrcO
 
 
 GStreamerAppSrcOutduct::GStreamerAppSrcOutduct(std::string shmSocketPath, std::string gstCaps) : 
-    m_shmSocketPath(shmSocketPath), m_gstCaps(gstCaps), m_running(true), m_runDisplayThread(true), m_runFilesinkThread(true)
+    m_shmSocketPath(shmSocketPath),
+    m_gstCaps(gstCaps),
+    m_running(true),
+    m_runDisplayThread(true),
+    m_runFilesinkThread(true),
+    m_bus(NULL),
+
+    m_pipeline(NULL),
+    m_displayAppsrc(NULL),
+    /* cap goes here*/
+    m_displayQueue(NULL),
+    m_rtpjitterbuffer(NULL),
+    m_rtph264depay(NULL),
+    m_h264parse(NULL),
+    m_h264timestamper(NULL),
+    m_decodeQueue(NULL),
+    m_avdec_h264(NULL),
+    m_postDecodeQueue(NULL),
+    m_displayShmsink(NULL),
+
+    // To filesink 
+    m_filesinkAppsrc(NULL),
+    m_filesinkQueue(NULL),
+    m_filesinkShmsink(NULL),
+
+    // stat keeping 
+    m_totalIncomingCbOverruns(0),
+    m_totalFilesinkCbOverruns(0),
+    m_totalDisplayCbOverruns(0)
 {
     m_incomingRtpPacketQueue.set_capacity(DEFAULT_NUM_CIRC_BUFFERS);
     m_incomingRtpPacketQueueForDisplay.set_capacity(DEFAULT_NUM_CIRC_BUFFERS);

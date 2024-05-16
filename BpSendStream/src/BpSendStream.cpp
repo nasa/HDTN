@@ -13,8 +13,14 @@ BpSendStream::BpSendStream(uint8_t intakeType, size_t maxIncomingUdpPacketSizeBy
     m_maxIncomingUdpPacketSizeBytes(maxIncomingUdpPacketSizeBytes),
     m_incomingRtpStreamPort(incomingRtpStreamPort),
     m_maxOutgoingBundleSizeBytes(maxOutgoingBundleSizeBytes),
+    m_rtpBytesInQueue(0),
     m_numRtpPacketsPerBundle(numRtpPacketsPerBundle),
-    m_fileToStream(fileToStream)
+    m_fileToStream(fileToStream),
+    m_totalRtpPacketsReceived(0),
+    m_totalRtpPacketsSent(0),
+    m_totalRtpPacketsQueued(0),
+    m_totalIncomingCbOverruns(0),
+    m_totalOutgoingCbOverruns(0)
 {
     m_currentFrame.reserve(m_maxOutgoingBundleSizeBytes);
 

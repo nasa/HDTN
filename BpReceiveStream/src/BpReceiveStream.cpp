@@ -13,11 +13,15 @@ BpReceiveStream::BpReceiveStream(size_t numCircularBufferVectors, bp_recv_stream
     m_outgoingRtpHostname(params.rtpDestHostname),
     m_outgoingRtpPort(params.rtpDestPort),
     m_maxOutgoingRtpPacketSizeBytes(params.maxOutgoingRtpPacketSizeBytes),
+    m_maxOutgoingRtpPayloadSizeBytes(params.maxOutgoingRtpPacketSizeBytes - sizeof(rtp_header)),
     socket(m_ioService),
     //m_sentPacketsSuccess(false),
-    m_outductType(params.outductType)
+    m_outductType(params.outductType),
+    m_totalRtpPacketsReceived(0),
+    m_totalRtpPacketsSent(0),
+    m_totalRtpPacketsFailedToSend(0),
+    m_totalRtpBytesSent(0)
 {
-    m_maxOutgoingRtpPayloadSizeBytes = m_maxOutgoingRtpPacketSizeBytes - sizeof(rtp_header);
     m_processingThread = boost::make_unique<boost::thread>(boost::bind(&BpReceiveStream::ProcessIncomingBundlesThread, this)); 
     
     m_incomingBundleQueue.set_capacity(m_numCircularBufferVectors);
@@ -148,7 +152,7 @@ bool BpReceiveStream::GetNextIncomingPacketTimeout(const boost::posix_time::time
 int BpReceiveStream::SendUdpPacket(padded_vector_uint8_t& message) 
 {
     m_totalRtpBytesSent += socket.send_to(boost::asio::buffer(message), m_udpEndpoint);
-    std::cout << "sent " << m_udpEndpoint.address().to_string() << " port " << m_udpEndpoint.port() << "\n";
+    //std::cout << "sent " << m_udpEndpoint.address().to_string() << " port " << m_udpEndpoint.port() << "\n";
     m_totalRtpPacketsSent++;
 	return 0;
 }

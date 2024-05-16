@@ -85,7 +85,18 @@ void OnNewSampleFromSink(GstElement *element, GStreamerAppSinkInduct *gStreamerA
 }
 
 GStreamerAppSinkInduct::GStreamerAppSinkInduct(std::string fileToStream) : 
-    m_fileToStream(fileToStream), m_running(true)
+    m_fileToStream(fileToStream),
+    m_running(true),
+    m_bus(NULL),
+    m_gstMsg(NULL),
+    m_pipeline(NULL),
+    m_filesrc(NULL),
+    m_qtdemux(NULL),
+    m_h264parse(NULL),
+    m_h264timestamper(NULL),
+    m_rtph264pay(NULL),
+    m_appsink(NULL),
+    m_progressreport(NULL)
 {
     gst_init(NULL, NULL);     // Initialize gstreamer first
 

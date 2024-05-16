@@ -14,15 +14,12 @@ public:
     ~AsyncListener();
 
     bool TryWaitForIncomingDataAvailable();
-    bool GetNextIncomingItemTimeout();
 
     inline void Lock();
     inline void Unlock();
     inline void Notify();
     
-    void PushFront();
     void PopFront();
-    void MoveFront();
 
     T &m_queue;
 

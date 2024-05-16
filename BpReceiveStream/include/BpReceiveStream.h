@@ -69,8 +69,8 @@ private:
     std::unique_ptr<boost::thread> m_processingThread;
 
     // book keeping
-    uint64_t m_totalRtpPacketsReceived = 0; 
-    uint64_t m_totalRtpPacketsSent = 0; 
-    uint64_t m_totalRtpPacketsFailedToSend = 0;
-    uint64_t m_totalRtpBytesSent = 0;
+    uint64_t m_totalRtpPacketsReceived; 
+    uint64_t m_totalRtpPacketsSent; 
+    uint64_t m_totalRtpPacketsFailedToSend;
+    uint64_t m_totalRtpBytesSent;
 };
