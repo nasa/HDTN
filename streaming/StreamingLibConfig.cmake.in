@@ -1,0 +1,12 @@
+get_filename_component(STREAMINGLIB_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+include(CMakeFindDependencyMacro)
+
+find_dependency(HDTNUtil REQUIRED)
+find_dependency(LoggerLib REQUIRED)
+find_dependency(UdpLib REQUIRED)
+
+if(NOT TARGET HDTN::StreamingLib)
+    include("${STREAMINGLIB_CMAKE_DIR}/StreamingLibTargets.cmake")
+endif()
+
+set(STREAMINGLIB_LIBRARIES HDTN::StreamingLib)

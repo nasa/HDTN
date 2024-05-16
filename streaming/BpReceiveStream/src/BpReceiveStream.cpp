@@ -39,7 +39,7 @@ BpReceiveStream::BpReceiveStream(size_t numCircularBufferVectors, bp_recv_stream
         socket.open(boost::asio::ip::udp::v4());
     } else if (m_outductType == GSTREAMER_APPSRC_OUTDUCT) {
         m_gstreamerAppSrcOutductPtr = boost::make_unique<GStreamerAppSrcOutduct>(params.shmSocketPath, params.gstCaps);
-        SetGStreamerAppSrcOutductInstance(m_gstreamerAppSrcOutductPtr.get());
+        GStreamerAppSrcOutduct::SetGStreamerAppSrcOutductInstance(m_gstreamerAppSrcOutductPtr.get());
     }
 
 }
@@ -132,21 +132,12 @@ bool BpReceiveStream::ProcessPayload(const uint8_t *data, const uint64_t size)
 
 bool BpReceiveStream::TryWaitForIncomingDataAvailable(const boost::posix_time::time_duration &timeout)
 {
-    if (m_incomingBundleQueue.size() == 0) { // if empty, we wait
-        return GetNextIncomingPacketTimeout(timeout);
-    }
-    return true; 
-}
-
-bool BpReceiveStream::GetNextIncomingPacketTimeout(const boost::posix_time::time_duration &timeout)
-{
     boost::mutex::scoped_lock lock(m_incomingQueueMutex);
-    if ((m_incomingBundleQueue.size() == 0)) {
-        m_incomingQueueCv.timed_wait(lock, timeout); //lock mutex (above) before checking condition
-        return false;
+    if (!m_incomingBundleQueue.empty()) {
+        return true;
     }
-    
-    return true;
+    m_incomingQueueCv.timed_wait(lock, timeout);
+    return !m_incomingBundleQueue.empty(); //true => data available to send, false => data not avaiable to send yet
 }
 
 int BpReceiveStream::SendUdpPacket(padded_vector_uint8_t& message) 

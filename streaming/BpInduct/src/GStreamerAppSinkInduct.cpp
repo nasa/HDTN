@@ -15,12 +15,12 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
  * are not member functions
 */
 static WholeBundleReadyCallback_t s_wholeBundleReadyCallback;
-void SetCallbackFunction(const WholeBundleReadyCallback_t& wholeBundleReadyCallback)
+void GStreamerAppSinkInduct::SetCallbackFunction(const WholeBundleReadyCallback_t& wholeBundleReadyCallback)
 {
     s_wholeBundleReadyCallback = wholeBundleReadyCallback;
 }
 
-void OnPadAdded(GstElement *element, GstPad *pad, GStreamerAppSinkInduct *GStreamerAppSinkInduct)
+static void OnPadAdded(GstElement *element, GstPad *pad, GStreamerAppSinkInduct *GStreamerAppSinkInduct)
 {
     GstCaps *newPadCaps = NULL;
     GstStructure *newPadStruct = NULL;
@@ -58,7 +58,7 @@ void OnPadAdded(GstElement *element, GstPad *pad, GStreamerAppSinkInduct *GStrea
     gst_object_unref(sinkpad);
 }
 
-void OnNewSampleFromSink(GstElement *element, GStreamerAppSinkInduct *gStreamerAppSinkInduct)
+static void OnNewSampleFromSink(GstElement *element, GStreamerAppSinkInduct *gStreamerAppSinkInduct)
 {
     (void)gStreamerAppSinkInduct;
     GstSample *sample;

@@ -14,7 +14,7 @@ static void OnNewSampleFromSink(GstElement *element, GStreamerShmInduct *gStream
  * 3. The callback functiions
 */
 static WholeBundleReadyCallback_t s_wholeBundleReadyCallback;
-void SetShmInductCallbackFunction(const WholeBundleReadyCallback_t& wholeBundleReadyCallback)
+void GStreamerShmInduct::SetShmInductCallbackFunction(const WholeBundleReadyCallback_t& wholeBundleReadyCallback)
 {
     s_wholeBundleReadyCallback = wholeBundleReadyCallback;
 }

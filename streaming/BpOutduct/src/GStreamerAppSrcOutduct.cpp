@@ -5,9 +5,9 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 static GstClockTime duration    = 33333333; // .0.016666667 seconds aka 60fps
-static GStreamerAppSrcOutduct * s_gStreamerAppSrcOutduct;
+static GStreamerAppSrcOutduct * s_gStreamerAppSrcOutduct = NULL;
 
-void SetGStreamerAppSrcOutductInstance(GStreamerAppSrcOutduct * gStreamerAppSrcOutduct)
+void GStreamerAppSrcOutduct::SetGStreamerAppSrcOutductInstance(GStreamerAppSrcOutduct * gStreamerAppSrcOutduct)
 {
     s_gStreamerAppSrcOutduct = gStreamerAppSrcOutduct;
 }

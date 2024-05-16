@@ -3,6 +3,7 @@
 
 #include "DtnRtpFrame.h"
 #include <boost/thread.hpp>
+#include "streaming_lib_export.h"
 
 class DtnFrameQueue
 {
@@ -15,22 +16,22 @@ private:
     boost::condition_variable m_queueCv;
 public:
     DtnFrameQueue() = delete;
-    DtnFrameQueue(size_t queueSize);
-    ~DtnFrameQueue();
+    STREAMING_LIB_EXPORT DtnFrameQueue(size_t queueSize);
+    STREAMING_LIB_EXPORT ~DtnFrameQueue();
 
-    rtp_frame& GetNextFrame();
-    void PopFrame();
-    void PushFrame(buffer * image_buffer, rtp_frame * frame); // for outgoing frames
-    void PushFrame(const rtp_frame& frame);
-    void ClearQueue();
+    STREAMING_LIB_EXPORT rtp_frame& GetNextFrame();
+    STREAMING_LIB_EXPORT void PopFrame();
+    STREAMING_LIB_EXPORT void PushFrame(buffer * image_buffer, rtp_frame * frame); // for outgoing frames
+    STREAMING_LIB_EXPORT void PushFrame(const rtp_frame& frame);
+    STREAMING_LIB_EXPORT void ClearQueue();
 
-    size_t GetCurrentQueueSize(); // number of rtp packets 
-    size_t GetCurrentQueueSizeBytes(); // number of raw bytes across all packets in queue
-    std::queue<rtp_frame>& GetQueue(); // reference to our queue, for copying out
+    STREAMING_LIB_EXPORT size_t GetCurrentQueueSize(); // number of rtp packets 
+    STREAMING_LIB_EXPORT size_t GetCurrentQueueSizeBytes(); // number of raw bytes across all packets in queue
+    STREAMING_LIB_EXPORT std::queue<rtp_frame>& GetQueue(); // reference to our queue, for copying out
 
     // for monitoring if queue is full
-    bool GetNextQueueReady();
-    bool GetNextQueueTimeout(const boost::posix_time::time_duration& timeout);
+    STREAMING_LIB_EXPORT bool GetNextQueueReady();
+    STREAMING_LIB_EXPORT bool GetNextQueueTimeout(const boost::posix_time::time_duration& timeout);
 };
 
 

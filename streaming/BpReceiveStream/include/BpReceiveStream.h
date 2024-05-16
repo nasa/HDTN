@@ -35,7 +35,6 @@ private:
     // int TranslateBpSdpToInSdp(std::string sdp);
 
     bool TryWaitForIncomingDataAvailable(const boost::posix_time::time_duration& timeout);
-    bool GetNextIncomingPacketTimeout(const boost::posix_time::time_duration& timeout);
 
 
     int SendUdpPacket(padded_vector_uint8_t & message);

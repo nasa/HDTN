@@ -12,6 +12,7 @@
 #include "DtnRtpFrame.h"
 #include "PaddedVectorUint8.h"
 #include "AsyncListener.h"
+#include "streaming_lib_export.h"
 
 #define SAMPLE_RATE 90000
 #define DEFAULT_NUM_CIRC_BUFFERS 1000000
@@ -32,18 +33,19 @@
 typedef boost::function<void(padded_vector_uint8_t & wholeBundleVec)> WholeBundleReadyCallback_t;
 typedef  boost::circular_buffer<padded_vector_uint8_t> CbQueue_t;
 
-void SetCallbackFunction(const WholeBundleReadyCallback_t& wholeBundleReadyCallback);
 
 class GStreamerAppSrcOutduct
 {
 public:
     
-    GStreamerAppSrcOutduct(std::string shmSocketPath, std::string gstCaps);
-    ~GStreamerAppSrcOutduct();
+    STREAMING_LIB_EXPORT GStreamerAppSrcOutduct(std::string shmSocketPath, std::string gstCaps);
+    STREAMING_LIB_EXPORT ~GStreamerAppSrcOutduct();
 
-    int PushRtpPacketToGStreamerOutduct(padded_vector_uint8_t& rtpPacketToTake);
+    STREAMING_LIB_EXPORT int PushRtpPacketToGStreamerOutduct(padded_vector_uint8_t& rtpPacketToTake);
     
-    bool TryWaitForIncomingDataAvailable(const boost::posix_time::time_duration& timeout);
+    STREAMING_LIB_EXPORT bool TryWaitForIncomingDataAvailable(const boost::posix_time::time_duration& timeout);
+
+    STREAMING_LIB_EXPORT static void SetGStreamerAppSrcOutductInstance(GStreamerAppSrcOutduct* gStreamerAppSrcOutduct);
     
     CbQueue_t m_incomingRtpPacketQueue;
     CbQueue_t m_incomingRtpPacketQueueForDisplay; 
@@ -53,7 +55,6 @@ public:
     uint64_t m_numDisplaySamples = 0;
    
 private:
-    bool GetNextIncomingPacketTimeout(const boost::posix_time::time_duration &timeout);
     
     std::unique_ptr<AsyncListener<CbQueue_t>> m_bundleCallbackAsyncListenerPtr;
     std::unique_ptr<AsyncListener<CbQueue_t>> m_rtpPacketToDisplayAsyncListenerPtr;
@@ -74,16 +75,16 @@ private:
     GstBus *m_bus;
 
     /* setup functions */
-    int CreateElements();
-    int BuildPipeline();
-    int StartPlaying();
-    int CheckInitializationSuccess();
+    STREAMING_LIB_NO_EXPORT int CreateElements();
+    STREAMING_LIB_NO_EXPORT int BuildPipeline();
+    STREAMING_LIB_NO_EXPORT int StartPlaying();
+    STREAMING_LIB_NO_EXPORT int CheckInitializationSuccess();
 
     /* Operating functions */
-    void OnBusMessages();
-    void TeeDataToQueuesThread();
-    void PushDataToFilesinkThread();
-    void PushDataToDisplayThread();
+    STREAMING_LIB_NO_EXPORT void OnBusMessages();
+    STREAMING_LIB_NO_EXPORT void TeeDataToQueuesThread();
+    STREAMING_LIB_NO_EXPORT void PushDataToFilesinkThread();
+    STREAMING_LIB_NO_EXPORT void PushDataToDisplayThread();
 
 
     /* pipeline members */
@@ -121,7 +122,6 @@ struct HdtnGstHandoffUtils_t {
     GstFlowReturn ret;
 };
 
-void SetGStreamerAppSrcOutductInstance(GStreamerAppSrcOutduct * gStreamerAppSrcOutduct);
 
 
 
