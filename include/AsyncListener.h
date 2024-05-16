@@ -53,25 +53,14 @@ AsyncListener<T>::~AsyncListener()
 */
 template<class T>
 bool AsyncListener<T>::TryWaitForIncomingDataAvailable() {
-    if (m_queue.size() == 0) { // if empty, we wait
-        return GetNextIncomingItemTimeout();
+    boost::mutex::scoped_lock lock(m_mux);
+    if (!m_queue.empty()) {
+        return true;
     }
-    return true; 
+    m_cv.timed_wait(lock, m_timeout);
+    return !m_queue.empty(); //true => data available, false => data not avaiable
 }
 
-template<class T>
-bool AsyncListener<T>::GetNextIncomingItemTimeout()
-{
-    {
-        boost::mutex::scoped_lock lock(m_mux);
-        if ((m_queue.size() == 0)) {
-            m_cv.timed_wait(lock, m_timeout); //lock mutex (above) before checking condition
-            return false;
-        }
-    }
-    
-    return true;
-}
 
 template <typename T>
 void AsyncListener<T>::PopFront()

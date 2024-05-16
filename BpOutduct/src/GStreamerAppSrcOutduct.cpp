@@ -4,7 +4,6 @@
 #include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
-static volatile bool blocked;
 static GstClockTime duration    = 33333333; // .0.016666667 seconds aka 60fps
 static GStreamerAppSrcOutduct * s_gStreamerAppSrcOutduct;
 
@@ -125,12 +124,12 @@ int GStreamerAppSrcOutduct::BuildPipeline()
     gst_bin_add_many(GST_BIN(m_pipeline), m_displayAppsrc, m_displayQueue, m_rtpjitterbuffer, m_rtph264depay, m_h264parse, m_h264timestamper, m_decodeQueue, m_avdec_h264, m_postDecodeQueue, m_displayShmsink, \
         m_filesinkAppsrc, m_filesinkQueue, m_filesinkShmsink, NULL);
 
-    if (gst_element_link_many(m_displayAppsrc, m_displayQueue, m_rtpjitterbuffer, m_rtph264depay, m_h264parse, m_h264timestamper, m_decodeQueue, m_avdec_h264, m_postDecodeQueue, m_displayShmsink, NULL) != true) {
+    if (!gst_element_link_many(m_displayAppsrc, m_displayQueue, m_rtpjitterbuffer, m_rtph264depay, m_h264parse, m_h264timestamper, m_decodeQueue, m_avdec_h264, m_postDecodeQueue, m_displayShmsink, NULL)) {
         LOG_ERROR(subprocess) << "Display pipeline could not be linked";
         return -1;
     }
         
-    if (gst_element_link_many(m_filesinkAppsrc, m_filesinkQueue, m_filesinkShmsink, NULL) !=  true) {
+    if (!gst_element_link_many(m_filesinkAppsrc, m_filesinkQueue, m_filesinkShmsink, NULL)) {
         LOG_ERROR(subprocess) << "Filesink pipeline could not be linked";
         return -1;
     }
@@ -154,7 +153,7 @@ void GStreamerAppSrcOutduct::TeeDataToQueuesThread()
     padded_vector_uint8_t incomingRtpFrame;
     incomingRtpFrame.reserve(1600);
 
-    while (m_running) {
+    while (m_running.load(std::memory_order_acquire)) {
         bool notInWaitForNewBundlesState = m_bundleCallbackAsyncListenerPtr->TryWaitForIncomingDataAvailable();
         if (notInWaitForNewBundlesState) {
             /* Make local copy to allow bundle thread to continue asap */
@@ -193,7 +192,7 @@ void GStreamerAppSrcOutduct::PushDataToFilesinkThread()
     static padded_vector_uint8_t incomingRtpFrame;
     incomingRtpFrame.reserve(1600);
 
-    while (m_runFilesinkThread) {
+    while (m_runFilesinkThread.load(std::memory_order_acquire)) {
         
         bool notInWaitForNewPacketsState = m_rtpPacketToFilesinkAsyncListenerPtr->TryWaitForIncomingDataAvailable();
         if (notInWaitForNewPacketsState) {
@@ -237,7 +236,7 @@ void GStreamerAppSrcOutduct::PushDataToDisplayThread()
     static padded_vector_uint8_t incomingRtpFrame;
     incomingRtpFrame.reserve(1600);
 
-    while (m_runDisplayThread) {
+    while (m_runDisplayThread.load(std::memory_order_acquire)) {
         
         bool notInWaitForNewPacketsState = m_rtpPacketToDisplayAsyncListenerPtr->TryWaitForIncomingDataAvailable();
         if (notInWaitForNewPacketsState) {
@@ -287,7 +286,7 @@ int GStreamerAppSrcOutduct::PushRtpPacketToGStreamerOutduct(padded_vector_uint8_
 
 void GStreamerAppSrcOutduct::OnBusMessages()
 {
-    while (m_running) 
+    while (m_running.load(std::memory_order_acquire)) 
     {
         GstMessage * msg = gst_bus_timed_pop(m_bus, GST_MSECOND*100);
         if (!msg) 

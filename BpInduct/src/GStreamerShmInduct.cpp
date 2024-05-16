@@ -3,7 +3,7 @@
 #include "ThreadNamer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
-static void OnNewSampleFromSink(GstElement *element, GStreamerShmInduct *GStreamerShmInduct);
+static void OnNewSampleFromSink(GstElement *element, GStreamerShmInduct *gStreamerShmInduct);
 
 /**
  * I do not know if there is a better way to do this. The problem is complicated:
@@ -36,6 +36,10 @@ GStreamerShmInduct::GStreamerShmInduct(std::string shmSocketPath) :
 
 GStreamerShmInduct::~GStreamerShmInduct()
 {
+    LOG_INFO(subprocess) << "Calling GStreamerShmInduct deconstructor";
+    m_running = false;
+    m_busMonitoringThread->join();
+    gst_element_set_state(m_pipeline, GST_STATE_NULL);
 }
 
 int GStreamerShmInduct::CreateElements() 
@@ -54,6 +58,7 @@ int GStreamerShmInduct::CreateElements()
     g_object_set(G_OBJECT(m_queue), "max-size-buffers", 0, "max-size-bytes", 0, "max-size-time", 0, "leaky", 0, NULL );
     g_object_set(G_OBJECT(m_appsink), "emit-signals", true, "sync", true, NULL);
     g_signal_connect(m_appsink, "new-sample", G_CALLBACK(OnNewSampleFromSink), NULL);
+    return 0;
 }
 
 int GStreamerShmInduct::BuildPipeline() 
@@ -62,7 +67,7 @@ int GStreamerShmInduct::BuildPipeline()
     
     gst_bin_add_many(GST_BIN(m_pipeline), m_shmsrc, m_queue, m_appsink, NULL);
     
-    if (gst_element_link_many(m_shmsrc, m_queue, m_appsink, NULL) != true) 
+    if (!gst_element_link_many(m_shmsrc, m_queue, m_appsink, NULL)) 
     {
         LOG_ERROR(subprocess) << "Could not link pipeline.";
         return -1;
@@ -89,8 +94,9 @@ int GStreamerShmInduct::StartPlaying()
 }
 
 
-void OnNewSampleFromSink(GstElement *element, GStreamerShmInduct *GStreamerShmInduct)
+void OnNewSampleFromSink(GstElement *element, GStreamerShmInduct *gStreamerShmInduct)
 {
+    (void)gStreamerShmInduct;
     GstSample *sample;
     GstBuffer *buffer;
     GstMapInfo map;
@@ -116,7 +122,7 @@ void OnNewSampleFromSink(GstElement *element, GStreamerShmInduct *GStreamerShmIn
 
 void GStreamerShmInduct::OnBusMessages()
 {
-    while (m_running) 
+    while (m_running.load(std::memory_order_acquire)) 
     {
         GstMessage * msg = gst_bus_timed_pop(m_bus, GST_MSECOND * 100);
         if (!msg) 

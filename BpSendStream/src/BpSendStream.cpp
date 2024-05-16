@@ -45,8 +45,8 @@ BpSendStream::BpSendStream(uint8_t intakeType, size_t maxIncomingUdpPacketSizeBy
     {
         m_bundleSinkPtr = std::make_shared<UdpBundleSink>(m_ioService, m_incomingRtpStreamPort, 
         boost::bind(&BpSendStream::WholeBundleReadyCallback, this, boost::placeholders::_1),
-        numCircularBufferVectors, 
-        maxIncomingUdpPacketSizeBytes, 
+        (unsigned int)numCircularBufferVectors,
+        (unsigned int)maxIncomingUdpPacketSizeBytes,
         boost::bind(&BpSendStream::DeleteCallback, this));
         m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
         ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceBpUdpSink");
@@ -100,7 +100,7 @@ void BpSendStream::ProcessIncomingBundlesThread()
 {
     static const boost::posix_time::time_duration timeout(boost::posix_time::milliseconds(250));
 
-    while (m_running) {
+    while (m_running.load(std::memory_order_acquire)) {
         bool notInWaitForNewBundlesState = TryWaitForIncomingDataAvailable(timeout);
 
         if (notInWaitForNewBundlesState) {
@@ -109,7 +109,7 @@ void BpSendStream::ProcessIncomingBundlesThread()
             m_incomingCircularPacketQueue.pop_front();
             m_incomingQueueMutex.unlock();
 
-            rtp_packet_status_t packetStatus = m_incomingDtnRtpPtr->PacketHandler(incomingRtpFrame, (rtp_header *) m_currentFrame.data());
+            rtp_packet_status_t packetStatus = m_incomingDtnRtpPtr->PacketHandler(incomingRtpFrame);
                 
                 switch(packetStatus) {
                     /* For the first valid frame we receive assign the CSRC, sequence number, and generic status bits by copying in the first header */
@@ -189,22 +189,24 @@ void BpSendStream::DeleteCallback()
 
 uint64_t BpSendStream::GetNextPayloadLength_Step1() 
 {
-    m_outgoingQueueMutex.lock();
-    if (m_outgoingCircularBundleQueue.size() == 0) {
-        m_outgoingQueueMutex.unlock();
-        return UINT64_MAX; // wait for data
-    } 
-    return (uint64_t) m_outgoingCircularBundleQueue.front().size();
+    boost::mutex::scoped_lock lock(m_outgoingQueueMutex);
+    if (!m_outgoingCircularBundleQueue.empty()) {
+        return m_outgoingCircularBundleQueue.front().size(); //length of payload
+    }
+    return UINT64_MAX; //pending criteria (wait for data)
+    //return 0; //stopping criteria
 }
 
 bool BpSendStream::CopyPayload_Step2(uint8_t * destinationBuffer) 
 {
-    memcpy(destinationBuffer, m_outgoingCircularBundleQueue.front().data(), m_outgoingCircularBundleQueue.front().size());
-    m_outgoingCircularBundleQueue.pop_front(); 
-    m_outgoingQueueMutex.unlock();
-    m_outgoingQueueCv.notify_one();
-    m_totalRtpPacketsSent++; 
-
+    std::vector<uint8_t> payload;
+    {
+        boost::mutex::scoped_lock lock(m_outgoingQueueMutex);
+        payload = std::move(m_outgoingCircularBundleQueue.front());
+        m_outgoingCircularBundleQueue.pop_front();
+    }
+    memcpy(destinationBuffer, payload.data(), payload.size());
+    m_totalRtpPacketsSent++;
     return true;
 }
 
@@ -213,23 +215,12 @@ bool BpSendStream::CopyPayload_Step2(uint8_t * destinationBuffer)
  * If TryWaitForDataAvailable returns false, BpSourcePattern will recall this function after a timeout
 */
 bool BpSendStream::TryWaitForDataAvailable(const boost::posix_time::time_duration& timeout) {
-    if (m_outgoingCircularBundleQueue.size()==0) {
-        return GetNextOutgoingPacketTimeout(timeout);
-    }
-
-    return true; 
-}
-bool BpSendStream::GetNextOutgoingPacketTimeout(const boost::posix_time::time_duration& timeout)
-{
     boost::mutex::scoped_lock lock(m_outgoingQueueMutex);
-    bool inWaitForPacketState = (m_outgoingCircularBundleQueue.size() == 0);
-
-    if (inWaitForPacketState) {
-        m_outgoingQueueCv.timed_wait(lock, timeout); //lock mutex (above) before checking condition
-        return false;
+    if (!m_outgoingCircularBundleQueue.empty()) {
+        return true;
     }
-
-    return true;
+    m_outgoingQueueCv.timed_wait(lock, timeout);
+    return !m_outgoingCircularBundleQueue.empty(); //true => data available to send, false => data not avaiable to send yet
 }
 
 
@@ -238,20 +229,10 @@ bool BpSendStream::GetNextOutgoingPacketTimeout(const boost::posix_time::time_du
  * If return false, we do not have data
 */
 bool BpSendStream::TryWaitForIncomingDataAvailable(const boost::posix_time::time_duration& timeout) {
-    if (m_incomingCircularPacketQueue.size() == 0) { // if empty, we wait
-        return GetNextIncomingPacketTimeout(timeout);
-    }
-    return true; 
-}
-
-
-bool BpSendStream::GetNextIncomingPacketTimeout(const boost::posix_time::time_duration &timeout)
-{
     boost::mutex::scoped_lock lock(m_incomingQueueMutex);
-    if ((m_incomingCircularPacketQueue.size() == 0)) {
-        m_incomingQueueCv.timed_wait(lock, timeout); //lock mutex (above) before checking condition
-        return false;
+    if (!m_incomingCircularPacketQueue.empty()) {
+        return true;
     }
-    
-    return true;
+    m_incomingQueueCv.timed_wait(lock, timeout);
+    return !m_incomingCircularPacketQueue.empty(); //true => data available to send, false => data not avaiable to send yet
 }

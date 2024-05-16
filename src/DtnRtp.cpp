@@ -6,7 +6,7 @@
 
 
 #define INVALID_TS UINT32_MAX
-#define INVALID_SEQ (-1)
+#define INVALID_SEQ UINT16_MAX
 
 #define DEFAULT_MAX_PAYLOAD 1440
 
@@ -88,10 +88,10 @@ void DtnRtp::SetSequence(uint16_t host_sequence)
     m_prevHeader.seq = htons(host_sequence);
 }
 
-void DtnRtp::SetMarkerBit(uint8_t marker_bit)
-{
-    m_prevHeader.marker =  (m_prevHeader.marker | RTP_MARKER_FLAG);
-}
+//void DtnRtp::SetMarkerBit(uint8_t marker_bit)
+//{
+//    m_prevHeader.marker =  (m_prevHeader.marker | RTP_MARKER_FLAG);
+//}
 
 // setters for the rtp packet configuration
 void DtnRtp::SetClockRate(rtp_format_t fmt)
@@ -115,7 +115,7 @@ void DtnRtp::SetTimestamp(uint32_t timestamp)
 }
 
 rtp_packet_status_t DtnRtp::
-PacketHandler(padded_vector_uint8_t &wholeBundleVec, const rtp_header * currentRtpFrameHeader)
+PacketHandler(padded_vector_uint8_t &wholeBundleVec)
 {    
     if (wholeBundleVec.size() < 12) {       
         LOG_ERROR(subprocess) << "Received UDP packet is too small to contain RTP header, discarding...";

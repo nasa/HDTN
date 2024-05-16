@@ -58,8 +58,9 @@ void OnPadAdded(GstElement *element, GstPad *pad, GStreamerAppSinkInduct *GStrea
     gst_object_unref(sinkpad);
 }
 
-void OnNewSampleFromSink(GstElement *element, GStreamerAppSinkInduct *GStreamerAppSinkInduct)
+void OnNewSampleFromSink(GstElement *element, GStreamerAppSinkInduct *gStreamerAppSinkInduct)
 {
+    (void)gStreamerAppSinkInduct;
     GstSample *sample;
     GstBuffer *buffer;
     GstMapInfo map;
@@ -138,7 +139,7 @@ int GStreamerAppSinkInduct::BuildPipeline()
     
     gst_bin_add_many(GST_BIN(m_pipeline), m_filesrc,  m_qtdemux, m_h264parse,  m_rtph264pay, m_progressreport, m_appsink, NULL);
     
-    if (gst_element_link(m_filesrc, m_qtdemux) != TRUE) {
+    if (!gst_element_link(m_filesrc, m_qtdemux)) {
         LOG_ERROR(subprocess) << "Source and qtmux could not be linked";
         return -1;
     }
@@ -150,7 +151,7 @@ int GStreamerAppSinkInduct::BuildPipeline()
     // GstCaps * caps = gst_caps_from_string("video/x-h264, stream-format=(string)byte-stream, alignment=(string)nal"); // nal = output buffer contains complete NALs, but those do not need to represent a whole frame.
     // GstCaps * caps = gst_caps_from_string("video/x-h264, stream-format=(string)byte-stream, alignment=(string)au");
 
-    if (gst_element_link_many(m_h264parse, m_rtph264pay, m_progressreport, m_appsink, NULL) != true) {
+    if (!gst_element_link_many(m_h264parse, m_rtph264pay, m_progressreport, m_appsink, NULL)) {
         LOG_ERROR(subprocess) << "Pipeline could not be linked";
         return -1;
     }
@@ -195,7 +196,7 @@ int GStreamerAppSinkInduct::StartPlaying()
 
 void GStreamerAppSinkInduct::OnBusMessages()
 {
-    while (m_running) 
+    while (m_running.load(std::memory_order_acquire)) 
     {
         GstMessage * msg = gst_bus_timed_pop(m_bus, GST_MSECOND * 100);
         if (!msg) 
