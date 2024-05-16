@@ -440,7 +440,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(double bundleRate, const boost::
             static const boost::posix_time::time_duration timeout(boost::posix_time::milliseconds(250));
             inWaitForNewBundlesState = !TryWaitForDataAvailable(timeout);
             if (!inWaitForNewBundlesState) {
-                LOG_INFO(subprocess) << "data available";
+                LOG_TRACE(subprocess) << "data available";
             }
             continue;
         }
@@ -453,7 +453,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(double bundleRate, const boost::
                 continue;
             }
             else if (payloadSizeBytes == UINT64_MAX) {
-                LOG_INFO(subprocess) << "waiting for new bundles to become available...";
+                LOG_TRACE(subprocess) << "waiting for new bundles to become available...";
                 inWaitForNewBundlesState = true;
                 continue;
             }
