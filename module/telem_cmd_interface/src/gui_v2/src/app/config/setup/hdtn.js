@@ -396,6 +396,14 @@ export const hdtnConfigFields = [
         required: true 
     },
     { 
+        name: "enforceBundlePriority", 
+        label: "Enforce Bundle Priority?", 
+        default: false, 
+        dataType: "boolean", 
+        inputType: InputTypes.Switch, 
+        required: true
+    },
+    { 
         name: "zmqBoundRouterPubSubPortPath", 
         label: "ZeroMQ Bound Router Pub Sub Port Path", 
         default: 10200,

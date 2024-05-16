@@ -230,6 +230,25 @@ The web interface can be built with CivetWeb (statically linked without SSL supp
 
 Now anytime that HDTNOneProcess runs, the web page will be accessible at `http://localhost:8086` and an alternative "system view" gui based on D3.js will be accessible at `http://localhost:8086/hdtn_d3_gui/`
 
+Beta 2.0 Web User Interface
+=========
+There is a new Web User Interface under development which leverages a modern, single-page-app web framework. The existing Web User Interface is in the process of being migrated over to the new framework and can be used in a Beta capacity if desired. The following are functional components in the new GUI:
+
+* Configuration - Allows you to generate HDTN configuration files in a web form
+
+## Building
+
+### Dependencies
+The new Web User Interface leverages Node Package Manager for handling dependencies and building the web files to host. [Download Node](https://nodejs.org/en/download/package-manager) before attempting to build.
+
+### Build Steps
+HDTN needs to be configured to host the new UI. First set the GUI version environment variable:
+```
+export HDTN_GUI_VERSION=2
+```
+
+At this point HDTN needs to be rebuilt, re-run the `cmake` and `make` commands. If Node Package Manager is installed correctly and `HDTN_GUI_VERSION` is set to `2`, cmake will automatically build and host the new GUI. After HDTN is rebuilt, simply start HDTN as normal, the GUI will continue to be accessible via a web browser at `http://localhost:8086`.
+
 Simulations
 =========
 HDTN can be simulated using DtnSim, a simulator for delay tolerant networks built on the OMNeT++ simulation framework. Use the "support-hdtn" branch of DtnSim which can be found in the [official DtnSim repository](https://bitbucket.org/lcd-unc-ar/dtnsim/src/support-hdtn/). Currently HDTN simulation with DtnSim has only been tested on Linux (Debian and Ubuntu). Follow the readme instructions for HDTN and DtnSim to install the software. Alternatively, a pre-configured Ubuntu VM is available for download [here](about:blankHDTN%20can%20be%20simulated%20using%20DtnSim,%20a%20simulator%20for%20delay%20tolerant%20networks%20built%20on%20the%20OMNeT++%20simulation%20framework.%20Use%20the%20%22support-hdtn%22%20branch%20of%20DtnSim%20which%20can%20be%20found%20in%20the%20official%20DtnSim%20repository:%20https://bitbucket.org/lcd-unc-ar/dtnsim/src/support-hdtn/.%20Currently%20HDTN%20simulation%20with%20DtnSim%20has%20only%20been%20tested%20on%20Linux%20(Debian%20and%20Ubuntu).%20Follow%20the%20readme%20instructions%20for%20HDTN%20and%20DtnSim%20to%20install%20the%20software.%20Alternatively,%20a%20pre-configured%20Ubuntu%20VM%20is%20available%20here:%20https://drive.google.com/file/d/1dSjxKIZ03U-gsAnMMzcizHAw_gFkDZDe/view?usp=sharing) (the username is hdtnsim-user and password is grc).

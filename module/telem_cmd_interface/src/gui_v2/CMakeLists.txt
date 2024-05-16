@@ -28,6 +28,6 @@ message("Found npm version ${NPM_VERSION_MATCH}")
 message("${CMAKE_CURRENT_SOURCE_DIR}")
 
 add_custom_target(build_react_gui ALL
-    COMMAND npm run build
+    COMMAND npm install && npm run build
 	WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
