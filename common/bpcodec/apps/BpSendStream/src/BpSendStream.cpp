@@ -92,8 +92,13 @@ BpSendStream::~BpSendStream()
     m_bundleSinkPtr.reset();
 
     if (m_ioServiceThreadPtr) {
-        m_ioServiceThreadPtr->join();   
-        m_ioServiceThreadPtr.reset(); 
+        try {
+            m_ioServiceThreadPtr->join();
+            m_ioServiceThreadPtr.reset(); //delete it
+        }
+        catch (const boost::thread_resource_error&) {
+            LOG_ERROR(subprocess) << "error stopping BpSendStream io_service thread";
+        }
     }
 
     Stop();

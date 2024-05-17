@@ -30,7 +30,7 @@ void BpSendStreamRunner::MonitorExitKeypressThreadFunction() {
 }
 
 
-BpSendStreamRunner::BpSendStreamRunner() {}
+BpSendStreamRunner::BpSendStreamRunner() : m_bundleCount(0), m_runningFromSigHandler(false) {}
 BpSendStreamRunner::~BpSendStreamRunner() {}
 
 
@@ -227,7 +227,13 @@ bool BpSendStreamRunner::Run(int argc, const char* const argv[], std::atomic<boo
 
         LOG_INFO(subprocess) << "Up and running";
         while (running.load(std::memory_order_acquire) && m_runningFromSigHandler.load(std::memory_order_acquire)) {
-            boost::this_thread::sleep(boost::posix_time::millisec(250));
+            try {
+                boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+            }
+            catch (const boost::thread_resource_error&) {}
+            catch (const boost::thread_interrupted&) {}
+            catch (const boost::condition_error&) {}
+            catch (const boost::lock_error&) {}
             if (useSignalHandler) {
                 sigHandler.PollOnce();
             }

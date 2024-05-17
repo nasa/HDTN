@@ -21,7 +21,7 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-BpReceiveStreamRunner::BpReceiveStreamRunner()
+BpReceiveStreamRunner::BpReceiveStreamRunner() : m_runningFromSigHandler(false)
 {
 }
 
@@ -181,7 +181,13 @@ bool BpReceiveStreamRunner::Run(int argc, const char *const argv[], std::atomic<
         }
         LOG_INFO(subprocess) << "Up and running";
         while (running.load(std::memory_order_acquire) && m_runningFromSigHandler.load(std::memory_order_acquire)) {
-            boost::this_thread::sleep(boost::posix_time::millisec(250));
+            try {
+                boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+            }
+            catch (const boost::thread_resource_error&) {}
+            catch (const boost::thread_interrupted&) {}
+            catch (const boost::condition_error&) {}
+            catch (const boost::lock_error&) {}
             if (useSignalHandler) {
                 sigHandler.PollOnce();
             }

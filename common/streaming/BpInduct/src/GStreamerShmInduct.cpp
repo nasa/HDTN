@@ -58,7 +58,13 @@ GStreamerShmInduct::~GStreamerShmInduct()
 {
     LOG_INFO(subprocess) << "Calling GStreamerShmInduct deconstructor";
     m_running = false;
-    m_busMonitoringThread->join();
+    try {
+        m_busMonitoringThread->join();
+        m_busMonitoringThread.reset(); //delete it
+    }
+    catch (const boost::thread_resource_error&) {
+        LOG_ERROR(subprocess) << "error stopping GStreamerShmInduct busMonitoringThread";
+    }
     gst_element_set_state(m_pipeline, GST_STATE_NULL);
 }
 

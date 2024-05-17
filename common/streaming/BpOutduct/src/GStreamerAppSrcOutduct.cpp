@@ -98,10 +98,37 @@ GStreamerAppSrcOutduct::~GStreamerAppSrcOutduct()
     m_runDisplayThread = false;
     m_runFilesinkThread = false; 
 
-    m_busMonitoringThread->join();
-    m_packetTeeThread->join();
-    m_filesinkThread->join();
-    m_displayThread->join();
+    try {
+        m_busMonitoringThread->join();
+        m_busMonitoringThread.reset(); //delete it
+    }
+    catch (const boost::thread_resource_error&) {
+        LOG_ERROR(subprocess) << "error stopping GStreamerAppSrcOutduct busMonitoringThread";
+    }
+
+    try {
+        m_packetTeeThread->join();
+        m_packetTeeThread.reset(); //delete it
+    }
+    catch (const boost::thread_resource_error&) {
+        LOG_ERROR(subprocess) << "error stopping GStreamerAppSrcOutduct packetTeeThread";
+    }
+
+    try {
+        m_filesinkThread->join();
+        m_filesinkThread.reset(); //delete it
+    }
+    catch (const boost::thread_resource_error&) {
+        LOG_ERROR(subprocess) << "error stopping GStreamerAppSrcOutduct filesinkThread";
+    }
+
+    try {
+        m_displayThread->join();
+        m_displayThread.reset(); //delete it
+    }
+    catch (const boost::thread_resource_error&) {
+        LOG_ERROR(subprocess) << "error stopping GStreamerAppSrcOutduct displayThread";
+    }
 
     gst_element_set_state(m_pipeline, GST_STATE_NULL);
 }

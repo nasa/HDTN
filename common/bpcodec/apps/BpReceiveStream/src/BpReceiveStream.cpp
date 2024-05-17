@@ -49,7 +49,13 @@ BpReceiveStream::BpReceiveStream(size_t numCircularBufferVectors, bp_recv_stream
             LOG_ERROR(subprocess) << "Failed to resolve UDP hostname: " << e.what() << "  code=" << e.code();
             return;
         }
-        socket.open(boost::asio::ip::udp::v4());
+        try {
+            socket.open(boost::asio::ip::udp::v4());
+        }
+        catch (const boost::system::system_error& e) {
+            LOG_ERROR(subprocess) << "Failed to open UDP Socket: " << e.what() << "  code=" << e.code();
+            return;
+        }
     } else if (m_outductType == GSTREAMER_APPSRC_OUTDUCT) {
         m_gstreamerAppSrcOutductPtr = boost::make_unique<GStreamerAppSrcOutduct>(params.shmSocketPath, params.gstCaps);
         GStreamerAppSrcOutduct::SetGStreamerAppSrcOutductInstance(m_gstreamerAppSrcOutductPtr.get());

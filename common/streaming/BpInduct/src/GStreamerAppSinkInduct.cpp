@@ -126,7 +126,13 @@ GStreamerAppSinkInduct::~GStreamerAppSinkInduct()
 {
     LOG_INFO(subprocess) << "Calling GStreamerAppSinkInduct deconstructor";   
     m_running = false;
-    m_busMonitoringThread->join();
+    try {
+        m_busMonitoringThread->join();
+        m_busMonitoringThread.reset(); //delete it
+    }
+    catch (const boost::thread_resource_error&) {
+        LOG_ERROR(subprocess) << "error stopping GStreamerAppSinkInduct busMonitoringThread";
+    }
     gst_element_set_state(m_pipeline, GST_STATE_NULL);
 }
 

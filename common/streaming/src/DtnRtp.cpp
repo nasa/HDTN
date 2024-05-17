@@ -29,7 +29,8 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 DtnRtp::DtnRtp(size_t maximumTransmissionUnit):
     m_clockRate(0),
     m_sentPackets(0),
-    m_maximumTransmissionUnit(maximumTransmissionUnit)
+    m_maximumTransmissionUnit(maximumTransmissionUnit),
+    m_numConcatenated(0)
 {
     m_prevHeader.timestamp = INVALID_TS;
     m_prevHeader.seq = INVALID_SEQ;

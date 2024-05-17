@@ -39,7 +39,6 @@
 class DtnRtp
 {
 private:
-    rtp_format_t m_fmt;
     std::shared_ptr<std::atomic<uint32_t> > m_ssrc; // as seen in rtp frames
 
 
@@ -47,7 +46,7 @@ private:
     uint32_t m_clockRate; // sampling clock rate, not hardware
     std::chrono::time_point<std::chrono::high_resolution_clock> m_wallClockStart; // filled upon first call to FillHeader
 
-    size_t m_sentPackets = 0; // number of packets sent through this object and put into rtp frames. does not necessarily equal the number of frames sent over the line
+    size_t m_sentPackets; // number of packets sent through this object and put into rtp frames. does not necessarily equal the number of frames sent over the line
     size_t m_maximumTransmissionUnit;    
 
     uint16_t m_numConcatenated;
