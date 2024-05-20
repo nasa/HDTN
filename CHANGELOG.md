@@ -15,6 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [1.3.0] - 2024-05-22
+
+### Fixed
+
+* Fixed a re-route issue related to the API command for updating a link up/down and link state
+
+### Changed
+
+* Added support for multimedia streaming over HDTN
+* Added Beta Web User Interface which currently includes a tool for generating HDTN configuration files via a web form
+
 ## [1.2.1] - 2024-04-26
 
 ### Fixed
