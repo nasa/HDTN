@@ -139,6 +139,11 @@ $openssl_install_directory_name = "${openssl_src_directory}_install"
 $zmq_version = "4.3.4"
 $zmq_version_underscore_separated = $zmq_version.replace('.','_')
 $zmq_install_directory_name = "libzmq_v${zmq_version}_install"
+#------gstreamer-----------------
+$gstreamer_dev_folder = "C:\gstreamer\1.0\msvc_x86_64"
+$gstreamer_runtime_folder = "C:\gstreamer\1.0\msvc_x86_64\runtime"
+$gstreamer_runtime_bin_folder = "${gstreamer_runtime_folder}\bin"
+$gstreamer_pkgconfig_exe = "${gstreamer_runtime_bin_folder}\pkg-config.exe"
 #------boost-----------------
 $boost_major_version = "1"
 $boost_minor_version = "78"
@@ -163,6 +168,17 @@ $Env:HDTN_SOURCE_ROOT = Convert-Path( Resolve-Path -Path "${PSScriptRoot}\..") #
 #cmd.exe /c "$PSScriptRoot\test_fail.bat ${test_bat_param} ${vcvars64_path_with_quotes}"
 #if($LastExitCode -ne 0) { throw 'test_fail.bat successfully failed' }
 #throw "stop"
+
+$gstreamer_cmake_args_to_hdtn_build = ""
+$gstreamer_path = ""
+if((Test-Path -Path ${gstreamer_runtime_bin_folder}) -and (Test-Path -Path ${gstreamer_dev_folder}) -and (Test-Path -Path ${gstreamer_pkgconfig_exe})) {
+    Write-Output "gstreamer is installed in ${gstreamer_dev_folder} and ${gstreamer_runtime_bin_folder}"
+    $gstreamer_cmake_args_to_hdtn_build = "-DENABLE_STREAMING_SUPPORT:BOOL=ON " +
+        "-DCMAKE_PREFIX_PATH:PATH=`"`"${gstreamer_dev_folder}`"`" " + 
+        "-DPKG_CONFIG_EXECUTABLE:FILEPATH=`"`"${gstreamer_pkgconfig_exe}`"`" "
+         
+    $gstreamer_path = "${gstreamer_runtime_bin_folder}"
+}
 
 
 
@@ -404,6 +420,7 @@ if(-Not $hdtn_is_installed) {
         "-DOPENSSL_USE_STATIC_LIBS:BOOL=OFF " + 
         "-DUSE_WEB_INTERFACE:BOOL=ON " + 
         "-DUSE_X86_HARDWARE_ACCELERATION:BOOL=ON " +
+        "${gstreamer_cmake_args_to_hdtn_build} " +
         "-Dlibzmq_INCLUDE:PATH=`"`"${build_directory}\${zmq_install_directory_name}\include`"`" " + 
         "-Dlibzmq_LIB:FILEPATH=`"`"${libzmq_lib_filepath}`"`" " + 
         "-DCMAKE_INSTALL_PREFIX:PATH=`"`"${build_directory}\${hdtn_install_directory_name}`"`" " + #myinstall is within the mybuild directory, double double quote for .bat quote escape char
@@ -474,7 +491,8 @@ $to_prepend_to_path = ( #add the shared .dll files to the path
     "${build_directory}\${zmq_install_directory_name}\bin" + [IO.Path]::PathSeparator + 
     "${build_directory}\${boost_install_directory_name}\${boost_library_install_prefix}" + [IO.Path]::PathSeparator + 
     "${build_directory}\${openssl_install_directory_name}\bin" + [IO.Path]::PathSeparator + 
-    "${build_directory}\${hdtn_install_directory_name}\lib" + [IO.Path]::PathSeparator)
+    "${build_directory}\${hdtn_install_directory_name}\lib" + [IO.Path]::PathSeparator +
+    "${gstreamer_path} " + [IO.Path]::PathSeparator)
 $Env:Path = $to_prepend_to_path + $Env:Path #prepend to make it first priority
 Write-Output "HDTN was built as a shared library, so you must prepend the following to your Path so that Windows can find the DLL's of HDTN and its dependencies:"
 Write-Output "${to_prepend_to_path}"

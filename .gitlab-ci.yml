@@ -18,7 +18,7 @@ build-default:
   image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
   script:
     - mkdir -p build
-    - cmake -S . -B build -DCMAKE_CXX_FLAGS="-Werror" -DCMAKE_C_FLAGS="-Werror"
+    - cmake -S . -B build -DCMAKE_CXX_FLAGS="-Werror" -DCMAKE_C_FLAGS="-Werror" -DENABLE_STREAMING_SUPPORT:BOOL=ON
     - make -C build/ -j8
     - make -C build/ install
   cache:
@@ -190,7 +190,7 @@ build-static-analysis:
     - export HDTN_SOURCE_ROOT=$PWD
     - mkdir -p build
     - cd build
-    - cmake -DCMAKE_BUILD_TYPE=Release ..
+    - cmake -DENABLE_STREAMING_SUPPORT:BOOL=ON -DCMAKE_BUILD_TYPE=Release ..
     - cov-build --dir idir make -j8
   cache:
     key: build-static-analysis-$CI_MERGE_REQUEST_TARGET_BRANCH_NAME-$CI_MERGE_REQUEST_ID

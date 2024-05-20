@@ -207,7 +207,13 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], std::atomic<bool>
         }
         LOG_INFO(subprocess) << "BpGenAsync up and running";
         while (running && m_runningFromSigHandler) {
-            boost::this_thread::sleep(boost::posix_time::millisec(250));
+            try {
+                boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+            }
+            catch (const boost::thread_resource_error&) {}
+            catch (const boost::thread_interrupted&) {}
+            catch (const boost::condition_error&) {}
+            catch (const boost::lock_error&) {}
             if (durationSeconds) {
                 if ((!startedTimer) && bpGen.m_allOutductsReady) {
                     startedTimer = true;
