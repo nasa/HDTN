@@ -51,8 +51,8 @@ boost::filesystem::path Environment::GetPathContactPlans() {
 
 boost::filesystem::path Environment::GetPathGuiDocumentRoot() {
     if (const char * const s = std::getenv("HDTN_SOURCE_ROOT")) {
-        return Environment::GetValue("HDTN_GUI_VERSION") == "2" ? boost::filesystem::path(s) / "module/telem_cmd_interface/src/gui_v2" : boost::filesystem::path(s) / "module/telem_cmd_interface/src/gui";
+        return Environment::GetValue("HDTN_GUI_VERSION") == "2" ? boost::filesystem::path(s) / "module" / "telem_cmd_interface" / "src" / "gui_v2" / "build" : boost::filesystem::path(s) / "module" / "telem_cmd_interface" / "src" / "gui";
     } else {
-        return Environment::GetValue("HDTN_GUI_VERSION") == "2" ? boost::filesystem::path(InstallDataDir) / "gui_v2" : boost::filesystem::path(InstallDataDir) / "gui";
+        return Environment::GetValue("HDTN_GUI_VERSION") == "2" ? boost::filesystem::path(InstallDataDir) / "gui_v2" / "build" : boost::filesystem::path(InstallDataDir) / "gui";
     }
 }

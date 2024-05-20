@@ -96,4 +96,17 @@ target_link_libraries(telem_cmd_interface telem_lib)
 
 if(USE_WEB_INTERFACE)
     install(DIRECTORY src/gui DESTINATION ${CMAKE_INSTALL_DATADIR})
+
+	#check if user wants to build new gui
+	if(DEFINED ENV{HDTN_GUI_VERSION})
+		if("$ENV{HDTN_GUI_VERSION}" STREQUAL "2")
+			message("Environmental variable HDTN_GUI_VERSION is set to 2. Will use new GUI v2.")
+			add_subdirectory(src/gui_v2)
+		else()
+			message("Environmental variable HDTN_GUI_VERSION was not set to 2. It was set to $ENV{HDTN_GUI_VERSION}. Using old GUI.")
+		endif()
+	else()
+		message("Environmental variable HDTN_GUI_VERSION was not defined. Using old GUI.")
+	endif()
+
 endif()
