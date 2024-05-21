@@ -221,6 +221,66 @@ Note: RFC 9174 changed from the earlier -26 draft in that the Subject Alternativ
 To generate the Diffie-Hellman parameters PEM file (which is installed on an induct only), use the following command:
 * openssl dhparam -outform PEM -out dh4096.pem 4096
 
+Audio and Video Streaming 
+================================
+HDTN has media streaming applications BpSendStream and BpRecvStream. BpSendStream intakes an
+RTP stream from an outside source, bundles RTP packets, and sends the bundles to a BP network. BpRecvStream
+performs the inverse operation by intaking a stream of bundles, extracting the RTP packets, and forwarding the RTP
+stream to an IP network. 
+Once built, the bpsend_stream executable can be used to ingest media such as RTP packets and mp4 files, and send them to a DTN network as bundles over any supported convergence layer. Similarly, the bprecv_stream executable can be used to receive bundles from a DTN and reassemble the media.
+
+Streaming is disabled by default. It can be enabled by setting the CMakeCache.txt variable `ENABLE_STREAMING_SUPPORT:BOOL` to `ON`.
+
+Examples of File Streaming tests were added under $HDTN_SOURCE_ROOT/test_scripts_linux/Streaming.
+Before running the tests set the HDTN_SOURCE_ROOT the hdtn root directory and LD_LIBRARY_PATH to /usr/local/lib/x86_64-linux-gnu
+
+Streaming dependencies need also to be installed. See below example of Gstreamer dependencies installation steps.
+
+##### Streaming Dependencies installation (Gstreamer)
+
+1. Install OS dependencies
+```
+sudo apt-get update -y && sudo apt-get install -y pkg-config \
+    flex bison git python3-pip ninja-build libx264-dev \
+    cmake build-essential libzmq3-dev libboost-dev libboost-all-dev openssl libssl-dev
+```
+2. Install meson and the directory where it was installed to PATH 
+```
+sudo pip3 install meson
+```
+3. Clone, build, and install Gstreamer
+```
+git clone https://github.com/GStreamer/gstreamer.git 
+```
+```
+cd gstreamer && meson setup build 
+```
+```
+meson configure build && meson compile -C build 
+```
+```
+ninja -C build install 
+```
+
+An alternative way to install all these dependencies:
+```
+sudo aptitude install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-alsa gstreamer1.0-gl gstreamer1.0-gtk3 gstreamer1.0-qt5 gstreamer1.0-pulseaudio
+```
+
+##### Viewing Multimedia Streams
+
+ The following command can be used to view video for H264 Stream:
+```
+gst-launch-1.0 -v -e udpsrc address=127.0.0.1 port=8989 ! "application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)H264, payload=(int)96" ! rtph264depay ! queue ! h264parse ! decodebin ! autovideosink
+
+```
+
+The following command can be used to view video with audio for H264 Stream:
+```
+gst-launch-1.0 -v -e udpsrc address=127.0.0.1 port=8989 ! "application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)MP2T, payload=(int)96" ! rtpmp2tdepay ! queue ! tsparse ! decodebin ! autovideosink
+
+```
+
 Web User Interface
 =========
 This repository comes equiped with code to launch a web-based user interface to display statistics for the HDTN engine.
