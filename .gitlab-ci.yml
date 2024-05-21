@@ -262,7 +262,7 @@ static-analysis-legacy:
   needs:
     - build-static-analysis
   script:
-    - git fetch
+    - git fetch --prune
     - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
     - export files_to_scan=$(git diff --diff-filter=d --name-only origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME | grep '\.cpp')
     - if [ "$files_to_scan" != "" ]; then cov-run-desktop --dir build/idir --url $COV_BUILD_SERVER --auth-key-file /home/hdtn/ci-auth.key --stream HDTN-development --exit1-if-defects true --ignore-uncapturable-inputs true --present-in-reference true --all --enable-constraint-fpp --enable-fnptr --enable-virtual $files_to_scan; else echo "No files to scan"; fi
@@ -280,7 +280,7 @@ static-analysis-new:
   needs:
     - build-static-analysis
   script:
-    - git fetch
+    - git fetch --prune
     - export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
     - export files_to_scan=$(git diff --diff-filter=d --name-only origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME | grep '\.cpp')
     - if [ "$files_to_scan" != "" ]; then cov-run-desktop --dir build/idir --url $COV_BUILD_SERVER --auth-key-file /home/hdtn/ci-auth.key --stream HDTN-development --exit1-if-defects true --ignore-uncapturable-inputs true --present-in-reference false --all --enable-constraint-fpp --enable-fnptr --enable-virtual $files_to_scan; else echo "No files to scan"; fi
@@ -364,7 +364,7 @@ sloc-count:
     - linux-x86
   image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
   script:
-    - git fetch
+    - git fetch --prune
     - git reset --hard origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
     - ./ci/cloc.sh "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" "origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
   dependencies: []
@@ -388,7 +388,7 @@ monthly-sloc-count:
   image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
   script:
     # Get SLOC counts from the beginning of the previous month to now
-    - git fetch
+    - git fetch --prune
     - git checkout $CI_COMMIT_BRANCH
     - git reset --hard origin/$CI_COMMIT_BRANCH
     - current_date=$(date +"%Y-%m-%d")
