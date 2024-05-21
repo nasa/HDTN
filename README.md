@@ -280,6 +280,12 @@ The following command can be used to view video with audio for H264 Stream:
 gst-launch-1.0 -v -e udpsrc address=127.0.0.1 port=8989 ! "application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)MP2T, payload=(int)96" ! rtpmp2tdepay ! queue ! tsparse ! decodebin ! autovideosink
 
 ```
+##### Displaying received File Stream
+ The following command can be used to play the received video file to compare it to the original file
+
+```
+ffplay <name of file>
+```
 
 Web User Interface
 =========
