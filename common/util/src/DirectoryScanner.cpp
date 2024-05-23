@@ -20,6 +20,10 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/version.hpp>
 
+#if (BOOST_VERSION >= 107200)
+#include <boost/filesystem/directory.hpp>
+#endif
+
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 DirectoryScanner::DirectoryScanner(const boost::filesystem::path& rootFileOrFolderPath,

@@ -20,6 +20,11 @@
 #include <boost/log/core.hpp>
 #include <boost/test/unit_test.hpp>
 #include <boost/regex.hpp>
+
+#include <boost/version.hpp>
+#if (BOOST_VERSION >= 107200)
+#include <boost/filesystem/directory.hpp>
+#endif
 #include <boost/filesystem/operations.hpp>
 
 static const std::string timestamp_regex = "\\d+";
