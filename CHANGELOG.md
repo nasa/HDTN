@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [1.3.1] - 2024-05-24
+
+### Added
+
+* Added runscripts for H.265 multimedia streaming over HDTN
+
+### Fixed
+
+* Fixed a compilation issue when using a newer version of the Boost library
+
 ## [1.3.0] - 2024-05-22
 
 ### Fixed
