@@ -19,6 +19,7 @@
 #include <string>
 #include <inttypes.h>
 #include <vector>
+#include <boost/timer/timer.hpp>
 
 BOOST_AUTO_TEST_CASE(Bpv7CrcTestCase)
 {
@@ -27,6 +28,8 @@ BOOST_AUTO_TEST_CASE(Bpv7CrcTestCase)
     static const std::vector<uint32_t> EXPECTED_CRC32C_VEC = { 0xAE76DF21 , 0x7B6BE32C, 0x73C00CF6 };
     static const std::vector<uint16_t> EXPECTED_CRC16_X25_VEC = { 0x2870 , 0x62B8, 0x46F5 };
     std::vector<uint8_t> cborSerialization(10); //need to be 3 bytes for crc16 or 5 bytes for crc32
+    Crc32c_InOrderChunks crc32cTxInOrderChunks;
+    Crc32c_ReceiveOutOfOrderChunks crc32cRxOutOfOrderChunks;
 
     for (std::size_t messageIndex = 0; messageIndex < MESSAGE_STRINGS.size(); ++messageIndex) {
         const std::string & messageStr = MESSAGE_STRINGS[messageIndex];
@@ -58,6 +61,23 @@ BOOST_AUTO_TEST_CASE(Bpv7CrcTestCase)
             BOOST_REQUIRE_EQUAL(expectedCrc32C, crc32Hardware);
             //printf("%x %x %x\n", crc32Hardware, crc32Software, expectedCrc32C);
 #endif
+            crc32cTxInOrderChunks.Reset();
+            crc32cTxInOrderChunks.AddUnalignedBytes(dataStart, messageStr.length());
+            BOOST_REQUIRE_EQUAL(expectedCrc32C, crc32cTxInOrderChunks.FinalizeAndGet());
+            crc32cTxInOrderChunks.Reset();
+            crc32cTxInOrderChunks.AddUnalignedBytes(dataStart, 1);
+            crc32cTxInOrderChunks.AddUnalignedBytes(dataStart + 1, messageStr.length() - 1);
+            BOOST_REQUIRE_EQUAL(expectedCrc32C, crc32cTxInOrderChunks.FinalizeAndGet());
+
+            crc32cRxOutOfOrderChunks.Reset();
+            crc32cRxOutOfOrderChunks.AddUnalignedBytes(dataStart + 0, 0, messageStr.length());
+            BOOST_REQUIRE_EQUAL(expectedCrc32C, crc32cRxOutOfOrderChunks.FinalizeAndGet());
+            crc32cRxOutOfOrderChunks.Reset();
+            crc32cRxOutOfOrderChunks.AddUnalignedBytes(dataStart + 0, 0, 1);
+            crc32cRxOutOfOrderChunks.AddUnalignedBytes(dataStart + 3, 3, messageStr.length() - 3); //3 because 1 + 2
+            crc32cRxOutOfOrderChunks.AddUnalignedBytes(dataStart + 1, 1, 2);
+            BOOST_REQUIRE_EQUAL(expectedCrc32C, crc32cRxOutOfOrderChunks.FinalizeAndGet());
+
             //cbor serialize then deserialize crc32
             if (i == 0) { //only need to do this once
                 BOOST_REQUIRE_EQUAL(Bpv7Crc::SerializeCrc32ForBpv7(&cborSerialization[0], expectedCrc32C), 5);
@@ -69,5 +89,61 @@ BOOST_AUTO_TEST_CASE(Bpv7CrcTestCase)
             }
         }
     }
+
+    
+    crc32cTxInOrderChunks.Reset();
+    crc32cTxInOrderChunks.AddUnalignedBytes((uint8_t*)MESSAGE_STRINGS[0].data(), MESSAGE_STRINGS[0].length());
+    crc32cTxInOrderChunks.AddUnalignedBytes((uint8_t*)MESSAGE_STRINGS[1].data(), MESSAGE_STRINGS[1].length());
+
+    crc32cRxOutOfOrderChunks.Reset();
+    BOOST_REQUIRE(crc32cRxOutOfOrderChunks.AddUnalignedBytes((uint8_t*)MESSAGE_STRINGS[0].data(), 0, MESSAGE_STRINGS[0].length()));
+    BOOST_REQUIRE(crc32cRxOutOfOrderChunks.AddUnalignedBytes((uint8_t*)MESSAGE_STRINGS[1].data(), MESSAGE_STRINGS[0].length(), MESSAGE_STRINGS[1].length()));
+    BOOST_REQUIRE_EQUAL(crc32cRxOutOfOrderChunks.FinalizeAndGet(), crc32cTxInOrderChunks.FinalizeAndGet());
+
+    crc32cRxOutOfOrderChunks.Reset();
+    BOOST_REQUIRE(crc32cRxOutOfOrderChunks.AddUnalignedBytes((uint8_t*)MESSAGE_STRINGS[1].data(), MESSAGE_STRINGS[0].length(), MESSAGE_STRINGS[1].length()));
+    BOOST_REQUIRE(crc32cRxOutOfOrderChunks.AddUnalignedBytes((uint8_t*)MESSAGE_STRINGS[0].data(), 0, MESSAGE_STRINGS[0].length()));
+    BOOST_REQUIRE_EQUAL(crc32cRxOutOfOrderChunks.FinalizeAndGet(), crc32cTxInOrderChunks.FinalizeAndGet());
+
 }
 
+BOOST_AUTO_TEST_CASE(Bpv7ChunkCrcTestCase)
+{
+    Crc32c_InOrderChunks crc32cTxInOrderChunks;
+    Crc32c_ReceiveOutOfOrderChunks crc32cRxOutOfOrderChunks;
+
+    std::vector<uint32_t> dataChunk(100000);
+    for (std::size_t i = 0; i < dataChunk.size(); ++i) {
+        dataChunk[i] = (uint32_t)(i + 10);
+    }
+    static constexpr unsigned int numChunks = 10;
+    static constexpr unsigned int chunkIndexToChange = 5;
+    std::size_t offset = 0;
+    for (unsigned int c = 0; c < numChunks; ++c) {
+        dataChunk[chunkIndexToChange] = UINT32_MAX - c;
+        const std::size_t sizeChunk = dataChunk.size() - c;
+        crc32cTxInOrderChunks.AddUnalignedBytes((uint8_t*)dataChunk.data(), sizeChunk);
+        crc32cRxOutOfOrderChunks.AddUnalignedBytes((uint8_t*)dataChunk.data(), offset, sizeChunk);
+        offset += sizeChunk;
+    }
+    const uint32_t expectedCrc = crc32cTxInOrderChunks.FinalizeAndGet();
+    const uint32_t rxCrc = crc32cRxOutOfOrderChunks.FinalizeAndGet();
+    BOOST_REQUIRE_EQUAL(expectedCrc, rxCrc);
+#if 0 //for benchmarking
+    std::cout << "start timer\n";
+    {
+        boost::timer::auto_cpu_timer t;
+        for (unsigned int iterations = 0; iterations < 100000; ++iterations) {
+            const uint32_t rxCrc2 = crc32cRxOutOfOrderChunks.FinalizeAndGet();
+            if (rxCrc2 != expectedCrc) {
+                BOOST_REQUIRE(false);
+            }
+        }
+    }
+    //hardware: 9.281264s wall
+    //boost crc: 224.312788s wall
+    //zlib crc combine lut: 0.175751s wall, 0.171875s user + 0.000000s system = 0.171875s CPU (97.8%)
+    //zlib crc combine preinit: 25.170631s wall, 17.531250s user + 0.015625s system = 17.546875s CPU (69.7%)
+    //zlib crc combine original algorithm: 28.184864s wall, 12.296875s user + 0.000000s system = 12.296875s CPU (43.6%)
+#endif
+}
