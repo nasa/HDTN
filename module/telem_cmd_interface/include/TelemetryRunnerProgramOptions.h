@@ -20,6 +20,7 @@
 #include "HdtnDistributedConfig.h"
 #include <boost/filesystem/path.hpp>
 #include <boost/program_options.hpp>
+#include "WebsocketServer.h"
 #include "telem_lib_export.h"
 
 
@@ -38,29 +39,13 @@ class TelemetryRunnerProgramOptions
          */
         TELEM_LIB_EXPORT bool ParseFromVariableMap(boost::program_options::variables_map& vm);
 
-        struct SslPaths {
-            boost::filesystem::path m_certificatePemFile; //not preferred
-            boost::filesystem::path m_certificateChainPemFile; //preferred
-            boost::filesystem::path m_privateKeyPemFile;
-            boost::filesystem::path m_diffieHellmanParametersPemFile;
-            bool m_valid = false;
-        };
-
+        
 public:
         /**
          * Program options
          */
-        boost::filesystem::path m_guiDocumentRoot;
-        std::string m_guiPortNumber;
         HdtnDistributedConfig_ptr m_hdtnDistributedConfigPtr;
-        SslPaths m_sslPaths;
-
-
-    private:
-        void GetSslPathsAndValidate(boost::program_options::variables_map& vm, SslPaths& sslPaths);
-        boost::filesystem::path GetDocumentRootAndValidate(boost::program_options::variables_map& vm);
-        std::string GetPortNumberAsString(boost::program_options::variables_map& vm);
-        HdtnDistributedConfig_ptr GetHdtnDistributedConfigPtr(boost::program_options::variables_map& vm);
+        WebsocketServer::ProgramOptions m_websocketServerProgramOptions;
 };
 
 #endif // TELEMETRY_RUNNER_PROGRAM_OPTIONS_H
