@@ -40,7 +40,7 @@ class WebsocketServer : private boost::noncopyable
             /**
              * Appends program options to an existing options_description object
              */
-            TELEM_LIB_EXPORT static void AppendToDesc(boost::program_options::options_description& desc);
+            TELEM_LIB_EXPORT static void AppendToDesc(boost::program_options::options_description& desc, const boost::filesystem::path* defaultWwwRoot = NULL);
 
             /**
              * Parses a variable map and stores the result

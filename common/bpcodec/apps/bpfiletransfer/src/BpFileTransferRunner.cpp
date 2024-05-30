@@ -19,6 +19,7 @@
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include "Uri.h"
+#include "Environment.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -86,7 +87,8 @@ bool BpFileTransferRunner::Run(int argc, const char* const argv[], std::atomic<b
                 ("save-directory", boost::program_options::value<boost::filesystem::path>()->default_value(""), "Directory to save file(s) to.  Empty=>DoNotSaveToDisk")
                 ("max-rx-file-size-bytes", boost::program_options::value<uint64_t>()->default_value(12000000000), "Max bundle size bytes to receive (default=12GB).")
                 ;
-            WebsocketServer::ProgramOptions::AppendToDesc(desc);
+            boost::filesystem::path defaultWwwRoot = Environment::GetPathHdtnSourceRoot() / "common" / "bpcodec" / "apps" / "bpfiletransfer" / "www";
+            WebsocketServer::ProgramOptions::AppendToDesc(desc, &defaultWwwRoot);
 
             boost::program_options::variables_map vm;
             boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc, boost::program_options::command_line_style::unix_style | boost::program_options::command_line_style::case_insensitive), vm);

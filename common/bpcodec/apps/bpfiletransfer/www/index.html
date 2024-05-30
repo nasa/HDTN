@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>Bp File Transfer</title>
+    <link type="text/css" rel="stylesheet" href="modal-websocket-disconnect.css">
+    <style type="text/css">
+        body {
+            font-family: helvetica, sans-serif;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="myModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span id="idModalClose" class="close">&times;</span>
+                <h2>Websocket Connection Lost</h2>
+            </div>
+            <div class="modal-body">
+                <p>Websocket connection lost to the server.  Please refresh your browser.</p>
+            </div>
+            <div class="modal-footer"></div>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+
+        document.getElementById("idModalClose").onclick = function() {
+            document.getElementById('myModal').style.display = "none";
+        }
+
+
+
+        if (!("WebSocket" in window)) {
+            alert("WebSocket is not supported by your Browser!");
+        }
+        var wsproto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
+        connection = new WebSocket(wsproto + '//' + window.location.host + '/websocket');
+        connection.binaryType = "arraybuffer";
+
+
+        //This event occurs when socket connection is established.
+        connection.onopen = function() {
+            console.log("ws opened");
+        }
+
+        //This event occurs when connection is closed.
+        connection.onclose = function() {
+            console.log("ws closed");
+            document.getElementById('myModal').style.display = "block";
+        }
+
+        //This event occurs when client receives data from server.
+        connection.onmessage = function(e) {
+
+            if(e.data instanceof ArrayBuffer) {
+
+            }
+            else { //this is text data such as json
+                console.log(e.data);
+                var obj = JSON.parse(e.data); //this could error based on encodings
+                console.log(obj);
+            }
+        }
+
+        //This event occurs when there is any error in communication.
+        connection.onerror = function(error) {
+            alert('WebSocket error');
+            connection.close();
+        }
+
+    </script>
+</body>
+</html>
+

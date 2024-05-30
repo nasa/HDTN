@@ -117,11 +117,11 @@ bool WebsocketServer::ProgramOptions::ParseFromVariableMap(boost::program_option
     return true;
 }
 
-void WebsocketServer::ProgramOptions::AppendToDesc(boost::program_options::options_description& desc)
+void WebsocketServer::ProgramOptions::AppendToDesc(boost::program_options::options_description& desc, const boost::filesystem::path* defaultWwwRoot)
 {
 #if defined(WEB_INTERFACE_USE_BEAST) || defined(WEB_INTERFACE_USE_CIVETWEB)
     desc.add_options()
-        ("document-root", boost::program_options::value<boost::filesystem::path>()->default_value(Environment::GetPathGuiDocumentRoot()), "Web GUI Document Root.")
+        ("document-root", boost::program_options::value<boost::filesystem::path>()->default_value((defaultWwwRoot) ? *defaultWwwRoot : Environment::GetPathGuiDocumentRoot()), "Web GUI Document Root.")
         ("port-number", boost::program_options::value<uint16_t>()->default_value(8086), "Web GUI Port number.")
 # ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
         ("gui-certificate-pem-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "GUI Server certificate file in PEM format (not preferred)")

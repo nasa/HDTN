@@ -26,6 +26,9 @@
 #include <queue>
 #include "FragmentSet.h"
 #include "codec/Bpv7Crc.h"
+#include <inttypes.h>
+#include "TimestampUtil.h"
+#include <algorithm>
 
 //static const uint64_t MAX_FILE_SIZE_BYTES = 8000000000; //8GB
 
@@ -78,6 +81,7 @@ enum class FileAckResponseCodes : uint8_t {
     SAVE_ERROR,
     FILE_TOO_LARGE_ERROR,
     FILE_FRAGMENT_MALFORMED_ERROR,
+    TRANSFER_IN_PROGRESS,
     NUM_FILE_ACK_RESPONSE_CODES
 };
 static std::string FileAckResponseCodesToString(FileAckResponseCodes code) {
@@ -88,7 +92,8 @@ static std::string FileAckResponseCodesToString(FileAckResponseCodes code) {
         "error: duplicate filename",
         "error: file cannot be saved to disk",
         "error: file is too large",
-        "error: file fragment is malformed"
+        "error: file fragment is malformed",
+        "file transfer in progress"
     };
     if (code < FileAckResponseCodes::NUM_FILE_ACK_RESPONSE_CODES) {
         return ToString[(std::size_t)code];
@@ -122,15 +127,33 @@ public:
 
     
     struct write_info_t {
-        write_info_t() : expectedCrc(0), expectedFileSize(0), errorOccurred(false) {}
+        write_info_t() : expectedCrc(0), expectedFileSize(0), bytesReceived(0), errorOccurred(false) {}
         FragmentSet::data_fragment_set_t fragmentSet;
         std::unique_ptr<boost::filesystem::ofstream> ofstreamPtr;
         Crc32c_ReceiveOutOfOrderChunks crc32cRxOutOfOrderChunks;
         uint32_t expectedCrc;
         uint64_t expectedFileSize;
+        uint64_t bytesReceived;
         bool errorOccurred;
     };
     typedef std::map<boost::filesystem::path, write_info_t> filename_to_writeinfo_map_t;
+
+    struct send_info_t {
+        send_info_t() = delete;
+        send_info_t(uint64_t paramFileSizeBytes) :
+            fileSizeBytes(paramFileSizeBytes),
+            bytesTransferred(0),
+            responseCode(FileAckResponseCodes::TRANSFER_IN_PROGRESS),
+            transferStartTimestampUnixMs(TimestampUtil::GetMillisecondsSinceEpochUnix()),
+            ackReceivedTimestampUnixMs(0) {}
+        uint64_t fileSizeBytes;
+        uint64_t bytesTransferred;
+        FileAckResponseCodes responseCode;
+        uint64_t transferStartTimestampUnixMs;
+        uint64_t ackReceivedTimestampUnixMs;
+    };
+    typedef std::map<std::string, send_info_t> filename_to_sendinfo_map_t;
+    static bool CreateSentFilesJson(std::string& jsonStr, const filename_to_sendinfo_map_t& m);
 
     std::size_t GetNumberOfFilesToSend() const;
 
@@ -161,6 +184,10 @@ private:
     boost::asio::io_service m_ioService; //for DirectoryScanner
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     std::unique_ptr<DirectoryScanner> m_directoryScannerPtr;
+    filename_to_sendinfo_map_t m_filenameToSendInfoMap;
+    filename_to_sendinfo_map_t::iterator m_currentFilenameToSendInfoMapIterator;
+    bool m_filenameToSendInfoMapWasModified;
+    boost::mutex m_filenameToSendInfoMapMutex;
 
     //receive file
     boost::filesystem::path m_saveDirectory;
@@ -260,6 +287,8 @@ BpFileTransfer::Impl::Impl(const boost::filesystem::path& fileOrFolderPathToSend
     m_directoryScannerPtr(fileOrFolderPathToSend.empty() ?
         std::unique_ptr<DirectoryScanner>() :
         boost::make_unique<DirectoryScanner>(fileOrFolderPathToSend, uploadExistingFiles, uploadNewFiles, recurseDirectoriesDepth, m_ioService, 3000)),
+    m_currentFilenameToSendInfoMapIterator(m_filenameToSendInfoMap.end()),
+    m_filenameToSendInfoMapWasModified(false),
     m_saveDirectory(saveDirectory)
 {
     //sending files
@@ -310,6 +339,79 @@ std::size_t BpFileTransfer::Impl::GetNumberOfFilesToSend() const {
     return (m_directoryScannerPtr) ? m_directoryScannerPtr->GetNumberOfFilesToSend() : 0;
 }
 
+//return 0 on failure, or bytesWritten including the null character
+static std::size_t WriteUint64ToChars(const uint64_t val, char* buffer, std::size_t maxBufferSize) {
+    //snprintf returns The number of characters that would have been written if n had been sufficiently large, not counting the terminating null character.
+    int returned = snprintf(buffer, maxBufferSize, "%" PRIu64, val);
+    //only when this returned value is non-negative and less than n, the string has been completely written.
+    const bool didError = (static_cast<bool>(returned < 0)) + (static_cast<bool>((static_cast<std::size_t>(returned)) >= maxBufferSize));
+    const bool noError = !didError;
+    return static_cast<std::size_t>((returned + 1) * noError); //+1 for the null character
+}
+bool BpFileTransfer::Impl::CreateSentFilesJson(std::string& jsonStr, const filename_to_sendinfo_map_t& m) {
+    char buf[32];
+    static constexpr std::size_t jsonReservedSize = 2000000; //2MB
+    jsonStr.clear();
+    jsonStr.reserve(jsonReservedSize);
+
+    jsonStr = '{';
+    jsonStr += "\"filesSent\":[";
+    for (filename_to_sendinfo_map_t::const_iterator it = m.cbegin(); it != m.cend(); ++it) {
+        if (it != m.cbegin()) {
+            jsonStr += ',';
+        }
+        jsonStr += '{';
+        jsonStr += "\"fileName\":\"";
+        std::string fileName = it->first;
+        std::replace(fileName.begin(), fileName.end(), '\\', '/'); // replace all '\' to '/'
+        jsonStr += fileName;
+        jsonStr += '"';
+        jsonStr += ',';
+
+        std::size_t writtenChars = WriteUint64ToChars(it->second.fileSizeBytes, buf, sizeof(buf));
+        if ((!writtenChars) || (writtenChars > 28)) {
+            return false;
+        }
+        jsonStr += "\"fileSizeBytes\":";
+        jsonStr += buf;
+        jsonStr += ',';
+
+        writtenChars = WriteUint64ToChars(it->second.bytesTransferred, buf, sizeof(buf));
+        if ((!writtenChars) || (writtenChars > 28)) {
+            return false;
+        }
+        jsonStr += "\"bytesTransferred\":";
+        jsonStr += buf;
+        jsonStr += ',';
+
+        writtenChars = WriteUint64ToChars((uint64_t)it->second.responseCode, buf, sizeof(buf));
+        if ((!writtenChars) || (writtenChars > 28)) {
+            return false;
+        }
+        jsonStr += "\"responseCode\":";
+        jsonStr += buf;
+        jsonStr += ',';
+
+        writtenChars = WriteUint64ToChars(it->second.transferStartTimestampUnixMs, buf, sizeof(buf));
+        if ((!writtenChars) || (writtenChars > 28)) {
+            return false;
+        }
+        jsonStr += "\"transferStartTimestampUnixMs\":";
+        jsonStr += buf;
+        jsonStr += ',';
+
+        writtenChars = WriteUint64ToChars(it->second.ackReceivedTimestampUnixMs, buf, sizeof(buf));
+        if ((!writtenChars) || (writtenChars > 28)) {
+            return false;
+        }
+        jsonStr += "\"ackReceivedTimestampUnixMs\":";
+        jsonStr += buf;
+        jsonStr += '}';
+    }
+    jsonStr += "]}";
+    return true;
+}
+
 uint64_t BpFileTransfer::Impl::GetNextPayloadLength_Step1() {
     //acks highest priority
     TryDequeueFileAckToSend(m_currentFileAckVecToSend);
@@ -349,6 +451,19 @@ uint64_t BpFileTransfer::Impl::GetNextPayloadLength_Step1() {
             m_currentSendFileMetadata.fragmentOffset = 0;
             m_currentSendFileMetadata.pathLen = static_cast<uint8_t>(m_currentFilePathRelativeAsUtf8String.size());
             m_currentSendFileCrc32c.Reset();
+            {
+                boost::mutex::scoped_lock lock(m_filenameToSendInfoMapMutex);
+                std::pair<filename_to_sendinfo_map_t::iterator, bool> ret = m_filenameToSendInfoMap.emplace(
+                    std::piecewise_construct,
+                    std::forward_as_tuple(m_currentFilePathRelativeAsUtf8String),
+                    std::forward_as_tuple(m_currentSendFileMetadata.totalFileSize));
+                if (!ret.second) {
+                    LOG_FATAL(subprocess) << "Already sent file " << m_currentFilePathRelativeAsPrintableString;
+                    return 0;
+                }
+                m_currentFilenameToSendInfoMapIterator = ret.first;
+                m_filenameToSendInfoMapWasModified = true;
+            }
             LOG_INFO(subprocess) << "Sending: " << m_currentFilePathRelativeAsPrintableString;
         }
         else { //file error occurred.. stop
@@ -382,6 +497,11 @@ bool BpFileTransfer::Impl::CopyPayload_Step2(uint8_t * destinationBuffer) {
         return false;
     }
     m_currentSendFileCrc32c.AddUnalignedBytes(destinationBuffer, m_currentSendFileMetadata.fragmentLength);
+    {
+        boost::mutex::scoped_lock lock(m_filenameToSendInfoMapMutex);
+        m_currentFilenameToSendInfoMapIterator->second.bytesTransferred += m_currentSendFileMetadata.fragmentLength;
+        m_filenameToSendInfoMapWasModified = true;
+    }
     const uint64_t nextOffset = m_currentSendFileMetadata.fragmentLength + m_currentSendFileMetadata.fragmentOffset;
     const bool isEndOfThisFile = (nextOffset == m_currentSendFileMetadata.totalFileSize);
     if (isEndOfThisFile) {
@@ -575,7 +695,7 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
             doWriteFragment = true;
         }
         else if (IsFileFullyReceived(writeInfo.fragmentSet, sendFileMetadata.totalFileSize)) { //file was already received.. ignore duplicate fragment
-            LOG_INFO(subprocess) << "ignoring duplicate fragment";
+            LOG_INFO(subprocess) << "ignoring duplicate fragment for a fully received file";
         }
         else { //subsequent reception of file fragment 
             doWriteFragment = true;
@@ -592,11 +712,15 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
                 }
                 return false;
             }
+            if (!FragmentSet::InsertFragment(writeInfo.fragmentSet, FragmentSet::data_fragment_t(sendFileMetadata.fragmentOffset, fragmentOffsetPlusFragmentLength - 1))) {
+                LOG_INFO(subprocess) << "ignoring duplicate fragment for a partially received file";
+                return true;
+            }
+            writeInfo.bytesReceived += sendFileMetadata.fragmentLength;
             writeInfo.crc32cRxOutOfOrderChunks.AddUnalignedBytes(data, sendFileMetadata.fragmentOffset, sendFileMetadata.fragmentLength);
             if (fragmentOffsetPlusFragmentLength == sendFileMetadata.totalFileSize) { //last fragment, crc in this fragment's metadata is the valid crc of the file
                 writeInfo.expectedCrc = sendFileMetadata.crc32c;
             }
-            FragmentSet::InsertFragment(writeInfo.fragmentSet, FragmentSet::data_fragment_t(sendFileMetadata.fragmentOffset, fragmentOffsetPlusFragmentLength - 1));
             const bool fileIsFullyReceived = IsFileFullyReceived(writeInfo.fragmentSet, sendFileMetadata.totalFileSize);
             if (m_saveDirectory.size()) { //if we are actually saving the files
                 writeInfo.ofstreamPtr->seekp(sendFileMetadata.fragmentOffset); //absolute position releative to beginning
@@ -678,6 +802,17 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
         const bool wasSuccessful = FileAckResponseCodeIsSuccess(fileAckMetadata->responseCode);
         LOG_INFO(subprocess) << "received " << ((wasSuccessful) ? "success" : "failure") << " ack from file " << printableRelativePathString 
             << "\n  ..response was " << FileAckResponseCodesToString(fileAckMetadata->responseCode);
+        {
+            boost::mutex::scoped_lock lock(m_filenameToSendInfoMapMutex);
+            filename_to_sendinfo_map_t::iterator it = m_filenameToSendInfoMap.find(encodedRelativePathNameAsUtf8String);
+            if (it == m_filenameToSendInfoMap.end()) {
+                LOG_ERROR(subprocess) << "Cannot find acked file " << printableRelativePathString;
+                return 0;
+            }
+            it->second.responseCode = fileAckMetadata->responseCode;
+            it->second.ackReceivedTimestampUnixMs = TimestampUtil::GetMillisecondsSinceEpochUnix();
+            m_filenameToSendInfoMapWasModified = true;
+        }
     }
     else {
         LOG_ERROR(subprocess) << "invalid SendFileMessageType";
@@ -720,21 +855,15 @@ void BpFileTransfer::Impl::TryDequeueFileAckToSend(std::vector<uint8_t>& fileAck
 void BpFileTransfer::Impl::OnNewWebsocketConnectionCallback(WebsocketServer::Connection& conn) {
     (void)conn;
     std::cout << "newconn\n";
-    /*std::string jsonStr;
-    jsonStr.reserve(1000);
-    jsonStr = "{\"telemChannelDescriptions\":[";
-    for (std::size_t i = 0; i < NUM_TELEM_CHANNELS; ++i) {
-        const telem_channel_description_t& t = TELEM_CHANNEL_DESCRIPTIONS[i];
-        if (i) {
-            jsonStr += ',';
-        }
-        jsonStr += "{\"name\":\"" + t.name
-            + "\", \"units\":\"" + t.units
-            + "\", \"channelIndex\":" + boost::lexical_cast<std::string>(i) + "}";
+    std::string jsonStr;
+    bool success;
+    {
+        boost::mutex::scoped_lock lock(m_filenameToSendInfoMapMutex);
+        success = CreateSentFilesJson(jsonStr, m_filenameToSendInfoMap);
     }
-    jsonStr += "]}";
-    //std::cout << jsonStr << "\n";
-    conn.AsyncSendTextData(std::make_shared<std::string>(std::move(jsonStr)));*/
+    if (success) {
+        conn.SendTextDataToThisConnection(std::move(jsonStr));
+    }
 }
 
 bool BpFileTransfer::Impl::OnNewWebsocketTextDataReceivedCallback(WebsocketServer::Connection& conn, std::string& receivedString) {
