@@ -37,13 +37,6 @@
 #include "app_patterns/BpSourcePattern.h"
 #include "WebsocketServer.h"
 
-struct SslPaths {
-    boost::filesystem::path m_certificatePemFile; //not preferred
-    boost::filesystem::path m_certificateChainPemFile; //preferred
-    boost::filesystem::path m_privateKeyPemFile;
-    boost::filesystem::path m_diffieHellmanParametersPemFile;
-    bool m_valid = false;
-};
 
 class BpFileTransfer : private boost::noncopyable {
 public:

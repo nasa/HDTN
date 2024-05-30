@@ -29,6 +29,8 @@
 
 //static const uint64_t MAX_FILE_SIZE_BYTES = 8000000000; //8GB
 
+#define TEMPORARY_FILE_SUFFIX ".bpfiletransfer";
+
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 static bool CreateDirectoryRecursivelyVerboseIfNotExist(const boost::filesystem::path& path) {
@@ -536,6 +538,8 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
         }
         else if (writeInfo.fragmentSet.empty()) { //first reception of this file
             writeInfo.expectedFileSize = sendFileMetadata.totalFileSize;
+            boost::filesystem::path fullTempFilePath = fullFilePath;
+            fullTempFilePath += TEMPORARY_FILE_SUFFIX;
             if (m_saveDirectory.size()) { //if we are actually saving the files
                 if (!CreateDirectoryRecursivelyVerboseIfNotExist(fullFilePath.parent_path())) {
                     if (!writeInfo.errorOccurred) {
@@ -545,7 +549,7 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
                     }
                     return false;
                 }
-                if (boost::filesystem::is_regular_file(fullFilePath)) {
+                if (boost::filesystem::is_regular_file(fullFilePath) || boost::filesystem::is_regular_file(fullTempFilePath)) {
                     if (!writeInfo.errorOccurred) {
                         writeInfo.errorOccurred = true;
                         QueueFileAckToSend(FileAckResponseCodes::DUPLICATE_FILENAME, encodedRelativePathNameAsUtf8String);
@@ -555,7 +559,7 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
                 }
                 
                 LOG_INFO(subprocess) << "creating new file " << printableFullPathString;
-                writeInfo.ofstreamPtr = boost::make_unique<boost::filesystem::ofstream>(fullFilePath, boost::filesystem::ofstream::out | boost::filesystem::ofstream::binary);
+                writeInfo.ofstreamPtr = boost::make_unique<boost::filesystem::ofstream>(fullTempFilePath, boost::filesystem::ofstream::out | boost::filesystem::ofstream::binary);
                 if (!writeInfo.ofstreamPtr->good()) {
                     if (!writeInfo.errorOccurred) {
                         writeInfo.errorOccurred = true;
@@ -629,8 +633,23 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
             if (fileIsFullyReceived) {
                 const uint32_t computedCrc = writeInfo.crc32cRxOutOfOrderChunks.FinalizeAndGet();
                 if (computedCrc == writeInfo.expectedCrc) {
-                    QueueFileAckToSend(FileAckResponseCodes::FILE_RECEIVED_CRC_MATCH, encodedRelativePathNameAsUtf8String);
-                    LOG_INFO(subprocess) << "successfully received " << printableFullPathString << " crc32c=" << computedCrc;
+                    boost::filesystem::path fullTempFilePath = fullFilePath;
+                    fullTempFilePath += TEMPORARY_FILE_SUFFIX;
+                    boost::system::error_code ec;
+                    boost::filesystem::rename(fullTempFilePath, fullFilePath, ec);
+                    if (ec) {
+                        if (!writeInfo.errorOccurred) {
+                            writeInfo.errorOccurred = true;
+                            QueueFileAckToSend(FileAckResponseCodes::SAVE_ERROR, encodedRelativePathNameAsUtf8String);
+                            LOG_ERROR(subprocess) << "save error: unable to rename from temporary file to "
+                                << printableFullPathString << " .. got " << ec.message();
+                        }
+                        return false;
+                    }
+                    else {
+                        QueueFileAckToSend(FileAckResponseCodes::FILE_RECEIVED_CRC_MATCH, encodedRelativePathNameAsUtf8String);
+                        LOG_INFO(subprocess) << "successfully received " << printableFullPathString << " crc32c=" << computedCrc;
+                    }
                 }
                 else {
                     QueueFileAckToSend(FileAckResponseCodes::FILE_RECEIVED_CRC_MISMATCH, encodedRelativePathNameAsUtf8String);
