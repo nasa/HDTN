@@ -69,6 +69,20 @@ target_include_directories(bpreceivefile
 )
 target_link_libraries(bpreceivefile PUBLIC outduct_manager_lib induct_manager_lib bpcodec hdtn_util bp_app_patterns_lib Boost::program_options)
 
+add_executable(bpfiletransfer
+	bpfiletransfer/src/BpFileTransfer.cpp
+	bpfiletransfer/src/BpFileTransferMain.cpp
+	bpfiletransfer/src/BpFileTransferRunner.cpp
+)
+install(TARGETS bpfiletransfer DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+target_include_directories(bpfiletransfer
+	PUBLIC 
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/bpfiletransfer/include>
+)
+target_link_libraries(bpfiletransfer PUBLIC outduct_manager_lib induct_manager_lib bpcodec hdtn_util bp_app_patterns_lib telem_lib Boost::program_options)
+
+
 add_executable(bpsendpacket
     bpsendpacket/src/BpSendPacket.cpp
     bpsendpacket/src/BpSendPacketMain.cpp

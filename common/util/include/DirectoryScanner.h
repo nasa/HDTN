@@ -52,6 +52,7 @@ public:
     HDTN_UTIL_EXPORT bool GetNextFilePath(boost::filesystem::path& nextFilePathAbsolute, boost::filesystem::path& nextFilePathRelative);
     HDTN_UTIL_EXPORT bool GetNextFilePathTimeout(boost::filesystem::path& nextFilePathAbsolute,
         boost::filesystem::path& nextFilePathRelative, const boost::posix_time::time_duration & timeout);
+    HDTN_UTIL_EXPORT void InterruptTimedWait();
     HDTN_UTIL_EXPORT friend std::ostream& operator<<(std::ostream& os, const path_list_t& o);
     HDTN_UTIL_EXPORT friend std::ostream& operator<<(std::ostream& os, const path_set_t& o);
     HDTN_UTIL_EXPORT const path_list_t & GetListOfFilesAbsolute() const;
