@@ -42,6 +42,7 @@ WebsocketServer::ProgramOptions::ProgramOptions()
 {
 }
 
+#if defined(WEB_INTERFACE_USE_BEAST) || defined(WEB_INTERFACE_USE_CIVETWEB)
 static boost::filesystem::path GetDocumentRootAndValidate(boost::program_options::variables_map& vm) {
     try {
         const boost::program_options::variable_value val = vm["document-root"];
@@ -77,6 +78,7 @@ static std::string GetPortNumberAsString(boost::program_options::variables_map& 
         return "";
     }
 }
+#endif
 
 #ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
 static void GetSslPathsAndValidate(boost::program_options::variables_map& vm, WebsocketServer::ProgramOptions::SslPaths& sslPaths) {
@@ -132,6 +134,7 @@ void WebsocketServer::ProgramOptions::AppendToDesc(boost::program_options::optio
         ;
 #else
     (void)desc; //unused parameter
+    (void)defaultWwwRoot; //unused parameter
 #endif
 }
 
