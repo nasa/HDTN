@@ -62,7 +62,7 @@ enum class SendFileMessageType : uint8_t {
 };
 
 struct SendFileMetadata {
-    SendFileMetadata();
+    SendFileMetadata() = default;
     void ToLittleEndianInplace();
     void ToNativeEndianInplace();
     uint64_t totalFileSize;
@@ -276,7 +276,6 @@ bool BpFileTransfer::Impl::InitWebServer(const WebsocketServer::ProgramOptions& 
 
 
 
-SendFileMetadata::SendFileMetadata() : totalFileSize(0), fragmentOffset(0), fragmentLength(0), crc32c(0), pathLen(0) {}
 void SendFileMetadata::ToLittleEndianInplace() {
     boost::endian::native_to_little_inplace(totalFileSize);
     boost::endian::native_to_little_inplace(fragmentOffset);
@@ -309,6 +308,7 @@ BpFileTransfer::Impl::Impl(const boost::filesystem::path& fileOrFolderPathToSend
     m_saveDirectory(saveDirectory),
     m_filenameToWriteInfoMapWasModified(false)
 {
+    memset(&m_currentSendFileMetadata, 0, sizeof(m_currentSendFileMetadata));
     m_websocketTimerExpiry = boost::posix_time::microsec_clock::universal_time() + boost::posix_time::seconds(1);
     m_needToSendWebsocketUpdatesTimer.expires_at(m_websocketTimerExpiry);
     m_needToSendWebsocketUpdatesTimer.async_wait(boost::bind(&BpFileTransfer::Impl::OnNeedToSendWebsocketUpdates_TimerExpired, this, boost::asio::placeholders::error));

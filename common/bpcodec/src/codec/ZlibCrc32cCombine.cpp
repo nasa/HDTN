@@ -116,7 +116,7 @@ struct CrcCombineInit {
         //https://stackoverflow.com/questions/41878655/why-are-crc-polynomials-given-as-normal-reversed-etc#comment110168877_41879464
         //So how do you reverse it? If I have 0x04C11DB7 polynomial how do I reverse it into 0xEDB88320? 
         //Just write it in binary and reverse the 32 bits.
-        //00000100110000010001110110110111 which reversed is 11101101101110001000001100100000, equal to 0xedb88320. – Mark Adler Jun 9, 2020 at 21:02
+        //00000100110000010001110110110111 which reversed is 11101101101110001000001100100000, equal to 0xedb88320. - Mark Adler Jun 9, 2020 at 21:02
         // 
         //odd[0] = boost::detail::reflect_unsigned<uint32_t>(0x1EDC6F41);//CRC32C polynomial (must #include <boost/crc.hpp>)
         zerosOperator.odd[0] = 0x82f63b78;//CRC32C polynomial (result of reflect_unsigned above)
