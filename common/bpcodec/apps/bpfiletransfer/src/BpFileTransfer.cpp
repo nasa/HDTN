@@ -127,16 +127,27 @@ public:
 
     
     struct write_info_t {
-        write_info_t() : expectedCrc(0), expectedFileSize(0), bytesReceived(0), errorOccurred(false) {}
+        write_info_t() : 
+            expectedCrc(0),
+            expectedFileSize(0),
+            bytesReceived(0),
+            responseCode(FileAckResponseCodes::TRANSFER_IN_PROGRESS),
+            transferStartTimestampUnixMs(TimestampUtil::GetMillisecondsSinceEpochUnix()),
+            transferCompleteTimestampUnixMs(0),
+            errorOccurred(false) {}
         FragmentSet::data_fragment_set_t fragmentSet;
         std::unique_ptr<boost::filesystem::ofstream> ofstreamPtr;
         Crc32c_ReceiveOutOfOrderChunks crc32cRxOutOfOrderChunks;
         uint32_t expectedCrc;
         uint64_t expectedFileSize;
         uint64_t bytesReceived;
+        FileAckResponseCodes responseCode;
+        uint64_t transferStartTimestampUnixMs;
+        uint64_t transferCompleteTimestampUnixMs;
         bool errorOccurred;
     };
-    typedef std::map<boost::filesystem::path, write_info_t> filename_to_writeinfo_map_t;
+    typedef std::map<std::string, write_info_t> filename_to_writeinfo_map_t;
+    static bool CreateReceivedFilesJson(std::string& jsonStr, const filename_to_writeinfo_map_t& m);
 
     struct send_info_t {
         send_info_t() = delete;
@@ -169,6 +180,7 @@ private:
     void Shutdown_NotThreadSafe();
     void OnNewWebsocketConnectionCallback(WebsocketServer::Connection& conn);
     bool OnNewWebsocketTextDataReceivedCallback(WebsocketServer::Connection& conn, std::string& receivedString);
+    void OnNeedToSendWebsocketUpdates_TimerExpired(const boost::system::error_code& e);
 private:
     const uint64_t M_MAX_BUNDLE_PAYLOAD_SIZE_BYTES;
     const uint64_t M_MAX_RX_FILE_SIZE_BYTES;
@@ -181,7 +193,9 @@ private:
     std::string m_currentFilePathRelativeAsPrintableString;
     SendFileMetadata m_currentSendFileMetadata;
     Crc32c_InOrderChunks m_currentSendFileCrc32c;
-    boost::asio::io_service m_ioService; //for DirectoryScanner
+    boost::asio::io_service m_ioService; //for DirectoryScanner and m_needToSendWebsocketUpdatesTimer
+    boost::asio::deadline_timer m_needToSendWebsocketUpdatesTimer;
+    boost::posix_time::ptime m_websocketTimerExpiry; //enforce 1 second exact intervals
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     std::unique_ptr<DirectoryScanner> m_directoryScannerPtr;
     filename_to_sendinfo_map_t m_filenameToSendInfoMap;
@@ -192,6 +206,8 @@ private:
     //receive file
     boost::filesystem::path m_saveDirectory;
     filename_to_writeinfo_map_t m_filenameToWriteInfoMap;
+    bool m_filenameToWriteInfoMapWasModified;
+    boost::mutex m_filenameToWriteInfoMapMutex;
     std::queue<std::vector<uint8_t> > m_fileAcksToSendQueue;
     boost::mutex m_fileAcksToSendMutex;
     boost::condition_variable m_fileAcksToSendCv;
@@ -284,22 +300,25 @@ BpFileTransfer::Impl::Impl(const boost::filesystem::path& fileOrFolderPathToSend
     BpSourcePattern(),
     M_MAX_BUNDLE_PAYLOAD_SIZE_BYTES(maxBundleSizeBytes),
     M_MAX_RX_FILE_SIZE_BYTES(maxRxFileSizeBytes),
+    m_needToSendWebsocketUpdatesTimer(m_ioService),
     m_directoryScannerPtr(fileOrFolderPathToSend.empty() ?
         std::unique_ptr<DirectoryScanner>() :
         boost::make_unique<DirectoryScanner>(fileOrFolderPathToSend, uploadExistingFiles, uploadNewFiles, recurseDirectoriesDepth, m_ioService, 3000)),
     m_currentFilenameToSendInfoMapIterator(m_filenameToSendInfoMap.end()),
     m_filenameToSendInfoMapWasModified(false),
-    m_saveDirectory(saveDirectory)
+    m_saveDirectory(saveDirectory),
+    m_filenameToWriteInfoMapWasModified(false)
 {
+    m_websocketTimerExpiry = boost::posix_time::microsec_clock::universal_time() + boost::posix_time::seconds(1);
+    m_needToSendWebsocketUpdatesTimer.expires_at(m_websocketTimerExpiry);
+    m_needToSendWebsocketUpdatesTimer.async_wait(boost::bind(&BpFileTransfer::Impl::OnNeedToSendWebsocketUpdates_TimerExpired, this, boost::asio::placeholders::error));
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceBpSendFile");
     //sending files
     if (!m_directoryScannerPtr) {
         LOG_INFO(subprocess) << "not sending files";
     }
     else {
-        if (uploadNewFiles) {
-            m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
-            ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceBpSendFile");
-        }
 
         if ((m_directoryScannerPtr->GetNumberOfFilesToSend() == 0) && (!uploadNewFiles)) {
             LOG_WARNING(subprocess) << "no files to send";
@@ -332,6 +351,7 @@ BpFileTransfer::Impl::~Impl() {
     }
 }
 void BpFileTransfer::Impl::Shutdown_NotThreadSafe() { //call within m_ioService thread
+    m_needToSendWebsocketUpdatesTimer.cancel();
     m_directoryScannerPtr.reset(); //delete it
 }
 
@@ -362,9 +382,7 @@ bool BpFileTransfer::Impl::CreateSentFilesJson(std::string& jsonStr, const filen
         }
         jsonStr += '{';
         jsonStr += "\"fileName\":\"";
-        std::string fileName = it->first;
-        std::replace(fileName.begin(), fileName.end(), '\\', '/'); // replace all '\' to '/'
-        jsonStr += fileName;
+        jsonStr += it->first;
         jsonStr += '"';
         jsonStr += ',';
 
@@ -412,6 +430,76 @@ bool BpFileTransfer::Impl::CreateSentFilesJson(std::string& jsonStr, const filen
     return true;
 }
 
+bool BpFileTransfer::Impl::CreateReceivedFilesJson(std::string& jsonStr, const filename_to_writeinfo_map_t& m) {
+    char buf[32];
+    static constexpr std::size_t jsonReservedSize = 2000000; //2MB
+    jsonStr.clear();
+    jsonStr.reserve(jsonReservedSize);
+
+    jsonStr = '{';
+    jsonStr += "\"filesReceived\":[";
+    for (filename_to_writeinfo_map_t::const_iterator it = m.cbegin(); it != m.cend(); ++it) {
+        if (it != m.cbegin()) {
+            jsonStr += ',';
+        }
+        jsonStr += '{';
+        jsonStr += "\"fileName\":\"";
+        jsonStr += it->first;
+        jsonStr += '"';
+        jsonStr += ',';
+
+        std::size_t writtenChars = WriteUint64ToChars(it->second.expectedFileSize, buf, sizeof(buf));
+        if ((!writtenChars) || (writtenChars > 28)) {
+            return false;
+        }
+        jsonStr += "\"fileSizeBytes\":";
+        jsonStr += buf;
+        jsonStr += ',';
+
+        writtenChars = WriteUint64ToChars(it->second.bytesReceived, buf, sizeof(buf));
+        if ((!writtenChars) || (writtenChars > 28)) {
+            return false;
+        }
+        jsonStr += "\"bytesReceived\":";
+        jsonStr += buf;
+        jsonStr += ',';
+
+        writtenChars = WriteUint64ToChars(it->second.fragmentSet.empty() ? 0 : it->second.fragmentSet.size() - 1, buf, sizeof(buf));
+        if ((!writtenChars) || (writtenChars > 28)) {
+            return false;
+        }
+        jsonStr += "\"numGapsInReceivedFile\":";
+        jsonStr += buf;
+        jsonStr += ',';
+
+        writtenChars = WriteUint64ToChars((uint64_t)it->second.responseCode, buf, sizeof(buf));
+        if ((!writtenChars) || (writtenChars > 28)) {
+            return false;
+        }
+        jsonStr += "\"responseCode\":";
+        jsonStr += buf;
+        jsonStr += ',';
+
+        writtenChars = WriteUint64ToChars(it->second.transferStartTimestampUnixMs, buf, sizeof(buf));
+        if ((!writtenChars) || (writtenChars > 28)) {
+            return false;
+        }
+        jsonStr += "\"transferStartTimestampUnixMs\":";
+        jsonStr += buf;
+        jsonStr += ',';
+
+        writtenChars = WriteUint64ToChars(it->second.transferCompleteTimestampUnixMs, buf, sizeof(buf));
+        if ((!writtenChars) || (writtenChars > 28)) {
+            return false;
+        }
+        jsonStr += "\"transferCompleteTimestampUnixMs\":";
+        jsonStr += buf;
+        jsonStr += '}';
+    }
+    jsonStr += "]}";
+    return true;
+}
+
 uint64_t BpFileTransfer::Impl::GetNextPayloadLength_Step1() {
     //acks highest priority
     TryDequeueFileAckToSend(m_currentFileAckVecToSend);
@@ -437,6 +525,7 @@ uint64_t BpFileTransfer::Impl::GetNextPayloadLength_Step1() {
         if (m_currentIfstreamPtr->good()) {
             //path name shall be utf-8 encoded
             m_currentFilePathRelativeAsUtf8String = Utf8Paths::PathToUtf8String(m_currentFilePathRelative);
+            std::replace(m_currentFilePathRelativeAsUtf8String.begin(), m_currentFilePathRelativeAsUtf8String.end(), '\\', '/'); // replace all '\' to '/'
             m_currentFilePathRelativeAsPrintableString = (Utf8Paths::IsAscii(m_currentFilePathRelativeAsUtf8String)) ?
                 m_currentFilePathRelativeAsUtf8String : std::string("UTF-8-non-printable-file-name");
             if (m_currentFilePathRelativeAsUtf8String.size() > std::numeric_limits<uint8_t>::max()) {
@@ -550,6 +639,7 @@ static bool IsFileFullyReceived(FragmentSet::data_fragment_set_t& fragmentSet, c
 }
 
 bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* data, const uint64_t size) {
+    //doesn't matter if return true or false here.. that only matters for pings
     uint64_t bufSizeRemaining = size;
     if (bufSizeRemaining == 0) {
         return false;
@@ -583,14 +673,18 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
         data += sendFileMetadata.pathLen;
         bufSizeRemaining -= sendFileMetadata.pathLen;
         
-        write_info_t& writeInfo = m_filenameToWriteInfoMap[relativeFilePath];
-        if (writeInfo.errorOccurred) {
+        boost::mutex::scoped_lock lock(m_filenameToWriteInfoMapMutex);
+        m_filenameToWriteInfoMapWasModified = true;
+        write_info_t& writeInfo = m_filenameToWriteInfoMap[encodedRelativePathNameAsUtf8String];
+        if (writeInfo.errorOccurred || (writeInfo.responseCode == FileAckResponseCodes::FILE_RECEIVED_CRC_MATCH)) {
             return false; //prevent duplicate prints and error acks and trying to operate on this failed file
         }
         bool doWriteFragment = false;
         if (bufSizeRemaining != sendFileMetadata.fragmentLength) {
             if (!writeInfo.errorOccurred) {
                 writeInfo.errorOccurred = true;
+                writeInfo.transferCompleteTimestampUnixMs = TimestampUtil::GetMillisecondsSinceEpochUnix();
+                writeInfo.responseCode = FileAckResponseCodes::FILE_FRAGMENT_MALFORMED_ERROR;
                 QueueFileAckToSend(FileAckResponseCodes::FILE_FRAGMENT_MALFORMED_ERROR, encodedRelativePathNameAsUtf8String);
                 LOG_ERROR(subprocess) << "malformed fragment: bundle payload length not match file fragmentLength";
             }
@@ -599,6 +693,8 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
         if (sendFileMetadata.totalFileSize > M_MAX_RX_FILE_SIZE_BYTES) {
             if (!writeInfo.errorOccurred) {
                 writeInfo.errorOccurred = true;
+                writeInfo.transferCompleteTimestampUnixMs = TimestampUtil::GetMillisecondsSinceEpochUnix();
+                writeInfo.responseCode = FileAckResponseCodes::FILE_TOO_LARGE_ERROR;
                 QueueFileAckToSend(FileAckResponseCodes::FILE_TOO_LARGE_ERROR, encodedRelativePathNameAsUtf8String);
                 LOG_ERROR(subprocess) << "file exceeds " << M_MAX_RX_FILE_SIZE_BYTES << " bytes";
             }
@@ -607,6 +703,8 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
         if (fragmentOffsetPlusFragmentLength > sendFileMetadata.totalFileSize) {
             if (!writeInfo.errorOccurred) {
                 writeInfo.errorOccurred = true;
+                writeInfo.transferCompleteTimestampUnixMs = TimestampUtil::GetMillisecondsSinceEpochUnix();
+                writeInfo.responseCode = FileAckResponseCodes::FILE_FRAGMENT_MALFORMED_ERROR;
                 QueueFileAckToSend(FileAckResponseCodes::FILE_FRAGMENT_MALFORMED_ERROR, encodedRelativePathNameAsUtf8String);
                 LOG_ERROR(subprocess) << "malformed fragment: fragmentOffsetPlusFragmentLength exceeds " << sendFileMetadata.totalFileSize << " bytes";
             }
@@ -619,6 +717,8 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
                 if (!CreateDirectoryRecursivelyVerboseIfNotExist(fullFilePath.parent_path())) {
                     if (!writeInfo.errorOccurred) {
                         writeInfo.errorOccurred = true;
+                        writeInfo.transferCompleteTimestampUnixMs = TimestampUtil::GetMillisecondsSinceEpochUnix();
+                        writeInfo.responseCode = FileAckResponseCodes::SAVE_ERROR;
                         QueueFileAckToSend(FileAckResponseCodes::SAVE_ERROR, encodedRelativePathNameAsUtf8String);
                         LOG_ERROR(subprocess) << "save error: unable to create directory structure for saving file " << printableFullPathString;
                     }
@@ -627,6 +727,8 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
                 if (boost::filesystem::is_regular_file(fullFilePath)) {
                     if (!writeInfo.errorOccurred) {
                         writeInfo.errorOccurred = true;
+                        writeInfo.transferCompleteTimestampUnixMs = TimestampUtil::GetMillisecondsSinceEpochUnix();
+                        writeInfo.responseCode = FileAckResponseCodes::DUPLICATE_FILENAME;
                         QueueFileAckToSend(FileAckResponseCodes::DUPLICATE_FILENAME, encodedRelativePathNameAsUtf8String);
                         LOG_INFO(subprocess) << "skipping writing zero-length file " << printableFullPathString << " because it already exists";
                     }
@@ -636,6 +738,8 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
                 if (!ofs.good()) {
                     if (!writeInfo.errorOccurred) {
                         writeInfo.errorOccurred = true;
+                        writeInfo.transferCompleteTimestampUnixMs = TimestampUtil::GetMillisecondsSinceEpochUnix();
+                        writeInfo.responseCode = FileAckResponseCodes::SAVE_ERROR;
                         QueueFileAckToSend(FileAckResponseCodes::SAVE_ERROR, encodedRelativePathNameAsUtf8String);
                         LOG_ERROR(subprocess) << "unable to open file " << printableFullPathString << " for writing";
                     }
@@ -645,6 +749,8 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
                 if (ofs.fail()) { //check close() worked
                     if (!writeInfo.errorOccurred) {
                         writeInfo.errorOccurred = true;
+                        writeInfo.transferCompleteTimestampUnixMs = TimestampUtil::GetMillisecondsSinceEpochUnix();
+                        writeInfo.responseCode = FileAckResponseCodes::SAVE_ERROR;
                         QueueFileAckToSend(FileAckResponseCodes::SAVE_ERROR, encodedRelativePathNameAsUtf8String);
                         LOG_ERROR(subprocess) << "save error: unable to close file " << printableFullPathString;
                     }
@@ -664,6 +770,8 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
                 if (!CreateDirectoryRecursivelyVerboseIfNotExist(fullFilePath.parent_path())) {
                     if (!writeInfo.errorOccurred) {
                         writeInfo.errorOccurred = true;
+                        writeInfo.transferCompleteTimestampUnixMs = TimestampUtil::GetMillisecondsSinceEpochUnix();
+                        writeInfo.responseCode = FileAckResponseCodes::SAVE_ERROR;
                         QueueFileAckToSend(FileAckResponseCodes::SAVE_ERROR, encodedRelativePathNameAsUtf8String);
                         LOG_ERROR(subprocess) << "save error: unable to create directory structure for saving file " << printableFullPathString;
                     }
@@ -672,6 +780,8 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
                 if (boost::filesystem::is_regular_file(fullFilePath) || boost::filesystem::is_regular_file(fullTempFilePath)) {
                     if (!writeInfo.errorOccurred) {
                         writeInfo.errorOccurred = true;
+                        writeInfo.transferCompleteTimestampUnixMs = TimestampUtil::GetMillisecondsSinceEpochUnix();
+                        writeInfo.responseCode = FileAckResponseCodes::DUPLICATE_FILENAME;
                         QueueFileAckToSend(FileAckResponseCodes::DUPLICATE_FILENAME, encodedRelativePathNameAsUtf8String);
                         LOG_INFO(subprocess) << "skipping writing file " << printableFullPathString << " because it already exists";
                     }
@@ -683,6 +793,8 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
                 if (!writeInfo.ofstreamPtr->good()) {
                     if (!writeInfo.errorOccurred) {
                         writeInfo.errorOccurred = true;
+                        writeInfo.transferCompleteTimestampUnixMs = TimestampUtil::GetMillisecondsSinceEpochUnix();
+                        writeInfo.responseCode = FileAckResponseCodes::SAVE_ERROR;
                         QueueFileAckToSend(FileAckResponseCodes::SAVE_ERROR, encodedRelativePathNameAsUtf8String);
                         LOG_ERROR(subprocess) << "save error: unable to open file " << printableFullPathString << " for writing";
                     }
@@ -707,6 +819,8 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
             if (writeInfo.expectedFileSize != sendFileMetadata.totalFileSize) {
                 if (!writeInfo.errorOccurred) {
                     writeInfo.errorOccurred = true;
+                    writeInfo.transferCompleteTimestampUnixMs = TimestampUtil::GetMillisecondsSinceEpochUnix();
+                    writeInfo.responseCode = FileAckResponseCodes::FILE_FRAGMENT_MALFORMED_ERROR;
                     QueueFileAckToSend(FileAckResponseCodes::FILE_FRAGMENT_MALFORMED_ERROR, encodedRelativePathNameAsUtf8String);
                     LOG_ERROR(subprocess) << "malformed fragment: fragment totalFileSize mismatch for file " << printableFullPathString;
                 }
@@ -727,6 +841,8 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
                 if (!writeInfo.ofstreamPtr->good()) { //check seekp() worked
                     if (!writeInfo.errorOccurred) {
                         writeInfo.errorOccurred = true;
+                        writeInfo.transferCompleteTimestampUnixMs = TimestampUtil::GetMillisecondsSinceEpochUnix();
+                        writeInfo.responseCode = FileAckResponseCodes::SAVE_ERROR;
                         QueueFileAckToSend(FileAckResponseCodes::SAVE_ERROR, encodedRelativePathNameAsUtf8String);
                         LOG_ERROR(subprocess) << "save error during call to seekp for " << printableFullPathString;
                     }
@@ -736,6 +852,8 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
                 if (!writeInfo.ofstreamPtr->good()) { //check write() worked
                     if (!writeInfo.errorOccurred) {
                         writeInfo.errorOccurred = true;
+                        writeInfo.transferCompleteTimestampUnixMs = TimestampUtil::GetMillisecondsSinceEpochUnix();
+                        writeInfo.responseCode = FileAckResponseCodes::SAVE_ERROR;
                         QueueFileAckToSend(FileAckResponseCodes::SAVE_ERROR, encodedRelativePathNameAsUtf8String);
                         LOG_ERROR(subprocess) << "save error: unable to write fragment to file " << printableFullPathString;
                     }
@@ -746,6 +864,8 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
                     if (writeInfo.ofstreamPtr->fail()) { //check close() worked
                         if (!writeInfo.errorOccurred) {
                             writeInfo.errorOccurred = true;
+                            writeInfo.transferCompleteTimestampUnixMs = TimestampUtil::GetMillisecondsSinceEpochUnix();
+                            writeInfo.responseCode = FileAckResponseCodes::SAVE_ERROR;
                             QueueFileAckToSend(FileAckResponseCodes::SAVE_ERROR, encodedRelativePathNameAsUtf8String);
                             LOG_ERROR(subprocess) << "save error: unable to close file " << printableFullPathString;
                         }
@@ -764,6 +884,8 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
                     if (ec) {
                         if (!writeInfo.errorOccurred) {
                             writeInfo.errorOccurred = true;
+                            writeInfo.transferCompleteTimestampUnixMs = TimestampUtil::GetMillisecondsSinceEpochUnix();
+                            writeInfo.responseCode = FileAckResponseCodes::SAVE_ERROR;
                             QueueFileAckToSend(FileAckResponseCodes::SAVE_ERROR, encodedRelativePathNameAsUtf8String);
                             LOG_ERROR(subprocess) << "save error: unable to rename from temporary file to "
                                 << printableFullPathString << " .. got " << ec.message();
@@ -771,14 +893,22 @@ bool BpFileTransfer::Impl::ProcessNonAdminRecordBundlePayload(const uint8_t* dat
                         return false;
                     }
                     else {
+                        writeInfo.transferCompleteTimestampUnixMs = TimestampUtil::GetMillisecondsSinceEpochUnix();
+                        writeInfo.responseCode = FileAckResponseCodes::FILE_RECEIVED_CRC_MATCH;
                         QueueFileAckToSend(FileAckResponseCodes::FILE_RECEIVED_CRC_MATCH, encodedRelativePathNameAsUtf8String);
+                        writeInfo.crc32cRxOutOfOrderChunks.Reset(); //save memory
                         LOG_INFO(subprocess) << "successfully received " << printableFullPathString << " crc32c=" << computedCrc;
                     }
                 }
                 else {
-                    QueueFileAckToSend(FileAckResponseCodes::FILE_RECEIVED_CRC_MISMATCH, encodedRelativePathNameAsUtf8String);
-                    LOG_ERROR(subprocess) << "failed received " << printableFullPathString
-                        << " sender_crc32c=" << writeInfo.expectedCrc << " receiver_crc32c=" << computedCrc;
+                    if (!writeInfo.errorOccurred) {
+                        writeInfo.errorOccurred = true;
+                        writeInfo.transferCompleteTimestampUnixMs = TimestampUtil::GetMillisecondsSinceEpochUnix();
+                        writeInfo.responseCode = FileAckResponseCodes::FILE_RECEIVED_CRC_MISMATCH;
+                        QueueFileAckToSend(FileAckResponseCodes::FILE_RECEIVED_CRC_MISMATCH, encodedRelativePathNameAsUtf8String);
+                        LOG_ERROR(subprocess) << "failed received " << printableFullPathString
+                            << " sender_crc32c=" << writeInfo.expectedCrc << " receiver_crc32c=" << computedCrc;
+                    }
                 }
             }
         }
@@ -855,14 +985,22 @@ void BpFileTransfer::Impl::TryDequeueFileAckToSend(std::vector<uint8_t>& fileAck
 void BpFileTransfer::Impl::OnNewWebsocketConnectionCallback(WebsocketServer::Connection& conn) {
     (void)conn;
     std::cout << "newconn\n";
-    std::string jsonStr;
+    std::string jsonStrSent;
     bool success;
     {
         boost::mutex::scoped_lock lock(m_filenameToSendInfoMapMutex);
-        success = CreateSentFilesJson(jsonStr, m_filenameToSendInfoMap);
+        success = CreateSentFilesJson(jsonStrSent, m_filenameToSendInfoMap);
     }
     if (success) {
-        conn.SendTextDataToThisConnection(std::move(jsonStr));
+        conn.SendTextDataToThisConnection(std::move(jsonStrSent));
+    }
+    std::string jsonStrReceived;
+    {
+        boost::mutex::scoped_lock lock(m_filenameToWriteInfoMapMutex);
+        success = CreateReceivedFilesJson(jsonStrReceived, m_filenameToWriteInfoMap);
+    }
+    if (success) {
+        conn.SendTextDataToThisConnection(std::move(jsonStrReceived));
     }
 }
 
@@ -870,4 +1008,38 @@ bool BpFileTransfer::Impl::OnNewWebsocketTextDataReceivedCallback(WebsocketServe
     (void)conn;
     std::cout << receivedString << "\n";
     return true;
+}
+
+void BpFileTransfer::Impl::OnNeedToSendWebsocketUpdates_TimerExpired(const boost::system::error_code& e) {
+    if (e != boost::asio::error::operation_aborted) {
+        // Timer was not cancelled, take necessary action.
+        m_websocketTimerExpiry += boost::posix_time::seconds(1);
+        m_needToSendWebsocketUpdatesTimer.expires_at(m_websocketTimerExpiry);
+        m_needToSendWebsocketUpdatesTimer.async_wait(boost::bind(&BpFileTransfer::Impl::OnNeedToSendWebsocketUpdates_TimerExpired, this, boost::asio::placeholders::error));
+
+        std::string jsonStrSent;
+        bool success = false;
+        {
+            boost::mutex::scoped_lock lock(m_filenameToSendInfoMapMutex);
+            if (m_filenameToSendInfoMapWasModified) {
+                success = CreateSentFilesJson(jsonStrSent, m_filenameToSendInfoMap);
+                m_filenameToSendInfoMapWasModified = false;
+            }
+        }
+        if (success) {
+            m_websocketServer.SendTextDataToActiveWebsockets(std::move(jsonStrSent));
+        }
+        std::string jsonStrReceived;
+        success = false;
+        {
+            boost::mutex::scoped_lock lock(m_filenameToWriteInfoMapMutex);
+            if (m_filenameToWriteInfoMapWasModified) {
+                success = CreateReceivedFilesJson(jsonStrReceived, m_filenameToWriteInfoMap);
+                m_filenameToWriteInfoMapWasModified = false;
+            }
+        }
+        if (success) {
+            m_websocketServer.SendTextDataToActiveWebsockets(std::move(jsonStrReceived));
+        }
+    }
 }
