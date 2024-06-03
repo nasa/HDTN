@@ -35,7 +35,7 @@ def count_issues():
                     issueType = "bug"
                 elif any(label in ["feature", "enhancement"] for label in issue["labels"]):
                     issueType = "feature"
-                elif any(label in ["support", "documentation"] for label in issue["labels"]):
+                elif any(label in ["support", "documentation", "Testing"] for label in issue["labels"]):
                     issueType = "support"
                 elif any(label in ["NFR", "discussion"] for label in issue["labels"]):
                     issueType = "nfr"
