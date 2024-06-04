@@ -1,0 +1,15 @@
+{
+    "outductConfigName": "bpgen-cfg",
+    "outductVector": [
+        {
+            "name": "to-hdtn",
+            "convergenceLayer": "stcp",
+            "nextHopNodeId": 10,
+            "remoteHostname": "localhost",
+            "remotePort": 4556,
+            "maxNumberOfBundlesInPipeline": 5,
+            "maxSumOfBundleBytesInPipeline": 50000000,
+            "keepAliveIntervalSeconds": 17
+        }
+    ]
+}

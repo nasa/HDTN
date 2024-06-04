@@ -1,0 +1,62 @@
+{
+    "hdtnConfigName": "my hdtn config",
+    "userInterfaceOn": true,
+    "mySchemeName": "unused_scheme_name",
+    "myNodeId": 10,
+    "myBpEchoServiceId": 2047,
+    "myCustodialSsp": "unused_custodial_ssp",
+    "myCustodialServiceId": 0,
+    "myRouterServiceId": 100,
+    "isAcsAware": true,
+    "acsMaxFillsPerAcsPacket": 100,
+    "acsSendPeriodMilliseconds": 1000,
+    "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
+    "maxBundleSizeBytes": 10000000,
+    "maxIngressBundleWaitOnEgressMilliseconds": 2000,
+    "bufferRxToStorageOnLinkUpSaturation": false,
+    "maxLtpReceiveUdpPacketSizeBytes": 65536,
+    "neighborDepletedStorageDelaySeconds": 0,
+    "fragmentBundlesLargerThanBytes": 0,
+    "enforceBundlePriority": false,
+    "zmqBoundRouterPubSubPortPath": 10200,
+    "zmqBoundTelemApiPortPath": 10305,
+    "inductsConfig": {
+        "inductConfigName": "myconfig",
+        "inductVector": [
+            {
+                "name": "stcp_ingress",
+                "convergenceLayer": "stcp",
+                "boundPort": 4556,
+                "numRxCircularBufferElements": 200,
+                "keepAliveIntervalSeconds": 15
+            }
+        ]
+    },
+    "outductsConfig": {
+        "outductConfigName": "myconfig",
+        "outductVector": [
+            {
+                "name": "for egress",
+                "convergenceLayer": "udp",
+                "nextHopNodeId": 2,
+                "remoteHostname": "localhost",
+                "remotePort": 4557,
+                "maxNumberOfBundlesInPipeline": 5,
+                "maxSumOfBundleBytesInPipeline": 50000000
+            }
+        ]
+    },
+    "storageConfig": {
+        "storageImplementation": "asio_single_threaded",
+        "tryToRestoreFromDisk": false,
+        "autoDeleteFilesOnExit": true,
+        "totalStorageCapacityBytes": 524288000,
+        "storageDeletionPolicy" : "never",
+        "storageDiskConfigVector": [
+            {
+                "name": "d1",
+                "storeFilePath": ".\/store.bin"
+            }
+        ]
+    }
+}

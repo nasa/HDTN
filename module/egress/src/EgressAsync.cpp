@@ -844,6 +844,7 @@ void Egress::Impl::OnFailedBundleZmqSendCallback(zmq::message_t& movableBundle, 
             hdtn::EgressAckHdr* newEgressAckPtr = new hdtn::EgressAckHdr();
             //memset 0 not needed because all values set below
             newEgressAckPtr->base.type = HDTN_MSGTYPE_EGRESS_FAILED_BUNDLE_TO_STORAGE;
+            newEgressAckPtr->error = hasOutduct ? EGRESS_ACK_ERROR_TYPE::LINK_DOWN : EGRESS_ACK_ERROR_TYPE::NO_OUTDUCT;
             zmq::message_t messageFailedHeaderWithDataStolen(newEgressAckPtr, sizeof(hdtn::EgressAckHdr), CustomCleanupEgressAckHdrNoHint); //storage can be acked right away since bundle transferred
             {
                 boost::mutex::scoped_lock lock(m_mutex_zmqPushSock_boundEgressToConnectingStorage);
