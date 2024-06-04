@@ -19,7 +19,7 @@
 
 int main(int argc, const char* argv[]) {
 
-    hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::bpreceivefile);
+    hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::bprecvstream);
     ThreadNamer::SetThisThreadName("BpRecvStream");
     BpReceiveStreamRunner runner;
     std::atomic<bool> running;

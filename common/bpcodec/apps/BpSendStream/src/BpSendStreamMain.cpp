@@ -24,7 +24,7 @@ int main(int argc, const char* argv[]) {
     argc = 4;
 #endif
 
-    hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::bpsendfile);
+    hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::bpsendstream);
     ThreadNamer::SetThisThreadName("BpSendStream");
     BpSendStreamRunner runner;
     std::atomic<bool> running;

@@ -148,6 +148,8 @@ public:
         storagespeedtest,
         udpdelaysim,
         unittest,
+        bpsendstream,
+        bprecvstream,
         none
     };
 

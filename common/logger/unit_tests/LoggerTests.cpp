@@ -109,6 +109,8 @@ BOOST_AUTO_TEST_CASE(LoggerToStringTestCase)
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::releasemessagesender), "releasemessagesender");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::storagespeedtest), "storagespeedtest");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::udpdelaysim), "udpdelaysim");
+    BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::bpsendstream), "bpsendstream");
+    BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::bprecvstream), "bprecvstream");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::none), "");
 
     // Subprocess
