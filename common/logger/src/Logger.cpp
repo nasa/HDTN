@@ -59,6 +59,8 @@ static const std::string process_strings[static_cast<unsigned int>(hdtn::Logger:
     "storagespeedtest",
     "udpdelaysim",
     "unittest",
+    "bpsendstream",
+    "bprecvstream",
     ""
 };
 
