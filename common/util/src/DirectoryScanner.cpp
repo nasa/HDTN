@@ -122,6 +122,13 @@ bool DirectoryScanner::GetNextFilePathTimeout(boost::filesystem::path& nextFileP
     return GetNextFilePath_NotThreadSafe(nextFilePathAbsolute, nextFilePathRelative);
 }
 
+void DirectoryScanner::InterruptTimedWait() {
+    {
+        boost::mutex::scoped_lock lock(m_pathsOfFilesListMutex);
+    }
+    m_pathsOfFilesListCv.notify_one();
+}
+
 void DirectoryScanner::Clear() {
     //clear directories monitored by dir_monitor
     for (path_set_t::const_iterator it = m_currentlyMonitoredDirectoryPaths.cbegin(); it != m_currentlyMonitoredDirectoryPaths.cend(); ++it) {

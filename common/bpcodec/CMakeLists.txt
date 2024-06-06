@@ -15,6 +15,7 @@ add_library(bpcodec
 		src/codec/BundleViewV6.cpp
 		src/codec/BundleViewV7.cpp
 		src/codec/Bpv7Crc.cpp
+		src/codec/ZlibCrc32cCombine.cpp
 		src/codec/Bpv6Fragment.cpp
 		src/codec/Bpv6FragmentManager.cpp
 )

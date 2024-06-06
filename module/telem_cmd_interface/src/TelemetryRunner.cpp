@@ -35,11 +35,7 @@
 #include "JsonSerializable.h"
 #include <queue>
 #include <atomic>
-#if defined(WEB_INTERFACE_USE_BEAST)
-# include "BeastWebsocketServer.h"
-#elif defined(WEB_INTERFACE_USE_CIVETWEB)
-# include "CivetwebWebsocketServer.h"
-#endif
+#include "WebsocketServer.h"
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::telem;
 
@@ -71,13 +67,8 @@ class TelemetryRunner::Impl : private boost::noncopyable {
     private:
         void ThreadFunc(const HdtnDistributedConfig_ptr& hdtnDistributedConfigPtr, zmq::context_t * inprocContextPtr);
         void OnNewJsonTelemetry(const char* buffer, uint64_t bufferSize);
-#if defined(WEB_INTERFACE_USE_BEAST)
-        void OnNewWebsocketConnectionCallback(WebsocketSessionPublicBase& conn);
-        bool OnNewWebsocketDataReceivedCallback(WebsocketSessionPublicBase& conn, std::string& receivedString);
-#elif defined(WEB_INTERFACE_USE_CIVETWEB)
-        void OnNewWebsocketConnectionCallback(struct mg_connection* conn);
-        bool OnNewWebsocketDataReceivedCallback(struct mg_connection* conn, char* data, size_t data_len);
-#endif
+        void OnNewWebsocketConnectionCallback(WebsocketServer::Connection& conn);
+        bool OnNewWebsocketTextDataReceivedCallback(WebsocketServer::Connection& conn, std::string& receivedString);
         bool OnApiRequest(std::string&& msgJson, zmq::message_t&& connectionID);
         bool HandleIngressCommand(std::string& movablePayload, zmq::message_t& connectionID);
         bool HandleStorageCommand(std::string& movablePayload, zmq::message_t& connectionID);
@@ -92,11 +83,7 @@ class TelemetryRunner::Impl : private boost::noncopyable {
        
         std::atomic<bool> m_running;
         std::unique_ptr<boost::thread> m_threadPtr;
-#if defined(WEB_INTERFACE_USE_BEAST)
-        std::unique_ptr<BeastWebsocketServer> m_websocketServerPtr;
-#elif defined(WEB_INTERFACE_USE_CIVETWEB)
-        std::unique_ptr<CivetwebWebsocketServer> m_websocketServerPtr;
-#endif
+        WebsocketServer m_websocketServer;
         std::unique_ptr<TelemetryLogger> m_telemetryLoggerPtr;
         DeadlineTimer m_deadlineTimer;
         HdtnConfig m_hdtnConfig;
@@ -170,7 +157,7 @@ TelemetryRunner::Impl::Impl() :
 
 bool TelemetryRunner::Impl::Init(const HdtnConfig &hdtnConfig, zmq::context_t *inprocContextPtr, TelemetryRunnerProgramOptions &options) {
     if ((inprocContextPtr == NULL) && (!options.m_hdtnDistributedConfigPtr)) {
-        LOG_ERROR(subprocess) << "Error in TelemetryRunner Init: using distributed mode but Hdtn Distributed Config is invalid";
+        LOG_FATAL(subprocess) << "Error in TelemetryRunner Init: using distributed mode but Hdtn Distributed Config is invalid";
         return false;
     }
     m_hdtnConfig = hdtnConfig;
@@ -181,44 +168,15 @@ bool TelemetryRunner::Impl::Init(const HdtnConfig &hdtnConfig, zmq::context_t *i
         m_hdtnConfigWithVersionJsonPtr = std::make_shared<std::string>(JsonSerializable::PtToJsonString(pt));
     }
 
-#if defined(WEB_INTERFACE_USE_CIVETWEB)
-    m_websocketServerPtr = boost::make_unique<CivetwebWebsocketServer>();
-    m_websocketServerPtr->Init(options.m_guiDocumentRoot, options.m_guiPortNumber);
-    m_websocketServerPtr->SetOnNewWebsocketConnectionCallback(
-        boost::bind(&TelemetryRunner::Impl::OnNewWebsocketConnectionCallback, this, boost::placeholders::_1));
-    m_websocketServerPtr->SetOnNewWebsocketDataReceivedCallback(
-        boost::bind(&TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback, this,
-            boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
-#elif defined(WEB_INTERFACE_USE_BEAST)
-# ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
-    boost::asio::ssl::context sslContext(boost::asio::ssl::context::sslv23_server);
-    if (options.m_sslPaths.m_valid) {
-        try {
-            // tcpclv4 server supports tls 1.2 and 1.3 only
-            sslContext.set_options(
-                boost::asio::ssl::context::default_workarounds | boost::asio::ssl::context::no_sslv2 | boost::asio::ssl::context::no_sslv3 | boost::asio::ssl::context::no_tlsv1 | boost::asio::ssl::context::no_tlsv1_1 | boost::asio::ssl::context::single_dh_use);
-            if (options.m_sslPaths.m_certificateChainPemFile.size()) {
-                sslContext.use_certificate_chain_file(options.m_sslPaths.m_certificateChainPemFile.string());
-            }
-            else {
-                sslContext.use_certificate_file(options.m_sslPaths.m_certificatePemFile.string(), boost::asio::ssl::context::pem);
-            }
-            sslContext.use_private_key_file(options.m_sslPaths.m_privateKeyPemFile.string(), boost::asio::ssl::context::pem);
-            sslContext.use_tmp_dh_file(options.m_sslPaths.m_diffieHellmanParametersPemFile.string()); //"C:/hdtn_ssl_certificates/dh4096.pem"
-        }
-        catch (boost::system::system_error &e) {
-            LOG_ERROR(subprocess) << "SSL error in TelemetryRunner Init: " << e.what();
-            return false;
-        }
-    }
-    m_websocketServerPtr = boost::make_unique<BeastWebsocketServer>(std::move(sslContext), options.m_sslPaths.m_valid);
-# else
-    m_websocketServerPtr = boost::make_unique<BeastWebsocketServer>();
-# endif // #ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
-    m_websocketServerPtr->Init(options.m_guiDocumentRoot, options.m_guiPortNumber,
+    if (!m_websocketServer.Init(options.m_websocketServerProgramOptions,
         boost::bind(&TelemetryRunner::Impl::OnNewWebsocketConnectionCallback, this, boost::placeholders::_1),
-        boost::bind(&TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback, this, boost::placeholders::_1, boost::placeholders::_2));
-#endif // defined(WEB_INTERFACE_USE_BEAST)
+        boost::bind(&TelemetryRunner::Impl::OnNewWebsocketTextDataReceivedCallback, this,
+            boost::placeholders::_1, boost::placeholders::_2)))
+    {
+        LOG_FATAL(subprocess) << "Error in TelemetryRunner Init: cannot init websocket server";
+        return false;
+    }
+
 
 #ifdef DO_STATS_LOGGING
     m_telemetryLoggerPtr = boost::make_unique<TelemetryLogger>();
@@ -230,48 +188,24 @@ bool TelemetryRunner::Impl::Init(const HdtnConfig &hdtnConfig, zmq::context_t *i
     return true;
 }
 
-#if defined(WEB_INTERFACE_USE_BEAST)
-void TelemetryRunner::Impl::OnNewWebsocketConnectionCallback(WebsocketSessionPublicBase& conn) {
+void TelemetryRunner::Impl::OnNewWebsocketConnectionCallback(WebsocketServer::Connection& conn) {
     // std::cout << "newconn\n";
-    conn.AsyncSendTextData(std::shared_ptr<std::string>(m_hdtnConfigWithVersionJsonPtr));
+    conn.SendTextDataToThisConnection(std::shared_ptr<std::string>(m_hdtnConfigWithVersionJsonPtr));
     {
         boost::mutex::scoped_lock lock(m_lastSerializedAllOutductCapabilitiesMutex);
         if (m_lastJsonSerializedAllOutductCapabilitiesPtr && m_lastJsonSerializedAllOutductCapabilitiesPtr->size()) {
-            conn.AsyncSendTextData(std::shared_ptr<std::string>(m_lastJsonSerializedAllOutductCapabilitiesPtr)); // create copy of shared ptr and move the copy in
+            conn.SendTextDataToThisConnection(std::shared_ptr<std::string>(m_lastJsonSerializedAllOutductCapabilitiesPtr)); // create copy of shared ptr and move the copy in
         }
     }
 }
 
-bool TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback(WebsocketSessionPublicBase& conn, std::string& receivedString) {
+bool TelemetryRunner::Impl::OnNewWebsocketTextDataReceivedCallback(WebsocketServer::Connection& conn, std::string& receivedString) {
     (void)conn;
     if (!OnApiRequest(std::move(receivedString), GUI_REQ_CONN_ID.Msg())) {
         LOG_ERROR(subprocess) << "failed to handle API request from websocket";
     }
     return true; // keep open
 }
-#elif defined(WEB_INTERFACE_USE_CIVETWEB)
-void TelemetryRunner::Impl::OnNewWebsocketConnectionCallback(struct mg_connection* conn) {
-    // std::cout << "newconn\n";
-
-    mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, &(*m_hdtnConfigWithVersionJsonPtr)[0], m_hdtnConfigWithVersionJsonPtr->size());
-    {
-        boost::mutex::scoped_lock lock(m_lastSerializedAllOutductCapabilitiesMutex);
-        if (m_lastJsonSerializedAllOutductCapabilitiesPtr && m_lastJsonSerializedAllOutductCapabilitiesPtr->size()) {
-            mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT,
-                &(*m_lastJsonSerializedAllOutductCapabilitiesPtr)[0],
-                m_lastJsonSerializedAllOutductCapabilitiesPtr->size());
-        }
-    }
-}
-
-bool TelemetryRunner::Impl::OnNewWebsocketDataReceivedCallback(struct mg_connection* conn, char* data, size_t data_len) {
-    (void)conn;
-    if (!OnApiRequest(std::string(data, data + data_len), GUI_REQ_CONN_ID.Msg())) {
-        LOG_ERROR(subprocess) << "failed to handle API request from websocket";
-    }
-    return true; // keep open
-}
-#endif
 
 
 bool TelemetryRunner::Impl::HandleIngressCommand(std::string &movablePayload, zmq::message_t& connectionID) {
@@ -569,19 +503,9 @@ void TelemetryRunner::Impl::QueueTelemRequests() {
 }
 
 void TelemetryRunner::Impl::OnNewJsonTelemetry(const char *buffer, uint64_t bufferSize) {
-#if defined(WEB_INTERFACE_USE_BEAST)
-    if (m_websocketServerPtr) {
-        std::shared_ptr<std::string> strPtr = std::make_shared<std::string>(buffer, bufferSize);
-        m_websocketServerPtr->SendTextDataToActiveWebsockets(strPtr);
+    if (m_websocketServer.EnabledAndValid()) {
+        m_websocketServer.SendTextDataToActiveWebsockets(buffer, bufferSize);
     }
-#elif defined(WEB_INTERFACE_USE_CIVETWEB)
-    if (m_websocketServerPtr) {
-        m_websocketServerPtr->SendNewTextData(buffer, bufferSize);
-    }
-#else
-    (void)buffer;
-    (void)bufferSize;
-#endif
 }
 
 void TelemetryRunner::Impl::Stop() {
@@ -597,16 +521,5 @@ void TelemetryRunner::Impl::Stop() {
         }
         m_threadPtr.reset(); // delete it
     }
-#if defined(WEB_INTERFACE_USE_BEAST)
-    // stop websocket after thread
-    if (m_websocketServerPtr) {
-        m_websocketServerPtr->Stop();
-        m_websocketServerPtr.reset();
-    }
-#elif defined(WEB_INTERFACE_USE_CIVETWEB)
-    // stop websocket after thread
-    if (m_websocketServerPtr) {
-        m_websocketServerPtr.reset();
-    }
-#endif
+    m_websocketServer.Stop();
 }

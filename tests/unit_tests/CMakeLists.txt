@@ -108,10 +108,3 @@ set_property(
 		$<$<BOOL:${LOG_TO_SUBPROCESS_FILES}>:LOG_TO_SUBPROCESS_FILES>
 		$<$<BOOL:${LOG_TO_ERROR_FILE}>:LOG_TO_ERROR_FILE>
 )
-
-set_property(
-	SOURCE ../../module/telem_cmd_interface/unit_tests/TelemetryRunnerProgramOptionsTests.cpp
-	PROPERTY COMPILE_DEFINITIONS
-		$<$<BOOL:${WEB_INTERFACE_USE_BEAST}>:WEB_INTERFACE_USE_BEAST> 
-		$<$<BOOL:${WEB_INTERFACE_USE_CIVETWEB}>:WEB_INTERFACE_USE_CIVETWEB> 
-)

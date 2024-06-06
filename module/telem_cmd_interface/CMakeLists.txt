@@ -7,6 +7,7 @@ add_library(telem_lib
 	src/TelemetryConnectionPoller.cpp
 	src/TelemetryLogger.cpp
 	src/TelemetryRunnerProgramOptions.cpp
+	src/WebsocketServer.cpp
 )
 GENERATE_EXPORT_HEADER(telem_lib)
 get_target_property(target_type telem_lib TYPE)
@@ -22,6 +23,7 @@ set(MY_PUBLIC_HEADERS
 	include/TelemetryConnectionPoller.h
 	include/TelemetryLogger.h
 	include/TelemetryRunnerProgramOptions.h
+	include/WebsocketServer.h
 	${CMAKE_CURRENT_BINARY_DIR}/telem_lib_export.h
 )
 if(WEB_INTERFACE_USE_BEAST)
@@ -45,13 +47,7 @@ endif()
 
 
 set_property(
-	SOURCE src/TelemetryRunner.cpp
-	PROPERTY COMPILE_DEFINITIONS
-		$<$<BOOL:${WEB_INTERFACE_USE_BEAST}>:WEB_INTERFACE_USE_BEAST> 
-		$<$<BOOL:${WEB_INTERFACE_USE_CIVETWEB}>:WEB_INTERFACE_USE_CIVETWEB> 
-)
-set_property(
-	SOURCE src/TelemetryRunnerProgramOptions.cpp
+	SOURCE src/WebsocketServer.cpp
 	PROPERTY COMPILE_DEFINITIONS
 		$<$<BOOL:${WEB_INTERFACE_USE_BEAST}>:WEB_INTERFACE_USE_BEAST> 
 		$<$<BOOL:${WEB_INTERFACE_USE_CIVETWEB}>:WEB_INTERFACE_USE_CIVETWEB>
