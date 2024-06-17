@@ -1,0 +1,22 @@
+{
+    "contacts": [
+        {
+            "contact" : 0,
+            "source": 1,
+            "dest": 10,
+            "startTime": 0,
+            "endTime": 6000000,
+            "rateBitsPerSec": 0,
+            "owlt": 1
+        },
+        {
+            "contact" : 1,
+            "source": 10,
+            "dest": 2,
+            "startTime": 0,
+            "endTime": 6000000,
+            "rateBitsPerSec": 100000000,
+            "owlt": 1
+        }
+    ]
+}

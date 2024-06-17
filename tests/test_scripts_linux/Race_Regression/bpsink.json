@@ -1,0 +1,12 @@
+{
+    "inductConfigName": "bpsink-cfg",
+    "inductVector": [
+        {
+            "name": "from hdtn",
+            "convergenceLayer": "udp",
+            "boundPort": 4557,
+            "numRxCircularBufferElements": 200,
+            "numRxCircularBufferBytesPerElement": 65535
+        }
+    ]
+}

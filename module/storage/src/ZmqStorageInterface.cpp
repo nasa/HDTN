@@ -1423,15 +1423,21 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                         ++m_telem.m_totalBundlesRewrittenToStorageFromFailedEgressSend;
                         finalDestEidReturnedFromWrite.serviceId = 0;
                         if (egressFullyInitialized) {
+
+                            const bool isLinkDown = (egressAckHdr.error == hdtn::EGRESS_ACK_ERROR_TYPE::LINK_DOWN);
+
                             static thread_local bool printedMsg = false;
-                            if (!printedMsg) {
+                            if (!printedMsg && isLinkDown) {
                                 LOG_WARNING(subprocess) << "Storage got a link down notification from egress (with the failed bundle) for final dest "
                                     << Uri::GetIpnUriStringAnyServiceNumber(finalDestEidReturnedFromWrite.nodeId)
                                     << " because cut through from ingress failed.  (This message type will now be suppressed.)";
                                 printedMsg = true;
                             }
-                            OutductInfo_t& info = *(m_vectorOutductInfo[egressAckHdr.outductIndex]);
-                            SetLinkDown(info);
+
+                            if(isLinkDown) {
+                                OutductInfo_t& info = *(m_vectorOutductInfo[egressAckHdr.outductIndex]);
+                                SetLinkDown(info);
+                            }
                         }
                         else {
                             LOG_ERROR(subprocess) << "Storage got a HDTN_MSGTYPE_EGRESS_FAILED_BUNDLE_TO_STORAGE before egress fully initialized";
