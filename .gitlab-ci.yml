@@ -424,3 +424,18 @@ issue-count:
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $DO_MONTHLY_SLOC_COUNT == "true"
+
+# Cyclomatic Complexity (CCM)
+high-ccm:
+  stage: scan-stage
+  tags:
+    - docker
+    - linux-x86
+  image: $CI_REGISTRY/hdtn-v4/hdtn/debian-base
+  script:
+    - git fetch --prune
+    - python3 ci/detect_high_ccm.py
+  dependencies: []
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
