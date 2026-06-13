@@ -101,7 +101,7 @@ static void GetSha1(const uint8_t* data, const std::size_t size, std::string& sh
 
     boost::uuids::detail::sha1 s;
     s.process_bytes(data, size);
-    uint32_t digest[5];
+    unsigned char digest[20];
     s.get_digest(digest);
 
     //const uint32_t digestBe = boost::endian::native_to_big(digest[i]);

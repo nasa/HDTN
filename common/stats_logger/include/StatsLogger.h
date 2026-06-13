@@ -23,6 +23,8 @@
 #include <boost/log/utility/manipulators/add_value.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/phoenix/function.hpp>
+#include <boost/thread/shared_mutex.hpp>
+#include <boost/thread/locks.hpp>
 #include <atomic>
 #include "stats_lib_export.h"
 

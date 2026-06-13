@@ -28,7 +28,7 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 static constexpr uint64_t TOKEN_REFRESH_INTERVAL_DIVISOR = 5;
 
 UdpBundleSource::UdpBundleSource(const unsigned int maxUnacked, const uint64_t rateLimitPrecisionMicroSec) :
-m_work(m_ioService), //prevent stopping of ioservice until destructor
+m_work(boost::asio::make_work_guard(m_ioService)), //prevent stopping of ioservice until destructor
 m_resolver(m_ioService),
 m_tokenRefreshTimer(m_ioService),
 m_lastTimeTokensWereRefreshed(boost::posix_time::special_values::neg_infin),
@@ -59,7 +59,7 @@ m_linkIsUpPhysically(false)
     const uint64_t tokenLimit = m_tokenRateLimiter.GetRemainingTokens();
     LOG_INFO(subprocess) << "UdpBundleSource: rate bitsPerSec = " << 0 << "  token limit = " << tokenLimit;
 
-    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_context::run, &m_ioService));
     ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceUdpBundleSource");
 }
 
@@ -224,8 +224,7 @@ void UdpBundleSource::Connect(const std::string & hostname, const std::string & 
 
     static const boost::asio::ip::resolver_query_base::flags UDP_RESOLVER_FLAGS = boost::asio::ip::resolver_query_base::canonical_name; //boost resolver flags
     LOG_INFO(subprocess) << "udp resolving " << hostname << ":" << port;
-    boost::asio::ip::udp::resolver::query query(boost::asio::ip::udp::v4(), hostname, port, UDP_RESOLVER_FLAGS);
-    m_resolver.async_resolve(query, boost::bind(&UdpBundleSource::OnResolve,
+    m_resolver.async_resolve(boost::asio::ip::udp::v4(), hostname, port, boost::bind(&UdpBundleSource::OnResolve,
                                                 this, boost::asio::placeholders::error,
                                                 boost::asio::placeholders::results));
 }
@@ -235,7 +234,7 @@ void UdpBundleSource::OnResolve(const boost::system::error_code & ec, boost::asi
         LOG_ERROR(subprocess) << "Error resolving: " << ec.message();
     }
     else {
-        m_udpDestinationEndpoint = *results;
+        m_udpDestinationEndpoint = *results.begin();
         LOG_INFO(subprocess) << "resolved host to " << m_udpDestinationEndpoint.address() << ":" << m_udpDestinationEndpoint.port() << ".  Binding...";
         try {            
             m_udpSocket.open(boost::asio::ip::udp::v4());

@@ -60,7 +60,7 @@ SignalHandler::~SignalHandler() {
 void SignalHandler::Start(bool useDedicatedThread) {
 	m_signals.async_wait(boost::bind(&SignalHandler::HandleSignal, this));
 	if (useDedicatedThread) {
-		m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+		m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_context::run, &m_ioService));
 		ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceSignalHandler");
 	}
 }

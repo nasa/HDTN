@@ -16,7 +16,7 @@
  * This LtpTimerManager templated class encapsulates a shared boost::asio::deadline_timer
  * for use with all LTP sessions within a single-threaded LTP sender "exclusive or" receiver engine.
  * The class uses/shares the user's provided boost::asio::deadline_timer
- * and hence uses/shares the user's provided boost::asio::io_service.
+ * and hence uses/shares the user's provided boost::asio::io_context.
  * This is a single threaded class designed to run and be called from one ioService thread only.
  * Time expiration is based on 2*(one_way_light_time + one_way_margin_time)
  * Explicit template instantiation is defined in its .cpp file for idType of Ltp::session_id_t and uint64_t.

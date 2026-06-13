@@ -22,6 +22,7 @@
 #ifndef _TCPCL_BUNDLE_SOURCE_H
 #define _TCPCL_BUNDLE_SOURCE_H 1
 
+#include <boost/asio/executor_work_guard.hpp>
 #include "TcpclV3BidirectionalLink.h"
 
 
@@ -55,7 +56,7 @@ private:
     
     
     
-    boost::asio::io_service::work m_work;
+    boost::asio::executor_work_guard<boost::asio::io_context::executor_type> m_work;
     boost::asio::ip::tcp::resolver m_resolver;
     boost::asio::deadline_timer m_reconnectAfterShutdownTimer;
     boost::asio::deadline_timer m_reconnectAfterOnConnectErrorTimer;

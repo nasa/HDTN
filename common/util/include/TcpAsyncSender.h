@@ -68,7 +68,7 @@ private:
     TcpAsyncSender();
 public:
     
-    HDTN_UTIL_EXPORT TcpAsyncSender(std::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr, boost::asio::io_service & ioServiceRef);
+    HDTN_UTIL_EXPORT TcpAsyncSender(std::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr, boost::asio::io_context & ioServiceRef);
 
     HDTN_UTIL_EXPORT ~TcpAsyncSender();
     
@@ -84,7 +84,7 @@ private:
     HDTN_UTIL_EXPORT void HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
 
 
-    boost::asio::io_service & m_ioServiceRef;
+    boost::asio::io_context & m_ioServiceRef;
     std::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
     std::queue<std::unique_ptr<TcpAsyncSenderElement> > m_queueTcpAsyncSenderElements;
 
@@ -105,7 +105,7 @@ private:
 public:
     typedef std::shared_ptr< boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > ssl_stream_sharedptr_t;
 
-    HDTN_UTIL_EXPORT TcpAsyncSenderSsl(ssl_stream_sharedptr_t & sslStreamSharedPtr, boost::asio::io_service & ioServiceRef);
+    HDTN_UTIL_EXPORT TcpAsyncSenderSsl(ssl_stream_sharedptr_t & sslStreamSharedPtr, boost::asio::io_context & ioServiceRef);
 
     HDTN_UTIL_EXPORT ~TcpAsyncSenderSsl();
 
@@ -124,7 +124,7 @@ private:
     HDTN_UTIL_EXPORT void HandleTcpSendUnsecure(const boost::system::error_code& error, std::size_t bytes_transferred);
 
 
-    boost::asio::io_service & m_ioServiceRef;
+    boost::asio::io_context & m_ioServiceRef;
     ssl_stream_sharedptr_t m_sslStreamSharedPtr;
     std::queue<std::unique_ptr<TcpAsyncSenderElement> > m_queueTcpAsyncSenderElements;
 

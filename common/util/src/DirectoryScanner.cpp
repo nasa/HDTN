@@ -28,7 +28,7 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 
 DirectoryScanner::DirectoryScanner(const boost::filesystem::path& rootFileOrFolderPath,
     bool includeExistingFiles, bool includeNewFiles, unsigned int recurseDirectoriesDepth,
-    boost::asio::io_service& ioServiceRef, const uint64_t recheckFileSizeDurationMilliseconds) :
+    boost::asio::io_context& ioServiceRef, const uint64_t recheckFileSizeDurationMilliseconds) :
     m_currentFilePathIterator(m_pathsOfFilesList.end()),
     m_rootFileOrFolderPath((rootFileOrFolderPath.has_parent_path()) ?
         rootFileOrFolderPath :

@@ -193,7 +193,7 @@ private:
     std::string m_currentFilePathRelativeAsPrintableString;
     SendFileMetadata m_currentSendFileMetadata;
     Crc32c_InOrderChunks m_currentSendFileCrc32c;
-    boost::asio::io_service m_ioService; //for DirectoryScanner and m_needToSendWebsocketUpdatesTimer
+    boost::asio::io_context m_ioService; //for DirectoryScanner and m_needToSendWebsocketUpdatesTimer
     boost::asio::deadline_timer m_needToSendWebsocketUpdatesTimer;
     boost::posix_time::ptime m_websocketTimerExpiry; //enforce 1 second exact intervals
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
@@ -312,7 +312,7 @@ BpFileTransfer::Impl::Impl(const boost::filesystem::path& fileOrFolderPathToSend
     m_websocketTimerExpiry = boost::posix_time::microsec_clock::universal_time() + boost::posix_time::seconds(1);
     m_needToSendWebsocketUpdatesTimer.expires_at(m_websocketTimerExpiry);
     m_needToSendWebsocketUpdatesTimer.async_wait(boost::bind(&BpFileTransfer::Impl::OnNeedToSendWebsocketUpdates_TimerExpired, this, boost::asio::placeholders::error));
-    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_context::run, &m_ioService));
     ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceBpSendFile");
     //sending files
     if (!m_directoryScannerPtr) {

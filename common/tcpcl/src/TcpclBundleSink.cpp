@@ -25,7 +25,7 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 TcpclBundleSink::TcpclBundleSink(
     const uint16_t desiredKeepAliveIntervalSeconds, //new
     std::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr,
-    boost::asio::io_service & tcpSocketIoServiceRef,
+    boost::asio::io_context & tcpSocketIoServiceRef,
     const WholeBundleReadyCallback_t & wholeBundleReadyCallback,
     //ConnectionClosedCallback_t connectionClosedCallback,
     const unsigned int numCircularBufferVectors,

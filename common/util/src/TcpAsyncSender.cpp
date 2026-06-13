@@ -34,7 +34,7 @@ void TcpAsyncSenderElement::DeallocateBundleMemory() {
 }
 
 
-TcpAsyncSender::TcpAsyncSender(std::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr, boost::asio::io_service & ioServiceRef) :
+TcpAsyncSender::TcpAsyncSender(std::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr, boost::asio::io_context & ioServiceRef) :
     m_ioServiceRef(ioServiceRef),
     m_tcpSocketPtr(tcpSocketPtr),
     m_writeInProgress(false),
@@ -116,7 +116,7 @@ void TcpAsyncSender::DoFailedBundleCallback(std::unique_ptr<TcpAsyncSenderElemen
 }
 
 #ifdef OPENSSL_SUPPORT_ENABLED
-TcpAsyncSenderSsl::TcpAsyncSenderSsl(ssl_stream_sharedptr_t & sslStreamSharedPtr, boost::asio::io_service & ioServiceRef) :
+TcpAsyncSenderSsl::TcpAsyncSenderSsl(ssl_stream_sharedptr_t & sslStreamSharedPtr, boost::asio::io_context & ioServiceRef) :
     m_ioServiceRef(ioServiceRef),
     m_sslStreamSharedPtr(sslStreamSharedPtr),
     m_writeInProgress(false),

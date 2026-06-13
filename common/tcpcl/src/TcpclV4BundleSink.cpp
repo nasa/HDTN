@@ -31,7 +31,7 @@ TcpclV4BundleSink::TcpclV4BundleSink(
     const bool tlsSuccessfullyConfigured,
     const bool tlsIsRequired,
     const uint16_t desiredKeepAliveIntervalSeconds, //new
-    boost::asio::io_service & tcpSocketIoServiceRef,
+    boost::asio::io_context & tcpSocketIoServiceRef,
     const WholeBundleReadyCallback_t & wholeBundleReadyCallback,
     //ConnectionClosedCallback_t connectionClosedCallback,
     const unsigned int numCircularBufferVectors,

@@ -103,7 +103,7 @@ bool LtpUdpEngineManager::StartIfNotAlreadyRunning() {
 
         StartUdpReceive(); //call before creating io_service thread so that it has "work"
 
-        m_ioServiceUdpThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioServiceUdp));
+        m_ioServiceUdpThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_context::run, &m_ioServiceUdp));
         const std::string threadName = "ioServiceLtpUdpSocket port=" + boost::lexical_cast<std::string>(M_MY_BOUND_UDP_PORT);
         ThreadNamer::SetIoServiceThreadName(m_ioServiceUdp, threadName);
         m_readyToForward = true;
@@ -210,8 +210,8 @@ bool LtpUdpEngineManager::AddLtpUdpEngine(const LtpEngineConfig& ltpRxOrTxCfg)
     static const boost::asio::ip::resolver_query_base::flags UDP_RESOLVER_FLAGS = boost::asio::ip::resolver_query_base::canonical_name; //boost resolver flags
     boost::asio::ip::udp::endpoint remoteEndpoint;
     try {
-        remoteEndpoint = *m_resolver.resolve(boost::asio::ip::udp::resolver::query(boost::asio::ip::udp::v4(),
-            ltpRxOrTxCfg.remoteHostname, boost::lexical_cast<std::string>(ltpRxOrTxCfg.remotePort), UDP_RESOLVER_FLAGS));
+        remoteEndpoint = *m_resolver.resolve(boost::asio::ip::udp::v4(),
+            ltpRxOrTxCfg.remoteHostname, boost::lexical_cast<std::string>(ltpRxOrTxCfg.remotePort), UDP_RESOLVER_FLAGS).begin();
     }
     catch (const boost::system::system_error & e) {
         LOG_INFO(subprocess) << "LtpUdpEngineManager::AddLtpUdpEngine: " << e.what() << "  code=" << e.code();

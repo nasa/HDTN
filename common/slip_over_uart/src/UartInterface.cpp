@@ -136,7 +136,7 @@ UartInterface::UartInterface(const std::string& comPortName, const unsigned int 
     m_threadCbReaderPtr = boost::make_unique<boost::thread>(
         boost::bind(&UartInterface::PopCbThreadFunc, this)); //create and start the worker thread  
 
-    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_context::run, &m_ioService));
     ThreadNamer::SetIoServiceThreadName(m_ioService, "ioService" + m_comPortName);
 }
 
@@ -592,6 +592,6 @@ std::size_t UartInterface::GetTotalBundleBytesUnacked() const noexcept {
     return m_totalBundleBytesSent.load(std::memory_order_acquire) - m_totalBundleBytesAcked.load(std::memory_order_acquire);//GetTotalBundleBytesQueued();
 }
 
-boost::asio::io_service& UartInterface::GetIoServiceRef() {
+boost::asio::io_context& UartInterface::GetIoServiceRef() {
     return m_ioService;
 }

@@ -81,7 +81,7 @@ public:
      * @param newFileAggregationTimeMs The time window in milliseconds for which write allocations will be redirected to the currently active write file.
      * @param estimatedMaxAllocatedBlocks The number of memory blocks to reverse space for, this is a soft cap to lessen instances of reallocation, the actual space will be expanded if needed.
      */
-    HDTN_UTIL_EXPORT MemoryInFiles(boost::asio::io_service & ioServiceRef,
+    HDTN_UTIL_EXPORT MemoryInFiles(boost::asio::io_context & ioServiceRef,
         const boost::filesystem::path & rootStorageDirectory, const uint64_t newFileAggregationTimeMs,
         const uint64_t estimatedMaxAllocatedBlocks);
     

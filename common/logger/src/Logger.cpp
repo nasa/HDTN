@@ -11,6 +11,9 @@
 #include "HdtnVersion.hpp"
 #include <boost/preprocessor/slot/slot.hpp>
 #include <boost/preprocessor/stringize.hpp>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/lock_types.hpp>
+#include <boost/thread/exceptions.hpp>
 #define BOOST_PP_VALUE HDTN_VERSION_MAJOR
 #include BOOST_PP_ASSIGN_SLOT(1)
 #undef BOOST_PP_VALUE

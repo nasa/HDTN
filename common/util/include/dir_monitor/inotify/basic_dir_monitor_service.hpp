@@ -11,6 +11,8 @@
 #include <boost/bind/bind.hpp> //don't include <boost/bind.hpp> to force using boost::placeholders::_1 instead of just _1
 #include <boost/filesystem/operations.hpp>
 #include <boost/system/error_code.hpp>
+#include <optional>
+#include <boost/asio/executor_work_guard.hpp>
 
 #include <memory>
 #include <string>
@@ -24,15 +26,15 @@ namespace asio {
 
 template <typename DirMonitorImplementation = dir_monitor_impl>
 class basic_dir_monitor_service
-    : public boost::asio::io_service::service
+    : public boost::asio::io_context::service
 {
 public:
-    static boost::asio::io_service::id id;
+    static boost::asio::io_context::id id;
 
-    explicit basic_dir_monitor_service(boost::asio::io_service &io_service)
-        : boost::asio::io_service::service(io_service),
-        async_monitor_work_(new boost::asio::io_service::work(async_monitor_io_service_)),
-        async_monitor_thread_(boost::bind(&boost::asio::io_service::run, &async_monitor_io_service_))
+    explicit basic_dir_monitor_service(boost::asio::io_context &io_service)
+        : boost::asio::io_context::service(io_service),
+        async_monitor_work_(boost::asio::make_work_guard(async_monitor_io_service_)),
+        async_monitor_thread_(boost::bind(&boost::asio::io_context::run, &async_monitor_io_service_))
     {
     }
 
@@ -75,10 +77,10 @@ public:
     class monitor_operation
     {
     public:
-        monitor_operation(implementation_type &impl, boost::asio::io_service &io_service, Handler handler)
+        monitor_operation(implementation_type &impl, boost::asio::io_context &io_service, Handler handler)
             : impl_(impl),
             io_service_(io_service),
-            work_(io_service),
+            work_(boost::asio::make_work_guard(io_service)),
             handler_(handler)
         {
         }
@@ -91,13 +93,13 @@ public:
             if (impl)
                 ev = impl->popfront_event(ec);
             if(ec != boost::asio::error::operation_aborted)
-                this->io_service_.post(boost::asio::detail::bind_handler(handler_, ec, ev));
+                boost::asio::post(this->io_service_,boost::asio::detail::bind_handler(handler_, ec, ev));
         }
 
     private:
         std::weak_ptr<DirMonitorImplementation> impl_;
-        boost::asio::io_service &io_service_;
-        boost::asio::io_service::work work_;
+        boost::asio::io_context &io_service_;
+        boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_;
         Handler handler_;
     };
 
@@ -106,14 +108,14 @@ public:
     {
 //get_io_service was removed in Boost v1.70
 #if (BOOST_VERSION < 107000)
-        this->async_monitor_io_service_.post(monitor_operation<Handler>(impl, this->get_io_service(), handler));
+        boost::asio::post(this->async_monitor_io_service_,monitor_operation<Handler>(impl, this->get_io_service(), handler));
 #else
-        this->async_monitor_io_service_.post(monitor_operation<Handler>(impl, this->get_io_context(), handler));
+        boost::asio::post(this->async_monitor_io_service_, monitor_operation<Handler>(impl, this->get_io_context(), handler));
 #endif
     }
 
 private:
-    virtual void shutdown_service() override
+    virtual void shutdown_service()
     {
         // The async_monitor thread will finish when async_monitor_work_ is reset as all asynchronous
         // operations have been aborted and were discarded before (in destroy).
@@ -128,13 +130,13 @@ private:
         async_monitor_thread_.join();
     }
 
-    boost::asio::io_service async_monitor_io_service_;
-    std::unique_ptr<boost::asio::io_service::work> async_monitor_work_;
+    boost::asio::io_context async_monitor_io_service_;
+    std::optional<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> async_monitor_work_;
     std::thread async_monitor_thread_;
 };
 
 template <typename DirMonitorImplementation>
-boost::asio::io_service::id basic_dir_monitor_service<DirMonitorImplementation>::id;
+boost::asio::io_context::id basic_dir_monitor_service<DirMonitorImplementation>::id;
 
 }
 }

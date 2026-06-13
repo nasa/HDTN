@@ -193,7 +193,7 @@ public:
 private:
 
     /// I/O execution context
-    boost::asio::io_service m_ioService;
+    boost::asio::io_context m_ioService;
     /// UDP endpoint resolver
     boost::asio::ip::udp::resolver m_resolver;
     /// Forwarding delay timer, on expiry forward kept packet

@@ -44,7 +44,7 @@ public:
         const bool tlsSuccessfullyConfigured,
         const bool tlsIsRequired,
         const uint16_t desiredKeepAliveIntervalSeconds,
-        boost::asio::io_service & tcpSocketIoServiceRef,
+        boost::asio::io_context & tcpSocketIoServiceRef,
         const WholeBundleReadyCallback_t & wholeBundleReadyCallback,
         const unsigned int numCircularBufferVectors,
         const unsigned int circularBufferBytesPerVector,
@@ -92,7 +92,7 @@ private:
     const OnContactHeaderCallback_t m_onContactHeaderCallback;
 
     
-    boost::asio::io_service & m_tcpSocketIoServiceRef;
+    boost::asio::io_context & m_tcpSocketIoServiceRef;
     
 
     const unsigned int M_NUM_CIRCULAR_BUFFER_VECTORS;

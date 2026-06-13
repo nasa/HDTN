@@ -22,7 +22,9 @@
 #define _BUNDLE_STORAGE_MANAGER_ASIO_H 1
 
 #include "BundleStorageManagerBase.h"
+#include <optional>
 #include <boost/asio.hpp>
+#include <boost/asio/executor_work_guard.hpp>
 
 
 
@@ -44,8 +46,8 @@ private:
 
 private:
 
-    boost::asio::io_service m_ioService;
-    std::unique_ptr<boost::asio::io_service::work> m_workPtr;
+    boost::asio::io_context m_ioService;
+    std::optional<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> m_workPtr;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     
 #ifdef _WIN32

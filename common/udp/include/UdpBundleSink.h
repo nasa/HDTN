@@ -41,7 +41,7 @@ public:
     typedef boost::function<void(padded_vector_uint8_t & wholeBundleVec)> WholeBundleReadyCallbackUdp_t;
     typedef boost::function<void()> NotifyReadyToDeleteCallback_t;
 
-    UDP_LIB_EXPORT UdpBundleSink(boost::asio::io_service & ioService,
+    UDP_LIB_EXPORT UdpBundleSink(boost::asio::io_context & ioService,
         uint16_t udpPort,
         const WholeBundleReadyCallbackUdp_t & wholeBundleReadyCallback,
         const unsigned int numCircularBufferVectors,
@@ -65,7 +65,7 @@ private:
     const NotifyReadyToDeleteCallback_t m_notifyReadyToDeleteCallback;
 
     boost::asio::ip::udp::socket m_udpSocket;
-    boost::asio::io_service & m_ioServiceRef;
+    boost::asio::io_context & m_ioServiceRef;
 
     const unsigned int M_NUM_CIRCULAR_BUFFER_VECTORS;
     const unsigned int M_MAX_UDP_PACKET_SIZE_BYTES;

@@ -200,7 +200,7 @@ private:
         }
     }
     
-    boost::asio::io_service m_ioService;
+    boost::asio::io_context m_ioService;
     StreamInfo m_streamInfos[2];
     boost::asio::signal_set m_signals; //Register keyboard interrupt signals to listen for.
     uint32_t m_queueSize;

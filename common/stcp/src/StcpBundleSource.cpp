@@ -26,7 +26,7 @@
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 StcpBundleSource::StcpBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const unsigned int maxUnacked) :
-m_work(m_ioService), //prevent stopping of ioservice until destructor
+m_work(boost::asio::make_work_guard(m_ioService)), //prevent stopping of ioservice until destructor
 m_resolver(m_ioService),
 m_needToSendKeepAliveMessageTimer(m_ioService),
 m_reconnectAfterShutdownTimer(m_ioService),
@@ -52,7 +52,7 @@ m_linkIsUpPhysically(false)
     m_handleTcpSendCallback = boost::bind(&StcpBundleSource::HandleTcpSend, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, boost::placeholders::_3);
     m_handleTcpSendKeepAliveCallback = boost::bind(&StcpBundleSource::HandleTcpSendKeepAlive, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, boost::placeholders::_3);
 
-    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_context::run, &m_ioService));
     ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceStcpBundleSource");
 }
 
@@ -278,8 +278,7 @@ std::size_t StcpBundleSource::GetTotalBundleBytesUnacked() const noexcept {
 
 void StcpBundleSource::Connect(const std::string & hostname, const std::string & port) {
 
-    boost::asio::ip::tcp::resolver::query query(hostname, port);
-    m_resolver.async_resolve(query, boost::bind(&StcpBundleSource::OnResolve,
+    m_resolver.async_resolve(hostname, port, boost::bind(&StcpBundleSource::OnResolve,
                                                 this, boost::asio::placeholders::error,
                                                 boost::asio::placeholders::results));
 }
@@ -289,7 +288,7 @@ void StcpBundleSource::OnResolve(const boost::system::error_code & ec, boost::as
         LOG_ERROR(subprocess) << "Error resolving: " << ec.message();
     }
     else {
-        LOG_INFO(subprocess) << "resolved host to " << results->endpoint().address() << ":" << results->endpoint().port() << ".  Connecting...";
+        LOG_INFO(subprocess) << "resolved host to " << results.begin()->endpoint().address() << ":" << results.begin()->endpoint().port() << ".  Connecting...";
         m_tcpSocketPtr = std::make_shared<boost::asio::ip::tcp::socket>(m_ioService);
         m_resolverResults = results;
         boost::asio::async_connect(

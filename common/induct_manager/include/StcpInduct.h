@@ -20,6 +20,8 @@
 #ifndef STCP_INDUCT_H
 #define STCP_INDUCT_H 1
 
+#include <optional>
+#include <boost/asio/executor_work_guard.hpp>
 #include <string>
 #include "Induct.h"
 #include "StcpBundleSink.h"
@@ -44,9 +46,9 @@ private:
     INDUCT_MANAGER_LIB_EXPORT void RemoveInactiveTcpConnections();
     INDUCT_MANAGER_LIB_EXPORT void DisableRemoveInactiveTcpConnections();
 
-    boost::asio::io_service m_ioService;
+    boost::asio::io_context m_ioService;
     boost::asio::ip::tcp::acceptor m_tcpAcceptor;
-    std::unique_ptr<boost::asio::io_service::work> m_workPtr;
+    std::optional<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> m_workPtr;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     std::list<StcpBundleSink> m_listStcpBundleSinks;
     boost::mutex m_listStcpBundleSinksMutex;

@@ -53,7 +53,7 @@ public:
     SLIP_OVER_UART_LIB_EXPORT ~UartInterface();
     SLIP_OVER_UART_LIB_EXPORT void Stop();
     SLIP_OVER_UART_LIB_EXPORT bool IsRunningNormally();
-    SLIP_OVER_UART_LIB_EXPORT boost::asio::io_service& GetIoServiceRef();
+    SLIP_OVER_UART_LIB_EXPORT boost::asio::io_context& GetIoServiceRef();
     
     SLIP_OVER_UART_LIB_EXPORT bool Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData);
     SLIP_OVER_UART_LIB_EXPORT bool Forward(zmq::message_t& dataZmq, std::vector<uint8_t>&& userData);
@@ -100,7 +100,7 @@ private:
     const unsigned int M_NUM_RX_CIRCULAR_BUFFER_VECTORS;
     const std::string m_comPortName;
     const std::size_t m_maxRxBundleSizeBytes;
-    boost::asio::io_service m_ioService;
+    boost::asio::io_context m_ioService;
     boost::asio::serial_port m_serialPort; // the serial port this instance is connected to 
     std::vector<uint8_t> m_readSomeBuffer;
     padded_vector_uint8_t* m_currentRxBundlePtr;

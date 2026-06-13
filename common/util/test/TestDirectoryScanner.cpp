@@ -21,7 +21,7 @@
 
 BOOST_AUTO_TEST_CASE(DirectoryScannerTestCase)
 {
-    boost::asio::io_service ioService;
+    boost::asio::io_context ioService;
     static constexpr uint64_t recheckFileSizeDurationMilliseconds = 250;
     {
         namespace fs = boost::filesystem;
@@ -136,7 +136,7 @@ BOOST_AUTO_TEST_CASE(DirectoryScannerTestCase)
                 //std::cout << "\n\n";
             }
             ioService.run();
-            ioService.reset();
+            ioService.restart();
         }
 
         includeExistingFiles = false;
@@ -157,7 +157,7 @@ BOOST_AUTO_TEST_CASE(DirectoryScannerTestCase)
                 //ioService.stop();
             }
             ioService.run();
-            ioService.reset();
+            ioService.restart();
             
         }
 
@@ -207,7 +207,7 @@ BOOST_AUTO_TEST_CASE(DirectoryScannerTestCase)
                 BOOST_REQUIRE(expectedRelativeDirectorySet == ds.GetSetOfMonitoredDirectoriesRelativeCopy());
             }
             ioService.run();
-            ioService.reset();
+            ioService.restart();
 
         }
         //ioService.reset();

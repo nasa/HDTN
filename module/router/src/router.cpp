@@ -29,6 +29,8 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/foreach.hpp>
 #include <boost/bimap.hpp>
+#include <optional>
+#include <boost/asio/executor_work_guard.hpp>
 #include <cstdlib>
 #include "Environment.h"
 #include "JsonSerializable.h"
@@ -276,9 +278,9 @@ private:
     bool m_usingUnixTimestamp;
 
     ptime_to_contactplan_bimap_t m_ptimeToContactPlanBimap;
-    boost::asio::io_service m_ioService;
+    boost::asio::io_context m_ioService;
     boost::asio::deadline_timer m_contactPlanTimer;
-    std::unique_ptr<boost::asio::io_service::work> m_workPtr;
+    std::optional<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> m_workPtr;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     bool m_contactPlanTimerIsRunning;
     boost::posix_time::ptime m_epoch;
@@ -440,11 +442,11 @@ bool Router::Impl::Init(const HdtnConfig& hdtnConfig,
 
     LOG_INFO(subprocess) << "initializing Router..";
 
-    m_ioService.reset();
-    m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioService);
+    m_ioService.restart();
+    m_workPtr.emplace(boost::asio::make_work_guard(m_ioService));
     m_contactPlanTimerIsRunning = false;
     m_storageFullTimerIsRunning = false;
-    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_context::run, &m_ioService));
     ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceRouter");
 
     //socket for receiving events from Egress

@@ -34,7 +34,7 @@ private:
     INDUCT_MANAGER_LIB_EXPORT void ConnectionReadyToBeDeletedNotificationReceived();
     INDUCT_MANAGER_LIB_EXPORT void RemoveInactiveConnection();
 
-    boost::asio::io_service m_ioService;
+    boost::asio::io_context m_ioService;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     std::unique_ptr<UdpBundleSink> m_udpBundleSinkPtr;
 };

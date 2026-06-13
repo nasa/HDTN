@@ -77,7 +77,7 @@ public:
         const bool deleteSocketAfterShutdown,
         const bool isActiveEntity,
         const uint16_t desiredKeepAliveIntervalSeconds,
-        boost::asio::io_service * externalIoServicePtr,
+        boost::asio::io_context * externalIoServicePtr,
         const unsigned int myMaxTxUnackedBundles,
         const uint64_t myMaxRxSegmentSizeBytes,
         const uint64_t myMaxRxBundleSizeBytes,
@@ -154,8 +154,8 @@ protected:
     bool m_base_usingTls;
     std::string M_BASE_EXPECTED_REMOTE_CONTACT_HEADER_EID_STRING_IF_NOT_EMPTY;
     uint16_t m_base_keepAliveIntervalSeconds;
-    std::unique_ptr<boost::asio::io_service> m_base_localIoServiceUniquePtr; //if an external one is not provided, create it here and set the ioServiceRef below to it
-    boost::asio::io_service & m_base_ioServiceRef;
+    std::unique_ptr<boost::asio::io_context> m_base_localIoServiceUniquePtr; //if an external one is not provided, create it here and set the ioServiceRef below to it
+    boost::asio::io_context & m_base_ioServiceRef;
     boost::asio::deadline_timer m_base_noKeepAlivePacketReceivedTimer;
     boost::asio::deadline_timer m_base_needToSendKeepAliveMessageTimer;
     boost::asio::deadline_timer m_base_sendSessionTerminationMessageTimeoutTimer;

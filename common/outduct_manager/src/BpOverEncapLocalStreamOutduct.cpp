@@ -24,7 +24,7 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 BpOverEncapLocalStreamOutduct::BpOverEncapLocalStreamOutduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid,
     const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback) :
     Outduct(outductConfig, outductUuid),
-    m_work(m_ioService), //prevent stopping of ioservice until destructor
+    m_work(boost::asio::make_work_guard(m_ioService)), //prevent stopping of ioservice until destructor
     m_encapAsyncDuplexLocalStream(m_ioService, //ltp engine will handle i/o, keeping entirely single threaded
         ENCAP_PACKET_TYPE::BP,
         1,//maxBundleSizeBytes, //initial resize (don't waste memory with potential max bundle size)
@@ -55,7 +55,7 @@ BpOverEncapLocalStreamOutduct::BpOverEncapLocalStreamOutduct(const outduct_eleme
     m_totalBundlesReceived(0),
     m_totalEncapHeaderBytesReceived(0)
 {
-    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_context::run, &m_ioService));
     ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceBpEncapOut");
 }
 BpOverEncapLocalStreamOutduct::~BpOverEncapLocalStreamOutduct() {

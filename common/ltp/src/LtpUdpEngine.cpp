@@ -238,7 +238,7 @@ void LtpUdpEngine::SetEndpoint(const std::string& remoteHostname, const uint16_t
     {
         boost::asio::ip::udp::resolver resolver(m_ioServiceLtpEngine);
         try {
-            udpDestinationEndpoint = *resolver.resolve(boost::asio::ip::udp::resolver::query(boost::asio::ip::udp::v4(), remoteHostname, boost::lexical_cast<std::string>(remotePort), UDP_RESOLVER_FLAGS));
+            udpDestinationEndpoint = *resolver.resolve(boost::asio::ip::udp::v4(), remoteHostname, boost::lexical_cast<std::string>(remotePort), UDP_RESOLVER_FLAGS).begin();
         }
         catch (const boost::system::system_error& e) {
             LOG_ERROR(subprocess) << "LtpUdpEngine::SetEndpoint: " << e.what() << "  code=" << e.code();

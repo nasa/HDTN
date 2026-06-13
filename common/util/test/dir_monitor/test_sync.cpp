@@ -10,7 +10,7 @@
 #include "directory.hpp"
 #include <boost/predef/os.h>
 
-static boost::asio::io_service io_service; //must be declared static
+static boost::asio::io_context io_service; //must be declared static
 
 BOOST_AUTO_TEST_CASE(dir_monitor_sync_create_file)
 {

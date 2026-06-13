@@ -40,7 +40,7 @@ public:
             size_t numCircularBufferVectors, size_t maxOutgoingBundleSizeBytes, uint16_t numRtpPacketsPerBundle, std::string fileToStream);
     ~BpSendStream();
 
-    boost::asio::io_service m_ioService; // socket uses this to grab data from incoming rtp stream
+    boost::asio::io_context m_ioService; // socket uses this to grab data from incoming rtp stream
     
     std::shared_ptr<DtnRtp> m_outgoingDtnRtpPtr;
     std::shared_ptr<DtnRtp> m_incomingDtnRtpPtr;

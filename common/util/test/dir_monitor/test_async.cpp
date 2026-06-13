@@ -10,7 +10,7 @@
 #include "directory.hpp"
 #include <boost/predef/os.h>
 
-static boost::asio::io_service io_service; //must be declared static
+static boost::asio::io_context io_service; //must be declared static
 static boost::system::error_code g_ec;
 static boost::asio::dir_monitor_event g_ev;
 
@@ -34,7 +34,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_create_file)
     Reset();
     dm.async_monitor(boost::bind(&dir_event_handler, boost::placeholders::_1, boost::placeholders::_2));
     io_service.run();
-    io_service.reset();
+    io_service.restart();
     BOOST_CHECK_EQUAL(g_ec, boost::system::error_code());
     BOOST_CHECK_THE_SAME_PATHS_RELATIVE(g_ev.path, test_file1);
     BOOST_CHECK_EQUAL(g_ev.type, boost::asio::dir_monitor_event::added);
@@ -57,7 +57,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_rename_file)
 
         dm.async_monitor(boost::bind(&dir_event_handler, boost::placeholders::_1, boost::placeholders::_2));
         io_service.run();
-        io_service.reset();
+        io_service.restart();
 	//std::cout << g_ev.type << " " << g_ev.path << "\n";
 	//continue;
 #if (BOOST_OS_MACOS) //only the file will cause an event, the dm has been fixed to prevent the directory creation event
@@ -81,7 +81,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_rename_file)
     Reset();
     dm.async_monitor(boost::bind(&dir_event_handler, boost::placeholders::_1, boost::placeholders::_2));
     io_service.run();
-    io_service.reset();
+    io_service.restart();
 
     BOOST_CHECK_EQUAL(g_ec, boost::system::error_code());
 #if (BOOST_OS_BSD)
@@ -109,7 +109,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_modify_file)
 
         dm.async_monitor(boost::bind(&dir_event_handler, boost::placeholders::_1, boost::placeholders::_2));
         io_service.run();
-        io_service.reset();
+        io_service.restart();
 #if (BOOST_OS_MACOS) //only the file will cause an event, the dm has been fixed to prevent the directory creation event
         if (g_ev.type == boost::asio::dir_monitor_event::added) {
             continue;
@@ -139,7 +139,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_remove_file)
 
         dm.async_monitor(boost::bind(&dir_event_handler, boost::placeholders::_1, boost::placeholders::_2));
         io_service.run();
-        io_service.reset();
+        io_service.restart();
 #if (BOOST_OS_MACOS) //only the file will cause an event, the dm has been fixed to prevent the directory creation event
         if (g_ev.type == boost::asio::dir_monitor_event::added) {
             continue;
@@ -168,7 +168,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_multiple_events)
     Reset();
     dm.async_monitor(boost::bind(&dir_event_handler, boost::placeholders::_1, boost::placeholders::_2));
     io_service.run();
-    io_service.reset();
+    io_service.restart();
     BOOST_CHECK_EQUAL(g_ec, boost::system::error_code());
     BOOST_CHECK_THE_SAME_PATHS_RELATIVE(g_ev.path, test_file1);
     BOOST_CHECK_EQUAL(g_ev.type, boost::asio::dir_monitor_event::added);
@@ -176,7 +176,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_multiple_events)
     Reset();
     dm.async_monitor(boost::bind(&dir_event_handler, boost::placeholders::_1, boost::placeholders::_2));
     io_service.run();
-    io_service.reset();
+    io_service.restart();
     BOOST_CHECK_EQUAL(g_ec, boost::system::error_code());
 #if (BOOST_OS_BSD) //bsd does not have any rename events, only added and removed
     BOOST_CHECK_THE_SAME_PATHS_RELATIVE(g_ev.path, test_file2);
@@ -189,7 +189,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_multiple_events)
     Reset();
     dm.async_monitor(boost::bind(&dir_event_handler, boost::placeholders::_1, boost::placeholders::_2));
     io_service.run();
-    io_service.reset();
+    io_service.restart();
     BOOST_CHECK_EQUAL(g_ec, boost::system::error_code());
 #if (BOOST_OS_BSD)
     BOOST_CHECK_THE_SAME_PATHS_RELATIVE(g_ev.path, test_file1);
@@ -218,7 +218,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_aborted_async_call)
     }
 
     io_service.run();
-    io_service.reset();
+    io_service.restart();
 }
 
 static void blocked_async_call_handler_with_local_ioservice(const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
@@ -233,7 +233,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_blocked_async_call)
     boost::thread t;
 
     {
-        boost::asio::io_service local_io_service;
+        boost::asio::io_context local_io_service;
 
         boost::asio::dir_monitor dm(local_io_service);
         dm.add_directory(TEST_DIR1 "_async_blocked_async_call");
@@ -243,7 +243,7 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_blocked_async_call)
         // run() is invoked on another thread to make async_monitor() call a blocking function.
         // When dm and io_service go out of scope they should be destroyed properly without
         // a thread being blocked.
-        t = boost::thread(boost::bind(&boost::asio::io_service::run, boost::ref(local_io_service)));
+        t = boost::thread(boost::bind(&boost::asio::io_context::run, boost::ref(local_io_service)));
         boost::this_thread::sleep(boost::posix_time::seconds(1));
     }
     t.join();
@@ -272,12 +272,12 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_unregister_directory)
         // run() is invoked on another thread to make this test case return. Without using
         // another thread run() would block as the file was created after remove_directory()
         // had been called.
-        t = boost::thread(boost::bind(&boost::asio::io_service::run, boost::ref(io_service)));
+        t = boost::thread(boost::bind(&boost::asio::io_context::run, boost::ref(io_service)));
         boost::this_thread::sleep(boost::posix_time::seconds(1));
     }
 
     t.join();
-    io_service.reset();
+    io_service.restart();
 }
 
 //Added to support UTF-8 Paths
@@ -299,12 +299,12 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_unregister_directory_as_path)
         // run() is invoked on another thread to make this test case return. Without using
         // another thread run() would block as the file was created after remove_directory()
         // had been called.
-        t = boost::thread(boost::bind(&boost::asio::io_service::run, boost::ref(io_service)));
+        t = boost::thread(boost::bind(&boost::asio::io_context::run, boost::ref(io_service)));
         boost::this_thread::sleep(boost::posix_time::seconds(1));
     }
 
     t.join();
-    io_service.reset();
+    io_service.restart();
 }
 
 static void two_dir_monitors_handler(const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
@@ -333,10 +333,10 @@ BOOST_AUTO_TEST_CASE(dir_monitor_async_two_dir_monitors)
         // run() is invoked on another thread to make this test case return. Without using
         // another thread run() would block as the directory the file was created in is
         // monitored by dm2 while async_monitor() was called for dm1.
-        t = boost::thread(boost::bind(&boost::asio::io_service::run, boost::ref(io_service)));
+        t = boost::thread(boost::bind(&boost::asio::io_context::run, boost::ref(io_service)));
         boost::this_thread::sleep(boost::posix_time::seconds(1));
     }
 
     t.join();
-    io_service.reset();
+    io_service.restart();
 }

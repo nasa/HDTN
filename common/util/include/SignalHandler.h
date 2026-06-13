@@ -61,7 +61,7 @@ private:
 
 private:
     /// I/O execution context
-    boost::asio::io_service m_ioService;
+    boost::asio::io_context m_ioService;
     /// Signal event listener
     boost::asio::signal_set m_signals;
     /// Thread that invokes m_ioService.run() (if using dedicated I/O thread)

@@ -26,6 +26,7 @@
 #include <string>
 #include <boost/thread.hpp>
 #include <boost/asio.hpp>
+#include <boost/asio/executor_work_guard.hpp>
 #include <map>
 #include <queue>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
@@ -83,8 +84,8 @@ private:
 
 
     
-    boost::asio::io_service m_ioService;
-    boost::asio::io_service::work m_work;
+    boost::asio::io_context m_ioService;
+    boost::asio::executor_work_guard<boost::asio::io_context::executor_type> m_work;
     boost::asio::ip::udp::resolver m_resolver;
     TokenRateLimiter m_tokenRateLimiter;
     boost::asio::deadline_timer m_tokenRefreshTimer;

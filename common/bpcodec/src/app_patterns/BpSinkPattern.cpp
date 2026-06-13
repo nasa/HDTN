@@ -216,7 +216,7 @@ bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_pt
     m_lastPtime = boost::posix_time::microsec_clock::universal_time();
     m_timerTransferRateStats.expires_from_now(boost::posix_time::seconds(5));
     m_timerTransferRateStats.async_wait(boost::bind(&BpSinkPattern::TransferRate_TimerExpired, this, boost::asio::placeholders::error));
-    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_context::run, &m_ioService));
     ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceBpSinkPattern");
 
     m_runningSenderThread = true;

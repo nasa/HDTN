@@ -14,7 +14,7 @@ class RateManagerAsync {
 private:
     RateManagerAsync();
 public:
-    HDTN_UTIL_EXPORT RateManagerAsync(boost::asio::io_service & ioService, const uint64_t rateBitsPerSec, const uint64_t maxPacketsBeingSent);
+    HDTN_UTIL_EXPORT RateManagerAsync(boost::asio::io_context & ioService, const uint64_t rateBitsPerSec, const uint64_t maxPacketsBeingSent);
     HDTN_UTIL_EXPORT ~RateManagerAsync();
 
     HDTN_UTIL_EXPORT void Reset();
@@ -39,7 +39,7 @@ private:
     HDTN_UTIL_EXPORT void TryRestartRateTimer();
     HDTN_UTIL_EXPORT void OnRate_TimerExpired(const boost::system::error_code& e);
 private:
-    boost::asio::io_service & m_ioServiceRef;
+    boost::asio::io_context & m_ioServiceRef;
     boost::asio::deadline_timer m_rateTimer;
     uint64_t m_rateBitsPerSec;
     uint64_t m_maxPacketsBeingSent;

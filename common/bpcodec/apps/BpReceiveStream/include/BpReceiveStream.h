@@ -65,7 +65,7 @@ private:
     uint16_t m_maxOutgoingRtpPayloadSizeBytes;
 
     // outbound udp outduct
-	boost::asio::io_service m_ioService;
+	boost::asio::io_context m_ioService;
     boost::asio::ip::udp::socket socket;
     boost::asio::ip::udp::endpoint m_udpEndpoint;
     boost::mutex m_sentPacketsMutex;

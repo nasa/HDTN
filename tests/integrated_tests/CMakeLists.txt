@@ -37,6 +37,7 @@ target_link_libraries(integrated-tests
 	bpcodec
 	bp_app_patterns_lib
 	Boost::unit_test_framework
+        Boost::process
 )
 
 #integrated_tests.cpp is causing issues on gnu compilers with the following warning

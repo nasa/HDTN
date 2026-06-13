@@ -60,7 +60,7 @@ private:
     INDUCT_MANAGER_LIB_NO_EXPORT void HandleSend(const boost::system::error_code& error, std::size_t bytes_transferred, uint8_t encodedEncapHeaderSize);
 
     //BpOverEncapBundleSink m_bpOverEncapBundleSink;
-    boost::asio::io_service m_ioService;
+    boost::asio::io_context m_ioService;
     EncapAsyncDuplexLocalStream m_encapAsyncDuplexLocalStream;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
 
