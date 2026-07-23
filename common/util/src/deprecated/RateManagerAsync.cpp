@@ -4,7 +4,7 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-RateManagerAsync::RateManagerAsync(boost::asio::io_service & ioService, const uint64_t rateBitsPerSec, const uint64_t maxPacketsBeingSent) :
+RateManagerAsync::RateManagerAsync(boost::asio::io_context & ioService, const uint64_t rateBitsPerSec, const uint64_t maxPacketsBeingSent) :
     m_ioServiceRef(ioService),
     m_rateTimer(ioService),
     m_rateBitsPerSec(rateBitsPerSec),

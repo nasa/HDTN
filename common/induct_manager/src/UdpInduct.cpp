@@ -40,7 +40,7 @@ UdpInduct::UdpInduct(const InductProcessBundleCallback_t & inductProcessBundleCa
         boost::bind(&UdpInduct::ConnectionReadyToBeDeletedNotificationReceived, this));
     
 
-    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_context::run, &m_ioService));
     ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceUdpInduct");
 }
 UdpInduct::~UdpInduct() {

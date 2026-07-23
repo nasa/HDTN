@@ -204,7 +204,7 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], std::atomic<bool>
             claRate
         );
 
-        boost::asio::io_service ioService;
+        boost::asio::io_context ioService;
         boost::asio::deadline_timer deadlineTimer(ioService);
         LOG_INFO(subprocess) << "running bpgen for " << durationSeconds << " seconds";
         

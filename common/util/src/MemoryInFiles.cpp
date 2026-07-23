@@ -78,7 +78,7 @@ struct MemoryInFiles::Impl : private boost::noncopyable {
      * @param newFileAggregationTimeMs The time window in milliseconds for which write allocations will be redirected to the currently active write file.
      * @param estimatedMaxAllocatedBlocks The number of memory blocks to reverse space for, this is a soft cap to lessen instances of reallocation, the actual space will be expanded if needed.
      */
-    Impl(boost::asio::io_service& ioServiceRef,
+    Impl(boost::asio::io_context& ioServiceRef,
         const boost::filesystem::path& workingDirectory,
         const uint64_t newFileAggregationTimeMs,
         const uint64_t estimatedMaxAllocatedBlocks);
@@ -279,7 +279,7 @@ private:
          * @param ioServiceRef The I/O execution context.
          * @param implRef PIMPL reference.
          */
-        FileInfo(const boost::filesystem::path& filePath, boost::asio::io_service & ioServiceRef, MemoryInFiles::Impl& implRef);
+        FileInfo(const boost::filesystem::path& filePath, boost::asio::io_context & ioServiceRef, MemoryInFiles::Impl& implRef);
         /**
          * Cleans up any open system file resources and deletes the associated file from disk.
          * @post Decrements the pending I/O operation reference counter (m_queuedOperationsReferenceCount).
@@ -448,7 +448,7 @@ private:
     std::shared_ptr<FileInfo> m_currentWritingFileInfoPtr;
 
     /// I/O execution context reference
-    boost::asio::io_service& m_ioServiceRef;
+    boost::asio::io_context& m_ioServiceRef;
     /// Active write window timer, the time window for which write allocations will be redirected to the currently active write file, on expiry (and after the next write) a new file will be created
     boost::asio::deadline_timer m_newFileAggregationTimer;
     /// Our working directory for file I/O
@@ -500,7 +500,7 @@ MemoryInFiles::Impl::io_operation_t::io_operation_t(
     m_writeFromThisLocationPtr(NULL),
     m_readHandlerPtr(readHandlerPtr) {}
 
-MemoryInFiles::Impl::FileInfo::FileInfo(const boost::filesystem::path& filePath, boost::asio::io_service& ioServiceRef, MemoryInFiles::Impl& implRef) :
+MemoryInFiles::Impl::FileInfo::FileInfo(const boost::filesystem::path& filePath, boost::asio::io_context& ioServiceRef, MemoryInFiles::Impl& implRef) :
     m_filePath(filePath),
     m_implRef(implRef),
     m_diskOperationInProgress(false),
@@ -703,7 +703,7 @@ uint64_t MemoryInFiles::Impl::MemoryBlockInfo::Resize(const std::shared_ptr<File
     return diffSize;
 }
 
-MemoryInFiles::Impl::Impl(boost::asio::io_service& ioServiceRef,
+MemoryInFiles::Impl::Impl(boost::asio::io_context& ioServiceRef,
     const boost::filesystem::path& workingDirectory,
     const uint64_t newFileAggregationTimeMs, const uint64_t estimatedMaxAllocatedBlocks) :
     m_ioServiceRef(ioServiceRef),
@@ -953,7 +953,7 @@ bool MemoryInFiles::Impl::ReadMemoryAsync(const std::vector<deferred_read_t>& de
 }
 
 
-MemoryInFiles::MemoryInFiles(boost::asio::io_service& ioServiceRef,
+MemoryInFiles::MemoryInFiles(boost::asio::io_context& ioServiceRef,
     const boost::filesystem::path& rootStorageDirectory,
     const uint64_t newFileAggregationTimeMs, const uint64_t estimatedMaxAllocatedBlocks) :
     m_pimpl(boost::make_unique<MemoryInFiles::Impl>(ioServiceRef, rootStorageDirectory, newFileAggregationTimeMs, estimatedMaxAllocatedBlocks))

@@ -51,7 +51,7 @@ public:
     typedef boost::function<void()> NotifyReadyToDeleteCallback_t;
 
     STCP_LIB_EXPORT StcpBundleSink(std::shared_ptr<boost::asio::ip::tcp::socket> tcpSocketPtr,
-        boost::asio::io_service & tcpSocketIoServiceRef,
+        boost::asio::io_context & tcpSocketIoServiceRef,
         const WholeBundleReadyCallback_t & wholeBundleReadyCallback,
         const unsigned int numCircularBufferVectors,
         const uint64_t maxBundleSizeBytes,
@@ -76,7 +76,7 @@ private:
     const NotifyReadyToDeleteCallback_t m_notifyReadyToDeleteCallback;
 
     std::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
-    boost::asio::io_service & m_tcpSocketIoServiceRef;
+    boost::asio::io_context & m_tcpSocketIoServiceRef;
 
     const unsigned int M_NUM_CIRCULAR_BUFFER_VECTORS;
     const uint64_t M_MAX_BUNDLE_SIZE_BYTES;

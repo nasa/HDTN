@@ -35,7 +35,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
         const boost::posix_time::time_duration ONE_WAY_LIGHT_TIME;
         const boost::posix_time::time_duration ONE_WAY_MARGIN_TIME;
         boost::posix_time::time_duration m_transmissionToAckReceivedTime;
-        boost::asio::io_service m_ioService;
+        boost::asio::io_context m_ioService;
         boost::asio::deadline_timer m_deadlineTimer;
         LtpTimerManager<uint64_t, std::hash<uint64_t> >::LtpTimerExpiredCallback_t m_timerExpiredCallback;
         LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timerManager;
@@ -83,7 +83,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_testNumber = 1;
             m_timerManager.Reset();
             m_ioService.stop();
-            m_ioService.reset();
+            m_ioService.restart();
             m_numCallbacks = 0;
             m_serialNumbersInCallback.clear();
             m_desired_serialNumbers = std::vector<uint64_t>({ 5,10,15 });
@@ -102,7 +102,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_testNumber = 2;
             m_timerManager.Reset();
             m_ioService.stop();
-            m_ioService.reset();
+            m_ioService.restart();
             m_numCallbacks = 0;
             m_serialNumbersInCallback.clear();
             m_desired_serialNumbers = std::vector<uint64_t>({ 5,10,15 });
@@ -124,7 +124,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_testNumber = 3;
             m_timerManager.Reset();
             m_ioService.stop();
-            m_ioService.reset();
+            m_ioService.restart();
             m_numCallbacks = 0;
             m_serialNumbersInCallback.clear();
             m_desired_serialNumbers = std::vector<uint64_t>({ 5,10,15 }); //keep same as test 2
@@ -154,7 +154,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_testNumber = 4;
             m_timerManager.Reset();
             m_ioService.stop();
-            m_ioService.reset();
+            m_ioService.restart();
             m_numCallbacks = 0;
             m_serialNumbersInCallback.clear();
             m_desired_serialNumbers = std::vector<uint64_t>({ 5,10,15 }); //keep same as test 3
@@ -190,7 +190,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
         const boost::posix_time::time_duration ONE_WAY_LIGHT_TIME;
         const boost::posix_time::time_duration ONE_WAY_MARGIN_TIME;
         boost::posix_time::time_duration m_transmissionToAckReceivedTime;
-        boost::asio::io_service m_ioService;
+        boost::asio::io_context m_ioService;
         boost::asio::deadline_timer m_deadlineTimer;
         LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_timerExpiredCallback;
         LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> m_timerManager;
@@ -232,7 +232,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_testNumber = 1;
             m_timerManager.Reset();
             m_ioService.stop();
-            m_ioService.reset();
+            m_ioService.restart();
             m_numCallbacks = 0;
             m_serialNumbersInCallback.clear();
             m_desired_serialNumbers = std::vector<Ltp::session_id_t>({ Ltp::session_id_t(5,6),Ltp::session_id_t(10,11),Ltp::session_id_t(15,16) });
@@ -249,7 +249,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_testNumber = 2;
             m_timerManager.Reset();
             m_ioService.stop();
-            m_ioService.reset();
+            m_ioService.restart();
             m_numCallbacks = 0;
             m_serialNumbersInCallback.clear();
             m_desired_serialNumbers = std::vector<Ltp::session_id_t>({ Ltp::session_id_t(5,6),Ltp::session_id_t(10,11),Ltp::session_id_t(15,16) });
@@ -271,7 +271,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_testNumber = 1;// 1 is valid
             m_timerManager.Reset();
             m_ioService.stop();
-            m_ioService.reset();
+            m_ioService.restart();
             m_numCallbacks = 0;
             m_serialNumbersInCallback.clear();
             m_desired_serialNumbers = std::vector<Ltp::session_id_t>({ Ltp::session_id_t(5,6),Ltp::session_id_t(10,11),Ltp::session_id_t(15,16) });
@@ -294,7 +294,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_testNumber = 1;// 1 is valid
             m_timerManager.Reset();
             m_ioService.stop();
-            m_ioService.reset();
+            m_ioService.restart();
             m_numCallbacks = 0;
             m_serialNumbersInCallback.clear();
             m_desired_serialNumbers = std::vector<Ltp::session_id_t>({ Ltp::session_id_t(5,6),Ltp::session_id_t(10,11),Ltp::session_id_t(15,16) });
@@ -338,7 +338,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_testNumber = 1;
             m_timerManager.Reset();
             m_ioService.stop();
-            m_ioService.reset();
+            m_ioService.restart();
             m_numCallbacks = 0;
             m_serialNumbersInCallback.clear();
             m_desired_serialNumbers = m_desired_serialNumbers = std::vector<Ltp::session_id_t>({ Ltp::session_id_t(5,6),Ltp::session_id_t(10,11),Ltp::session_id_t(15,16) });
@@ -355,7 +355,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             m_testNumber = 1;
             m_timerManager.Reset();
             m_ioService.stop();
-            m_ioService.reset();
+            m_ioService.restart();
             m_numCallbacks = 0;
             m_serialNumbersInCallback.clear();
             m_desired_serialNumbers = m_desired_serialNumbers = std::vector<Ltp::session_id_t>({ Ltp::session_id_t(5,6),Ltp::session_id_t(10,11),Ltp::session_id_t(15,16) });

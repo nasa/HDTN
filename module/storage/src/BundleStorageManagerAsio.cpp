@@ -54,7 +54,7 @@ BundleStorageManagerAsio::BundleStorageManagerAsio(const boost::filesystem::path
 BundleStorageManagerAsio::BundleStorageManagerAsio(const StorageConfig_ptr & storageConfigPtr) :
     BundleStorageManagerBase(storageConfigPtr),
 
-    m_workPtr(boost::make_unique< boost::asio::io_service::work>(m_ioService)),
+    m_workPtr(boost::asio::make_work_guard(m_ioService)),
     m_asioHandlePtrsVec(M_NUM_STORAGE_DISKS),
     m_diskOperationInProgressVec(M_NUM_STORAGE_DISKS)
 {
@@ -132,7 +132,7 @@ void BundleStorageManagerAsio::Start() {
 #endif
             m_diskOperationInProgressVec[diskId] = false;
         }
-        m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+        m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_context::run, &m_ioService));
         ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceStorageAsio");
     }
 }

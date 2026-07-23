@@ -38,7 +38,7 @@ TcpclV4BidirectionalLink::TcpclV4BidirectionalLink(
     const bool deleteSocketAfterShutdown,
     const bool isActiveEntity,
     const uint16_t desiredKeepAliveIntervalSeconds,
-    boost::asio::io_service * externalIoServicePtr,
+    boost::asio::io_context * externalIoServicePtr,
     const unsigned int myMaxTxUnackedBundles,
     const uint64_t myMaxRxSegmentSizeBytes,
     const uint64_t myMaxRxBundleSizeBytes,
@@ -60,7 +60,7 @@ TcpclV4BidirectionalLink::TcpclV4BidirectionalLink(
     M_BASE_TLS_IS_REQUIRED(tlsIsRequired),
     m_base_usingTls(false), //initialization not needed
     m_base_keepAliveIntervalSeconds(desiredKeepAliveIntervalSeconds),
-    m_base_localIoServiceUniquePtr((externalIoServicePtr == NULL) ? boost::make_unique<boost::asio::io_service>() : std::unique_ptr<boost::asio::io_service>()),
+    m_base_localIoServiceUniquePtr((externalIoServicePtr == NULL) ? boost::make_unique<boost::asio::io_context>() : std::unique_ptr<boost::asio::io_context>()),
     m_base_ioServiceRef((externalIoServicePtr == NULL) ? (*m_base_localIoServiceUniquePtr) : (*externalIoServicePtr)),
     m_base_noKeepAlivePacketReceivedTimer(m_base_ioServiceRef),
     m_base_needToSendKeepAliveMessageTimer(m_base_ioServiceRef),

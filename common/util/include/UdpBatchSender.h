@@ -50,7 +50,7 @@ public:
         const std::size_t numPacketsSent)> OnSentPacketsCallback_t;
     
     /// Bind socket to io_service, does not open the socket
-    HDTN_UTIL_EXPORT UdpBatchSender(boost::asio::io_service& ioServiceSingleThreadedRef);
+    HDTN_UTIL_EXPORT UdpBatchSender(boost::asio::io_context& ioServiceSingleThreadedRef);
     
     /// Call UdpBatchSender::Stop() to release managed resources
     HDTN_UTIL_EXPORT ~UdpBatchSender();

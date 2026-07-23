@@ -193,7 +193,7 @@ bool BPingRunner::Run(int argc, const char* const argv[], std::atomic<bool>& run
             true,
             useBpVersion7);
 
-        boost::asio::io_service ioService;
+        boost::asio::io_context ioService;
         boost::asio::deadline_timer deadlineTimer(ioService);
         LOG_INFO(subprocess) << "Running for " << durationSeconds << " seconds";
         

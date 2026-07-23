@@ -70,7 +70,7 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     M_MAX_RX_DATA_SEGMENT_HISTORY_OR_ZERO_DISABLE(ltpRxOrTxCfg.rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable),
     m_userAssignedUuid(UINT64_MAX), //manually set later
     m_maxRetriesPerSerialNumber(ltpRxOrTxCfg.maxRetriesPerSerialNumber),
-    m_workLtpEnginePtr(boost::make_unique<boost::asio::io_service::work>(m_ioServiceLtpEngine)),
+    m_workLtpEnginePtr(boost::asio::make_work_guard(m_ioServiceLtpEngine)),
     m_deadlineTimerForTimeManagerOfReportSerialNumbers(m_ioServiceLtpEngine),
     m_timeManagerOfReportSerialNumbers(m_deadlineTimerForTimeManagerOfReportSerialNumbers, m_transmissionToAckReceivedTime, (M_MAX_SIMULTANEOUS_SESSIONS * 2) + 1),
     m_deadlineTimerForTimeManagerOfSendingDelayedReceptionReports(m_ioServiceLtpEngine),
@@ -236,7 +236,7 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     //sizeof(LtpSessionSender); //272 => 224 using two ForwardListQueue's instead of two std::queue's
     //sizeof(LtpSessionReceiver); //248 => 216 using one ForwardListQueue instead of one std::queue and removing m_dataReceivedRedSize
     if (startIoServiceThread) {
-        m_ioServiceLtpEngineThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioServiceLtpEngine));
+        m_ioServiceLtpEngineThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_context::run, &m_ioServiceLtpEngine));
         const std::string threadName = "ioServiceLtpEngine engId=" + boost::lexical_cast<std::string>(M_THIS_ENGINE_ID);
         //ThreadNamer::SetThreadName(*m_ioServiceLtpEngineThreadPtr, threadName); //won't work on linux
         ThreadNamer::SetIoServiceThreadName(m_ioServiceLtpEngine, threadName);

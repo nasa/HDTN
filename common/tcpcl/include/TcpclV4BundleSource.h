@@ -31,6 +31,7 @@
 #ifndef _TCPCLV4_BUNDLE_SOURCE_H
 #define _TCPCLV4_BUNDLE_SOURCE_H 1
 
+#include <boost/asio/executor_work_guard.hpp>
 #include "TcpclV4BidirectionalLink.h"
 
 
@@ -75,7 +76,7 @@ private:
 #ifdef OPENSSL_SUPPORT_ENABLED
     boost::asio::ssl::context & m_shareableSslContextRef;
 #endif
-    boost::asio::io_service::work m_work;
+    boost::asio::executor_work_guard<boost::asio::io_context::executor_type> m_work;
     boost::asio::ip::tcp::resolver m_resolver;
     boost::asio::deadline_timer m_reconnectAfterShutdownTimer;
     boost::asio::deadline_timer m_reconnectAfterOnConnectErrorTimer;

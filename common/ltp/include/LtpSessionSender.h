@@ -23,7 +23,7 @@
  * @section DESCRIPTION
  *
  * This LtpSessionSender class encapsulates one LTP sending session.
- * It uses its own asynchronous timer which uses/shares the user's provided boost::asio::io_service.
+ * It uses its own asynchronous timer which uses/shares the user's provided boost::asio::io_context.
  */
 
 #ifndef LTP_SESSION_SENDER_H

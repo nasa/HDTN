@@ -31,7 +31,7 @@
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
-UdpBundleSink::UdpBundleSink(boost::asio::io_service & ioService,
+UdpBundleSink::UdpBundleSink(boost::asio::io_context & ioService,
     uint16_t udpPort,
     const WholeBundleReadyCallbackUdp_t & wholeBundleReadyCallback,
     const unsigned int numCircularBufferVectors,

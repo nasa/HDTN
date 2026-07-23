@@ -6,8 +6,8 @@
 BOOST_AUTO_TEST_CASE(RateManagerAsyncTestCase, *boost::unit_test::disabled())
 {
     struct Test {
-        boost::asio::io_service m_ioService;
-        boost::asio::io_service::work m_work;
+        boost::asio::io_context m_ioService;
+        boost::asio::io_context::work m_work;
         boost::thread m_ioServiceThread;
         
 
@@ -16,7 +16,7 @@ BOOST_AUTO_TEST_CASE(RateManagerAsyncTestCase, *boost::unit_test::disabled())
         
         Test() :
             m_work(m_ioService),
-            m_ioServiceThread(boost::bind(&boost::asio::io_service::run, &m_ioService))
+            m_ioServiceThread(boost::bind(&boost::asio::io_context::run, &m_ioService))
         {
             
         }

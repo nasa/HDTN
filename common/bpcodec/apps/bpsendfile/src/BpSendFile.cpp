@@ -54,7 +54,7 @@ BpSendFile::BpSendFile(const boost::filesystem::path & fileOrFolderPath, uint64_
 {
 
     if (uploadNewFiles) {
-        m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+        m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_context::run, &m_ioService));
         ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceBpSendFile");
     }
     

@@ -32,7 +32,7 @@
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 StcpBundleSink::StcpBundleSink(std::shared_ptr<boost::asio::ip::tcp::socket> tcpSocketPtr,
-    boost::asio::io_service & tcpSocketIoServiceRef,
+    boost::asio::io_context & tcpSocketIoServiceRef,
     const WholeBundleReadyCallback_t & wholeBundleReadyCallback,
     const unsigned int numCircularBufferVectors,
     const uint64_t maxBundleSizeBytes,

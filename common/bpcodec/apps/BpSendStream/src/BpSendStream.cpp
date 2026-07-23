@@ -75,7 +75,7 @@ BpSendStream::BpSendStream(uint8_t intakeType, size_t maxIncomingUdpPacketSizeBy
         (unsigned int)numCircularBufferVectors,
         (unsigned int)maxIncomingUdpPacketSizeBytes,
         boost::bind(&BpSendStream::DeleteCallback, this));
-        m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+        m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_context::run, &m_ioService));
         ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceBpUdpSink");
     }
     else {

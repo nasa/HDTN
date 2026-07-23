@@ -38,7 +38,7 @@ TcpclV3BidirectionalLink::TcpclV3BidirectionalLink(
     const bool deleteSocketAfterShutdown,
     const bool contactHeaderMustReply,
     const uint16_t desiredKeepAliveIntervalSeconds,
-    boost::asio::io_service * externalIoServicePtr,
+    boost::asio::io_context * externalIoServicePtr,
     const unsigned int maxUnacked,
     const uint64_t maxBundleSizeBytes,
     const uint64_t maxFragmentSize,
@@ -55,7 +55,7 @@ TcpclV3BidirectionalLink::TcpclV3BidirectionalLink(
     //isprintf(eid, sizeof eid, "ipn:" UVAST_FIELDSPEC ".0", getOwnNodeNbr());
     M_BASE_THIS_TCPCL_EID_STRING(Uri::GetIpnUriString(myNodeId, 0)),
     m_base_keepAliveIntervalSeconds(desiredKeepAliveIntervalSeconds),
-    m_base_localIoServiceUniquePtr((externalIoServicePtr == NULL) ? boost::make_unique<boost::asio::io_service>() : std::unique_ptr<boost::asio::io_service>()),
+    m_base_localIoServiceUniquePtr((externalIoServicePtr == NULL) ? boost::make_unique<boost::asio::io_context>() : std::unique_ptr<boost::asio::io_context>()),
     m_base_ioServiceRef((externalIoServicePtr == NULL) ? (*m_base_localIoServiceUniquePtr) : (*externalIoServicePtr)),
     m_base_noKeepAlivePacketReceivedTimer(m_base_ioServiceRef),
     m_base_needToSendKeepAliveMessageTimer(m_base_ioServiceRef),

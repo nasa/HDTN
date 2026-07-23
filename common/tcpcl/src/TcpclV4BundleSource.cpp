@@ -63,7 +63,7 @@ TcpclV4BundleSource::TcpclV4BundleSource(
 #ifdef OPENSSL_SUPPORT_ENABLED
     m_shareableSslContextRef(shareableSslContextRef),
 #endif
-    m_work(m_base_ioServiceRef), //prevent stopping of ioservice until destructor
+    m_work(boost::asio::make_work_guard(m_base_ioServiceRef)), //prevent stopping of ioservice until destructor
     m_resolver(m_base_ioServiceRef),
     m_reconnectAfterShutdownTimer(m_base_ioServiceRef),
     m_reconnectAfterOnConnectErrorTimer(m_base_ioServiceRef),
@@ -73,7 +73,7 @@ TcpclV4BundleSource::TcpclV4BundleSource(
 #ifndef OPENSSL_SUPPORT_ENABLED
     (void)tryUseTls; //parameter not used if OpenSSL is disabled at compile time
 #endif
-    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_base_ioServiceRef));
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_context::run, &m_base_ioServiceRef));
     ThreadNamer::SetIoServiceThreadName(m_base_ioServiceRef, "ioServiceTcpclV4BundleSource");
 }
 
@@ -129,8 +129,7 @@ void TcpclV4BundleSource::Stop() {
 
 void TcpclV4BundleSource::Connect(const std::string & hostname, const std::string & port) {
 
-    boost::asio::ip::tcp::resolver::query query(hostname, port);
-    m_resolver.async_resolve(query, boost::bind(&TcpclV4BundleSource::OnResolve,
+    m_resolver.async_resolve(hostname, port, boost::bind(&TcpclV4BundleSource::OnResolve,
                                                 this, boost::asio::placeholders::error,
                                                 boost::asio::placeholders::results));
 }
@@ -140,7 +139,7 @@ void TcpclV4BundleSource::OnResolve(const boost::system::error_code & ec, boost:
         LOG_ERROR(subprocess) << "Error resolving: " << ec.message();
     }
     else {
-        LOG_INFO(subprocess) << "resolved host to " << results->endpoint().address() << ":" << results->endpoint().port() << ".  Connecting...";
+        LOG_INFO(subprocess) << "resolved host to " << results.begin()->endpoint().address() << ":" << results.begin()->endpoint().port() << ".  Connecting...";
         m_resolverResults = results;
 #ifdef OPENSSL_SUPPORT_ENABLED
         m_base_sslStreamSharedPtr = std::make_shared<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> >(m_base_ioServiceRef, m_shareableSslContextRef);

@@ -108,7 +108,7 @@ private:
     std::unique_ptr<CustodyTransferManager> m_custodyTransferManagerPtr;
     uint64_t m_nextCtebCustodyId;
     BundleViewV6 m_custodySignalRfc5050RenderedBundleView;
-    boost::asio::io_service m_ioService;
+    boost::asio::io_context m_ioService;
     boost::asio::deadline_timer m_timerAcs;
     boost::asio::deadline_timer m_timerTransferRateStats;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;

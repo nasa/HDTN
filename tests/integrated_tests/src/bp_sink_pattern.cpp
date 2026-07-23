@@ -28,19 +28,23 @@ bool TestSink::ProcessPayload(const uint8_t *data, const uint64_t size) {
 }
 
 static void SendUdpPacket(const std::string host, int port, void *data, size_t size) {
-    boost::asio::io_service ios;
+    boost::asio::io_context ios;
     boost::asio::ip::udp::resolver resolver(ios);
-    boost::asio::ip::udp::resolver::query query(
+
+    auto results = resolver.resolve(boost::asio::ip::udp::v4(), host, std::to_string(port));
+    bool resolved_endpoint = !results.empty();
+/*    boost::asio::ip::udp::resolver::query query(
             boost::asio::ip::udp::v4(), host, std::to_string(port));
 
     boost::asio::ip::udp::resolver::iterator it = resolver.resolve(query);
     bool resolved_endpoint = (it != boost::asio::ip::udp::resolver::iterator());
+*/
     BOOST_REQUIRE(resolved_endpoint);
     if(!resolved_endpoint) {
         return;
     }
 
-    boost::asio::ip::udp::endpoint ep = *it;
+    boost::asio::ip::udp::endpoint ep = *results.begin();
 
     boost::asio::ip::udp::socket socket(ios);
     socket.open(boost::asio::ip::udp::v4());

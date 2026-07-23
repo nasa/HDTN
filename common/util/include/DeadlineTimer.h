@@ -41,7 +41,7 @@ class DeadlineTimer
 
     private:
         DeadlineTimer() = delete;
-        boost::asio::io_service m_ioService;
+        boost::asio::io_context m_ioService;
         boost::posix_time::time_duration m_sleepValTimeDuration;
         boost::asio::deadline_timer m_deadlineTimer;
         std::atomic<bool> m_enabled;

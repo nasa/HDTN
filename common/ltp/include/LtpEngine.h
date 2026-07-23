@@ -28,6 +28,8 @@
 #ifndef LTP_ENGINE_H
 #define LTP_ENGINE_H 1
 
+#include <optional>
+#include <boost/asio/executor_work_guard.hpp>
 #include <boost/thread.hpp>
 #include "LtpFragmentSet.h"
 #include "Ltp.h"
@@ -1078,10 +1080,10 @@ private:
     uint32_t m_maxRetriesPerSerialNumber;
 protected:
     /// I/O execution context
-    boost::asio::io_service m_ioServiceLtpEngine; //for timers and post calls only
+    boost::asio::io_context m_ioServiceLtpEngine; //for timers and post calls only
 private:
     /// Explicit work controller for m_ioServiceLtpEngine, allows for graceful shutdown of running tasks
-    std::unique_ptr<boost::asio::io_service::work> m_workLtpEnginePtr;
+    std::optional<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> m_workLtpEnginePtr;
 
     /// Report retransmission timer, managed by m_timeManagerOfReportSerialNumbers
     boost::asio::deadline_timer m_deadlineTimerForTimeManagerOfReportSerialNumbers;

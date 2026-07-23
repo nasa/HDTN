@@ -83,7 +83,7 @@ BpOverEncapLocalStreamInduct::BpOverEncapLocalStreamInduct(const InductProcessBu
     m_opportunisticBundleQueuePtr = &opportunisticBundleQueue;
     m_mapNodeIdToOpportunisticBundleQueueMutex.unlock();
 
-    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_context::run, &m_ioService));
     ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceBpEncapSink");
 
     m_onNewOpportunisticLinkCallback = onNewOpportunisticLinkCallback;

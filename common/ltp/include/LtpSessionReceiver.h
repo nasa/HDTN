@@ -23,7 +23,7 @@
  * @section DESCRIPTION
  *
  * This LtpSessionReceiver class encapsulates one LTP receiving session.
- * It uses its own asynchronous timer which uses/shares the user's provided boost::asio::io_service.
+ * It uses its own asynchronous timer which uses/shares the user's provided boost::asio::io_context.
  */
 
 #ifndef LTP_SESSION_RECEIVER_H

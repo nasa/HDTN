@@ -391,7 +391,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(double bundleRate, const boost::
     boost::mutex localMutex;
     boost::mutex::scoped_lock lock(localMutex);
 
-    boost::asio::io_service ioService;
+    boost::asio::io_context ioService;
     boost::asio::deadline_timer deadlineTimer(ioService, sleepValTimeDuration);
     padded_vector_uint8_t bundleToSend;
     uint8_t* bundleToSendStartPtr = NULL;

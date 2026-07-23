@@ -33,6 +33,8 @@
 #include "Induct.h"
 #include "TcpclV4BundleSink.h"
 #include <list>
+#include <optional>
+#include <boost/asio/executor_work_guard.hpp>
 #include <boost/make_unique.hpp>
 #include <memory>
 #include <atomic>
@@ -64,9 +66,9 @@ private:
     INDUCT_MANAGER_LIB_EXPORT virtual void Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId) override;
 
 
-    boost::asio::io_service m_ioService;
+    boost::asio::io_context m_ioService;
     boost::asio::ip::tcp::acceptor m_tcpAcceptor;
-    std::unique_ptr<boost::asio::io_service::work> m_workPtr;
+    std::optional<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> m_workPtr;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     std::list<TcpclV4BundleSink> m_listTcpclV4BundleSinks;
     boost::mutex m_listTcpclV4BundleSinksMutex;

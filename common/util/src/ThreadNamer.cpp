@@ -127,7 +127,7 @@ static void ImplSetThreadName(std::thread& thread, const std::string& threadName
 # endif //THREAD_NAMER_ENABLE_DEPRECATED_FUNCTIONS
 #endif
 
-void ThreadNamer::SetIoServiceThreadName(boost::asio::io_service& ioService, const std::string& threadName) {
+void ThreadNamer::SetIoServiceThreadName(boost::asio::io_context& ioService, const std::string& threadName) {
     boost::asio::post(ioService, boost::bind(&ThreadNamer::SetThisThreadName, threadName));
 }
 void ThreadNamer::SetThisThreadName(const std::string& threadName) {

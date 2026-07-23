@@ -33,6 +33,7 @@
 #include <string>
 #include <boost/thread.hpp>
 #include <boost/asio.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/make_unique.hpp>
 #include <boost/function.hpp>
@@ -56,7 +57,7 @@ public:
         uint32_t decodedEncapPayloadSize, uint8_t decodedEncapHeaderSize)> OnFullEncapPacketReceivedCallback_t;
     typedef boost::function<void(bool isOnConnectionEvent)> OnLocalStreamConnectionStatusChangedCallback_t;
 
-    EncapAsyncDuplexLocalStream(boost::asio::io_service& ioService,
+    EncapAsyncDuplexLocalStream(boost::asio::io_context& ioService,
         const ENCAP_PACKET_TYPE encapPacketType,
         const uint64_t maxEncapRxPacketSizeBytes,
         const OnFullEncapPacketReceivedCallback_t& onFullEncapPacketReceivedCallback,
@@ -549,7 +550,7 @@ private:
 
     const uint64_t M_MAX_ENCAP_RX_PACKET_SIZE_BYTES;
     /// I/O execution context
-    boost::asio::io_service& m_ioServiceRef;
+    boost::asio::io_context& m_ioServiceRef;
     const OnFullEncapPacketReceivedCallback_t m_onFullEncapPacketReceivedCallback;
     const OnLocalStreamConnectionStatusChangedCallback_t m_onLocalStreamConnectionStatusChangedCallback;
     std::string m_socketOrPipePath;

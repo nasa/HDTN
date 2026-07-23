@@ -54,7 +54,7 @@ public:
     typedef std::queue<ptime_plus_mapit_pair_t> timer_queue_t;
     HDTN_UTIL_EXPORT DirectoryScanner(const boost::filesystem::path & rootFileOrFolderPath,
         bool includeExistingFiles, bool includeNewFiles, unsigned int recurseDirectoriesDepth,
-        boost::asio::io_service & ioServiceRef, const uint64_t recheckFileSizeDurationMilliseconds);
+        boost::asio::io_context & ioServiceRef, const uint64_t recheckFileSizeDurationMilliseconds);
     HDTN_UTIL_EXPORT ~DirectoryScanner();
     HDTN_UTIL_EXPORT std::size_t GetNumberOfFilesToSend() const;
     HDTN_UTIL_EXPORT std::size_t GetNumberOfCurrentlyMonitoredDirectories() const;

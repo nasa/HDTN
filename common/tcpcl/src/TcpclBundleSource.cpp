@@ -49,14 +49,14 @@ TcpclBundleSource::TcpclBundleSource(const uint16_t desiredKeepAliveIntervalSeco
         myNodeId,
         expectedRemoteEidUri
     ),
-m_work(m_base_ioServiceRef), //prevent stopping of ioservice until destructor
+m_work(boost::asio::make_work_guard(m_base_ioServiceRef)), //prevent stopping of ioservice until destructor
 m_resolver(m_base_ioServiceRef),
 m_reconnectAfterShutdownTimer(m_base_ioServiceRef),
 m_reconnectAfterOnConnectErrorTimer(m_base_ioServiceRef),
 m_outductOpportunisticProcessReceivedBundleCallback(outductOpportunisticProcessReceivedBundleCallback),
 m_tcpReadSomeBufferVec(10000) //todo 10KB rx buffer
 {
-    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_base_ioServiceRef));
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_context::run, &m_base_ioServiceRef));
     ThreadNamer::SetIoServiceThreadName(m_base_ioServiceRef, "ioServiceTcpclBundleSource");
 }
 
@@ -111,8 +111,7 @@ void TcpclBundleSource::Stop() {
 
 void TcpclBundleSource::Connect(const std::string & hostname, const std::string & port) {
 
-    boost::asio::ip::tcp::resolver::query query(hostname, port);
-    m_resolver.async_resolve(query, boost::bind(&TcpclBundleSource::OnResolve,
+    m_resolver.async_resolve(hostname, port, boost::bind(&TcpclBundleSource::OnResolve,
                                                 this, boost::asio::placeholders::error,
                                                 boost::asio::placeholders::results));
 }
@@ -122,7 +121,7 @@ void TcpclBundleSource::OnResolve(const boost::system::error_code & ec, boost::a
         LOG_ERROR(subprocess) << ec.message();
     }
     else {
-        LOG_INFO(subprocess) << "resolved host to " << results->endpoint().address() << ":" << results->endpoint().port() << ".  Connecting...";
+        LOG_INFO(subprocess) << "resolved host to " << results.begin()->endpoint().address() << ":" << results.begin()->endpoint().port() << ".  Connecting...";
         m_base_tcpSocketPtr = std::make_shared<boost::asio::ip::tcp::socket>(m_base_ioServiceRef);
         m_resolverResults = results;
         boost::asio::async_connect(

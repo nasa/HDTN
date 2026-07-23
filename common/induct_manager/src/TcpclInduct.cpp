@@ -35,7 +35,7 @@ TcpclInduct::TcpclInduct(const InductProcessBundleCallback_t & inductProcessBund
     const OnDeletedOpportunisticLinkCallback_t & onDeletedOpportunisticLinkCallback) :
     Induct(inductProcessBundleCallback, inductConfig),
     m_tcpAcceptor(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), inductConfig.boundPort)),
-    m_workPtr(boost::make_unique<boost::asio::io_service::work>(m_ioService)),
+    m_workPtr(boost::asio::make_work_guard(m_ioService)),
     M_MY_NODE_ID(myNodeId),
     m_allowRemoveInactiveTcpConnections(true),
     M_MAX_BUNDLE_SIZE_BYTES(maxBundleSizeBytes)    
@@ -43,7 +43,7 @@ TcpclInduct::TcpclInduct(const InductProcessBundleCallback_t & inductProcessBund
     m_onNewOpportunisticLinkCallback = onNewOpportunisticLinkCallback;
     m_onDeletedOpportunisticLinkCallback = onDeletedOpportunisticLinkCallback;
     StartTcpAccept();
-    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_context::run, &m_ioService));
     ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceTcpclInduct");
 }
 TcpclInduct::~TcpclInduct() {

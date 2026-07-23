@@ -24,7 +24,7 @@
  *
  * This LtpUdpEngineManager class is singleton pattern class used to share
  * UDP sockets that bind to the same UDP port with various LtpUdpEngine(s).
- * It manages a bidirectional udp socket paired with its own boost::asio::io_service and thread.
+ * It manages a bidirectional udp socket paired with its own boost::asio::io_context and thread.
  * It quickly examines the first few bytes of incoming UDP packets so that it can
  * route them to their proper LtpUdpEngine.
  */
@@ -203,7 +203,7 @@ private:
     /// Our managed UDP socket port, if the port number 0 the socket is bound to a random ephemeral port
     const uint16_t M_MY_BOUND_UDP_PORT;
     /// I/O execution context
-    boost::asio::io_service m_ioServiceUdp;
+    boost::asio::io_context m_ioServiceUdp;
     /// UDP endpoint resolver
     boost::asio::ip::udp::resolver m_resolver;
     /// Our managed UDP socket

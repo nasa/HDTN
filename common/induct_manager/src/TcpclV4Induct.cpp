@@ -38,7 +38,7 @@ TcpclV4Induct::TcpclV4Induct(const InductProcessBundleCallback_t & inductProcess
     m_shareableSslContext(boost::asio::ssl::context::sslv23_server),
 #endif
     m_tcpAcceptor(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), inductConfig.boundPort)),
-    m_workPtr(boost::make_unique<boost::asio::io_service::work>(m_ioService)),
+    m_workPtr(boost::asio::make_work_guard(m_ioService)),
     M_MY_NODE_ID(myNodeId),
     m_allowRemoveInactiveTcpConnections(true),
     M_MAX_BUNDLE_SIZE_BYTES(maxBundleSizeBytes)    
@@ -78,7 +78,7 @@ TcpclV4Induct::TcpclV4Induct(const InductProcessBundleCallback_t & inductProcess
     m_onDeletedOpportunisticLinkCallback = onDeletedOpportunisticLinkCallback;
 
     StartTcpAccept();
-    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_context::run, &m_ioService));
     ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceTcpclV4Induct");
 }
 TcpclV4Induct::~TcpclV4Induct() {

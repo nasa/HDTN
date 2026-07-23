@@ -66,9 +66,8 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesTestCase)
     namespace fs = boost::filesystem;
 
     struct Test {
-        boost::asio::io_service ioService;
-        std::unique_ptr<boost::asio::io_service::work> work = 
-            boost::make_unique<boost::asio::io_service::work>(ioService); //prevent having to call ioService.reset()
+        boost::asio::io_context ioService;
+        boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work = boost::asio::make_work_guard(ioService); //prevent having to call ioService.reset()
         const fs::path rootPath;
         const uint64_t newFileAggregationTimeMs;
         MemoryInFiles mf;
@@ -594,9 +593,9 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesSpeedTestCase)
     static constexpr uint64_t NUM_MEMORY_BLOCKS_TO_ALLOCATE = 1000;
 
     struct Test {
-        boost::asio::io_service ioService;
-        std::unique_ptr<boost::asio::io_service::work> work =
-            boost::make_unique<boost::asio::io_service::work>(ioService); //prevent having to call ioService.reset()
+        boost::asio::io_context ioService;
+        boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work =
+            boost::asio::make_work_guard(ioService); //prevent having to call ioService.reset()
         const fs::path rootPath;
         const uint64_t newFileAggregationTimeMs;
         MemoryInFiles mf;
@@ -747,9 +746,9 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesSpeedTestAllWritesFirstCase)
     static constexpr uint64_t NUM_MEMORY_BLOCKS_TO_ALLOCATE = 1000;
 
     struct Test {
-        boost::asio::io_service ioService;
-        std::unique_ptr<boost::asio::io_service::work> work =
-            boost::make_unique<boost::asio::io_service::work>(ioService); //prevent having to call ioService.reset()
+        boost::asio::io_context ioService;
+        boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work =
+            boost::asio::make_work_guard(ioService); //prevent having to call ioService.reset()
         const fs::path rootPath;
         const uint64_t newFileAggregationTimeMs;
         MemoryInFiles mf;

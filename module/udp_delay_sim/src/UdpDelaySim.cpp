@@ -110,11 +110,10 @@ bool UdpDelaySim::StartIfNotAlreadyRunning() {
             //connect
             static const boost::asio::ip::resolver_query_base::flags UDP_RESOLVER_FLAGS = boost::asio::ip::resolver_query_base::canonical_name; //boost resolver flags
             LOG_INFO(subprocess) << "udp resolving remote " << M_REMOTE_HOSTNAME_TO_FORWARD_PACKETS_TO << ":" << M_REMOTE_PORT_TO_FORWARD_PACKETS_TO;
-            boost::asio::ip::udp::resolver::query query(boost::asio::ip::udp::v4(), M_REMOTE_HOSTNAME_TO_FORWARD_PACKETS_TO, M_REMOTE_PORT_TO_FORWARD_PACKETS_TO, UDP_RESOLVER_FLAGS);
-            m_resolver.async_resolve(query, boost::bind(&UdpDelaySim::OnResolve,
+            m_resolver.async_resolve(boost::asio::ip::udp::v4(), M_REMOTE_HOSTNAME_TO_FORWARD_PACKETS_TO, M_REMOTE_PORT_TO_FORWARD_PACKETS_TO, boost::bind(&UdpDelaySim::OnResolve,
                 this, boost::asio::placeholders::error,
                 boost::asio::placeholders::results));
-            m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService)); //resolve serves as initial work
+            m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_context::run, &m_ioService)); //resolve serves as initial work
             ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceUdpDelaySim");
         }
     }
@@ -160,7 +159,7 @@ void UdpDelaySim::OnResolve(const boost::system::error_code & ec, boost::asio::i
         LOG_ERROR(subprocess) << "Error resolving: " << ec.message();
     }
     else {
-        m_udpDestinationEndpoint = *results;
+        m_udpDestinationEndpoint = *results.begin();
         LOG_INFO(subprocess) << "resolved host to " << m_udpDestinationEndpoint.address() << ":" << m_udpDestinationEndpoint.port() << ".  Binding...";
         StartUdpReceive();
     }

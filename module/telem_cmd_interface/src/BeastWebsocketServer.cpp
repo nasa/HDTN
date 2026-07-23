@@ -1055,7 +1055,7 @@ public:
 
 // Accepts incoming connections and launches the sessions
 class listener {
-    boost::asio::io_service& m_ioServiceRef;
+    boost::asio::io_context& m_ioServiceRef;
 #ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
     boost::asio::ssl::context& m_sslContext;
     const bool m_sslContextIsValid;
@@ -1064,7 +1064,7 @@ class listener {
     ServerState_ptr m_serverStatePtr;
 
 public:
-    listener(boost::asio::io_service& ioService,
+    listener(boost::asio::io_context& ioService,
 #ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
         boost::asio::ssl::context& ctx,
         bool sslContextIsValid,
@@ -1249,7 +1249,7 @@ struct BeastWebsocketServer::Impl : private boost::noncopyable {
 
         //StartTcpAccept();
 #ifdef BEAST_WEBSOCKET_SERVER_SINGLE_THREADED
-        m_ioServiceThreadPtrs[0] = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+        m_ioServiceThreadPtrs[0] = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_context::run, &m_ioService));
         ThreadNamer::SetIoServiceThreadName(m_ioService, "ioServiceWebserver");
 #else
         for (std::size_t i = 0; i < m_ioServiceThreadPtrs.size(); ++i) {
@@ -1275,7 +1275,7 @@ struct BeastWebsocketServer::Impl : private boost::noncopyable {
     }
 
 private:
-    boost::asio::io_service m_ioService;
+    boost::asio::io_context m_ioService;
 #ifdef BEAST_WEBSOCKET_SERVER_SUPPORT_SSL
     // The SSL context is required, and holds certificates
     boost::asio::ssl::context m_sslContext;

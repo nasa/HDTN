@@ -76,7 +76,7 @@ private:
     std::string m_currentFilePathRelativeAsUtf8String;
     std::string m_currentFilePathRelativeAsPrintableString;
     SendFileMetadata m_currentSendFileMetadata;
-    boost::asio::io_service m_ioService; //for DirectoryScanner
+    boost::asio::io_context m_ioService; //for DirectoryScanner
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     std::unique_ptr<DirectoryScanner> m_directoryScannerPtr;
 };

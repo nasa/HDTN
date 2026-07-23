@@ -92,7 +92,7 @@ BOOST_AUTO_TEST_CASE(UdpBatchSenderTestCase)
     //test UdpBatchSender
     {
         //first set up a receiver
-        boost::asio::io_service ioService;
+        boost::asio::io_context ioService;
         boost::asio::ip::udp::socket udpSocket(ioService); //receiving only
         boost::asio::deadline_timer deadlineTimer(ioService);
         g_udpSocketPtr = &udpSocket;
@@ -113,7 +113,7 @@ BOOST_AUTO_TEST_CASE(UdpBatchSenderTestCase)
         BOOST_REQUIRE(ubs.Init("localhost", 1112)); //intentionally set the wrong port, correct it on the next line
         ubs.SetEndpointAndReconnect_ThreadSafe("localhost", 1113);
         ioService.run();
-        ioService.reset();
+        ioService.restart();
         unsigned int successfulTests = 0;
         
         
@@ -152,7 +152,7 @@ BOOST_AUTO_TEST_CASE(UdpBatchSenderTestCase)
             //std::cout << "starting UdpBatchSenderTestCase send/receive operation\n";
             ubs.QueueSendPacketsOperation_ThreadSafe(std::move(udpSendPacketInfoVecPtr), 3); //data gets stolen
             ioService.run();
-            ioService.reset();
+            ioService.restart();
             //OnSentPacketsCallback finished after ioService.run(), because it's possible for receiver callback to be called first
             BOOST_REQUIRE(g_sentCallbackWasSuccessful);
             

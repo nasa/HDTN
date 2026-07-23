@@ -128,7 +128,7 @@ void async_sendmmsg(boost::asio::ip::udp::socket& sock, mmsghdr_vec_t& mmsghdrVe
 class UdpBatchSender::Impl {
     Impl() = delete;
 public:
-    Impl(boost::asio::io_service& ioServiceRef);
+    Impl(boost::asio::io_context& ioServiceRef);
     ~Impl();
     void Stop();
     void Stop_CalledFromWithinIoServiceThread();
@@ -194,7 +194,7 @@ private:
 private:
 
     /// I/O execution context
-    boost::asio::io_service& m_ioServiceRef;
+    boost::asio::io_context& m_ioServiceRef;
     /// UDP socket to connect to destination endpoint
     boost::asio::ip::udp::socket m_udpSocketConnectedSenderOnly;
     /// UDP destination endpoint
@@ -224,9 +224,9 @@ private:
     OnSentPacketsCallback_t m_onSentPacketsCallback;
 };
 
-UdpBatchSender::UdpBatchSender(boost::asio::io_service& ioServiceSingleThreadedRef) :
+UdpBatchSender::UdpBatchSender(boost::asio::io_context& ioServiceSingleThreadedRef) :
     m_pimpl(boost::make_unique<UdpBatchSender::Impl>(ioServiceSingleThreadedRef)) {}
-UdpBatchSender::Impl::Impl(boost::asio::io_service& ioServiceRef) :
+UdpBatchSender::Impl::Impl(boost::asio::io_context& ioServiceRef) :
     m_ioServiceRef(ioServiceRef),
     m_udpSocketConnectedSenderOnly(ioServiceRef)
 #if defined(_WIN32)
@@ -263,7 +263,7 @@ bool UdpBatchSender::Impl::Init(const std::string& remoteHostname, const uint16_
     {
         boost::asio::ip::udp::resolver resolver(m_ioServiceRef);
         try {
-            udpDestinationEndpoint = *resolver.resolve(boost::asio::ip::udp::resolver::query(boost::asio::ip::udp::v4(), remoteHostname, boost::lexical_cast<std::string>(remotePort), UDP_RESOLVER_FLAGS));
+            udpDestinationEndpoint = *resolver.resolve(boost::asio::ip::udp::v4(), remoteHostname, boost::lexical_cast<std::string>(remotePort), UDP_RESOLVER_FLAGS).begin();
         }
         catch (const boost::system::system_error& e) {
             LOG_ERROR(subprocess) << "Error resolving in UdpBatchSender::Init: " << e.what() << "  code=" << e.code();
@@ -630,7 +630,7 @@ bool UdpBatchSender::Impl::SetEndpointAndReconnect(const std::string& remoteHost
     {
         boost::asio::ip::udp::resolver resolver(m_ioServiceRef);
         try {
-            udpDestinationEndpoint = *resolver.resolve(boost::asio::ip::udp::resolver::query(boost::asio::ip::udp::v4(), remoteHostname, boost::lexical_cast<std::string>(remotePort), UDP_RESOLVER_FLAGS));
+            udpDestinationEndpoint = *resolver.resolve(boost::asio::ip::udp::v4(), remoteHostname, boost::lexical_cast<std::string>(remotePort), UDP_RESOLVER_FLAGS).begin();
         }
         catch (const boost::system::system_error& e) {
             LOG_INFO(subprocess) << "Error resolving in UdpBatchSender::SetEndpointAndReconnect: " << e.what() << "  code=" << e.code();

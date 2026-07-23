@@ -78,7 +78,7 @@ public:
      *
      * @post The name of the thread that is running the io_service is set.
      */
-    HDTN_UTIL_EXPORT static void SetIoServiceThreadName(boost::asio::io_service& ioService, const std::string& threadName);
+    HDTN_UTIL_EXPORT static void SetIoServiceThreadName(boost::asio::io_context& ioService, const std::string& threadName);
     
     
 };
