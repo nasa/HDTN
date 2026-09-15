@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Fixed Multigraph Routing (`--use-mgr`) finding no route when the destination or a relay node id is lower than the source node id, and computing routes from time 0 instead of the current time.
 
 ### Added
+* Added a warning when a contact plan `startTime`, `endTime` or `owlt` is not a whole number of seconds (the field is still loaded as 0).
 
 ### Changed
 

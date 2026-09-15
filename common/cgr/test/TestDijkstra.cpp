@@ -1,6 +1,7 @@
 #include <boost/test/unit_test.hpp>
 #include "libcgr.h"
 #include "Environment.h"
+#include "JsonSerializable.h"
 #include <boost/algorithm/string.hpp>
 #include <iostream>
 
@@ -538,6 +539,35 @@ BOOST_AUTO_TEST_CASE(CMR_CutThroughModeContactPlanTestCase)
 	cgr::Route cmrBestRoute = cgr::cmr_dijkstra(&cmrRootContact, 2, contactPlan);
 	BOOST_REQUIRE(cmrBestRoute.valid()); // not a failed dijkstra search
 	BOOST_CHECK(cmrBestRoute.next_node == bestRoute.next_node);
+}
+
+BOOST_AUTO_TEST_CASE(ContactPlanLoadTimeFieldsTestCase)
+{
+	// Contact 0 has integer times, contact 1 has no owlt, contact 2 has a decimal startTime
+	// (which is loaded as 0 and logs a warning)
+	const std::string contactPlanJson =
+		"{\"contacts\": ["
+		"{\"contact\": 0, \"source\": 1, \"dest\": 2, \"startTime\": 0, \"endTime\": 100, \"rateBitsPerSec\": 1000, \"owlt\": 1},"
+		"{\"contact\": 1, \"source\": 1, \"dest\": 3, \"startTime\": 10, \"endTime\": 20, \"rateBitsPerSec\": 1000},"
+		"{\"contact\": 2, \"source\": 2, \"dest\": 3, \"startTime\": 19967.34375, \"endTime\": 20000, \"rateBitsPerSec\": 1000, \"owlt\": 1}"
+		"]}";
+	boost::property_tree::ptree pt;
+	BOOST_REQUIRE(JsonSerializable::GetPropertyTreeFromJsonString(contactPlanJson, pt));
+
+	std::vector<cgr::Contact> contactPlan = cgr::cp_load(pt.get_child("contacts"));
+	BOOST_REQUIRE(contactPlan.size() == 3);
+
+	BOOST_CHECK(contactPlan[0].start == 0);
+	BOOST_CHECK(contactPlan[0].end == 100);
+	BOOST_CHECK(contactPlan[0].owlt == 1);
+
+	BOOST_CHECK(contactPlan[1].start == 10);
+	BOOST_CHECK(contactPlan[1].end == 20);
+	BOOST_CHECK(contactPlan[1].owlt == 0);
+
+	BOOST_CHECK(contactPlan[2].start == 0);
+	BOOST_CHECK(contactPlan[2].end == 20000);
+	BOOST_CHECK(contactPlan[2].owlt == 1);
 }
 
 // Ad hoc timing tests
