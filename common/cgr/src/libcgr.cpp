@@ -141,6 +141,7 @@ void Route::refresh_metrics() {
     next_node = allHops[0].to;
     from_time = allHops[0].start;
     to_time = MAX_TIME_T;
+    //best_delivery_time is relative to a bundle ready at time 0, not to the query time of the route search
     best_delivery_time = 0;
     confidence = 1;
     for (const Contact& contact : allHops) {
