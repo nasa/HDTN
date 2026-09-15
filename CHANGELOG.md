@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+* Fixed Multigraph Routing (`--use-mgr`) finding no route when the destination or a relay node id is lower than the source node id, and computing routes from time 0 instead of the current time.
 
 ### Added
 

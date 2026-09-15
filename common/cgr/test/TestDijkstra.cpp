@@ -456,6 +456,90 @@ BOOST_AUTO_TEST_CASE(CMR_DijkstraPyCGRTutorialTestCase)
 	};
 }
 
+BOOST_AUTO_TEST_CASE(CMR_DestinationLowerThanSourceTestCase)
+{
+	// Route from node 2 to node 1 (destination id lower than source id) at a non-zero query time.
+	// The router sets start to 0 and passes the query time in arrival_time.
+	std::vector<cgr::Contact> contactPlan;
+	contactPlan.push_back(cgr::Contact(2, 1, 0, cgr::MAX_TIME_T, 100, 1.0, 1));
+
+	cgr::Contact rootContact = cgr::Contact(2, 2, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
+	rootContact.arrival_time = 174386;
+
+	cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, 1, contactPlan);
+
+	BOOST_REQUIRE(bestRoute.valid()); // not a failed dijkstra search
+	BOOST_CHECK(bestRoute.next_node == 1);
+}
+
+BOOST_AUTO_TEST_CASE(CMR_RelayLowerThanSourceTestCase)
+{
+	// Route from node 5 to node 9 through relay node 1 (relay id lower than source id)
+	std::vector<cgr::Contact> contactPlan;
+	contactPlan.push_back(cgr::Contact(5, 1, 0, 1000, 100, 1.0, 1));
+	contactPlan.push_back(cgr::Contact(1, 9, 0, 1000, 100, 1.0, 1));
+
+	cgr::Contact rootContact = cgr::Contact(5, 5, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
+	rootContact.arrival_time = 0;
+
+	cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, 9, contactPlan);
+
+	BOOST_REQUIRE(bestRoute.valid()); // not a failed dijkstra search
+	BOOST_CHECK(bestRoute.next_node == 1);
+
+	std::size_t expectedHops = 2;
+	std::vector<cgr::Contact> expectedContacts({ contactPlan[0], contactPlan[1] });
+	std::vector<cgr::Contact> hops = bestRoute.get_hops();
+	BOOST_REQUIRE(hops.size() == expectedHops);
+	for (std::size_t i = 0; i < expectedHops; ++i) {
+		BOOST_CHECK(hops[i] == expectedContacts[i]);
+	};
+}
+
+BOOST_AUTO_TEST_CASE(CMR_QueryTimeTestCase)
+{
+	// Route from node 1 to node 2 at query time 50: the first contact already ended at time 10,
+	// so the route must use the second contact
+	std::vector<cgr::Contact> contactPlan;
+	contactPlan.push_back(cgr::Contact(1, 2, 0, 10, 100, 1.0, 1));
+	contactPlan.push_back(cgr::Contact(1, 2, 100, 200, 100, 1.0, 1));
+
+	cgr::Contact rootContact = cgr::Contact(1, 1, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
+	rootContact.arrival_time = 50;
+
+	cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, 2, contactPlan);
+
+	BOOST_REQUIRE(bestRoute.valid()); // not a failed dijkstra search
+	BOOST_CHECK(bestRoute.next_node == 2);
+
+	std::vector<cgr::Contact> hops = bestRoute.get_hops();
+	BOOST_REQUIRE(hops.size() == 1);
+	BOOST_CHECK(hops[0] == contactPlan[1]);
+}
+
+BOOST_AUTO_TEST_CASE(CMR_CutThroughModeContactPlanTestCase)
+{
+	// Route from node 10 to node 2 using the contact plan of the default runscript,
+	// cmr_dijkstra must agree with dijkstra
+	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "router" / "contact_plans";
+	const boost::filesystem::path contactFile = contactRootDir / "contactPlanCutThroughMode_unlimitedRate.json";
+
+	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
+	BOOST_REQUIRE(contactPlan.size() == 4);
+
+	cgr::Contact rootContact = cgr::Contact(10, 10, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
+	rootContact.arrival_time = 0;
+	cgr::Route bestRoute = cgr::dijkstra(&rootContact, 2, contactPlan);
+	BOOST_REQUIRE(bestRoute.valid()); // not a failed dijkstra search
+	BOOST_CHECK(bestRoute.next_node == 2);
+
+	cgr::Contact cmrRootContact = cgr::Contact(10, 10, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
+	cmrRootContact.arrival_time = 0;
+	cgr::Route cmrBestRoute = cgr::cmr_dijkstra(&cmrRootContact, 2, contactPlan);
+	BOOST_REQUIRE(cmrBestRoute.valid()); // not a failed dijkstra search
+	BOOST_CHECK(cmrBestRoute.next_node == bestRoute.next_node);
+}
+
 // Ad hoc timing tests
 
 BOOST_AUTO_TEST_CASE(TimingTest_RoutingTest, *boost::unit_test::disabled())

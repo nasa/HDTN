@@ -599,8 +599,10 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
     
     // Construct Contact Multigraph from Contact Plan
     ContactMultigraph CM(contact_plan, destination);
-    // Set root vertex's arrival time
-    CM.m_nodeMap[root_contact->frm].m_arrivalTime = root_contact->start;
+    // Set root vertex's arrival time (and its priority queue key) to the query time, same as dijkstra()
+    ContactMultigraph::CmrMapData & rootNodeData = CM.m_nodeMap[root_contact->frm];
+    rootNodeData.m_arrivalTime = root_contact->arrival_time;
+    rootNodeData.m_vertex.vertex_arrival_time = root_contact->arrival_time;
     // Construct min PQ ordered by arrival time
     std::priority_queue<vertex_ptr_plus_arrival_time_pair_t, std::vector<vertex_ptr_plus_arrival_time_pair_t>, CompareArrivals> PQ;
     for (ContactMultigraph::cmr_node_map_t::iterator it = CM.m_nodeMap.begin(); it != CM.m_nodeMap.end(); ++it) {
