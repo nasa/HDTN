@@ -49,52 +49,62 @@ bool InductManager::LoadInductsFromConfig(const InductProcessBundleCallback_t & 
     const induct_element_config_vector_t & configsVec = inductsConfig.m_inductElementConfigVector;
     for (induct_element_config_vector_t::const_iterator it = configsVec.cbegin(); it != configsVec.cend(); ++it) {
         const induct_element_config_t & thisInductConfig = *it;
-        if (thisInductConfig.convergenceLayer == "tcpcl_v3") {
-            m_inductsList.emplace_back(boost::make_unique<TcpclInduct>(inductProcessBundleCallback, thisInductConfig,
-                myNodeId, maxBundleSizeBytes, onNewOpportunisticLinkCallback, onDeletedOpportunisticLinkCallback));
-        }
-        else if (thisInductConfig.convergenceLayer == "tcpcl_v4") {
+        //an induct constructor can throw (for example boost asio throws when the bound port is already in use),
+        //which would otherwise terminate the process
+        try {
+            if (thisInductConfig.convergenceLayer == "tcpcl_v3") {
+                m_inductsList.emplace_back(boost::make_unique<TcpclInduct>(inductProcessBundleCallback, thisInductConfig,
+                    myNodeId, maxBundleSizeBytes, onNewOpportunisticLinkCallback, onDeletedOpportunisticLinkCallback));
+            }
+            else if (thisInductConfig.convergenceLayer == "tcpcl_v4") {
 #ifndef OPENSSL_SUPPORT_ENABLED
-            if (thisInductConfig.tlsIsRequired) {
-                LOG_ERROR(hdtn::Logger::SubProcess::none) << "error in InductManager::LoadInductsFromConfig: TLS is required for this tcpcl v4 induct but HDTN is not compiled with OpenSSL support.. this induct shall be disabled.";
+                if (thisInductConfig.tlsIsRequired) {
+                    LOG_ERROR(hdtn::Logger::SubProcess::none) << "error in InductManager::LoadInductsFromConfig: TLS is required for this tcpcl v4 induct but HDTN is not compiled with OpenSSL support.. this induct shall be disabled.";
+                    continue;
+                }
+#endif
+                m_inductsList.emplace_back(boost::make_unique<TcpclV4Induct>(inductProcessBundleCallback, thisInductConfig,
+                    myNodeId, maxBundleSizeBytes, onNewOpportunisticLinkCallback, onDeletedOpportunisticLinkCallback));
+            }
+            else if (thisInductConfig.convergenceLayer == "slip_over_uart") {
+                m_inductsList.emplace_back(boost::make_unique<SlipOverUartInduct>(inductProcessBundleCallback, thisInductConfig,
+                    maxBundleSizeBytes, onNewOpportunisticLinkCallback, onDeletedOpportunisticLinkCallback));
+            }
+            else if (thisInductConfig.convergenceLayer == "bp_over_encap_local_stream") {
+                m_inductsList.emplace_back(boost::make_unique<BpOverEncapLocalStreamInduct>(inductProcessBundleCallback, thisInductConfig,
+                    maxBundleSizeBytes, onNewOpportunisticLinkCallback, onDeletedOpportunisticLinkCallback));
+            }
+            else if (thisInductConfig.convergenceLayer == "stcp") {
+                m_inductsList.emplace_back(boost::make_unique<StcpInduct>(inductProcessBundleCallback, thisInductConfig,
+                    maxBundleSizeBytes, onNewOpportunisticLinkCallback, onDeletedOpportunisticLinkCallback));
+            }
+            else if (thisInductConfig.convergenceLayer == "udp") {
+                m_inductsList.emplace_back(boost::make_unique<UdpInduct>(inductProcessBundleCallback, thisInductConfig));
+            }
+            else if (thisInductConfig.convergenceLayer == "ltp_over_udp") {
+                m_inductsList.emplace_back(boost::make_unique<LtpOverUdpInduct>(inductProcessBundleCallback, thisInductConfig, maxBundleSizeBytes));
+            }
+            else if (thisInductConfig.convergenceLayer == "ltp_over_ipc") {
+                m_inductsList.emplace_back(boost::make_unique<LtpOverIpcInduct>(inductProcessBundleCallback, thisInductConfig, maxBundleSizeBytes));
+            }
+            else if (thisInductConfig.convergenceLayer == "ltp_over_encap_local_stream") {
+                m_inductsList.emplace_back(boost::make_unique<LtpOverEncapLocalStreamInduct>(inductProcessBundleCallback, thisInductConfig, maxBundleSizeBytes));
+            }
+            else {
+                LOG_ERROR(hdtn::Logger::SubProcess::none) << "error in InductManager::LoadInductsFromConfig: unknown convergence layer "
+                    << thisInductConfig.convergenceLayer << " ..skipping";
                 continue;
             }
-#endif
-            m_inductsList.emplace_back(boost::make_unique<TcpclV4Induct>(inductProcessBundleCallback, thisInductConfig,
-                myNodeId, maxBundleSizeBytes, onNewOpportunisticLinkCallback, onDeletedOpportunisticLinkCallback));
-        }
-        else if (thisInductConfig.convergenceLayer == "slip_over_uart") {
-            m_inductsList.emplace_back(boost::make_unique<SlipOverUartInduct>(inductProcessBundleCallback, thisInductConfig,
-                maxBundleSizeBytes, onNewOpportunisticLinkCallback, onDeletedOpportunisticLinkCallback));
-        }
-        else if (thisInductConfig.convergenceLayer == "bp_over_encap_local_stream") {
-            m_inductsList.emplace_back(boost::make_unique<BpOverEncapLocalStreamInduct>(inductProcessBundleCallback, thisInductConfig,
-                maxBundleSizeBytes, onNewOpportunisticLinkCallback, onDeletedOpportunisticLinkCallback));
-        }
-        else if (thisInductConfig.convergenceLayer == "stcp") {
-            m_inductsList.emplace_back(boost::make_unique<StcpInduct>(inductProcessBundleCallback, thisInductConfig,
-                maxBundleSizeBytes, onNewOpportunisticLinkCallback, onDeletedOpportunisticLinkCallback));
-        }
-        else if (thisInductConfig.convergenceLayer == "udp") {
-            m_inductsList.emplace_back(boost::make_unique<UdpInduct>(inductProcessBundleCallback, thisInductConfig));
-        }
-        else if (thisInductConfig.convergenceLayer == "ltp_over_udp") {
-            m_inductsList.emplace_back(boost::make_unique<LtpOverUdpInduct>(inductProcessBundleCallback, thisInductConfig, maxBundleSizeBytes));
-        }
-        else if (thisInductConfig.convergenceLayer == "ltp_over_ipc") {
-            m_inductsList.emplace_back(boost::make_unique<LtpOverIpcInduct>(inductProcessBundleCallback, thisInductConfig, maxBundleSizeBytes));
-        }
-        else if (thisInductConfig.convergenceLayer == "ltp_over_encap_local_stream") {
-            m_inductsList.emplace_back(boost::make_unique<LtpOverEncapLocalStreamInduct>(inductProcessBundleCallback, thisInductConfig, maxBundleSizeBytes));
-        }
-        else {
-            LOG_ERROR(hdtn::Logger::SubProcess::none) << "error in InductManager::LoadInductsFromConfig: unknown convergence layer "
-                << thisInductConfig.convergenceLayer << " ..skipping";
-            continue;
-        }
 
-        if (!m_inductsList.back()->Init()) {
-            LOG_FATAL(hdtn::Logger::SubProcess::none) << "error in InductManager::LoadInductsFromConfig: unable to initialize";
+            if (!m_inductsList.back()->Init()) {
+                LOG_FATAL(hdtn::Logger::SubProcess::none) << "error in InductManager::LoadInductsFromConfig: unable to initialize";
+                return false;
+            }
+        }
+        catch (const std::exception& e) {
+            LOG_FATAL(hdtn::Logger::SubProcess::none) << "error in InductManager::LoadInductsFromConfig: cannot create induct "
+                << thisInductConfig.name << " (convergence layer " << thisInductConfig.convergenceLayer
+                << ", bound port " << thisInductConfig.boundPort << "): " << e.what();
             return false;
         }
     }

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+* Fixed a crash when an induct could not bind its port, for example when the port was already in use.  `InductManager::LoadInductsFromConfig` now logs the induct and port and returns false instead of letting the exception terminate the process.
 
 ### Added
 
