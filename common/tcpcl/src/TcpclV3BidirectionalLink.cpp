@@ -81,6 +81,8 @@ TcpclV3BidirectionalLink::TcpclV3BidirectionalLink(
     m_base_fragmentVectorIndexCbVec(M_BASE_UNACKED_BUNDLE_CB_SIZE),
     m_base_userDataCbVec(M_BASE_UNACKED_BUNDLE_CB_SIZE),
     M_BASE_MAX_FRAGMENT_SIZE(maxFragmentSize),
+    m_base_noAckBundlesRetired(0),
+    m_base_noAckBundleBytesRetired(0),
 
     m_base_userAssignedUuid(0)
 {
@@ -96,6 +98,8 @@ TcpclV3BidirectionalLink::TcpclV3BidirectionalLink(
 
 
     m_base_handleTcpSendCallback = boost::bind(&TcpclV3BidirectionalLink::BaseClass_HandleTcpSend, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, boost::placeholders::_3);
+    m_base_handleNoAckBundleSendCallback = boost::bind(&TcpclV3BidirectionalLink::BaseClass_HandleNoAckBundleSend, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, boost::placeholders::_3);
+    m_base_handleNoAckBundleFailureCallback = boost::bind(&TcpclV3BidirectionalLink::BaseClass_RetireNoAckBundle, this, boost::placeholders::_1, false);
     m_base_handleTcpSendShutdownCallback = boost::bind(&TcpclV3BidirectionalLink::BaseClass_HandleTcpSendShutdown, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, boost::placeholders::_3);
 
     for (unsigned int i = 0; i < M_BASE_UNACKED_BUNDLE_CB_SIZE; ++i) {
@@ -167,6 +171,52 @@ unsigned int TcpclV3BidirectionalLink::Virtual_GetMaxTxBundlesInPipeline() {
     return M_BASE_MAX_UNACKED_BUNDLES_IN_PIPELINE;
 }
 
+std::size_t TcpclV3BidirectionalLink::BaseClass_GetTotalBundlesUnacked() const noexcept {
+    const uint64_t locallyRetired = m_base_noAckBundlesRetired.load(std::memory_order_acquire);
+    const uint64_t acked = m_base_telem.totalBundlesSentAndAcked.load(std::memory_order_acquire);
+    return m_base_telem.totalBundlesSent.load(std::memory_order_acquire) - acked - locallyRetired;
+}
+
+std::size_t TcpclV3BidirectionalLink::BaseClass_GetTotalBundleBytesUnacked() const noexcept {
+    const uint64_t locallyRetired = m_base_noAckBundleBytesRetired.load(std::memory_order_acquire);
+    const uint64_t acked = m_base_telem.totalBundleBytesSentAndAcked.load(std::memory_order_acquire);
+    return m_base_telem.totalBundleBytesSent.load(std::memory_order_acquire) - acked - locallyRetired;
+}
+
+void TcpclV3BidirectionalLink::BaseClass_HandleNoAckBundleSend(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr) {
+    if (!error) {
+        BaseClass_RetireNoAckBundle(elPtr, true);
+    }
+    // On error TcpAsyncSender retires this and queued bundle owners through the
+    // failure hook, before invoking the existing payload-return callbacks.
+    BaseClass_HandleTcpSend(error, bytes_transferred, elPtr);
+}
+
+void TcpclV3BidirectionalLink::BaseClass_RetireNoAckBundle(TcpAsyncSenderElement* elPtr, bool success) {
+    const unsigned int readIndex = m_base_bytesToAckCb.GetIndexForRead();
+    if (readIndex == CIRCULAR_INDEX_BUFFER_EMPTY) {
+        LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": local completion with empty queue";
+        return;
+    }
+    const uint64_t bundleBytes = m_base_bytesToAckCbVec[readIndex];
+    elPtr->m_userData = std::move(m_base_userDataCbVec[readIndex]);
+    m_base_bytesToAckCb.CommitRead();
+    m_base_noAckBundleBytesRetired.fetch_add(bundleBytes, std::memory_order_release);
+    m_base_noAckBundlesRetired.fetch_add(1, std::memory_order_release);
+    if (success) {
+        if (m_base_onSuccessfulBundleSendCallback) {
+            m_base_onSuccessfulBundleSendCallback(elPtr->m_userData, m_base_userAssignedUuid);
+        }
+        Virtual_OnSuccessfulWholeBundleAcknowledged();
+    }
+    else {
+        m_base_telem.totalBundlesFailedToSend.fetch_add(1, std::memory_order_relaxed);
+    }
+    if (m_base_useLocalConditionVariableAckReceived.load(std::memory_order_acquire)) {
+        m_base_localConditionVariableAckReceived.notify_one();
+    }
+}
+
 void TcpclV3BidirectionalLink::BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr) {
     (void)bytes_transferred;
     (void)elPtr;
@@ -232,6 +282,10 @@ void TcpclV3BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8
 
 
 void TcpclV3BidirectionalLink::BaseClass_AckCallback(uint64_t totalBytesAcknowledged) {
+    if (!(static_cast<unsigned int>(m_base_contactHeaderFlags) & static_cast<unsigned int>(CONTACT_HEADER_FLAGS::REQUEST_ACK_OF_BUNDLE_SEGMENTS))) {
+        LOG_WARNING(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": ignoring ACK because segment acknowledgments were not negotiated";
+        return;
+    }
     const unsigned int readIndex = m_base_bytesToAckCb.GetIndexForRead();
     if (readIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //empty
         LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": AckCallback called with empty queue";
@@ -256,8 +310,8 @@ void TcpclV3BidirectionalLink::BaseClass_AckCallback(uint64_t totalBytesAcknowle
         //now ack the entire bundle
         if (currentFragmentBytesVec.empty()) {
             if (m_base_bytesToAckCbVec[readIndex] == totalBytesAcknowledged) {
-                m_base_telem.totalBundlesSentAndAcked.fetch_add(1, std::memory_order_relaxed);
-                m_base_telem.totalBundleBytesSentAndAcked.fetch_add(m_base_bytesToAckCbVec[readIndex], std::memory_order_relaxed);
+                m_base_telem.totalBundlesSentAndAcked.fetch_add(1, std::memory_order_release);
+                m_base_telem.totalBundleBytesSentAndAcked.fetch_add(m_base_bytesToAckCbVec[readIndex], std::memory_order_release);
                 if (m_base_onSuccessfulBundleSendCallback) {
                     m_base_onSuccessfulBundleSendCallback(m_base_userDataCbVec[readIndex], m_base_userAssignedUuid);
                 }
@@ -485,10 +539,7 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
         dataSize = vecMessage.size();
         dataToSendPtr = vecMessage.data();
     }
-
-    
-
-
+    const bool useAcks = (static_cast<unsigned int>(m_base_contactHeaderFlags) & static_cast<unsigned int>(CONTACT_HEADER_FLAGS::REQUEST_ACK_OF_BUNDLE_SEGMENTS)) != 0;
     const unsigned int writeIndex = m_base_bytesToAckCb.GetIndexForWrite(); //don't put this in tcp async write callback
     if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) { //push check
         LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_Forward.. too many unacked packets";
@@ -536,6 +587,10 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
             el->m_constBufferVec[0] = boost::asio::buffer(el->m_underlyingDataVecHeaders[0]);
             el->m_constBufferVec[1] = boost::asio::buffer(dataToSendPtr + dataIndex, bytesToSend);
             el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
+            if (isEndSegment && !useAcks) {
+                el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleNoAckBundleSendCallback;
+                el->m_onFailedSendCallbackByIoServiceThreadPtr = &m_base_handleNoAckBundleFailureCallback;
+            }
             elements.push_back(el);
 
 
@@ -591,6 +646,10 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
         el->m_constBufferVec[0] = boost::asio::buffer(el->m_underlyingDataVecHeaders[0]);
         el->m_constBufferVec[1] = boost::asio::buffer(dataToSendPtr, dataSize);
         el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
+        if (!useAcks) {
+            el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleNoAckBundleSendCallback;
+            el->m_onFailedSendCallbackByIoServiceThreadPtr = &m_base_handleNoAckBundleFailureCallback;
+        }
         m_base_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
     }
 
