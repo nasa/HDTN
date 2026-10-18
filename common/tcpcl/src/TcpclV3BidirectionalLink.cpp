@@ -193,14 +193,10 @@ void TcpclV3BidirectionalLink::BaseClass_HandleNoAckBundleSend(const boost::syst
 }
 
 void TcpclV3BidirectionalLink::BaseClass_RetireNoAckBundle(TcpAsyncSenderElement* elPtr, bool success) {
-    const unsigned int readIndex = m_base_bytesToAckCb.GetIndexForRead();
-    if (readIndex == CIRCULAR_INDEX_BUFFER_EMPTY) {
-        LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": local completion with empty queue";
-        return;
-    }
-    const uint64_t bundleBytes = m_base_bytesToAckCbVec[readIndex];
-    elPtr->m_userData = std::move(m_base_userDataCbVec[readIndex]);
-    m_base_bytesToAckCb.CommitRead();
+    // Metadata and size belong to this payload owner, independently of pending
+    // protocol ACKs left by an earlier connection.
+    const uint64_t bundleBytes = elPtr->m_underlyingDataZmqBundle
+        ? elPtr->m_underlyingDataZmqBundle->size() : elPtr->m_underlyingDataVecBundle.size();
     m_base_noAckBundleBytesRetired.fetch_add(bundleBytes, std::memory_order_release);
     m_base_noAckBundlesRetired.fetch_add(1, std::memory_order_release);
     if (success) {
@@ -540,28 +536,32 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
         dataToSendPtr = vecMessage.data();
     }
     const bool useAcks = (static_cast<unsigned int>(m_base_contactHeaderFlags) & static_cast<unsigned int>(CONTACT_HEADER_FLAGS::REQUEST_ACK_OF_BUNDLE_SEGMENTS)) != 0;
-    const unsigned int writeIndex = m_base_bytesToAckCb.GetIndexForWrite(); //don't put this in tcp async write callback
-    if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) { //push check
+    const unsigned int writeIndex = useAcks ? m_base_bytesToAckCb.GetIndexForWrite() : 0;
+    if ((useAcks && (writeIndex == CIRCULAR_INDEX_BUFFER_FULL)) ||
+        (!useAcks && (BaseClass_GetTotalBundlesUnacked() >= M_BASE_UNACKED_BUNDLE_CB_SIZE - 1))) {
         LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_Forward.. too many unacked packets";
         return false;
     }
     m_base_dataSentServedAsKeepaliveSent.store(true, std::memory_order_release);
-    m_base_bytesToAckCbVec[writeIndex] = dataSize;
-    m_base_userDataCbVec[writeIndex] = std::move(userData);
+    std::vector<uint64_t>* currentFragmentBytesVec = NULL;
+    if (useAcks) {
+        m_base_bytesToAckCbVec[writeIndex] = dataSize;
+        m_base_userDataCbVec[writeIndex] = std::move(userData);
+        currentFragmentBytesVec = &m_base_fragmentBytesToAckCbVec[writeIndex];
+        currentFragmentBytesVec->clear();
+        m_base_fragmentVectorIndexCbVec[writeIndex] = 0;
+    }
 
     m_base_telem.totalBundlesSent.fetch_add(1, std::memory_order_relaxed);
     m_base_telem.totalBundleBytesSent.fetch_add(dataSize, std::memory_order_relaxed);
 
-    std::vector<uint64_t> & currentFragmentBytesVec = m_base_fragmentBytesToAckCbVec[writeIndex];
-    currentFragmentBytesVec.resize(0); //will be zero size if not fragmented
-    m_base_fragmentVectorIndexCbVec[writeIndex] = 0; //used by the ack callback
     std::vector<TcpAsyncSenderElement*> elements;
 
     const bool doFragment = (M_BASE_MAX_FRAGMENT_SIZE && (dataSize > M_BASE_MAX_FRAGMENT_SIZE));
     if (doFragment) {
         const uint64_t reservedSize = (dataSize / M_BASE_MAX_FRAGMENT_SIZE) + 2;
         elements.reserve(reservedSize);
-        currentFragmentBytesVec.reserve(reservedSize);
+        if (useAcks) currentFragmentBytesVec->reserve(reservedSize);
         uint64_t dataIndex = 0;
         while (true) {
             uint64_t bytesToSend = std::min(dataSize - dataIndex, M_BASE_MAX_FRAGMENT_SIZE);
@@ -588,6 +588,7 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
             el->m_constBufferVec[1] = boost::asio::buffer(dataToSendPtr + dataIndex, bytesToSend);
             el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
             if (isEndSegment && !useAcks) {
+                el->m_userData = std::move(userData);
                 el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleNoAckBundleSendCallback;
                 el->m_onFailedSendCallbackByIoServiceThreadPtr = &m_base_handleNoAckBundleFailureCallback;
             }
@@ -595,7 +596,7 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
 
 
             dataIndex += bytesToSend;
-            currentFragmentBytesVec.push_back(dataIndex); //bytes to ack must be cumulative of fragments
+            if (useAcks) currentFragmentBytesVec->push_back(dataIndex); //cumulative fragment bytes
 
             if (isEndSegment) {
                 break;
@@ -603,7 +604,7 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
         }
     }
 
-    m_base_bytesToAckCb.CommitWrite(); //pushed
+    if (useAcks) m_base_bytesToAckCb.CommitWrite();
 
     //send length if requested
     //LENGTH messages MUST NOT be sent unless the corresponding flag bit is
@@ -647,6 +648,7 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
         el->m_constBufferVec[1] = boost::asio::buffer(dataToSendPtr, dataSize);
         el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
         if (!useAcks) {
+            el->m_userData = std::move(userData);
             el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleNoAckBundleSendCallback;
             el->m_onFailedSendCallbackByIoServiceThreadPtr = &m_base_handleNoAckBundleFailureCallback;
         }

@@ -152,8 +152,8 @@ public:
         BOOST_REQUIRE(Until([this]() { return m_base_tcpclShutdownComplete.load(); }, false));
     }
 
-    bool Empty() const { return m_base_bytesToAckCb.IsEmpty(); }
-    bool Full() const { return m_base_bytesToAckCb.IsFull(); }
+    bool Empty() const { return BaseClass_GetTotalBundlesUnacked() == 0; }
+    bool Full() const { return BaseClass_GetTotalBundlesUnacked() == 7; }
     uint64_t FailedCount() const { return m_base_telem.totalBundlesFailedToSend.load(); }
     uint64_t FragmentsAcked() const { return m_base_telem.totalFragmentsSentAndAcked.load(); }
 
@@ -215,7 +215,7 @@ void CheckWire(const std::vector<uint8_t>& wire, unsigned int count, uint64_t fr
 void CheckNoAckProgress(uint64_t fragmentSize, uint8_t flags, bool zmqData) {
     CompletionLink link(fragmentSize);
     link.Negotiate(flags);
-    // The ring's seven usable slots must remain bounded and be reused for
+    // The seven usable pipeline slots must remain bounded and be reused for
     // three complete windows, independently of the outer pipeline accounting.
     for (unsigned int window = 0; window < 3; ++window) {
         for (unsigned int j = 0; j < 7; ++j) {
@@ -434,4 +434,51 @@ BOOST_AUTO_TEST_CASE(TcpclV3NoAckBundleSourceLoopback) {
     BOOST_CHECK_EQUAL(source.BaseClass_GetTotalBundlesAcked(), 0);
     CheckWire(wire, 21, 5, false);
     source.Stop();
+}
+
+BOOST_AUTO_TEST_CASE(TcpclV3NoAckCompletionAfterUnackedConnection) {
+    CompletionLink link;
+    link.Negotiate(1);
+    BOOST_REQUIRE(link.Queue(1, false, 31));
+    BOOST_REQUIRE(link.Until([&]() { return link.wire.size() == 49; }));
+    BOOST_CHECK_EQUAL(link.completed, 0);
+    BOOST_CHECK_EQUAL(link.BaseClass_GetTotalBundlesUnacked(), 1);
+    // The peer closes before acknowledging the previous connection's bundle.
+    // Existing ACK recovery is outside this test; its pending entry must never
+    // supply metadata for a different no-ACK bundle on the new connection.
+    link.Input({0x50});
+    link.FinishShutdown();
+    link.Connect();
+    link.Negotiate(0);
+    link.wire.clear();
+    BOOST_REQUIRE(link.Queue(2));
+    BOOST_REQUIRE(link.Until([&]() { return link.completed == 1; }));
+    BOOST_CHECK(link.successfulData.front() == std::vector<uint8_t>(1, 2));
+    BOOST_CHECK_EQUAL(link.BaseClass_GetTotalBundlesAcked(), 0);
+    // Only the earlier, never-acknowledged bundle remains outstanding.
+    BOOST_CHECK_EQUAL(link.BaseClass_GetTotalBundlesUnacked(), 1);
+    BOOST_CHECK_EQUAL(link.BaseClass_GetTotalBundleBytesUnacked(), 31);
+}
+
+BOOST_AUTO_TEST_CASE(TcpclV3NoAckFailureAfterUnackedConnection) {
+    CompletionLink link(65536);
+    link.Negotiate(1);
+    BOOST_REQUIRE(link.Queue(1, false, 31));
+    BOOST_REQUIRE(link.Until([&]() { return link.wire.size() == 49; }));
+    link.Input({0x50});
+    link.FinishShutdown();
+    link.Connect();
+    link.Negotiate(0);
+    link.SmallBuffers();
+    const std::size_t size = 4 * 1024 * 1024;
+    BOOST_REQUIRE(link.Queue(2, false, size));
+    BOOST_REQUIRE(link.Until([&]() { return link.peer.available() > 100; }, false));
+    link.ResetPeer();
+    BOOST_REQUIRE(link.Until([&]() { return link.failed == 1; }, false));
+    BOOST_CHECK_EQUAL(link.completed, 0);
+    BOOST_CHECK(link.failedData.front() == std::vector<uint8_t>(1, 2));
+    BOOST_CHECK(link.failedPayloads.front() == Payload(2, size));
+    BOOST_CHECK_EQUAL(link.BaseClass_GetTotalBundlesUnacked(), 1);
+    BOOST_CHECK_EQUAL(link.BaseClass_GetTotalBundleBytesUnacked(), 31);
+    link.FinishShutdown();
 }
