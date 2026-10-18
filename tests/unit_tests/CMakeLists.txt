@@ -1,6 +1,7 @@
 add_executable(unit-tests
     src/test_main.cpp
     ../../common/tcpcl/test/TestTcpcl.cpp
+    ../../common/tcpcl/test/TestTcpclV3Completion.cpp
 	../../common/tcpcl/test/TestTcpclV4.cpp
 	../../common/slip_over_uart/test/TestSlip.cpp
 	../../common/ltp/test/TestLtp.cpp

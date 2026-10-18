@@ -22,10 +22,10 @@
  *
  * @section DESCRIPTION
  *
- * This TcpclBundleSource class encapsulates the appropriate TCPCL version 3 functionality
- * to send a pipeline of bundles (or any other user defined data) over a TCPCL version 3 link
- * and calls the user defined function OnSuccessfulAckCallback_t when the session closes, meaning
- * a bundle is fully sent (i.e. gets acknowledged by the remote receiver).
+ * This TcpclBundleSource class sends a pipeline of bundles over a TCPCL version 3
+ * link. The bundle-success callback requires the remote receiver's ACK when
+ * segment acknowledgments are negotiated. Otherwise it reports completion of
+ * the full local TCP write, without implying remote processing or durable delivery.
  */
 
 #ifndef _TCPCL_BUNDLE_SOURCE_H
