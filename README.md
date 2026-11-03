@@ -1,3 +1,8 @@
+# *IMPORTANT: This application is no longer being actively maintained*
+
+- **Security Reports:** Disclosures and vulnerability reports are unmonitored and will not be addressed. 
+- **Maintenance:** No security patches or bug fixes will be released.
+
 High-rate Delay Tolerant Network 
 ==================================
 
