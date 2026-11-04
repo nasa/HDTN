@@ -54,7 +54,10 @@ public:
 class Route {
 public:
     nodeId_t to_node, next_node;
-    time_t from_time, to_time, best_delivery_time;
+    time_t from_time, to_time;
+    /// Earliest delivery time for a bundle that is ready at time 0 (waits for each contact start, then adds its owlt).
+    /// It does not depend on the query time (root contact arrival_time) given to dijkstra() or cmr_dijkstra().
+    time_t best_delivery_time;
     uint64_t volume;
     float confidence;
     CGR_LIB_EXPORT Route(const Contact &, Route *parent=NULL);

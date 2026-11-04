@@ -141,6 +141,7 @@ void Route::refresh_metrics() {
     next_node = allHops[0].to;
     from_time = allHops[0].start;
     to_time = MAX_TIME_T;
+    //best_delivery_time is relative to a bundle ready at time 0, not to the query time of the route search
     best_delivery_time = 0;
     confidence = 1;
     for (const Contact& contact : allHops) {
@@ -325,6 +326,21 @@ static uint64_t GetRateBpsFromPtree(const boost::property_tree::ptree::value_typ
     return 0;
 }
 
+static time_t GetTimeFromPtree(const boost::property_tree::ptree::value_type& eventPt, const char * fieldName)
+{
+    const boost::optional<time_t> timeValue = eventPt.second.get_optional<time_t>(fieldName);
+    if (timeValue) {
+        return timeValue.get();
+    }
+    // A missing field defaults to 0 silently, but a field that cannot be parsed
+    // (e.g. a decimal such as 19967.34375) would otherwise also become 0 without any notice
+    if (eventPt.second.count(fieldName)) {
+        LOG_WARNING(subprocess) << "contact " << eventPt.second.get<uint64_t>("contact", 0) << " in contact plan has "
+            << fieldName << " (" << eventPt.second.get<std::string>(fieldName, "") << ") which is not a whole number of seconds. Using 0.";
+    }
+    return 0;
+}
+
 std::vector<Contact> cp_load(const boost::property_tree::ptree& contactsPt, std::size_t max_contacts) {
     std::vector<Contact> contactsVector;
     contactsVector.reserve(contactsPt.size());
@@ -338,11 +354,11 @@ std::vector<Contact> cp_load(const boost::property_tree::ptree& contactsPt, std:
         contactsVector.emplace_back( //nodeId_t frm, nodeId_t to, time_t start, time_t end, uint64_t rate, float confidence=1, time_t owlt=1
             eventPt.second.get<nodeId_t>("source", 0), //nodeId_t frm
             eventPt.second.get<nodeId_t>("dest", 0), //nodeId_t to
-            eventPt.second.get<time_t>("startTime", 0), //time_t start
-            eventPt.second.get<time_t>("endTime", 0), //time_t end
+            GetTimeFromPtree(eventPt, "startTime"), //time_t start
+            GetTimeFromPtree(eventPt, "endTime"), //time_t end
             rateBps, //uint64_t rate
             1.f, //float confidence=1
-            eventPt.second.get<time_t>("owlt", 0)); //time_t owlt=1
+            GetTimeFromPtree(eventPt, "owlt")); //time_t owlt=1
         contactsVector.back().id = eventPt.second.get<uint64_t>("contact", 0);
         if (contactsVector.size() == max_contacts) {
             LOG_WARNING(subprocess) << "HIT MAX CONTACTS!!!!!!!!!!!!!!!!!!!";
@@ -599,8 +615,10 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
     
     // Construct Contact Multigraph from Contact Plan
     ContactMultigraph CM(contact_plan, destination);
-    // Set root vertex's arrival time
-    CM.m_nodeMap[root_contact->frm].m_arrivalTime = root_contact->start;
+    // Set root vertex's arrival time (and its priority queue key) to the query time, same as dijkstra()
+    ContactMultigraph::CmrMapData & rootNodeData = CM.m_nodeMap[root_contact->frm];
+    rootNodeData.m_arrivalTime = root_contact->arrival_time;
+    rootNodeData.m_vertex.vertex_arrival_time = root_contact->arrival_time;
     // Construct min PQ ordered by arrival time
     std::priority_queue<vertex_ptr_plus_arrival_time_pair_t, std::vector<vertex_ptr_plus_arrival_time_pair_t>, CompareArrivals> PQ;
     for (ContactMultigraph::cmr_node_map_t::iterator it = CM.m_nodeMap.begin(); it != CM.m_nodeMap.end(); ++it) {
