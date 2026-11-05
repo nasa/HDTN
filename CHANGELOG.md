@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* Release TCPCLv3 pipeline capacity after full local writes when segment acknowledgments are not negotiated.
+
 ### Added
 
 ### Changed

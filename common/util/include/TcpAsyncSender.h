@@ -58,6 +58,7 @@
 
 struct TcpAsyncSenderElement {
     typedef boost::function<void(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement * elPtr)> OnSuccessfulSendCallbackByIoServiceThread_t;
+    typedef boost::function<void(TcpAsyncSenderElement * elPtr)> OnFailedSendCallbackByIoServiceThread_t;
     HDTN_UTIL_EXPORT TcpAsyncSenderElement();
     HDTN_UTIL_EXPORT ~TcpAsyncSenderElement();
     
@@ -70,6 +71,8 @@ struct TcpAsyncSenderElement {
     padded_vector_uint8_t m_underlyingDataVecBundle;
     std::unique_ptr<zmq::message_t> m_underlyingDataZmqBundle;
     OnSuccessfulSendCallbackByIoServiceThread_t * m_onSuccessfulSendCallbackByIoServiceThreadPtr;
+    // Also called for queued elements that never reach async_write, before returning their payload.
+    OnFailedSendCallbackByIoServiceThread_t * m_onFailedSendCallbackByIoServiceThreadPtr;
 };
 
 class TcpAsyncSender {

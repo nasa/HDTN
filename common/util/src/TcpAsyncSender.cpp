@@ -27,7 +27,9 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/make_unique.hpp>
 
-TcpAsyncSenderElement::TcpAsyncSenderElement() : m_onSuccessfulSendCallbackByIoServiceThreadPtr(NULL) {}
+TcpAsyncSenderElement::TcpAsyncSenderElement() :
+    m_onSuccessfulSendCallbackByIoServiceThreadPtr(NULL),
+    m_onFailedSendCallbackByIoServiceThreadPtr(NULL) {}
 TcpAsyncSenderElement::~TcpAsyncSenderElement() {}
 
 void TcpAsyncSenderElement::DoCallback(const boost::system::error_code& error, std::size_t bytes_transferred) {
@@ -116,6 +118,9 @@ void TcpAsyncSender::SetUserAssignedUuid(uint64_t userAssignedUuid) {
     m_userAssignedUuid = userAssignedUuid;
 }
 void TcpAsyncSender::DoFailedBundleCallback(std::unique_ptr<TcpAsyncSenderElement>& el) {
+    if (el->m_onFailedSendCallbackByIoServiceThreadPtr && *el->m_onFailedSendCallbackByIoServiceThreadPtr) {
+        (*el->m_onFailedSendCallbackByIoServiceThreadPtr)(el.get());
+    }
     if ((el->m_underlyingDataVecBundle.size()) && (m_onFailedBundleVecSendCallback)) {
         m_onFailedBundleVecSendCallback(el->m_underlyingDataVecBundle, el->m_userData, m_userAssignedUuid, false);
     }
@@ -248,6 +253,9 @@ void TcpAsyncSenderSsl::SetUserAssignedUuid(uint64_t userAssignedUuid) {
     m_userAssignedUuid = userAssignedUuid;
 }
 void TcpAsyncSenderSsl::DoFailedBundleCallback(std::unique_ptr<TcpAsyncSenderElement>& el) {
+    if (el->m_onFailedSendCallbackByIoServiceThreadPtr && *el->m_onFailedSendCallbackByIoServiceThreadPtr) {
+        (*el->m_onFailedSendCallbackByIoServiceThreadPtr)(el.get());
+    }
     if ((el->m_underlyingDataVecBundle.size()) && (m_onFailedBundleVecSendCallback)) {
         m_onFailedBundleVecSendCallback(el->m_underlyingDataVecBundle, el->m_userData, m_userAssignedUuid, false);
     }

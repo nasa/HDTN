@@ -69,6 +69,10 @@ public:
     TCPCL_LIB_EXPORT bool BaseClass_Forward(std::unique_ptr<zmq::message_t> & zmqMessageUniquePtr, padded_vector_uint8_t& vecMessage, const bool usingZmqData, std::vector<uint8_t>&& userData);
 
     TCPCL_LIB_EXPORT virtual unsigned int Virtual_GetMaxTxBundlesInPipeline() override;
+    // Outstanding work excludes local completions/failures when ACKs were not negotiated.
+    // The inherited Acked getters and wire telemetry still count only protocol ACKs.
+    TCPCL_LIB_EXPORT virtual std::size_t BaseClass_GetTotalBundlesUnacked() const noexcept override;
+    TCPCL_LIB_EXPORT virtual std::size_t BaseClass_GetTotalBundleBytesUnacked() const noexcept override;
 
     TCPCL_LIB_EXPORT void BaseClass_SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
     TCPCL_LIB_EXPORT void BaseClass_SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
@@ -109,6 +113,8 @@ protected:
     std::shared_ptr<boost::asio::ip::tcp::socket> m_base_tcpSocketPtr;
     std::unique_ptr<TcpAsyncSender> m_base_tcpAsyncSenderPtr;
     TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_base_handleTcpSendCallback;
+    TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_base_handleNoAckBundleSendCallback;
+    TcpAsyncSenderElement::OnFailedSendCallbackByIoServiceThread_t m_base_handleNoAckBundleFailureCallback;
     TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_base_handleTcpSendShutdownCallback;
     padded_vector_uint8_t m_base_fragmentedBundleRxConcat;
 
@@ -120,6 +126,8 @@ protected:
     std::vector<uint64_t> m_base_fragmentVectorIndexCbVec;
     std::vector<std::vector<uint8_t> > m_base_userDataCbVec;
     const uint64_t M_BASE_MAX_FRAGMENT_SIZE;
+    std::atomic<uint64_t> m_base_noAckBundlesRetired;
+    std::atomic<uint64_t> m_base_noAckBundleBytesRetired;
 
     OnFailedBundleVecSendCallback_t m_base_onFailedBundleVecSendCallback;
     OnFailedBundleZmqSendCallback_t m_base_onFailedBundleZmqSendCallback;
@@ -153,6 +161,8 @@ private:
     TCPCL_LIB_NO_EXPORT void BaseClass_NextBundleLengthCallback(uint64_t nextBundleLength);
 
     TCPCL_LIB_NO_EXPORT void BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr);
+    TCPCL_LIB_NO_EXPORT void BaseClass_HandleNoAckBundleSend(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr);
+    TCPCL_LIB_NO_EXPORT void BaseClass_RetireNoAckBundle(TcpAsyncSenderElement* elPtr, bool success);
     TCPCL_LIB_NO_EXPORT void BaseClass_HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr);
     TCPCL_LIB_NO_EXPORT void BaseClass_OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e);
     TCPCL_LIB_NO_EXPORT void BaseClass_OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);

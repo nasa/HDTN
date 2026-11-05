@@ -78,12 +78,15 @@ void TcpclBundleSource::Stop() {
         catch (const boost::condition_error&) {}
         catch (const boost::lock_error&) {}
     }
-    m_base_tcpAsyncSenderPtr.reset(); //stop this first
     m_base_ioServiceRef.stop(); //ioservice requires stopping before join because of the m_work object
 
     if (m_ioServiceThreadPtr) {
         try {
             m_ioServiceThreadPtr->join();
+            // A no-ACK failure hook can retire the final bundle before the
+            // payload callback and sender queue handler return. Shutdown being
+            // complete does not imply those handlers have finished.
+            m_base_tcpAsyncSenderPtr.reset();
             m_ioServiceThreadPtr.reset(); //delete it
         }
         catch (const boost::thread_resource_error&) {

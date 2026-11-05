@@ -92,7 +92,7 @@ public:
         return m_base_telem.totalBundlesSent.load(std::memory_order_acquire);
     }
 
-    BOOST_FORCEINLINE std::size_t BaseClass_GetTotalBundlesUnacked() const noexcept {
+    virtual std::size_t BaseClass_GetTotalBundlesUnacked() const noexcept {
         return m_base_telem.totalBundlesSent.load(std::memory_order_acquire) - m_base_telem.totalBundlesSentAndAcked.load(std::memory_order_acquire);
     }
 
@@ -104,7 +104,7 @@ public:
         return m_base_telem.totalBundleBytesSent.load(std::memory_order_acquire);
     }
 
-    BOOST_FORCEINLINE std::size_t BaseClass_GetTotalBundleBytesUnacked() const noexcept {
+    virtual std::size_t BaseClass_GetTotalBundleBytesUnacked() const noexcept {
         return m_base_telem.totalBundleBytesSent.load(std::memory_order_acquire) - m_base_telem.totalBundleBytesSentAndAcked.load(std::memory_order_acquire);
     }
 

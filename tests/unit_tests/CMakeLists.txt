@@ -1,6 +1,7 @@
 add_executable(unit-tests
     src/test_main.cpp
     ../../common/tcpcl/test/TestTcpcl.cpp
+    ../../common/tcpcl/test/TestTcpclV3Completion.cpp
 	../../common/tcpcl/test/TestTcpclV4.cpp
 	../../common/slip_over_uart/test/TestSlip.cpp
 	../../common/ltp/test/TestLtp.cpp
@@ -23,6 +24,7 @@ add_executable(unit-tests
 	../../common/util/test/TestFreeListAllocator.cpp
 	$<$<BOOL:${NON_ARM_COMPILATION}>:../../common/util/test/TestCpuFlagDetection.cpp>
 	../../common/util/test/TestTokenRateLimiter.cpp
+	../../common/util/test/TestTcpAsyncSender.cpp
 	../../common/util/test/TestUdpBatchSender.cpp
 	../../common/util/test/TestJsonSerializable.cpp
 	../../common/util/test/TestDirectoryScanner.cpp
