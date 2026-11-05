@@ -436,6 +436,135 @@ BOOST_AUTO_TEST_CASE(TcpclV3NoAckBundleSourceLoopback) {
     source.Stop();
 }
 
+namespace {
+// Unlike the polling fixture, this uses the production I/O worker and Stop().
+class ShutdownSource : public TcpclBundleSource {
+public:
+    ShutdownSource() : TcpclBundleSource(0, 1, "ipn:2.0", 2, 0) {}
+    bool SmallSendBuffer() {
+        const auto status = std::make_shared<std::atomic<unsigned int> >(0);
+        boost::asio::post(m_base_ioServiceRef, [this, status]() {
+            boost::system::error_code error;
+            m_base_tcpSocketPtr->set_option(boost::asio::socket_base::send_buffer_size(1024), error);
+            status->store(error ? 2U : 1U, std::memory_order_release);
+        });
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+        while (!status->load(std::memory_order_acquire) && std::chrono::steady_clock::now() < deadline) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        return status->load(std::memory_order_acquire) == 1;
+    }
+    bool ShutdownComplete() const { return m_base_tcpclShutdownComplete.load(); }
+    bool IoStopped() const { return m_base_ioServiceRef.stopped(); }
+};
+
+void CheckSourceShutdownDuringFailure(bool zmqData) {
+    using boost::asio::ip::tcp;
+    boost::asio::io_service io;
+    tcp::acceptor acceptor(io, tcp::endpoint(boost::asio::ip::address_v4::loopback(), 0));
+    acceptor.non_blocking(true);
+    tcp::socket peer(io);
+    std::atomic<bool> callbackEntered(false), releaseCallback(false), callbackDone(false);
+    std::atomic<bool> callbackTimedOut(false), payloadValid(true), stopDone(false);
+    std::atomic<unsigned int> failures(0), successes(0);
+    const std::size_t size = 4 * 1024 * 1024;
+    const std::vector<uint8_t> expected = Payload(29, size);
+    const auto failed = [&](const uint8_t* bytes, std::size_t length,
+        const std::vector<uint8_t>& data, uint64_t uuid, bool successCalled) {
+        if (length != expected.size() || data != std::vector<uint8_t>(1, 29) ||
+            uuid != 73 || successCalled || !std::equal(expected.begin(), expected.end(), bytes)) {
+            payloadValid.store(false);
+        }
+        ++failures;
+        callbackEntered.store(true, std::memory_order_release);
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+        while (!releaseCallback.load(std::memory_order_acquire) &&
+            std::chrono::steady_clock::now() < deadline) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        if (!releaseCallback.load(std::memory_order_acquire)) callbackTimedOut.store(true);
+        // The payload and its sender must still be alive until this returns.
+        if (length == expected.size() && !std::equal(expected.begin(), expected.end(), bytes)) {
+            payloadValid.store(false);
+        }
+        callbackDone.store(true, std::memory_order_release);
+    };
+    ShutdownSource source;
+    source.BaseClass_SetUserAssignedUuid(73);
+    source.BaseClass_SetOnSuccessfulBundleSendCallback([&](std::vector<uint8_t>&, uint64_t) { ++successes; });
+    source.BaseClass_SetOnFailedBundleVecSendCallback([&](padded_vector_uint8_t& bytes,
+        std::vector<uint8_t>& data, uint64_t uuid, bool successCalled) {
+        failed(bytes.data(), bytes.size(), data, uuid, successCalled);
+    });
+    source.BaseClass_SetOnFailedBundleZmqSendCallback([&](zmq::message_t& bytes,
+        std::vector<uint8_t>& data, uint64_t uuid, bool successCalled) {
+        failed(static_cast<const uint8_t*>(bytes.data()), bytes.size(), data, uuid, successCalled);
+    });
+    const auto waitFor = [&](const std::function<bool()>& done) {
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+        do {
+            if (done()) return true;
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        } while (std::chrono::steady_clock::now() < deadline);
+        return false;
+    };
+    source.Connect("127.0.0.1", std::to_string(acceptor.local_endpoint().port()));
+    BOOST_REQUIRE(waitFor([&]() {
+        boost::system::error_code error;
+        acceptor.accept(peer, error);
+        return !error;
+    }));
+    peer.non_blocking(true);
+    peer.set_option(boost::asio::socket_base::receive_buffer_size(1024));
+    BOOST_REQUIRE(waitFor([&]() { return peer.available() >= 16; }));
+    std::vector<uint8_t> header(16);
+    BOOST_REQUIRE_EQUAL(boost::asio::read(peer, boost::asio::buffer(header)), header.size());
+    const std::vector<uint8_t> contact = {'d', 't', 'n', '!', 3, 0, 0, 0, 7, 'i', 'p', 'n', ':', '2', '.', '0'};
+    boost::asio::write(peer, boost::asio::buffer(contact));
+    BOOST_REQUIRE(waitFor([&]() { return source.ReadyToForward(); }));
+    BOOST_REQUIRE(source.SmallSendBuffer());
+    if (zmqData) {
+        zmq::message_t bundle(expected.data(), expected.size());
+        BOOST_REQUIRE(source.BaseClass_Forward(bundle, {29}));
+    }
+    else {
+        padded_vector_uint8_t bundle(expected.begin(), expected.end());
+        BOOST_REQUIRE(source.BaseClass_Forward(bundle, {29}));
+    }
+    BOOST_REQUIRE(waitFor([&]() { return peer.available() > 100; }));
+    BOOST_CHECK_EQUAL(successes.load(), 0U);
+    // Leave the peer open and non-reading. The TCPCL shutdown closes the local
+    // socket, publishes shutdown completion, then cancels the partial write.
+    const uint8_t shutdown = 0x50;
+    boost::asio::write(peer, boost::asio::buffer(&shutdown, 1));
+    BOOST_REQUIRE(waitFor([&]() { return callbackEntered.load(std::memory_order_acquire); }));
+    BOOST_CHECK(source.ShutdownComplete());
+    BOOST_CHECK_EQUAL(source.BaseClass_GetTotalBundlesUnacked(), std::size_t(0));
+    std::thread stopper([&]() {
+        source.Stop();
+        stopDone.store(true, std::memory_order_release);
+    });
+    // Stop must keep the sender alive while it stops and joins the worker.
+    const bool ioStopped = waitFor([&]() { return source.IoStopped(); });
+    const bool returnedBeforeCallback = stopDone.load(std::memory_order_acquire);
+    releaseCallback.store(true, std::memory_order_release);
+    const bool stoppedInTime = waitFor([&]() { return stopDone.load(std::memory_order_acquire); });
+    stopper.join();
+    BOOST_CHECK(ioStopped);
+    BOOST_CHECK(!returnedBeforeCallback);
+    BOOST_CHECK(stoppedInTime);
+    BOOST_CHECK(callbackDone.load(std::memory_order_acquire));
+    BOOST_CHECK(!callbackTimedOut.load());
+    BOOST_CHECK(payloadValid.load());
+    BOOST_CHECK_EQUAL(failures.load(), 1U);
+    BOOST_CHECK_EQUAL(successes.load(), 0U);
+    BOOST_CHECK_EQUAL(source.BaseClass_GetTotalBundleBytesUnacked(), std::size_t(0));
+}
+} // namespace
+
+BOOST_AUTO_TEST_CASE(TcpclV3NoAckSourceShutdownVector) { CheckSourceShutdownDuringFailure(false); }
+BOOST_AUTO_TEST_CASE(TcpclV3NoAckSourceShutdownZmq) { CheckSourceShutdownDuringFailure(true); }
+
 BOOST_AUTO_TEST_CASE(TcpclV3NoAckCompletionAfterUnackedConnection) {
     CompletionLink link;
     link.Negotiate(1);
